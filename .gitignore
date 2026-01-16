@@ -1,0 +1,15 @@
+# Archivos de configuración con credenciales
+api/db_config.php
+api/config.php
+
+# Archivos de cache y logs
+api/dolar_cache.json
+api/purchases.json
+api/*.log
+
+# Node modules (si se usa en desarrollo)
+node_modules/
+
+# Environment files
+.env
+.envrc
