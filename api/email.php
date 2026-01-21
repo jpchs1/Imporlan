@@ -61,8 +61,8 @@ function sendPurchaseConfirmation($data) {
     $htmlBody = '
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8">
-        
+    <head>
+        <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -139,7 +139,7 @@ function sendPurchaseConfirmation($data) {
     <!DOCTYPE html>
     <html>
     <head>
-        
+        <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -224,7 +224,7 @@ function sendWelcomeEmail($data) {
     <!DOCTYPE html>
     <html>
     <head>
-        
+        <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -299,7 +299,7 @@ function sendAdminNotification($data) {
     <!DOCTYPE html>
     <html>
     <head>
-        
+        <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -369,4 +369,3 @@ function logEmail($data) {
     file_put_contents($logFile, json_encode($logs, JSON_PRETTY_PRINT));
 }
 ?>
-

@@ -255,4 +255,3 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === 'user_products.php') {
             echo json_encode(['error' => 'Invalid action']);
     }
 }
-

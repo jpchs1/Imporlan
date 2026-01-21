@@ -147,4 +147,3 @@ echo json_encode([
     'cached' => false,
     'is_fallback' => $isFallback
 ]);
-

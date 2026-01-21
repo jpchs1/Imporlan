@@ -531,4 +531,3 @@ switch (true) {
         echo json_encode(['detail' => 'Not Found', 'path' => $uriPath]);
         break;
 }
-

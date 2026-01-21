@@ -1,15 +1,50 @@
-# Archivos de configuración con credenciales
-api/db_config.php
-api/config.php
-
-# Archivos de cache y logs
-api/dolar_cache.json
-api/purchases.json
-api/*.log
-
-# Node modules (si se usa en desarrollo)
+# Dependencies
 node_modules/
+vendor/
+
+# Build outputs
+dist/
+build/
 
 # Environment files
 .env
-.envrc
+.env.local
+.env.*.local
+
+# Sensitive config files (contain credentials)
+api/config.php
+api/db_config.php
+**/config.php
+**/db_config.php
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+error_log
+
+# Temporary files
+*.tmp
+*.bak
+backup_temp/
+
+# Cache files
+*.cache
+*_cache.json
+
+# Build artifacts
+*.zip
+
+# Test scripts
+send_*.php
+test_*.php
+check_*.php
+get_*.php
