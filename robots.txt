@@ -1,0 +1,22 @@
+# robots.txt for https://www.imporlan.cl
+# SEO optimized - Updated January 2026
+
+User-agent: *
+Disallow: /test/
+Disallow: /panel/
+Disallow: /wp-admin/
+Disallow: /wp-includes/
+Disallow: /prueba2/
+Disallow: /t003/
+Disallow: /api/
+Disallow: /servicios/
+
+# Allow CSS and JS for proper rendering
+Allow: /wp-includes/*.css
+Allow: /wp-includes/*.js
+
+# Sitemap location
+Sitemap: https://www.imporlan.cl/sitemap.xml
+
+# Crawl-delay (optional, for politeness)
+Crawl-delay: 1

@@ -288,4 +288,3 @@ function savePurchase($purchaseData) {
     
     return $purchase;
 }
-

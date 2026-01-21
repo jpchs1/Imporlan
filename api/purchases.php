@@ -184,4 +184,3 @@ function getAllPurchases() {
         'total' => count($data['purchases'] ?? [])
     ]);
 }
-
