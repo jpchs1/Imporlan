@@ -34,3 +34,5 @@ imporlan/
 
 - Email: contacto@imporlan.cl
 - Web: https://www.imporlan.cl
+
+<!-- Dummy test change for Devin access verification -->
