@@ -12,15 +12,25 @@
     sections.forEach(function(section) {
       var h2 = section.querySelector('h2');
       if (h2 && h2.textContent && h2.textContent.includes('Por que elegir')) {
-        // Find the grid container with the feature cards
-        var gridContainer = section.querySelector('div');
+        // Navigate to the relative z-10 container first, then find the grid
+        var contentDiv = section.querySelector('.relative.z-10') || section;
+        var gridContainer = contentDiv.querySelector('.grid') || contentDiv.querySelector('div');
+        
         if (gridContainer) {
           // Get all direct child divs (the cards)
-          var cards = gridContainer.querySelectorAll(':scope > div');
-          cards.forEach(function(card) {
+          var cards = gridContainer.children;
+          for (var i = 0; i < cards.length; i++) {
+            var card = cards[i];
             // Check if this is a feature card (has svg and h3)
-            if (card.querySelector('svg') && card.querySelector('h3')) {
+            if (card.querySelector && card.querySelector('svg') && card.querySelector('h3')) {
               card.style.textAlign = 'center';
+              
+              // Center the icon wrapper (div with rounded-2xl class)
+              var iconWrapper = card.querySelector('.rounded-2xl');
+              if (iconWrapper) {
+                iconWrapper.style.marginLeft = 'auto';
+                iconWrapper.style.marginRight = 'auto';
+              }
               
               // Center the icon container (first child div or svg)
               var iconContainer = card.querySelector('div:first-child') || card.querySelector('svg');
@@ -49,7 +59,7 @@
                 p.style.textAlign = 'center';
               });
             }
-          });
+          }
         }
       }
     });
