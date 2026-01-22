@@ -1,54 +1,76 @@
 /**
  * Center Cards Script for "Por que elegir Imporlan" section
  * Consolidated version - replaces multiple duplicate scripts
+ * Updated to match production centering behavior
  */
 (function() {
   'use strict';
 
-  function centerCards() {
-    var h2s = document.querySelectorAll('h2');
-    h2s.forEach(function(h2) {
-      if (h2.textContent && h2.textContent.includes('Por que elegir')) {
-        var section = h2.closest('section');
-        if (section) {
-          // Try multiple selectors to find the grid container
-          var gridDiv = section.querySelector('div.relative > div') || 
-                        section.querySelector('div');
-          
-          if (gridDiv && gridDiv.children.length >= 4) {
-            for (var i = 0; i < gridDiv.children.length; i++) {
-              var card = gridDiv.children[i];
-              // Check if this looks like a feature card
-              if (card.querySelector('svg') && card.querySelector('h3')) {
-                card.style.display = 'flex';
-                card.style.flexDirection = 'column';
-                card.style.alignItems = 'center';
-                card.style.textAlign = 'center';
-                
-                // Center the icon container
-                var iconDiv = card.querySelector('div');
-                if (iconDiv) {
-                  iconDiv.style.marginLeft = 'auto';
-                  iconDiv.style.marginRight = 'auto';
-                }
+  function centerFeatureCards() {
+    // Find all sections
+    var sections = document.querySelectorAll('section');
+    sections.forEach(function(section) {
+      var h2 = section.querySelector('h2');
+      if (h2 && h2.textContent && h2.textContent.includes('Por que elegir')) {
+        // Find the grid container with the feature cards
+        var gridContainer = section.querySelector('div');
+        if (gridContainer) {
+          // Get all direct child divs (the cards)
+          var cards = gridContainer.querySelectorAll(':scope > div');
+          cards.forEach(function(card) {
+            // Check if this is a feature card (has svg and h3)
+            if (card.querySelector('svg') && card.querySelector('h3')) {
+              card.style.textAlign = 'center';
+              
+              // Center the icon container (first child div or svg)
+              var iconContainer = card.querySelector('div:first-child') || card.querySelector('svg');
+              if (iconContainer) {
+                iconContainer.style.marginLeft = 'auto';
+                iconContainer.style.marginRight = 'auto';
               }
+              
+              // Also try to center direct svg
+              var svg = card.querySelector(':scope > svg');
+              if (svg) {
+                svg.style.marginLeft = 'auto';
+                svg.style.marginRight = 'auto';
+                svg.style.display = 'block';
+              }
+              
+              // Center h3 elements
+              var h3 = card.querySelector('h3');
+              if (h3) {
+                h3.style.textAlign = 'center';
+              }
+              
+              // Center paragraph/description text
+              var paragraphs = card.querySelectorAll('p');
+              paragraphs.forEach(function(p) {
+                p.style.textAlign = 'center';
+              });
             }
-          }
+          });
         }
       }
     });
   }
   
-  // Run multiple times to catch React renders
-  setTimeout(centerCards, 100);
-  setTimeout(centerCards, 500);
-  setTimeout(centerCards, 1000);
-  setTimeout(centerCards, 2000);
-  setTimeout(centerCards, 3000);
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(centerFeatureCards, 500);
+      setTimeout(centerFeatureCards, 1500);
+      setTimeout(centerFeatureCards, 3000);
+    });
+  } else {
+    setTimeout(centerFeatureCards, 500);
+    setTimeout(centerFeatureCards, 1500);
+    setTimeout(centerFeatureCards, 3000);
+  }
   
   // Use MutationObserver for dynamic changes
   var observer = new MutationObserver(function(mutations) {
-    centerCards();
+    centerFeatureCards();
   });
   
   if (document.body) {
