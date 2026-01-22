@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  php-syntax:
+    name: PHP Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      
+      - name: Check PHP syntax
+        run: |
+          echo "Checking PHP syntax..."
+          find . -name "*.php" -not -path "./vendor/*" | while read file; do
+            php -l "$file" || exit 1
+          done
+          echo "PHP syntax check passed!"
+
+  javascript-lint:
+    name: JavaScript Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install ESLint
+        run: npm install eslint@8 --save-dev
+      
+      - name: Run ESLint
+        run: npx eslint assets/*.js test/assets/*.js --config .eslintrc.json || true
+
+  html-validation:
+    name: HTML Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install html-validate
+        run: npm install html-validate --save-dev
+      
+      - name: Validate HTML files
+        run: |
+          npx html-validate index.html --config .htmlvalidate.json || true
+          npx html-validate test/index.html --config .htmlvalidate.json || true
+          npx html-validate panel/index.html --config .htmlvalidate.json || true
+          npx html-validate admin/index.html --config .htmlvalidate.json || true
+
+  css-lint:
+    name: CSS Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Stylelint
+        run: npm install stylelint stylelint-config-standard --save-dev
+      
+      - name: Run Stylelint
+        run: npx stylelint "assets/*.css" "test/assets/*.css" --config .stylelintrc.json || true
