@@ -1,28 +1,38 @@
 /**
- * Payment Override for Imporlan Panel
- * This script overrides the demo payment functions with real API calls
- * It intercepts the payment modal and redirects to real payment gateways
+ * Payment Override for Imporlan Panel - Version 8
+ * This script enables WebPay payments by:
+ * 1. Intercepting the "Proximamente" alert when WebPay is selected
+ * 2. Replacing the payment button when WebPay is selected
+ * Fixed: Added alert interception to block "Proximamente" message
  */
 
 (function() {
   'use strict';
 
   const API_BASE = 'https://www.imporlan.cl/api';
-
-  // Override the window.alert function to intercept demo messages
   const originalAlert = window.alert;
+
+  // CRITICAL: Intercept alert() to block "Proximamente" message
   window.alert = function(message) {
-    // Check if this is a demo payment message
-    if (message && typeof message === 'string') {
-      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara')) {
-        console.log('Intercepted demo alert, processing real payment...');
-        // Don't show the demo alert, the real payment will be processed
-        return;
-      }
+    const msgLower = (message || '').toLowerCase();
+    
+    // Block WebPay "proximamente" alerts
+    if (msgLower.includes('proximamente') || 
+        msgLower.includes('próximamente') ||
+        msgLower.includes('webpay') ||
+        msgLower.includes('transbank') ||
+        msgLower.includes('configurar la api') ||
+        msgLower.includes('esta es una demo') ||
+        msgLower.includes('en produccion se integrara')) {
+      console.log('Payment override: Blocked alert -', message);
+      return; // Don't show the alert
     }
-    // For other alerts, show them normally
-    return originalAlert.apply(this, arguments);
+    
+    // Allow other alerts to pass through
+    return originalAlert.call(window, message);
   };
+
+  console.log('Payment override v8: Alert interception enabled');
 
   // Override window.open to intercept demo payment URLs
   const originalOpen = window.open;
@@ -234,6 +244,191 @@
     if (overlay) {
       overlay.remove();
     }
+  }
+
+  // Expose processRealWebPay globally for debugging
+  window.processRealWebPay = async function(amount, description) {
+    try {
+      const parsedAmount = parseInt(amount);
+      console.log('Processing Webpay payment:', { amount, parsedAmount, description });
+      
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        console.error('Invalid amount for Webpay:', amount);
+        originalAlert('Error: Monto de pago invalido.');
+        return;
+      }
+      
+      showLoadingOverlay('Conectando con Webpay...');
+      
+      const sessionId = 'panel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      const buyOrder = 'ORD_' + Date.now();
+      
+      const requestBody = {
+        amount: parsedAmount,
+        session_id: sessionId,
+        buy_order: buyOrder,
+        return_url: window.location.origin + '/api/webpay.php?action=callback'
+      };
+      
+      console.log('Webpay API request:', requestBody);
+      
+      const response = await fetch(`${API_BASE}/webpay.php?action=create_transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      console.log('Webpay API response:', data);
+      
+      hideLoadingOverlay();
+
+      if (data.success && data.url && data.token) {
+        console.log('Webpay transaction created, redirecting...');
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.url;
+        form.style.display = 'none';
+        
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'token_ws';
+        tokenInput.value = data.token;
+        form.appendChild(tokenInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        const errorMsg = data.error || data.message || 'Error desconocido';
+        originalAlert(`Error al procesar el pago con Webpay: ${errorMsg}`);
+      }
+    } catch (error) {
+      hideLoadingOverlay();
+      console.error('Webpay connection error:', error);
+      originalAlert('Error al conectar con Webpay. Por favor intente nuevamente.');
+    }
+  };
+
+  // Store payment data when modal opens
+  let pendingPaymentData = null;
+  let buttonReplaced = false;
+
+  // Watch for modal changes and inject our button
+  function checkAndInjectButton() {
+    // Find the payment modal
+    const modal = document.querySelector('[tabindex="-1"]');
+    if (!modal) {
+      buttonReplaced = false;
+      return;
+    }
+    
+    const modalText = modal.textContent || '';
+    if (!modalText.includes('Selecciona Metodo de Pago') && !modalText.includes('Metodo de Pago')) {
+      buttonReplaced = false;
+      return;
+    }
+    
+    // Check if WebPay is selected (has red border - border-red-400 bg-red-50)
+    const webpayOption = modal.querySelector('[class*="border-red-400"]');
+    if (!webpayOption) {
+      buttonReplaced = false;
+      return;
+    }
+    
+    const webpayText = webpayOption.textContent || '';
+    if (!webpayText.includes('WebPay')) {
+      buttonReplaced = false;
+      return;
+    }
+    
+    // WebPay is selected! Extract payment data
+    const amountMatch = modalText.match(/\$?([\d,\.]+)\s*CLP/i);
+    if (!amountMatch) return;
+    
+    const amount = parseInt(amountMatch[1].replace(/[,\.]/g, ''));
+    const descMatch = modalText.match(/CLP por (.+?)(?:\n|Selecciona|WebPay|MercadoPago|PayPal|$)/i);
+    const description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
+    
+    pendingPaymentData = { amount, description };
+    
+    // Find the payment button - look for "Pagar Ahora" or "Continuar con Pago"
+    const buttons = modal.querySelectorAll('button');
+    let payButton = null;
+    
+    for (const btn of buttons) {
+      const btnText = (btn.textContent || '').toLowerCase();
+      if (btnText.includes('pagar ahora') || btnText.includes('continuar con pago')) {
+        payButton = btn;
+        break;
+      }
+    }
+    
+    if (!payButton) return;
+    
+    // Check if we already replaced this button
+    if (payButton.dataset.webpayOverride === 'true') return;
+    if (buttonReplaced) return;
+    
+    console.log('WebPay selected, payment data:', pendingPaymentData);
+    console.log('Replacing button...');
+    
+    // Clone the button and replace it
+    const newButton = payButton.cloneNode(true);
+    newButton.dataset.webpayOverride = 'true';
+    
+    // Remove all existing event listeners by replacing the element
+    payButton.parentNode.replaceChild(newButton, payButton);
+    buttonReplaced = true;
+    
+    // Add our click handler
+    newButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      console.log('Custom WebPay button clicked!');
+      
+      if (pendingPaymentData && pendingPaymentData.amount > 0) {
+        window.processRealWebPay(pendingPaymentData.amount, pendingPaymentData.description);
+      } else {
+        originalAlert('Error: No se pudo obtener los datos del pago.');
+      }
+      
+      return false;
+    }, true);
+    
+    console.log('WebPay button replaced successfully!');
+  }
+
+  // Initialize when DOM is ready
+  function init() {
+    console.log('Payment override v8 initializing...');
+    
+    // Run the check periodically
+    setInterval(checkAndInjectButton, 200);
+
+    // Also use MutationObserver for faster detection
+    if (document.body) {
+      const observer = new MutationObserver(function(mutations) {
+        checkAndInjectButton();
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+
+    console.log('Payment override v8 loaded - WebPay payments enabled, alerts intercepted');
+  }
+
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 
   console.log('Payment override script loaded - demo payments will be redirected to real API');
