@@ -104,8 +104,63 @@
         }
         
         .logo img {
-            height: 50px;
+            height: 55px;
             width: auto;
+            max-height: 55px;
+            object-fit: contain;
+            transition: opacity 0.3s ease;
+        }
+        
+        .logo:hover img {
+            opacity: 0.85;
+        }
+        
+        /* Discover Chile Section */
+        .discover-chile {
+            background: linear-gradient(135deg, #fdf9f6 0%, #f8f4f0 100%);
+            padding: 80px 0;
+            text-align: center;
+            border-top: 1px solid rgba(245, 160, 103, 0.2);
+        }
+        
+        .discover-chile-content {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .discover-chile h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .discover-chile p {
+            font-size: 17px;
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 35px;
+        }
+        
+        .btn-chile-home {
+            display: inline-block;
+            background: var(--tourevo-orange);
+            color: #fff;
+            padding: 16px 40px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 160, 103, 0.3);
+        }
+        
+        .btn-chile-home:hover {
+            background: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 160, 103, 0.4);
         }
         
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -767,6 +822,17 @@
                     </div>
                     <button type="submit" class="form-submit">Request Atacama Itinerary</button>
                 </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Discover TOUREVO Chile Section -->
+    <section class="discover-chile">
+        <div class="container">
+            <div class="discover-chile-content">
+                <h2>Discover TOUREVO Chile</h2>
+                <p>Explore our official Chile website in Spanish to discover our full range of private tours, luxury experiences and tailor-made journeys across Chile.</p>
+                <a href="https://www.tourevo.cl" class="btn-chile-home" target="_blank" rel="noopener">Visit Chile Home (Spanish)</a>
             </div>
         </div>
     </section>
