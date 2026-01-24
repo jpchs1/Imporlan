@@ -1,4 +1,4 @@
-# robots.txt for https://www.imporlan.cl
+# robots.txt for https://www.imporlan.cl and https://tourevo.cl
 # SEO optimized - Updated January 2026
 
 User-agent: *
@@ -11,12 +11,19 @@ Disallow: /t003/
 Disallow: /api/
 Disallow: /servicios/
 
+# Allow English pages for international SEO
+Allow: /en/
+Allow: /en/*
+
 # Allow CSS and JS for proper rendering
 Allow: /wp-includes/*.css
 Allow: /wp-includes/*.js
+Allow: /assets/*.css
+Allow: /assets/*.js
 
-# Sitemap location
+# Sitemap locations
 Sitemap: https://www.imporlan.cl/sitemap.xml
+Sitemap: https://tourevo.cl/sitemap.xml
 
 # Crawl-delay (optional, for politeness)
 Crawl-delay: 1
