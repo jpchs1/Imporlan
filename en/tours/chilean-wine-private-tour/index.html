@@ -601,48 +601,20 @@
     </style>
 </head>
 <body>
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="container top-bar-content">
-            <div class="top-bar-contact">
-                <a href="tel:+56940211459">+56 9 4021 1459</a>
-                <a href="mailto:info@tourevo.cl">info@tourevo.cl</a>
-            </div>
-            <div class="top-bar-social">
-                <a href="https://www.instagram.com/tourevo.cl/" target="_blank" aria-label="Instagram">&#128247;</a>
-            </div>
-        </div>
+    <!-- 
+        Shared Hero Section Component
+        This container loads the reusable hero section (topbar + header + hero + search)
+        that matches the WordPress home page exactly.
+    -->
+    <div id="hero-section-container"
+         data-hero-title="Chilean Wine Private Tour: Discover World-Class Vineyards"
+         data-hero-subtitle="Explore renowned wine valleys with private tastings and gourmet experiences."
+         data-hero-image="/images/hero-background-en.png"
+         data-lang="en">
     </div>
-    
-    <!-- Header -->
-    <header>
-        <div class="container header-content">
-            <a href="/en/" class="logo">
-                <img src="/images/tourevo-logo.png" alt="TOUREVO - Private Tours Chile">
-            </a>
-            <nav>
-                <ul>
-                    <li><a href="/en/">Home</a></li>
-                    <li><a href="https://tourevo.cl/about/nosotros/">About Us</a></li>
-                    <li><a href="https://tourevo.cl/tours">Tours</a></li>
-                    <li><a href="https://tourevo.cl/actividades/">Experiences</a></li>
-                    <li><a href="https://tourevo.cl/rentacarchile/">Cars</a></li>
-                    <li><a href="https://tourevo.cl/st_rental/">Accommodations</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <script src="/en/shared/hero-loader.js"></script>
 
-    <section class="hero">
-        <div class="hero-content">
-            <span class="hero-badge">Private Wine Tour</span>
-            <h1>Chilean Wine Private Tour: Discover World-Class Terroir</h1>
-            <p>Journey through Chile's legendary wine regions with a private tour crafted by local experts. From the bold Cabernets of Maipo to the elegant Pinot Noirs of Casablanca, experience private tastings, winemaker encounters, and gourmet pairings in stunning vineyard settings.</p>
-            <a href="#contact" class="btn-primary">Request Custom Itinerary</a>
-        </div>
-    </section>
-
-    <section class="intro-section">
+<section class="intro-section">
         <div class="container">
             <div class="intro-grid">
                 <div class="intro-text">

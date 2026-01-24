@@ -635,48 +635,20 @@
     </style>
 </head>
 <body>
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="container top-bar-content">
-            <div class="top-bar-contact">
-                <a href="tel:+56940211459">+56 9 4021 1459</a>
-                <a href="mailto:info@tourevo.cl">info@tourevo.cl</a>
-            </div>
-            <div class="top-bar-social">
-                <a href="https://www.instagram.com/tourevo.cl/" target="_blank" aria-label="Instagram">&#128247;</a>
-            </div>
-        </div>
+    <!-- 
+        Shared Hero Section Component
+        This container loads the reusable hero section (topbar + header + hero + search)
+        that matches the WordPress home page exactly.
+    -->
+    <div id="hero-section-container"
+         data-hero-title="Patagonia Private Tour: Journey to the End of the World"
+         data-hero-subtitle="Discover towering granite peaks, pristine glaciers, and endless wilderness."
+         data-hero-image="/images/hero-background-en.png"
+         data-lang="en">
     </div>
-    
-    <!-- Header -->
-    <header>
-        <div class="container header-content">
-            <a href="/en/" class="logo">
-                <img src="/images/tourevo-logo.png" alt="TOUREVO - Private Tours Chile">
-            </a>
-            <nav>
-                <ul>
-                    <li><a href="/en/">Home</a></li>
-                    <li><a href="https://tourevo.cl/about/nosotros/">About Us</a></li>
-                    <li><a href="https://tourevo.cl/tours">Tours</a></li>
-                    <li><a href="https://tourevo.cl/actividades/">Experiences</a></li>
-                    <li><a href="https://tourevo.cl/rentacarchile/">Cars</a></li>
-                    <li><a href="https://tourevo.cl/st_rental/">Accommodations</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <script src="/en/shared/hero-loader.js"></script>
 
-    <section class="hero">
-        <div class="hero-content">
-            <span class="hero-badge">Private Tour</span>
-            <h1>Patagonia Private Tour: Wilderness at the End of the World</h1>
-            <p>Journey to one of Earth's last great wildernesses with a private Patagonia tour crafted by local experts. From the iconic towers of Torres del Paine to ancient glaciers and pristine fjords, experience the raw beauty of Chilean Patagonia with exclusive access and personalized guidance.</p>
-            <a href="#contact" class="btn-primary">Request Custom Itinerary</a>
-        </div>
-    </section>
-
-    <section class="intro-section">
+<section class="intro-section">
         <div class="container">
             <div class="intro-grid">
                 <div class="intro-text">
