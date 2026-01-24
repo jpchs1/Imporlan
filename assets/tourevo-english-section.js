@@ -79,6 +79,15 @@
         ctaText: 'View page'
     };
 
+    // Flags of top 5 English-speaking countries (by population/fame)
+    const ENGLISH_FLAGS = [
+        { country: 'United States', code: 'us', emoji: '🇺🇸' },
+        { country: 'United Kingdom', code: 'gb', emoji: '🇬🇧' },
+        { country: 'Canada', code: 'ca', emoji: '🇨🇦' },
+        { country: 'Australia', code: 'au', emoji: '🇦🇺' },
+        { country: 'India', code: 'in', emoji: '🇮🇳' }
+    ];
+
     // Create and inject styles
     function injectStyles() {
         const styleId = 'tourevo-english-section-styles';
@@ -119,11 +128,42 @@
                 font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 font-size: 18px;
                 color: #697488;
-                margin: 0;
+                margin: 0 0 20px 0;
                 max-width: 600px;
                 margin-left: auto;
                 margin-right: auto;
                 line-height: 1.6;
+            }
+
+            .tourevo-english-section .flags-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 10px;
+            }
+
+            .tourevo-english-section .flag-item {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 32px;
+                transition: transform 0.3s ease;
+                cursor: default;
+            }
+
+            .tourevo-english-section .flag-item:hover {
+                transform: scale(1.2);
+            }
+
+            @media (max-width: 600px) {
+                .tourevo-english-section .flags-container {
+                    gap: 12px;
+                }
+
+                .tourevo-english-section .flag-item {
+                    font-size: 26px;
+                }
             }
 
             .tourevo-english-section .cards-grid {
@@ -277,10 +317,17 @@
             </a>
         `).join('');
 
+        const flagsHTML = ENGLISH_FLAGS.map(flag => `
+            <span class="flag-item" title="${flag.country}">${flag.emoji}</span>
+        `).join('');
+
         return `
             <section class="tourevo-english-section" id="tourevo-english-pages">
                 <div class="section-container">
                     <div class="section-header">
+                        <div class="flags-container">
+                            ${flagsHTML}
+                        </div>
                         <h2 class="section-title">${SECTION_CONFIG.title}</h2>
                         <p class="section-subtitle">${SECTION_CONFIG.subtitle}</p>
                     </div>
