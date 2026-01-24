@@ -1,0 +1,542 @@
+/* 
+ * TOUREVO Hero Section - Shared Styles
+ * This file contains the styles for the topbar, header, hero, and search form
+ * Replicates the WordPress Traveler theme styles for consistency across all pages
+ * 
+ * Usage: Include this CSS file in any page that needs the hero section
+ * Text content is configurable via data attributes or JavaScript
+ */
+
+/* ============================================
+   CSS Variables (matching WordPress theme)
+   ============================================ */
+:root {
+    --st-primary-color: #3b71fe;
+    --st-text-color: #1a1a1a;
+    --st-text-light: #697488;
+    --st-white: #ffffff;
+    --st-bg-light: #f8f9fa;
+    --st-border-color: #e5e5e5;
+    --st-font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --st-heading-font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================
+   Reset & Base Styles
+   ============================================ */
+.hero-section-wrapper * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.hero-section-wrapper {
+    font-family: var(--st-font-family);
+    color: var(--st-text-color);
+    line-height: 1.6;
+}
+
+/* ============================================
+   Topbar Styles
+   ============================================ */
+.st-topbar {
+    background: var(--st-white);
+    border-bottom: 1px solid var(--st-border-color);
+    padding: 10px 0;
+    font-size: 14px;
+}
+
+.st-topbar .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.st-topbar-left ul,
+.st-topbar-right ul {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+}
+
+.st-topbar a {
+    color: var(--st-text-color);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.3s ease;
+}
+
+.st-topbar a:hover {
+    color: var(--st-primary-color);
+}
+
+.st-topbar .topbar-icon {
+    font-size: 16px;
+}
+
+/* ============================================
+   Header Styles
+   ============================================ */
+.st-header {
+    background: var(--st-white);
+    padding: 15px 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.st-header .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.st-header-left {
+    display: flex;
+    align-items: center;
+}
+
+.st-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.st-logo img {
+    height: 50px;
+    width: auto;
+    max-width: 200px;
+    object-fit: contain;
+}
+
+.st-header-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.st-main-menu {
+    list-style: none;
+    display: flex;
+    gap: 30px;
+    margin: 0;
+    padding: 0;
+}
+
+.st-main-menu li a {
+    color: var(--st-text-color);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 10px 0;
+    display: block;
+    transition: color 0.3s ease;
+}
+
+.st-main-menu li a:hover,
+.st-main-menu li a.active {
+    color: var(--st-primary-color);
+}
+
+.st-header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.st-header-right .header-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--st-text-color);
+    text-decoration: none;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.st-header-right .header-item:hover {
+    background: var(--st-bg-light);
+}
+
+.st-header-right .header-icon {
+    font-size: 20px;
+}
+
+/* Mobile Menu Toggle */
+.st-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+}
+
+/* ============================================
+   Hero Section Styles
+   ============================================ */
+.st-hero {
+    position: relative;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 80px 20px 120px;
+    background-color: #1a3a5c;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.st-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.5) 100%);
+    z-index: 1;
+}
+
+.st-hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.st-hero-title {
+    font-family: var(--st-heading-font);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--st-white);
+    margin-bottom: 20px;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.st-hero-subtitle {
+    font-size: 20px;
+    color: var(--st-white);
+    margin-bottom: 40px;
+    opacity: 0.95;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Search Form Styles
+   ============================================ */
+.st-search-wrapper {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.st-search-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.st-search-tab {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: var(--st-white);
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 30px;
+    transition: all 0.3s ease;
+}
+
+.st-search-tab:hover,
+.st-search-tab.active {
+    background: var(--st-white);
+    color: var(--st-text-color);
+}
+
+.st-search-form {
+    background: var(--st-white);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.st-search-field {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    border-right: 1px solid var(--st-border-color);
+}
+
+.st-search-field:last-of-type {
+    border-right: none;
+}
+
+.st-search-field .field-icon {
+    font-size: 20px;
+    color: var(--st-text-light);
+}
+
+.st-search-field .field-content {
+    flex: 1;
+}
+
+.st-search-field label {
+    display: block;
+    font-size: 12px;
+    color: var(--st-text-light);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.st-search-field input {
+    width: 100%;
+    border: none;
+    font-size: 15px;
+    color: var(--st-text-color);
+    background: transparent;
+    outline: none;
+}
+
+.st-search-field input::placeholder {
+    color: var(--st-text-light);
+}
+
+.st-search-btn {
+    background: var(--st-primary-color);
+    color: var(--st-white);
+    border: none;
+    padding: 16px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    white-space: nowrap;
+}
+
+.st-search-btn:hover {
+    background: #2a5bd7;
+}
+
+/* ============================================
+   Quick Links (optional)
+   ============================================ */
+.st-quick-links {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 30px;
+    position: relative;
+    z-index: 2;
+}
+
+.st-quick-link {
+    color: var(--st-white);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.st-quick-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+/* ============================================
+   Responsive Styles
+   ============================================ */
+@media (max-width: 1200px) {
+    .st-main-menu {
+        gap: 20px;
+    }
+}
+
+@media (max-width: 992px) {
+    .st-header-center {
+        display: none;
+    }
+    
+    .st-menu-toggle {
+        display: block;
+    }
+    
+    .st-hero-title {
+        font-size: 36px;
+    }
+    
+    .st-hero-subtitle {
+        font-size: 18px;
+    }
+    
+    .st-search-form {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .st-search-field {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--st-border-color);
+        padding: 15px;
+    }
+    
+    .st-search-field:last-of-type {
+        border-bottom: none;
+    }
+    
+    .st-search-btn {
+        width: 100%;
+        margin-top: 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .st-topbar {
+        display: none;
+    }
+    
+    .st-hero {
+        min-height: 500px;
+        padding: 60px 15px 100px;
+    }
+    
+    .st-hero-title {
+        font-size: 28px;
+    }
+    
+    .st-hero-subtitle {
+        font-size: 16px;
+    }
+    
+    .st-search-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .st-search-tab {
+        padding: 10px 18px;
+        font-size: 13px;
+    }
+    
+    .st-quick-links {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .st-logo img {
+        height: 40px;
+    }
+}
+
+@media (max-width: 576px) {
+    .st-header .container {
+        padding: 0 10px;
+    }
+    
+    .st-hero-title {
+        font-size: 24px;
+    }
+    
+    .st-search-wrapper {
+        padding: 0 10px;
+    }
+}
+
+/* ============================================
+   Mobile Menu Overlay (for future use)
+   ============================================ */
+.st-mobile-menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--st-white);
+    z-index: 9999;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.st-mobile-menu.active {
+    display: block;
+}
+
+.st-mobile-menu-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.st-mobile-menu ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 50px;
+}
+
+.st-mobile-menu ul li a {
+    display: block;
+    padding: 15px 0;
+    font-size: 18px;
+    color: var(--st-text-color);
+    text-decoration: none;
+    border-bottom: 1px solid var(--st-border-color);
+}
+
+/* ============================================
+   Language Selector
+   ============================================ */
+.st-lang-selector {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.st-lang-selector img {
+    width: 20px;
+    height: 14px;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.st-lang-selector span {
+    font-size: 14px;
+}

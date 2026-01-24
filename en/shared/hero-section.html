@@ -1,0 +1,134 @@
+<!--
+  TOUREVO Hero Section - Shared HTML Template
+  This file contains the reusable HTML structure for the hero section
+  Matches the WordPress Traveler theme structure for visual consistency
+  
+  Usage: Include this file via JavaScript or server-side include
+  Configure text content via data attributes on the container element:
+    - data-hero-title: Main heading (H1)
+    - data-hero-subtitle: Subtitle text
+    - data-hero-image: Background image URL
+    - data-lang: Language code (en, es, pt)
+-->
+
+<!-- Topbar -->
+<div class="st-topbar">
+    <div class="container">
+        <div class="st-topbar-left">
+            <ul>
+                <li>
+                    <a href="tel:+56940211459">
+                        <span class="topbar-icon">&#128222;</span>
+                        +56 9 4021 1459
+                    </a>
+                </li>
+                <li>
+                    <a href="mailto:info@tourevo.cl">
+                        <span class="topbar-icon">&#9993;</span>
+                        info@tourevo.cl
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="st-topbar-right">
+            <ul>
+                <li>
+                    <a href="https://www.instagram.com/tourevo.cl/" target="_blank" rel="noopener" aria-label="Instagram">
+                        <span class="topbar-icon">&#128247;</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Header -->
+<header class="st-header">
+    <div class="container">
+        <div class="st-header-left">
+            <a href="/en/" class="st-logo">
+                <img src="https://tourevo.cl/wp-content/uploads/2022/04/tourevo.png" alt="TOUREVO - Private Tours in Chile">
+            </a>
+        </div>
+        
+        <div class="st-header-center">
+            <nav>
+                <ul class="st-main-menu" id="st-main-menu">
+                    <li><a href="/en/">Home</a></li>
+                    <li><a href="https://tourevo.cl/about/nosotros/">About Us</a></li>
+                    <li><a href="https://tourevo.cl/tours">Tours</a></li>
+                    <li><a href="https://tourevo.cl/actividades/">Experiences</a></li>
+                    <li><a href="https://tourevo.cl/rentacarchile/">Cars</a></li>
+                    <li><a href="https://tourevo.cl/st_rental/">Accommodations</a></li>
+                </ul>
+            </nav>
+        </div>
+        
+        <div class="st-header-right">
+            <div class="header-item st-lang-selector">
+                <img src="https://tourevo.cl/wp-content/plugins/gtranslate/flags/32/en.png" alt="English">
+                <span>EN</span>
+            </div>
+            <a href="#" class="header-item" aria-label="Currency">
+                <span>USD</span>
+                <span class="header-icon">&#9662;</span>
+            </a>
+            <a href="#" class="header-item" aria-label="Cart">
+                <span class="header-icon">&#128722;</span>
+            </a>
+            <a href="#" class="header-item" aria-label="Account">
+                <span class="header-icon">&#128100;</span>
+            </a>
+        </div>
+        
+        <button class="st-menu-toggle" aria-label="Toggle menu">
+            &#9776;
+        </button>
+    </div>
+</header>
+
+<!-- Hero Section -->
+<section class="st-hero" id="st-hero" style="background-image: url('/images/hero-background-en.png');">
+    <div class="st-hero-content">
+        <h1 class="st-hero-title" id="hero-title">Private Tours & Premium Experiences in Santiago, Chile</h1>
+        <p class="st-hero-subtitle" id="hero-subtitle">Exclusive personalized Private Tours tailored to you at TOUREVO Santiago Chile!</p>
+    </div>
+    
+    <!-- Search Form -->
+    <div class="st-search-wrapper">
+        <div class="st-search-tabs">
+            <button class="st-search-tab active" data-tab="tours">Tours</button>
+            <button class="st-search-tab" data-tab="experiences">Experiences</button>
+            <button class="st-search-tab" data-tab="rental">Rental</button>
+            <button class="st-search-tab" data-tab="cars">Car Rental</button>
+        </div>
+        
+        <form class="st-search-form" action="https://tourevo.cl/tours" method="get">
+            <div class="st-search-field">
+                <span class="field-icon">&#128205;</span>
+                <div class="field-content">
+                    <label>Location</label>
+                    <input type="text" name="location_name" placeholder="Where are you traveling?">
+                </div>
+            </div>
+            
+            <div class="st-search-field">
+                <span class="field-icon">&#128197;</span>
+                <div class="field-content">
+                    <label>Arrival</label>
+                    <input type="text" name="start" placeholder="Select date" readonly>
+                </div>
+            </div>
+            
+            <div class="st-search-field">
+                <span class="field-icon">&#128197;</span>
+                <div class="field-content">
+                    <label>Departure</label>
+                    <input type="text" name="end" placeholder="Select date" readonly>
+                </div>
+            </div>
+            
+            <button type="submit" class="st-search-btn">Search</button>
+        </form>
+    </div>
+</section>
