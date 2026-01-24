@@ -60,7 +60,53 @@
             --bg-cream: #faf8f5;
         }
         
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+                /* Top Bar */
+        .top-bar {
+            background: #f8f9fa;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .top-bar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .top-bar-contact {
+            display: flex;
+            gap: 25px;
+        }
+        
+        .top-bar-contact a {
+            color: var(--text-dark);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .top-bar-contact a:hover {
+            color: #F5A067;
+        }
+        
+        .top-bar-social a {
+            color: var(--text-dark);
+            margin-left: 15px;
+            font-size: 16px;
+        }
+        
+        .top-bar-social a:hover {
+            color: #F5A067;
+        }
+        
+        .logo img {
+            height: 50px;
+            width: auto;
+        }
+        
+* { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Montserrat', sans-serif;
@@ -76,11 +122,12 @@
         .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
         
         header {
-            background: var(--primary-color);
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             padding: 15px 0;
             position: fixed;
             width: 100%;
-            top: 0;
+            top: 35px;
             z-index: 1000;
         }
         
@@ -103,7 +150,7 @@
         nav ul { display: flex; list-style: none; gap: 30px; }
         
         nav a {
-            color: var(--text-light);
+            color: var(--text-dark);
             text-decoration: none;
             font-weight: 500;
             font-size: 14px;
@@ -112,7 +159,7 @@
             transition: color 0.3s;
         }
         
-        nav a:hover { color: var(--secondary-color); }
+        nav a:hover { color: #F5A067; }
         
         .cta-header {
             background: var(--secondary-color);
@@ -130,7 +177,7 @@
             justify-content: center;
             text-align: center;
             color: var(--text-light);
-            padding-top: 80px;
+            padding-top: 120px;
         }
         
         .hero-content { max-width: 900px; padding: 40px 20px; }
@@ -397,16 +444,33 @@
     </style>
 </head>
 <body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="container top-bar-content">
+            <div class="top-bar-contact">
+                <a href="tel:+56940211459">+56 9 4021 1459</a>
+                <a href="mailto:info@tourevo.cl">info@tourevo.cl</a>
+            </div>
+            <div class="top-bar-social">
+                <a href="https://www.instagram.com/tourevo.cl/" target="_blank" aria-label="Instagram">&#128247;</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Header -->
     <header>
         <div class="container header-content">
-            <a href="/en/" class="logo">TOUR<span>EVO</span></a>
+            <a href="/en/" class="logo">
+                <img src="/images/tourevo-logo.png" alt="TOUREVO - Private Tours Chile">
+            </a>
             <nav>
                 <ul>
-                    <li><a href="/en/private-tours-chile/">Private Tours</a></li>
-                    <li><a href="/en/luxury-travel-chile/">Luxury Travel</a></li>
-                    <li><a href="/en/custom-tours-chile/">Custom Tours</a></li>
-                    <li><a href="/en/destination-management-chile/">DMC Services</a></li>
-                    <li><a href="#contact" class="cta-header">Request Itinerary</a></li>
+                    <li><a href="/en/">Home</a></li>
+                    <li><a href="https://tourevo.cl/about/nosotros/">About Us</a></li>
+                    <li><a href="https://tourevo.cl/tours">Tours</a></li>
+                    <li><a href="https://tourevo.cl/actividades/">Experiences</a></li>
+                    <li><a href="https://tourevo.cl/rentacarchile/">Cars</a></li>
+                    <li><a href="https://tourevo.cl/st_rental/">Accommodations</a></li>
                 </ul>
             </nav>
         </div>
