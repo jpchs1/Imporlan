@@ -28,6 +28,8 @@
     const CONFIG = {
         partialPath: '/en/shared/hero-section.html',
         cssPath: '/en/shared/hero-section.css',
+        flatpickrCss: 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
+        flatpickrJs: 'https://cdn.jsdelivr.net/npm/flatpickr',
         containerId: 'hero-section-container',
         defaultImage: 'https://tourevo.cl/wp-content/uploads/2025/04/Patagonia-Torres-del-Paine-Chile.jpg'
     };
@@ -225,6 +227,66 @@
     }
 
     /**
+     * Load flatpickr library for date pickers
+     */
+    function loadFlatpickr() {
+        return new Promise((resolve, reject) => {
+            // Load CSS
+            if (!document.querySelector(`link[href="${CONFIG.flatpickrCss}"]`)) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = CONFIG.flatpickrCss;
+                document.head.appendChild(link);
+            }
+
+            // Load JS if not already loaded
+            if (window.flatpickr) {
+                resolve();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = CONFIG.flatpickrJs;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    /**
+     * Initialize date pickers for arrival/departure fields
+     */
+    function initializeDatePickers() {
+        loadFlatpickr().then(() => {
+            const startInput = document.querySelector('.st-search-form input[name="start"]');
+            const endInput = document.querySelector('.st-search-form input[name="end"]');
+
+            if (startInput && window.flatpickr) {
+                flatpickr(startInput, {
+                    dateFormat: 'Y-m-d',
+                    minDate: 'today',
+                    allowInput: false,
+                    onChange: function(selectedDates) {
+                        if (endInput && endInput._flatpickr) {
+                            endInput._flatpickr.set('minDate', selectedDates[0]);
+                        }
+                    }
+                });
+            }
+
+            if (endInput && window.flatpickr) {
+                flatpickr(endInput, {
+                    dateFormat: 'Y-m-d',
+                    minDate: 'today',
+                    allowInput: false
+                });
+            }
+        }).catch(err => {
+            console.warn('Could not load flatpickr:', err);
+        });
+    }
+
+    /**
      * Initialize interactive elements (tabs, mobile menu, etc.)
      */
     function initializeInteractions() {
@@ -246,6 +308,9 @@
                 mainMenu.classList.toggle('mobile-open');
             });
         }
+
+        // Initialize date pickers
+        initializeDatePickers();
     }
 
     // Initialize when DOM is ready
