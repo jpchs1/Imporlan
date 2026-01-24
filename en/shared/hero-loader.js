@@ -31,7 +31,7 @@
         flatpickrCss: 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
         flatpickrJs: 'https://cdn.jsdelivr.net/npm/flatpickr',
         containerId: 'hero-section-container',
-        defaultImage: 'https://tourevo.cl/wp-content/uploads/2025/04/Patagonia-Torres-del-Paine-Chile.jpg'
+        defaultImage: '/images/hero-background-en.png'
     };
 
     // Menu translations
