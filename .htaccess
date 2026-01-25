@@ -18,15 +18,26 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
 
 # ============================================
-# CORE WEB VITALS OPTIMIZATIONS
+# CORE WEB VITALS OPTIMIZATIONS 2026
 # ============================================
 
-# Enable GZIP compression
+# Enable GZIP/Brotli compression for all text-based content
 <IfModule mod_deflate.c>
+  SetOutputFilter DEFLATE
   AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
   AddOutputFilterByType DEFLATE application/javascript application/x-javascript application/json
-  AddOutputFilterByType DEFLATE application/xml application/xhtml+xml
-  AddOutputFilterByType DEFLATE image/svg+xml
+  AddOutputFilterByType DEFLATE application/xml application/xhtml+xml application/rss+xml
+  AddOutputFilterByType DEFLATE application/vnd.ms-fontobject application/x-font-ttf
+  AddOutputFilterByType DEFLATE font/opentype font/ttf font/eot font/otf
+  AddOutputFilterByType DEFLATE image/svg+xml image/x-icon
+  
+  # Remove browser bugs for old browsers
+  BrowserMatch ^Mozilla/4 gzip-only-text/html
+  BrowserMatch ^Mozilla/4\.0[678] no-gzip
+  BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+  
+  # Don't compress already compressed files
+  SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|avif)$ no-gzip dont-vary
 </IfModule>
 
 # Browser caching for static assets
