@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOUREVO | Tours Privados e de Luxo no Chile | Seu Parceiro Local</title>
+    <meta name="description" content="A TOUREVO é sua parceira local de confiança para tours privados e personalizados no Chile. Conheça a Patagônia, Deserto do Atacama, Rota dos Vinhos e muito mais com guias locais especializados. Solicite seu roteiro personalizado.">
+    <meta name="keywords" content="tours privados Chile, viagem de luxo Chile, tours personalizados Chile, DMC Chile, agência receptiva Chile, roteiros sob medida Chile">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://tourevo.cl/br/">
+    
+    <link rel="alternate" hreflang="en" href="https://tourevo.cl/en/">
+    <link rel="alternate" hreflang="pt-BR" href="https://tourevo.cl/br/">
+    <link rel="alternate" hreflang="x-default" href="https://tourevo.cl/en/">
+    
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="TOUREVO | Tours Privados e de Luxo no Chile">
+    <meta property="og:description" content="Sua parceira local para tours privados e personalizados no Chile. Conheça Patagônia, Atacama, Rota dos Vinhos com guias especializados.">
+    <meta property="og:url" content="https://tourevo.cl/br/">
+    <meta property="og:site_name" content="TOUREVO">
+    <meta property="og:locale" content="pt_BR">
+    
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TOUREVO | Tours Privados e de Luxo no Chile">
+    <meta name="twitter:description" content="Sua parceira local para tours privados e personalizados no Chile.">
+    
+    <link rel="icon" type="image/svg+xml" href="/images/tourevo-favicon.svg">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/en/shared/hero-section.css">
+    
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TravelAgency",
+        "name": "TOUREVO",
+        "description": "Sua parceira local para tours privados e personalizados no Chile",
+        "url": "https://tourevo.cl",
+        "logo": "https://tourevo.cl/images/tourevo-logo.png",
+        "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "CL",
+            "addressLocality": "Santiago"
+        },
+        "areaServed": {
+            "@type": "Country",
+            "name": "Chile"
+        },
+        "priceRange": "$$$",
+        "serviceType": ["Tours Privados", "Viagens de Luxo", "Tours Personalizados", "DMC"]
+    }
+    </script>
+    
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #F5A067;
+            --accent-color: #E8956A;
+            --tourevo-orange: #F5A067;
+            --tourevo-dark: #2c3e50;
+            --text-dark: #2c3e50;
+            --text-light: #ffffff;
+            --bg-light: #f8f9fa;
+            --bg-cream: #fdf9f6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-dark);
+            line-height: 1.7;
+        }
+        
+        h1, h2, h3, h4 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .top-bar {
+            background: #f8f9fa;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .top-bar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .top-bar-contact {
+            display: flex;
+            gap: 25px;
+        }
+        
+        .top-bar-contact a {
+            color: var(--text-dark);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .top-bar-contact a:hover {
+            color: var(--tourevo-orange);
+        }
+        
+        .top-bar-social a {
+            color: var(--text-dark);
+            margin-left: 15px;
+            font-size: 16px;
+        }
+        
+        .top-bar-social a:hover {
+            color: var(--tourevo-orange);
+        }
+        
+        header {
+            background: #fff;
+            padding: 15px 0;
+            position: fixed;
+            width: 100%;
+            top: 35px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .logo img {
+            height: 55px;
+            width: auto;
+            max-height: 55px;
+            object-fit: contain;
+            transition: opacity 0.3s ease;
+        }
+        
+        .logo:hover img {
+            opacity: 0.85;
+        }
+        
+        .discover-chile {
+            background: linear-gradient(135deg, #fdf9f6 0%, #f8f4f0 100%);
+            padding: 80px 0;
+            text-align: center;
+            border-top: 1px solid rgba(245, 160, 103, 0.2);
+        }
+        
+        .discover-chile-content {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .discover-chile h2 {
+            font-size: 36px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .discover-chile p {
+            font-size: 17px;
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 35px;
+        }
+        
+        .btn-chile-home {
+            display: inline-block;
+            background: var(--tourevo-orange);
+            color: #fff;
+            padding: 16px 40px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 160, 103, 0.3);
+        }
+        
+        .btn-chile-home:hover {
+            background: var(--accent-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 160, 103, 0.4);
+        }
+        
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-left: 10px;
+        }
+        
+        .logo-text span {
+            color: var(--secondary-color);
+        }
+        
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+        
+        nav a {
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+        }
+        
+        nav a:hover {
+            color: var(--tourevo-orange);
+        }
+        
+        .cta-header {
+            background: var(--tourevo-orange);
+            color: #fff;
+            padding: 10px 25px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        
+        .cta-header:hover {
+            background: var(--accent-color);
+            color: #fff;
+        }
+        
+        .hero {
+            background: linear-gradient(rgba(26, 58, 92, 0.7), rgba(26, 58, 92, 0.8)), url('/images/chile-patagonia-hero.jpg') center/cover no-repeat;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-light);
+            padding-top: 120px;
+        }
+        
+        .hero-content {
+            max-width: 900px;
+            padding: 40px 20px;
+        }
+        
+        .hero h1 {
+            font-size: 52px;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+        
+        .hero-tagline {
+            font-size: 22px;
+            font-weight: 300;
+            margin-bottom: 15px;
+            color: var(--secondary-color);
+        }
+        
+        .hero p {
+            font-size: 18px;
+            margin-bottom: 40px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .btn-primary {
+            display: inline-block;
+            background: var(--secondary-color);
+            color: var(--primary-color);
+            padding: 18px 45px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-color);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            display: inline-block;
+            border: 2px solid var(--text-light);
+            color: var(--text-light);
+            padding: 16px 40px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-left: 20px;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--text-light);
+            color: var(--primary-color);
+        }
+        
+        section {
+            padding: 100px 0;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .section-title h2 {
+            font-size: 42px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .section-title p {
+            font-size: 18px;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .why-tourevo {
+            background: var(--bg-cream);
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+        }
+        
+        .feature-card {
+            text-align: center;
+            padding: 40px 30px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.08);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .feature-card p {
+            color: #666;
+        }
+        
+        .destinations-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+        
+        .destination-card {
+            position: relative;
+            height: 400px;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        
+        .destination-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s;
+        }
+        
+        .destination-card:hover img {
+            transform: scale(1.1);
+        }
+        
+        .destination-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 30px;
+            background: linear-gradient(transparent, rgba(26, 58, 92, 0.95));
+            color: white;
+        }
+        
+        .destination-overlay h3 {
+            font-size: 26px;
+            margin-bottom: 10px;
+        }
+        
+        .destination-overlay p {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .destination-link {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .services {
+            background: var(--primary-color);
+            color: var(--text-light);
+        }
+        
+        .services .section-title h2 {
+            color: var(--text-light);
+        }
+        
+        .services .section-title p {
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+        }
+        
+        .service-card {
+            text-align: center;
+            padding: 40px 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .service-card:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--secondary-color);
+        }
+        
+        .service-card h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: var(--secondary-color);
+        }
+        
+        .service-card p {
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .luxury-fleet {
+            background: linear-gradient(135deg, var(--bg-cream) 0%, #fff 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .luxury-fleet::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--tourevo-orange), var(--accent-color));
+        }
+        
+        .fleet-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        
+        .fleet-text h2 {
+            font-size: 38px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .fleet-text h2 span {
+            color: var(--tourevo-orange);
+        }
+        
+        .fleet-text p {
+            font-size: 17px;
+            color: #555;
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+        
+        .fleet-features {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+        
+        .fleet-features li {
+            padding: 12px 0;
+            padding-left: 35px;
+            position: relative;
+            font-size: 16px;
+            color: var(--text-dark);
+            border-bottom: 1px solid #eee;
+        }
+        
+        .fleet-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--tourevo-orange);
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .fleet-image {
+            position: relative;
+        }
+        
+        .fleet-image img {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        
+        .fleet-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--tourevo-orange);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        @media (max-width: 992px) {
+            .fleet-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .fleet-image {
+                order: -1;
+            }
+        }
+        
+        .testimonials {
+            background: var(--bg-light);
+        }
+        
+        .testimonial-card {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 50px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.1);
+        }
+        
+        .testimonial-text {
+            font-size: 22px;
+            font-style: italic;
+            color: var(--text-dark);
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+        
+        .testimonial-author {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .testimonial-location {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .cta-section {
+            background: linear-gradient(rgba(26, 58, 92, 0.9), rgba(26, 58, 92, 0.95)), url('/images/chile-landscape.jpg') center/cover no-repeat;
+            text-align: center;
+            color: var(--text-light);
+            padding: 120px 0;
+        }
+        
+        .cta-section h2 {
+            font-size: 42px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto 40px;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .contact-form {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 50px;
+            border-radius: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        
+        .form-group textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        
+        .form-submit {
+            width: 100%;
+            background: var(--secondary-color);
+            color: var(--primary-color);
+            padding: 18px;
+            border: none;
+            border-radius: 3px;
+            font-size: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .form-submit:hover {
+            background: var(--accent-color);
+        }
+        
+        footer {
+            background: #0d1f2d;
+            color: var(--text-light);
+            padding: 80px 0 30px;
+        }
+        
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 50px;
+            margin-bottom: 50px;
+        }
+        
+        .footer-about h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        .footer-about p {
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 20px;
+        }
+        
+        .footer-column h4 {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: var(--secondary-color);
+        }
+        
+        .footer-column ul {
+            list-style: none;
+        }
+        
+        .footer-column li {
+            margin-bottom: 12px;
+        }
+        
+        .footer-column a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .footer-column a:hover {
+            color: var(--secondary-color);
+        }
+        
+        .whatsapp-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #25D366;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        
+        .whatsapp-btn:hover {
+            background: #128C7E;
+        }
+        
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 30px;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 14px;
+        }
+        
+        @media (max-width: 992px) {
+            .features-grid,
+            .destinations-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .services-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .footer-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .hero h1 {
+                font-size: 40px;
+            }
+        }
+        
+        .whatsapp-float {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #25D366;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+            z-index: 9999;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        
+        .whatsapp-float:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
+        }
+        
+        .whatsapp-float svg {
+            width: 32px;
+            height: 32px;
+            fill: #ffffff;
+        }
+        
+        .whatsapp-tooltip {
+            position: absolute;
+            right: 70px;
+            background: #fff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .whatsapp-float:hover .whatsapp-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        @media (max-width: 768px) {
+            nav ul {
+                display: none;
+            }
+            
+            .whatsapp-float {
+                bottom: 15px;
+                right: 15px;
+                width: 55px;
+                height: 55px;
+            }
+            
+            .whatsapp-tooltip {
+                display: none;
+            }
+            
+            .hero h1 {
+                font-size: 32px;
+            }
+            
+            .hero p {
+                font-size: 16px;
+            }
+            
+            .btn-secondary {
+                display: block;
+                margin: 20px auto 0;
+            }
+            
+            .features-grid,
+            .destinations-grid,
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-title h2 {
+                font-size: 32px;
+            }
+            
+            .logo img {
+                height: 45px;
+                max-height: 45px;
+            }
+            
+            .discover-chile {
+                padding: 60px 0;
+            }
+            
+            .discover-chile h2 {
+                font-size: 28px;
+            }
+            
+            .discover-chile p {
+                font-size: 15px;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .logo img {
+                height: 50px;
+                max-height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="hero-section-container"
+         data-hero-title="Tours Privados e Experiências Premium em Santiago, Chile"
+         data-hero-subtitle="Tours privados exclusivos e personalizados feitos sob medida para você na TOUREVO Santiago Chile!"
+         data-hero-image="/images/hero-background-en.png"
+         data-lang="pt">
+    </div>
+
+    <section class="why-tourevo">
+        <div class="container">
+            <div class="section-title">
+                <h2>Por Que Escolher a TOUREVO</h2>
+                <p>Como DMC chilena, trazemos expertise local incomparável para cada viagem que criamos</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#127968;</div>
+                    <h3>Expertise Local</h3>
+                    <p>Nossa equipe vive e respira o Chile. Conhecemos os tesouros escondidos, as melhores épocas e as conexões locais que transformam uma viagem em uma experiência inesquecível.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#9733;</div>
+                    <h3>Padrão de Luxo</h3>
+                    <p>De lodges boutique na Patagônia a propriedades exclusivas em vinícolas, selecionamos acomodações e experiências que atendem aos mais altos padrões internacionais.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">&#128221;</div>
+                    <h3>100% Personalizado</h3>
+                    <p>Nenhum viajante é igual ao outro. Cada roteiro é criado do zero com base nos seus interesses, ritmo e estilo de viagem. Sua jornada, do seu jeito.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="destinations">
+        <div class="container">
+            <div class="section-title">
+                <h2>Destinos Icônicos do Chile</h2>
+                <p>Do deserto mais árido aos glaciares milenares, o Chile oferece uma diversidade extraordinária</p>
+            </div>
+            <div class="destinations-grid">
+                <div class="destination-card">
+                    <img src="/images/atacama-desert-tour.jpg" alt="Tour privado no Deserto do Atacama Chile com experiência de observação de estrelas" loading="lazy">
+                    <div class="destination-overlay">
+                        <h3>Deserto do Atacama</h3>
+                        <p>Paisagens de outro mundo, observação de estrelas de classe mundial e culturas ancestrais aguardam você no deserto mais árido do planeta.</p>
+                        <a href="/br/tours/deserto-do-atacama-tour-privado/" class="destination-link">Explorar Atacama &rarr;</a>
+                    </div>
+                </div>
+                <div class="destination-card">
+                    <img src="/images/patagonia-torres-del-paine.jpg" alt="Tour privado na Patagônia Torres del Paine Chile" loading="lazy">
+                    <div class="destination-overlay">
+                        <h3>Patagônia</h3>
+                        <p>Picos de granito imponentes, glaciares intocados e natureza selvagem infinita definem esta região lendária no fim do mundo.</p>
+                        <a href="/br/tours/patagonia-tour-privado/" class="destination-link">Explorar Patagônia &rarr;</a>
+                    </div>
+                </div>
+                <div class="destination-card">
+                    <img src="/images/chile-wine-country.jpg" alt="Tour privado de vinhos Chile Vale do Maipo vinícola" loading="lazy">
+                    <div class="destination-overlay">
+                        <h3>Rota dos Vinhos</h3>
+                        <p>Descubra vinícolas de renome mundial nos vales do Maipo, Colchagua e Casablanca com degustações privadas e experiências gastronômicas.</p>
+                        <a href="/br/tours/rota-dos-vinhos-chilenos-tour-privado/" class="destination-link">Explorar Rota dos Vinhos &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="services">
+        <div class="container">
+            <div class="section-title">
+                <h2>Nossos Serviços</h2>
+                <p>Gestão completa de destino para viajantes exigentes e profissionais de turismo</p>
+            </div>
+            <div class="services-grid">
+                <div class="service-card">
+                    <h3>Tours Privados</h3>
+                    <p>Jornadas exclusivas com guias privativos, veículos dedicados e atenção personalizada durante toda sua aventura chilena.</p>
+                </div>
+                <div class="service-card">
+                    <h3>Viagens de Luxo</h3>
+                    <p>Acomodações premium, alta gastronomia e experiências VIP selecionadas para os viajantes mais exigentes.</p>
+                </div>
+                <div class="service-card">
+                    <h3>Roteiros Sob Medida</h3>
+                    <p>Planejamento de viagem personalizado de acordo com seus interesses, seja aventura, cultura, gastronomia ou relaxamento.</p>
+                </div>
+                <div class="service-card">
+                    <h3>Serviços DMC</h3>
+                    <p>Gestão completa de destino para agências de viagem, operadoras e grupos corporativos visitando o Chile.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="luxury-fleet">
+        <div class="container">
+            <div class="fleet-content">
+                <div class="fleet-text">
+                    <h2>Viaje com <span>Estilo Premium</span></h2>
+                    <p>Na TOUREVO, acreditamos que a jornada é tão importante quanto o destino. Nossa frota exclusiva de veículos de luxo garante que você viaje pelo Chile com conforto, segurança e sofisticação. De transfers do aeroporto a expedições de vários dias, experimente a diferença do transporte premium.</p>
+                    <ul class="fleet-features">
+                        <li>Jaguar XF e Porsche Cayenne disponíveis</li>
+                        <li>Motoristas profissionais bilíngues</li>
+                        <li>Conforto com climatização</li>
+                        <li>Bebidas cortesia a bordo</li>
+                        <li>Conectividade WiFi durante toda a viagem</li>
+                    </ul>
+                    <a href="#contact" class="btn-primary">Solicitar Transfer Premium</a>
+                </div>
+                <div class="fleet-image">
+                    <img src="/images/tourevo-luxury-cars.png" alt="Frota de luxo TOUREVO - Jaguar XF e Porsche Cayenne para tours privados no Chile" loading="lazy">
+                    <span class="fleet-badge">Frota Premium</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-title">
+                <h2>O Que Nossos Hóspedes Dizem</h2>
+            </div>
+            <div class="testimonial-card">
+                <p class="testimonial-text">"A TOUREVO transformou nossa viagem ao Chile em algo verdadeiramente extraordinário. O conhecimento local, a atenção aos detalhes e a paixão genuína pelo país fizeram toda a diferença. Desde o momento em que chegamos até nossa partida, cada detalhe foi perfeitamente cuidado."</p>
+                <p class="testimonial-author">Fernanda e Ricardo Santos</p>
+                <p class="testimonial-location">São Paulo, Brasil</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <h2>Planeje Sua Viagem ao Chile</h2>
+            <p>Conte-nos sobre a viagem dos seus sonhos e nossos especialistas locais criarão um roteiro personalizado só para você.</p>
+            <div class="contact-form">
+                <form action="/api/contact-tourevo.php" method="POST">
+                    <div class="form-group">
+                        <label for="name">Nome Completo</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="country">País de Residência</label>
+                        <input type="text" id="country" name="country" value="Brasil">
+                    </div>
+                    <div class="form-group">
+                        <label for="interest">Principal Interesse</label>
+                        <select id="interest" name="interest">
+                            <option value="">Selecione seu interesse</option>
+                            <option value="patagonia">Aventura na Patagônia</option>
+                            <option value="atacama">Deserto do Atacama</option>
+                            <option value="wine">Rota dos Vinhos</option>
+                            <option value="ski">Experiência de Ski</option>
+                            <option value="lake-district">Região dos Lagos</option>
+                            <option value="multi-destination">Múltiplos Destinos</option>
+                            <option value="other">Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Conte-nos Sobre a Viagem dos Seus Sonhos</label>
+                        <textarea id="message" name="message" placeholder="Compartilhe suas datas de viagem, tamanho do grupo, interesses e pedidos especiais..."></textarea>
+                    </div>
+                    <button type="submit" class="form-submit">Solicitar Roteiro Personalizado</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="discover-chile">
+        <div class="container">
+            <div class="discover-chile-content">
+                <h2>Descubra a TOUREVO Chile</h2>
+                <p>Explore nosso site oficial do Chile em espanhol para descobrir nossa gama completa de tours privados, experiências de luxo e viagens sob medida por todo o Chile.</p>
+                <a href="https://www.tourevo.cl" class="btn-chile-home" target="_blank" rel="noopener">Visitar Site Chile (Espanhol)</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-about">
+                    <a href="/br/" class="footer-logo">
+                        <img src="/images/tourevo-logo.png" alt="TOUREVO" style="height: 50px; margin-bottom: 15px;">
+                    </a>
+                    <p>A TOUREVO é sua parceira local para tours privados e personalizados no Chile. Com sede em Santiago, trazemos expertise local autêntica para cada viagem que criamos.</p>
+                    <a href="https://wa.me/56912345678" class="whatsapp-btn" target="_blank" rel="noopener">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        Fale Conosco
+                    </a>
+                </div>
+                <div class="footer-column">
+                    <h4>Destinos</h4>
+                    <ul>
+                        <li><a href="/br/tours/patagonia-tour-privado/">Patagônia</a></li>
+                        <li><a href="/br/tours/deserto-do-atacama-tour-privado/">Deserto do Atacama</a></li>
+                        <li><a href="/br/tours/rota-dos-vinhos-chilenos-tour-privado/">Rota dos Vinhos</a></li>
+                        <li><a href="/br/tours/experiencia-de-ski-no-chile/">Ski no Chile</a></li>
+                        <li><a href="/br/tours/regiao-dos-lagos-tour-privado/">Região dos Lagos</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Serviços</h4>
+                    <ul>
+                        <li><a href="/br/tours-privados-no-chile/">Tours Privados</a></li>
+                        <li><a href="/br/viagens-de-luxo-no-chile/">Viagens de Luxo</a></li>
+                        <li><a href="/br/tours-personalizados-no-chile/">Tours Personalizados</a></li>
+                        <li><a href="/br/dmc-chile/">Serviços DMC</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Contato</h4>
+                    <ul>
+                        <li>Santiago, Chile</li>
+                        <li><a href="mailto:info@tourevo.cl">info@tourevo.cl</a></li>
+                        <li><a href="tel:+56912345678">+56 9 1234 5678</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 TOUREVO. Sua Parceira Local para Tours Privados no Chile. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <a href="https://wa.me/56940211459?text=Olá!%20Tenho%20interesse%20em%20tours%20privados%20no%20Chile" class="whatsapp-float" target="_blank" rel="noopener noreferrer" aria-label="Conversar no WhatsApp">
+        <span class="whatsapp-tooltip">Fale conosco!</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+    </a>
+    
+    <script src="/en/shared/hero-loader.js"></script>
+</body>
+</html>
