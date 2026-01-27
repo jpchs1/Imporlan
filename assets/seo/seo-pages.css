@@ -590,6 +590,11 @@ a:hover {
 .eeat-card-icon {
   width: 48px;
   height: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  flex-shrink: 0;
   background: linear-gradient(135deg, var(--imporlan-accent), var(--imporlan-accent-light));
   border-radius: 12px;
   display: flex;
@@ -601,6 +606,8 @@ a:hover {
 .eeat-card-icon svg {
   width: 24px;
   height: 24px;
+  max-width: 24px;
+  max-height: 24px;
   color: var(--text-white);
 }
 
