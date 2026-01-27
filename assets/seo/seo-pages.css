@@ -587,13 +587,33 @@ a:hover {
   background: linear-gradient(90deg, var(--imporlan-accent), var(--imporlan-accent-light));
 }
 
+.eeat-card-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--imporlan-accent), var(--imporlan-accent-light));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.eeat-card-icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--text-white);
+}
+
 .eeat-card h3 {
   color: var(--imporlan-accent-light);
   margin-bottom: 16px;
+  font-size: 1.15rem;
 }
 
 .eeat-card p {
   margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
 }
 
 /* FAQ Section */
