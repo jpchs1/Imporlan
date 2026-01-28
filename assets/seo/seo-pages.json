@@ -1,0 +1,104 @@
+{
+  "pages": [
+    {
+      "id": "como-comprar-lancha-usada-chile",
+      "title": "Cómo Comprar una Lancha Usada en Chile",
+      "description": "Guía completa con checklist de verificación, documentos necesarios y consejos de expertos.",
+      "url": "/como-comprar-lancha-usada-chile/",
+      "category": "Compra",
+      "icon": "boat"
+    },
+    {
+      "id": "como-vender-moto-de-agua-chile",
+      "title": "Cómo Vender una Moto de Agua en Chile",
+      "description": "Documentos necesarios, cómo fijar el precio y consejos para vender rápido y seguro.",
+      "url": "/como-vender-moto-de-agua-chile/",
+      "category": "Venta",
+      "icon": "jetski"
+    },
+    {
+      "id": "costo-mantener-lancha-chile",
+      "title": "Costos de Mantener una Lancha en Chile",
+      "description": "Desglose completo de gastos anuales: marina, combustible, seguro, mantenimiento y más.",
+      "url": "/costo-mantener-lancha-chile/",
+      "category": "Costos",
+      "icon": "money"
+    },
+    {
+      "id": "documentos-tramites-vender-embarcacion-chile",
+      "title": "Documentos y Trámites para Vender Embarcación",
+      "description": "Certificados, transferencia ante Autoridad Marítima y requisitos legales actualizados.",
+      "url": "/documentos-tramites-vender-embarcacion-chile/",
+      "category": "Documentación",
+      "icon": "document"
+    },
+    {
+      "id": "embarcaciones-usadas",
+      "title": "Embarcaciones Usadas en Chile",
+      "description": "Lanchas, veleros, motos de agua y yates. Asesoría experta en compra, venta e importación.",
+      "url": "/embarcaciones-usadas/",
+      "category": "Catálogo",
+      "icon": "ship"
+    },
+    {
+      "id": "importar-motos-de-agua-desde-usa",
+      "title": "Importar Motos de Agua desde USA",
+      "description": "Costos, trámites aduaneros, homologación y proceso paso a paso para traer tu Jet Ski.",
+      "url": "/importar-motos-de-agua-desde-usa/",
+      "category": "Importación",
+      "icon": "globe"
+    },
+    {
+      "id": "inspeccion-precompra-embarcaciones",
+      "title": "Inspección Pre-Compra de Embarcaciones",
+      "description": "Qué revisar en casco, motor, sistemas eléctricos y documentación antes de comprar.",
+      "url": "/inspeccion-precompra-embarcaciones/",
+      "category": "Compra",
+      "icon": "search"
+    },
+    {
+      "id": "preguntas-frecuentes-embarcaciones-usadas",
+      "title": "Preguntas Frecuentes sobre Embarcaciones",
+      "description": "Mega FAQ: documentos, precios, importación y todo sobre lanchas, veleros y motos de agua.",
+      "url": "/preguntas-frecuentes-embarcaciones-usadas/",
+      "category": "FAQ",
+      "icon": "question"
+    },
+    {
+      "id": "seguro-embarcaciones-chile",
+      "title": "Seguro para Embarcaciones en Chile",
+      "description": "Coberturas obligatorias, todo riesgo, precios y cómo elegir el mejor seguro náutico.",
+      "url": "/seguro-embarcaciones-chile/",
+      "category": "Seguros",
+      "icon": "shield"
+    },
+    {
+      "id": "tipos-de-lanchas-segun-uso",
+      "title": "Tipos de Lanchas según Uso",
+      "description": "Guía para elegir la mejor lancha para familia, pesca, deportes acuáticos o recreo.",
+      "url": "/tipos-de-lanchas-segun-uso/",
+      "category": "Guías",
+      "icon": "anchor"
+    },
+    {
+      "id": "transporte-logistica-embarcaciones-chile",
+      "title": "Transporte de Embarcaciones en Chile",
+      "description": "Servicios de transporte terrestre y marítimo de lanchas, veleros y motos de agua.",
+      "url": "/transporte-logistica-embarcaciones-chile/",
+      "category": "Logística",
+      "icon": "truck"
+    }
+  ],
+  "categories": [
+    "Compra",
+    "Venta",
+    "Importación",
+    "Documentación",
+    "Costos",
+    "Seguros",
+    "Logística",
+    "Guías",
+    "FAQ",
+    "Catálogo"
+  ]
+}
