@@ -1,8 +1,9 @@
 /**
- * Imporlan SEO Pages Section
- * Dynamically loads and displays all SEO pages from seo-pages.json
- * Creates a "Guias y Recursos" section in the HOME page
- * Version 1.0
+ * Imporlan SEO Pages Section - UNIFIED VERSION
+ * Dynamically loads and displays ALL SEO pages from seo-pages.json
+ * Creates a single "Guias y Recursos" section in the HOME page
+ * Replaces the old hardcoded seo-sections.js
+ * Version 2.0
  */
 
 (function() {
@@ -27,7 +28,11 @@
     question: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>',
     shield: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>',
     anchor: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>',
-    truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>'
+    truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
+    clipboard: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></svg>',
+    trophy: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+    quote: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>',
+    sailboat: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 18H2a4 4 0 0 0 4 4h12a4 4 0 0 0 4-4Z"/><path d="M21 14 10 2 3 14h18Z"/><path d="M10 2v16"/></svg>'
   };
 
   const categoryColors = {
@@ -40,7 +45,10 @@
     'Logistica': 'icon-orange',
     'Guias': 'icon-blue',
     'FAQ': 'icon-purple',
-    'Catalogo': 'icon-cyan'
+    'Catalogo': 'icon-cyan',
+    'Servicios': 'icon-blue',
+    'Cotizacion': 'icon-green',
+    'Casos': 'icon-purple'
   };
 
   function addStyles() {
@@ -292,9 +300,29 @@
     return null;
   }
 
+  function removeOldSEOSections() {
+    // Remove old hardcoded sections from seo-sections.js
+    const oldGuiaSection = document.getElementById('guia-importacion');
+    const oldServiciosSection = document.getElementById('servicios-importacion');
+    const oldStyles = document.getElementById('seo-sections-styles');
+    
+    if (oldGuiaSection) {
+      oldGuiaSection.remove();
+      console.log('[SEO Pages Section] Removed old guia-importacion section');
+    }
+    if (oldServiciosSection) {
+      oldServiciosSection.remove();
+      console.log('[SEO Pages Section] Removed old servicios-importacion section');
+    }
+    if (oldStyles) {
+      oldStyles.remove();
+    }
+  }
+
   async function loadAndInsertSection() {
     if (window.location.pathname.includes('/panel')) return;
     
+    // Remove any existing unified section
     const existingSection = document.getElementById('guias-recursos');
     if (existingSection) existingSection.remove();
     
@@ -309,25 +337,41 @@
       }
       
       const checkInterval = setInterval(function() {
-        const contactoSection = findSectionByHeading('CONTACTO') || findSectionByHeading('CONTACTANOS');
+        // Find insertion point - after "Por que elegir Imporlan" section
+        const beneficiosSection = findSectionByHeading('POR QUE ELEGIR') || findSectionByHeading('ELEGIR IMPORLAN');
+        const procesoSection = findSectionByHeading('PROCESO DE COMPRA USA');
         const footerElement = document.querySelector('footer');
         
         let insertPoint = null;
         
-        if (contactoSection) {
-          insertPoint = contactoSection;
+        // Prefer inserting after "Por que elegir Imporlan"
+        if (beneficiosSection) {
+          insertPoint = beneficiosSection.nextSibling;
+        } else if (procesoSection) {
+          insertPoint = procesoSection.nextSibling;
         } else if (footerElement) {
           insertPoint = footerElement;
         }
         
-        if (insertPoint) {
+        if (insertPoint || beneficiosSection || procesoSection) {
           clearInterval(checkInterval);
+          
+          // Remove old hardcoded SEO sections first
+          removeOldSEOSections();
           
           addStyles();
           const section = createSection(data.pages);
-          insertPoint.parentNode.insertBefore(section, insertPoint);
           
-          console.log('[SEO Pages Section] Successfully inserted with ' + data.pages.length + ' pages');
+          // Insert the unified section
+          if (beneficiosSection) {
+            beneficiosSection.parentNode.insertBefore(section, beneficiosSection.nextSibling);
+          } else if (procesoSection) {
+            procesoSection.parentNode.insertBefore(section, procesoSection.nextSibling);
+          } else if (footerElement) {
+            footerElement.parentNode.insertBefore(section, footerElement);
+          }
+          
+          console.log('[SEO Pages Section v2] Successfully inserted UNIFIED section with ' + data.pages.length + ' pages (replacing old hardcoded sections)');
         }
       }, 500);
       
@@ -341,9 +385,10 @@
   }
 
   onReady(function() {
+    // Wait longer to ensure seo-sections.js has already run
     setTimeout(function() {
       loadAndInsertSection();
-    }, 2000);
+    }, 2500);
   });
 
 })();

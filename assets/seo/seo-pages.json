@@ -1,6 +1,78 @@
 {
   "pages": [
     {
+      "id": "cuanto-cuesta-importar-una-lancha-a-chile",
+      "title": "¿Cuánto cuesta importar una lancha?",
+      "description": "Conoce los costos detallados de importar tu lancha o embarcación desde USA a Chile.",
+      "url": "/cuanto-cuesta-importar-una-lancha-a-chile/",
+      "category": "Importación",
+      "icon": "money"
+    },
+    {
+      "id": "requisitos-importar-embarcaciones-chile",
+      "title": "Requisitos de Importación",
+      "description": "Documentos y trámites necesarios para importar legalmente tu embarcación.",
+      "url": "/requisitos-importar-embarcaciones-chile/",
+      "category": "Documentación",
+      "icon": "clipboard"
+    },
+    {
+      "id": "casos-de-importacion",
+      "title": "Casos de Éxito",
+      "description": "Conoce importaciones reales que hemos realizado con éxito.",
+      "url": "/casos-de-importacion/",
+      "category": "Casos",
+      "icon": "trophy"
+    },
+    {
+      "id": "cotizar-importacion",
+      "title": "Cotizar Importación",
+      "description": "Solicita tu cotización personalizada gratis sin compromiso.",
+      "url": "/cotizar-importacion/",
+      "category": "Cotización",
+      "icon": "quote"
+    },
+    {
+      "id": "importacion-lanchas-chile",
+      "title": "Importación de Lanchas",
+      "description": "Lanchas nuevas y usadas desde USA con servicio integral puerta a puerta.",
+      "url": "/importacion-lanchas-chile/",
+      "category": "Servicios",
+      "icon": "boat"
+    },
+    {
+      "id": "importacion-embarcaciones-usa-chile",
+      "title": "Embarcaciones desde USA",
+      "description": "Servicio completo de importación USA-Chile para todo tipo de embarcaciones.",
+      "url": "/importacion-embarcaciones-usa-chile/",
+      "category": "Servicios",
+      "icon": "globe"
+    },
+    {
+      "id": "importacion-veleros-chile",
+      "title": "Importación de Veleros",
+      "description": "Veleros de crucero y regata desde Estados Unidos a Chile.",
+      "url": "/importacion-veleros-chile/",
+      "category": "Servicios",
+      "icon": "sailboat"
+    },
+    {
+      "id": "logistica-maritima-importacion",
+      "title": "Logística Marítima",
+      "description": "Transporte, documentación y trámites aduaneros para tu embarcación.",
+      "url": "/logistica-maritima-importacion/",
+      "category": "Logística",
+      "icon": "ship"
+    },
+    {
+      "id": "servicios",
+      "title": "Todos los Servicios",
+      "description": "Conoce todos nuestros servicios de importación náutica.",
+      "url": "/servicios/",
+      "category": "Servicios",
+      "icon": "anchor"
+    },
+    {
       "id": "como-comprar-lancha-usada-chile",
       "title": "Cómo Comprar una Lancha Usada en Chile",
       "description": "Guía completa con checklist de verificación, documentos necesarios y consejos de expertos.",
@@ -46,7 +118,7 @@
       "description": "Costos, trámites aduaneros, homologación y proceso paso a paso para traer tu Jet Ski.",
       "url": "/importar-motos-de-agua-desde-usa/",
       "category": "Importación",
-      "icon": "globe"
+      "icon": "jetski"
     },
     {
       "id": "inspeccion-precompra-embarcaciones",
@@ -90,15 +162,18 @@
     }
   ],
   "categories": [
+    "Importación",
+    "Servicios",
     "Compra",
     "Venta",
-    "Importación",
     "Documentación",
     "Costos",
     "Seguros",
     "Logística",
     "Guías",
     "FAQ",
-    "Catálogo"
+    "Catálogo",
+    "Cotización",
+    "Casos"
   ]
 }
