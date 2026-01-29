@@ -36,7 +36,7 @@ class EmailService {
     private $websiteUrl = 'https://www.imporlan.cl';
     
     // Internal notification recipients
-    private $adminEmails = ['contacto@imporlan.cl'];
+    private $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
     
     // TEST Environment Configuration
     // When isTestEnvironment is true, ALL emails are redirected to testRecipient
