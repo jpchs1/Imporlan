@@ -495,15 +495,28 @@
     // Render single message
     function renderMessage(msg) {
         const isUser = msg.sender_role === 'user';
+        const isSystem = msg.sender_role === 'system';
         const initials = getInitials(msg.sender_name);
         const time = formatTime(msg.timestamp);
+
+        // System messages have a different layout (centered, no avatar)
+        if (isSystem) {
+            return `
+                <div class="chat-message system">
+                    <div class="chat-message-content">
+                        <div class="chat-message-bubble">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
+                        <span class="chat-message-time">${time}</span>
+                    </div>
+                </div>
+            `;
+        }
 
         return `
             <div class="chat-message ${msg.sender_role}">
                 <div class="chat-message-avatar">${initials}</div>
                 <div class="chat-message-content">
                     <span class="chat-message-sender">${escapeHtml(msg.sender_name)}</span>
-                    <div class="chat-message-bubble">${escapeHtml(msg.message)}</div>
+                    <div class="chat-message-bubble">${escapeHtml(msg.message).replace(/\n/g, '<br>')}</div>
                     <span class="chat-message-time">${time}</span>
                 </div>
             </div>
