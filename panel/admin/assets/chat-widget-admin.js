@@ -937,7 +937,11 @@
     }
 
     // Assign conversation to current admin
-    window.adminChatAssign = async function() {
+    window.adminChatAssign = async function(convId) {
+        // Support both modal mode (with convId parameter) and full interface mode
+        if (convId && !currentConversation) {
+            currentConversation = conversations.find(c => c.id === convId);
+        }
         if (!currentConversation) return;
 
         try {
@@ -946,19 +950,29 @@
             });
 
             const adminName = currentAdmin.role === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan';
-            currentConversation.assigned_to_id = currentAdmin.sub;
+            currentConversation.assigned_to_id = currentAdmin.sub || currentAdmin.id;
             currentConversation.assigned_to_role = currentAdmin.role;
             currentConversation.assigned_to_name = adminName;
 
-            renderMessagesPanel();
-            renderConversations();
+            // Check if we're in modal mode or full interface mode
+            if (chatContainer) {
+                renderMessagesPanel();
+                renderConversations();
+            } else {
+                renderMessagesPanelInModal();
+                renderConversationsInModal();
+            }
         } catch (error) {
             alert('Error al asignar conversacion: ' + error.message);
         }
     };
 
     // Close conversation
-    window.adminChatClose = async function() {
+    window.adminChatClose = async function(convId) {
+        // Support both modal mode (with convId parameter) and full interface mode
+        if (convId && !currentConversation) {
+            currentConversation = conversations.find(c => c.id === convId);
+        }
         if (!currentConversation) return;
 
         if (!confirm('¿Estas seguro de cerrar esta conversacion?')) return;
@@ -969,15 +983,26 @@
             });
 
             currentConversation.status = 'closed';
-            renderMessagesPanel();
-            renderConversations();
+            
+            // Check if we're in modal mode or full interface mode
+            if (chatContainer) {
+                renderMessagesPanel();
+                renderConversations();
+            } else {
+                renderMessagesPanelInModal();
+                renderConversationsInModal();
+            }
         } catch (error) {
             alert('Error al cerrar conversacion: ' + error.message);
         }
     };
 
     // Reopen conversation
-    window.adminChatReopen = async function() {
+    window.adminChatReopen = async function(convId) {
+        // Support both modal mode (with convId parameter) and full interface mode
+        if (convId && !currentConversation) {
+            currentConversation = conversations.find(c => c.id === convId);
+        }
         if (!currentConversation) return;
 
         try {
@@ -986,8 +1011,15 @@
             });
 
             currentConversation.status = 'open';
-            renderMessagesPanel();
-            renderConversations();
+            
+            // Check if we're in modal mode or full interface mode
+            if (chatContainer) {
+                renderMessagesPanel();
+                renderConversations();
+            } else {
+                renderMessagesPanelInModal();
+                renderConversationsInModal();
+            }
         } catch (error) {
             alert('Error al reabrir conversacion: ' + error.message);
         }
