@@ -1083,7 +1083,12 @@
                         }
                     });
                     
-                    renderMessagesPanel();
+                    // Check if we're in modal mode or full interface mode
+                    if (chatContainer) {
+                        renderMessagesPanel();
+                    } else {
+                        renderMessagesPanelInModal();
+                    }
                     
                     if (notificationSoundEnabled) {
                         playNotificationSound();
@@ -1101,7 +1106,12 @@
                         }
                     });
                     
-                    renderConversations();
+                    // Check if we're in modal mode or full interface mode
+                    if (chatContainer) {
+                        renderConversations();
+                    } else {
+                        renderConversationsInModal();
+                    }
                 }
 
                 fetchUnreadCount();
