@@ -326,32 +326,35 @@
         const messagesPanel = document.getElementById('admin-modal-messages-panel');
         if (!messagesPanel) return;
         
+        // Set flex layout for the messages panel to properly contain header, messages, and input
+        messagesPanel.style.cssText = 'flex: 1; display: flex; flex-direction: column; background: #f8fafc; overflow: hidden;';
+        
         messagesPanel.innerHTML = `
-            <div class="chat-messages-header">
-                <div class="chat-user-info">
-                    <div class="chat-user-avatar">${getInitials(currentConversation.user_email)}</div>
+            <div class="chat-messages-header" style="padding: 16px 20px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+                <div class="chat-user-info" style="display: flex; align-items: center; gap: 12px;">
+                    <div class="chat-user-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 600; font-size: 14px;">${getInitials(currentConversation.user_email)}</div>
                     <div>
-                        <div class="chat-user-name">${escapeHtml(currentConversation.user_email)}</div>
-                        <div class="chat-user-status">${currentConversation.status === 'open' ? 'Conversacion abierta' : 'Conversacion cerrada'}</div>
+                        <div class="chat-user-name" style="font-weight: 600; color: #0f172a; font-size: 14px;">${escapeHtml(currentConversation.user_email)}</div>
+                        <div class="chat-user-status" style="font-size: 12px; color: #64748b;">${currentConversation.status === 'open' ? 'Conversacion abierta' : 'Conversacion cerrada'}</div>
                     </div>
                 </div>
-                <div class="chat-actions">
+                <div class="chat-actions" style="display: flex; gap: 8px; align-items: center;">
                     ${!currentConversation.assigned_to_id ? 
-                        `<button class="chat-action-btn" onclick="window.adminChatAssign(${currentConversation.id})">Asignarme</button>` : 
-                        `<span class="chat-assigned-badge">Asignado a: ${currentConversation.assigned_to_name || 'Admin'}</span>`
+                        `<button class="chat-action-btn" onclick="window.adminChatAssign(${currentConversation.id})" style="padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff;">Asignarme</button>` : 
+                        `<span class="chat-assigned-badge" style="padding: 6px 12px; border-radius: 6px; font-size: 12px; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;">Asignado a: ${currentConversation.assigned_to_name || 'Admin'}</span>`
                     }
                     ${currentConversation.status === 'open' ? 
-                        `<button class="chat-action-btn secondary" onclick="window.adminChatClose(${currentConversation.id})">Cerrar</button>` :
-                        `<button class="chat-action-btn" onclick="window.adminChatReopen(${currentConversation.id})">Reabrir</button>`
+                        `<button class="chat-action-btn secondary" onclick="window.adminChatClose(${currentConversation.id})" style="padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b;">Cerrar</button>` :
+                        `<button class="chat-action-btn" onclick="window.adminChatReopen(${currentConversation.id})" style="padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); color: #ffffff;">Reabrir</button>`
                     }
                 </div>
             </div>
-            <div class="chat-messages-list" id="admin-modal-messages-list">
+            <div class="chat-messages-list" id="admin-modal-messages-list" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
                 ${messages.map(msg => renderMessage(msg)).join('')}
             </div>
-            <div class="chat-input-container">
-                <textarea id="admin-modal-message-input" placeholder="Escribe tu respuesta..." rows="2"></textarea>
-                <button class="chat-send-btn" onclick="window.ImporlanAdminChat.sendMsg()">
+            <div class="chat-input-container" style="padding: 16px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; align-items: flex-end; flex-shrink: 0;">
+                <textarea id="admin-modal-message-input" placeholder="Escribe tu respuesta..." rows="2" style="flex: 1; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 14px; resize: none; font-family: inherit; outline: none;"></textarea>
+                <button class="chat-send-btn" onclick="window.ImporlanAdminChat.sendMsg()" style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #22d3ee 0%, #0ea5e9 100%); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ffffff; flex-shrink: 0;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
