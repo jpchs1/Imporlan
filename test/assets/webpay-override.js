@@ -57,13 +57,39 @@
       
       showLoadingOverlay('Conectando con Webpay...');
       
+      // Get user email from localStorage or session
+      const userEmail = localStorage.getItem('userEmail') || 
+                        sessionStorage.getItem('userEmail') || 
+                        (window.currentUser && window.currentUser.email) ||
+                        '';
+      
       const sessionId = 'main_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       const buyOrder = 'ORD_' + Date.now();
+      
+      // Determine plan type from description or amount
+      let purchaseType = 'link';
+      let planName = '';
+      let planDays = 7;
+      
+      if (description.toLowerCase().includes('fragata') || parsedAmount >= 60000) {
+        purchaseType = 'plan';
+        planName = 'Plan Fragata';
+        planDays = 7;
+      } else if (description.toLowerCase().includes('capitan') || parsedAmount >= 25000) {
+        purchaseType = 'plan';
+        planName = 'Plan Capitan';
+        planDays = 14;
+      }
       
       const requestBody = {
         amount: parsedAmount,
         session_id: sessionId,
         buy_order: buyOrder,
+        user_email: userEmail,
+        plan_name: planName || description,
+        description: description,
+        type: purchaseType,
+        days: planDays,
         return_url: window.location.origin + '/api/webpay.php?action=callback'
       };
       
