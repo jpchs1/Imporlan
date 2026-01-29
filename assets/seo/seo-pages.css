@@ -87,8 +87,8 @@ a:hover {
 }
 
 .seo-header .container {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   max-width: 1280px;
 }
@@ -140,14 +140,20 @@ a:hover {
   margin-top: 2px;
 }
 
-/* Header left zone - Contacto link */
-.seo-header-left {
+/* Navigation menu matching HOME */
+.seo-nav {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  gap: 32px;
 }
 
-.seo-header-left a {
+.seo-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.seo-nav-links a {
   color: var(--text-gray);
   font-size: 0.9rem;
   font-weight: 500;
@@ -155,59 +161,48 @@ a:hover {
   text-decoration: none;
 }
 
-.seo-header-left a:hover {
+.seo-nav-links a:hover {
   color: var(--text-white);
 }
 
-/* Header center zone - Publicar button */
-.seo-header-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-publicar {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: var(--text-white) !important;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 10px 24px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  position: relative;
+/* Publicar button section matching HOME */
+.seo-nav-publicar {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
 }
 
-.btn-publicar:hover {
-  background: linear-gradient(135deg, #d97706, #b45309);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
-}
-
-.btn-publicar .btn-label {
+.btn-publicar {
+  background: transparent;
+  color: var(--text-white);
   font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  padding: 8px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: not-allowed;
+  opacity: 0.8;
+  transition: all 0.3s ease;
 }
 
-.btn-publicar .btn-sublabel {
-  font-size: 0.65rem;
-  font-weight: 500;
-  opacity: 0.9;
+.btn-publicar:disabled {
+  cursor: not-allowed;
+}
+
+.publicar-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #22d3ee;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-/* Header right zone - Iniciar Sesion link */
-.seo-header-right {
+/* Auth buttons matching HOME */
+.seo-nav-auth {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  gap: 12px;
 }
 
 .btn-login {
@@ -223,32 +218,6 @@ a:hover {
 .btn-login:hover {
   color: var(--text-white);
   background: rgba(255, 255, 255, 0.05);
-}
-
-/* Legacy styles for compatibility */
-.seo-nav {
-  display: none;
-}
-
-.seo-nav-links {
-  display: none;
-}
-
-.seo-nav-links a {
-  color: var(--text-gray);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.3s ease;
-  text-decoration: none;
-}
-
-.seo-nav-links a:hover {
-  color: var(--text-white);
-}
-
-/* Auth buttons matching HOME */
-.seo-nav-auth {
-  display: none;
 }
 
 .btn-register {
@@ -1191,34 +1160,6 @@ a:hover {
   
   .seo-nav {
     display: none;
-  }
-  
-  /* Mobile header layout - keep 3-zone grid but adjust sizes */
-  .seo-header .container {
-    grid-template-columns: auto 1fr auto;
-    gap: 8px;
-  }
-  
-  .seo-header-left a {
-    font-size: 0.8rem;
-    padding: 6px 10px;
-  }
-  
-  .btn-publicar {
-    padding: 8px 16px;
-  }
-  
-  .btn-publicar .btn-label {
-    font-size: 0.8rem;
-  }
-  
-  .btn-publicar .btn-sublabel {
-    font-size: 0.55rem;
-  }
-  
-  .btn-login {
-    font-size: 0.8rem;
-    padding: 6px 10px;
   }
   
   .benefits-section,
