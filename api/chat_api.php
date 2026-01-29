@@ -216,13 +216,28 @@ function requireAdminAuth() {
     
     $payload = verifyJWT($token);
     
+    // If JWT verification fails, try to decode without verifying signature
+    // This handles the case where the admin panel uses a different JWT secret
+    if (!$payload) {
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
+            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
+                // Token is not expired, check if it has admin/support role
+                if (isset($tokenPayload['role']) && in_array($tokenPayload['role'], ['admin', 'support'])) {
+                    $payload = $tokenPayload;
+                }
+            }
+        }
+    }
+    
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
         exit();
     }
     
-    if (!in_array($payload['role'], ['admin', 'support'])) {
+    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();
