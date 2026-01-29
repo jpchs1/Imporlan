@@ -174,68 +174,175 @@
     // Create chat modal
     function createChatModal() {
         chatModal = document.createElement('div');
-        chatModal.className = 'chat-modal-overlay';
+        chatModal.className = 'user-chat-modal-overlay';
+        chatModal.id = 'user-chat-modal-overlay';
+        // Apply inline styles to ensure modal displays correctly
+        chatModal.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(10, 22, 40, 0.5) !important;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001 !important;
+        `;
         chatModal.innerHTML = `
-            <div class="chat-modal">
-                <div class="chat-modal-header">
-                    <h2>Chat con Soporte</h2>
-                    <button class="chat-modal-close">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
+            <div class="user-chat-modal-content" id="user-chat-modal-content" style="position: absolute !important; width: 800px !important; height: 550px !important; min-width: 450px !important; min-height: 350px !important; max-width: none !important; max-height: none !important; background: #ffffff !important; border-radius: 16px !important; overflow: visible !important; display: flex !important; flex-direction: column !important; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3) !important;">
+                <div class="user-chat-modal-header" id="user-chat-modal-header" style="padding: 16px 20px !important; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; cursor: move !important; user-select: none !important; flex-shrink: 0 !important; border-radius: 16px 16px 0 0 !important;">
+                    <h2 style="margin: 0 !important; font-size: 18px !important; font-weight: 600 !important; color: #ffffff !important; pointer-events: none !important;">Chat con Soporte</h2>
+                    <button class="user-chat-close-btn" style="width: 32px !important; height: 32px !important; border-radius: 8px !important; background: rgba(255, 255, 255, 0.1) !important; border: none !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; color: #ffffff !important; font-size: 24px !important;">&times;</button>
                 </div>
-                <div class="chat-modal-body">
-                    <div class="chat-conversations-panel">
-                        <div class="chat-conversations-header">
-                            <h2>Mis Conversaciones</h2>
-                            <p class="subtitle">Historial de mensajes</p>
-                            <button class="chat-new-conversation-btn">
+                <div class="user-chat-modal-body" style="flex: 1 !important; display: flex !important; overflow: hidden !important; min-height: 0 !important;">
+                    <div class="user-chat-conversations-panel" style="width: 300px !important; min-width: 250px !important; max-width: 300px !important; border-right: 1px solid #e2e8f0 !important; display: flex !important; flex-direction: column !important; background: #ffffff !important; flex-shrink: 0 !important;">
+                        <div style="padding: 16px !important; border-bottom: 1px solid #e2e8f0 !important; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%) !important;">
+                            <h2 style="margin: 0 !important; font-size: 18px !important; font-weight: 600 !important; color: #ffffff !important;">Mis Conversaciones</h2>
+                            <p style="margin: 4px 0 0 0 !important; font-size: 13px !important; color: #94a3b8 !important;">Historial de mensajes</p>
+                            <button class="user-chat-new-conversation-btn" style="margin-top: 12px !important; width: 100% !important; padding: 10px 16px !important; background: #22d3ee !important; color: #0a1628 !important; border: none !important; border-radius: 8px !important; font-size: 14px !important; font-weight: 600 !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="12" y1="5" x2="12" y2="19"></line>
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                 </svg>
                                 Nueva Conversacion
                             </button>
-                            <div class="chat-sound-toggle">
+                            <div style="display: flex !important; align-items: center !important; gap: 8px !important; margin-top: 12px !important; background: rgba(255,255,255,0.1) !important; padding: 8px 12px !important; border-radius: 8px !important;">
                                 <input type="checkbox" id="chat-sound-toggle" ${notificationSoundEnabled ? 'checked' : ''}>
-                                <label for="chat-sound-toggle">Sonido de notificacion</label>
+                                <label for="chat-sound-toggle" style="font-size: 13px !important; color: #94a3b8 !important; cursor: pointer !important;">Sonido de notificacion</label>
                             </div>
                         </div>
-                        <div class="chat-conversations-list">
-                            <div class="chat-loading">
-                                <div class="chat-loading-spinner"></div>
-                            </div>
+                        <div class="chat-conversations-list" style="flex: 1 !important; overflow-y: auto !important; padding: 8px !important; min-height: 0 !important;">
+                            <div style="padding: 40px !important; text-align: center !important; color: #64748b !important;">Cargando...</div>
                         </div>
                     </div>
-                    <div class="chat-messages-panel">
-                        <div class="chat-empty-state">
-                            <div class="chat-empty-state-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                            </div>
-                            <h3>Selecciona una conversacion</h3>
-                            <p>O inicia una nueva para contactar con soporte</p>
+                    <div class="chat-messages-panel" style="flex: 1 !important; display: flex !important; flex-direction: column !important; background: #f8fafc !important; min-width: 0 !important; overflow: hidden !important;">
+                        <div style="flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; color: #94a3b8 !important;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <h3 style="margin: 16px 0 8px 0 !important; font-size: 18px !important; font-weight: 600 !important; color: #64748b !important;">Selecciona una conversacion</h3>
+                            <p style="margin: 0 !important; font-size: 14px !important;">O inicia una nueva para contactar con soporte</p>
                         </div>
                     </div>
                 </div>
+                <!-- Resize handles -->
+                <div class="user-resize-handle user-resize-handle-e" style="position: absolute !important; right: -4px !important; top: 60px !important; bottom: 20px !important; width: 8px !important; cursor: ew-resize !important; background: transparent !important; z-index: 10 !important;"></div>
+                <div class="user-resize-handle user-resize-handle-s" style="position: absolute !important; bottom: -4px !important; left: 20px !important; right: 20px !important; height: 8px !important; cursor: ns-resize !important; background: transparent !important; z-index: 10 !important;"></div>
+                <div class="user-resize-handle user-resize-handle-se" style="position: absolute !important; right: -4px !important; bottom: -4px !important; width: 16px !important; height: 16px !important; cursor: nwse-resize !important; background: transparent !important; z-index: 11 !important;"></div>
             </div>
         `;
 
-        // Event listeners
-        chatModal.querySelector('.chat-modal-close').addEventListener('click', closeChat);
-        chatModal.querySelector('.chat-modal-overlay')?.addEventListener('click', (e) => {
-            if (e.target === chatModal) closeChat();
+        document.body.appendChild(chatModal);
+        
+        // Get modal content element
+        const modalContent = chatModal.querySelector('#user-chat-modal-content');
+        const modalHeader = chatModal.querySelector('#user-chat-modal-header');
+        
+        // Center the modal initially
+        const centerModal = () => {
+            const width = modalContent.offsetWidth || 800;
+            const height = modalContent.offsetHeight || 550;
+            modalContent.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+            modalContent.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+        };
+        
+        // Drag functionality
+        let isDragging = false;
+        let dragStartX, dragStartY, modalStartX, modalStartY;
+        
+        modalHeader.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('user-chat-close-btn')) return;
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            const rect = modalContent.getBoundingClientRect();
+            modalStartX = rect.left;
+            modalStartY = rect.top;
+            modalContent.style.transition = 'none';
         });
-        chatModal.querySelector('.chat-new-conversation-btn').addEventListener('click', showNewConversationModal);
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - dragStartX;
+                const deltaY = e.clientY - dragStartY;
+                
+                let newX = modalStartX + deltaX;
+                let newY = modalStartY + deltaY;
+                
+                // Keep modal within viewport
+                const rect = modalContent.getBoundingClientRect();
+                newX = Math.max(0, Math.min(newX, window.innerWidth - rect.width));
+                newY = Math.max(0, Math.min(newY, window.innerHeight - rect.height));
+                
+                modalContent.style.left = `${newX}px`;
+                modalContent.style.top = `${newY}px`;
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            modalContent.style.transition = '';
+        });
+        
+        // Resize functionality
+        let isResizing = false;
+        let resizeDirection = '';
+        let resizeStartX, resizeStartY, startWidth, startHeight, startLeft, startTop;
+        
+        chatModal.querySelectorAll('.user-resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                resizeDirection = handle.classList.contains('user-resize-handle-e') ? 'e' : 
+                                  handle.classList.contains('user-resize-handle-s') ? 's' : 'se';
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                const rect = modalContent.getBoundingClientRect();
+                startWidth = rect.width;
+                startHeight = rect.height;
+                startLeft = rect.left;
+                startTop = rect.top;
+                modalContent.style.transition = 'none';
+            });
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isResizing) {
+                const deltaX = e.clientX - resizeStartX;
+                const deltaY = e.clientY - resizeStartY;
+                
+                if (resizeDirection === 'e' || resizeDirection === 'se') {
+                    const newWidth = Math.max(450, Math.min(startWidth + deltaX, window.innerWidth - startLeft - 20));
+                    modalContent.style.width = `${newWidth}px`;
+                }
+                if (resizeDirection === 's' || resizeDirection === 'se') {
+                    const newHeight = Math.max(350, Math.min(startHeight + deltaY, window.innerHeight - startTop - 20));
+                    modalContent.style.height = `${newHeight}px`;
+                }
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            modalContent.style.transition = '';
+        });
+        
+        // Close modal when clicking on backdrop
+        chatModal.addEventListener('click', (e) => {
+            if (e.target === chatModal) {
+                closeChat();
+            }
+        });
+
+        // Event listeners
+        chatModal.querySelector('.user-chat-close-btn').addEventListener('click', closeChat);
+        chatModal.querySelector('.user-chat-new-conversation-btn').addEventListener('click', showNewConversationModal);
         chatModal.querySelector('#chat-sound-toggle').addEventListener('change', (e) => {
             notificationSoundEnabled = e.target.checked;
             localStorage.setItem(NOTIFICATION_SOUND_ENABLED_KEY, notificationSoundEnabled);
         });
-
-        document.body.appendChild(chatModal);
 
         // Create new conversation modal
         createNewConversationModal();
@@ -321,14 +428,26 @@
 
     // Open chat modal
     async function openChat() {
-        chatModal.classList.add('active');
+        chatModal.style.display = 'flex';
+        
+        // Center the modal after it's visible
+        requestAnimationFrame(() => {
+            const modalContent = chatModal.querySelector('#user-chat-modal-content');
+            if (modalContent) {
+                const width = modalContent.offsetWidth || 800;
+                const height = modalContent.offsetHeight || 550;
+                modalContent.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+                modalContent.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+            }
+        });
+        
         await fetchConversations();
         startPolling();
     }
 
     // Close chat modal
     function closeChat() {
-        chatModal.classList.remove('active');
+        chatModal.style.display = 'none';
         stopPolling();
     }
 
