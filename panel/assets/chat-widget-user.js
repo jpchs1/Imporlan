@@ -9,8 +9,9 @@
 (function() {
     'use strict';
 
-    // Configuration
-    const API_BASE = '/api/chat_api.php';
+    // Configuration - Auto-detect TEST environment
+    const isTestEnv = window.location.pathname.startsWith('/test/');
+    const API_BASE = isTestEnv ? '/test/api/chat_api.php' : '/api/chat_api.php';
     const POLL_INTERVAL = 5000; // 5 seconds
     const NOTIFICATION_SOUND_ENABLED_KEY = 'imporlan_chat_sound_enabled';
 
@@ -28,15 +29,34 @@
     let chatModal = null;
     let floatingBtn = null;
 
-    // Initialize
+    // Initialize - with retry mechanism for auth detection
+    let initAttempts = 0;
+    const MAX_INIT_ATTEMPTS = 30; // Try for 30 seconds
+    let initTimer = null;
+
     function init() {
         // Get user from localStorage (set by the panel app)
         const userStr = localStorage.getItem('imporlan_user');
         const token = localStorage.getItem('imporlan_token');
         
         if (!userStr || !token) {
-            console.log('Chat: User not authenticated');
+            initAttempts++;
+            if (initAttempts < MAX_INIT_ATTEMPTS) {
+                // Retry after 1 second - React may not have saved auth yet
+                initTimer = setTimeout(init, 1000);
+                if (initAttempts === 1) {
+                    console.log('Chat: Waiting for authentication...');
+                }
+                return;
+            }
+            console.log('Chat: User not authenticated after ' + MAX_INIT_ATTEMPTS + ' attempts');
             return;
+        }
+
+        // Clear any pending retry
+        if (initTimer) {
+            clearTimeout(initTimer);
+            initTimer = null;
         }
 
         try {
@@ -44,6 +64,12 @@
             currentUser.token = token;
         } catch (e) {
             console.error('Chat: Failed to parse user data');
+            return;
+        }
+
+        // Prevent double initialization
+        if (floatingBtn) {
+            console.log('Chat: Already initialized');
             return;
         }
 
@@ -72,7 +98,8 @@
         const link = document.createElement('link');
         link.id = 'chat-widget-css';
         link.rel = 'stylesheet';
-        link.href = '/panel/assets/chat-widget.css';
+        // Auto-detect TEST environment for CSS path
+        link.href = isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css';
         document.head.appendChild(link);
     }
 
@@ -89,7 +116,9 @@
             method,
             headers: {
                 'Authorization': `Bearer ${currentUser.token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-User-Email': currentUser.email || '',
+                'X-User-Name': currentUser.name || ''
             }
         };
 
