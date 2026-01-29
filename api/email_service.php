@@ -370,7 +370,8 @@ BASE64;
             'failed_payment' => ['subject' => 'Pago fallido', 'template' => 'internal_failed_payment'],
             'critical_error' => ['subject' => 'Error critico del sistema', 'template' => 'internal_critical_error'],
             'support_request' => ['subject' => 'Solicitud de soporte/contacto', 'template' => 'internal_support_request'],
-            'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request']
+            'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
+            'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message']
         ];
         
         if (!isset($notifications[$type])) {
@@ -957,6 +958,8 @@ BASE64;
                 return $this->getInternalSupportRequestTemplate($data);
             case 'internal_quotation_request':
                 return $this->getInternalQuotationRequestTemplate($data);
+            case 'internal_new_chat_message':
+                return $this->getInternalNewChatMessageTemplate($data);
             default:
                 return '';
         }
@@ -1148,6 +1151,45 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Nueva cotizacion - Admin');
+    }
+    
+    private function getInternalNewChatMessageTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Nuevo mensaje') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Nuevo mensaje de chat
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles del mensaje', [
+                'Usuario' => $data['user_name'],
+                'Email' => $data['user_email'],
+                'Conversacion ID' => $data['conversation_id'],
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Mensaje</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br(htmlspecialchars($data['message'])) . '</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Responder en el Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['primary'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Responder a la brevedad para mantener la satisfaccion del cliente
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Nuevo mensaje de chat - Admin');
     }
     
     /**
