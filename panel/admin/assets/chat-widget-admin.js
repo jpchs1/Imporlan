@@ -203,58 +203,59 @@
     
     function createChatModal() {
         chatModal = document.createElement('div');
-        chatModal.id = 'admin-chat-modal';
-        chatModal.className = 'chat-modal';
+        chatModal.id = 'admin-chat-modal-overlay';
+        // Use unique class name to avoid CSS conflicts with user chat modal
+        chatModal.className = 'admin-chat-modal-overlay';
         // Apply inline styles to ensure modal displays correctly
         chatModal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(10, 22, 40, 0.5);
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(10, 22, 40, 0.5) !important;
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 10001;
+            z-index: 10001 !important;
         `;
         chatModal.innerHTML = `
-            <div class="chat-modal-content admin-chat-modal" id="chat-modal-content" style="position: absolute; width: 900px; height: 600px; min-width: 500px; min-height: 400px; background: #ffffff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3); resize: both;">
-                <div class="chat-modal-header" id="chat-modal-header" style="padding: 16px 20px; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%); display: flex; align-items: center; justify-content: space-between; cursor: move; user-select: none;">
-                    <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff; pointer-events: none;">Centro de Mensajes</h2>
-                    <button class="chat-close-btn" onclick="window.ImporlanAdminChat.closeModal()" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 24px;">&times;</button>
+            <div class="admin-chat-modal-content" id="chat-modal-content" style="position: absolute !important; width: 900px !important; height: 600px !important; min-width: 500px !important; min-height: 400px !important; max-width: none !important; max-height: none !important; background: #ffffff !important; border-radius: 16px !important; overflow: visible !important; display: flex !important; flex-direction: column !important; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3) !important;">
+                <div class="admin-chat-modal-header" id="chat-modal-header" style="padding: 16px 20px !important; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%) !important; display: flex !important; align-items: center !important; justify-content: space-between !important; cursor: move !important; user-select: none !important; flex-shrink: 0 !important;">
+                    <h2 style="margin: 0 !important; font-size: 18px !important; font-weight: 600 !important; color: #ffffff !important; pointer-events: none !important;">Centro de Mensajes</h2>
+                    <button class="admin-chat-close-btn" onclick="window.ImporlanAdminChat.closeModal()" style="width: 32px !important; height: 32px !important; border-radius: 8px !important; background: rgba(255, 255, 255, 0.1) !important; border: none !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; color: #ffffff !important; font-size: 24px !important;">&times;</button>
                 </div>
-                <div class="chat-modal-body" style="flex: 1; display: flex; overflow: hidden;">
-                    <div class="chat-conversations-panel" style="width: 350px; min-width: 280px; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #ffffff;">
-                        <div class="chat-conversations-header" style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
-                            <p class="subtitle" style="margin: 0 0 8px 0; font-size: 14px; color: #64748b;">Conversaciones de usuarios</p>
-                            <div class="chat-sound-toggle" style="display: flex; align-items: center; gap: 8px;">
+                <div class="admin-chat-modal-body" style="flex: 1 !important; display: flex !important; overflow: hidden !important; min-height: 0 !important;">
+                    <div class="admin-chat-conversations-panel" style="width: 350px !important; min-width: 280px !important; max-width: 350px !important; border-right: 1px solid #e2e8f0 !important; display: flex !important; flex-direction: column !important; background: #ffffff !important; flex-shrink: 0 !important;">
+                        <div style="padding: 16px !important; border-bottom: 1px solid #e2e8f0 !important;">
+                            <p style="margin: 0 0 8px 0 !important; font-size: 14px !important; color: #64748b !important;">Conversaciones de usuarios</p>
+                            <div style="display: flex !important; align-items: center !important; gap: 8px !important;">
                                 <input type="checkbox" id="admin-chat-sound-toggle-modal" ${notificationSoundEnabled ? 'checked' : ''}>
-                                <label for="admin-chat-sound-toggle-modal" style="font-size: 13px; color: #64748b;">Sonido</label>
+                                <label for="admin-chat-sound-toggle-modal" style="font-size: 13px !important; color: #64748b !important;">Sonido</label>
                             </div>
                         </div>
-                        <div class="chat-filters" style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="chat-filter-btn active" data-filter="status" data-value="all" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #0a1628; background: #0a1628; color: #ffffff;">Todas</button>
-                            <button class="chat-filter-btn" data-filter="status" data-value="open" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b;">Abiertas</button>
-                            <button class="chat-filter-btn" data-filter="assigned" data-value="unassigned" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b;">Sin asignar</button>
+                        <div style="padding: 12px !important; border-bottom: 1px solid #e2e8f0 !important; display: flex !important; gap: 8px !important; flex-wrap: wrap !important;">
+                            <button class="admin-chat-filter-btn active" data-filter="status" data-value="all" style="padding: 6px 12px !important; border-radius: 20px !important; font-size: 12px !important; font-weight: 500 !important; cursor: pointer !important; border: 1px solid #0a1628 !important; background: #0a1628 !important; color: #ffffff !important;">Todas</button>
+                            <button class="admin-chat-filter-btn" data-filter="status" data-value="open" style="padding: 6px 12px !important; border-radius: 20px !important; font-size: 12px !important; font-weight: 500 !important; cursor: pointer !important; border: 1px solid #e2e8f0 !important; background: #ffffff !important; color: #64748b !important;">Abiertas</button>
+                            <button class="admin-chat-filter-btn" data-filter="assigned" data-value="unassigned" style="padding: 6px 12px !important; border-radius: 20px !important; font-size: 12px !important; font-weight: 500 !important; cursor: pointer !important; border: 1px solid #e2e8f0 !important; background: #ffffff !important; color: #64748b !important;">Sin asignar</button>
                         </div>
-                        <div class="chat-conversations-list" id="admin-modal-conversations-list" style="flex: 1; overflow-y: auto; padding: 8px;">
-                            <div class="chat-loading" style="padding: 40px; text-align: center; color: #64748b;">Cargando conversaciones...</div>
+                        <div id="admin-modal-conversations-list" style="flex: 1 !important; overflow-y: auto !important; padding: 8px !important; min-height: 0 !important;">
+                            <div style="padding: 40px !important; text-align: center !important; color: #64748b !important;">Cargando conversaciones...</div>
                         </div>
                     </div>
-                    <div class="chat-messages-panel" id="admin-modal-messages-panel" style="flex: 1; display: flex; flex-direction: column; background: #f8fafc;">
-                        <div class="chat-empty-state" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8;">
+                    <div class="admin-chat-messages-panel" id="admin-modal-messages-panel" style="flex: 1 !important; display: flex !important; flex-direction: column !important; background: #f8fafc !important; min-width: 0 !important; overflow: hidden !important;">
+                        <div style="flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; color: #94a3b8 !important;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                             </svg>
-                            <p style="margin-top: 16px;">Selecciona una conversacion para ver los mensajes</p>
+                            <p style="margin-top: 16px !important;">Selecciona una conversacion para ver los mensajes</p>
                         </div>
                     </div>
                 </div>
                 <!-- Resize handles -->
-                <div class="resize-handle resize-handle-e" style="position: absolute; right: 0; top: 50px; bottom: 10px; width: 8px; cursor: e-resize;"></div>
-                <div class="resize-handle resize-handle-s" style="position: absolute; bottom: 0; left: 10px; right: 10px; height: 8px; cursor: s-resize;"></div>
-                <div class="resize-handle resize-handle-se" style="position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: se-resize;"></div>
+                <div class="admin-resize-handle admin-resize-handle-e" style="position: absolute !important; right: -4px !important; top: 60px !important; bottom: 20px !important; width: 8px !important; cursor: ew-resize !important; background: transparent !important; z-index: 10 !important;"></div>
+                <div class="admin-resize-handle admin-resize-handle-s" style="position: absolute !important; bottom: -4px !important; left: 20px !important; right: 20px !important; height: 8px !important; cursor: ns-resize !important; background: transparent !important; z-index: 10 !important;"></div>
+                <div class="admin-resize-handle admin-resize-handle-se" style="position: absolute !important; right: -4px !important; bottom: -4px !important; width: 16px !important; height: 16px !important; cursor: nwse-resize !important; background: transparent !important; z-index: 11 !important;"></div>
             </div>
         `;
         document.body.appendChild(chatModal);
@@ -313,13 +314,13 @@
         let resizeDirection = '';
         let resizeStartX, resizeStartY, startWidth, startHeight, startLeft, startTop;
         
-        chatModal.querySelectorAll('.resize-handle').forEach(handle => {
+        chatModal.querySelectorAll('.admin-resize-handle').forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 isResizing = true;
-                resizeDirection = handle.classList.contains('resize-handle-e') ? 'e' : 
-                                  handle.classList.contains('resize-handle-s') ? 's' : 'se';
+                resizeDirection = handle.classList.contains('admin-resize-handle-e') ? 'e' : 
+                                  handle.classList.contains('admin-resize-handle-s') ? 's' : 'se';
                 resizeStartX = e.clientX;
                 resizeStartY = e.clientY;
                 const rect = modalContent.getBoundingClientRect();
@@ -360,12 +361,12 @@
         });
         
         // Add event listeners for filters
-        chatModal.querySelectorAll('.chat-filter-btn').forEach(btn => {
+        chatModal.querySelectorAll('.admin-chat-filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const filter = btn.dataset.filter;
                 const value = btn.dataset.value;
                 
-                chatModal.querySelectorAll('.chat-filter-btn').forEach(b => b.classList.remove('active'));
+                chatModal.querySelectorAll('.admin-chat-filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 
                 currentFilter[filter] = value;
