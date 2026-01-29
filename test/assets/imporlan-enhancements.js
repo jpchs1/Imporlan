@@ -105,16 +105,227 @@
   
   // ============================================
   // 2.4 SOLICITAR COTIZACION FORM UPDATE
-  // Update form text and redirect to login
+  // Update form text, title, and add Google Cloud-style visual effects
   // ============================================
+  
+  function addGoogleCloudInputStyles() {
+    if (document.getElementById('google-cloud-input-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'google-cloud-input-styles';
+    style.textContent = `
+      /* Google Cloud AI Input Box Effect */
+      @keyframes borderGradientAnimation {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      
+      @keyframes glowPulse {
+        0%, 100% { box-shadow: 0 0 20px rgba(66, 133, 244, 0.15), 0 0 40px rgba(66, 133, 244, 0.1); }
+        50% { box-shadow: 0 0 30px rgba(66, 133, 244, 0.25), 0 0 60px rgba(66, 133, 244, 0.15); }
+      }
+      
+      .cotizacion-form-container {
+        position: relative;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+        border-radius: 24px;
+        padding: 32px;
+        margin: 20px 0;
+      }
+      
+      .cotizacion-form-container::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(90deg, #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
+        background-size: 300% 300%;
+        border-radius: 26px;
+        z-index: -1;
+        animation: borderGradientAnimation 4s ease infinite;
+      }
+      
+      .cotizacion-form-container::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%);
+        border-radius: 24px;
+        z-index: -1;
+      }
+      
+      .cotizacion-title-gcloud {
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+        text-align: center;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+      
+      .cotizacion-subtitle-gcloud {
+        font-size: 14px;
+        color: rgba(148, 163, 184, 0.9);
+        text-align: center;
+        margin-bottom: 24px;
+      }
+      
+      .gcloud-input-wrapper {
+        position: relative;
+        margin-bottom: 16px;
+      }
+      
+      .gcloud-input-wrapper::before {
+        content: '';
+        position: absolute;
+        top: -1px;
+        left: -1px;
+        right: -1px;
+        bottom: -1px;
+        background: linear-gradient(90deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3), rgba(251, 188, 5, 0.3), rgba(234, 67, 53, 0.3));
+        background-size: 200% 200%;
+        border-radius: 17px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+      }
+      
+      .gcloud-input-wrapper:focus-within::before {
+        opacity: 1;
+        animation: borderGradientAnimation 3s ease infinite;
+      }
+      
+      .gcloud-input-wrapper input,
+      .gcloud-input-wrapper textarea {
+        position: relative;
+        width: 100%;
+        padding: 16px 20px;
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(100, 116, 139, 0.3);
+        border-radius: 16px;
+        color: #ffffff;
+        font-size: 15px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1;
+      }
+      
+      .gcloud-input-wrapper input::placeholder,
+      .gcloud-input-wrapper textarea::placeholder {
+        color: rgba(148, 163, 184, 0.6);
+      }
+      
+      .gcloud-input-wrapper input:focus,
+      .gcloud-input-wrapper textarea:focus {
+        outline: none;
+        border-color: transparent;
+        background: rgba(30, 41, 59, 0.95);
+        box-shadow: 0 0 0 1px rgba(66, 133, 244, 0.5), 0 4px 20px rgba(66, 133, 244, 0.15);
+      }
+      
+      .gcloud-input-wrapper input:hover:not(:focus),
+      .gcloud-input-wrapper textarea:hover:not(:focus) {
+        border-color: rgba(100, 116, 139, 0.5);
+        background: rgba(30, 41, 59, 0.9);
+      }
+      
+      .gcloud-submit-btn {
+        width: 100%;
+        padding: 16px 24px;
+        background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+        border: none;
+        border-radius: 16px;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      
+      .gcloud-submit-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s ease;
+      }
+      
+      .gcloud-submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(66, 133, 244, 0.4);
+      }
+      
+      .gcloud-submit-btn:hover::before {
+        left: 100%;
+      }
+      
+      .gcloud-submit-btn:active {
+        transform: translateY(0);
+      }
+      
+      .gcloud-powered-by {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 16px;
+        font-size: 12px;
+        color: rgba(148, 163, 184, 0.6);
+      }
+      
+      .gcloud-powered-by svg {
+        width: 16px;
+        height: 16px;
+      }
+      
+      .gcloud-suggestion-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+        justify-content: center;
+      }
+      
+      .gcloud-chip {
+        padding: 8px 16px;
+        background: rgba(66, 133, 244, 0.1);
+        border: 1px solid rgba(66, 133, 244, 0.3);
+        border-radius: 20px;
+        color: #93c5fd;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      
+      .gcloud-chip:hover {
+        background: rgba(66, 133, 244, 0.2);
+        border-color: rgba(66, 133, 244, 0.5);
+        transform: translateY(-1px);
+      }
+    `;
+    document.head.appendChild(style);
+  }
   
   function updateCotizacionForm() {
     // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
     
+    // Add Google Cloud input styles
+    addGoogleCloudInputStyles();
+    
     const checkInterval = setInterval(function() {
       // Find the form section
-      const formHeading = document.querySelector('h3');
       const forms = document.querySelectorAll('form');
       
       forms.forEach(function(form) {
@@ -123,15 +334,72 @@
         if (submitBtn && submitBtn.textContent.includes('Cotizacion')) {
           clearInterval(checkInterval);
           
-          // Add info text before the form
+          // Check if already enhanced
+          if (form.parentElement.querySelector('.cotizacion-form-container')) return;
+          
+          // Find and update the form title
+          const formSection = form.closest('section') || form.parentElement;
+          const headings = formSection.querySelectorAll('h2, h3');
+          headings.forEach(function(heading) {
+            if (heading.textContent.includes('Solicitar Cotizacion') || heading.textContent.includes('Cotizacion')) {
+              heading.textContent = 'Solicitar Cotizacion por Links Online';
+              heading.className = 'cotizacion-title-gcloud';
+            }
+          });
+          
+          // Create container with Google Cloud style
+          const container = document.createElement('div');
+          container.className = 'cotizacion-form-container';
+          
+          // Add title if not found
+          if (!formSection.querySelector('.cotizacion-title-gcloud')) {
+            const title = document.createElement('h3');
+            title.className = 'cotizacion-title-gcloud';
+            title.textContent = 'Solicitar Cotizacion por Links Online';
+            container.appendChild(title);
+          }
+          
+          // Add subtitle
+          const subtitle = document.createElement('p');
+          subtitle.className = 'cotizacion-subtitle-gcloud';
+          subtitle.textContent = 'Pega los links de las embarcaciones que te interesan';
+          container.appendChild(subtitle);
+          
+          // Wrap existing inputs with Google Cloud style
+          const inputs = form.querySelectorAll('input, textarea');
+          inputs.forEach(function(input) {
+            if (!input.closest('.gcloud-input-wrapper')) {
+              const wrapper = document.createElement('div');
+              wrapper.className = 'gcloud-input-wrapper';
+              input.parentNode.insertBefore(wrapper, input);
+              wrapper.appendChild(input);
+            }
+          });
+          
+          // Style the submit button
+          if (submitBtn) {
+            submitBtn.classList.add('gcloud-submit-btn');
+          }
+          
+          // Add info text
           const existingInfo = form.parentElement.querySelector('.cotizacion-info-text');
           if (!existingInfo) {
             const infoDiv = document.createElement('div');
             infoDiv.className = 'cotizacion-info-text';
-            infoDiv.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #93c5fd;';
+            infoDiv.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #93c5fd; text-align: center;';
             infoDiv.innerHTML = 'Para solicitar una cotizacion online debes <a href="/panel/" style="color: #60a5fa; text-decoration: underline;">registrarte</a> e ingresar al Cotizador Online del Panel de Usuario.';
-            form.parentElement.insertBefore(infoDiv, form);
+            form.insertBefore(infoDiv, form.firstChild);
           }
+          
+          // Add powered by text
+          const poweredBy = document.createElement('div');
+          poweredBy.className = 'gcloud-powered-by';
+          poweredBy.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Cotizador Imporlan';
+          form.appendChild(poweredBy);
+          
+          // Wrap form in container
+          form.parentNode.insertBefore(container, form);
+          container.appendChild(form);
           
           // Save links before redirecting
           form.addEventListener('submit', function(e) {

@@ -1133,7 +1133,7 @@ BASE64;
             </div>
             
             <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
-                Nueva solicitud de cotizacion
+                Solicitar Cotizacion por Links Online
             </h2>
             
             ' . $this->getInfoCard('Datos del solicitante', [
