@@ -1,0 +1,788 @@
+/**
+ * Chat Widget - Admin Panel
+ * Imporlan Admin Panel Chat System
+ * 
+ * This widget provides chat functionality for admin/support staff
+ * to manage and respond to user conversations.
+ */
+
+(function() {
+    'use strict';
+
+    // Configuration
+    const API_BASE = '/api/chat_api.php';
+    const POLL_INTERVAL = 3000; // 3 seconds for admin (faster updates)
+    const NOTIFICATION_SOUND_ENABLED_KEY = 'imporlan_admin_chat_sound_enabled';
+
+    // State
+    let currentAdmin = null;
+    let conversations = [];
+    let currentConversation = null;
+    let messages = [];
+    let userDetails = null;
+    let pollTimer = null;
+    let lastPollTime = null;
+    let unreadCount = 0;
+    let notificationSoundEnabled = localStorage.getItem(NOTIFICATION_SOUND_ENABLED_KEY) !== 'false';
+    let currentFilter = { status: 'all', assigned: 'all' };
+
+    // DOM Elements
+    let chatContainer = null;
+
+    // Initialize
+    function init() {
+        // Get admin from localStorage (set by the admin panel app)
+        const userStr = localStorage.getItem('imporlan_admin_user');
+        const token = localStorage.getItem('imporlan_admin_token');
+        
+        if (!userStr || !token) {
+            console.log('Chat: Admin not authenticated');
+            return;
+        }
+
+        try {
+            currentAdmin = JSON.parse(userStr);
+            currentAdmin.token = token;
+        } catch (e) {
+            console.error('Chat: Failed to parse admin data');
+            return;
+        }
+
+        // Check if we're on the chat page or need to show badge
+        if (window.location.hash === '#/chat' || window.location.pathname.includes('/chat')) {
+            loadCSS();
+            createChatInterface();
+            fetchConversations();
+            startPolling();
+        } else {
+            // Just update unread badge in navigation
+            fetchUnreadCount();
+            setInterval(fetchUnreadCount, 30000);
+        }
+
+        // Listen for hash changes
+        window.addEventListener('hashchange', handleRouteChange);
+
+        console.log('Admin chat widget initialized for:', currentAdmin.email);
+    }
+
+    // Handle route changes
+    function handleRouteChange() {
+        if (window.location.hash === '#/chat') {
+            if (!chatContainer) {
+                loadCSS();
+                createChatInterface();
+            }
+            fetchConversations();
+            startPolling();
+        } else {
+            stopPolling();
+        }
+    }
+
+    // Load CSS
+    function loadCSS() {
+        if (document.getElementById('chat-widget-css')) return;
+        
+        const link = document.createElement('link');
+        link.id = 'chat-widget-css';
+        link.rel = 'stylesheet';
+        link.href = '/panel/assets/chat-widget.css';
+        document.head.appendChild(link);
+    }
+
+    // API Helper
+    async function apiCall(action, method = 'GET', body = null, params = {}) {
+        const url = new URL(API_BASE, window.location.origin);
+        url.searchParams.set('action', action);
+        
+        for (const [key, value] of Object.entries(params)) {
+            url.searchParams.set(key, value);
+        }
+
+        const options = {
+            method,
+            headers: {
+                'Authorization': `Bearer ${currentAdmin.token}`,
+                'Content-Type': 'application/json'
+            }
+        };
+
+        if (body && method !== 'GET') {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url.toString(), options);
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: 'Request failed' }));
+            throw new Error(error.detail || error.error || 'Request failed');
+        }
+
+        return response.json();
+    }
+
+    // Create chat interface
+    function createChatInterface() {
+        // Find or create container
+        const mainContent = document.querySelector('main') || document.querySelector('.main-content') || document.body;
+        
+        chatContainer = document.createElement('div');
+        chatContainer.id = 'admin-chat-container';
+        chatContainer.className = 'imporlan-chat-container';
+        chatContainer.innerHTML = `
+            <div class="chat-conversations-panel">
+                <div class="chat-conversations-header">
+                    <h2>Conversaciones</h2>
+                    <p class="subtitle">Centro de mensajes</p>
+                    <div class="chat-sound-toggle">
+                        <input type="checkbox" id="admin-chat-sound-toggle" ${notificationSoundEnabled ? 'checked' : ''}>
+                        <label for="admin-chat-sound-toggle">Sonido de notificacion</label>
+                    </div>
+                </div>
+                <div class="chat-filters">
+                    <button class="chat-filter-btn active" data-filter="status" data-value="all">Todas</button>
+                    <button class="chat-filter-btn" data-filter="status" data-value="open">Abiertas</button>
+                    <button class="chat-filter-btn" data-filter="status" data-value="closed">Cerradas</button>
+                    <button class="chat-filter-btn" data-filter="assigned" data-value="me">Mis chats</button>
+                    <button class="chat-filter-btn" data-filter="assigned" data-value="unassigned">Sin asignar</button>
+                </div>
+                <div class="chat-conversations-list">
+                    <div class="chat-loading">
+                        <div class="chat-loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-messages-panel">
+                <div class="chat-empty-state">
+                    <div class="chat-empty-state-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3>Selecciona una conversacion</h3>
+                    <p>Elige una conversacion de la lista para ver los mensajes</p>
+                </div>
+            </div>
+            <div class="chat-details-panel">
+                <div class="chat-details-header">
+                    <h3>Detalles del Usuario</h3>
+                </div>
+                <div class="chat-details-content">
+                    <div class="chat-empty-state" style="padding: 40px 20px;">
+                        <p>Selecciona una conversacion para ver los detalles del usuario</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        chatContainer.querySelector('#admin-chat-sound-toggle').addEventListener('change', (e) => {
+            notificationSoundEnabled = e.target.checked;
+            localStorage.setItem(NOTIFICATION_SOUND_ENABLED_KEY, notificationSoundEnabled);
+        });
+
+        chatContainer.querySelectorAll('.chat-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filter = btn.dataset.filter;
+                const value = btn.dataset.value;
+                
+                // Update filter state
+                if (filter === 'status') {
+                    currentFilter.status = value;
+                    // Reset status buttons
+                    chatContainer.querySelectorAll('.chat-filter-btn[data-filter="status"]').forEach(b => b.classList.remove('active'));
+                } else if (filter === 'assigned') {
+                    currentFilter.assigned = currentFilter.assigned === value ? 'all' : value;
+                    // Reset assigned buttons
+                    chatContainer.querySelectorAll('.chat-filter-btn[data-filter="assigned"]').forEach(b => b.classList.remove('active'));
+                }
+                
+                btn.classList.add('active');
+                fetchConversations();
+            });
+        });
+
+        // Insert into page
+        mainContent.innerHTML = '';
+        mainContent.appendChild(chatContainer);
+    }
+
+    // Fetch conversations
+    async function fetchConversations() {
+        const listContainer = chatContainer.querySelector('.chat-conversations-list');
+        
+        try {
+            const result = await apiCall('admin_conversations', 'GET', null, {
+                status: currentFilter.status,
+                assigned: currentFilter.assigned
+            });
+            conversations = result.conversations || [];
+            renderConversations();
+        } catch (error) {
+            listContainer.innerHTML = `
+                <div class="chat-empty-state">
+                    <p>Error al cargar conversaciones</p>
+                </div>
+            `;
+        }
+    }
+
+    // Render conversations list
+    function renderConversations() {
+        const listContainer = chatContainer.querySelector('.chat-conversations-list');
+        
+        if (conversations.length === 0) {
+            listContainer.innerHTML = `
+                <div class="chat-empty-state" style="padding: 40px 20px;">
+                    <p>No hay conversaciones</p>
+                    <p style="font-size: 12px; margin-top: 8px;">Las conversaciones de usuarios apareceran aqui</p>
+                </div>
+            `;
+            return;
+        }
+
+        listContainer.innerHTML = conversations.map(conv => {
+            const initials = getInitials(conv.user_name || conv.user_email);
+            const isActive = currentConversation && currentConversation.id === conv.id;
+            const timeAgo = formatTimeAgo(conv.last_message_time || conv.updated_at);
+            
+            return `
+                <div class="chat-conversation-item ${isActive ? 'active' : ''}" data-id="${conv.id}">
+                    <div class="chat-conversation-avatar">${initials}</div>
+                    <div class="chat-conversation-content">
+                        <div class="chat-conversation-header">
+                            <span class="chat-conversation-name">${escapeHtml(conv.user_name || conv.user_email)}</span>
+                            <span class="chat-conversation-time">${timeAgo}</span>
+                        </div>
+                        <div class="chat-conversation-preview">${escapeHtml(conv.last_message || 'Sin mensajes')}</div>
+                        <div class="chat-conversation-meta">
+                            ${conv.unread_count > 0 ? `<span class="chat-unread-badge">${conv.unread_count}</span>` : ''}
+                            ${conv.assigned_to_name ? `<span class="chat-assigned-badge ${conv.assigned_to_role}">${conv.assigned_to_name}</span>` : '<span class="chat-assigned-badge" style="background: #fef3c7; color: #92400e;">Sin asignar</span>'}
+                            <span class="chat-status-badge ${conv.status}">${conv.status === 'open' ? 'Abierta' : 'Cerrada'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers
+        listContainer.querySelectorAll('.chat-conversation-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const id = parseInt(item.dataset.id);
+                selectConversation(id);
+            });
+        });
+    }
+
+    // Select conversation
+    async function selectConversation(id) {
+        currentConversation = conversations.find(c => c.id === id);
+        
+        if (!currentConversation) return;
+
+        // Update active state in list
+        chatContainer.querySelectorAll('.chat-conversation-item').forEach(item => {
+            item.classList.toggle('active', parseInt(item.dataset.id) === id);
+        });
+
+        // Show loading in messages panel
+        const messagesPanel = chatContainer.querySelector('.chat-messages-panel');
+        messagesPanel.innerHTML = `
+            <div class="chat-loading" style="flex: 1;">
+                <div class="chat-loading-spinner"></div>
+            </div>
+        `;
+
+        // Show loading in details panel
+        const detailsPanel = chatContainer.querySelector('.chat-details-content');
+        detailsPanel.innerHTML = `
+            <div class="chat-loading">
+                <div class="chat-loading-spinner"></div>
+            </div>
+        `;
+
+        try {
+            // Fetch messages and user details in parallel
+            const [messagesResult, detailsResult] = await Promise.all([
+                apiCall('admin_messages', 'GET', null, { conversation_id: id }),
+                apiCall('admin_user_details', 'GET', null, { email: currentConversation.user_email })
+            ]);
+
+            messages = messagesResult.messages || [];
+            userDetails = detailsResult;
+            
+            renderMessagesPanel();
+            renderDetailsPanel();
+            
+            // Update unread count in conversation list
+            currentConversation.unread_count = 0;
+            renderConversations();
+            fetchUnreadCount();
+        } catch (error) {
+            messagesPanel.innerHTML = `
+                <div class="chat-empty-state">
+                    <p>Error al cargar mensajes</p>
+                </div>
+            `;
+        }
+    }
+
+    // Render messages panel
+    function renderMessagesPanel() {
+        const messagesPanel = chatContainer.querySelector('.chat-messages-panel');
+        const isClosed = currentConversation.status === 'closed';
+        const isAssignedToMe = currentConversation.assigned_to_id == currentAdmin.sub;
+        
+        messagesPanel.innerHTML = `
+            <div class="chat-messages-header">
+                <div class="chat-messages-header-info">
+                    <div class="chat-messages-header-avatar">${getInitials(currentConversation.user_name || currentConversation.user_email)}</div>
+                    <div class="chat-messages-header-details">
+                        <h3>${escapeHtml(currentConversation.user_name || currentConversation.user_email)}</h3>
+                        <p>${currentConversation.user_email}</p>
+                    </div>
+                </div>
+                <div class="chat-messages-header-actions">
+                    ${!currentConversation.assigned_to_id ? `
+                        <button class="chat-action-btn primary" onclick="window.adminChatAssign()">
+                            Asignarme
+                        </button>
+                    ` : ''}
+                    ${isClosed ? `
+                        <button class="chat-action-btn" onclick="window.adminChatReopen()">
+                            Reabrir
+                        </button>
+                    ` : `
+                        <button class="chat-action-btn danger" onclick="window.adminChatClose()">
+                            Cerrar
+                        </button>
+                    `}
+                </div>
+            </div>
+            <div class="chat-messages-container">
+                ${messages.length === 0 ? `
+                    <div class="chat-empty-state">
+                        <p>No hay mensajes en esta conversacion</p>
+                    </div>
+                ` : messages.map(msg => renderMessage(msg)).join('')}
+            </div>
+            ${!isClosed ? `
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <textarea placeholder="Escribe una respuesta..." rows="1"></textarea>
+                        <button class="chat-send-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            ` : `
+                <div class="chat-input-container" style="text-align: center; color: #64748b; font-size: 14px;">
+                    Esta conversacion esta cerrada
+                </div>
+            `}
+        `;
+
+        // Scroll to bottom
+        const container = messagesPanel.querySelector('.chat-messages-container');
+        container.scrollTop = container.scrollHeight;
+
+        // Add input handlers
+        if (!isClosed) {
+            const textarea = messagesPanel.querySelector('textarea');
+            const sendBtn = messagesPanel.querySelector('.chat-send-btn');
+
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            textarea.addEventListener('input', () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            });
+
+            sendBtn.addEventListener('click', sendMessage);
+        }
+    }
+
+    // Render single message
+    function renderMessage(msg) {
+        const initials = getInitials(msg.sender_name);
+        const time = formatTime(msg.timestamp);
+
+        return `
+            <div class="chat-message ${msg.sender_role}">
+                <div class="chat-message-avatar">${initials}</div>
+                <div class="chat-message-content">
+                    <span class="chat-message-sender">${escapeHtml(msg.sender_name)}</span>
+                    <div class="chat-message-bubble">${escapeHtml(msg.message)}</div>
+                    <span class="chat-message-time">${time}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    // Render details panel
+    function renderDetailsPanel() {
+        const detailsContent = chatContainer.querySelector('.chat-details-content');
+        
+        if (!userDetails) {
+            detailsContent.innerHTML = `
+                <div class="chat-empty-state" style="padding: 40px 20px;">
+                    <p>No se encontraron detalles del usuario</p>
+                </div>
+            `;
+            return;
+        }
+
+        const purchases = userDetails.purchases || [];
+        
+        detailsContent.innerHTML = `
+            <div class="chat-details-section">
+                <h4>Informacion del Usuario</h4>
+                <div class="chat-details-card">
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Email</span>
+                        <span class="chat-details-value">${escapeHtml(userDetails.email)}</span>
+                    </div>
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Nombre</span>
+                        <span class="chat-details-value">${escapeHtml(userDetails.name || 'No especificado')}</span>
+                    </div>
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Total compras</span>
+                        <span class="chat-details-value">${userDetails.total_purchases || 0}</span>
+                    </div>
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Total gastado</span>
+                        <span class="chat-details-value">$${formatNumber(userDetails.total_spent || 0)} CLP</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-details-section">
+                <h4>Estadisticas de Chat</h4>
+                <div class="chat-details-card">
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Conversaciones totales</span>
+                        <span class="chat-details-value">${userDetails.conversation_stats?.total_conversations || 0}</span>
+                    </div>
+                    <div class="chat-details-row">
+                        <span class="chat-details-label">Conversaciones abiertas</span>
+                        <span class="chat-details-value">${userDetails.conversation_stats?.open_conversations || 0}</span>
+                    </div>
+                </div>
+            </div>
+            
+            ${purchases.length > 0 ? `
+                <div class="chat-details-section">
+                    <h4>Historial de Compras</h4>
+                    ${purchases.slice(0, 5).map(p => `
+                        <div class="chat-purchase-item">
+                            <div class="chat-purchase-name">${escapeHtml(p.plan_name || p.description || 'Compra')}</div>
+                            <div class="chat-purchase-details">
+                                ${p.payment_method || 'N/A'} - ${formatDate(p.timestamp || p.date)}
+                            </div>
+                            <div class="chat-purchase-amount">$${formatNumber(p.amount_clp || p.amount || 0)} CLP</div>
+                            <span class="chat-status-badge ${p.status === 'completed' || p.status === 'paid' || p.status === 'active' ? 'open' : 'closed'}">${p.status}</span>
+                        </div>
+                    `).join('')}
+                    ${purchases.length > 5 ? `
+                        <p style="text-align: center; font-size: 12px; color: #64748b; margin-top: 12px;">
+                            +${purchases.length - 5} compras mas
+                        </p>
+                    ` : ''}
+                </div>
+            ` : `
+                <div class="chat-details-section">
+                    <h4>Historial de Compras</h4>
+                    <div class="chat-details-card">
+                        <p style="text-align: center; color: #64748b; font-size: 13px;">
+                            Sin compras registradas
+                        </p>
+                    </div>
+                </div>
+            `}
+        `;
+    }
+
+    // Send message
+    async function sendMessage() {
+        const textarea = chatContainer.querySelector('.chat-messages-panel textarea');
+        const sendBtn = chatContainer.querySelector('.chat-send-btn');
+        const message = textarea.value.trim();
+
+        if (!message || !currentConversation) return;
+
+        textarea.disabled = true;
+        sendBtn.disabled = true;
+
+        try {
+            await apiCall('admin_send', 'POST', {
+                conversation_id: currentConversation.id,
+                message
+            });
+
+            textarea.value = '';
+            textarea.style.height = 'auto';
+
+            // Add message to local state and re-render
+            const adminName = currentAdmin.role === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan';
+            messages.push({
+                id: Date.now(),
+                conversation_id: currentConversation.id,
+                sender_id: currentAdmin.sub,
+                sender_role: currentAdmin.role,
+                sender_name: adminName,
+                message,
+                timestamp: new Date().toISOString(),
+                read_status: 0
+            });
+
+            renderMessagesPanel();
+            
+            // Update conversation in list
+            currentConversation.last_message = message;
+            currentConversation.updated_at = new Date().toISOString();
+            
+            // Auto-assign if not assigned
+            if (!currentConversation.assigned_to_id) {
+                currentConversation.assigned_to_id = currentAdmin.sub;
+                currentConversation.assigned_to_role = currentAdmin.role;
+                currentConversation.assigned_to_name = adminName;
+            }
+            
+            renderConversations();
+        } catch (error) {
+            alert('Error al enviar mensaje: ' + error.message);
+        } finally {
+            textarea.disabled = false;
+            sendBtn.disabled = false;
+            textarea.focus();
+        }
+    }
+
+    // Assign conversation to current admin
+    window.adminChatAssign = async function() {
+        if (!currentConversation) return;
+
+        try {
+            await apiCall('admin_assign', 'POST', {
+                conversation_id: currentConversation.id
+            });
+
+            const adminName = currentAdmin.role === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan';
+            currentConversation.assigned_to_id = currentAdmin.sub;
+            currentConversation.assigned_to_role = currentAdmin.role;
+            currentConversation.assigned_to_name = adminName;
+
+            renderMessagesPanel();
+            renderConversations();
+        } catch (error) {
+            alert('Error al asignar conversacion: ' + error.message);
+        }
+    };
+
+    // Close conversation
+    window.adminChatClose = async function() {
+        if (!currentConversation) return;
+
+        if (!confirm('¿Estas seguro de cerrar esta conversacion?')) return;
+
+        try {
+            await apiCall('admin_close', 'POST', {
+                conversation_id: currentConversation.id
+            });
+
+            currentConversation.status = 'closed';
+            renderMessagesPanel();
+            renderConversations();
+        } catch (error) {
+            alert('Error al cerrar conversacion: ' + error.message);
+        }
+    };
+
+    // Reopen conversation
+    window.adminChatReopen = async function() {
+        if (!currentConversation) return;
+
+        try {
+            await apiCall('admin_reopen', 'POST', {
+                conversation_id: currentConversation.id
+            });
+
+            currentConversation.status = 'open';
+            renderMessagesPanel();
+            renderConversations();
+        } catch (error) {
+            alert('Error al reabrir conversacion: ' + error.message);
+        }
+    };
+
+    // Fetch unread count
+    async function fetchUnreadCount() {
+        try {
+            const result = await apiCall('admin_unread_count');
+            const newCount = result.unread_count || 0;
+            
+            if (newCount > unreadCount && notificationSoundEnabled) {
+                playNotificationSound();
+            }
+            
+            unreadCount = newCount;
+            updateNavBadge();
+        } catch (error) {
+            console.error('Failed to fetch unread count:', error);
+        }
+    }
+
+    // Update navigation badge
+    function updateNavBadge() {
+        // Try to find and update any chat navigation badge
+        const navBadge = document.querySelector('.chat-nav-badge');
+        if (navBadge) {
+            if (unreadCount > 0) {
+                navBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                navBadge.style.display = 'inline-flex';
+            } else {
+                navBadge.style.display = 'none';
+            }
+        }
+    }
+
+    // Start polling
+    function startPolling() {
+        stopPolling();
+        lastPollTime = new Date().toISOString();
+        
+        pollTimer = setInterval(async () => {
+            try {
+                const params = { last_check: lastPollTime };
+                if (currentConversation) {
+                    params.conversation_id = currentConversation.id;
+                }
+                
+                const result = await apiCall('poll', 'GET', null, params);
+
+                lastPollTime = result.server_time;
+
+                // Handle new messages
+                if (result.new_messages && result.new_messages.length > 0 && currentConversation) {
+                    result.new_messages.forEach(msg => {
+                        if (!messages.find(m => m.id === msg.id)) {
+                            messages.push(msg);
+                        }
+                    });
+                    
+                    renderMessagesPanel();
+                    
+                    if (notificationSoundEnabled) {
+                        playNotificationSound();
+                    }
+                }
+
+                // Handle updated conversations
+                if (result.updated_conversations && result.updated_conversations.length > 0) {
+                    result.updated_conversations.forEach(updatedConv => {
+                        const index = conversations.findIndex(c => c.id === updatedConv.id);
+                        if (index >= 0) {
+                            conversations[index] = updatedConv;
+                        } else {
+                            conversations.unshift(updatedConv);
+                        }
+                    });
+                    
+                    renderConversations();
+                }
+
+                fetchUnreadCount();
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+        }, POLL_INTERVAL);
+    }
+
+    // Stop polling
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    // Play notification sound
+    function playNotificationSound() {
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQoAQqTi8NiPJwBBqOT03pMjAD2n4/TekiQAPqjk9N6SIwA9p+P03pIkAD6o5PTekiMAO6Xh8tyQIgA7peHy3JAiADul4fLckCIAO6Xh8tyQIgA7peHy3JAiADul4fLckCIAO6Xh8tyQIgA7peHy3JAiADul4fLckCIAO6Xh8tyQIgA=');
+            audio.volume = 0.5;
+            audio.play().catch(() => {});
+        } catch (e) {}
+    }
+
+    // Utility functions
+    function getInitials(name) {
+        if (!name) return '?';
+        return name.split(/[\s@]/).filter(Boolean).slice(0, 2).map(n => n[0].toUpperCase()).join('');
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatTime(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function formatTimeAgo(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return 'Ahora';
+        if (minutes < 60) return `${minutes}m`;
+        if (hours < 24) return `${hours}h`;
+        if (days < 7) return `${days}d`;
+        
+        return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
+    }
+
+    function formatNumber(num) {
+        return new Intl.NumberFormat('es-CL').format(num);
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Export for external access
+    window.ImporlanAdminChat = {
+        init,
+        fetchConversations,
+        fetchUnreadCount
+    };
+})();
