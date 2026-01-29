@@ -63,7 +63,7 @@ function base64UrlDecode($data) {
 }
 
 function createJWT($payload) {
-    $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
+    $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
     $payload['exp'] = time() + (7 * 24 * 60 * 60);
     $payload['iat'] = time();
     

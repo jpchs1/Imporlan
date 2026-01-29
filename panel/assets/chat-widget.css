@@ -1014,3 +1014,87 @@
     transform: none;
     box-shadow: none;
 }
+
+/* Admin Chat Modal (standalone overlay) */
+#admin-chat-modal.chat-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(10, 22, 40, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+#admin-chat-modal .chat-modal-content {
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    max-height: 700px;
+    background: #ffffff;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3);
+}
+
+#admin-chat-modal .chat-modal-content.admin-chat-modal {
+    max-width: 1000px;
+}
+
+#admin-chat-modal .chat-modal-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#admin-chat-modal .chat-modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+#admin-chat-modal .chat-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #ffffff;
+    font-size: 24px;
+    line-height: 1;
+}
+
+#admin-chat-modal .chat-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#admin-chat-modal .chat-modal-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+#admin-chat-modal .chat-conversations-panel {
+    width: 350px;
+    min-width: 350px;
+    border-right: 1px solid #e2e8f0;
+}
+
+#admin-chat-modal .chat-messages-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
