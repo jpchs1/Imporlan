@@ -290,6 +290,7 @@ function initDatabase() {
                 assigned_to_role ENUM('admin', 'support') DEFAULT NULL,
                 assigned_to_name VARCHAR(255) DEFAULT NULL,
                 status ENUM('open', 'closed') DEFAULT 'open',
+                auto_messages_sent TEXT DEFAULT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_user_email (user_email),
@@ -298,13 +299,13 @@ function initDatabase() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         
-        // Create chat_messages table
+        // Create chat_messages table with 'system' role support
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 conversation_id INT NOT NULL,
                 sender_id INT NOT NULL,
-                sender_role ENUM('user', 'admin', 'support') NOT NULL,
+                sender_role ENUM('user', 'admin', 'support', 'system') NOT NULL,
                 sender_name VARCHAR(255) NOT NULL,
                 sender_email VARCHAR(255) DEFAULT NULL,
                 message TEXT NOT NULL,
@@ -317,7 +318,21 @@ function initDatabase() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         
-        echo json_encode(['success' => true, 'message' => 'Tablas de chat creadas correctamente']);
+        // Add auto_messages_sent column if it doesn't exist (for existing tables)
+        try {
+            $pdo->exec("ALTER TABLE chat_conversations ADD COLUMN auto_messages_sent TEXT DEFAULT NULL");
+        } catch (PDOException $e) {
+            // Column might already exist, ignore error
+        }
+        
+        // Update sender_role ENUM to include 'system' (for existing tables)
+        try {
+            $pdo->exec("ALTER TABLE chat_messages MODIFY COLUMN sender_role ENUM('user', 'admin', 'support', 'system') NOT NULL");
+        } catch (PDOException $e) {
+            // ENUM might already be updated, ignore error
+        }
+        
+        echo json_encode(['success' => true, 'message' => 'Tablas de chat creadas/actualizadas correctamente']);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al crear tablas: ' . $e->getMessage()]);
@@ -400,21 +415,35 @@ function userStartConversation($user) {
     try {
         $pdo->beginTransaction();
         
-        // Create conversation
+        // Create conversation with auto_messages_sent tracking
+        $autoMessagesSent = json_encode(['welcome' => date('Y-m-d H:i:s')]);
         $stmt = $pdo->prepare("
-            INSERT INTO chat_conversations (user_id, user_email, user_name, status)
-            VALUES (?, ?, ?, 'open')
+            INSERT INTO chat_conversations (user_id, user_email, user_name, status, auto_messages_sent)
+            VALUES (?, ?, ?, 'open', ?)
         ");
         $userName = $user['name'] ?? explode('@', $user['email'])[0];
-        $stmt->execute([$user['sub'], $user['email'], $userName]);
+        $stmt->execute([$user['sub'], $user['email'], $userName, $autoMessagesSent]);
         $conversationId = $pdo->lastInsertId();
         
-        // Add initial message
+        // Add initial user message
         $stmt = $pdo->prepare("
             INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
             VALUES (?, ?, 'user', ?, ?, ?)
         ");
         $stmt->execute([$conversationId, $user['sub'], $userName, $user['email'], $initialMessage]);
+        
+        // Add automatic welcome message from system
+        $welcomeMessage = "👋 ¡Hola! Gracias por contactarte con Imporlan.\n\n" .
+            "Hemos recibido tu mensaje correctamente y en este momento uno de nuestros agentes se está asignando a tu conversación.\n\n" .
+            "⏳ En breve te contactaremos para ayudarte.\n" .
+            "Mientras tanto, si lo deseas, puedes dejarnos más detalles de tu consulta (tipo de producto, país de origen, volúmenes estimados, etc.) para brindarte una atención más rápida y precisa.\n\n" .
+            "¡Gracias por tu paciencia!";
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
+            VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)
+        ");
+        $stmt->execute([$conversationId, $welcomeMessage]);
         
         $pdo->commit();
         
