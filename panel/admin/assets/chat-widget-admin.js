@@ -177,6 +177,18 @@
         }
         chatModal.style.display = 'flex';
         isModalOpen = true;
+        
+        // Center the modal after it's visible
+        requestAnimationFrame(() => {
+            const modalContent = chatModal.querySelector('#chat-modal-content');
+            if (modalContent) {
+                const width = modalContent.offsetWidth || 900;
+                const height = modalContent.offsetHeight || 600;
+                modalContent.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+                modalContent.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+            }
+        });
+        
         fetchConversations();
         startPolling();
     }
@@ -207,13 +219,13 @@
             z-index: 10001;
         `;
         chatModal.innerHTML = `
-            <div class="chat-modal-content admin-chat-modal" style="width: 90%; max-width: 1000px; height: 80vh; max-height: 700px; background: #ffffff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3);">
-                <div class="chat-modal-header" style="padding: 16px 20px; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%); display: flex; align-items: center; justify-content: space-between;">
-                    <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff;">Centro de Mensajes</h2>
+            <div class="chat-modal-content admin-chat-modal" id="chat-modal-content" style="position: absolute; width: 900px; height: 600px; min-width: 500px; min-height: 400px; background: #ffffff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3); resize: both;">
+                <div class="chat-modal-header" id="chat-modal-header" style="padding: 16px 20px; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%); display: flex; align-items: center; justify-content: space-between; cursor: move; user-select: none;">
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff; pointer-events: none;">Centro de Mensajes</h2>
                     <button class="chat-close-btn" onclick="window.ImporlanAdminChat.closeModal()" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 24px;">&times;</button>
                 </div>
                 <div class="chat-modal-body" style="flex: 1; display: flex; overflow: hidden;">
-                    <div class="chat-conversations-panel" style="width: 350px; min-width: 350px; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #ffffff;">
+                    <div class="chat-conversations-panel" style="width: 350px; min-width: 280px; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #ffffff;">
                         <div class="chat-conversations-header" style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
                             <p class="subtitle" style="margin: 0 0 8px 0; font-size: 14px; color: #64748b;">Conversaciones de usuarios</p>
                             <div class="chat-sound-toggle" style="display: flex; align-items: center; gap: 8px;">
@@ -239,9 +251,113 @@
                         </div>
                     </div>
                 </div>
+                <!-- Resize handles -->
+                <div class="resize-handle resize-handle-e" style="position: absolute; right: 0; top: 50px; bottom: 10px; width: 8px; cursor: e-resize;"></div>
+                <div class="resize-handle resize-handle-s" style="position: absolute; bottom: 0; left: 10px; right: 10px; height: 8px; cursor: s-resize;"></div>
+                <div class="resize-handle resize-handle-se" style="position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: se-resize;"></div>
             </div>
         `;
         document.body.appendChild(chatModal);
+        
+        // Get modal content element
+        const modalContent = chatModal.querySelector('#chat-modal-content');
+        const modalHeader = chatModal.querySelector('#chat-modal-header');
+        
+        // Center the modal initially
+        const centerModal = () => {
+            const rect = modalContent.getBoundingClientRect();
+            modalContent.style.left = `${(window.innerWidth - rect.width) / 2}px`;
+            modalContent.style.top = `${(window.innerHeight - rect.height) / 2}px`;
+        };
+        centerModal();
+        
+        // Drag functionality
+        let isDragging = false;
+        let dragStartX, dragStartY, modalStartX, modalStartY;
+        
+        modalHeader.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('chat-close-btn')) return;
+            isDragging = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            const rect = modalContent.getBoundingClientRect();
+            modalStartX = rect.left;
+            modalStartY = rect.top;
+            modalContent.style.transition = 'none';
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - dragStartX;
+                const deltaY = e.clientY - dragStartY;
+                let newX = modalStartX + deltaX;
+                let newY = modalStartY + deltaY;
+                
+                // Keep modal within viewport
+                const rect = modalContent.getBoundingClientRect();
+                newX = Math.max(0, Math.min(newX, window.innerWidth - rect.width));
+                newY = Math.max(0, Math.min(newY, window.innerHeight - rect.height));
+                
+                modalContent.style.left = `${newX}px`;
+                modalContent.style.top = `${newY}px`;
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            modalContent.style.transition = '';
+        });
+        
+        // Resize functionality
+        let isResizing = false;
+        let resizeDirection = '';
+        let resizeStartX, resizeStartY, startWidth, startHeight, startLeft, startTop;
+        
+        chatModal.querySelectorAll('.resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                resizeDirection = handle.classList.contains('resize-handle-e') ? 'e' : 
+                                  handle.classList.contains('resize-handle-s') ? 's' : 'se';
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                const rect = modalContent.getBoundingClientRect();
+                startWidth = rect.width;
+                startHeight = rect.height;
+                startLeft = rect.left;
+                startTop = rect.top;
+                modalContent.style.transition = 'none';
+            });
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isResizing) {
+                const deltaX = e.clientX - resizeStartX;
+                const deltaY = e.clientY - resizeStartY;
+                
+                if (resizeDirection === 'e' || resizeDirection === 'se') {
+                    const newWidth = Math.max(500, Math.min(startWidth + deltaX, window.innerWidth - startLeft - 20));
+                    modalContent.style.width = `${newWidth}px`;
+                }
+                if (resizeDirection === 's' || resizeDirection === 'se') {
+                    const newHeight = Math.max(400, Math.min(startHeight + deltaY, window.innerHeight - startTop - 20));
+                    modalContent.style.height = `${newHeight}px`;
+                }
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isResizing = false;
+            modalContent.style.transition = '';
+        });
+        
+        // Close modal when clicking on backdrop
+        chatModal.addEventListener('click', (e) => {
+            if (e.target === chatModal) {
+                closeChatModal();
+            }
+        });
         
         // Add event listeners for filters
         chatModal.querySelectorAll('.chat-filter-btn').forEach(btn => {
