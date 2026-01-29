@@ -21,15 +21,7 @@ require_once __DIR__ . '/email_service.php';
 
 // Load JWT configuration - use the same secret as admin_api.php
 if (!defined('JWT_SECRET')) {
-    // First try to load from admin_api.php if it exists
-    $adminApiFile = __DIR__ . '/admin_api.php';
-    if (file_exists($adminApiFile)) {
-        require_once $adminApiFile;
-    }
-    // If still not defined, use the hardcoded secret (same as admin_api.php)
-    if (!defined('JWT_SECRET')) {
-        define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
-    }
+    define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
 }
 if (!defined('ADMIN_EMAIL')) {
     define('ADMIN_EMAIL', getenv('ADMIN_EMAIL') ?: 'admin@imporlan.cl');

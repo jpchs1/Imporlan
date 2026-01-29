@@ -35,9 +35,13 @@
     let initTimer = null;
 
     function init() {
+        console.log('Chat: init() called, attempt:', initAttempts + 1);
+        
         // Get user from localStorage (set by the panel app)
         const userStr = localStorage.getItem('imporlan_user');
         const token = localStorage.getItem('imporlan_token');
+        
+        console.log('Chat: userStr exists:', !!userStr, ', token exists:', !!token);
         
         if (!userStr || !token) {
             initAttempts++;
@@ -62,8 +66,9 @@
         try {
             currentUser = JSON.parse(userStr);
             currentUser.token = token;
+            console.log('Chat: User parsed successfully:', currentUser.email);
         } catch (e) {
-            console.error('Chat: Failed to parse user data');
+            console.error('Chat: Failed to parse user data', e);
             return;
         }
 
@@ -73,14 +78,19 @@
             return;
         }
 
+        console.log('Chat: Creating UI elements...');
+        
         // Load CSS
         loadCSS();
+        console.log('Chat: CSS loaded');
         
         // Create floating button
         createFloatingButton();
+        console.log('Chat: Floating button created:', !!floatingBtn);
         
         // Create modal
         createChatModal();
+        console.log('Chat: Modal created');
         
         // Get initial unread count
         fetchUnreadCount();
