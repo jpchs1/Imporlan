@@ -38,9 +38,28 @@
 
     function init() {
         // Get admin from localStorage (set by the admin panel app)
-        // Try both admin-specific and regular user keys
+        // The admin panel uses 'token' key directly, not 'imporlan_admin_token'
+        // Also try the user panel keys as fallback
         let userStr = localStorage.getItem('imporlan_admin_user') || localStorage.getItem('imporlan_user');
-        let token = localStorage.getItem('imporlan_admin_token') || localStorage.getItem('imporlan_token');
+        let token = localStorage.getItem('token') || localStorage.getItem('imporlan_admin_token') || localStorage.getItem('imporlan_token');
+        
+        // If we have a token but no user data, try to decode the JWT to get user info
+        if (token && !userStr) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                // Create a minimal user object from the JWT payload
+                if (payload.role === 'admin' || payload.role === 'support') {
+                    userStr = JSON.stringify({
+                        id: payload.sub,
+                        email: payload.email || (payload.role === 'admin' ? 'admin@imporlan.cl' : 'soporte@imporlan.cl'),
+                        role: payload.role,
+                        name: payload.role === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan'
+                    });
+                }
+            } catch (e) {
+                console.log('Chat: Could not decode JWT');
+            }
+        }
         
         if (!userStr || !token) {
             initAttempts++;
@@ -78,16 +97,17 @@
 
         isInitialized = true;
 
-        // Check if we're on the chat page or need to show badge
+        // Always load CSS and create floating button
+        loadCSS();
+        createFloatingButton();
+        fetchUnreadCount();
+        setInterval(fetchUnreadCount, 30000);
+        
+        // Check if we're on the chat page to show full interface
         if (window.location.hash === '#/chat' || window.location.pathname.includes('/chat')) {
-            loadCSS();
             createChatInterface();
             fetchConversations();
             startPolling();
-        } else {
-            // Just update unread badge in navigation
-            fetchUnreadCount();
-            setInterval(fetchUnreadCount, 30000);
         }
 
         // Listen for hash changes
@@ -122,8 +142,299 @@
         document.head.appendChild(link);
     }
 
+    // Create floating chat button for admin
+    let floatingButton = null;
+    let chatModal = null;
+    let isModalOpen = false;
+    
+    function createFloatingButton() {
+        if (floatingButton) return;
+        
+        floatingButton = document.createElement('div');
+        floatingButton.id = 'admin-chat-floating-btn';
+        floatingButton.className = 'chat-floating-btn';
+        floatingButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="chat-unread-badge" style="display: none;">0</span>
+        `;
+        floatingButton.onclick = toggleChatModal;
+        document.body.appendChild(floatingButton);
+    }
+    
+    function toggleChatModal() {
+        if (isModalOpen) {
+            closeChatModal();
+        } else {
+            openChatModal();
+        }
+    }
+    
+    function openChatModal() {
+        if (!chatModal) {
+            createChatModal();
+        }
+        chatModal.style.display = 'flex';
+        isModalOpen = true;
+        fetchConversations();
+        startPolling();
+    }
+    
+    function closeChatModal() {
+        if (chatModal) {
+            chatModal.style.display = 'none';
+        }
+        isModalOpen = false;
+        stopPolling();
+    }
+    
+    function createChatModal() {
+        chatModal = document.createElement('div');
+        chatModal.id = 'admin-chat-modal';
+        chatModal.className = 'chat-modal';
+        // Apply inline styles to ensure modal displays correctly
+        chatModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 22, 40, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        `;
+        chatModal.innerHTML = `
+            <div class="chat-modal-content admin-chat-modal" style="width: 90%; max-width: 1000px; height: 80vh; max-height: 700px; background: #ffffff; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3);">
+                <div class="chat-modal-header" style="padding: 16px 20px; background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%); display: flex; align-items: center; justify-content: space-between;">
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #ffffff;">Centro de Mensajes</h2>
+                    <button class="chat-close-btn" onclick="window.ImporlanAdminChat.closeModal()" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 24px;">&times;</button>
+                </div>
+                <div class="chat-modal-body" style="flex: 1; display: flex; overflow: hidden;">
+                    <div class="chat-conversations-panel" style="width: 350px; min-width: 350px; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; background: #ffffff;">
+                        <div class="chat-conversations-header" style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                            <p class="subtitle" style="margin: 0 0 8px 0; font-size: 14px; color: #64748b;">Conversaciones de usuarios</p>
+                            <div class="chat-sound-toggle" style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="admin-chat-sound-toggle-modal" ${notificationSoundEnabled ? 'checked' : ''}>
+                                <label for="admin-chat-sound-toggle-modal" style="font-size: 13px; color: #64748b;">Sonido</label>
+                            </div>
+                        </div>
+                        <div class="chat-filters" style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="chat-filter-btn active" data-filter="status" data-value="all" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #0a1628; background: #0a1628; color: #ffffff;">Todas</button>
+                            <button class="chat-filter-btn" data-filter="status" data-value="open" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b;">Abiertas</button>
+                            <button class="chat-filter-btn" data-filter="assigned" data-value="unassigned" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff; color: #64748b;">Sin asignar</button>
+                        </div>
+                        <div class="chat-conversations-list" id="admin-modal-conversations-list" style="flex: 1; overflow-y: auto; padding: 8px;">
+                            <div class="chat-loading" style="padding: 40px; text-align: center; color: #64748b;">Cargando conversaciones...</div>
+                        </div>
+                    </div>
+                    <div class="chat-messages-panel" id="admin-modal-messages-panel" style="flex: 1; display: flex; flex-direction: column; background: #f8fafc;">
+                        <div class="chat-empty-state" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <p style="margin-top: 16px;">Selecciona una conversacion para ver los mensajes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(chatModal);
+        
+        // Add event listeners for filters
+        chatModal.querySelectorAll('.chat-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filter = btn.dataset.filter;
+                const value = btn.dataset.value;
+                
+                chatModal.querySelectorAll('.chat-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                currentFilter[filter] = value;
+                renderConversationsInModal();
+            });
+        });
+        
+        // Sound toggle
+        const soundToggle = chatModal.querySelector('#admin-chat-sound-toggle-modal');
+        if (soundToggle) {
+            soundToggle.addEventListener('change', (e) => {
+                notificationSoundEnabled = e.target.checked;
+                localStorage.setItem(NOTIFICATION_SOUND_ENABLED_KEY, notificationSoundEnabled);
+            });
+        }
+    }
+    
+    function renderConversationsInModal() {
+        const listContainer = document.getElementById('admin-modal-conversations-list');
+        if (!listContainer) return;
+        
+        let filtered = conversations;
+        if (currentFilter.status !== 'all') {
+            filtered = filtered.filter(c => c.status === currentFilter.status);
+        }
+        if (currentFilter.assigned === 'me') {
+            filtered = filtered.filter(c => c.assigned_to_id === currentAdmin.id);
+        } else if (currentFilter.assigned === 'unassigned') {
+            filtered = filtered.filter(c => !c.assigned_to_id);
+        }
+        
+        if (filtered.length === 0) {
+            listContainer.innerHTML = '<div class="chat-empty-state"><p>No hay conversaciones</p></div>';
+            return;
+        }
+        
+        listContainer.innerHTML = filtered.map(conv => `
+            <div class="chat-conversation-item ${currentConversation?.id === conv.id ? 'active' : ''}" 
+                 onclick="window.ImporlanAdminChat.selectConv(${conv.id})">
+                <div class="chat-conversation-avatar">${getInitials(conv.user_email)}</div>
+                <div class="chat-conversation-info">
+                    <div class="chat-conversation-name">${escapeHtml(conv.user_email)}</div>
+                    <div class="chat-conversation-preview">${escapeHtml(conv.last_message || 'Sin mensajes')}</div>
+                </div>
+                <div class="chat-conversation-meta">
+                    <span class="chat-conversation-time">${formatTimeAgo(conv.updated_at)}</span>
+                    ${conv.unread_count > 0 ? `<span class="chat-unread-count">${conv.unread_count}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async function selectConversationInModal(convId) {
+        currentConversation = conversations.find(c => c.id === convId);
+        if (!currentConversation) return;
+        
+        renderConversationsInModal();
+        
+        const messagesPanel = document.getElementById('admin-modal-messages-panel');
+        if (!messagesPanel) return;
+        
+        messagesPanel.innerHTML = '<div class="chat-loading">Cargando mensajes...</div>';
+        
+        try {
+            const result = await apiCall('admin_messages', 'GET', null, { conversation_id: convId });
+            messages = result.messages || [];
+            renderMessagesPanelInModal();
+        } catch (e) {
+            messagesPanel.innerHTML = `<div class="chat-error">Error: ${e.message}</div>`;
+        }
+    }
+    
+    function renderMessagesPanelInModal() {
+        const messagesPanel = document.getElementById('admin-modal-messages-panel');
+        if (!messagesPanel) return;
+        
+        messagesPanel.innerHTML = `
+            <div class="chat-messages-header">
+                <div class="chat-user-info">
+                    <div class="chat-user-avatar">${getInitials(currentConversation.user_email)}</div>
+                    <div>
+                        <div class="chat-user-name">${escapeHtml(currentConversation.user_email)}</div>
+                        <div class="chat-user-status">${currentConversation.status === 'open' ? 'Conversacion abierta' : 'Conversacion cerrada'}</div>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    ${!currentConversation.assigned_to_id ? 
+                        `<button class="chat-action-btn" onclick="window.adminChatAssign(${currentConversation.id})">Asignarme</button>` : 
+                        `<span class="chat-assigned-badge">Asignado a: ${currentConversation.assigned_to_name || 'Admin'}</span>`
+                    }
+                    ${currentConversation.status === 'open' ? 
+                        `<button class="chat-action-btn secondary" onclick="window.adminChatClose(${currentConversation.id})">Cerrar</button>` :
+                        `<button class="chat-action-btn" onclick="window.adminChatReopen(${currentConversation.id})">Reabrir</button>`
+                    }
+                </div>
+            </div>
+            <div class="chat-messages-list" id="admin-modal-messages-list">
+                ${messages.map(msg => renderMessage(msg)).join('')}
+            </div>
+            <div class="chat-input-container">
+                <textarea id="admin-modal-message-input" placeholder="Escribe tu respuesta..." rows="2"></textarea>
+                <button class="chat-send-btn" onclick="window.ImporlanAdminChat.sendMsg()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Scroll to bottom
+        const messagesList = document.getElementById('admin-modal-messages-list');
+        if (messagesList) {
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+        
+        // Enter key to send
+        const input = document.getElementById('admin-modal-message-input');
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessageFromModal();
+                }
+            });
+        }
+    }
+    
+    async function sendMessageFromModal() {
+        const input = document.getElementById('admin-modal-message-input');
+        if (!input || !currentConversation) return;
+        
+        const message = input.value.trim();
+        if (!message) return;
+        
+        input.value = '';
+        input.disabled = true;
+        
+        try {
+            await apiCall('admin_send', 'POST', {
+                conversation_id: currentConversation.id,
+                message: message
+            });
+            
+            // Refresh messages
+            const result = await apiCall('admin_messages', 'GET', null, { conversation_id: currentConversation.id });
+            messages = result.messages || [];
+            renderMessagesPanelInModal();
+        } catch (e) {
+            alert('Error al enviar mensaje: ' + e.message);
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+    
+    // Update floating button badge
+    function updateFloatingBadge() {
+        if (!floatingButton) return;
+        const badge = floatingButton.querySelector('.chat-unread-badge');
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+
+    // Handle token authentication errors
+    // The React panel may generate tokens with a different JWT configuration
+    let tokenRefreshAttempted = false;
+    async function refreshAdminToken() {
+        if (tokenRefreshAttempted) return false;
+        tokenRefreshAttempted = true;
+        
+        // Show message to user that they need to re-login
+        console.log('Chat: Token validation failed. Please re-login to use chat.');
+        alert('Tu sesion de chat ha expirado. Por favor, cierra sesion y vuelve a iniciar sesion para usar el chat.');
+        return false;
+    }
+
     // API Helper
-    async function apiCall(action, method = 'GET', body = null, params = {}) {
+    async function apiCall(action, method = 'GET', body = null, params = {}, retryOnAuth = true) {
         const url = new URL(API_BASE, window.location.origin);
         url.searchParams.set('action', action);
         
@@ -144,6 +455,16 @@
         }
 
         const response = await fetch(url.toString(), options);
+        
+        // If we get a 401, try to refresh the token and retry once
+        if (response.status === 401 && retryOnAuth) {
+            console.log('Chat: Got 401, attempting to refresh token...');
+            const refreshed = await refreshAdminToken();
+            if (refreshed) {
+                // Retry with new token
+                return apiCall(action, method, body, params, false);
+            }
+        }
         
         if (!response.ok) {
             const error = await response.json().catch(() => ({ error: 'Request failed' }));
@@ -241,7 +562,14 @@
 
     // Fetch conversations
     async function fetchConversations() {
-        const listContainer = chatContainer.querySelector('.chat-conversations-list');
+        // Try to get list container from modal first, then from full interface
+        const listContainer = document.getElementById('admin-modal-conversations-list') || 
+                              (chatContainer ? chatContainer.querySelector('.chat-conversations-list') : null);
+        
+        if (!listContainer) {
+            console.log('Chat: No list container found');
+            return;
+        }
         
         try {
             const result = await apiCall('admin_conversations', 'GET', null, {
@@ -249,8 +577,17 @@
                 assigned: currentFilter.assigned
             });
             conversations = result.conversations || [];
-            renderConversations();
+            
+            // Render in modal if it exists
+            if (document.getElementById('admin-modal-conversations-list')) {
+                renderConversationsInModal();
+            }
+            // Render in full interface if it exists
+            if (chatContainer) {
+                renderConversations();
+            }
         } catch (error) {
+            console.error('Chat: Error fetching conversations', error);
             listContainer.innerHTML = `
                 <div class="chat-empty-state">
                     <p>Error al cargar conversaciones</p>
@@ -673,8 +1010,11 @@
         }
     }
 
-    // Update navigation badge
+    // Update navigation badge and floating button badge
     function updateNavBadge() {
+        // Update floating button badge
+        updateFloatingBadge();
+        
         // Try to find and update any chat navigation badge
         const navBadge = document.querySelector('.chat-nav-badge');
         if (navBadge) {
@@ -814,6 +1154,9 @@
     window.ImporlanAdminChat = {
         init,
         fetchConversations,
-        fetchUnreadCount
+        fetchUnreadCount,
+        closeModal: closeChatModal,
+        selectConv: selectConversationInModal,
+        sendMsg: sendMessageFromModal
     };
 })();
