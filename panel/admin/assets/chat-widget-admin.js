@@ -177,6 +177,18 @@
         }
         chatModal.style.display = 'flex';
         isModalOpen = true;
+        
+        // Center the modal after it's visible
+        requestAnimationFrame(() => {
+            const modalContent = chatModal.querySelector('#chat-modal-content');
+            if (modalContent) {
+                const width = modalContent.offsetWidth || 900;
+                const height = modalContent.offsetHeight || 600;
+                modalContent.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+                modalContent.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+            }
+        });
+        
         fetchConversations();
         startPolling();
     }
