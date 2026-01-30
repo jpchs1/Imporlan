@@ -403,8 +403,17 @@
           // Check if already enhanced
           if (form.parentElement.querySelector('.cotizacion-form-container')) return;
           
-          // Find and update the form title
+          // Update the section description text (left side)
           const formSection = form.closest('section') || form.parentElement;
+          const allParagraphs = formSection.querySelectorAll('p');
+          allParagraphs.forEach(function(p) {
+            if (p.textContent.includes('Busca en los principales portales de USA') || 
+                p.textContent.includes('Te cotizaremos el precio total')) {
+              p.textContent = 'Explora lanchas usadas en los principales portales de USA y envíanos los links de las embarcaciones que te interesan. Te entregamos una cotización completa para importar tu lancha usada, con precio final puesto en el puerto de tu elección o bien en tu casa o donde más te acomode.';
+            }
+          });
+          
+          // Find and update the form title
           const headings = formSection.querySelectorAll('h2, h3');
           headings.forEach(function(heading) {
             if (heading.textContent.includes('Solicitar Cotizacion') || heading.textContent.includes('Cotizacion')) {
@@ -428,7 +437,7 @@
           // Add subtitle
           const subtitle = document.createElement('p');
           subtitle.className = 'cotizacion-subtitle-gcloud';
-          subtitle.textContent = 'Explora lanchas usadas en los principales portales de USA y envíanos los links de las embarcaciones que te interesan. Te entregamos una cotización completa para importar tu lancha usada, con precio final puesto en el puerto de tu elección o bien en tu casa o donde más te acomode.';
+          subtitle.textContent = 'Pega los links de las embarcaciones que te interesan';
           container.appendChild(subtitle);
           
           // Wrap existing inputs with Google Cloud style
