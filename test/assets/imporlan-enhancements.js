@@ -114,7 +114,7 @@
     const style = document.createElement('style');
     style.id = 'google-cloud-input-styles';
     style.textContent = `
-      /* Google Cloud AI Input Box Effect */
+      /* Google Cloud AI Input Box Effect - Enhanced Contrast Version */
       @keyframes borderGradientAnimation {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
@@ -122,30 +122,47 @@
       }
       
       @keyframes glowPulse {
-        0%, 100% { box-shadow: 0 0 20px rgba(66, 133, 244, 0.15), 0 0 40px rgba(66, 133, 244, 0.1); }
-        50% { box-shadow: 0 0 30px rgba(66, 133, 244, 0.25), 0 0 60px rgba(66, 133, 244, 0.15); }
+        0%, 100% { 
+          box-shadow: 0 0 30px rgba(66, 133, 244, 0.4), 
+                      0 0 60px rgba(52, 168, 83, 0.3), 
+                      0 0 90px rgba(251, 188, 5, 0.2);
+        }
+        50% { 
+          box-shadow: 0 0 40px rgba(66, 133, 244, 0.5), 
+                      0 0 80px rgba(234, 67, 53, 0.4), 
+                      0 0 120px rgba(52, 168, 83, 0.3);
+        }
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
       }
       
       .cotizacion-form-container {
         position: relative;
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+        background: linear-gradient(145deg, rgba(8, 15, 30, 0.98) 0%, rgba(20, 30, 48, 0.98) 100%);
         border-radius: 24px;
         padding: 32px;
         margin: 20px 0;
+        animation: glowPulse 3s ease-in-out infinite;
       }
       
       .cotizacion-form-container::before {
         content: '';
         position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(90deg, #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
-        background-size: 300% 300%;
-        border-radius: 26px;
+        top: -3px;
+        left: -3px;
+        right: -3px;
+        bottom: -3px;
+        background: linear-gradient(90deg, 
+          #4285f4, #34a853, #fbbc05, #ea4335, 
+          #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
+        background-size: 400% 400%;
+        border-radius: 27px;
         z-index: -1;
-        animation: borderGradientAnimation 4s ease infinite;
+        animation: borderGradientAnimation 3s linear infinite;
+        filter: blur(1px);
       }
       
       .cotizacion-form-container::after {
@@ -155,25 +172,37 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%);
+        background: linear-gradient(145deg, rgba(8, 15, 30, 0.99) 0%, rgba(20, 30, 48, 0.99) 100%);
         border-radius: 24px;
         z-index: -1;
       }
       
       .cotizacion-title-gcloud {
-        font-size: 24px;
-        font-weight: 600;
-        color: #ffffff;
+        font-size: 26px;
+        font-weight: 700;
         text-align: center;
         margin-bottom: 8px;
         letter-spacing: -0.5px;
       }
       
+      .cotizacion-title-gcloud .title-blue {
+        color: #4285f4;
+      }
+      
+      .cotizacion-title-gcloud .title-gray {
+        color: rgba(180, 195, 210, 0.9);
+        font-weight: 400;
+      }
+      
       .cotizacion-subtitle-gcloud {
-        font-size: 14px;
-        color: rgba(148, 163, 184, 0.9);
+        font-size: 15px;
+        color: rgba(180, 195, 210, 0.95);
         text-align: center;
         margin-bottom: 24px;
+        line-height: 1.6;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
       }
       
       .gcloud-input-wrapper {
@@ -184,13 +213,15 @@
       .gcloud-input-wrapper::before {
         content: '';
         position: absolute;
-        top: -1px;
-        left: -1px;
-        right: -1px;
-        bottom: -1px;
-        background: linear-gradient(90deg, rgba(66, 133, 244, 0.3), rgba(52, 168, 83, 0.3), rgba(251, 188, 5, 0.3), rgba(234, 67, 53, 0.3));
-        background-size: 200% 200%;
-        border-radius: 17px;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(90deg, 
+          #4285f4, #34a853, #fbbc05, #ea4335, 
+          #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
+        background-size: 400% 400%;
+        border-radius: 18px;
         opacity: 0;
         transition: opacity 0.3s ease;
         z-index: 0;
@@ -198,7 +229,7 @@
       
       .gcloud-input-wrapper:focus-within::before {
         opacity: 1;
-        animation: borderGradientAnimation 3s ease infinite;
+        animation: borderGradientAnimation 2s linear infinite;
       }
       
       .gcloud-input-wrapper input,
@@ -206,8 +237,8 @@
         position: relative;
         width: 100%;
         padding: 16px 20px;
-        background: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(100, 116, 139, 0.3);
+        background: rgba(15, 25, 40, 0.95);
+        border: 2px solid rgba(100, 130, 170, 0.4);
         border-radius: 16px;
         color: #ffffff;
         font-size: 15px;
@@ -217,37 +248,42 @@
       
       .gcloud-input-wrapper input::placeholder,
       .gcloud-input-wrapper textarea::placeholder {
-        color: rgba(148, 163, 184, 0.6);
+        color: rgba(160, 175, 195, 0.7);
       }
       
       .gcloud-input-wrapper input:focus,
       .gcloud-input-wrapper textarea:focus {
         outline: none;
         border-color: transparent;
-        background: rgba(30, 41, 59, 0.95);
-        box-shadow: 0 0 0 1px rgba(66, 133, 244, 0.5), 0 4px 20px rgba(66, 133, 244, 0.15);
+        background: rgba(15, 25, 40, 0.98);
+        box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.6), 
+                    0 4px 25px rgba(66, 133, 244, 0.25),
+                    0 8px 40px rgba(52, 168, 83, 0.15);
       }
       
       .gcloud-input-wrapper input:hover:not(:focus),
       .gcloud-input-wrapper textarea:hover:not(:focus) {
-        border-color: rgba(100, 116, 139, 0.5);
-        background: rgba(30, 41, 59, 0.9);
+        border-color: rgba(100, 130, 170, 0.6);
+        background: rgba(15, 25, 40, 0.97);
+        box-shadow: 0 2px 15px rgba(66, 133, 244, 0.1);
       }
       
       .gcloud-submit-btn {
         width: 100%;
-        padding: 16px 24px;
-        background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+        padding: 18px 24px;
+        background: linear-gradient(135deg, #4285f4 0%, #1a73e8 50%, #0d47a1 100%);
         border: none;
         border-radius: 16px;
         color: #ffffff;
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 17px;
+        font-weight: 700;
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
-        margin-top: 8px;
+        margin-top: 12px;
+        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
       }
       
       .gcloud-submit-btn::before {
@@ -255,15 +291,20 @@
         position: absolute;
         top: 0;
         left: -100%;
-        width: 100%;
+        width: 200%;
         height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s ease;
+        background: linear-gradient(90deg, 
+          transparent, 
+          rgba(255, 255, 255, 0.3), 
+          transparent);
+        transition: left 0.6s ease;
       }
       
       .gcloud-submit-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(66, 133, 244, 0.4);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 35px rgba(66, 133, 244, 0.5),
+                    0 4px 15px rgba(52, 168, 83, 0.3);
+        background: linear-gradient(135deg, #5a9cf5 0%, #2b85f0 50%, #1565c0 100%);
       }
       
       .gcloud-submit-btn:hover::before {
@@ -271,7 +312,8 @@
       }
       
       .gcloud-submit-btn:active {
-        transform: translateY(0);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
       }
       
       .gcloud-powered-by {
@@ -279,14 +321,15 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
-        margin-top: 16px;
-        font-size: 12px;
-        color: rgba(148, 163, 184, 0.6);
+        margin-top: 20px;
+        font-size: 13px;
+        color: rgba(160, 175, 195, 0.7);
       }
       
       .gcloud-powered-by svg {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
+        color: #4285f4;
       }
       
       .gcloud-suggestion-chips {
@@ -299,8 +342,8 @@
       
       .gcloud-chip {
         padding: 8px 16px;
-        background: rgba(66, 133, 244, 0.1);
-        border: 1px solid rgba(66, 133, 244, 0.3);
+        background: rgba(66, 133, 244, 0.15);
+        border: 1px solid rgba(66, 133, 244, 0.4);
         border-radius: 20px;
         color: #93c5fd;
         font-size: 13px;
@@ -309,9 +352,32 @@
       }
       
       .gcloud-chip:hover {
-        background: rgba(66, 133, 244, 0.2);
-        border-color: rgba(66, 133, 244, 0.5);
+        background: rgba(66, 133, 244, 0.25);
+        border-color: rgba(66, 133, 244, 0.6);
         transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(66, 133, 244, 0.2);
+      }
+      
+      /* Enhanced info text styling */
+      .cotizacion-info-text {
+        background: rgba(66, 133, 244, 0.15) !important;
+        border: 1px solid rgba(66, 133, 244, 0.4) !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        margin-bottom: 20px !important;
+        font-size: 14px !important;
+        color: #a5d6ff !important;
+        text-align: center !important;
+      }
+      
+      .cotizacion-info-text a {
+        color: #60a5fa !important;
+        text-decoration: underline !important;
+        font-weight: 600 !important;
+      }
+      
+      .cotizacion-info-text a:hover {
+        color: #93c5fd !important;
       }
     `;
     document.head.appendChild(style);
@@ -337,12 +403,21 @@
           // Check if already enhanced
           if (form.parentElement.querySelector('.cotizacion-form-container')) return;
           
-          // Find and update the form title
+          // Update the section description text (left side)
           const formSection = form.closest('section') || form.parentElement;
+          const allParagraphs = formSection.querySelectorAll('p');
+          allParagraphs.forEach(function(p) {
+            if (p.textContent.includes('Busca en los principales portales de USA') || 
+                p.textContent.includes('Te cotizaremos el precio total')) {
+              p.textContent = 'Explora lanchas usadas en los principales portales de USA y envíanos los links de las embarcaciones que te interesan. Te entregamos una cotización completa para importar tu lancha usada, con precio final puesto en el puerto de tu elección o bien en tu casa o donde más te acomode.';
+            }
+          });
+          
+          // Find and update the form title
           const headings = formSection.querySelectorAll('h2, h3');
           headings.forEach(function(heading) {
             if (heading.textContent.includes('Solicitar Cotizacion') || heading.textContent.includes('Cotizacion')) {
-              heading.textContent = 'Solicitar Cotizacion por Links Online';
+              heading.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
               heading.className = 'cotizacion-title-gcloud';
             }
           });
@@ -355,7 +430,7 @@
           if (!formSection.querySelector('.cotizacion-title-gcloud')) {
             const title = document.createElement('h3');
             title.className = 'cotizacion-title-gcloud';
-            title.textContent = 'Solicitar Cotizacion por Links Online';
+            title.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
             container.appendChild(title);
           }
           
