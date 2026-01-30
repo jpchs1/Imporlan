@@ -180,11 +180,18 @@
       .cotizacion-title-gcloud {
         font-size: 26px;
         font-weight: 700;
-        color: #ffffff;
         text-align: center;
         margin-bottom: 8px;
         letter-spacing: -0.5px;
-        text-shadow: 0 2px 10px rgba(66, 133, 244, 0.3);
+      }
+      
+      .cotizacion-title-gcloud .title-blue {
+        color: #4285f4;
+      }
+      
+      .cotizacion-title-gcloud .title-gray {
+        color: rgba(180, 195, 210, 0.9);
+        font-weight: 400;
       }
       
       .cotizacion-subtitle-gcloud {
@@ -192,6 +199,10 @@
         color: rgba(180, 195, 210, 0.95);
         text-align: center;
         margin-bottom: 24px;
+        line-height: 1.6;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
       }
       
       .gcloud-input-wrapper {
@@ -397,7 +408,7 @@
           const headings = formSection.querySelectorAll('h2, h3');
           headings.forEach(function(heading) {
             if (heading.textContent.includes('Solicitar Cotizacion') || heading.textContent.includes('Cotizacion')) {
-              heading.textContent = 'Solicitar Cotizacion por Links Online';
+              heading.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
               heading.className = 'cotizacion-title-gcloud';
             }
           });
@@ -410,14 +421,14 @@
           if (!formSection.querySelector('.cotizacion-title-gcloud')) {
             const title = document.createElement('h3');
             title.className = 'cotizacion-title-gcloud';
-            title.textContent = 'Solicitar Cotizacion por Links Online';
+            title.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
             container.appendChild(title);
           }
           
           // Add subtitle
           const subtitle = document.createElement('p');
           subtitle.className = 'cotizacion-subtitle-gcloud';
-          subtitle.textContent = 'Pega los links de las embarcaciones que te interesan';
+          subtitle.textContent = 'Explora lanchas usadas en los principales portales de USA y envíanos los links de las embarcaciones que te interesan. Te entregamos una cotización completa para importar tu lancha usada, con precio final puesto en el puerto de tu elección o bien en tu casa o donde más te acomode.';
           container.appendChild(subtitle);
           
           // Wrap existing inputs with Google Cloud style
