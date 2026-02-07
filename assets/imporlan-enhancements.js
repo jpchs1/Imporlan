@@ -192,44 +192,30 @@
   // Make Proceso menu item scroll to section
   // ============================================
   
+  function scrollToProcesoSection() {
+    var sections = document.querySelectorAll('section');
+    sections.forEach(function(section) {
+      var heading = section.querySelector('h2');
+      if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
+        setTimeout(function() {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      }
+    });
+  }
+
   function setupProcesoMenuRedirect() {
     if (window.location.pathname.includes('/panel')) return;
-    
-    var checkInterval = setInterval(function() {
-      var nav = document.querySelector('nav');
-      if (!nav) return;
-      
-      clearInterval(checkInterval);
-      
-      nav.addEventListener('click', function(e) {
-        var link = e.target.closest('a');
-        if (!link || link.textContent.trim() !== 'Proceso') return;
-        
-        e.preventDefault();
-        
-        var menuBtn = nav.querySelector('button svg')
-          ? nav.querySelector('button')
-          : null;
-        var mobileMenu = nav.querySelector('[class*="md:hidden"][class*="glass"]');
-        if (mobileMenu && mobileMenu.offsetParent !== null && menuBtn) {
-          menuBtn.click();
-        }
-        
-        var sections = document.querySelectorAll('section');
-        sections.forEach(function(section) {
-          var heading = section.querySelector('h2');
-          if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
-            setTimeout(function() {
-              section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 350);
-          }
-        });
-      });
-    }, 500);
-    
-    setTimeout(function() {
-      clearInterval(checkInterval);
-    }, 10000);
+
+    window.addEventListener('hashchange', function() {
+      if (window.location.hash === '#proceso') {
+        scrollToProcesoSection();
+      }
+    });
+
+    if (window.location.hash === '#proceso') {
+      scrollToProcesoSection();
+    }
   }
   
   // ============================================
