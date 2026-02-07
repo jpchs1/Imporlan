@@ -192,34 +192,30 @@
   // Make Proceso menu item scroll to section
   // ============================================
   
+  function scrollToProcesoSection() {
+    var sections = document.querySelectorAll('section');
+    sections.forEach(function(section) {
+      var heading = section.querySelector('h2');
+      if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
+        setTimeout(function() {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      }
+    });
+  }
+
   function setupProcesoMenuRedirect() {
-    // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
-    
-    const checkInterval = setInterval(function() {
-      const navLinks = document.querySelectorAll('nav a, header a');
-      navLinks.forEach(function(link) {
-        if (link.textContent.trim() === 'Proceso') {
-          clearInterval(checkInterval);
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Find the PROCESO DE COMPRA USA section
-            const sections = document.querySelectorAll('section');
-            sections.forEach(function(section) {
-              const heading = section.querySelector('h2');
-              if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            });
-          });
-        }
-      });
-    }, 500);
-    
-    setTimeout(function() {
-      clearInterval(checkInterval);
-    }, 10000);
+
+    window.addEventListener('hashchange', function() {
+      if (window.location.hash === '#proceso') {
+        scrollToProcesoSection();
+      }
+    });
+
+    if (window.location.hash === '#proceso') {
+      scrollToProcesoSection();
+    }
   }
   
   // ============================================
