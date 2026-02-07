@@ -193,27 +193,37 @@
   // ============================================
   
   function setupProcesoMenuRedirect() {
-    // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
     
-    const checkInterval = setInterval(function() {
-      const navLinks = document.querySelectorAll('nav a, header a');
-      navLinks.forEach(function(link) {
-        if (link.textContent.trim() === 'Proceso') {
-          clearInterval(checkInterval);
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Find the PROCESO DE COMPRA USA section
-            const sections = document.querySelectorAll('section');
-            sections.forEach(function(section) {
-              const heading = section.querySelector('h2');
-              if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            });
-          });
+    var checkInterval = setInterval(function() {
+      var nav = document.querySelector('nav');
+      if (!nav) return;
+      
+      clearInterval(checkInterval);
+      
+      nav.addEventListener('click', function(e) {
+        var link = e.target.closest('a');
+        if (!link || link.textContent.trim() !== 'Proceso') return;
+        
+        e.preventDefault();
+        
+        var menuBtn = nav.querySelector('button svg')
+          ? nav.querySelector('button')
+          : null;
+        var mobileMenu = nav.querySelector('[class*="md:hidden"][class*="glass"]');
+        if (mobileMenu && mobileMenu.offsetParent !== null && menuBtn) {
+          menuBtn.click();
         }
+        
+        var sections = document.querySelectorAll('section');
+        sections.forEach(function(section) {
+          var heading = section.querySelector('h2');
+          if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
+            setTimeout(function() {
+              section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+          }
+        });
       });
     }, 500);
     
