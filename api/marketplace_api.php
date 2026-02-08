@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/marketplace_email_service.php';
 
 if (!defined('JWT_SECRET')) {
     $jwt = getenv('JWT_SECRET');
@@ -52,6 +53,18 @@ switch ($action) {
     case 'delete':
         $user = requireAuth();
         deleteListing($user);
+        break;
+    case 'renew':
+        $user = requireAuth();
+        renewListing($user);
+        break;
+    case 'mark_sold':
+        $user = requireAuth();
+        markListingSold($user);
+        break;
+    case 'migrate_v2':
+        $user = requireAuth();
+        migrateMarketplaceV2();
         break;
     default:
         http_response_code(400);
@@ -213,12 +226,33 @@ function createListing($user) {
     }
     $pdo = getDbConnection();
     $fotos = isset($input['fotos']) && is_array($input['fotos']) ? json_encode($input['fotos']) : '[]';
-    $stmt = $pdo->prepare("
-        INSERT INTO marketplace_listings
-        (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([
+    $now = date('Y-m-d H:i:s');
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+
+    try {
+        $emailService = getMarketplaceEmailService();
+        $emailService->ensureMigrated();
+    } catch (Exception $e) {
+        error_log('[Marketplace] Auto-migration on create: ' . $e->getMessage());
+    }
+
+    $cols = $pdo->query("SHOW COLUMNS FROM marketplace_listings")->fetchAll(PDO::FETCH_COLUMN);
+    $hasDateCols = in_array('published_at', $cols) && in_array('expires_at', $cols);
+
+    if ($hasDateCols) {
+        $stmt = $pdo->prepare("
+            INSERT INTO marketplace_listings
+            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos, published_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO marketplace_listings
+            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    }
+    $params = [
         $user['email'],
         $user['name'] ?? explode('@', $user['email'])[0],
         trim($input['nombre']),
@@ -232,9 +266,27 @@ function createListing($user) {
         in_array($input['estado'] ?? '', ['Nueva','Usada']) ? $input['estado'] : 'Usada',
         in_array($input['condicion'] ?? '', ['Excelente','Muy Buena','Buena','Regular','Para Reparacion']) ? $input['condicion'] : 'Buena',
         intval($input['horas'] ?? 0) ?: null,
-        $fotos
-    ]);
+        $fotos,
+    ];
+    if ($hasDateCols) {
+        $params[] = $now;
+        $params[] = $expiresAt;
+    }
+    $stmt->execute($params);
     $id = $pdo->lastInsertId();
+
+    try {
+        $listing = fetchListingById($pdo, $id);
+        if ($listing) {
+            $emailService = getMarketplaceEmailService();
+            $userName = $user['name'] ?? explode('@', $user['email'])[0];
+            $emailService->sendListingCreatedEmail($user['email'], $userName, $listing);
+            $emailService->sendAdminListingCreatedEmail($listing);
+        }
+    } catch (Exception $e) {
+        error_log('[Marketplace] Email send error on create: ' . $e->getMessage());
+    }
+
     echo json_encode(['success' => true, 'id' => $id]);
 }
 
@@ -332,7 +384,203 @@ function deleteListing($user) {
         return;
     }
     $pdo = getDbConnection();
+
+    $listing = fetchListingById($pdo, $id);
+    if (!$listing || $listing['user_email'] !== $user['email']) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Anuncio no encontrado']);
+        return;
+    }
+
     $stmt = $pdo->prepare("UPDATE marketplace_listings SET status='deleted' WHERE id=? AND user_email=?");
     $stmt->execute([$id, $user['email']]);
+
+    try {
+        $emailService = getMarketplaceEmailService();
+        $userName = $user['name'] ?? $listing['user_name'];
+        $emailService->sendListingDeletedEmail($user['email'], $userName, $listing);
+        $emailService->sendAdminListingDeletedEmail($listing);
+    } catch (Exception $e) {
+        error_log('[Marketplace] Email send error on delete: ' . $e->getMessage());
+    }
+
     echo json_encode(['success' => true]);
+}
+
+function updateListing($user) {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+
+    $existing = fetchListingById($pdo, $id);
+    if (!$existing || $existing['user_email'] !== $user['email']) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Anuncio no encontrado']);
+        return;
+    }
+    if ($existing['status'] === 'deleted' || $existing['status'] === 'expired') {
+        http_response_code(400);
+        echo json_encode(['error' => 'No se puede editar un anuncio eliminado o expirado']);
+        return;
+    }
+
+    $fields = [];
+    $params = [];
+    $allowedFields = [
+        'nombre' => 'string', 'tipo' => 'string', 'ano' => 'int',
+        'eslora' => 'string', 'precio' => 'float', 'moneda' => 'enum:USD,CLP',
+        'ubicacion' => 'string', 'descripcion' => 'string',
+        'estado' => 'enum:Nueva,Usada',
+        'condicion' => 'enum:Excelente,Muy Buena,Buena,Regular,Para Reparacion',
+        'horas' => 'int'
+    ];
+
+    foreach ($allowedFields as $field => $type) {
+        if (!array_key_exists($field, $input)) continue;
+        $val = $input[$field];
+        if (strpos($type, 'enum:') === 0) {
+            $valid = explode(',', substr($type, 5));
+            if (!in_array($val, $valid)) continue;
+        } elseif ($type === 'int') {
+            $val = intval($val) ?: null;
+        } elseif ($type === 'float') {
+            $val = floatval($val);
+        } else {
+            $val = trim($val);
+        }
+        $fields[] = "$field = ?";
+        $params[] = $val;
+    }
+
+    if (isset($input['fotos']) && is_array($input['fotos'])) {
+        $fields[] = 'fotos = ?';
+        $params[] = json_encode($input['fotos']);
+    }
+
+    if (empty($fields)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No hay campos para actualizar']);
+        return;
+    }
+
+    $params[] = $id;
+    $params[] = $user['email'];
+    $sql = "UPDATE marketplace_listings SET " . implode(', ', $fields) . " WHERE id = ? AND user_email = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    try {
+        $updated = fetchListingById($pdo, $id);
+        if ($updated) {
+            $emailService = getMarketplaceEmailService();
+            $userName = $user['name'] ?? $updated['user_name'];
+            $emailService->sendListingEditedEmail($user['email'], $userName, $updated);
+            $emailService->sendAdminListingEditedEmail($updated);
+        }
+    } catch (Exception $e) {
+        error_log('[Marketplace] Email send error on update: ' . $e->getMessage());
+    }
+
+    echo json_encode(['success' => true]);
+}
+
+function renewListing($user) {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? $_GET['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+
+    $listing = fetchListingById($pdo, $id);
+    if (!$listing || $listing['user_email'] !== $user['email']) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Anuncio no encontrado']);
+        return;
+    }
+    if ($listing['status'] === 'deleted') {
+        http_response_code(400);
+        echo json_encode(['error' => 'No se puede renovar un anuncio eliminado']);
+        return;
+    }
+
+    $now = date('Y-m-d H:i:s');
+    $newExpires = date('Y-m-d H:i:s', strtotime('+30 days'));
+    $newStatus = 'active';
+
+    $stmt = $pdo->prepare("
+        UPDATE marketplace_listings
+        SET status = ?, published_at = ?, expires_at = ?
+        WHERE id = ? AND user_email = ?
+    ");
+    $stmt->execute([$newStatus, $now, $newExpires, $id, $user['email']]);
+
+    try {
+        $renewed = fetchListingById($pdo, $id);
+        if ($renewed) {
+            $emailService = getMarketplaceEmailService();
+            $userName = $user['name'] ?? $renewed['user_name'];
+            $emailService->sendListingRenewedEmail($user['email'], $userName, $renewed);
+            $emailService->sendAdminListingRenewedEmail($renewed);
+        }
+    } catch (Exception $e) {
+        error_log('[Marketplace] Email send error on renew: ' . $e->getMessage());
+    }
+
+    echo json_encode(['success' => true, 'expires_at' => $newExpires]);
+}
+
+function markListingSold($user) {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+
+    $listing = fetchListingById($pdo, $id);
+    if (!$listing || $listing['user_email'] !== $user['email']) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Anuncio no encontrado']);
+        return;
+    }
+
+    $stmt = $pdo->prepare("UPDATE marketplace_listings SET status='sold' WHERE id=? AND user_email=?");
+    $stmt->execute([$id, $user['email']]);
+
+    try {
+        $emailService = getMarketplaceEmailService();
+        $userName = $user['name'] ?? $listing['user_name'];
+        $emailService->sendListingSoldEmail($user['email'], $userName, $listing);
+        $emailService->sendAdminListingSoldEmail($listing);
+    } catch (Exception $e) {
+        error_log('[Marketplace] Email send error on mark_sold: ' . $e->getMessage());
+    }
+
+    echo json_encode(['success' => true]);
+}
+
+function migrateMarketplaceV2() {
+    $emailService = getMarketplaceEmailService();
+    $result = $emailService->migrateMarketplaceSchema();
+    echo json_encode($result);
+}
+
+function fetchListingById($pdo, $id) {
+    $stmt = $pdo->prepare("SELECT * FROM marketplace_listings WHERE id = ?");
+    $stmt->execute([intval($id)]);
+    $listing = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($listing && $listing['fotos']) {
+        $listing['fotos'] = json_decode($listing['fotos'], true) ?: [];
+    }
+    return $listing ?: null;
 }
