@@ -332,49 +332,6 @@ function uploadPhoto($user) {
     echo json_encode(['success' => true, 'url' => $url]);
 }
 
-function updateListing($user) {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $id = intval($input['id'] ?? 0);
-    if (!$id) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Falta id']);
-        return;
-    }
-    $pdo = getDbConnection();
-    $stmt = $pdo->prepare("SELECT * FROM marketplace_listings WHERE id = ? AND user_email = ? AND status != 'deleted'");
-    $stmt->execute([$id, $user['email']]);
-    $listing = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$listing) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Publicacion no encontrada o no autorizado']);
-        return;
-    }
-    $fotos = isset($input['fotos']) && is_array($input['fotos']) ? json_encode($input['fotos']) : $listing['fotos'];
-    $stmt = $pdo->prepare("
-        UPDATE marketplace_listings SET
-            nombre = ?, tipo = ?, ano = ?, eslora = ?, precio = ?, moneda = ?,
-            ubicacion = ?, descripcion = ?, estado = ?, condicion = ?, horas = ?, fotos = ?
-        WHERE id = ? AND user_email = ?
-    ");
-    $stmt->execute([
-        trim($input['nombre'] ?? $listing['nombre']),
-        $input['tipo'] ?? $listing['tipo'],
-        intval($input['ano'] ?? $listing['ano']) ?: $listing['ano'],
-        $input['eslora'] ?? $listing['eslora'],
-        floatval($input['precio'] ?? $listing['precio']),
-        in_array($input['moneda'] ?? '', ['USD','CLP']) ? $input['moneda'] : $listing['moneda'],
-        $input['ubicacion'] ?? $listing['ubicacion'],
-        $input['descripcion'] ?? $listing['descripcion'],
-        in_array($input['estado'] ?? '', ['Nueva','Usada']) ? $input['estado'] : $listing['estado'],
-        in_array($input['condicion'] ?? '', ['Excelente','Muy Buena','Buena','Regular','Para Reparacion']) ? $input['condicion'] : $listing['condicion'],
-        intval($input['horas'] ?? $listing['horas']) ?: $listing['horas'],
-        $fotos,
-        $id,
-        $user['email']
-    ]);
-    echo json_encode(['success' => true]);
-}
-
 function deleteListing($user) {
     $input = json_decode(file_get_contents('php://input'), true);
     $id = intval($input['id'] ?? 0);
