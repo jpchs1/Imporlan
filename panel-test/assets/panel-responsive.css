@@ -63,26 +63,45 @@ html, body {
     flex-direction: column !important;
   }
 
-  /* Sidebar navigation */
-  aside {
+  /* Sidebar navigation - both <aside> (admin) and div.w-64 (user panel) */
+  aside,
+  .min-h-screen.flex > .w-64,
+  .min-h-screen.flex > .bg-slate-900,
+  .min-h-screen.flex > .bg-gray-900 {
     width: 100% !important;
     min-width: 0 !important;
     max-height: none !important;
     height: auto !important;
+    min-height: auto !important;
     position: relative !important;
     flex-shrink: 0 !important;
   }
 
   /* Sidebar nav items: horizontal compact layout */
-  aside nav ul {
+  aside nav ul,
+  .min-h-screen.flex > .w-64 nav,
+  .min-h-screen.flex > .bg-slate-900 nav,
+  .min-h-screen.flex > .bg-gray-900 nav {
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: wrap !important;
+    flex: none !important;
     gap: 4px !important;
     padding: 4px 8px !important;
   }
 
-  aside nav ul li {
+  aside nav ul li,
+  .min-h-screen.flex > .w-64 nav > a,
+  .min-h-screen.flex > .w-64 nav > button,
+  .min-h-screen.flex > .bg-slate-900 nav > a,
+  .min-h-screen.flex > .bg-slate-900 nav > button,
+  .min-h-screen.flex > .bg-gray-900 nav > a,
+  .min-h-screen.flex > .bg-gray-900 nav > button {
     flex: none !important;
+    width: auto !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    margin-bottom: 0 !important;
   }
 
   aside nav ul li button {
@@ -95,7 +114,7 @@ html, body {
     height: 16px !important;
   }
 
-  /* Hide sidebar header text on mobile */
+  /* Sidebar header text on mobile */
   aside > div:first-child h1 {
     font-size: 16px !important;
   }
@@ -106,12 +125,15 @@ html, body {
   }
 
   /* Sidebar footer (user info + logout) compact */
-  aside > div:last-child {
+  aside > div:last-child,
+  .min-h-screen.flex > .w-64 > div:last-child,
+  .min-h-screen.flex > .bg-slate-900 > div:last-child,
+  .min-h-screen.flex > .bg-gray-900 > div:last-child {
     padding: 8px 12px !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
-    border-top: 1px solid #e5e7eb !important;
+    border-top: 1px solid rgba(255,255,255,0.1) !important;
   }
 
   /* Main content area */
