@@ -16,7 +16,7 @@
 require_once __DIR__ . '/db_config.php';
 
 class EmailService {
-    private $pdo;
+    protected $pdo;
     
     // SMTP Configuration
     private $smtpHost = 'mail.imporlan.cl';
@@ -33,19 +33,19 @@ class EmailService {
     // URLs
     private $panelUrl = 'https://www.imporlan.cl/panel';
     private $myProductsUrl = 'https://www.imporlan.cl/panel/mis-productos';
-    private $websiteUrl = 'https://www.imporlan.cl';
+    protected $websiteUrl = 'https://www.imporlan.cl';
     
     // Internal notification recipients
-    private $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
+    protected $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
     
     // TEST Environment Configuration
     // When isTestEnvironment is true, ALL emails are redirected to testRecipient
     // This allows testing real email flows without sending to actual users
-    private $isTestEnvironment = false;
+    protected $isTestEnvironment = false;
     private $testRecipient = 'jpchs1@gmail.com';
     
     // Design tokens (matching /panel/ exactly)
-    private $colors = [
+    protected $colors = [
         'bg_dark' => '#0a1628',
         'bg_gradient_end' => '#1a365d',
         'primary' => '#3b82f6',
@@ -464,7 +464,7 @@ BASE64;
      * TEST MODE: When isTestEnvironment is true, all emails are redirected to testRecipient
      * The original recipient is logged but not used for actual delivery
      */
-    private function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
+    protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
         
@@ -617,7 +617,7 @@ BASE64;
     /**
      * Base Template - Exact clone of /panel/ visual style
      */
-    private function getBaseTemplate($content, $title = 'Imporlan') {
+    protected function getBaseTemplate($content, $title = 'Imporlan') {
         $c = $this->colors;
         
         return '<!DOCTYPE html>
@@ -714,7 +714,7 @@ BASE64;
     /**
      * Primary CTA Button - matching /panel/ "Entrar" button exactly
      */
-    private function getButton($text, $url, $fullWidth = true) {
+    protected function getButton($text, $url, $fullWidth = true) {
         $c = $this->colors;
         $width = $fullWidth ? 'width: 100%;' : '';
         
@@ -743,7 +743,7 @@ BASE64;
     /**
      * Secondary Button - matching /panel/ "Registrar" button style
      */
-    private function getSecondaryButton($text, $url) {
+    protected function getSecondaryButton($text, $url) {
         $c = $this->colors;
         
         return '
@@ -769,7 +769,7 @@ BASE64;
     /**
      * Info Card - matching /panel/ feature cards style
      */
-    private function getInfoCard($title, $items) {
+    protected function getInfoCard($title, $items) {
         $c = $this->colors;
         
         $itemsHtml = '';
@@ -836,7 +836,7 @@ BASE64;
     /**
      * Status Badge
      */
-    private function getStatusBadge($status, $text) {
+    protected function getStatusBadge($status, $text) {
         $c = $this->colors;
         $colors = [
             'success' => $c['success'],
