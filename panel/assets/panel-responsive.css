@@ -1,0 +1,413 @@
+/**
+ * Panel Responsive Overrides - Imporlan
+ * Fixes mobile/tablet layout issues for all panel pages
+ * Loaded after Tailwind compiled CSS to override where needed
+ */
+
+/* ===== GLOBAL MOBILE FIXES ===== */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+#root {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ===== LOGIN PAGE ===== */
+@media (max-width: 767px) {
+  /* Ensure the outer container fills viewport */
+  #root > div {
+    padding: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Make the grid container full width and single column */
+  #root > div > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Info panel (left side on desktop) */
+  #root > div > div > div:first-child {
+    border-radius: 20px !important;
+    padding: 24px !important;
+  }
+
+  /* Login form card */
+  #root > div > div > div:last-child {
+    padding: 24px !important;
+    border-radius: 20px !important;
+  }
+
+  /* Login form buttons row */
+  #root > div > div > div:last-child .flex.gap-3 {
+    flex-direction: column !important;
+  }
+
+  #root > div > div > div:last-child .flex.gap-3 > button {
+    width: 100% !important;
+  }
+}
+
+/* ===== DASHBOARD / LOGGED-IN PAGES ===== */
+@media (max-width: 767px) {
+  /* Sidebar navigation */
+  nav, aside, [class*="sidebar"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    position: relative !important;
+  }
+
+  /* Main content area */
+  main, [role="main"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Dashboard cards grid */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .grid.grid-cols-2,
+  .grid.grid-cols-3,
+  .grid.grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Cards and containers */
+  .rounded-3xl, .rounded-2xl, .rounded-xl {
+    border-radius: 16px !important;
+  }
+
+  /* Flex containers that should stack */
+  .flex.gap-6, .flex.gap-8 {
+    flex-direction: column !important;
+  }
+
+  /* Horizontal scrolling prevention */
+  .overflow-x-auto {
+    max-width: 100vw !important;
+  }
+}
+
+/* ===== SIDEBAR / NAVIGATION ON MOBILE ===== */
+@media (max-width: 767px) {
+  /* Collapsible sidebar */
+  .w-64, .w-72, .min-w-64 {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Horizontal nav for mobile */
+  nav ul, nav ol {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  nav li {
+    flex: none !important;
+  }
+}
+
+/* ===== TABLET ADJUSTMENTS ===== */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #root > div > div {
+    max-width: 100% !important;
+    padding: 0 16px !important;
+  }
+
+  .grid.grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ===== FLOATING BUTTONS ON MOBILE ===== */
+@media (max-width: 767px) {
+  /* Chat floating button - ensure it doesn't overlap content */
+  .chat-floating-btn,
+  #admin-chat-floating-btn {
+    bottom: 16px !important;
+    right: 16px !important;
+    width: 50px !important;
+    height: 50px !important;
+    z-index: 999 !important;
+  }
+
+  /* Support trigger button */
+  #imporlan-support-trigger {
+    bottom: 74px !important;
+    right: 16px !important;
+    padding: 12px !important;
+    border-radius: 50% !important;
+  }
+
+  #imporlan-support-trigger span {
+    display: none !important;
+  }
+}
+
+/* ===== SUPPORT PAGE ENHANCER OVERRIDES ===== */
+@media (max-width: 767px) {
+  /* 3-column info cards grid → single column */
+  .sp-enhanced > div:nth-child(2) {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* 2-column FAQ + Form grid → single column */
+  .sp-enhanced > div:nth-child(3) {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Hero banner padding */
+  .sp-enhanced > div:first-child {
+    padding: 24px 20px 20px !important;
+    border-radius: 16px !important;
+  }
+
+  .sp-enhanced > div:first-child h1 {
+    font-size: 22px !important;
+  }
+
+  .sp-enhanced {
+    padding: 0 !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* 3-column → 2-column on tablet */
+  .sp-enhanced > div:nth-child(2) {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ===== CHAT MODAL (USER) ON MOBILE ===== */
+@media (max-width: 767px) {
+  .chat-modal-overlay .chat-modal {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  .chat-modal-body {
+    flex-direction: column !important;
+  }
+}
+
+/* ===== ADMIN CHAT MODAL ON MOBILE ===== */
+@media (max-width: 767px) {
+  #admin-chat-modal-overlay,
+  .admin-chat-modal-overlay {
+    align-items: stretch !important;
+    padding: 0 !important;
+  }
+
+  #admin-chat-modal-overlay .admin-chat-modal-content,
+  .admin-chat-modal-overlay .admin-chat-modal-content,
+  #chat-modal-content {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Conversations panel in modal - full width when active */
+  .admin-chat-modal-content .admin-chat-conversations-panel,
+  #chat-modal-content .admin-chat-conversations-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Messages panel hidden until conversation selected */
+  .admin-chat-modal-content .admin-chat-messages-panel,
+  #chat-modal-content .admin-chat-messages-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Admin modal body - stack panels */
+  .admin-chat-modal-body,
+  #chat-modal-content .admin-chat-modal-body {
+    flex-direction: column !important;
+  }
+
+  /* Resize handles hidden on mobile */
+  .admin-resize-handle {
+    display: none !important;
+  }
+}
+
+/* ===== CHAT FULL PAGE (ADMIN) ON MOBILE ===== */
+@media (max-width: 767px) {
+  .imporlan-chat-container {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: calc(100vh - 80px) !important;
+  }
+
+  .chat-conversations-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-height: 40vh !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .chat-messages-panel {
+    width: 100% !important;
+    min-height: 50vh !important;
+  }
+
+  .chat-details-panel {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .chat-details-panel {
+    display: none !important;
+  }
+
+  .chat-conversations-panel {
+    width: 260px !important;
+    min-width: 260px !important;
+  }
+}
+
+/* ===== SUPPORT FORM MODAL ON MOBILE ===== */
+@media (max-width: 540px) {
+  #imporlan-support-overlay .sf-modal {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    height: 100% !important;
+  }
+
+  #imporlan-support-overlay .sf-body {
+    padding: 16px !important;
+  }
+
+  #imporlan-support-overlay .sf-row {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+
+  #imporlan-support-overlay .sf-actions {
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+  }
+
+  #imporlan-support-overlay .sf-actions .sf-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* ===== IMAGE AND MEDIA RESPONSIVENESS ===== */
+@media (max-width: 767px) {
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  iframe, video, embed, object {
+    max-width: 100%;
+  }
+}
+
+/* ===== ADMIN PANEL SPECIFIC ===== */
+@media (max-width: 767px) {
+  /* Admin sidebar */
+  .bg-gray-900, .bg-slate-900 {
+    width: 100% !important;
+    min-height: auto !important;
+    position: relative !important;
+  }
+
+  /* Admin content area */
+  .flex-1.overflow-auto,
+  .flex-1.overflow-y-auto {
+    width: 100% !important;
+    padding: 12px !important;
+  }
+
+  /* Admin stats cards */
+  .grid-cols-2.gap-4,
+  .grid-cols-3.gap-4,
+  .grid-cols-4.gap-4,
+  .grid-cols-2.gap-6,
+  .grid-cols-3.gap-6,
+  .grid-cols-4.gap-6 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Admin header */
+  header .flex {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}
+
+/* ===== SMOOTH TRANSITIONS ===== */
+@media (prefers-reduced-motion: no-preference) {
+  .chat-conversations-panel,
+  .chat-messages-panel,
+  .admin-chat-modal-content {
+    transition: width 0.3s ease, transform 0.3s ease;
+  }
+}
+
+/* ===== NEW CONVERSATION MODAL ON MOBILE ===== */
+@media (max-width: 540px) {
+  .chat-new-modal-content {
+    width: 95% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  .chat-floating-btn,
+  #imporlan-support-trigger,
+  #admin-chat-floating-btn {
+    display: none !important;
+  }
+}
