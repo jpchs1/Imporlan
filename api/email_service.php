@@ -400,6 +400,38 @@ BASE64;
         ]);
     }
     
+    public function sendSupportConfirmation($userEmail, $userName, $subject) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Recibido') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Hemos recibido tu solicitud
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($userName) . ', tu mensaje sobre <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($subject) . '</strong> ha sido recibido correctamente.
+            </p>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Nuestro equipo revisara tu solicitud y te responderemos a la brevedad posible, generalmente dentro de las proximas 24 horas habiles.
+            </p>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ir al Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si necesitas asistencia urgente, puedes contactarnos directamente a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        $htmlContent = $this->getBaseTemplate($content, 'Solicitud recibida');
+        return $this->sendEmail($userEmail, 'Hemos recibido tu solicitud - Imporlan', $htmlContent, 'support_confirmation', ['subject' => $subject]);
+    }
+    
     public function sendQuotationRequestNotification($requestData) {
         return $this->sendInternalNotification('quotation_request', [
             'name' => $requestData['name'],
