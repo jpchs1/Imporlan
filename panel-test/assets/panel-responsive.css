@@ -58,11 +58,60 @@ html, body {
 
 /* ===== DASHBOARD / LOGGED-IN PAGES ===== */
 @media (max-width: 767px) {
+  /* Parent flex container: stack sidebar + main vertically */
+  .min-h-screen.flex {
+    flex-direction: column !important;
+  }
+
   /* Sidebar navigation */
-  nav, aside, [class*="sidebar"] {
+  aside {
     width: 100% !important;
     min-width: 0 !important;
+    max-height: none !important;
+    height: auto !important;
     position: relative !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Sidebar nav items: horizontal compact layout */
+  aside nav ul {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    padding: 4px 8px !important;
+  }
+
+  aside nav ul li {
+    flex: none !important;
+  }
+
+  aside nav ul li button {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+
+  aside nav ul li button svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Hide sidebar header text on mobile */
+  aside > div:first-child h1 {
+    font-size: 16px !important;
+  }
+
+  aside > div:first-child p,
+  aside > div:first-child span {
+    font-size: 11px !important;
+  }
+
+  /* Sidebar footer (user info + logout) compact */
+  aside > div:last-child {
+    padding: 8px 12px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    border-top: 1px solid #e5e7eb !important;
   }
 
   /* Main content area */
@@ -71,6 +120,7 @@ html, body {
     min-width: 0 !important;
     padding: 12px !important;
     overflow-x: hidden !important;
+    flex: 1 !important;
   }
 
   /* Dashboard cards grid */
@@ -110,21 +160,9 @@ html, body {
 
 /* ===== SIDEBAR / NAVIGATION ON MOBILE ===== */
 @media (max-width: 767px) {
-  /* Collapsible sidebar */
   .w-64, .w-72, .min-w-64 {
     width: 100% !important;
     min-width: 0 !important;
-  }
-
-  /* Horizontal nav for mobile */
-  nav ul, nav ol {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px !important;
-  }
-
-  nav li {
-    flex: none !important;
   }
 }
 
@@ -355,28 +393,20 @@ html, body {
 
 /* ===== ADMIN PANEL SPECIFIC ===== */
 @media (max-width: 767px) {
-  /* Admin sidebar */
-  .bg-gray-900, .bg-slate-900 {
-    width: 100% !important;
-    min-height: auto !important;
-    position: relative !important;
-  }
-
-  /* Admin content area */
+  /* Admin main content area */
   .flex-1.overflow-auto,
   .flex-1.overflow-y-auto {
     width: 100% !important;
     padding: 12px !important;
   }
 
-  /* Admin stats cards */
-  .grid-cols-2.gap-4,
-  .grid-cols-3.gap-4,
-  .grid-cols-4.gap-4,
-  .grid-cols-2.gap-6,
-  .grid-cols-3.gap-6,
-  .grid-cols-4.gap-6 {
-    grid-template-columns: 1fr !important;
+  main.p-8 {
+    padding: 12px !important;
+  }
+
+  /* Admin page titles */
+  main h1 {
+    font-size: 22px !important;
   }
 
   /* Admin header */
