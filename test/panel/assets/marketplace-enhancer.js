@@ -20,6 +20,8 @@
   let uploadedPhotos = [];
   let isSubmitting = false;
   let detailModalOpen = false;
+  let editPhotos = [];
+  let editingId = null;
 
   function getUserData() {
     try {
@@ -470,7 +472,12 @@
       (item.estado || "") +
       " | " +
       (item.condicion || "") +
-      "</p></div></div>"
+      "</p>" +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<button onclick="window.__mktOpenEdit(' + item.id + ')" style="display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar</button>' +
+      '<button onclick="window.__mktDeleteListing(' + item.id + ',\'' + (item.nombre || '').replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;gap:4px;background:#fff;color:#dc2626;border:1px solid #fecaca;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'#fff\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>' +
+      '</div>' +
+      "</div></div>"
     );
   }
 
@@ -691,6 +698,239 @@
     uploadedPhotos.splice(idx, 1);
     renderPhotoPreview();
   };
+
+  window.__mktRemoveEditPhoto = function (idx) {
+    editPhotos.splice(idx, 1);
+    renderEditPhotoPreview();
+  };
+
+  function renderEditPhotoPreview() {
+    var container = document.getElementById('mkt-edit-photo-preview');
+    if (!container) return;
+    container.innerHTML = '';
+    editPhotos.forEach(function (url, idx) {
+      var div = document.createElement('div');
+      div.style.cssText = 'position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0';
+      div.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover">' +
+        '<button onclick="window.__mktRemoveEditPhoto(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>';
+      container.appendChild(div);
+    });
+    var dropzone = document.getElementById('mkt-edit-photo-dropzone');
+    if (dropzone) dropzone.style.display = editPhotos.length >= 8 ? 'none' : 'block';
+  }
+
+  function setupEditPhotoHandlers() {
+    var input = document.getElementById('mkt-edit-photo-input');
+    var dropzone = document.getElementById('mkt-edit-photo-dropzone');
+    if (!input) return;
+    input.addEventListener('change', async function () {
+      var files = Array.from(this.files);
+      var remaining = 8 - editPhotos.length;
+      if (remaining <= 0) { alert('Maximo 8 fotos permitidas'); return; }
+      files = files.slice(0, remaining);
+      for (var i = 0; i < files.length; i++) {
+        var result = await uploadPhotoFile(files[i]);
+        if (result && result.url) editPhotos.push(result.url);
+      }
+      renderEditPhotoPreview();
+      input.value = '';
+    });
+    if (dropzone) {
+      dropzone.addEventListener('dragover', function (e) { e.preventDefault(); this.style.borderColor = '#3b82f6'; this.style.background = '#eff6ff'; });
+      dropzone.addEventListener('dragleave', function (e) { e.preventDefault(); this.style.borderColor = '#cbd5e1'; this.style.background = '#fafafa'; });
+      dropzone.addEventListener('drop', async function (e) {
+        e.preventDefault();
+        this.style.borderColor = '#cbd5e1'; this.style.background = '#fafafa';
+        var files = Array.from(e.dataTransfer.files).filter(function (f) { return f.type.startsWith('image/'); });
+        var remaining = 8 - editPhotos.length;
+        files = files.slice(0, remaining);
+        for (var i = 0; i < files.length; i++) {
+          var result = await uploadPhotoFile(files[i]);
+          if (result && result.url) editPhotos.push(result.url);
+        }
+        renderEditPhotoPreview();
+      });
+    }
+  }
+
+  function buildEditModal(item) {
+    var selTipo = function (v) { return ['Bowrider','Pesca','Jet Boat','Yate','Velero','Moto de Agua','Catamaran','Otro'].map(function (o) { return '<option value="' + o + '"' + (o === (item.tipo || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
+    var selEstado = function (v) { return ['Usada','Nueva'].map(function (o) { return '<option value="' + o + '"' + (o === (item.estado || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
+    var selCondicion = function () { return ['Excelente','Muy Buena','Buena','Regular','Para Reparacion'].map(function (o) { return '<option value="' + o + '"' + (o === (item.condicion || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
+    var selMoneda = function () { return ['USD','CLP'].map(function (o) { return '<option value="' + o + '"' + (o === (item.moneda || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
+    return (
+      '<div id="mkt-edit-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:mktFadeIn .2s ease" onclick="if(event.target===this)window.__mktCloseEdit()">' +
+      '<div style="background:#fff;border-radius:20px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;position:relative;animation:mktSlideUp .3s ease">' +
+      '<div style="padding:24px 24px 0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+      '<h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0">Editar Publicaci\u00f3n</h2>' +
+      '<button onclick="window.__mktCloseEdit()" style="background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
+      '</div>' +
+      '<p style="color:#64748b;font-size:14px;margin:0 0 20px">Modifica los datos de tu embarcaci\u00f3n</p>' +
+      '</div>' +
+      '<form id="mkt-edit-form" style="padding:0 24px 24px" onsubmit="return window.__mktSubmitEdit(event)">' +
+      '<input type="hidden" name="id" value="' + item.id + '">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Nombre / Modelo</label><input name="nombre" type="text" value="' + (item.nombre || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Tipo</label><select name="tipo" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selTipo() + '</select></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Ano</label><input name="ano" type="number" value="' + (item.ano || '') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Eslora (pies)</label><input name="eslora" type="text" value="' + (item.eslora || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Precio</label><div style="display:flex;gap:8px"><input name="precio" type="number" value="' + (item.precio || '') + '" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"><select name="moneda" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer;min-width:90px">' + selMoneda() + '</select></div></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Ubicacion</label><input name="ubicacion" type="text" value="' + (item.ubicacion || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Estado</label><select name="estado" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selEstado() + '</select></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Condicion</label><select name="condicion" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selCondicion() + '</select></div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Horas de Motor</label><input name="horas" type="number" value="' + (item.horas || '') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
+      '</div>' +
+      '<div style="margin-top:14px"><label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Descripcion</label><textarea name="descripcion" rows="3" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;font-family:inherit;outline:none;box-sizing:border-box" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'">' + (item.descripcion || '') + '</textarea></div>' +
+      '<div style="margin-top:14px">' +
+      '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:6px">Fotos <span style="color:#94a3b8;font-weight:400">(maximo 8)</span></label>' +
+      '<div id="mkt-edit-photo-preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>' +
+      '<div id="mkt-edit-photo-dropzone" style="border:2px dashed #cbd5e1;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.background=\'#eff6ff\'" onmouseout="this.style.borderColor=\'#cbd5e1\';this.style.background=\'#fafafa\'" onclick="document.getElementById(\'mkt-edit-photo-input\').click()">' +
+      '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="margin:0 auto 8px;display:block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      '<p style="color:#64748b;font-size:14px;margin:0">Arrastra fotos aqui o haz clic para seleccionar</p>' +
+      '<p style="color:#94a3b8;font-size:12px;margin:4px 0 0">JPG, PNG, WebP (max 5MB cada una)</p>' +
+      '</div>' +
+      '<input type="file" id="mkt-edit-photo-input" accept="image/*" multiple style="display:none">' +
+      '</div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px">' +
+      '<button type="button" onclick="window.__mktCloseEdit()" style="padding:10px 24px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-size:14px;font-weight:500;cursor:pointer;color:#475569;transition:all .2s" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">Cancelar</button>' +
+      '<button type="submit" id="mkt-edit-btn" style="padding:10px 28px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">Guardar Cambios</button>' +
+      '</div></form></div></div>'
+    );
+  }
+
+  window.__mktOpenEdit = async function (id) {
+    var item = myListings.find(function (l) { return l.id == id; });
+    if (!item) {
+      var data = await apiCall('?action=get&id=' + id);
+      if (data && data.listing) item = data.listing;
+    }
+    if (!item) return;
+    editingId = item.id;
+    editPhotos = (item.fotos && Array.isArray(item.fotos)) ? item.fotos.slice() : [];
+    var existing = document.getElementById('mkt-edit-overlay');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', buildEditModal(item));
+    setupEditPhotoHandlers();
+    renderEditPhotoPreview();
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.__mktCloseEdit = function () {
+    var overlay = document.getElementById('mkt-edit-overlay');
+    if (overlay) overlay.remove();
+    document.body.style.overflow = '';
+    editingId = null;
+  };
+
+  window.__mktSubmitEdit = async function (e) {
+    e.preventDefault();
+    if (isSubmitting) return false;
+    isSubmitting = true;
+    var form = document.getElementById('mkt-edit-form');
+    var btn = document.getElementById('mkt-edit-btn');
+    var oldText = btn.innerHTML;
+    btn.innerHTML = 'Guardando...';
+    btn.disabled = true;
+    var data = {
+      id: parseInt(form.id.value),
+      nombre: form.nombre.value,
+      tipo: form.tipo.value,
+      ano: form.ano.value,
+      eslora: form.eslora.value,
+      precio: form.precio.value,
+      moneda: form.moneda.value,
+      ubicacion: form.ubicacion.value,
+      descripcion: form.descripcion.value,
+      estado: form.estado.value,
+      condicion: form.condicion.value,
+      horas: form.horas.value,
+      fotos: editPhotos
+    };
+    try {
+      var result = await apiCall('?action=update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (result && result.success) {
+        window.__mktCloseEdit();
+        await loadListings();
+        await loadMyListings();
+        enhanceMarketplace(true);
+        window.__mktSwitchTab('sell');
+        showSuccessEditModal();
+      } else {
+        alert('Error al actualizar: ' + (result ? result.error : 'Error de red'));
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+      }
+    } catch (err) {
+      alert('Error de conexion');
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+    }
+    isSubmitting = false;
+    return false;
+  };
+
+  window.__mktDeleteListing = function (id, nombre) {
+    showDeleteConfirmModal(id, nombre);
+  };
+
+  function showDeleteConfirmModal(id, nombre) {
+    var overlay = document.createElement('div');
+    overlay.id = 'mkt-delete-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;animation:mktFadeIn .3s ease';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;padding:40px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:mktSlideUp .4s ease">' +
+      '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#ef4444);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(220,38,38,.35)">' +
+      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+      '</div>' +
+      '<h2 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 8px">Eliminar Publicaci\u00f3n</h2>' +
+      '<p style="font-size:15px;color:#64748b;margin:0 0 24px;line-height:1.5">\u00bfEst\u00e1s seguro de eliminar <strong>' + (nombre || '') + '</strong>? Esta acci\u00f3n no se puede deshacer.</p>' +
+      '<div style="display:flex;gap:12px;justify-content:center">' +
+      '<button onclick="document.getElementById(\'mkt-delete-overlay\').remove()" style="padding:12px 32px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;color:#475569;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">Cancelar</button>' +
+      '<button onclick="window.__mktConfirmDelete(' + id + ')" style="padding:12px 32px;border:none;border-radius:12px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(220,38,38,.3)" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'none\'">Eliminar</button>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  }
+
+  window.__mktConfirmDelete = async function (id) {
+    var overlay = document.getElementById('mkt-delete-overlay');
+    if (overlay) overlay.remove();
+    var result = await apiCall('?action=delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    });
+    if (result && result.success) {
+      await loadListings();
+      await loadMyListings();
+      enhanceMarketplace(true);
+      window.__mktSwitchTab('sell');
+    } else {
+      alert('Error al eliminar: ' + (result ? result.error : 'Error de red'));
+    }
+  };
+
+  function showSuccessEditModal() {
+    var overlay = document.createElement('div');
+    overlay.id = 'mkt-success-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;animation:mktFadeIn .3s ease';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;padding:40px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:mktSlideUp .4s ease">' +
+      '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#059669,#10b981);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(16,185,129,.35)">' +
+      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '</div>' +
+      '<h2 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 8px">Cambios Guardados</h2>' +
+      '<p style="font-size:15px;color:#64748b;margin:0 0 24px;line-height:1.5">Tu publicaci\u00f3n ha sido actualizada correctamente.</p>' +
+      '<button onclick="document.getElementById(\'mkt-success-overlay\').remove()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:14px 48px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.3)" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'none\'">Aceptar</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  }
 
   window.__mktOpenChatAbout = function (listingName) {
     window.__mktCloseDetail();
