@@ -271,16 +271,17 @@
     var fullSubject = subject;
     if (operation) fullSubject += " - Op: " + operation;
 
-    var body = new URLSearchParams();
-    body.append("name", name);
-    body.append("email", email);
-    body.append("subject", fullSubject);
-    body.append("message", message);
+    var payload = JSON.stringify({
+      name: name,
+      email: email,
+      subject: fullSubject,
+      message: message,
+    });
 
     fetch(API_BASE + "/support_api.php", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: payload,
     })
       .then(function (r) {
         return r.json();
