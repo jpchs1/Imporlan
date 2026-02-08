@@ -6,13 +6,21 @@
 
 /* ===== GLOBAL MOBILE FIXES ===== */
 html, body {
-  overflow-x: hidden;
-  width: 100%;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
 }
 
 #root {
-  width: 100%;
-  min-width: 0;
+  width: 100% !important;
+  max-width: 100vw !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+}
+
+#root > div {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
 }
 
 /* ===== LOGIN PAGE ===== */
@@ -59,17 +67,28 @@ html, body {
 /* ===== DASHBOARD / LOGGED-IN PAGES ===== */
 @media (max-width: 767px) {
   /* Parent flex container: stack sidebar + main vertically */
-  .min-h-screen.flex {
+  .min-h-screen.flex,
+  #root > .flex,
+  #root > div.flex {
     flex-direction: column !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
   }
 
-  /* Sidebar navigation - both <aside> (admin) and div.w-64 (user panel) */
+  /* Sidebar - target ALL possible sidebar containers */
   aside,
+  .w-64,
+  .w-72,
+  .min-w-64,
   .min-h-screen.flex > .w-64,
   .min-h-screen.flex > .bg-slate-900,
-  .min-h-screen.flex > .bg-gray-900 {
+  .min-h-screen.flex > .bg-gray-900,
+  .min-h-screen.flex > div.w-64,
+  #root > .flex > .w-64,
+  #root > div.flex > .w-64 {
     width: 100% !important;
     min-width: 0 !important;
+    max-width: 100vw !important;
     max-height: none !important;
     height: auto !important;
     min-height: auto !important;
@@ -77,11 +96,12 @@ html, body {
     flex-shrink: 0 !important;
   }
 
-  /* Sidebar nav items: horizontal compact layout */
+  /* Sidebar nav: horizontal compact layout */
+  aside nav,
   aside nav ul,
-  .min-h-screen.flex > .w-64 nav,
-  .min-h-screen.flex > .bg-slate-900 nav,
-  .min-h-screen.flex > .bg-gray-900 nav {
+  .w-64 nav,
+  .bg-slate-900 nav,
+  .bg-gray-900 nav {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: wrap !important;
@@ -90,13 +110,16 @@ html, body {
     padding: 4px 8px !important;
   }
 
+  /* Nav buttons/links: auto width for horizontal wrapping */
   aside nav ul li,
-  .min-h-screen.flex > .w-64 nav > a,
-  .min-h-screen.flex > .w-64 nav > button,
-  .min-h-screen.flex > .bg-slate-900 nav > a,
-  .min-h-screen.flex > .bg-slate-900 nav > button,
-  .min-h-screen.flex > .bg-gray-900 nav > a,
-  .min-h-screen.flex > .bg-gray-900 nav > button {
+  aside nav button,
+  aside nav a,
+  .w-64 nav > a,
+  .w-64 nav > button,
+  .bg-slate-900 nav > a,
+  .bg-slate-900 nav > button,
+  .bg-gray-900 nav > a,
+  .bg-gray-900 nav > button {
     flex: none !important;
     width: auto !important;
     padding: 6px 12px !important;
@@ -109,51 +132,88 @@ html, body {
     font-size: 13px !important;
   }
 
-  aside nav ul li button svg {
+  aside nav ul li button svg,
+  .w-64 nav button svg,
+  .w-64 nav a svg {
     width: 16px !important;
     height: 16px !important;
   }
 
-  /* Sidebar header text on mobile */
-  aside > div:first-child h1 {
-    font-size: 16px !important;
-  }
-
-  aside > div:first-child p,
-  aside > div:first-child span {
-    font-size: 11px !important;
+  /* Sidebar header */
+  .w-64 > div:first-child,
+  .bg-slate-900 > div:first-child {
+    padding: 8px 12px !important;
   }
 
   /* Sidebar footer (user info + logout) compact */
   aside > div:last-child,
-  .min-h-screen.flex > .w-64 > div:last-child,
-  .min-h-screen.flex > .bg-slate-900 > div:last-child,
-  .min-h-screen.flex > .bg-gray-900 > div:last-child {
+  .w-64 > div:last-child,
+  .bg-slate-900 > div:last-child,
+  .bg-gray-900 > div:last-child {
     padding: 8px 12px !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
+    gap: 8px !important;
     border-top: 1px solid rgba(255,255,255,0.1) !important;
   }
 
-  /* Main content area */
-  main, [role="main"] {
+  .w-64 > div:last-child button,
+  .bg-slate-900 > div:last-child button {
+    width: auto !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+
+  /* Main content area - MUST fill full width */
+  main,
+  [role="main"],
+  .flex-1.overflow-auto,
+  .flex-1.overflow-y-auto,
+  .min-h-screen.flex > main,
+  #root > .flex > main,
+  #root > div.flex > main {
     width: 100% !important;
+    max-width: 100vw !important;
     min-width: 0 !important;
     padding: 12px !important;
     overflow-x: hidden !important;
-    flex: 1 !important;
+    flex: 1 1 auto !important;
+    box-sizing: border-box !important;
   }
 
-  /* Dashboard cards grid */
+  /* All content containers inside main */
+  main > div,
+  main > div > div {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Dashboard cards grid - single column */
   .grid {
     grid-template-columns: 1fr !important;
+    max-width: 100% !important;
   }
 
   .grid.grid-cols-2,
   .grid.grid-cols-3,
   .grid.grid-cols-4 {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Flex row containers that should stack on mobile */
+  main .flex.gap-4,
+  main .flex.gap-6,
+  main .flex.gap-8 {
+    flex-direction: column !important;
+  }
+
+  /* Cards and containers */
+  .rounded-3xl, .rounded-2xl, .rounded-xl {
+    border-radius: 16px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Tables */
@@ -164,27 +224,24 @@ html, body {
     max-width: 100%;
   }
 
-  /* Cards and containers */
-  .rounded-3xl, .rounded-2xl, .rounded-xl {
-    border-radius: 16px !important;
-  }
-
-  /* Flex containers that should stack */
-  .flex.gap-6, .flex.gap-8 {
-    flex-direction: column !important;
-  }
-
-  /* Horizontal scrolling prevention */
+  /* Prevent horizontal overflow anywhere */
   .overflow-x-auto {
     max-width: 100vw !important;
   }
-}
 
-/* ===== SIDEBAR / NAVIGATION ON MOBILE ===== */
-@media (max-width: 767px) {
-  .w-64, .w-72, .min-w-64 {
-    width: 100% !important;
-    min-width: 0 !important;
+  /* Space-y containers - ensure they don't overflow */
+  .space-y-4, .space-y-6, .space-y-8 {
+    max-width: 100% !important;
+  }
+
+  /* Page titles */
+  main h1 {
+    font-size: 22px !important;
+    word-break: break-word !important;
+  }
+
+  main .p-6, main .p-8 {
+    padding: 12px !important;
   }
 }
 
@@ -415,23 +472,6 @@ html, body {
 
 /* ===== ADMIN PANEL SPECIFIC ===== */
 @media (max-width: 767px) {
-  /* Admin main content area */
-  .flex-1.overflow-auto,
-  .flex-1.overflow-y-auto {
-    width: 100% !important;
-    padding: 12px !important;
-  }
-
-  main.p-8 {
-    padding: 12px !important;
-  }
-
-  /* Admin page titles */
-  main h1 {
-    font-size: 22px !important;
-  }
-
-  /* Admin header */
   header .flex {
     flex-wrap: wrap !important;
     gap: 8px !important;
