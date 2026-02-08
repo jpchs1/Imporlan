@@ -173,9 +173,11 @@
       "</p>" +
       "</div>" +
       '<div style="text-align:right;flex-shrink:0;margin-left:8px">' +
+      '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
+      '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
       '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
       formatPrice(item.precio, item.moneda) +
-      "</p>" +
+      "</p></div>" +
       "</div></div>" +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
       estadoBadge(item.estado) +
@@ -752,7 +754,7 @@
         await loadListings();
         await loadMyListings();
         enhanceMarketplace(true);
-        alert("Embarcacion publicada exitosamente!");
+        showSuccessModal();
       } else {
         alert("Error al publicar: " + (result ? result.error : "Error de red"));
         btn.innerHTML = oldText;
@@ -789,6 +791,23 @@
       contentDiv.innerHTML = buildPage();
     }
     enhanced = true;
+  }
+
+  function showSuccessModal() {
+    var overlay = document.createElement('div');
+    overlay.id = 'mkt-success-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:100000;display:flex;align-items:center;justify-content:center;animation:mktFadeIn .3s ease';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;padding:40px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,.25);animation:mktSlideUp .4s ease">' +
+      '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#059669,#10b981);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(16,185,129,.35)">' +
+      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '</div>' +
+      '<h2 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 8px">Publicaci\u00f3n Exitosa</h2>' +
+      '<p style="font-size:15px;color:#64748b;margin:0 0 24px;line-height:1.5">Tu embarcaci\u00f3n ha sido publicada correctamente en el Marketplace. Ya es visible para todos los usuarios.</p>' +
+      '<button onclick="document.getElementById(\'mkt-success-overlay\').remove()" style="background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:14px 48px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.3)" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'none\'">Aceptar</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
   }
 
   function addStyles() {
