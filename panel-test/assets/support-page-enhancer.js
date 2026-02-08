@@ -24,13 +24,10 @@
   }
 
   function isSoportePage() {
-    const heading = document.querySelector("h1");
-    if (heading && heading.textContent.trim() === "Soporte") return true;
-    const container = document.querySelector(".animate-fade-in, .space-y-6");
-    if (container) {
-      const h1 = container.querySelector("h1");
-      if (h1 && h1.textContent.trim() === "Soporte") return true;
-    }
+    var main = document.querySelector("main");
+    if (!main) return false;
+    var h1 = main.querySelector("h1");
+    if (h1 && h1.textContent.trim() === "Soporte") return true;
     return false;
   }
 
@@ -274,16 +271,17 @@
     var fullSubject = subject;
     if (operation) fullSubject += " - Op: " + operation;
 
-    var body = new URLSearchParams();
-    body.append("name", name);
-    body.append("email", email);
-    body.append("subject", fullSubject);
-    body.append("message", message);
+    var payload = JSON.stringify({
+      name: name,
+      email: email,
+      subject: fullSubject,
+      message: message,
+    });
 
     fetch(API_BASE + "/support_api.php", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: payload,
     })
       .then(function (r) {
         return r.json();
@@ -324,11 +322,10 @@
   function enhanceSoportePage() {
     if (!isSoportePage()) return;
 
-    var container = document.querySelector(".animate-fade-in, .space-y-6");
+    var main = document.querySelector("main");
+    if (!main) return;
+    var container = main.querySelector(".animate-fade-in") || main.querySelector(".space-y-6");
     if (!container) return;
-
-    var h1 = container.querySelector("h1");
-    if (!h1 || h1.textContent.trim() !== "Soporte") return;
 
     if (container.querySelector(".sp-enhanced")) return;
 
