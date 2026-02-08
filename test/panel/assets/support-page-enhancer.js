@@ -67,8 +67,8 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
       </div>
       <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px">Telefono</h3>
-      <p style="color:#334155;font-size:14px;font-weight:500;margin:0">+56 2 XXXX XXXX</p>
-      <p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Lun-Vie 09:00 - 18:00</p>
+      <p style="color:#334155;font-size:14px;font-weight:500;margin:0">+56 9 **** 1459</p>
+      <p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Exclusivo clientes con plan activo</p>
     </div>
 
     <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #e2e8f0;transition:all .2s;cursor:default" onmouseover="this.style.boxShadow='0 8px 25px rgba(59,130,246,.12)';this.style.borderColor='#3b82f6'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#e2e8f0'">
