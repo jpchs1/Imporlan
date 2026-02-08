@@ -31,54 +31,54 @@ function seedListings() {
 
     $boatPhotos = [
         [
-            'https://cobaltboats.com/wp-content/uploads/R8-R8D_4849-2560x1440.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8-R8D_5010-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8-R8D_5022-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8-R8D_4965-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8-R8Z_4002-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8-R8Z_4113-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8_int-TWZ_2576-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R8_int-TWZ_2603-600x400.jpg'
+            'https://img.youtube.com/vi/7SK7nh-2Ljk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/mIhgVPYZyfY/maxresdefault.jpg',
+            'https://img.youtube.com/vi/m3WZek0aLEA/maxresdefault.jpg',
+            'https://img.youtube.com/vi/p5xLOge0-2E/maxresdefault.jpg',
+            'https://img.youtube.com/vi/FBqQPR_Lzpg/maxresdefault.jpg',
+            'https://img.youtube.com/vi/D1uLB4J81Ls/maxresdefault.jpg',
+            'https://img.youtube.com/vi/_xeT6-VF57I/maxresdefault.jpg',
+            'https://img.youtube.com/vi/Cfr6RBCTFRE/maxresdefault.jpg'
         ],
         [
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23D_8005-2560x1440.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23D_8105-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23D_8119-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23Z_5143-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23Z_5339-1-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23-CS23Z_5376-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23_int-TWZ_3274-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/CS23_int-TWZ_3419-600x400.jpg'
+            'https://img.youtube.com/vi/VnZH02k7TLI/maxresdefault.jpg',
+            'https://img.youtube.com/vi/yKuOKC3eBnY/maxresdefault.jpg',
+            'https://img.youtube.com/vi/RHk7qWkAuxg/maxresdefault.jpg',
+            'https://img.youtube.com/vi/k0YH-59HjdA/maxresdefault.jpg',
+            'https://img.youtube.com/vi/-sLL-OHjO8w/maxresdefault.jpg',
+            'https://img.youtube.com/vi/Sq_7DCDXHDk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/bZJIP9tup-M/maxresdefault.jpg',
+            'https://img.youtube.com/vi/tOlnqwrgmII/maxresdefault.jpg'
         ],
         [
-            'https://cobaltboats.com/wp-content/uploads/A29-A29D_2206-2560x1440.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29-A29D_2115-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29-A29D_2225-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29-A29D_2254-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29-A29Z_6297-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29-A29Z_6180-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29_int-TWZ_3780-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/A29_int-TWZ_3813-600x400.jpg'
+            'https://img.youtube.com/vi/4ceqlrRFlG0/maxresdefault.jpg',
+            'https://img.youtube.com/vi/cpUnvxoz0vY/maxresdefault.jpg',
+            'https://img.youtube.com/vi/9o_KK8EX_SI/maxresdefault.jpg',
+            'https://img.youtube.com/vi/IVvRhPHpLKs/maxresdefault.jpg',
+            'https://img.youtube.com/vi/eP3FtSnn71A/maxresdefault.jpg',
+            'https://img.youtube.com/vi/KpdPZD8d1UA/maxresdefault.jpg',
+            'https://img.youtube.com/vi/QpyGI-xUYUk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/Hwzv4bcqcd8/maxresdefault.jpg'
         ],
         [
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4D_9832-2560x1440.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4D_0026-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4D_0054-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4D_9643-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4Z_2544-1-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std-R4Z_2665-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std_int-TWZ_2115-1-600x400.jpg',
-            'https://cobaltboats.com/wp-content/uploads/R4std_int-TWZ_2168-1-600x400.jpg'
+            'https://img.youtube.com/vi/yVQiTT5HbuA/maxresdefault.jpg',
+            'https://img.youtube.com/vi/02Y-rqknlmA/maxresdefault.jpg',
+            'https://img.youtube.com/vi/n4t1ty5Rt2k/maxresdefault.jpg',
+            'https://img.youtube.com/vi/mEDkYvAMwi4/maxresdefault.jpg',
+            'https://img.youtube.com/vi/dxfcpS5kVW8/maxresdefault.jpg',
+            'https://img.youtube.com/vi/hIho51B651s/maxresdefault.jpg',
+            'https://img.youtube.com/vi/2U3Vbb5tQvY/maxresdefault.jpg',
+            'https://img.youtube.com/vi/nrY91CHjqO8/maxresdefault.jpg'
         ],
         [
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-Wakeboard-17.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-Run-01-17.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-Run-02-17.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-Run-03-17.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-BowSeating-16.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-Helm-17.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-LadderAnchorLocker-16.jpg',
-            'https://sdr.chaparralboats.com/images_inventory/ssi246_18/1500px/SSi-246-BowTable-16.jpg'
+            'https://img.youtube.com/vi/A1yiNBvGjVk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/mZvIU2sSnrk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/BJxZAoqX9qQ/maxresdefault.jpg',
+            'https://img.youtube.com/vi/oST7jOXOXgE/maxresdefault.jpg',
+            'https://img.youtube.com/vi/Xl2M5uOcxWE/maxresdefault.jpg',
+            'https://img.youtube.com/vi/sI8jnTctN2Q/maxresdefault.jpg',
+            'https://img.youtube.com/vi/7vumdhHLmgk/maxresdefault.jpg',
+            'https://img.youtube.com/vi/gjsjGkYb9n8/maxresdefault.jpg'
         ],
         [
             'https://img.youtube.com/vi/8SVSFGeTy8M/maxresdefault.jpg',
