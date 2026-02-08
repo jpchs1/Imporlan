@@ -12,11 +12,7 @@
 (function () {
   "use strict";
 
-  const API_BASE = window.location.pathname.includes("/test/")
-    ? "/test/api"
-    : window.location.pathname.includes("/panel-test")
-      ? "/test/api"
-      : "/api";
+  const API_BASE = "/api";
 
   let enhanced = false;
   let listings = [];
