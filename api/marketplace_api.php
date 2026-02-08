@@ -63,6 +63,7 @@ switch ($action) {
         markListingSold($user);
         break;
     case 'migrate_v2':
+        $user = requireAuth();
         migrateMarketplaceV2();
         break;
     default:
@@ -228,12 +229,30 @@ function createListing($user) {
     $now = date('Y-m-d H:i:s');
     $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
 
-    $stmt = $pdo->prepare("
-        INSERT INTO marketplace_listings
-        (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos, published_at, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([
+    try {
+        $emailService = getMarketplaceEmailService();
+        $emailService->ensureMigrated();
+    } catch (Exception $e) {
+        error_log('[Marketplace] Auto-migration on create: ' . $e->getMessage());
+    }
+
+    $cols = $pdo->query("SHOW COLUMNS FROM marketplace_listings")->fetchAll(PDO::FETCH_COLUMN);
+    $hasDateCols = in_array('published_at', $cols) && in_array('expires_at', $cols);
+
+    if ($hasDateCols) {
+        $stmt = $pdo->prepare("
+            INSERT INTO marketplace_listings
+            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos, published_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO marketplace_listings
+            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    }
+    $params = [
         $user['email'],
         $user['name'] ?? explode('@', $user['email'])[0],
         trim($input['nombre']),
@@ -248,9 +267,12 @@ function createListing($user) {
         in_array($input['condicion'] ?? '', ['Excelente','Muy Buena','Buena','Regular','Para Reparacion']) ? $input['condicion'] : 'Buena',
         intval($input['horas'] ?? 0) ?: null,
         $fotos,
-        $now,
-        $expiresAt
-    ]);
+    ];
+    if ($hasDateCols) {
+        $params[] = $now;
+        $params[] = $expiresAt;
+    }
+    $stmt->execute($params);
     $id = $pdo->lastInsertId();
 
     try {
@@ -463,6 +485,7 @@ function renewListing($user) {
             $emailService = getMarketplaceEmailService();
             $userName = $user['name'] ?? $renewed['user_name'];
             $emailService->sendListingRenewedEmail($user['email'], $userName, $renewed);
+            $emailService->sendAdminListingRenewedEmail($renewed);
         }
     } catch (Exception $e) {
         error_log('[Marketplace] Email send error on renew: ' . $e->getMessage());

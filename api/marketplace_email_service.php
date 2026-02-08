@@ -570,6 +570,18 @@ class MarketplaceEmailService extends EmailService {
         ]);
     }
 
+    /** G-bis. Renewed */
+    public function sendAdminListingRenewedEmail($listing) {
+        $extra = [
+            'Renovado el' => $this->fmtDate(date('Y-m-d')),
+            'Nuevo vencimiento' => $this->fmtDate($listing['expires_at'] ?? ''),
+        ];
+        $content = $this->adminContent('success', 'Renovado', 'Anuncio renovado por usuario', $listing, $extra);
+        return $this->sendAdminEmail('Anuncio renovado por usuario', $content, 'admin_listing_renewed', [
+            'listing_id' => $listing['id']
+        ]);
+    }
+
     /** G. Manually deleted by user */
     public function sendAdminListingDeletedEmail($listing) {
         $content = $this->adminContent('warning', 'Eliminado', 'Anuncio eliminado por usuario', $listing);
@@ -664,6 +676,12 @@ class MarketplaceEmailService extends EmailService {
             }
 
             $this->pdo->exec("
+                ALTER TABLE marketplace_listings
+                MODIFY COLUMN status ENUM('active','sold','deleted','expired') DEFAULT 'active'
+            ");
+            $results[] = 'Expanded status enum to include expired';
+
+            $this->pdo->exec("
                 UPDATE marketplace_listings
                 SET published_at = created_at,
                     expires_at = DATE_ADD(created_at, INTERVAL 30 DAY)
@@ -679,6 +697,20 @@ class MarketplaceEmailService extends EmailService {
         }
 
         return ['success' => true, 'migrations' => $results];
+    }
+
+    public function ensureMigrated() {
+        static $done = false;
+        if ($done) return;
+        try {
+            $cols = $this->pdo->query("SHOW COLUMNS FROM marketplace_listings")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('published_at', $cols) || !in_array('expires_at', $cols)) {
+                $this->migrateMarketplaceSchema();
+            }
+        } catch (PDOException $e) {
+            error_log('[MarketplaceEmail] Auto-migration check failed: ' . $e->getMessage());
+        }
+        $done = true;
     }
 }
 
