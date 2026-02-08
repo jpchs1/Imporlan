@@ -52,7 +52,7 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px">
+  <div class="sp-info-cards" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px">
     <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #e2e8f0;transition:all .2s;cursor:default" onmouseover="this.style.boxShadow='0 8px 25px rgba(59,130,246,.12)';this.style.borderColor='#3b82f6'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#e2e8f0'">
       <div style="width:44px;height:44px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
@@ -81,7 +81,7 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+  <div class="sp-main-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
 
     <div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden">
       <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:20px 24px;display:flex;align-items:center;gap:12px">
@@ -333,8 +333,23 @@
     container.innerHTML = buildPageHTML(user);
 
     var style = document.createElement("style");
-    style.textContent =
-      "@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}";
+    style.textContent = `
+      @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+      @keyframes spFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+      @media(max-width:767px){
+        .sp-enhanced{padding:0!important}
+        .sp-enhanced>div:first-child{padding:24px 20px 20px!important;border-radius:16px!important}
+        .sp-enhanced>div:first-child h1{font-size:22px!important}
+        .sp-info-cards{grid-template-columns:1fr!important;gap:12px!important}
+        .sp-main-grid{grid-template-columns:1fr!important;gap:16px!important}
+      }
+      @media(min-width:768px) and (max-width:1023px){
+        .sp-info-cards{grid-template-columns:1fr 1fr!important}
+      }
+      .sp-faq-item.sp-open .sp-faq-answer{max-height:200px!important}
+      .sp-faq-item.sp-open .sp-faq-arrow{transform:rotate(180deg)}
+      .sp-faq-arrow{transition:transform .3s ease}
+    `;
     container.appendChild(style);
 
     var submitBtn = document.getElementById("sp-submit-btn");
