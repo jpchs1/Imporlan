@@ -166,7 +166,7 @@
       '<div style="padding:16px">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
       '<div style="flex:1;min-width:0">' +
-      '<h3 class="mkt-card-title" style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      '<h3 style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
       (item.nombre || "Sin nombre") +
       "</h3>" +
       '<p style="color:#64748b;font-size:13px;margin:0">' +
@@ -177,7 +177,7 @@
       '<div style="text-align:right;flex-shrink:0;margin-left:8px">' +
       '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
       '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
-      '<p class="mkt-card-price" style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
+      '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
       formatPrice(item.precio, item.moneda) +
       "</p></div>" +
       "</div></div>" +
@@ -451,7 +451,7 @@
         ? '<span style="background:#fef2f2;color:#b91c1c;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Vendida</span>'
         : '<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Activa</span>';
     return (
-      '<div class="mkt-my-card" style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+      '<div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
       '<img src="' +
       img +
       '" style="width:120px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0">' +
@@ -516,18 +516,18 @@
     }
 
     return (
-            '<div class="mkt-enhanced" style="animation:mktFadeIn .4s ease">' +
-            '<div class="mkt-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
-            "<div>" +
-            '<h1 style="font-size:28px;font-weight:700;color:#0f172a;margin:0">Marketplace</h1>' +
-            '<p style="color:#64748b;margin:4px 0 0;font-size:14px">Compra y vende embarcaciones en nuestra comunidad</p>' +
-            "</div>" +
-            '<button onclick="window.__mktOpenPublish()" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'scale(1.02)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Publicar Embarcacion</button>' +
-            "</div>" +
-            '<div style="margin-bottom:20px">' +
-            '<div class="mkt-tabs" style="display:flex;border-bottom:2px solid #e2e8f0;gap:0">' +
-            '<button id="mkt-tab-buy" onclick="window.__mktSwitchTab(\'buy\')" style="padding:12px 28px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #2563eb;color:#2563eb;margin-bottom:-2px;transition:all .2s">Comprar</button>' +
-            '<button id="mkt-tab-sell" onclick="window.__mktSwitchTab(\'sell\')" style="padding:12px 28px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#64748b;margin-bottom:-2px;transition:all .2s">Mis Publicaciones</button>' +
+      '<div class="mkt-enhanced" style="animation:mktFadeIn .4s ease">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">' +
+      "<div>" +
+      '<h1 style="font-size:28px;font-weight:700;color:#0f172a;margin:0">Marketplace</h1>' +
+      '<p style="color:#64748b;margin:4px 0 0;font-size:14px">Compra y vende embarcaciones en nuestra comunidad</p>' +
+      "</div>" +
+      '<button onclick="window.__mktOpenPublish()" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'scale(1.02)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Publicar Embarcacion</button>' +
+      "</div>" +
+      '<div style="margin-bottom:20px">' +
+      '<div style="display:flex;border-bottom:2px solid #e2e8f0;gap:0">' +
+      '<button id="mkt-tab-buy" onclick="window.__mktSwitchTab(\'buy\')" style="padding:12px 28px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #2563eb;color:#2563eb;margin-bottom:-2px;transition:all .2s">Comprar</button>' +
+      '<button id="mkt-tab-sell" onclick="window.__mktSwitchTab(\'sell\')" style="padding:12px 28px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#64748b;margin-bottom:-2px;transition:all .2s">Mis Publicaciones</button>' +
       "</div></div>" +
       '<div id="mkt-tab-content-buy">' +
       buyCards +
@@ -1060,24 +1060,7 @@
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      "@media(max-width:768px){" +
-        ".mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
-        ".mkt-header{flex-direction:column!important;align-items:stretch!important;gap:12px!important}" +
-        ".mkt-header button{width:100%!important;justify-content:center!important}" +
-        ".mkt-header h1{font-size:22px!important}" +
-        ".mkt-tabs button{padding:10px 16px!important;font-size:13px!important}" +
-        ".mkt-my-card{flex-direction:column!important}" +
-        ".mkt-my-card img{width:100%!important;height:180px!important}" +
-        ".mkt-card-price{font-size:15px!important}" +
-        ".mkt-card-title{font-size:14px!important}" +
-        "#mkt-detail-overlay>div{margin:10px!important;max-height:95vh!important;border-radius:14px!important}" +
-        "#mkt-detail-overlay>div>div{padding:16px!important}" +
-        "#mkt-detail-overlay [style*='grid-template-columns:1fr 1fr']{grid-template-columns:1fr!important}" +
-        "#mkt-detail-overlay h2{font-size:20px!important}" +
-        "#mkt-detail-overlay [style*='font-size:28px']{font-size:22px!important}" +
-        "#mkt-edit-overlay>div{margin:10px!important;max-height:95vh!important}" +
-        "#mkt-publish-overlay>div{margin:10px!important;max-height:95vh!important}" +
-      "}";
+      "@media(max-width:640px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
     document.head.appendChild(style);
   }
 
