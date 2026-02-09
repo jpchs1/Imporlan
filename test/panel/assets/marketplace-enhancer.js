@@ -1030,6 +1030,8 @@
     } else {
       contentDiv.innerHTML = buildPage();
     }
+    // mark marketplace page active for mobile layout overrides
+    document.body.setAttribute('data-mkt-page','1');
     enhanced = true;
   }
 
