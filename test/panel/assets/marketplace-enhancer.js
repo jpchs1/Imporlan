@@ -1060,7 +1060,8 @@
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      "@media(max-width:640px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
+      // Force panel to use full-width mobile layout only on marketplace page
+      "@media(max-width:768px){body[data-mkt-page='1'] aside{display:none!important}body[data-mkt-page='1'] main{margin-left:0!important;width:100%!important}body[data-mkt-page='1'] main .max-w-7xl{max-width:100%!important;padding-left:12px!important;padding-right:12px!important}.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
     document.head.appendChild(style);
   }
 
