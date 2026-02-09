@@ -99,65 +99,64 @@
 
   function injectSidebarItem() {
     var checkCount = 0;
-    var maxChecks = 40;
+    var maxChecks = 60;
 
     function tryInject() {
       checkCount++;
       if (checkCount > maxChecks) return;
 
-      var nav = document.querySelector("nav");
+      if (document.getElementById("sidebar-links-contratados")) return;
+
+      var nav = document.querySelector("aside nav") || document.querySelector("nav");
       if (!nav) {
         setTimeout(tryInject, 500);
         return;
       }
 
-      if (document.getElementById("sidebar-links-contratados")) return;
-
-      var navLinks = nav.querySelectorAll("a, button");
-      var refItem = null;
-      navLinks.forEach(function (el) {
+      var ul = nav.querySelector("ul");
+      var refBtn = null;
+      var buttons = nav.querySelectorAll("a, button");
+      buttons.forEach(function (el) {
         var text = el.textContent.trim().toLowerCase();
-        if (
-          text.includes("producto") ||
-          text.includes("servicio") ||
-          text.includes("mis producto") ||
-          text.includes("importaciones") ||
-          text.includes("soporte")
-        ) {
-          refItem = el;
+        if (text.includes("soporte") || text.includes("producto") || text.includes("servicio") || text.includes("importaciones")) {
+          refBtn = el;
         }
       });
 
-      if (!refItem && navLinks.length > 0) {
-        refItem = navLinks[navLinks.length - 1];
+      if (!refBtn && buttons.length > 0) {
+        refBtn = buttons[buttons.length - 1];
       }
 
-      if (!refItem) {
+      if (!refBtn) {
         setTimeout(tryInject, 500);
         return;
       }
 
-      var sidebarItem = document.createElement("a");
-      sidebarItem.id = "sidebar-links-contratados";
-      sidebarItem.href = "#links-contratados";
-      sidebarItem.style.cssText = refItem.style.cssText || "";
-
-      var classes = refItem.className;
-      if (classes) {
-        sidebarItem.className = classes.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400/g, "");
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.id = "sidebar-links-contratados";
+      if (refBtn.className) {
+        btn.className = refBtn.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400|bg-blue-50|text-blue-600/g, "");
       }
+      btn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></svg>' +
+        ' Mis Expedientes';
 
-      sidebarItem.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-right:12px"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></svg>' +
-        '<span>Mis Expedientes</span>';
-
-      sidebarItem.addEventListener("click", function (e) {
+      btn.addEventListener("click", function (e) {
         e.preventDefault();
+        e.stopPropagation();
         window.location.hash = "#links-contratados";
       });
 
-      if (refItem.parentNode) {
-        refItem.parentNode.insertBefore(sidebarItem, refItem.nextSibling);
+      li.appendChild(btn);
+
+      var refLi = refBtn.closest("li");
+      if (refLi && refLi.parentNode) {
+        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      } else if (ul) {
+        ul.appendChild(li);
+      } else {
+        nav.appendChild(li);
       }
 
       updateSidebarActive();
@@ -537,13 +536,40 @@
         hideModule();
       }
     });
+
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var observer = new MutationObserver(function () {
+        if (!document.getElementById("sidebar-links-contratados")) {
+          injectSidebarItem();
+        }
+        if (isLinksPage() && !document.getElementById("lc-module-container")) {
+          renderModule();
+        }
+      });
+      observer.observe(mainEl, { childList: true, subtree: false });
+    }
+  }
+
+  function startWhenReady() {
+    var aside = document.querySelector("aside");
+    if (aside && aside.querySelector("nav")) {
+      init();
+    } else {
+      var nav = document.querySelector("nav");
+      if (nav) {
+        init();
+      } else {
+        setTimeout(startWhenReady, 500);
+      }
+    }
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      setTimeout(init, 1000);
+      setTimeout(startWhenReady, 1000);
     });
   } else {
-    setTimeout(init, 1000);
+    setTimeout(startWhenReady, 1000);
   }
 })();

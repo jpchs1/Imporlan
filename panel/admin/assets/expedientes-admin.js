@@ -88,56 +88,64 @@
 
   function injectSidebarItem() {
     var checkCount = 0;
-    var maxChecks = 40;
+    var maxChecks = 60;
 
     function tryInject() {
       checkCount++;
       if (checkCount > maxChecks) return;
 
-      var nav = document.querySelector("nav");
+      if (document.getElementById("sidebar-expedientes-admin")) return;
+
+      var nav = document.querySelector("aside nav") || document.querySelector("nav");
       if (!nav) {
         setTimeout(tryInject, 500);
         return;
       }
 
-      if (document.getElementById("sidebar-expedientes-admin")) return;
-
-      var navLinks = nav.querySelectorAll("a, button");
-      var refItem = null;
-      navLinks.forEach(function (el) {
+      var ul = nav.querySelector("ul");
+      var refBtn = null;
+      var buttons = nav.querySelectorAll("button");
+      buttons.forEach(function (el) {
         var text = el.textContent.trim().toLowerCase();
-        if (text.includes("compras") || text.includes("usuario") || text.includes("dashboard") || text.includes("soporte")) {
-          refItem = el;
+        if (text.includes("auditoria") || text.includes("contenido") || text.includes("pagos")) {
+          refBtn = el;
         }
       });
 
-      if (!refItem && navLinks.length > 0) {
-        refItem = navLinks[navLinks.length - 1];
+      if (!refBtn && buttons.length > 0) {
+        refBtn = buttons[buttons.length - 1];
       }
 
-      if (!refItem) {
+      if (!refBtn) {
         setTimeout(tryInject, 500);
         return;
       }
 
-      var sidebarItem = document.createElement("a");
-      sidebarItem.id = "sidebar-expedientes-admin";
-      sidebarItem.href = "#expedientes";
-      if (refItem.className) {
-        sidebarItem.className = refItem.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400/g, "");
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.id = "sidebar-expedientes-admin";
+      if (refBtn.className) {
+        btn.className = refBtn.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400|bg-blue-50|text-blue-600/g, "");
       }
+      btn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>' +
+        ' Expedientes';
 
-      sidebarItem.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-right:12px"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>' +
-        "<span>Expedientes</span>";
-
-      sidebarItem.addEventListener("click", function (e) {
+      btn.addEventListener("click", function (e) {
         e.preventDefault();
+        e.stopPropagation();
         window.location.hash = "#expedientes";
       });
 
-      if (refItem.parentNode) {
-        refItem.parentNode.insertBefore(sidebarItem, refItem.nextSibling);
+      li.appendChild(btn);
+
+      var refLi = refBtn.closest("li");
+      if (refLi && refLi.parentNode) {
+        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      } else if (ul) {
+        ul.appendChild(li);
+      } else {
+        nav.appendChild(li);
       }
 
       updateSidebarActive();
@@ -724,13 +732,35 @@
         hideModule();
       }
     });
+
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var observer = new MutationObserver(function () {
+        if (!document.getElementById("sidebar-expedientes-admin")) {
+          injectSidebarItem();
+        }
+        if (isExpedientesPage() && !document.getElementById("ea-module-container")) {
+          renderModule();
+        }
+      });
+      observer.observe(mainEl, { childList: true, subtree: false });
+    }
+  }
+
+  function startWhenReady() {
+    var aside = document.querySelector("aside");
+    if (aside && aside.querySelector("nav")) {
+      init();
+    } else {
+      setTimeout(startWhenReady, 500);
+    }
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
-      setTimeout(init, 1000);
+      setTimeout(startWhenReady, 1000);
     });
   } else {
-    setTimeout(init, 1000);
+    setTimeout(startWhenReady, 1000);
   }
 })();
