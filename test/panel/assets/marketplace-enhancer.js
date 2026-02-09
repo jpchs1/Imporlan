@@ -1062,8 +1062,12 @@
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      // Force panel to use full-width mobile layout only on marketplace page
-      "@media(max-width:768px){body[data-mkt-page='1'] aside{display:none!important}body[data-mkt-page='1'] main{margin-left:0!important;width:100%!important}body[data-mkt-page='1'] main .max-w-7xl{max-width:100%!important;padding-left:12px!important;padding-right:12px!important}.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
+      "@media(max-width:768px){" +
+      "body[data-mkt-page='1'] #root>div{display:flex!important;flex-direction:column!important;overflow-x:hidden!important}" +
+      "body[data-mkt-page='1'] aside{position:relative!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;flex-shrink:0!important}" +
+      "body[data-mkt-page='1'] main{margin-left:0!important;width:100%!important;max-width:100%!important;padding:12px!important;flex-grow:1!important;overflow-x:hidden!important}" +
+      ".mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
+      "}";
     document.head.appendChild(style);
   }
 
