@@ -460,14 +460,70 @@ BASE64;
     }
     
     public function sendQuotationRequestNotification($requestData) {
-        return $this->sendInternalNotification('quotation_request', [
+        $this->storeQuotationRequest($requestData);
+        
+        $formData = [
             'name' => $requestData['name'],
             'email' => $requestData['email'],
             'phone' => $requestData['phone'] ?? 'No proporcionado',
             'country' => $requestData['country'] ?? 'Chile',
             'boat_links' => $requestData['boat_links'] ?? [],
             'date' => date('d/m/Y H:i')
-        ]);
+        ];
+        
+        $this->sendInternalNotification('quotation_request', $formData);
+        
+        $htmlContent = $this->getQuotationFormTemplate($formData['name'], $formData);
+        return $this->sendEmail($formData['email'], 'Cotizacion por Links - Formulario de Solicitud', $htmlContent, 'quotation_form', $formData);
+    }
+    
+    public function sendQuotationFormEmail($userEmail, $firstName, $formData) {
+        $htmlContent = $this->getQuotationFormTemplate($firstName, $formData);
+        $subject = 'Cotizacion por Links - Formulario de Servicios';
+        
+        $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
+        
+        $adminHtml = $this->getQuotationFormAdminTemplate($firstName, $formData);
+        $adminSubject = 'Cotizacion por Links - Formulario del Cliente';
+        foreach ($this->adminEmails as $adminEmail) {
+            $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
+        }
+        
+        return ['success' => true];
+    }
+    
+    private function storeQuotationRequest($requestData) {
+        $file = __DIR__ . '/quotation_requests.json';
+        $data = file_exists($file) ? json_decode(file_get_contents($file), true) : ['requests' => []];
+        if (!is_array($data)) $data = ['requests' => []];
+        
+        $data['requests'][] = [
+            'id' => 'qr_' . uniqid(),
+            'name' => $requestData['name'] ?? '',
+            'email' => $requestData['email'] ?? '',
+            'phone' => $requestData['phone'] ?? '',
+            'country' => $requestData['country'] ?? 'Chile',
+            'boat_links' => $requestData['boat_links'] ?? [],
+            'date' => date('Y-m-d H:i:s')
+        ];
+        
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    }
+    
+    public function getStoredQuotationLinks($email) {
+        $file = __DIR__ . '/quotation_requests.json';
+        if (!file_exists($file)) return [];
+        
+        $data = json_decode(file_get_contents($file), true);
+        $requests = $data['requests'] ?? [];
+        
+        $matches = array_filter($requests, function($r) use ($email) {
+            return strtolower($r['email'] ?? '') === strtolower($email);
+        });
+        
+        if (empty($matches)) return [];
+        $latest = end($matches);
+        return $latest['boat_links'] ?? [];
     }
     
     public function sendCriticalErrorNotification($errorData) {
@@ -1165,6 +1221,311 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, $emailTitle . ' - Imporlan');
+    }
+    
+    private function getQuotationFormTemplate($firstName, $formData) {
+        $c = $this->colors;
+        
+        $items = $formData['items'] ?? [];
+        $boatLinks = $formData['boat_links'] ?? [];
+        $description = $formData['description'] ?? 'Cotizacion por Links';
+        $price = $formData['price'] ?? 0;
+        $currency = $formData['currency'] ?? 'CLP';
+        $paymentMethod = $formData['payment_method'] ?? '';
+        $paymentRef = $formData['payment_reference'] ?? '';
+        $purchaseDate = $formData['purchase_date'] ?? date('d/m/Y');
+        $userEmail = $formData['user_email'] ?? $formData['email'] ?? '';
+        
+        $linksHtml = '';
+        $allLinks = [];
+        
+        if (!empty($boatLinks) && is_array($boatLinks)) {
+            foreach ($boatLinks as $link) {
+                if (!empty($link)) $allLinks[] = $link;
+            }
+        }
+        
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (!empty($url) && strpos($url, 'http') === 0) {
+                    if (!in_array($url, $allLinks)) $allLinks[] = $url;
+                } elseif (strpos($title, 'http') === 0) {
+                    if (!in_array($title, $allLinks)) $allLinks[] = $title;
+                }
+            }
+        }
+        
+        if (!empty($allLinks)) {
+            $linksHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">
+                            Links Solicitados para Cotizar
+                        </h3>
+                    </td>
+                </tr>';
+            
+            foreach ($allLinks as $i => $link) {
+                $domain = parse_url($link, PHP_URL_HOST) ?: $link;
+                $linksHtml .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 10px; border: 1px solid #93c5fd;">
+                            <tr>
+                                <td width="48" align="center" valign="middle" style="padding: 14px 0 14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" valign="middle" style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50%; color: white; font-size: 14px; font-weight: 700;">
+                                                ' . ($i + 1) . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="padding: 14px 14px 14px 12px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Enlace ' . ($i + 1) . '</p>
+                                    <a href="' . htmlspecialchars($link) . '" style="color: ' . $c['primary'] . '; text-decoration: none; font-size: 13px; font-weight: 500; word-break: break-all; line-height: 1.4;" target="_blank">' . htmlspecialchars($link) . '</a>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['text_light'] . '; font-size: 11px;">' . htmlspecialchars($domain) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $linksHtml .= '</table>';
+        }
+        
+        $itemsTextHtml = '';
+        $nonLinkItems = [];
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (empty($url) && strpos($title, 'http') !== 0 && !empty($title)) {
+                    $nonLinkItems[] = $title;
+                }
+            }
+        }
+        if (!empty($nonLinkItems)) {
+            $itemsTextHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 14px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">Servicios Contratados</h3>
+                    </td>
+                </tr>';
+            foreach ($nonLinkItems as $i => $itemText) {
+                $itemsTextHtml .= '
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="36" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="color: ' . $c['success'] . '; font-size: 18px;">&#10003;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">' . htmlspecialchars($itemText) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            $itemsTextHtml .= '</table>';
+        }
+        
+        $priceHtml = '';
+        if ($price > 0) {
+            $priceHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); border-radius: 14px; width: 100%;">
+                            <tr>
+                                <td align="center" style="padding: 24px 20px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_light'] . '; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;">Total Cotizacion</p>
+                                    <p style="margin: 0; color: ' . $c['text_white'] . '; font-size: 32px; font-weight: 700; letter-spacing: -1px;">$' . number_format($price, 0, ',', '.') . '</p>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['accent'] . '; font-size: 14px; font-weight: 500;">' . htmlspecialchars($currency) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $detailItems = ['Nombre' => $firstName, 'Email' => $userEmail];
+        if (!empty($formData['phone']) && $formData['phone'] !== 'No proporcionado') {
+            $detailItems['Telefono'] = $formData['phone'];
+        }
+        if (!empty($formData['country'])) {
+            $detailItems['Pais destino'] = $formData['country'];
+        }
+        $detailItems['Servicio'] = $description;
+        if (!empty($paymentMethod)) {
+            $detailItems['Metodo de pago'] = $paymentMethod;
+        }
+        if (!empty($paymentRef)) {
+            $detailItems['Referencia'] = $paymentRef;
+        }
+        $detailItems['Fecha'] = $purchaseDate;
+        
+        $linkCount = count($allLinks);
+        $summaryText = $linkCount > 0
+            ? 'Hemos recibido tu solicitud con ' . $linkCount . ' enlace' . ($linkCount > 1 ? 's' : '') . ' para cotizar. Nuestro equipo revisara cada uno y te contactara con los detalles.'
+            : 'Hemos recibido tu solicitud de cotizacion. Nuestro equipo la revisara y te contactara con los detalles a la brevedad.';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#9993;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Cotizacion por Links
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                Formulario de Solicitud
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', ' . $summaryText . '
+            </p>
+            
+            ' . $priceHtml . '
+            
+            ' . $linksHtml . '
+            
+            ' . $itemsTextHtml . '
+            
+            ' . $this->getInfoCard('Datos de la Solicitud', $detailItems) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600;">Proximos Pasos</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
+                            Nuestro equipo revisara tu cotizacion y te contactara<br>en las proximas 24 horas con los detalles y propuestas.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links - Imporlan');
+    }
+    
+    private function getQuotationFormAdminTemplate($firstName, $formData) {
+        $c = $this->colors;
+        
+        $items = $formData['items'] ?? [];
+        $boatLinks = $formData['boat_links'] ?? [];
+        $description = $formData['description'] ?? 'Cotizacion por Links';
+        $price = $formData['price'] ?? 0;
+        $currency = $formData['currency'] ?? 'CLP';
+        $userEmail = $formData['user_email'] ?? $formData['email'] ?? '';
+        
+        $allLinks = [];
+        if (!empty($boatLinks) && is_array($boatLinks)) {
+            foreach ($boatLinks as $link) {
+                if (!empty($link)) $allLinks[] = $link;
+            }
+        }
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (!empty($url) && strpos($url, 'http') === 0 && !in_array($url, $allLinks)) {
+                    $allLinks[] = $url;
+                } elseif (strpos($title, 'http') === 0 && !in_array($title, $allLinks)) {
+                    $allLinks[] = $title;
+                }
+            }
+        }
+        
+        $linksHtml = '';
+        if (!empty($allLinks)) {
+            $linksHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #eff6ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Links Solicitados (' . count($allLinks) . ')</h3>';
+            foreach ($allLinks as $i => $link) {
+                $linksHtml .= '<p style="margin: 0 0 8px 0; font-size: 13px;"><strong style="color: ' . $c['primary'] . ';">Link ' . ($i + 1) . ':</strong> <a href="' . htmlspecialchars($link) . '" style="color: ' . $c['primary'] . '; word-break: break-all;">' . htmlspecialchars($link) . '</a></p>';
+            }
+            $linksHtml .= '</td></tr></table>';
+        }
+        
+        $itemsHtml = '';
+        if (!empty($items) && is_array($items)) {
+            $nonLinks = [];
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (empty($url) && strpos($title, 'http') !== 0 && !empty($title)) {
+                    $nonLinks[] = $title;
+                }
+            }
+            if (!empty($nonLinks)) {
+                $itemsHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0fdf4; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['success'] . ';">
+                    <tr><td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Servicios</h3>';
+                foreach ($nonLinks as $i => $t) {
+                    $itemsHtml .= '<p style="margin: 0 0 6px 0; font-size: 13px; color: ' . $c['text_dark'] . ';">' . ($i + 1) . '. ' . htmlspecialchars($t) . '</p>';
+                }
+                $itemsHtml .= '</td></tr></table>';
+            }
+        }
+        
+        $detailItems = [
+            'Cliente' => $firstName,
+            'Email' => $userEmail,
+            'Descripcion' => $description,
+        ];
+        if ($price > 0) {
+            $detailItems['Monto'] = '$' . number_format($price, 0, ',', '.') . ' ' . $currency;
+        }
+        if (!empty($formData['payment_method'])) {
+            $detailItems['Metodo'] = $formData['payment_method'];
+        }
+        if (!empty($formData['payment_reference'])) {
+            $detailItems['Referencia'] = $formData['payment_reference'];
+        }
+        $detailItems['Fecha'] = $formData['purchase_date'] ?? $formData['date'] ?? date('d/m/Y');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Formulario Cotizacion') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Formulario de Cotizacion por Links
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del Cliente', $detailItems) . '
+            
+            ' . $linksHtml . '
+            
+            ' . $itemsHtml . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['primary'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Procesar cotizacion y responder al cliente a la brevedad
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Formulario Cotizacion - Admin');
     }
     
     private function getPaymentStatusTemplate($firstName, $statusData) {

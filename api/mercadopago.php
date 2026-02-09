@@ -285,30 +285,43 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
             $planEndDate = date('d/m/Y', strtotime('+' . $planDays . ' days'));
         }
         
+        $commonData = [
+            'description' => $productName ?: ($purchaseType === 'plan' ? $planName : 'Cotizacion por Links'),
+            'items' => $items,
+            'price' => $purchase['amount_clp'],
+            'currency' => $purchase['currency'] ?? 'CLP',
+            'payment_method' => 'MercadoPago',
+            'payment_reference' => $purchase['payment_id'],
+            'purchase_date' => date('d/m/Y'),
+            'user_email' => $purchase['user_email'],
+            'order_id' => $purchase['order_id'],
+            'purchase_type' => $purchaseType,
+            'plan_name' => $planName,
+            'plan_days' => $planDays,
+            'plan_proposals' => $planProposals,
+            'plan_features' => $planFeatures,
+            'plan_end_date' => $planEndDate
+        ];
+        
         $emailService->sendQuotationLinksPaidEmail(
             $purchase['user_email'],
             $payerName,
-            [
-                'description' => $productName ?: ($purchaseType === 'plan' ? $planName : 'Cotizacion por Links'),
-                'items' => $items,
-                'price' => $purchase['amount_clp'],
-                'currency' => $purchase['currency'] ?? 'CLP',
-                'payment_method' => 'MercadoPago',
-                'payment_reference' => $purchase['payment_id'],
-                'purchase_date' => date('d/m/Y'),
-                'user_email' => $purchase['user_email'],
-                'order_id' => $purchase['order_id'],
-                'purchase_type' => $purchaseType,
-                'plan_name' => $planName,
-                'plan_days' => $planDays,
-                'plan_proposals' => $planProposals,
-                'plan_features' => $planFeatures,
-                'plan_end_date' => $planEndDate
-            ]
+            $commonData
+        );
+        
+        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+        $formData = array_merge($commonData, [
+            'boat_links' => $storedLinks,
+            'name' => $payerName
+        ]);
+        $emailService->sendQuotationFormEmail(
+            $purchase['user_email'],
+            $payerName,
+            $formData
         );
         
         $logFile = __DIR__ . '/mp_webhooks.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . "\n";
+        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form\n";
         file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/mp_webhooks.log';
