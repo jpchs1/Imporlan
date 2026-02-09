@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var NOTE_TEXT = "Asi podras visualizar esta seccion cuando contrates una importacion";
+  var NOTE_TEXT = "As\u00ed podr\u00e1s visualizar esta secci\u00f3n cuando contrates una importaci\u00f3n";
   var NOTE_CLASS = "imporlan-section-note";
 
   var SECTION_HEADINGS = [
