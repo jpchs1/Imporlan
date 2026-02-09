@@ -6,11 +6,22 @@
  */
 
 function getJwtSecret() {
-    $secret = getenv('JWT_SECRET');
-    if (!$secret && defined('JWT_SECRET')) {
-        $secret = JWT_SECRET;
+    if (defined('JWT_SECRET')) {
+        return JWT_SECRET;
     }
-    return $secret ?: '';
+    $secret = getenv('JWT_SECRET');
+    if ($secret) {
+        return $secret;
+    }
+    $adminApi = __DIR__ . '/admin_api.php';
+    if (file_exists($adminApi)) {
+        $content = file_get_contents($adminApi);
+        if (preg_match("/define\s*\(\s*'JWT_SECRET'\s*,\s*'([^']+)'\s*\)/", $content, $m)) {
+            define('JWT_SECRET', $m[1]);
+            return $m[1];
+        }
+    }
+    return '';
 }
 
 function authBase64UrlDecode($data) {
