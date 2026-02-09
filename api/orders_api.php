@@ -70,6 +70,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminDeleteLink();
             break;
+        case 'admin_reorder_links':
+            requireAdminAuth();
+            adminReorderLinks();
+            break;
         case 'admin_create':
             requireAdminAuth();
             adminCreateOrder();
@@ -100,14 +104,19 @@ function runMigration() {
                 customer_id VARCHAR(100),
                 customer_email VARCHAR(255) NOT NULL,
                 customer_name VARCHAR(255) NOT NULL,
+                customer_phone VARCHAR(50),
                 plan_name VARCHAR(255),
                 requirement_name TEXT,
                 asset_name VARCHAR(255),
                 type_zone VARCHAR(255),
+                service_type ENUM('plan_busqueda','cotizacion_link') DEFAULT 'plan_busqueda',
                 agent_user_id VARCHAR(100),
                 agent_name VARCHAR(255),
                 agent_phone VARCHAR(50),
-                status ENUM('new','pending_admin_fill','in_progress','completed','expired','canceled') DEFAULT 'new',
+                status ENUM('new','pending_admin_fill','in_progress','completed','expired','canceled') DEFAULT 'pending_admin_fill',
+                origin ENUM('web','admin','whatsapp') DEFAULT 'web',
+                admin_notes TEXT,
+                visible_to_client TINYINT(1) DEFAULT 1,
                 purchase_id VARCHAR(100),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -150,7 +159,24 @@ function runMigration() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
-        echo json_encode(['success' => true, 'message' => 'Tables created successfully']);
+        $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('customer_phone', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN customer_phone VARCHAR(50) AFTER customer_name");
+        }
+        if (!in_array('service_type', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN service_type ENUM('plan_busqueda','cotizacion_link') DEFAULT 'plan_busqueda' AFTER type_zone");
+        }
+        if (!in_array('origin', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN origin ENUM('web','admin','whatsapp') DEFAULT 'web' AFTER status");
+        }
+        if (!in_array('admin_notes', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN admin_notes TEXT AFTER origin");
+        }
+        if (!in_array('visible_to_client', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN visible_to_client TINYINT(1) DEFAULT 1 AFTER admin_notes");
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Migration failed: ' . $e->getMessage()]);
@@ -158,11 +184,10 @@ function runMigration() {
 }
 
 function generateOrderNumber($pdo) {
-    $year = date('Y');
-    $stmt = $pdo->query("SELECT COUNT(*) as cnt FROM orders WHERE YEAR(created_at) = $year");
+    $stmt = $pdo->query("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM orders");
     $row = $stmt->fetch();
-    $seq = ($row['cnt'] ?? 0) + 1;
-    return sprintf("EXP-%s-%03d", $year, $seq);
+    $nextId = intval($row['next_id']);
+    return sprintf("IMP-%05d", $nextId);
 }
 
 function logOrderEvent($pdo, $orderId, $eventType, $meta = [], $userId = null) {
@@ -188,20 +213,20 @@ function userListOrders() {
     }
 
     try {
-        $where = '';
+        $where = 'WHERE visible_to_client = 1';
         $params = [];
         if ($userEmail) {
-            $where = 'WHERE customer_email = ?';
+            $where .= ' AND customer_email = ?';
             $params[] = $userEmail;
         } else {
-            $where = 'WHERE customer_id = ?';
+            $where .= ' AND customer_id = ?';
             $params[] = $userId;
         }
 
         $stmt = $pdo->prepare("
-            SELECT id, order_number, customer_email, customer_name, plan_name,
-                   requirement_name, asset_name, type_zone, agent_name, agent_phone,
-                   status, created_at, updated_at
+            SELECT id, order_number, customer_email, customer_name, customer_phone,
+                   plan_name, requirement_name, asset_name, type_zone, service_type,
+                   agent_name, agent_phone, status, created_at, updated_at
             FROM orders
             $where
             ORDER BY created_at DESC
@@ -236,7 +261,7 @@ function userGetOrderDetail() {
     }
 
     try {
-        $where = 'WHERE o.id = ?';
+        $where = 'WHERE o.id = ? AND o.visible_to_client = 1';
         $params = [$orderId];
         if ($userEmail) {
             $where .= ' AND o.customer_email = ?';
@@ -246,9 +271,7 @@ function userGetOrderDetail() {
             $params[] = $userId;
         }
 
-        $stmt = $pdo->prepare("
-            SELECT o.* FROM orders o $where
-        ");
+        $stmt = $pdo->prepare("SELECT o.* FROM orders o $where");
         $stmt->execute($params);
         $order = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -294,6 +317,10 @@ function adminListOrders() {
             $where[] = 'agent_name LIKE ?';
             $params[] = '%' . $_GET['agent'] . '%';
         }
+        if (!empty($_GET['service_type'])) {
+            $where[] = 'service_type = ?';
+            $params[] = $_GET['service_type'];
+        }
         if (!empty($_GET['from_date'])) {
             $where[] = 'created_at >= ?';
             $params[] = $_GET['from_date'] . ' 00:00:00';
@@ -311,9 +338,10 @@ function adminListOrders() {
         $whereClause = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
 
         $stmt = $pdo->prepare("
-            SELECT id, order_number, customer_email, customer_name, plan_name,
-                   requirement_name, asset_name, type_zone, agent_name, agent_phone,
-                   status, purchase_id, created_at, updated_at
+            SELECT id, order_number, customer_email, customer_name, customer_phone,
+                   plan_name, requirement_name, asset_name, type_zone, service_type,
+                   agent_name, agent_phone, status, origin, admin_notes,
+                   visible_to_client, purchase_id, created_at, updated_at
             FROM orders
             $whereClause
             ORDER BY created_at DESC
@@ -399,10 +427,15 @@ function adminUpdateOrder() {
         return;
     }
 
+    $oldStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+    $oldStmt->execute([$orderId]);
+    $oldOrder = $oldStmt->fetch(PDO::FETCH_ASSOC);
+
     $allowedFields = [
         'plan_name', 'requirement_name', 'asset_name', 'type_zone',
-        'agent_user_id', 'agent_name', 'agent_phone', 'status',
-        'customer_name', 'customer_email'
+        'service_type', 'agent_user_id', 'agent_name', 'agent_phone',
+        'status', 'customer_name', 'customer_email', 'customer_phone',
+        'origin', 'admin_notes', 'visible_to_client'
     ];
 
     $sets = [];
@@ -413,7 +446,9 @@ function adminUpdateOrder() {
         if (array_key_exists($field, $input)) {
             $sets[] = "$field = ?";
             $params[] = $input[$field];
-            $changes[$field] = $input[$field];
+            if ($oldOrder && isset($oldOrder[$field]) && $oldOrder[$field] !== $input[$field]) {
+                $changes[$field] = ['from' => $oldOrder[$field], 'to' => $input[$field]];
+            }
         }
     }
 
@@ -429,7 +464,12 @@ function adminUpdateOrder() {
         $stmt = $pdo->prepare("UPDATE orders SET " . implode(', ', $sets) . " WHERE id = ?");
         $stmt->execute($params);
 
-        logOrderEvent($pdo, $orderId, 'order_updated', $changes, $input['admin_user_id'] ?? null);
+        if (isset($changes['status'])) {
+            logOrderEvent($pdo, $orderId, 'status_changed', $changes['status'], $input['admin_user_id'] ?? null);
+        }
+        if (!empty($changes)) {
+            logOrderEvent($pdo, $orderId, 'updated_header', $changes, $input['admin_user_id'] ?? null);
+        }
 
         echo json_encode(['success' => true, 'message' => 'Expediente actualizado']);
     } catch (PDOException $e) {
@@ -460,14 +500,19 @@ function adminUpdateLinks() {
     try {
         $pdo->beginTransaction();
 
+        $updatedCells = [];
         foreach ($links as $link) {
             $linkId = intval($link['id'] ?? 0);
             if ($linkId) {
+                $oldStmt = $pdo->prepare("SELECT * FROM order_links WHERE id = ? AND order_id = ?");
+                $oldStmt->execute([$linkId, $orderId]);
+                $oldLink = $oldStmt->fetch(PDO::FETCH_ASSOC);
+
                 $stmt = $pdo->prepare("
                     UPDATE order_links SET
                         url = ?, title = ?, value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
-                        selection_order = ?, comments = ?
+                        selection_order = ?, comments = ?, row_index = ?
                     WHERE id = ? AND order_id = ?
                 ");
                 $stmt->execute([
@@ -479,15 +524,29 @@ function adminUpdateLinks() {
                     $link['value_chile_negotiated_clp'] ?? null,
                     $link['selection_order'] ?? null,
                     $link['comments'] ?? null,
+                    $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
                     $linkId,
                     $orderId
                 ]);
+
+                if ($oldLink) {
+                    $fields = ['url','value_usa_usd','value_to_negotiate_usd','value_chile_clp','value_chile_negotiated_clp','selection_order','comments'];
+                    foreach ($fields as $f) {
+                        $oldVal = $oldLink[$f] ?? null;
+                        $newVal = $link[$f] ?? null;
+                        if ($oldVal != $newVal) {
+                            $updatedCells[] = ['link_id' => $linkId, 'field' => $f, 'from' => $oldVal, 'to' => $newVal];
+                        }
+                    }
+                }
             }
         }
 
         $pdo->commit();
 
-        logOrderEvent($pdo, $orderId, 'links_updated', ['count' => count($links)], $input['admin_user_id'] ?? null);
+        if (!empty($updatedCells)) {
+            logOrderEvent($pdo, $orderId, 'updated_cell', ['cells' => $updatedCells], $input['admin_user_id'] ?? null);
+        }
 
         echo json_encode(['success' => true, 'message' => 'Links actualizados']);
     } catch (PDOException $e) {
@@ -538,7 +597,7 @@ function adminAddLink() {
         ]);
 
         $linkId = $pdo->lastInsertId();
-        logOrderEvent($pdo, $orderId, 'link_added', ['link_id' => $linkId, 'row_index' => $nextIndex]);
+        logOrderEvent($pdo, $orderId, 'added_link', ['link_id' => $linkId, 'row_index' => $nextIndex]);
 
         echo json_encode(['success' => true, 'link_id' => intval($linkId), 'row_index' => intval($nextIndex)]);
     } catch (PDOException $e) {
@@ -570,13 +629,50 @@ function adminDeleteLink() {
         $stmt = $pdo->prepare("DELETE FROM order_links WHERE id = ? AND order_id = ?");
         $stmt->execute([$linkId, $orderId]);
 
-        logOrderEvent($pdo, $orderId, 'link_deleted', ['link_id' => $linkId]);
+        logOrderEvent($pdo, $orderId, 'deleted_link', ['link_id' => $linkId]);
 
         echo json_encode(['success' => true, 'message' => 'Link eliminado']);
     } catch (PDOException $e) {
         error_log("Error deleting link: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al eliminar link']);
+    }
+}
+
+function adminReorderLinks() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkIds = $input['link_ids'] ?? [];
+
+    if (!$orderId || empty($linkIds)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id y link_ids']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $pdo->beginTransaction();
+        foreach ($linkIds as $index => $linkId) {
+            $stmt = $pdo->prepare("UPDATE order_links SET row_index = ? WHERE id = ? AND order_id = ?");
+            $stmt->execute([$index + 1, intval($linkId), $orderId]);
+        }
+        $pdo->commit();
+
+        logOrderEvent($pdo, $orderId, 'reordered_links', ['new_order' => $linkIds]);
+
+        echo json_encode(['success' => true, 'message' => 'Orden actualizado']);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error reordering links: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al reordenar links']);
     }
 }
 
@@ -600,22 +696,29 @@ function adminCreateOrder() {
         $orderNumber = generateOrderNumber($pdo);
 
         $stmt = $pdo->prepare("
-            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, plan_name, requirement_name, asset_name, type_zone, agent_user_id, agent_name, agent_phone, status, purchase_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, asset_name, type_zone, service_type,
+                agent_user_id, agent_name, agent_phone, status, origin, admin_notes, visible_to_client, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $orderNumber,
             $input['customer_id'] ?? null,
             $input['customer_email'],
             $input['customer_name'],
+            $input['customer_phone'] ?? null,
             $input['plan_name'] ?? null,
             $input['requirement_name'] ?? null,
             $input['asset_name'] ?? null,
             $input['type_zone'] ?? null,
+            $input['service_type'] ?? 'plan_busqueda',
             $input['agent_user_id'] ?? null,
             $input['agent_name'] ?? null,
             $input['agent_phone'] ?? null,
-            $input['status'] ?? 'new',
+            'pending_admin_fill',
+            $input['origin'] ?? 'admin',
+            $input['admin_notes'] ?? null,
+            $input['visible_to_client'] ?? 1,
             $input['purchase_id'] ?? null
         ]);
 
@@ -628,7 +731,8 @@ function adminCreateOrder() {
 
         logOrderEvent($pdo, $orderId, 'created', [
             'order_number' => $orderNumber,
-            'source' => $input['source'] ?? 'manual'
+            'source' => $input['origin'] ?? 'admin',
+            'service_type' => $input['service_type'] ?? 'plan_busqueda'
         ], $input['admin_user_id'] ?? null);
 
         echo json_encode([
@@ -655,14 +759,16 @@ function createOrderFromPurchase($purchase) {
         $orderNumber = generateOrderNumber($pdo);
 
         $stmt = $pdo->prepare("
-            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, plan_name, requirement_name, asset_name, type_zone, status, purchase_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?)
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, asset_name, type_zone, service_type, status, origin, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'plan_busqueda', 'pending_admin_fill', 'web', ?)
         ");
         $stmt->execute([
             $orderNumber,
             $purchase['customer_id'] ?? null,
             $purchase['user_email'] ?? $purchase['customer_email'] ?? '',
             $purchase['customer_name'] ?? explode('@', $purchase['user_email'] ?? '')[0],
+            $purchase['customer_phone'] ?? null,
             $purchase['plan_name'] ?? '',
             $purchase['description'] ?? '',
             $purchase['asset_name'] ?? '',
@@ -700,14 +806,16 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
         $orderNumber = generateOrderNumber($pdo);
 
         $stmt = $pdo->prepare("
-            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, plan_name, requirement_name, status, purchase_id)
-            VALUES (?, ?, ?, ?, ?, ?, 'new', ?)
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, service_type, status, origin, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'cotizacion_link', 'pending_admin_fill', 'web', ?)
         ");
         $stmt->execute([
             $orderNumber,
             $purchase['customer_id'] ?? null,
             $purchase['user_email'] ?? $purchase['customer_email'] ?? '',
             $purchase['customer_name'] ?? explode('@', $purchase['user_email'] ?? '')[0],
+            $purchase['customer_phone'] ?? null,
             $purchase['plan_name'] ?? 'Cotizacion por Links',
             $purchase['description'] ?? '',
             $purchase['id'] ?? $purchase['purchase_id'] ?? null

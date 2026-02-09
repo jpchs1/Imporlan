@@ -179,6 +179,7 @@
         if (filters.from_date) params.append("from_date", filters.from_date);
         if (filters.to_date) params.append("to_date", filters.to_date);
         if (filters.search) params.append("search", filters.search);
+        if (filters.service_type) params.append("service_type", filters.service_type);
       }
       var resp = await fetch(API_BASE + "/orders_api.php?" + params.toString(), { headers: authHeaders() });
       var data = await resp.json();
@@ -294,6 +295,11 @@
       '<option value="">Todos los estados</option>' +
       STATUS_OPTIONS.map(function (s) { return '<option value="' + s.value + '">' + escapeHtml(s.label) + "</option>"; }).join("") +
       "</select>" +
+      '<select id="ea-filter-service-type" style="' + inputStyle() + '">' +
+      '<option value="">Tipo Servicio</option>' +
+      '<option value="plan_busqueda">Plan Busqueda</option>' +
+      '<option value="cotizacion_link">Cotizacion Link</option>' +
+      '</select>' +
       '<input type="text" id="ea-filter-agent" placeholder="Agente..." style="' + inputStyle() + '">' +
       '<input type="date" id="ea-filter-from" style="' + inputStyle() + '" title="Desde">' +
       '<input type="date" id="ea-filter-to" style="' + inputStyle() + '" title="Hasta">' +
@@ -385,12 +391,17 @@
       '<div style="padding:20px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + '" disabled></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + '" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Agente</label><input id="ea-f-agent_name" value="' + escapeHtml(order.agent_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="margin-right:6px">Visible para cliente</label></div>' +
       "</div></div></div>" +
       '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">' +
       '<div style="padding:16px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">' +
@@ -431,7 +442,10 @@
       '<td style="padding:6px 8px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + (lk.value_chile_negotiated_clp || "") + '" placeholder="0" style="' + cellInput + '"></td>' +
       '<td style="padding:6px 8px"><input class="ea-link-selection_order" type="number" value="' + (lk.selection_order || "") + '" placeholder="-" style="' + cellInput + ';text-align:center"></td>' +
       '<td style="padding:6px 8px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="..." style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px;text-align:center"><button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#ef4444;padding:4px" title="Eliminar fila"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
+      '<td style="padding:6px 8px;text-align:center;white-space:nowrap">' +
+      '<button class="ea-move-up" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px" title="Subir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></button>' +
+      '<button class="ea-move-down" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px" title="Bajar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#ef4444;padding:2px" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
       "</tr>"
     );
   }
@@ -447,6 +461,8 @@
       '<div style="display:grid;gap:14px">' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Email Cliente *</label><input id="ea-new-email" style="' + inputStyle() + '" placeholder="cliente@email.com"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Nombre Cliente *</label><input id="ea-new-name" style="' + inputStyle() + '" placeholder="Nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Cliente</label><input id="ea-new-phone" style="' + inputStyle() + '" placeholder="+56 9 1234 5678"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo Servicio</label><select id="ea-new-service-type" style="' + inputStyle() + '"><option value="plan_busqueda">Plan Busqueda</option><option value="cotizacion_link">Cotizacion Link</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Plan</label><input id="ea-new-plan" style="' + inputStyle() + '" placeholder="Plan Fragata, etc."></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Embarcacion/Objetivo</label><input id="ea-new-asset" style="' + inputStyle() + '" placeholder="Tipo de embarcacion"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Zona/Tipo</label><input id="ea-new-zone" style="' + inputStyle() + '" placeholder="Costa Este USA, etc."></div>' +
@@ -463,9 +479,10 @@
     if (!tbody) return [];
     var rows = tbody.querySelectorAll("tr[data-link-id]");
     var links = [];
-    rows.forEach(function (row) {
+    rows.forEach(function (row, idx) {
       links.push({
         id: parseInt(row.getAttribute("data-link-id")) || null,
+        row_index: idx + 1,
         url: (row.querySelector(".ea-link-url") || {}).value || null,
         value_usa_usd: parseFloat((row.querySelector(".ea-link-value_usa_usd") || {}).value) || null,
         value_to_negotiate_usd: parseFloat((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value) || null,
@@ -476,6 +493,20 @@
       });
     });
     return links;
+  }
+
+  async function reorderLinks(orderId, linkIds) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_reorder_links", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId, link_ids: linkIds }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error reordering links:", e);
+      return { error: "Error de conexion" };
+    }
   }
 
   function attachListeners(container) {
@@ -510,6 +541,7 @@
       filterBtn.addEventListener("click", async function () {
         var filters = {
           status: document.getElementById("ea-filter-status").value,
+          service_type: document.getElementById("ea-filter-service-type").value,
           agent: document.getElementById("ea-filter-agent").value,
           from_date: document.getElementById("ea-filter-from").value,
           to_date: document.getElementById("ea-filter-to").value,
@@ -546,9 +578,12 @@
           var result = await createNewOrder({
             customer_email: email,
             customer_name: name,
+            customer_phone: document.getElementById("ea-new-phone").value.trim(),
+            service_type: document.getElementById("ea-new-service-type").value,
             plan_name: document.getElementById("ea-new-plan").value.trim(),
             asset_name: document.getElementById("ea-new-asset").value.trim(),
             type_zone: document.getElementById("ea-new-zone").value.trim(),
+            origin: "admin",
           });
           if (result.success) {
             modal.remove();
@@ -570,12 +605,17 @@
         var orderUpdate = {
           id: currentOrderData.id,
           status: document.getElementById("ea-status-select").value,
+          customer_phone: document.getElementById("ea-f-customer_phone").value,
+          service_type: document.getElementById("ea-f-service_type").value,
+          origin: document.getElementById("ea-f-origin").value,
           plan_name: document.getElementById("ea-f-plan_name").value,
           asset_name: document.getElementById("ea-f-asset_name").value,
           type_zone: document.getElementById("ea-f-type_zone").value,
           requirement_name: document.getElementById("ea-f-requirement_name").value,
           agent_name: document.getElementById("ea-f-agent_name").value,
           agent_phone: document.getElementById("ea-f-agent_phone").value,
+          admin_notes: document.getElementById("ea-f-admin_notes").value,
+          visible_to_client: document.getElementById("ea-f-visible_to_client").checked ? 1 : 0,
         };
 
         var r1 = await saveOrder(orderUpdate);
@@ -634,11 +674,46 @@
           var row = this.closest("tr");
           if (row) row.remove();
           currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
+          renumberRows();
           showToast("Fila eliminada", "success");
         } else {
           showToast(result.error || "Error al eliminar", "error");
         }
       });
+    });
+
+    container.querySelectorAll(".ea-move-up").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var row = this.closest("tr");
+        var prev = row.previousElementSibling;
+        if (prev) {
+          row.parentNode.insertBefore(row, prev);
+          renumberRows();
+          hasUnsavedChanges = true;
+        }
+      });
+    });
+
+    container.querySelectorAll(".ea-move-down").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var row = this.closest("tr");
+        var next = row.nextElementSibling;
+        if (next) {
+          row.parentNode.insertBefore(next, row);
+          renumberRows();
+          hasUnsavedChanges = true;
+        }
+      });
+    });
+  }
+
+  function renumberRows() {
+    var tbody = document.getElementById("ea-links-tbody");
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll("tr[data-link-id]");
+    rows.forEach(function (row, idx) {
+      var numCell = row.querySelector("td:first-child");
+      if (numCell) numCell.textContent = idx + 1;
     });
   }
 
