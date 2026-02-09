@@ -1057,13 +1057,28 @@
     var main = document.querySelector('main');
     var rootDiv = document.querySelector('#root > div');
     if (rootDiv) {
-      rootDiv.style.cssText += ';display:flex!important;flex-direction:column!important;overflow-x:hidden!important;height:auto!important;min-height:100vh!important';
+      rootDiv.style.setProperty('display', 'flex', 'important');
+      rootDiv.style.setProperty('flex-direction', 'column', 'important');
+      rootDiv.style.setProperty('overflow-x', 'hidden', 'important');
+      rootDiv.style.setProperty('height', 'auto', 'important');
+      rootDiv.style.setProperty('min-height', '100vh', 'important');
     }
     if (aside) {
-      aside.style.cssText += ';position:relative!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:auto!important;flex-shrink:0!important';
+      aside.style.setProperty('position', 'relative', 'important');
+      aside.style.setProperty('width', '100%', 'important');
+      aside.style.setProperty('max-width', '100%', 'important');
+      aside.style.setProperty('height', 'auto', 'important');
+      aside.style.setProperty('min-height', 'auto', 'important');
+      aside.style.setProperty('flex-shrink', '0', 'important');
     }
     if (main) {
-      main.style.cssText += ';margin-left:0!important;width:100%!important;max-width:100%!important;padding:12px!important;flex-grow:1!important;overflow-x:hidden!important;height:auto!important';
+      main.style.setProperty('margin-left', '0', 'important');
+      main.style.setProperty('width', '100%', 'important');
+      main.style.setProperty('max-width', '100%', 'important');
+      main.style.setProperty('padding', '12px', 'important');
+      main.style.setProperty('flex-grow', '1', 'important');
+      main.style.setProperty('overflow-x', 'hidden', 'important');
+      main.style.setProperty('height', 'auto', 'important');
     }
   }
 
@@ -1091,12 +1106,15 @@
 
   onReady(function () {
     addStyles();
+    applyMobileLayout();
 
     setTimeout(function () {
+      applyMobileLayout();
       enhanceMarketplace();
     }, 1500);
 
     var observer = new MutationObserver(function () {
+      applyMobileLayout();
       if (isMarketplacePage() && !enhanced && !detailModalOpen) {
         setTimeout(function () {
           enhanceMarketplace();
@@ -1107,5 +1125,7 @@
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
+
+    window.addEventListener('resize', applyMobileLayout);
   });
 })();
