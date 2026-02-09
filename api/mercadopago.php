@@ -214,7 +214,9 @@ function handleWebhook() {
                 'status' => 'pending'
             ]);
             
-            sendMercadoPagoConfirmationEmail($purchase, $payment);
+            if (empty($purchase['_duplicate'])) {
+                sendMercadoPagoConfirmationEmail($purchase, $payment);
+            }
         }
     }
     
@@ -276,7 +278,8 @@ function savePurchase($purchaseData) {
     // Verificar si ya existe una compra con el mismo payment_id para evitar duplicados
     foreach ($data['purchases'] as $existing) {
         if (isset($existing['payment_id']) && $existing['payment_id'] === $purchaseData['payment_id']) {
-            return $existing; // Ya existe, no duplicar
+            $existing['_duplicate'] = true;
+            return $existing;
         }
     }
     
