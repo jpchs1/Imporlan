@@ -238,6 +238,22 @@ function captureOrder() {
         ]);
         
         sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
+        
+        // Create expedition order automatically
+        try {
+            require_once __DIR__ . '/orders_api.php';
+            if ($purchaseType === 'plan') {
+                createOrderFromPurchase($purchaseRecord);
+            } else {
+                require_once __DIR__ . '/email_service.php';
+                $emailService = new EmailService();
+                $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                createOrderFromQuotation($purchaseRecord, $storedLinks);
+            }
+        } catch (Exception $e) {
+            $logFile = __DIR__ . '/paypal.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - ORDER_CREATE_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+        }
     }
     
     echo json_encode([
