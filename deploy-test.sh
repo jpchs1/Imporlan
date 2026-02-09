@@ -75,12 +75,16 @@ echo "  -> Permissions set (dirs: 755, files: 644)."
 echo ""
 echo "[6/6] Cleaning old backups (keeping last 5)..."
 for PREFIX in panel-test test; do
-  COUNT=$(ls -1d "$BACKUP_DIR/${PREFIX}_"* 2>/dev/null | wc -l)
+  BACKUPS=()
+  while IFS= read -r -d '' entry; do
+    BACKUPS+=("$entry")
+  done < <(find "$BACKUP_DIR" -maxdepth 1 -type d -name "${PREFIX}_*" -print0 2>/dev/null | sort -z)
+  COUNT=${#BACKUPS[@]}
   if [ "$COUNT" -gt 5 ]; then
     REMOVE=$((COUNT - 5))
-    ls -1d "$BACKUP_DIR/${PREFIX}_"* | head -n "$REMOVE" | while read -r OLD; do
-      rm -rf "$OLD"
-      echo "  -> Removed old backup: $(basename "$OLD")"
+    for (( i=0; i<REMOVE; i++ )); do
+      rm -rf "${BACKUPS[$i]}"
+      echo "  -> Removed old backup: $(basename "${BACKUPS[$i]}")"
     done
   fi
 done
