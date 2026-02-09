@@ -80,32 +80,32 @@
   function processHeadings() {
     var mainEl = document.querySelector("main");
     if (!mainEl) return;
+    if (mainEl.querySelector("." + NOTE_CLASS)) return;
 
     var headings = mainEl.querySelectorAll("h1, h2");
     for (var i = 0; i < headings.length; i++) {
       var heading = headings[i];
       if (!matchesSection(heading)) continue;
 
-      var parent = heading.parentElement;
-      if (!parent) continue;
+      var headerBlock =
+        heading.closest("[class*='rounded-2xl']") ||
+        heading.closest("[class*='rounded-xl']") ||
+        heading.closest("[class*='bg-gradient']");
 
-      var searchRoot = parent;
-      while (
-        searchRoot.parentElement &&
-        searchRoot.parentElement.tagName !== "MAIN" &&
-        searchRoot.parentElement !== mainEl
-      ) {
-        searchRoot = searchRoot.parentElement;
+      if (!headerBlock) {
+        headerBlock = heading.parentElement;
+        while (
+          headerBlock &&
+          headerBlock.parentElement &&
+          headerBlock.parentElement.tagName !== "MAIN"
+        ) {
+          if (headerBlock.className && headerBlock.className.indexOf("space-y") !== -1) break;
+          headerBlock = headerBlock.parentElement;
+        }
       }
-
-      if (mainEl.querySelector("." + NOTE_CLASS)) return;
 
       var note = createNoteElement();
-      if (searchRoot.nextSibling) {
-        searchRoot.parentNode.insertBefore(note, searchRoot.nextSibling);
-      } else {
-        searchRoot.parentNode.appendChild(note);
-      }
+      headerBlock.insertAdjacentElement("afterend", note);
       return;
     }
   }
