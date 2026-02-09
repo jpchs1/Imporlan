@@ -333,7 +333,7 @@
           formatCurrency(lk.value_chile_negotiated_clp, "CLP") +
           "</td>" +
           '<td style="padding:10px 12px;text-align:center;font-size:13px;color:#334155">' +
-          (lk.selection_order || "-") +
+          (lk.selection_order !== null && lk.selection_order !== undefined && lk.selection_order !== '' ? lk.selection_order : "-") +
           "</td>" +
           '<td style="padding:10px 12px;font-size:13px;color:#64748b;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' +
           escapeHtml(lk.comments || "") +

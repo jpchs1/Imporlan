@@ -43,6 +43,16 @@
     return null;
   }
 
+  function numOrEmpty(v) {
+    return (v === null || v === undefined || v === '') ? '' : v;
+  }
+
+  function parseNumOrNull(v) {
+    if (v === '' || v === undefined || v === null) return null;
+    var n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
   function escapeHtml(text) {
     if (!text) return "";
     var div = document.createElement("div");
@@ -436,11 +446,11 @@
       (lk.url ? '<button class="ea-open-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Abrir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
         '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Copiar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' : "") +
       "</div></td>" +
-      '<td style="padding:6px 8px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + (lk.value_usa_usd || "") + '" placeholder="0.00" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + (lk.value_to_negotiate_usd || "") + '" placeholder="0.00" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + (lk.value_chile_clp || "") + '" placeholder="0" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + (lk.value_chile_negotiated_clp || "") + '" placeholder="0" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-selection_order" type="number" value="' + (lk.selection_order || "") + '" placeholder="-" style="' + cellInput + ';text-align:center"></td>' +
+      '<td style="padding:6px 8px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + cellInput + '"></td>' +
+      '<td style="padding:6px 8px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_to_negotiate_usd) + '" placeholder="0.00" style="' + cellInput + '"></td>' +
+      '<td style="padding:6px 8px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_clp) + '" placeholder="0" style="' + cellInput + '"></td>' +
+      '<td style="padding:6px 8px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" placeholder="0" style="' + cellInput + '"></td>' +
+      '<td style="padding:6px 8px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + cellInput + ';text-align:center"></td>' +
       '<td style="padding:6px 8px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="..." style="' + cellInput + '"></td>' +
       '<td style="padding:6px 8px;text-align:center;white-space:nowrap">' +
       '<button class="ea-move-up" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px" title="Subir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></button>' +
@@ -484,11 +494,11 @@
         id: parseInt(row.getAttribute("data-link-id")) || null,
         row_index: idx + 1,
         url: (row.querySelector(".ea-link-url") || {}).value || null,
-        value_usa_usd: parseFloat((row.querySelector(".ea-link-value_usa_usd") || {}).value) || null,
-        value_to_negotiate_usd: parseFloat((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value) || null,
-        value_chile_clp: parseInt((row.querySelector(".ea-link-value_chile_clp") || {}).value) || null,
-        value_chile_negotiated_clp: parseInt((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value) || null,
-        selection_order: parseInt((row.querySelector(".ea-link-selection_order") || {}).value) || null,
+        value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).value),
+        value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
+        value_chile_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_clp") || {}).value),
+        value_chile_negotiated_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value),
+        selection_order: parseNumOrNull((row.querySelector(".ea-link-selection_order") || {}).value),
         comments: (row.querySelector(".ea-link-comments") || {}).value || null,
       });
     });
