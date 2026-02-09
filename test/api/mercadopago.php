@@ -81,12 +81,12 @@ function createPreference() {
             ]
         ],
         'back_urls' => [
-            'success' => 'https://www.imporlan.cl/test/#myproducts',
-            'failure' => 'https://www.imporlan.cl/test/#myproducts',
-            'pending' => 'https://www.imporlan.cl/test/#myproducts'
+            'success' => 'https://www.imporlan.cl/panel/#myproducts',
+            'failure' => 'https://www.imporlan.cl/panel/#myproducts',
+            'pending' => 'https://www.imporlan.cl/panel/#myproducts'
         ],
         'auto_return' => 'approved',
-        'notification_url' => 'https://www.imporlan.cl/test/api/mercadopago.php?action=webhook',
+        'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
         'external_reference' => $planName . '_' . time()
     ];
@@ -238,19 +238,51 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
         
         $productName = $purchase['plan_name'] ?: $purchase['description'];
         
-        $emailService->sendPurchaseConfirmationEmail(
-            $purchase['user_email'],
-            $payerName,
-            [
-                'product_name' => $productName,
-                'price' => $purchase['amount_clp'],
-                'currency' => $purchase['currency'] ?? 'CLP',
-                'payment_method' => 'MercadoPago',
-                'purchase_date' => date('d/m/Y'),
-                'payment_id' => $purchase['payment_id'],
-                'order_id' => $purchase['order_id']
-            ]
-        );
+        if ($purchase['type'] === 'link' || $purchase['type'] === 'cotizacion') {
+            $items = [];
+            $mpItems = $payment['additional_info']['items'] ?? [];
+            if (!empty($mpItems)) {
+                foreach ($mpItems as $mpItem) {
+                    $items[] = [
+                        'title' => $mpItem['title'] ?? $mpItem['description'] ?? 'Servicio Imporlan',
+                        'description' => $mpItem['description'] ?? ''
+                    ];
+                }
+            }
+            if (empty($items)) {
+                $items[] = ['title' => $productName ?: 'Cotizacion por Links'];
+            }
+            
+            $emailService->sendQuotationLinksPaidEmail(
+                $purchase['user_email'],
+                $payerName,
+                [
+                    'description' => $productName ?: 'Cotizacion por Links',
+                    'items' => $items,
+                    'price' => $purchase['amount_clp'],
+                    'currency' => $purchase['currency'] ?? 'CLP',
+                    'payment_method' => 'MercadoPago',
+                    'payment_reference' => $purchase['payment_id'],
+                    'purchase_date' => date('d/m/Y'),
+                    'user_email' => $purchase['user_email'],
+                    'order_id' => $purchase['order_id']
+                ]
+            );
+        } else {
+            $emailService->sendPurchaseConfirmationEmail(
+                $purchase['user_email'],
+                $payerName,
+                [
+                    'product_name' => $productName,
+                    'price' => $purchase['amount_clp'],
+                    'currency' => $purchase['currency'] ?? 'CLP',
+                    'payment_method' => 'MercadoPago',
+                    'purchase_date' => date('d/m/Y'),
+                    'payment_id' => $purchase['payment_id'],
+                    'order_id' => $purchase['order_id']
+                ]
+            );
+        }
         
         $logFile = __DIR__ . '/mp_webhooks.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . "\n";
@@ -365,4 +397,3 @@ function getPayment() {
         ]
     ]);
 }
-

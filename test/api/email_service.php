@@ -16,7 +16,7 @@
 require_once __DIR__ . '/db_config.php';
 
 class EmailService {
-    private $pdo;
+    protected $pdo;
     
     // SMTP Configuration
     private $smtpHost = 'mail.imporlan.cl';
@@ -33,19 +33,19 @@ class EmailService {
     // URLs
     private $panelUrl = 'https://www.imporlan.cl/panel';
     private $myProductsUrl = 'https://www.imporlan.cl/panel/mis-productos';
-    private $websiteUrl = 'https://www.imporlan.cl';
+    protected $websiteUrl = 'https://www.imporlan.cl';
     
     // Internal notification recipients
-    private $adminEmails = ['contacto@imporlan.cl'];
+    protected $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
     
     // TEST Environment Configuration
     // When isTestEnvironment is true, ALL emails are redirected to testRecipient
     // This allows testing real email flows without sending to actual users
-    private $isTestEnvironment = false;
+    protected $isTestEnvironment = false;
     private $testRecipient = 'jpchs1@gmail.com';
     
     // Design tokens (matching /panel/ exactly)
-    private $colors = [
+    protected $colors = [
         'bg_dark' => '#0a1628',
         'bg_gradient_end' => '#1a365d',
         'primary' => '#3b82f6',
@@ -371,6 +371,7 @@ BASE64;
             'critical_error' => ['subject' => 'Error critico del sistema', 'template' => 'internal_critical_error'],
             'support_request' => ['subject' => 'Solicitud de soporte/contacto', 'template' => 'internal_support_request'],
             'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
+            'quotation_links_paid' => ['subject' => 'Cotizacion por Links - Pago Confirmado', 'template' => 'internal_quotation_links_paid'],
             'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message']
         ];
         
@@ -432,6 +433,25 @@ BASE64;
         return $this->sendEmail($userEmail, 'Hemos recibido tu solicitud - Imporlan', $htmlContent, 'support_confirmation', ['subject' => $subject]);
     }
     
+    public function sendQuotationLinksPaidEmail($userEmail, $firstName, $purchaseData) {
+        $subject = "Cotizacion por Links - Confirmacion de Pago";
+        $htmlContent = $this->getQuotationLinksPaidTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('quotation_links_paid', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'description' => $purchaseData['description'] ?? 'Cotizacion por Links',
+            'items' => $purchaseData['items'] ?? [],
+            'amount' => number_format($purchaseData['price'], 0, ',', '.'),
+            'currency' => $purchaseData['currency'] ?? 'CLP',
+            'payment_method' => $purchaseData['payment_method'],
+            'payment_reference' => $purchaseData['payment_reference'] ?? 'N/A',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_links_paid', $purchaseData);
+    }
+    
     public function sendQuotationRequestNotification($requestData) {
         return $this->sendInternalNotification('quotation_request', [
             'name' => $requestData['name'],
@@ -464,7 +484,7 @@ BASE64;
      * TEST MODE: When isTestEnvironment is true, all emails are redirected to testRecipient
      * The original recipient is logged but not used for actual delivery
      */
-    private function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
+    protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
         
@@ -617,7 +637,7 @@ BASE64;
     /**
      * Base Template - Exact clone of /panel/ visual style
      */
-    private function getBaseTemplate($content, $title = 'Imporlan') {
+    protected function getBaseTemplate($content, $title = 'Imporlan') {
         $c = $this->colors;
         
         return '<!DOCTYPE html>
@@ -714,7 +734,7 @@ BASE64;
     /**
      * Primary CTA Button - matching /panel/ "Entrar" button exactly
      */
-    private function getButton($text, $url, $fullWidth = true) {
+    protected function getButton($text, $url, $fullWidth = true) {
         $c = $this->colors;
         $width = $fullWidth ? 'width: 100%;' : '';
         
@@ -743,7 +763,7 @@ BASE64;
     /**
      * Secondary Button - matching /panel/ "Registrar" button style
      */
-    private function getSecondaryButton($text, $url) {
+    protected function getSecondaryButton($text, $url) {
         $c = $this->colors;
         
         return '
@@ -769,7 +789,7 @@ BASE64;
     /**
      * Info Card - matching /panel/ feature cards style
      */
-    private function getInfoCard($title, $items) {
+    protected function getInfoCard($title, $items) {
         $c = $this->colors;
         
         $itemsHtml = '';
@@ -836,7 +856,7 @@ BASE64;
     /**
      * Status Badge
      */
-    private function getStatusBadge($status, $text) {
+    protected function getStatusBadge($status, $text) {
         $c = $this->colors;
         $colors = [
             'success' => $c['success'],
@@ -923,6 +943,121 @@ BASE64;
         return $this->getBaseTemplate($content, 'Confirmacion de compra - Imporlan');
     }
     
+    private function getQuotationLinksPaidTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        
+        $itemsHtml = '';
+        $items = $purchaseData['items'] ?? [];
+        if (!empty($items) && is_array($items)) {
+            $itemsHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">
+                            Servicios Contratados
+                        </h3>
+                    </td>
+                </tr>';
+            
+            foreach ($items as $i => $item) {
+                $title = is_array($item) ? ($item['title'] ?? $item['description'] ?? 'Servicio ' . ($i + 1)) : $item;
+                $itemsHtml .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="48" align="center" valign="middle" style="padding: 14px 0 14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" valign="middle" style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50%; color: white; font-size: 14px; font-weight: 700;">
+                                                ' . ($i + 1) . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="padding: 14px 14px 14px 12px;">
+                                    <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500; line-height: 1.4;">' . htmlspecialchars($title) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $itemsHtml .= '</table>';
+        }
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#10003;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Cotizacion por Links
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['success'] . '; font-size: 14px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                Pago Confirmado
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', hemos recibido tu pago exitosamente.
+                Nuestro equipo comenzara a trabajar en tu cotizacion de inmediato.
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); border-radius: 14px; width: 100%;">
+                            <tr>
+                                <td align="center" style="padding: 28px 20px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_light'] . '; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;">Total Pagado</p>
+                                    <p style="margin: 0; color: ' . $c['text_white'] . '; font-size: 36px; font-weight: 700; letter-spacing: -1px;">$' . number_format($purchaseData['price'], 0, ',', '.') . '</p>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['accent'] . '; font-size: 14px; font-weight: 500;">' . ($purchaseData['currency'] ?? 'CLP') . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            ' . $itemsHtml . '
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Nombre' => $firstName,
+                'Email' => $purchaseData['user_email'] ?? '',
+                'Metodo de pago' => $purchaseData['payment_method'],
+                'Referencia de pago' => $purchaseData['payment_reference'] ?? 'N/A',
+                'Descripcion' => $purchaseData['description'] ?? 'Cotizacion por Links',
+                'Fecha' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+            ]) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600;">Proximos Pasos</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
+                            Nuestro equipo revisara tu cotizacion y te contactara<br>en las proximas 24 horas con los detalles.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links - Imporlan');
+    }
+    
     private function getPaymentStatusTemplate($firstName, $statusData) {
         $c = $this->colors;
         $status = $statusData['status'];
@@ -990,6 +1125,8 @@ BASE64;
                 return $this->getInternalSupportRequestTemplate($data);
             case 'internal_quotation_request':
                 return $this->getInternalQuotationRequestTemplate($data);
+            case 'internal_quotation_links_paid':
+                return $this->getInternalQuotationLinksPaidTemplate($data);
             case 'internal_new_chat_message':
                 return $this->getInternalNewChatMessageTemplate($data);
             default:
@@ -1165,7 +1302,7 @@ BASE64;
             </div>
             
             <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
-                Nueva solicitud de cotizacion
+                Solicitar Cotizacion por Links Online
             </h2>
             
             ' . $this->getInfoCard('Datos del solicitante', [
@@ -1183,6 +1320,53 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Nueva cotizacion - Admin');
+    }
+    
+    private function getInternalQuotationLinksPaidTemplate($data) {
+        $c = $this->colors;
+        
+        $itemsHtml = '';
+        if (!empty($data['items']) && is_array($data['items'])) {
+            $itemsHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['success'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Servicios Contratados</h3>';
+            
+            foreach ($data['items'] as $i => $item) {
+                $title = is_array($item) ? ($item['title'] ?? $item['description'] ?? 'Servicio ' . ($i + 1)) : $item;
+                $itemsHtml .= '<p style="margin: 0 0 8px 0; font-size: 13px; color: ' . $c['text_dark'] . ';"><span style="display: inline-block; width: 20px; height: 20px; background: ' . $c['success'] . '; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; margin-right: 8px; font-weight: 700;">' . ($i + 1) . '</span>' . htmlspecialchars($title) . '</p>';
+            }
+            
+            $itemsHtml .= '</td></tr></table>';
+        }
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago Confirmado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Cotizacion por Links - Pago Recibido
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Cliente' => $data['user_name'],
+                'Email' => $data['user_email'],
+                'Descripcion' => $data['description'],
+                'Monto' => '$' . $data['amount'] . ' ' . $data['currency'],
+                'Metodo de pago' => $data['payment_method'],
+                'Referencia' => $data['payment_reference'],
+                'Fecha' => $data['purchase_date']
+            ]) . '
+            
+            ' . $itemsHtml . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['success'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Procesar cotizacion a la brevedad
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links - Pago Confirmado - Admin');
     }
     
     private function getInternalNewChatMessageTemplate($data) {
