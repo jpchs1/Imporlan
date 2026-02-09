@@ -53,7 +53,7 @@ if [ -d "$PUBLIC_HTML/test" ]; then
   mv "$PUBLIC_HTML/test" "$BACKUP_DIR/test_backup_${TIMESTAMP}"
   echo "  -> Backup saved."
 else
-  echo "  -> No existing test to backup, skipping."
+  echo "  -> No existing /test directory, will create it."
 fi
 
 if [ ! -d "$STAGING_REPO/test" ]; then
