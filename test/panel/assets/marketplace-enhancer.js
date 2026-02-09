@@ -1030,8 +1030,7 @@
     } else {
       contentDiv.innerHTML = buildPage();
     }
-    // mark marketplace page active for mobile layout overrides
-    document.body.setAttribute('data-mkt-page','1');
+    applyMobileLayout();
     enhanced = true;
   }
 
@@ -1052,6 +1051,22 @@
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
   }
 
+  function applyMobileLayout() {
+    if (window.innerWidth > 768) return;
+    var aside = document.querySelector('aside');
+    var main = document.querySelector('main');
+    var rootDiv = document.querySelector('#root > div');
+    if (rootDiv) {
+      rootDiv.style.cssText += ';display:flex!important;flex-direction:column!important;overflow-x:hidden!important;height:auto!important;min-height:100vh!important';
+    }
+    if (aside) {
+      aside.style.cssText += ';position:relative!important;width:100%!important;max-width:100%!important;height:auto!important;min-height:auto!important;flex-shrink:0!important';
+    }
+    if (main) {
+      main.style.cssText += ';margin-left:0!important;width:100%!important;max-width:100%!important;padding:12px!important;flex-grow:1!important;overflow-x:hidden!important;height:auto!important';
+    }
+  }
+
   function addStyles() {
     if (document.getElementById("mkt-enhancer-styles")) return;
     var style = document.createElement("style");
@@ -1062,12 +1077,7 @@
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      "@media(max-width:768px){" +
-      "body[data-mkt-page='1'] #root>div{display:flex!important;flex-direction:column!important;overflow-x:hidden!important}" +
-      "body[data-mkt-page='1'] aside{position:relative!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;flex-shrink:0!important}" +
-      "body[data-mkt-page='1'] main{margin-left:0!important;width:100%!important;max-width:100%!important;padding:12px!important;flex-grow:1!important;overflow-x:hidden!important}" +
-      ".mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
-      "}";
+      "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
     document.head.appendChild(style);
   }
 
