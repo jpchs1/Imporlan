@@ -16,7 +16,7 @@
 require_once __DIR__ . '/db_config.php';
 
 class EmailService {
-    private $pdo;
+    protected $pdo;
     
     // SMTP Configuration
     private $smtpHost = 'mail.imporlan.cl';
@@ -33,19 +33,19 @@ class EmailService {
     // URLs
     private $panelUrl = 'https://www.imporlan.cl/panel';
     private $myProductsUrl = 'https://www.imporlan.cl/panel/mis-productos';
-    private $websiteUrl = 'https://www.imporlan.cl';
+    protected $websiteUrl = 'https://www.imporlan.cl';
     
     // Internal notification recipients
-    private $adminEmails = ['contacto@imporlan.cl'];
+    protected $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
     
     // TEST Environment Configuration
     // When isTestEnvironment is true, ALL emails are redirected to testRecipient
     // This allows testing real email flows without sending to actual users
-    private $isTestEnvironment = false;
+    protected $isTestEnvironment = false;
     private $testRecipient = 'jpchs1@gmail.com';
     
     // Design tokens (matching /panel/ exactly)
-    private $colors = [
+    protected $colors = [
         'bg_dark' => '#0a1628',
         'bg_gradient_end' => '#1a365d',
         'primary' => '#3b82f6',
@@ -371,6 +371,7 @@ BASE64;
             'critical_error' => ['subject' => 'Error critico del sistema', 'template' => 'internal_critical_error'],
             'support_request' => ['subject' => 'Solicitud de soporte/contacto', 'template' => 'internal_support_request'],
             'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
+            'quotation_links_paid' => ['subject' => 'Cotizacion por Links - Pago Confirmado', 'template' => 'internal_quotation_links_paid'],
             'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message']
         ];
         
@@ -432,15 +433,97 @@ BASE64;
         return $this->sendEmail($userEmail, 'Hemos recibido tu solicitud - Imporlan', $htmlContent, 'support_confirmation', ['subject' => $subject]);
     }
     
+    public function sendQuotationLinksPaidEmail($userEmail, $firstName, $purchaseData) {
+        $isPlan = ($purchaseData['purchase_type'] ?? '') === 'plan';
+        $subject = $isPlan
+            ? ($purchaseData['plan_name'] ?? 'Plan de Busqueda') . ' - Confirmacion de Pago'
+            : 'Cotizacion por Links - Confirmacion de Pago';
+        $htmlContent = $this->getQuotationLinksPaidTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('quotation_links_paid', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'description' => $purchaseData['description'] ?? ($isPlan ? $purchaseData['plan_name'] ?? 'Plan de Busqueda' : 'Cotizacion por Links'),
+            'items' => $purchaseData['items'] ?? [],
+            'amount' => number_format($purchaseData['price'], 0, ',', '.'),
+            'currency' => $purchaseData['currency'] ?? 'CLP',
+            'payment_method' => $purchaseData['payment_method'],
+            'payment_reference' => $purchaseData['payment_reference'] ?? 'N/A',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y'),
+            'purchase_type' => $purchaseData['purchase_type'] ?? 'link',
+            'plan_name' => $purchaseData['plan_name'] ?? '',
+            'plan_days' => $purchaseData['plan_days'] ?? 0,
+            'plan_proposals' => $purchaseData['plan_proposals'] ?? 0
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_links_paid', $purchaseData);
+    }
+    
     public function sendQuotationRequestNotification($requestData) {
-        return $this->sendInternalNotification('quotation_request', [
+        $this->storeQuotationRequest($requestData);
+        
+        $formData = [
             'name' => $requestData['name'],
             'email' => $requestData['email'],
             'phone' => $requestData['phone'] ?? 'No proporcionado',
             'country' => $requestData['country'] ?? 'Chile',
             'boat_links' => $requestData['boat_links'] ?? [],
             'date' => date('d/m/Y H:i')
-        ]);
+        ];
+        
+        $this->sendInternalNotification('quotation_request', $formData);
+        
+        $htmlContent = $this->getQuotationFormTemplate($formData['name'], $formData);
+        return $this->sendEmail($formData['email'], 'Cotizacion por Links - Formulario de Solicitud', $htmlContent, 'quotation_form', $formData);
+    }
+    
+    public function sendQuotationFormEmail($userEmail, $firstName, $formData) {
+        $htmlContent = $this->getQuotationFormTemplate($firstName, $formData);
+        $subject = 'Cotizacion por Links - Formulario de Servicios';
+        
+        $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
+        
+        $adminHtml = $this->getQuotationFormAdminTemplate($firstName, $formData);
+        $adminSubject = 'Cotizacion por Links - Formulario del Cliente';
+        foreach ($this->adminEmails as $adminEmail) {
+            $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
+        }
+        
+        return ['success' => true];
+    }
+    
+    private function storeQuotationRequest($requestData) {
+        $file = __DIR__ . '/quotation_requests.json';
+        $data = file_exists($file) ? json_decode(file_get_contents($file), true) : ['requests' => []];
+        if (!is_array($data)) $data = ['requests' => []];
+        
+        $data['requests'][] = [
+            'id' => 'qr_' . uniqid(),
+            'name' => $requestData['name'] ?? '',
+            'email' => $requestData['email'] ?? '',
+            'phone' => $requestData['phone'] ?? '',
+            'country' => $requestData['country'] ?? 'Chile',
+            'boat_links' => $requestData['boat_links'] ?? [],
+            'date' => date('Y-m-d H:i:s')
+        ];
+        
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    }
+    
+    public function getStoredQuotationLinks($email) {
+        $file = __DIR__ . '/quotation_requests.json';
+        if (!file_exists($file)) return [];
+        
+        $data = json_decode(file_get_contents($file), true);
+        $requests = $data['requests'] ?? [];
+        
+        $matches = array_filter($requests, function($r) use ($email) {
+            return strtolower($r['email'] ?? '') === strtolower($email);
+        });
+        
+        if (empty($matches)) return [];
+        $latest = end($matches);
+        return $latest['boat_links'] ?? [];
     }
     
     public function sendCriticalErrorNotification($errorData) {
@@ -464,7 +547,7 @@ BASE64;
      * TEST MODE: When isTestEnvironment is true, all emails are redirected to testRecipient
      * The original recipient is logged but not used for actual delivery
      */
-    private function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
+    protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
         
@@ -617,7 +700,7 @@ BASE64;
     /**
      * Base Template - Exact clone of /panel/ visual style
      */
-    private function getBaseTemplate($content, $title = 'Imporlan') {
+    protected function getBaseTemplate($content, $title = 'Imporlan') {
         $c = $this->colors;
         
         return '<!DOCTYPE html>
@@ -714,7 +797,7 @@ BASE64;
     /**
      * Primary CTA Button - matching /panel/ "Entrar" button exactly
      */
-    private function getButton($text, $url, $fullWidth = true) {
+    protected function getButton($text, $url, $fullWidth = true) {
         $c = $this->colors;
         $width = $fullWidth ? 'width: 100%;' : '';
         
@@ -743,7 +826,7 @@ BASE64;
     /**
      * Secondary Button - matching /panel/ "Registrar" button style
      */
-    private function getSecondaryButton($text, $url) {
+    protected function getSecondaryButton($text, $url) {
         $c = $this->colors;
         
         return '
@@ -769,7 +852,7 @@ BASE64;
     /**
      * Info Card - matching /panel/ feature cards style
      */
-    private function getInfoCard($title, $items) {
+    protected function getInfoCard($title, $items) {
         $c = $this->colors;
         
         $itemsHtml = '';
@@ -836,7 +919,7 @@ BASE64;
     /**
      * Status Badge
      */
-    private function getStatusBadge($status, $text) {
+    protected function getStatusBadge($status, $text) {
         $c = $this->colors;
         $colors = [
             'success' => $c['success'],
@@ -923,6 +1006,528 @@ BASE64;
         return $this->getBaseTemplate($content, 'Confirmacion de compra - Imporlan');
     }
     
+    private function getQuotationLinksPaidTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        $isPlan = ($purchaseData['purchase_type'] ?? '') === 'plan';
+        $emailTitle = $isPlan ? htmlspecialchars($purchaseData['plan_name'] ?? 'Plan de Busqueda') : 'Cotizacion por Links';
+        $emailSubtitle = $isPlan ? 'Plan Contratado' : 'Pago Confirmado';
+        $heroMessage = $isPlan
+            ? 'Hola ' . htmlspecialchars($firstName) . ', tu plan ha sido activado exitosamente. Nuestro equipo comenzara la busqueda de inmediato.'
+            : 'Hola ' . htmlspecialchars($firstName) . ', hemos recibido tu pago exitosamente. Nuestro equipo comenzara a trabajar en tu cotizacion de inmediato.';
+        
+        $planDetailsHtml = '';
+        if ($isPlan) {
+            $planDays = $purchaseData['plan_days'] ?? 7;
+            $planProposals = $purchaseData['plan_proposals'] ?? 5;
+            $planEnd = $purchaseData['plan_end_date'] ?? date('d/m/Y', strtotime('+' . $planDays . ' days'));
+            $planDetailsHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; border: 1px solid #bae6fd;">
+                            <tr>
+                                <td style="padding: 20px;">
+                                    <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">Detalles del Plan</h3>
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td width="33%" align="center" style="padding: 10px 5px;">
+                                                <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 24px; font-weight: 700;">' . $planDays . '</p>
+                                                <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Dias Monitoreo</p>
+                                            </td>
+                                            <td width="34%" align="center" style="padding: 10px 5px; border-left: 1px solid #bae6fd; border-right: 1px solid #bae6fd;">
+                                                <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 24px; font-weight: 700;">' . $planProposals . '</p>
+                                                <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Propuestas</p>
+                                            </td>
+                                            <td width="33%" align="center" style="padding: 10px 5px;">
+                                                <p style="margin: 0 0 4px 0; color: ' . $c['success'] . '; font-size: 13px; font-weight: 700;">Activo</p>
+                                                <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Estado</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 12px; border-top: 1px solid #bae6fd;">
+                                        <tr>
+                                            <td style="padding: 12px 0 0 0; text-align: center;">
+                                                <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 12px;">Vigente hasta: <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($planEnd) . '</strong></p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>';
+
+            $planFeatures = $purchaseData['plan_features'] ?? [];
+            if (!empty($planFeatures)) {
+                $planDetailsHtml .= '
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                    <tr>
+                        <td>
+                            <h3 style="margin: 0 0 14px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">Incluido en tu Plan</h3>
+                        </td>
+                    </tr>';
+                foreach ($planFeatures as $feature) {
+                    $planDetailsHtml .= '
+                    <tr>
+                        <td style="padding: 4px 0;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td width="28" align="center" valign="top" style="padding-top: 2px;">
+                                        <span style="color: ' . $c['success'] . '; font-size: 16px;">&#10003;</span>
+                                    </td>
+                                    <td style="padding-left: 8px;">
+                                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.5;">' . htmlspecialchars($feature) . '</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>';
+                }
+                $planDetailsHtml .= '</table>';
+            }
+        }
+        
+        $itemsHtml = '';
+        $items = $purchaseData['items'] ?? [];
+        if (!empty($items) && is_array($items)) {
+            $sectionTitle = $isPlan ? 'Servicios Contratados' : 'Links Contratados';
+            $itemsHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">
+                            ' . $sectionTitle . '
+                        </h3>
+                    </td>
+                </tr>';
+            
+            foreach ($items as $i => $item) {
+                $title = is_array($item) ? ($item['title'] ?? $item['description'] ?? 'Servicio ' . ($i + 1)) : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                $isUrl = !empty($url) && (strpos($url, 'http') === 0);
+                if (!$isUrl && strpos($title, 'http') === 0) {
+                    $url = $title;
+                    $isUrl = true;
+                }
+                
+                $titleHtml = $isUrl
+                    ? '<a href="' . htmlspecialchars($url) . '" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500; word-break: break-all;" target="_blank">' . htmlspecialchars($title) . '</a>'
+                    : '<span style="color: ' . $c['text_dark'] . '; font-weight: 500;">' . htmlspecialchars($title) . '</span>';
+                
+                $urlLine = '';
+                if ($isUrl && $url !== $title) {
+                    $urlLine = '<p style="margin: 4px 0 0 0; font-size: 12px; line-height: 1.3;"><a href="' . htmlspecialchars($url) . '" style="color: ' . $c['primary'] . '; text-decoration: none; word-break: break-all;" target="_blank">' . htmlspecialchars($url) . '</a></p>';
+                }
+                
+                $itemsHtml .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="48" align="center" valign="middle" style="padding: 14px 0 14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" valign="middle" style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50%; color: white; font-size: 14px; font-weight: 700;">
+                                                ' . ($i + 1) . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="padding: 14px 14px 14px 12px;">
+                                    <p style="margin: 0; font-size: 14px; line-height: 1.4;">' . $titleHtml . '</p>
+                                    ' . $urlLine . '
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $itemsHtml .= '</table>';
+        }
+        
+        $nextStepsMsg = $isPlan
+            ? 'Nuestro equipo comenzara el monitoreo y te enviara<br>las mejores propuestas dentro del plazo de tu plan.'
+            : 'Nuestro equipo revisara tu cotizacion y te contactara<br>en las proximas 24 horas con los detalles.';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#10003;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                ' . $emailTitle . '
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['success'] . '; font-size: 14px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                ' . $emailSubtitle . '
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                ' . $heroMessage . '
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); border-radius: 14px; width: 100%;">
+                            <tr>
+                                <td align="center" style="padding: 28px 20px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_light'] . '; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;">Total Pagado</p>
+                                    <p style="margin: 0; color: ' . $c['text_white'] . '; font-size: 36px; font-weight: 700; letter-spacing: -1px;">$' . number_format($purchaseData['price'], 0, ',', '.') . '</p>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['accent'] . '; font-size: 14px; font-weight: 500;">' . ($purchaseData['currency'] ?? 'CLP') . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            ' . $planDetailsHtml . '
+            
+            ' . $itemsHtml . '
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Nombre' => $firstName,
+                'Email' => $purchaseData['user_email'] ?? '',
+                'Metodo de pago' => $purchaseData['payment_method'],
+                'Referencia de pago' => $purchaseData['payment_reference'] ?? 'N/A',
+                'Descripcion' => $purchaseData['description'] ?? $emailTitle,
+                'Fecha' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+            ]) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600;">Proximos Pasos</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
+                            ' . $nextStepsMsg . '
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, $emailTitle . ' - Imporlan');
+    }
+    
+    private function getQuotationFormTemplate($firstName, $formData) {
+        $c = $this->colors;
+        
+        $items = $formData['items'] ?? [];
+        $boatLinks = $formData['boat_links'] ?? [];
+        $description = $formData['description'] ?? 'Cotizacion por Links';
+        $price = $formData['price'] ?? 0;
+        $currency = $formData['currency'] ?? 'CLP';
+        $paymentMethod = $formData['payment_method'] ?? '';
+        $paymentRef = $formData['payment_reference'] ?? '';
+        $purchaseDate = $formData['purchase_date'] ?? date('d/m/Y');
+        $userEmail = $formData['user_email'] ?? $formData['email'] ?? '';
+        
+        $linksHtml = '';
+        $allLinks = [];
+        
+        if (!empty($boatLinks) && is_array($boatLinks)) {
+            foreach ($boatLinks as $link) {
+                if (!empty($link)) $allLinks[] = $link;
+            }
+        }
+        
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (!empty($url) && strpos($url, 'http') === 0) {
+                    if (!in_array($url, $allLinks)) $allLinks[] = $url;
+                } elseif (strpos($title, 'http') === 0) {
+                    if (!in_array($title, $allLinks)) $allLinks[] = $title;
+                }
+            }
+        }
+        
+        if (!empty($allLinks)) {
+            $linksHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">
+                            Links Solicitados para Cotizar
+                        </h3>
+                    </td>
+                </tr>';
+            
+            foreach ($allLinks as $i => $link) {
+                $domain = parse_url($link, PHP_URL_HOST) ?: $link;
+                $linksHtml .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 10px; border: 1px solid #93c5fd;">
+                            <tr>
+                                <td width="48" align="center" valign="middle" style="padding: 14px 0 14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" valign="middle" style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50%; color: white; font-size: 14px; font-weight: 700;">
+                                                ' . ($i + 1) . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="padding: 14px 14px 14px 12px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Enlace ' . ($i + 1) . '</p>
+                                    <a href="' . htmlspecialchars($link) . '" style="color: ' . $c['primary'] . '; text-decoration: none; font-size: 13px; font-weight: 500; word-break: break-all; line-height: 1.4;" target="_blank">' . htmlspecialchars($link) . '</a>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['text_light'] . '; font-size: 11px;">' . htmlspecialchars($domain) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $linksHtml .= '</table>';
+        }
+        
+        $itemsTextHtml = '';
+        $nonLinkItems = [];
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (empty($url) && strpos($title, 'http') !== 0 && !empty($title)) {
+                    $nonLinkItems[] = $title;
+                }
+            }
+        }
+        if (!empty($nonLinkItems)) {
+            $itemsTextHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 14px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">Servicios Contratados</h3>
+                    </td>
+                </tr>';
+            foreach ($nonLinkItems as $i => $itemText) {
+                $itemsTextHtml .= '
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="36" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="color: ' . $c['success'] . '; font-size: 18px;">&#10003;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">' . htmlspecialchars($itemText) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            $itemsTextHtml .= '</table>';
+        }
+        
+        $priceHtml = '';
+        if ($price > 0) {
+            $priceHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); border-radius: 14px; width: 100%;">
+                            <tr>
+                                <td align="center" style="padding: 24px 20px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_light'] . '; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;">Total Cotizacion</p>
+                                    <p style="margin: 0; color: ' . $c['text_white'] . '; font-size: 32px; font-weight: 700; letter-spacing: -1px;">$' . number_format($price, 0, ',', '.') . '</p>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['accent'] . '; font-size: 14px; font-weight: 500;">' . htmlspecialchars($currency) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $detailItems = ['Nombre' => $firstName, 'Email' => $userEmail];
+        if (!empty($formData['phone']) && $formData['phone'] !== 'No proporcionado') {
+            $detailItems['Telefono'] = $formData['phone'];
+        }
+        if (!empty($formData['country'])) {
+            $detailItems['Pais destino'] = $formData['country'];
+        }
+        $detailItems['Servicio'] = $description;
+        if (!empty($paymentMethod)) {
+            $detailItems['Metodo de pago'] = $paymentMethod;
+        }
+        if (!empty($paymentRef)) {
+            $detailItems['Referencia'] = $paymentRef;
+        }
+        $detailItems['Fecha'] = $purchaseDate;
+        
+        $linkCount = count($allLinks);
+        $summaryText = $linkCount > 0
+            ? 'Hemos recibido tu solicitud con ' . $linkCount . ' enlace' . ($linkCount > 1 ? 's' : '') . ' para cotizar. Nuestro equipo revisara cada uno y te contactara con los detalles.'
+            : 'Hemos recibido tu solicitud de cotizacion. Nuestro equipo la revisara y te contactara con los detalles a la brevedad.';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#9993;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Cotizacion por Links
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                Formulario de Solicitud
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', ' . $summaryText . '
+            </p>
+            
+            ' . $priceHtml . '
+            
+            ' . $linksHtml . '
+            
+            ' . $itemsTextHtml . '
+            
+            ' . $this->getInfoCard('Datos de la Solicitud', $detailItems) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0 0 4px 0; color: ' . $c['primary'] . '; font-size: 14px; font-weight: 600;">Proximos Pasos</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
+                            Nuestro equipo revisara tu cotizacion y te contactara<br>en las proximas 24 horas con los detalles y propuestas.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links - Imporlan');
+    }
+    
+    private function getQuotationFormAdminTemplate($firstName, $formData) {
+        $c = $this->colors;
+        
+        $items = $formData['items'] ?? [];
+        $boatLinks = $formData['boat_links'] ?? [];
+        $description = $formData['description'] ?? 'Cotizacion por Links';
+        $price = $formData['price'] ?? 0;
+        $currency = $formData['currency'] ?? 'CLP';
+        $userEmail = $formData['user_email'] ?? $formData['email'] ?? '';
+        
+        $allLinks = [];
+        if (!empty($boatLinks) && is_array($boatLinks)) {
+            foreach ($boatLinks as $link) {
+                if (!empty($link)) $allLinks[] = $link;
+            }
+        }
+        if (!empty($items) && is_array($items)) {
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (!empty($url) && strpos($url, 'http') === 0 && !in_array($url, $allLinks)) {
+                    $allLinks[] = $url;
+                } elseif (strpos($title, 'http') === 0 && !in_array($title, $allLinks)) {
+                    $allLinks[] = $title;
+                }
+            }
+        }
+        
+        $linksHtml = '';
+        if (!empty($allLinks)) {
+            $linksHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #eff6ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Links Solicitados (' . count($allLinks) . ')</h3>';
+            foreach ($allLinks as $i => $link) {
+                $linksHtml .= '<p style="margin: 0 0 8px 0; font-size: 13px;"><strong style="color: ' . $c['primary'] . ';">Link ' . ($i + 1) . ':</strong> <a href="' . htmlspecialchars($link) . '" style="color: ' . $c['primary'] . '; word-break: break-all;">' . htmlspecialchars($link) . '</a></p>';
+            }
+            $linksHtml .= '</td></tr></table>';
+        }
+        
+        $itemsHtml = '';
+        if (!empty($items) && is_array($items)) {
+            $nonLinks = [];
+            foreach ($items as $item) {
+                $title = is_array($item) ? ($item['title'] ?? '') : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                if (empty($url) && strpos($title, 'http') !== 0 && !empty($title)) {
+                    $nonLinks[] = $title;
+                }
+            }
+            if (!empty($nonLinks)) {
+                $itemsHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0fdf4; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['success'] . ';">
+                    <tr><td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Servicios</h3>';
+                foreach ($nonLinks as $i => $t) {
+                    $itemsHtml .= '<p style="margin: 0 0 6px 0; font-size: 13px; color: ' . $c['text_dark'] . ';">' . ($i + 1) . '. ' . htmlspecialchars($t) . '</p>';
+                }
+                $itemsHtml .= '</td></tr></table>';
+            }
+        }
+        
+        $detailItems = [
+            'Cliente' => $firstName,
+            'Email' => $userEmail,
+            'Descripcion' => $description,
+        ];
+        if ($price > 0) {
+            $detailItems['Monto'] = '$' . number_format($price, 0, ',', '.') . ' ' . $currency;
+        }
+        if (!empty($formData['payment_method'])) {
+            $detailItems['Metodo'] = $formData['payment_method'];
+        }
+        if (!empty($formData['payment_reference'])) {
+            $detailItems['Referencia'] = $formData['payment_reference'];
+        }
+        $detailItems['Fecha'] = $formData['purchase_date'] ?? $formData['date'] ?? date('d/m/Y');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Formulario Cotizacion') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Formulario de Cotizacion por Links
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del Cliente', $detailItems) . '
+            
+            ' . $linksHtml . '
+            
+            ' . $itemsHtml . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['primary'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Procesar cotizacion y responder al cliente a la brevedad
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Formulario Cotizacion - Admin');
+    }
+    
     private function getPaymentStatusTemplate($firstName, $statusData) {
         $c = $this->colors;
         $status = $statusData['status'];
@@ -990,6 +1595,8 @@ BASE64;
                 return $this->getInternalSupportRequestTemplate($data);
             case 'internal_quotation_request':
                 return $this->getInternalQuotationRequestTemplate($data);
+            case 'internal_quotation_links_paid':
+                return $this->getInternalQuotationLinksPaidTemplate($data);
             case 'internal_new_chat_message':
                 return $this->getInternalNewChatMessageTemplate($data);
             default:
@@ -1165,7 +1772,7 @@ BASE64;
             </div>
             
             <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
-                Nueva solicitud de cotizacion
+                Solicitar Cotizacion por Links Online
             </h2>
             
             ' . $this->getInfoCard('Datos del solicitante', [
@@ -1183,6 +1790,85 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Nueva cotizacion - Admin');
+    }
+    
+    private function getInternalQuotationLinksPaidTemplate($data) {
+        $c = $this->colors;
+        $isPlan = ($data['purchase_type'] ?? '') === 'plan';
+        $adminTitle = $isPlan
+            ? ($data['plan_name'] ?? 'Plan de Busqueda') . ' - Pago Recibido'
+            : 'Cotizacion por Links - Pago Recibido';
+        
+        $planInfoHtml = '';
+        if ($isPlan && !empty($data['plan_days'])) {
+            $planInfoHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Detalles del Plan</h3>
+                        <p style="margin: 0 0 6px 0; font-size: 13px; color: ' . $c['text_dark'] . ';"><strong>Duracion:</strong> ' . $data['plan_days'] . ' dias</p>
+                        <p style="margin: 0; font-size: 13px; color: ' . $c['text_dark'] . ';"><strong>Propuestas:</strong> ' . $data['plan_proposals'] . '</p>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $itemsHtml = '';
+        if (!empty($data['items']) && is_array($data['items'])) {
+            $sectionLabel = $isPlan ? 'Servicios Contratados' : 'Links Contratados';
+            $itemsHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['success'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">' . $sectionLabel . '</h3>';
+            
+            foreach ($data['items'] as $i => $item) {
+                $title = is_array($item) ? ($item['title'] ?? $item['description'] ?? 'Servicio ' . ($i + 1)) : $item;
+                $url = is_array($item) ? ($item['url'] ?? '') : '';
+                $isUrl = !empty($url) && (strpos($url, 'http') === 0);
+                if (!$isUrl && strpos($title, 'http') === 0) {
+                    $url = $title;
+                    $isUrl = true;
+                }
+                
+                $displayContent = $isUrl
+                    ? '<a href="' . htmlspecialchars($url ?: $title) . '" style="color: ' . $c['primary'] . '; word-break: break-all;">' . htmlspecialchars($title) . '</a>'
+                    : htmlspecialchars($title);
+                
+                $itemsHtml .= '<p style="margin: 0 0 8px 0; font-size: 13px; color: ' . $c['text_dark'] . ';"><span style="display: inline-block; width: 20px; height: 20px; background: ' . $c['success'] . '; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; margin-right: 8px; font-weight: 700;">' . ($i + 1) . '</span>' . $displayContent . '</p>';
+            }
+            
+            $itemsHtml .= '</td></tr></table>';
+        }
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago Confirmado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                ' . htmlspecialchars($adminTitle) . '
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Cliente' => $data['user_name'],
+                'Email' => $data['user_email'],
+                'Descripcion' => $data['description'],
+                'Monto' => '$' . $data['amount'] . ' ' . $data['currency'],
+                'Metodo de pago' => $data['payment_method'],
+                'Referencia' => $data['payment_reference'],
+                'Fecha' => $data['purchase_date']
+            ]) . '
+            
+            ' . $planInfoHtml . '
+            
+            ' . $itemsHtml . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['success'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                ' . ($isPlan ? 'Iniciar monitoreo del plan' : 'Procesar cotizacion a la brevedad') . '
+            </p>';
+        
+        return $this->getBaseTemplate($content, $adminTitle . ' - Admin');
     }
     
     private function getInternalNewChatMessageTemplate($data) {
