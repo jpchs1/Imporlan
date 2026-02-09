@@ -1,11 +1,12 @@
 (function () {
   "use strict";
 
-  var NOTE_TEXT = "Asi podras visualizar esta seccion cuando contrates una importacion";
+  var NOTE_TEXT =
+    "As\u00ed podr\u00e1s visualizar esta secci\u00f3n cuando contrates una importaci\u00f3n";
   var NOTE_CLASS = "imporlan-section-note";
 
   var SECTION_TITLES = [
-    "Bienvenido",
+    "Dashboard",
     "Mis Importaciones",
     "Documentos",
     "Alertas",
@@ -25,7 +26,8 @@
       "display: flex;" +
       "align-items: center;" +
       "gap: 12px;" +
-      "animation: sectionNoteIn 0.4s ease;";
+      "animation: sectionNoteIn 0.4s ease;" +
+      "box-sizing: border-box;";
 
     var iconWrap = document.createElement("div");
     iconWrap.style.cssText =
@@ -67,35 +69,44 @@
     document.head.appendChild(style);
   }
 
-  function matchesSection(h1) {
-    var text = h1.textContent || "";
+  function matchesSection(el) {
+    var t = (el.textContent || "").trim();
     for (var i = 0; i < SECTION_TITLES.length; i++) {
-      if (text.indexOf(SECTION_TITLES[i]) !== -1) return true;
+      if (t === SECTION_TITLES[i]) return true;
     }
     return false;
   }
 
   function processHeadings() {
-    var headings = document.querySelectorAll("h1");
+    var mainEl = document.querySelector("main");
+    if (!mainEl) return;
+
+    var headings = mainEl.querySelectorAll("h1, h2");
     for (var i = 0; i < headings.length; i++) {
-      var h1 = headings[i];
-      if (!matchesSection(h1)) continue;
+      var heading = headings[i];
+      if (!matchesSection(heading)) continue;
 
-      var container = h1.closest("div.space-y-6") || h1.closest("div");
-      if (!container) continue;
+      var parent = heading.parentElement;
+      if (!parent) continue;
 
-      if (container.querySelector("." + NOTE_CLASS)) continue;
-
-      var headerBlock = h1.closest("div.flex.items-center") || h1.parentElement;
-      if (!headerBlock) continue;
-
-      var wrapper = headerBlock.parentElement || headerBlock;
-      var note = createNoteElement();
-      if (wrapper.nextSibling) {
-        wrapper.parentNode.insertBefore(note, wrapper.nextSibling);
-      } else {
-        wrapper.parentNode.appendChild(note);
+      var searchRoot = parent;
+      while (
+        searchRoot.parentElement &&
+        searchRoot.parentElement.tagName !== "MAIN" &&
+        searchRoot.parentElement !== mainEl
+      ) {
+        searchRoot = searchRoot.parentElement;
       }
+
+      if (mainEl.querySelector("." + NOTE_CLASS)) return;
+
+      var note = createNoteElement();
+      if (searchRoot.nextSibling) {
+        searchRoot.parentNode.insertBefore(note, searchRoot.nextSibling);
+      } else {
+        searchRoot.parentNode.appendChild(note);
+      }
+      return;
     }
   }
 
