@@ -23,6 +23,10 @@
   let editPhotos = [];
   let editingId = null;
 
+  function isMobile() {
+    return window.innerWidth <= 768;
+  }
+
   function getUserData() {
     try {
       const raw = localStorage.getItem("imporlan_user");
@@ -164,9 +168,24 @@
       " fotos</span>" +
       "</div>" +
       '<div style="padding:16px">' +
+      (isMobile() ?
+      '<div style="margin-bottom:8px">' +
+      '<h3 style="font-weight:700;color:#1e293b;font-size:15px;margin:0 0 4px">' +
+      (item.nombre || "Sin nombre") +
+      "</h3>" +
+      '<p style="color:#64748b;font-size:12px;margin:0 0 6px">' +
+      (item.tipo || "") +
+      (item.ano ? " - " + item.ano : "") +
+      "</p>" +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<span style="font-size:18px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
+      '<p style="font-weight:700;color:#2563eb;font-size:16px;margin:0">' +
+      formatPrice(item.precio, item.moneda) +
+      "</p></div></div>" +
+      :
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
       '<div style="flex:1;min-width:0">' +
-      '<h3 class="mkt-card-title" style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      '<h3 style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
       (item.nombre || "Sin nombre") +
       "</h3>" +
       '<p style="color:#64748b;font-size:13px;margin:0">' +
@@ -177,10 +196,10 @@
       '<div style="text-align:right;flex-shrink:0;margin-left:8px">' +
       '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
       '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
-      '<p class="mkt-card-price" style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
+      '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
       formatPrice(item.precio, item.moneda) +
       "</p></div>" +
-      "</div></div>" +
+      "</div></div>") +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
       estadoBadge(item.estado) +
       '<span style="background:#f0fdf4;color:' +
@@ -451,10 +470,10 @@
         ? '<span style="background:#fef2f2;color:#b91c1c;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Vendida</span>'
         : '<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Activa</span>';
     return (
-      '<div class="mkt-my-card" style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+      '<div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;' + (isMobile() ? 'flex-direction:column;' : '') + 'gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
       '<img src="' +
       img +
-      '" style="width:120px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0">' +
+      '" style="' + (isMobile() ? 'width:100%;height:180px' : 'width:120px;height:90px') + ';object-fit:cover;border-radius:10px;flex-shrink:0">' +
       '<div style="flex:1;min-width:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">' +
       '<h3 style="font-weight:600;color:#1e293b;font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
@@ -1031,6 +1050,26 @@
       contentDiv.innerHTML = buildPage();
     }
     enhanced = true;
+
+    // Apply mobile adjustments at runtime in case inline styles win
+    if (isMobile()) {
+      try {
+        var hdr = contentDiv.querySelector('.mkt-header');
+        if (hdr) {
+          hdr.style.flexDirection = 'column';
+          hdr.style.alignItems = 'stretch';
+          hdr.style.gap = '12px';
+          var btn = hdr.querySelector('button');
+          if (btn) { btn.style.width = '100%'; btn.style.justifyContent = 'center'; }
+        }
+        var tabs = contentDiv.querySelector('.mkt-tabs') || contentDiv.querySelector("[style*='border-bottom:2px']");
+        if (tabs) {
+          Array.from(tabs.querySelectorAll('button')).forEach(function(b){ b.style.padding='10px 16px'; b.style.fontSize='13px'; });
+        }
+        var grid = contentDiv.querySelector("[style*='grid-template-columns:repeat']");
+        if (grid) { grid.style.gridTemplateColumns = '1fr'; }
+      } catch (e) { /* noop */ }
+    }
   }
 
   function showSuccessModal() {
