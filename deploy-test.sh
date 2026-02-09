@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STAGING_REPO="/home/wwimpo/imporlan-staging"
+PUBLIC_HTML="/home/wwimpo/public_html"
+BACKUP_DIR="/home/wwimpo/backups"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+echo "============================================"
+echo " IMPORLAN - Deploy TEST environments"
+echo " $(date)"
+echo "============================================"
+
+if [ ! -d "$STAGING_REPO/.git" ]; then
+  echo "ERROR: Staging repo not found at $STAGING_REPO"
+  exit 1
+fi
+
+echo ""
+echo "[1/6] Pulling latest changes from GitHub (main)..."
+cd "$STAGING_REPO"
+git checkout main
+git pull origin main
+echo "  -> Pull complete."
+
+echo ""
+echo "[2/6] Creating backup directory..."
+mkdir -p "$BACKUP_DIR"
+echo "  -> Backup directory ready: $BACKUP_DIR"
+
+echo ""
+echo "[3/6] Backing up and deploying Panel Test..."
+if [ -d "$PUBLIC_HTML/panel-test" ]; then
+  echo "  -> Backing up panel-test to panel-test_${TIMESTAMP}"
+  mv "$PUBLIC_HTML/panel-test" "$BACKUP_DIR/panel-test_${TIMESTAMP}"
+  echo "  -> Backup saved."
+else
+  echo "  -> No existing panel-test to backup, skipping."
+fi
+
+if [ ! -d "$STAGING_REPO/panel-test" ]; then
+  echo "ERROR: Source panel-test not found at $STAGING_REPO/panel-test"
+  exit 1
+fi
+
+cp -a "$STAGING_REPO/panel-test" "$PUBLIC_HTML/panel-test"
+echo "  -> Panel Test deployed."
+
+echo ""
+echo "[4/6] Backing up and deploying Web Test..."
+if [ -d "$PUBLIC_HTML/test" ]; then
+  echo "  -> Backing up test to test_${TIMESTAMP}"
+  mv "$PUBLIC_HTML/test" "$BACKUP_DIR/test_${TIMESTAMP}"
+  echo "  -> Backup saved."
+else
+  echo "  -> No existing test to backup, skipping."
+fi
+
+if [ ! -d "$STAGING_REPO/test" ]; then
+  echo "ERROR: Source test not found at $STAGING_REPO/test"
+  exit 1
+fi
+
+cp -a "$STAGING_REPO/test" "$PUBLIC_HTML/test"
+echo "  -> Web Test deployed."
+
+echo ""
+echo "[5/6] Setting permissions..."
+find "$PUBLIC_HTML/panel-test" -type d -exec chmod 755 {} \;
+find "$PUBLIC_HTML/panel-test" -type f -exec chmod 644 {} \;
+find "$PUBLIC_HTML/test" -type d -exec chmod 755 {} \;
+find "$PUBLIC_HTML/test" -type f -exec chmod 644 {} \;
+echo "  -> Permissions set (dirs: 755, files: 644)."
+
+echo ""
+echo "[6/6] Cleaning old backups (keeping last 5)..."
+for PREFIX in panel-test test; do
+  COUNT=$(ls -1d "$BACKUP_DIR/${PREFIX}_"* 2>/dev/null | wc -l)
+  if [ "$COUNT" -gt 5 ]; then
+    REMOVE=$((COUNT - 5))
+    ls -1d "$BACKUP_DIR/${PREFIX}_"* | head -n "$REMOVE" | while read -r OLD; do
+      rm -rf "$OLD"
+      echo "  -> Removed old backup: $(basename "$OLD")"
+    done
+  fi
+done
+echo "  -> Cleanup complete."
+
+echo ""
+echo "============================================"
+echo " Deployment finished successfully!"
+echo " Panel Test: https://www.imporlan.cl/panel-test/"
+echo " Web Test:   https://www.imporlan.cl/test/"
+echo " Backups:    $BACKUP_DIR"
+echo "============================================"
