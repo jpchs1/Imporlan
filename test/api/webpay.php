@@ -1,23 +1,24 @@
 <?php
 /**
- * WebPay Plus API for Imporlan WebPanel - TEST ENVIRONMENT
- * Uses Transbank Integration (Sandbox) credentials
+ * WebPay Plus API for Imporlan WebPanel - PRODUCTION
+ * Uses Transbank Production credentials
+ * 
+ * Endpoints:
+ * - POST /webpay.php?action=create_transaction - Create a new transaction
+ * - POST /webpay.php?action=commit_transaction - Commit a transaction
+ * - GET /webpay.php?action=get_status - Get transaction status
+ * - POST /webpay.php?action=refund - Refund a transaction
+ * - GET/POST with token_ws - Callback from WebPay
  */
 
-// CORS headers
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once 'config.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+setCorsHeaders();
 
-// WebPay Plus Integration (Sandbox) Credentials
-define('WEBPAY_COMMERCE_CODE', '597055555532');
-define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
-define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl'); // Integration environment
+// WebPay Plus Production Credentials
+define('WEBPAY_COMMERCE_CODE', '597055555532'); // Replace with production code
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'); // Replace with production key
+define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl'); // Production environment
 
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -59,13 +60,7 @@ switch ($action) {
             'success' => false, 
             'error' => 'Invalid action',
             'available_actions' => ['create_transaction', 'commit_transaction', 'get_status', 'refund'],
-            'test_cards' => [
-                'visa_approved' => '4051 8856 0044 6623 CVV 123',
-                'amex_approved' => '3700 0000 0002 032 CVV 1234',
-                'mastercard_rejected' => '5186 0595 5959 0568 CVV 123',
-                'auth_rut' => '11.111.111-1',
-                'auth_password' => '123'
-            ]
+            'environment' => 'PRODUCTION'
         ]);
 }
 
@@ -82,8 +77,26 @@ function createTransaction($data) {
     $amount = intval($data['amount']);
     $sessionId = $data['session_id'] ?? 'session_' . time();
     $buyOrder = $data['buy_order'];
+    
+    // Store purchase info in session for later use in callback
+    $purchaseInfo = [
+        'user_email' => $data['user_email'] ?? null,
+        'plan_name' => $data['plan_name'] ?? '',
+        'description' => $data['description'] ?? '',
+        'type' => $data['type'] ?? 'link',
+        'days' => $data['days'] ?? 7,
+        'amount' => $amount
+    ];
+    
+    // Save purchase info to a temporary file for retrieval in callback
+    $tempFile = __DIR__ . '/webpay_pending/' . $buyOrder . '.json';
+    if (!is_dir(__DIR__ . '/webpay_pending')) {
+        mkdir(__DIR__ . '/webpay_pending', 0755, true);
+    }
+    file_put_contents($tempFile, json_encode($purchaseInfo));
+    
     // Use the callback URL for WebPay to return to
-    $returnUrl = 'https://www.imporlan.cl/test/api/webpay.php?action=callback';
+    $returnUrl = 'https://www.imporlan.cl/api/webpay.php?action=callback';
     
     $requestData = [
         'buy_order' => $buyOrder,
@@ -91,6 +104,9 @@ function createTransaction($data) {
         'amount' => $amount,
         'return_url' => $returnUrl
     ];
+    
+    // Log the transaction creation
+    logWebpay('CREATE_TRANSACTION', $requestData);
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, WEBPAY_API_URL . '/rswebpaytransaction/api/webpay/v1.2/transactions');
@@ -134,14 +150,17 @@ function handleCallback() {
     $token = $_POST['token_ws'] ?? $_GET['token_ws'] ?? null;
     $tbkToken = $_POST['TBK_TOKEN'] ?? $_GET['TBK_TOKEN'] ?? null;
     
+    // Log callback
+    logWebpay('CALLBACK', ['token_ws' => $token, 'TBK_TOKEN' => $tbkToken]);
+    
     // If TBK_TOKEN is present, user cancelled the transaction
     if ($tbkToken) {
-        header('Location: https://www.imporlan.cl/test/panel/#myproducts?payment=cancelled');
+        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
         exit();
     }
     
     if (!$token) {
-        header('Location: https://www.imporlan.cl/test/panel/#myproducts?payment=error&message=no_token');
+        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
         exit();
     }
     
@@ -162,8 +181,11 @@ function handleCallback() {
     
     $result = json_decode($response, true);
     
+    // Log commit result
+    logWebpay('COMMIT_RESULT', ['http_code' => $httpCode, 'result' => $result]);
+    
     if ($httpCode !== 200) {
-        header('Location: https://www.imporlan.cl/test/panel/#myproducts?payment=error&message=commit_failed');
+        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
         exit();
     }
     
@@ -171,41 +193,204 @@ function handleCallback() {
     $approved = isset($result['response_code']) && $result['response_code'] === 0;
     
     if ($approved) {
-        // Save purchase to purchases.json (similar to other payment methods)
-        savePurchase($result);
+        // Get the buy_order to retrieve purchase info
+        $buyOrder = $result['buy_order'] ?? null;
         
-        header('Location: https://www.imporlan.cl/test/panel/#myproducts?payment=success&order=' . urlencode($result['buy_order']));
+        // Save purchase to purchases.json with full information
+        savePurchaseFromWebpay($result, $buyOrder);
+        
+        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
-        header('Location: https://www.imporlan.cl/test/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
 }
 
 /**
- * Save purchase to purchases.json
+ * Save purchase to purchases.json with proper format (matching MercadoPago)
  */
-function savePurchase($transaction) {
+function savePurchaseFromWebpay($transaction, $buyOrder) {
     $purchasesFile = __DIR__ . '/purchases.json';
-    $purchases = [];
     
-    if (file_exists($purchasesFile)) {
-        $purchases = json_decode(file_get_contents($purchasesFile), true) ?? [];
+    // Initialize file if it doesn't exist
+    if (!file_exists($purchasesFile)) {
+        file_put_contents($purchasesFile, json_encode(['purchases' => []]));
     }
     
-    $purchases[] = [
-        'id' => uniqid('webpay_'),
-        'method' => 'webpay',
-        'buy_order' => $transaction['buy_order'] ?? null,
-        'amount' => $transaction['amount'] ?? null,
-        'authorization_code' => $transaction['authorization_code'] ?? null,
-        'payment_type' => $transaction['payment_type_code'] ?? null,
-        'card_number' => $transaction['card_detail']['card_number'] ?? null,
-        'transaction_date' => $transaction['transaction_date'] ?? date('c'),
-        'created_at' => date('c'),
-        'status' => 'completed'
+    $data = json_decode(file_get_contents($purchasesFile), true);
+    
+    // Ensure purchases array exists
+    if (!isset($data['purchases']) || !is_array($data['purchases'])) {
+        $data = ['purchases' => []];
+    }
+    
+    // Try to get purchase info from pending file
+    $purchaseInfo = null;
+    $pendingFile = __DIR__ . '/webpay_pending/' . $buyOrder . '.json';
+    if (file_exists($pendingFile)) {
+        $purchaseInfo = json_decode(file_get_contents($pendingFile), true);
+        // Clean up pending file
+        unlink($pendingFile);
+    }
+    
+    // Check for duplicate by buy_order
+    foreach ($data['purchases'] as $existing) {
+        if (isset($existing['order_id']) && $existing['order_id'] === $buyOrder) {
+            return $existing; // Already exists
+        }
+    }
+    
+    // Determine purchase type and plan info from amount or description
+    $amount = $transaction['amount'] ?? 0;
+    $purchaseType = $purchaseInfo['type'] ?? 'link';
+    $planName = $purchaseInfo['plan_name'] ?? '';
+    $planDays = $purchaseInfo['days'] ?? 7;
+    $userEmail = $purchaseInfo['user_email'] ?? '';
+    $description = $purchaseInfo['description'] ?? '';
+    
+    // If no purchase info, try to determine from amount
+    if (!$purchaseInfo) {
+        if ($amount >= 60000) {
+            $purchaseType = 'plan';
+            $planName = 'Plan Fragata';
+            $planDays = 7;
+            $description = 'Plan Fragata - WebPay';
+        } else if ($amount >= 25000) {
+            $purchaseType = 'plan';
+            $planName = 'Plan Capitan';
+            $planDays = 14;
+            $description = 'Plan Capitan - WebPay';
+        } else {
+            $purchaseType = 'link';
+            $description = 'Cotizacion Online - WebPay';
+        }
+    }
+    
+    $purchase = [
+        'id' => 'pur_' . uniqid(),
+        'user_email' => $userEmail,
+        'type' => $purchaseType,
+        'description' => $description,
+        'plan_name' => $planName,
+        'url' => '',
+        'amount' => floatval($amount),
+        'amount_clp' => intval($amount),
+        'currency' => 'CLP',
+        'payment_method' => 'webpay',
+        'payment_id' => $transaction['authorization_code'] ?? null,
+        'order_id' => $buyOrder,
+        'status' => 'pending',
+        'days' => intval($planDays),
+        'proposals_total' => 5,
+        'proposals_received' => 0,
+        'date' => date('d M Y'),
+        'timestamp' => date('Y-m-d H:i:s'),
+        'webpay_details' => [
+            'authorization_code' => $transaction['authorization_code'] ?? null,
+            'payment_type' => $transaction['payment_type_code'] ?? null,
+            'card_number' => $transaction['card_detail']['card_number'] ?? null,
+            'transaction_date' => $transaction['transaction_date'] ?? date('c')
+        ]
     ];
     
-    file_put_contents($purchasesFile, json_encode($purchases, JSON_PRETTY_PRINT));
+    if ($purchase['type'] === 'plan') {
+        $purchase['end_date'] = date('d M Y', strtotime('+' . $purchase['days'] . ' days'));
+    }
+    
+    $data['purchases'][] = $purchase;
+    
+    file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    
+    // Log the saved purchase
+    logWebpay('PURCHASE_SAVED', $purchase);
+    
+    // Send confirmation email if we have the user's email
+    if ($userEmail) {
+        sendPurchaseConfirmationEmail($purchase);
+    }
+    
+    return $purchase;
+}
+
+/**
+ * Send purchase confirmation + quotation form emails
+ */
+function sendPurchaseConfirmationEmail($purchase) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        
+        $emailService = new EmailService();
+        $payerName = $purchase['user_email'];
+        $productName = $purchase['plan_name'] ?: $purchase['description'];
+        $purchaseType = $purchase['type'] ?? 'link';
+        
+        $plansConfig = [
+            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']]
+        ];
+        
+        $planName = $purchase['plan_name'] ?: $productName;
+        $planDays = $purchase['days'] ?? 7;
+        $planProposals = 5;
+        $planFeatures = [];
+        $planEndDate = '';
+        
+        if ($purchaseType === 'plan') {
+            $descLower = strtolower($productName . ' ' . $planName);
+            foreach ($plansConfig as $key => $cfg) {
+                if (stripos($descLower, $key) !== false || stripos($descLower, $cfg['name']) !== false) {
+                    $planName = $cfg['name'];
+                    $planDays = $cfg['days'];
+                    $planProposals = $cfg['proposals'];
+                    $planFeatures = $cfg['features'];
+                    break;
+                }
+            }
+            $planEndDate = date('d/m/Y', strtotime('+' . $planDays . ' days'));
+        }
+        
+        $items = [['title' => $productName ?: 'Compra Imporlan', 'description' => '', 'url' => '']];
+        
+        $commonData = [
+            'description' => $productName ?: ($purchaseType === 'plan' ? $planName : 'Cotizacion por Links'),
+            'items' => $items,
+            'price' => $purchase['amount_clp'],
+            'currency' => 'CLP',
+            'payment_method' => 'WebPay',
+            'payment_reference' => $purchase['payment_id'] ?? $purchase['order_id'],
+            'purchase_date' => date('d/m/Y'),
+            'user_email' => $purchase['user_email'],
+            'order_id' => $purchase['order_id'],
+            'purchase_type' => $purchaseType,
+            'plan_name' => $planName,
+            'plan_days' => $planDays,
+            'plan_proposals' => $planProposals,
+            'plan_features' => $planFeatures,
+            'plan_end_date' => $planEndDate
+        ];
+        
+        $emailService->sendQuotationLinksPaidEmail(
+            $purchase['user_email'],
+            $payerName,
+            $commonData
+        );
+        
+        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+        $formData = array_merge($commonData, [
+            'boat_links' => $storedLinks,
+            'name' => $payerName
+        ]);
+        $emailService->sendQuotationFormEmail(
+            $purchase['user_email'],
+            $payerName,
+            $formData
+        );
+        
+        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form']);
+    } catch (Exception $e) {
+        logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
+    }
 }
 
 /**
@@ -326,5 +511,14 @@ function refundTransaction($data) {
         'http_code' => $httpCode,
         'refund' => json_decode($response, true)
     ]);
+}
+
+/**
+ * Log WebPay events for debugging
+ */
+function logWebpay($event, $data) {
+    $logFile = __DIR__ . '/webpay.log';
+    $logEntry = date('Y-m-d H:i:s') . ' [' . $event . '] ' . json_encode($data) . "\n";
+    file_put_contents($logFile, $logEntry, FILE_APPEND);
 }
 ?>

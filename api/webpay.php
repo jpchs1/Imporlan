@@ -313,22 +313,81 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
 }
 
 /**
- * Send purchase confirmation email
+ * Send purchase confirmation + quotation form emails
  */
 function sendPurchaseConfirmationEmail($purchase) {
     try {
         require_once __DIR__ . '/email_service.php';
         
         $emailService = new EmailService();
-        $emailService->sendPurchaseConfirmation(
+        $payerName = $purchase['user_email'];
+        $productName = $purchase['plan_name'] ?: $purchase['description'];
+        $purchaseType = $purchase['type'] ?? 'link';
+        
+        $plansConfig = [
+            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']]
+        ];
+        
+        $planName = $purchase['plan_name'] ?: $productName;
+        $planDays = $purchase['days'] ?? 7;
+        $planProposals = 5;
+        $planFeatures = [];
+        $planEndDate = '';
+        
+        if ($purchaseType === 'plan') {
+            $descLower = strtolower($productName . ' ' . $planName);
+            foreach ($plansConfig as $key => $cfg) {
+                if (stripos($descLower, $key) !== false || stripos($descLower, $cfg['name']) !== false) {
+                    $planName = $cfg['name'];
+                    $planDays = $cfg['days'];
+                    $planProposals = $cfg['proposals'];
+                    $planFeatures = $cfg['features'];
+                    break;
+                }
+            }
+            $planEndDate = date('d/m/Y', strtotime('+' . $planDays . ' days'));
+        }
+        
+        $items = [['title' => $productName ?: 'Compra Imporlan', 'description' => '', 'url' => '']];
+        
+        $commonData = [
+            'description' => $productName ?: ($purchaseType === 'plan' ? $planName : 'Cotizacion por Links'),
+            'items' => $items,
+            'price' => $purchase['amount_clp'],
+            'currency' => 'CLP',
+            'payment_method' => 'WebPay',
+            'payment_reference' => $purchase['payment_id'] ?? $purchase['order_id'],
+            'purchase_date' => date('d/m/Y'),
+            'user_email' => $purchase['user_email'],
+            'order_id' => $purchase['order_id'],
+            'purchase_type' => $purchaseType,
+            'plan_name' => $planName,
+            'plan_days' => $planDays,
+            'plan_proposals' => $planProposals,
+            'plan_features' => $planFeatures,
+            'plan_end_date' => $planEndDate
+        ];
+        
+        $emailService->sendQuotationLinksPaidEmail(
             $purchase['user_email'],
-            $purchase['plan_name'] ?: $purchase['description'],
-            $purchase['amount_clp'],
-            $purchase['payment_method'],
-            $purchase['order_id']
+            $payerName,
+            $commonData
         );
         
-        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id']]);
+        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+        $formData = array_merge($commonData, [
+            'boat_links' => $storedLinks,
+            'name' => $payerName
+        ]);
+        $emailService->sendQuotationFormEmail(
+            $purchase['user_email'],
+            $payerName,
+            $formData
+        );
+        
+        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form']);
     } catch (Exception $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
     }
