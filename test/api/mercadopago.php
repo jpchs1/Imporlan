@@ -11,6 +11,7 @@
  */
 
 require_once 'config.php';
+require_once __DIR__ . '/email_service.php';
 
 setCorsHeaders();
 
@@ -197,7 +198,7 @@ function handleWebhook() {
                 }
             }
             
-            savePurchase([
+            $purchase = savePurchase([
                 'user_email' => $payment['payer']['email'],
                 'type' => $purchaseType,
                 'description' => $description,
@@ -212,11 +213,53 @@ function handleWebhook() {
                 'order_id' => $externalRef,
                 'status' => 'pending'
             ]);
+            
+            if (empty($purchase['_duplicate'])) {
+                sendMercadoPagoConfirmationEmail($purchase, $payment);
+            }
         }
     }
     
     http_response_code(200);
     echo json_encode(['status' => 'received']);
+}
+
+/**
+ * Send purchase confirmation email via EmailService
+ */
+function sendMercadoPagoConfirmationEmail($purchase, $payment) {
+    try {
+        $emailService = new EmailService();
+        
+        $payerName = trim(($payment['payer']['first_name'] ?? '') . ' ' . ($payment['payer']['last_name'] ?? ''));
+        if (empty($payerName)) {
+            $payerName = $purchase['user_email'];
+        }
+        
+        $productName = $purchase['plan_name'] ?: $purchase['description'];
+        
+        $emailService->sendPurchaseConfirmationEmail(
+            $purchase['user_email'],
+            $payerName,
+            [
+                'product_name' => $productName,
+                'price' => $purchase['amount_clp'],
+                'currency' => $purchase['currency'] ?? 'CLP',
+                'payment_method' => 'MercadoPago',
+                'purchase_date' => date('d/m/Y'),
+                'payment_id' => $purchase['payment_id'],
+                'order_id' => $purchase['order_id']
+            ]
+        );
+        
+        $logFile = __DIR__ . '/mp_webhooks.log';
+        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . "\n";
+        file_put_contents($logFile, $logEntry, FILE_APPEND);
+    } catch (Exception $e) {
+        $logFile = __DIR__ . '/mp_webhooks.log';
+        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";
+        file_put_contents($logFile, $logEntry, FILE_APPEND);
+    }
 }
 
 /**
@@ -235,7 +278,8 @@ function savePurchase($purchaseData) {
     // Verificar si ya existe una compra con el mismo payment_id para evitar duplicados
     foreach ($data['purchases'] as $existing) {
         if (isset($existing['payment_id']) && $existing['payment_id'] === $purchaseData['payment_id']) {
-            return $existing; // Ya existe, no duplicar
+            $existing['_duplicate'] = true;
+            return $existing;
         }
     }
     
