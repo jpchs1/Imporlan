@@ -177,9 +177,11 @@
       "</p>" +
       "</div>" +
       '<div style="text-align:right;flex-shrink:0;margin-left:8px">' +
+      '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
+      '<img src="' + (item.moneda === 'CLP' ? 'https://flagcdn.com/w40/cl.png' : 'https://flagcdn.com/w40/us.png') + '" alt="' + (item.moneda === 'CLP' ? 'Chile' : 'USA') + '" style="width:24px;height:16px;object-fit:cover;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.15)">' +
       '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
       formatPrice(item.precio, item.moneda) +
-      "</p>" +
+      "</p></div>" +
       "</div></div>" +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
       estadoBadge(item.estado) +
