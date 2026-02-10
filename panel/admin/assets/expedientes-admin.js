@@ -302,6 +302,45 @@
     }
   }
 
+  async function fetchClientPurchases(email) {
+    try {
+      var resp = await fetch(API_BASE + "/purchases.php?action=get&user_email=" + encodeURIComponent(email));
+      return await resp.json();
+    } catch (e) {
+      console.error("Error fetching purchases:", e);
+      return { plans: [], links: [] };
+    }
+  }
+
+  function renderProductsSection(data) {
+    var plans = data.plans || [];
+    var links = data.links || [];
+    if (plans.length === 0 && links.length === 0) return '';
+    var itemsHtml = '';
+    plans.forEach(function(p) {
+      var sc = p.status === 'active' ? '#10b981' : (p.status === 'pending' ? '#f59e0b' : '#94a3b8');
+      itemsHtml += '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;background:#fafafa">' +
+        '<div style="width:40px;height:40px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#1e293b">' + escapeHtml(p.planName || p.plan_name || '') + '</div>' +
+        '<div style="font-size:12px;color:#64748b;margin-top:2px">' + (p.days ? p.days + ' dias' : '') + (p.startDate ? ' - Desde ' + escapeHtml(p.startDate) : '') + '</div></div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+        '<span style="font-size:14px;font-weight:700;color:#059669">$' + Number(p.price || 0).toLocaleString() + ' CLP</span>' +
+        '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + sc + ';color:#fff">' + escapeHtml(p.status || 'pendiente') + '</span></div></div>';
+    });
+    links.forEach(function(l) {
+      itemsHtml += '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;background:#fafafa">' +
+        '<div style="width:40px;height:40px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#1e293b">Cotizacion por Link</div>' +
+        '<a href="' + escapeHtml(l.url || '') + '" target="_blank" style="font-size:12px;color:#0891b2;text-decoration:none">' + escapeHtml((l.url || '').substring(0, 60)) + '</a></div></div>';
+    });
+    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="padding:18px 28px;background:linear-gradient(to right,#f0fdf4,#ecfdf5);border-bottom:1px solid #d1fae5;display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Productos Contratados del Cliente</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Planes y servicios adquiridos</p></div></div>' +
+      '<div style="padding:16px 28px;display:flex;flex-direction:column;gap:10px">' + itemsHtml + '</div></div>';
+  }
+
   function showToast(msg, type) {
     var toast = document.createElement("div");
     var bgColor = type === "error" ? "#ef4444" : "#10b981";
@@ -439,13 +478,15 @@
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"><span style="font-size:10px;color:#64748b;margin-top:4px;display:flex;align-items:center;gap:4px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ubicacion geografica del primer link</span></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Agente</label><input id="ea-f-agent_name" value="' + escapeHtml(order.agent_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
       '<div><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#0891b2;cursor:pointer">Visible para cliente</label></div>' +
       "</div></div></div>" +
+
+      '<div id="ea-client-products"></div>' +
 
       '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
       '<div style="padding:20px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
@@ -518,6 +559,8 @@
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-new-plan" style="' + inputStyle() + '" placeholder="Plan Fragata, etc."></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-new-asset" style="' + inputStyle() + '" placeholder="Tipo de embarcacion"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Zona/Tipo</label><input id="ea-new-zone" style="' + inputStyle() + '" placeholder="Costa Este USA, etc."></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Agente</label><input id="ea-new-agent-name" value="Rodrigo Calder\u00f3n" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-new-agent-phone" value="+56 9 40211459" style="' + inputStyle() + '"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">' +
       '<button id="ea-cancel-create" style="padding:10px 24px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;cursor:pointer;font-weight:500;transition:all .2s">Cancelar</button>' +
@@ -713,6 +756,8 @@
             plan_name: document.getElementById("ea-new-plan").value.trim(),
             asset_name: document.getElementById("ea-new-asset").value.trim(),
             type_zone: document.getElementById("ea-new-zone").value.trim(),
+            agent_name: document.getElementById("ea-new-agent-name").value.trim(),
+            agent_phone: document.getElementById("ea-new-agent-phone").value.trim(),
             origin: "admin",
           });
           if (result.success) {
@@ -869,6 +914,14 @@
     if (orderId) {
       var order = await fetchOrderDetail(orderId);
       container.innerHTML = renderDetailView(order);
+      if (order && order.customer_email) {
+        fetchClientPurchases(order.customer_email).then(function(purchaseData) {
+          var productsDiv = document.getElementById("ea-client-products");
+          if (productsDiv && purchaseData && ((purchaseData.plans && purchaseData.plans.length > 0) || (purchaseData.links && purchaseData.links.length > 0))) {
+            productsDiv.innerHTML = renderProductsSection(purchaseData);
+          }
+        });
+      }
     } else {
       var orders = await fetchOrders();
       container.innerHTML = renderListView(orders);

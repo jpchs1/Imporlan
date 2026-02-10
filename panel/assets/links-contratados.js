@@ -189,7 +189,10 @@
       '<div style="width:52px;height:52px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></svg></div>' +
       '<div><h2 style="color:#fff;font-size:22px;font-weight:700;margin:0">Mis Expedientes</h2>' +
       '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Tus planes de busqueda y embarcaciones</p></div></div></div>' +
-      '<div style="padding:20px 24px">' + cards + '</div></div>';
+      '<div style="padding:20px 24px">' + cards +
+      '<div style="text-align:center;padding:16px 0 4px;border-top:1px solid #f1f5f9;margin-top:8px">' +
+      '<a href="#mis-productos" class="lc-goto-products" style="display:inline-flex;align-items:center;gap:8px;padding:10px 24px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg>Ver Mis Productos Contratados</a></div>' +
+      '</div></div>';
   }
 
   function renderVesselCard(lk, idx) {
@@ -252,6 +255,7 @@
       '<div style="flex:1;min-width:200px">' +
       (lk.title ? '<h4 style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1e293b">' + escapeHtml(lk.title) + '</h4>' : '') +
       urlHtml + valuesHtml + commentsHtml +
+      (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
       '</div></div></div></div>';
   }
 
@@ -342,6 +346,19 @@
         overlay.addEventListener("click", function () { overlay.remove(); });
         document.body.appendChild(overlay); });
     });
+    container.querySelectorAll(".lc-inspect-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        showInspectionModal(this.getAttribute("data-url"), this.getAttribute("data-idx"));
+      });
+    });
+    container.querySelectorAll(".lc-goto-products").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        hideModule();
+        window.location.hash = "#mis-productos";
+      });
+    });
     initDragDrop(container);
   }
 
@@ -385,6 +402,68 @@
       order.forEach(function (linkId) { var card = cc.querySelector('[data-link-id="' + linkId + '"]'); if (card) cc.appendChild(card); });
       updateCardNumbers(cc);
     } catch (e) {}
+  }
+
+  function showInspectionModal(linkUrl, linkIdx) {
+    var overlay = document.createElement('div');
+    overlay.id = 'lc-inspection-modal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;animation:lcFadeIn .2s;backdrop-filter:blur(4px);overflow-y:auto;padding:20px';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;width:95%;max-width:640px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">' +
+      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1">' +
+      '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/></svg></div>' +
+      '<h3 style="color:#fff;font-size:18px;font-weight:700;margin:0">Inspeccion de Embarcacion</h3></div>' +
+      '<button id="lc-close-inspect" style="border:none;background:rgba(255,255,255,.1);color:#94a3b8;cursor:pointer;padding:8px;border-radius:8px;display:flex;align-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>' +
+      '<div style="padding:28px">' +
+      '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:14px;padding:20px;margin-bottom:24px">' +
+      '<h4 style="margin:0 0 12px;font-size:16px;color:#92400e;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>Que incluye la inspeccion?</h4>' +
+      '<ul style="margin:0;padding:0 0 0 20px;color:#78350f;font-size:14px;line-height:2">' +
+      '<li>Evaluacion visual completa del casco y cubierta</li>' +
+      '<li>Revision del motor y sistemas mecanicos</li>' +
+      '<li>Inspeccion de sistemas electricos y electronica</li>' +
+      '<li>Evaluacion de equipos de navegacion y seguridad</li>' +
+      '<li>Verificacion de documentacion y titulos</li>' +
+      '<li>Reporte fotografico detallado (50+ fotos)</li></ul></div>' +
+      '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:24px">' +
+      '<h4 style="margin:0 0 16px;font-size:16px;color:#1e293b;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg>Costos de Inspeccion</h4>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div style="padding:16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:10px;border:1px solid #bbf7d0;text-align:center"><div style="font-size:11px;color:#059669;font-weight:600;text-transform:uppercase;margin-bottom:4px">Hasta 25 pies</div><div style="font-size:22px;font-weight:700;color:#047857">USD $350</div></div>' +
+      '<div style="padding:16px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;border:1px solid #93c5fd;text-align:center"><div style="font-size:11px;color:#2563eb;font-weight:600;text-transform:uppercase;margin-bottom:4px">26-35 pies</div><div style="font-size:22px;font-weight:700;color:#1d4ed8">USD $500</div></div>' +
+      '<div style="padding:16px;background:linear-gradient(135deg,#fdf4ff,#f5d0fe);border-radius:10px;border:1px solid #d8b4fe;text-align:center"><div style="font-size:11px;color:#9333ea;font-weight:600;text-transform:uppercase;margin-bottom:4px">36-50 pies</div><div style="font-size:22px;font-weight:700;color:#7e22ce">USD $750</div></div>' +
+      '<div style="padding:16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border-radius:10px;border:1px solid #fed7aa;text-align:center"><div style="font-size:11px;color:#c2410c;font-weight:600;text-transform:uppercase;margin-bottom:4px">Mayor a 50 pies</div><div style="font-size:22px;font-weight:700;color:#9a3412">Consultar</div></div></div></div>' +
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:24px">' +
+      '<h4 style="margin:0 0 8px;font-size:16px;color:#1e293b">Reporte de Inspeccion</h4>' +
+      '<p style="margin:0;font-size:14px;color:#64748b;line-height:1.6">Recibiras un reporte profesional que incluye: fotografias detalladas, evaluacion de condicion general (escala 1-10), lista de defectos encontrados, estimacion de costos de reparacion, y recomendacion de compra/no compra. <strong style="color:#1e293b">Tiempo de entrega: 3-5 dias habiles.</strong></p></div>' +
+      '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px">' +
+      '<h4 style="margin:0 0 16px;font-size:16px;color:#1e293b;display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>Solicitar Inspeccion</h4>' +
+      '<div style="display:grid;gap:14px">' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre *</label><input id="lc-insp-name" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Tu nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email *</label><input id="lc-insp-email" type="email" value="' + escapeHtml(getUserEmail()) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="tu@email.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase">Telefono</label><input id="lc-insp-phone" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="+56 9 XXXX XXXX"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase">Link de la embarcacion</label><input id="lc-insp-link" value="' + escapeHtml(linkUrl || '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;background:#f8fafc;color:#64748b" readonly></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase">Comentarios adicionales</label><textarea id="lc-insp-comments" rows="3" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;box-sizing:border-box" placeholder="Detalles adicionales sobre la embarcacion..."></textarea></div>' +
+      '<button id="lc-submit-inspect" style="width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,.3);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Enviar Solicitud de Inspeccion</button>' +
+      '</div></div></div></div>';
+    overlay.querySelector('#lc-close-inspect').addEventListener('click', function() { overlay.remove(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#lc-submit-inspect').addEventListener('click', function() {
+      var name = document.getElementById('lc-insp-name').value.trim();
+      var email = document.getElementById('lc-insp-email').value.trim();
+      if (!name || !email) { showToast('Nombre y email son requeridos', 'error'); return; }
+      var phone = document.getElementById('lc-insp-phone').value.trim();
+      var link = document.getElementById('lc-insp-link').value.trim();
+      var comments = document.getElementById('lc-insp-comments').value.trim();
+      var whatsappMsg = 'Hola, quiero solicitar una inspeccion de embarcacion.%0A%0A' +
+        'Nombre: ' + encodeURIComponent(name) + '%0A' +
+        'Email: ' + encodeURIComponent(email) + '%0A' +
+        (phone ? 'Telefono: ' + encodeURIComponent(phone) + '%0A' : '') +
+        'Link: ' + encodeURIComponent(link) + '%0A' +
+        (comments ? 'Comentarios: ' + encodeURIComponent(comments) : '');
+      window.open('https://wa.me/56940211459?text=' + whatsappMsg, '_blank');
+      showToast('Solicitud enviada por WhatsApp', 'success');
+      overlay.remove();
+    });
+    document.body.appendChild(overlay);
   }
 
   function renderSkeleton() {
