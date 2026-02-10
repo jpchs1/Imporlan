@@ -1,15 +1,37 @@
 @media (max-width: 1023px) {
   aside.w-72,
   aside[class*="w-72"] {
-    transform: translateX(-100%) !important;
-    position: fixed !important;
-    z-index: 50 !important;
-    width: 18rem !important;
-    transition: transform 0.3s ease;
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: auto !important;
   }
-  aside.w-72[class*="translate-x-0"],
-  aside[class*="w-72"][class*="translate-x-0"] {
-    transform: translateX(0) !important;
+  aside.w-72 > div:first-child,
+  aside[class*="w-72"] > div:first-child {
+    padding: 0.75rem 1rem !important;
+  }
+  aside.w-72 nav,
+  aside[class*="w-72"] nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.25rem !important;
+    padding: 0.5rem !important;
+  }
+  aside.w-72 nav button,
+  aside[class*="w-72"] nav button {
+    flex: 0 0 auto !important;
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.8rem !important;
+    border-radius: 0.5rem !important;
+  }
+  aside.w-72 nav button svg,
+  aside[class*="w-72"] nav button svg {
+    width: 1rem !important;
+    height: 1rem !important;
   }
   main {
     margin-left: 0 !important;
