@@ -535,6 +535,12 @@
     document.head.appendChild(style);
   }
 
+  var _sidebarTimer = null;
+  function debouncedInject() {
+    if (_sidebarTimer) clearTimeout(_sidebarTimer);
+    _sidebarTimer = setTimeout(function () { _sidebarTimer = null; injectSidebarItem(); }, 80);
+  }
+
   function init() {
     addStyles(); injectSidebarItem();
     if (isLinksPage()) setTimeout(renderModule, 300);
@@ -542,12 +548,12 @@
     document.addEventListener("click", function (e) { var btn = e.target.closest("button, a"); if (btn && btn.id !== "sidebar-links-contratados" && e.target.closest("aside")) hideModule(); }, true);
     var aside = document.querySelector("aside");
     if (aside) {
-      var sideObs = new MutationObserver(function () { if (!document.getElementById("sidebar-links-contratados")) injectSidebarItem(); });
+      var sideObs = new MutationObserver(function () { debouncedInject(); });
       sideObs.observe(aside, { childList: true, subtree: true });
     }
     var mainEl = document.querySelector("main");
     if (mainEl) {
-      var observer = new MutationObserver(function () { if (!document.getElementById("sidebar-links-contratados")) injectSidebarItem(); if (isLinksPage() && !moduleHidden && !document.getElementById("lc-module-container")) renderModule(); });
+      var observer = new MutationObserver(function () { debouncedInject(); if (isLinksPage() && !moduleHidden && !document.getElementById("lc-module-container")) renderModule(); });
       observer.observe(mainEl, { childList: true, subtree: false });
     }
   }
