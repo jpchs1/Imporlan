@@ -934,18 +934,28 @@
   function hideModule() {
     moduleHidden = true;
     var container = document.getElementById("ea-module-container");
+    var mainContent = document.querySelector("main");
     if (container) {
       container.remove();
-      var mainContent = document.querySelector("main");
-      if (mainContent) {
-        mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+    }
+    if (mainContent) {
+      mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+        if (el.style.display === "none") {
           el.style.display = "";
-        });
-      }
+        }
+      });
+    }
+    if (window.location.hash === "#expedientes" || window.location.hash.startsWith("#expedientes/")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
     }
     currentOrderData = null;
     currentLinks = [];
     updateSidebarActive();
+    setTimeout(function () {
+      if (mainContent && mainContent.children.length === 0) {
+        window.location.reload();
+      }
+    }, 500);
   }
 
   function addStyles() {

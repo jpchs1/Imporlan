@@ -118,22 +118,18 @@
   function enhancePlanes() {
     var main = document.querySelector("main");
     if (!main) return;
-    var wrapper = null;
-    main.querySelectorAll("div").forEach(function (el) {
-      var hasCard = false;
-      for (var i = 0; i < el.children.length; i++) {
-        var txt = el.children[i].textContent || "";
-        if (txt.match(/Plan\s+(Basico|Busqueda|Premium|Fragata|Capitan|Almirante)/i)) { hasCard = true; break; }
+    var h1 = main.querySelector("h1");
+    if (!h1) return;
+    var subtitle = h1.nextElementSibling;
+    var newPlanBtn = main.querySelector("button");
+    var children = Array.from(main.children);
+    children.forEach(function (ch) {
+      if (ch !== h1 && ch !== subtitle && ch !== newPlanBtn && ch.tagName !== "BUTTON") {
+        ch.remove();
       }
-      if (hasCard && el.children.length >= 2) wrapper = el;
     });
-    if (!wrapper) {
-      var allDivs = main.querySelectorAll("div");
-      for (var i = 0; i < allDivs.length; i++) {
-        if (allDivs[i].children.length >= 3 && allDivs[i].querySelector("h3")) { wrapper = allDivs[i]; break; }
-      }
-    }
-    if (!wrapper) return;
+    var container = document.createElement("div");
+    container.style.cssText = "display:flex;gap:20px;flex-wrap:wrap;padding:20px 0";
     var html = "";
     REAL_PLANS.forEach(function (p) {
       var oldHtml = p.old ? '<span style="text-decoration:line-through;color:#94a3b8;font-size:14px;margin-left:8px">' + fmtCLP(p.old) + '</span>' : '';
@@ -141,8 +137,9 @@
       var feats = p.features.map(function (f) { return '<li style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;color:#475569"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>' + f + '</li>'; }).join("");
       html += '<div style="background:#fff;border-radius:16px;border:' + (p.popular ? '2px solid #f59e0b' : '1px solid #e2e8f0') + ';padding:28px;position:relative;box-shadow:0 4px 16px rgba(0,0,0,.06);flex:1;min-width:280px">' + badge + '<h3 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1e293b">' + p.name + '</h3><p style="margin:0 0 16px;font-size:13px;color:#94a3b8">Monitoreo por ' + p.days + ' dias - ' + p.proposals + ' propuestas</p><div style="margin-bottom:16px"><span style="font-size:28px;font-weight:800;color:#0891b2">' + fmtCLP(p.price) + '</span><span style="font-size:13px;color:#94a3b8;margin-left:4px">CLP</span>' + oldHtml + '</div><p style="margin:0 0 4px;font-size:12px;color:#64748b">US$' + p.usd + '</p><ul style="list-style:none;padding:0;margin:16px 0 0">' + feats + '</ul></div>';
     });
-    wrapper.innerHTML = html;
-    wrapper.style.cssText = "display:flex;gap:20px;flex-wrap:wrap;padding:0";
+    container.innerHTML = html;
+    main.appendChild(container);
+    if (newPlanBtn) newPlanBtn.style.display = "none";
   }
 
   function enhancePagos() {
