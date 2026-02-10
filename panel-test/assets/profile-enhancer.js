@@ -176,27 +176,29 @@
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Guardando...';
         try {
-          var firebase = window.firebase;
-          var auth = firebase && firebase.auth ? firebase.auth() : null;
-          var firebaseUser = auth ? auth.currentUser : null;
-          if (!firebaseUser) { showToast("Sesion no encontrada. Vuelve a iniciar sesion.", "error"); saveBtn.disabled = false; return; }
-          await firebaseUser.updatePassword(newPw.value);
-          showToast("Contrasena actualizada correctamente", "success");
-          newPw.value = "";
-          confirmPw.value = "";
-          var bar = document.getElementById("prof-pw-bar");
-          var hint = document.getElementById("prof-pw-hint");
-          var matchEl = document.getElementById("prof-pw-match");
-          if (bar) bar.style.width = "0";
-          if (hint) hint.textContent = "";
-          if (matchEl) matchEl.textContent = "";
+          var userData = getUserData();
+          var email = userData ? userData.email : null;
+          if (!email) { showToast("Sesion no encontrada. Vuelve a iniciar sesion.", "error"); saveBtn.disabled = false; saveBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Nueva Contrasena'; return; }
+          var resp = await fetch("/test/api/change_password.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, new_password: newPw.value })
+          });
+          var result = await resp.json();
+          if (!resp.ok || result.error) { showToast(result.error || "Error al cambiar la contrasena", "error"); }
+          else {
+            showToast("Contrasena actualizada correctamente", "success");
+            newPw.value = "";
+            confirmPw.value = "";
+            var bar = document.getElementById("prof-pw-bar");
+            var hint = document.getElementById("prof-pw-hint");
+            var matchEl = document.getElementById("prof-pw-match");
+            if (bar) bar.style.width = "0";
+            if (hint) hint.textContent = "";
+            if (matchEl) matchEl.textContent = "";
+          }
         } catch (e) {
-          var errMsg = "Error al cambiar la contrasena";
-          if (e.code === "auth/wrong-password") errMsg = "La contrasena actual es incorrecta";
-          else if (e.code === "auth/weak-password") errMsg = "La nueva contrasena es muy debil";
-          else if (e.code === "auth/requires-recent-login") errMsg = "Debes volver a iniciar sesion antes de cambiar la contrasena";
-          else if (e.code === "auth/too-many-requests") errMsg = "Demasiados intentos. Intenta mas tarde";
-          showToast(errMsg, "error");
+          showToast("Error de conexion. Intenta nuevamente.", "error");
         }
         saveBtn.disabled = false;
         saveBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar Nueva Contrasena';
