@@ -24,8 +24,8 @@
     canceled: { bg: "#64748b", text: "#ffffff", label: "Cancelado" },
   };
 
-  let currentView = "list";
-  let currentOrderId = null;
+  var isRendering = false;
+  var moduleHidden = false;
 
   function getUserData() {
     try {
@@ -145,7 +145,12 @@
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
-        window.location.hash = "#links-contratados";
+        moduleHidden = false;
+        if (window.location.hash === "#links-contratados") {
+          renderModule();
+        } else {
+          window.location.hash = "#links-contratados";
+        }
       });
 
       li.appendChild(btn);
@@ -333,7 +338,7 @@
           formatCurrency(lk.value_chile_negotiated_clp, "CLP") +
           "</td>" +
           '<td style="padding:10px 12px;text-align:center;font-size:13px;color:#334155">' +
-          (lk.selection_order || "-") +
+          (lk.selection_order !== null && lk.selection_order !== undefined && lk.selection_order !== '' ? lk.selection_order : "-") +
           "</td>" +
           '<td style="padding:10px 12px;font-size:13px;color:#64748b;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' +
           escapeHtml(lk.comments || "") +
@@ -480,49 +485,53 @@
 
   async function renderModule() {
     if (!isLinksPage()) return;
+    if (moduleHidden) return;
+    if (isRendering) return;
+    isRendering = true;
 
-    var mainContent = document.querySelector("main");
-    if (!mainContent) return;
+    try {
+      var mainContent = document.querySelector("main");
+      if (!mainContent) { isRendering = false; return; }
 
-    var container = document.getElementById("lc-module-container");
-    if (!container) {
-      container = document.createElement("div");
-      container.id = "lc-module-container";
-      container.style.cssText = "max-width:1200px;margin:0 auto;padding:20px;animation:lcFadeIn .3s ease";
+      var container = document.getElementById("lc-module-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "lc-module-container";
+        container.style.cssText = "max-width:1200px;margin:0 auto;padding:20px;animation:lcFadeIn .3s ease;position:relative;z-index:10";
+        mainContent.appendChild(container);
+      }
 
-      var existingContent = mainContent.querySelectorAll(":scope > *");
-      existingContent.forEach(function (el) {
-        el.style.display = "none";
-      });
-      mainContent.appendChild(container);
+      mainContent.classList.add("lc-active");
+      container.innerHTML = renderSkeleton();
+
+      var orderId = getOrderIdFromHash();
+      if (orderId) {
+        var order = await fetchOrderDetail(orderId);
+        if (!isLinksPage()) { hideModule(); isRendering = false; return; }
+        container.innerHTML = renderDetailView(order);
+      } else {
+        var orders = await fetchOrders();
+        if (!isLinksPage()) { hideModule(); isRendering = false; return; }
+        container.innerHTML = renderListView(orders);
+      }
+
+      attachListeners(container);
+      updateSidebarActive();
+    } catch (e) {
+      console.error("Links Contratados renderModule error:", e);
     }
-
-    var orderId = getOrderIdFromHash();
-
-    container.innerHTML = renderSkeleton();
-
-    if (orderId) {
-      var order = await fetchOrderDetail(orderId);
-      container.innerHTML = renderDetailView(order);
-    } else {
-      var orders = await fetchOrders();
-      container.innerHTML = renderListView(orders);
-    }
-
-    attachListeners(container);
-    updateSidebarActive();
+    isRendering = false;
   }
 
   function hideModule() {
+    moduleHidden = true;
     var container = document.getElementById("lc-module-container");
     if (container) {
       container.remove();
-      var mainContent = document.querySelector("main");
-      if (mainContent) {
-        mainContent.querySelectorAll(":scope > *").forEach(function (el) {
-          el.style.display = "";
-        });
-      }
+    }
+    var mainContent = document.querySelector("main");
+    if (mainContent) {
+      mainContent.classList.remove("lc-active");
     }
     updateSidebarActive();
   }
@@ -534,6 +543,7 @@
     style.textContent =
       "@keyframes lcFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}" +
       "@keyframes lcPulse{0%,100%{opacity:1}50%{opacity:.5}}" +
+      "main.lc-active>*:not(#lc-module-container){display:none!important}" +
       "@media(max-width:768px){#lc-module-container table{font-size:12px}#lc-module-container th,#lc-module-container td{padding:8px 6px!important}}";
     document.head.appendChild(style);
   }
@@ -548,11 +558,19 @@
 
     window.addEventListener("hashchange", function () {
       if (isLinksPage()) {
+        moduleHidden = false;
         renderModule();
       } else {
         hideModule();
       }
     });
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("button, a");
+      if (btn && btn.id !== "sidebar-links-contratados" && e.target.closest("aside")) {
+        hideModule();
+      }
+    }, true);
 
     var mainEl = document.querySelector("main");
     if (mainEl) {
@@ -560,12 +578,18 @@
         if (!document.getElementById("sidebar-links-contratados")) {
           injectSidebarItem();
         }
-        if (isLinksPage() && !document.getElementById("lc-module-container")) {
+        if (isLinksPage() && !moduleHidden && !document.getElementById("lc-module-container")) {
           renderModule();
         }
       });
       observer.observe(mainEl, { childList: true, subtree: false });
     }
+
+    setInterval(function () {
+      if (!document.getElementById("sidebar-links-contratados")) {
+        injectSidebarItem();
+      }
+    }, 3000);
   }
 
   function startWhenReady() {
