@@ -103,20 +103,18 @@
   function injectSidebarItem() {
     var checkCount = 0;
     function tryInject() {
-      if (++checkCount > 60) return;
+      if (++checkCount > 120) return;
       if (document.getElementById("sidebar-links-contratados")) return;
       var nav = document.querySelector("aside nav") || document.querySelector("nav");
       if (!nav) { setTimeout(tryInject, 500); return; }
-      var refBtn = null;
-      var productosBtn = document.getElementById("sidebar-mis-productos");
-      if (productosBtn) { refBtn = productosBtn; }
-      else {
+      var refBtn = document.getElementById("sidebar-mis-productos");
+      if (!refBtn && checkCount <= 40) { setTimeout(tryInject, 300); return; }
+      if (!refBtn) {
         nav.querySelectorAll("a, button").forEach(function (el) {
           var text = el.textContent.trim().toLowerCase();
-          if (text.includes("producto") || text.includes("mis productos")) refBtn = el;
+          if (text.includes("mis productos") || text.includes("producto")) refBtn = el;
         });
       }
-      if (!refBtn) { nav.querySelectorAll("a, button").forEach(function (el) { var text = el.textContent.trim().toLowerCase(); if (text.includes("soporte") || text.includes("servicio") || text.includes("importaciones")) refBtn = el; }); }
       if (!refBtn) { var btns = nav.querySelectorAll("a, button"); if (btns.length > 0) refBtn = btns[btns.length - 1]; }
       if (!refBtn) { setTimeout(tryInject, 500); return; }
       var li = document.createElement("li");
