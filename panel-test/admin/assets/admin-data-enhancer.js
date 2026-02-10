@@ -203,11 +203,56 @@
     contentArea.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:0";
   }
 
+  function enhanceDashboard() {
+    var main = document.querySelector("main");
+    if (!main) return;
+    var sidebarBtns = document.querySelectorAll("aside nav button, aside nav a");
+    function clickSection(name) {
+      sidebarBtns.forEach(function (b) {
+        if (b.textContent.trim().toLowerCase().includes(name.toLowerCase())) b.click();
+      });
+    }
+    var linkMap = [
+      { match: /total\s*usuarios/i, section: "usuarios" },
+      { match: /solicitudes?\s*pendientes?/i, section: "solicitudes" },
+      { match: /ingresos?\s*totales?/i, section: "pagos" },
+      { match: /planes?\s*activos?/i, section: "planes" },
+      { match: /actividad\s*reciente/i, section: "solicitudes" },
+      { match: /pagos?\s*por\s*proveedor/i, section: "pagos" },
+      { match: /usuarios?\s*por\s*rol/i, section: "usuarios" },
+      { match: /solicitudes?\s*por\s*estado/i, section: "solicitudes" },
+      { match: /resumen\s*de\s*pagos?/i, section: "pagos" }
+    ];
+    var cards = main.querySelectorAll("div");
+    cards.forEach(function (card) {
+      var text = card.textContent || "";
+      if (card.closest("[data-dash-linked]")) return;
+      for (var i = 0; i < linkMap.length; i++) {
+        if (linkMap[i].match.test(text) && text.length < 300) {
+          card.setAttribute("data-dash-linked", linkMap[i].section);
+          card.style.cursor = "pointer";
+          card.style.transition = "all .2s";
+          card.title = "Ir a " + linkMap[i].section.charAt(0).toUpperCase() + linkMap[i].section.slice(1);
+          card.addEventListener("mouseenter", function () { this.style.transform = "translateY(-2px)"; this.style.boxShadow = "0 8px 24px rgba(8,145,178,.15)"; });
+          card.addEventListener("mouseleave", function () { this.style.transform = ""; this.style.boxShadow = ""; });
+          (function (sec) {
+            card.addEventListener("click", function (e) {
+              if (e.target.closest("a, button, input, select")) return;
+              clickSection(sec);
+            });
+          })(linkMap[i].section);
+          break;
+        }
+      }
+    });
+  }
+
   function enhance(section) {
     if (enhanced[section]) return;
     enhanced[section] = true;
     try {
       switch (section) {
+        case "Dashboard": setTimeout(enhanceDashboard, 400); break;
         case "Usuarios": enhanceUsers(); break;
         case "Solicitudes": enhanceSolicitudes(); break;
         case "Planes": setTimeout(enhancePlanes, 200); break;
