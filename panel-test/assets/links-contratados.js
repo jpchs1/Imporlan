@@ -527,6 +527,41 @@
       '<div style="height:160px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:14px"></div></div></div>';
   }
 
+  /* ── Update React's native cards with real data ── */
+  function updateReactCards() {
+    var main = document.querySelector("main");
+    if (!main) return;
+    var totalLinks = linksApproved.length + linksReview.length;
+    var cardMap = {
+      "Links Contratados": totalLinks,
+      "Planes Activos": plans.length,
+      "Links Aprobados": linksApproved.length,
+      "En Revision": linksReview.length
+    };
+    var allP = main.querySelectorAll("p");
+    for (var i = 0; i < allP.length; i++) {
+      var txt = (allP[i].textContent || "").trim();
+      if (cardMap.hasOwnProperty(txt)) {
+        var numEl = allP[i].parentElement ? allP[i].parentElement.querySelector(".text-2xl") : null;
+        if (!numEl) {
+          var sib = allP[i].nextElementSibling;
+          if (sib && sib.tagName === "P") numEl = sib;
+        }
+        if (numEl) numEl.textContent = cardMap[txt].toString();
+      }
+    }
+    var h3s = main.querySelectorAll("h3");
+    for (var j = 0; j < h3s.length; j++) {
+      if ((h3s[j].textContent || "").indexOf("No tienes productos") !== -1) {
+        var emptyCard = h3s[j].closest(".rounded-xl") || h3s[j].parentElement.parentElement;
+        if (emptyCard && (totalLinks > 0 || plans.length > 0)) {
+          emptyCard.innerHTML = '<div style="padding:24px">' + renderProductsSection() + '</div>';
+        }
+        break;
+      }
+    }
+  }
+
   /* ── Module lifecycle ── */
   async function renderModule() {
     if (!isProductsPage() || isRendering) return;
@@ -551,6 +586,7 @@
     var results = await Promise.all([fetchOrders(), fetchPurchases()]);
     var orders = results[0];
     if (!isProductsPage()) { wrapper.remove(); return; }
+    updateReactCards();
     var expedientesHtml = renderExpedientesSection(orders);
     wrapper.innerHTML =
       '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
