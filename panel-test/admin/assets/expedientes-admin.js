@@ -515,19 +515,10 @@
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div>' +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
       '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Imagen</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Ubicacion</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Valor USA (USD)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Negociar (USD)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Chile (CLP)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Negociado (CLP)</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:55px">N\u00b0 Sel</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:140px">Comentarios</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
+      '<th style="padding:14px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Embarcaci\u00f3n / Link</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:320px">Valores</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:180px">Selecci\u00f3n</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:50px"></th>' +
       '</tr></thead><tbody id="ea-links-tbody">' +
       linksRows +
       "</tbody></table></div></div>"
@@ -536,34 +527,81 @@
 
   function renderLinkRow(lk, idx) {
     var ci = cellInputStyle();
-    var placeholderSvg = '<div class="ea-img-placeholder" style="width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
-    var imgPreview = lk.image_url
-      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '">'
-      : placeholderSvg;
+    var imgHtml = '';
+    if (lk.image_url) {
+      imgHtml = '<div style="position:relative;width:140px;height:105px;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.1);flex-shrink:0" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '">' +
+        '<img src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s">' +
+        '<div style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);border-radius:6px;padding:3px 10px;font-size:12px;color:#fff;font-weight:700">#' + (idx + 1) + '</div>' +
+        '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.7));padding:6px 8px;display:flex;align-items:center;gap:4px">' +
+        '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' +
+        '<span style="font-size:10px;color:#fff;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(lk.location || 'Sin ubicación') + '</span></div></div>';
+    } else {
+      imgHtml = '<div style="position:relative;width:140px;height:105px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px dashed #cbd5e1">' +
+        '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>' +
+        '<div style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,.4);border-radius:6px;padding:3px 10px;font-size:12px;color:#fff;font-weight:700">#' + (idx + 1) + '</div></div>';
+    }
     var clpVal = formatDotNumber(lk.value_chile_clp);
     var clpNegVal = formatDotNumber(lk.value_chile_negotiated_clp);
     var usdVal = formatUsdDisplay(lk.value_usa_usd);
     var usdNegVal = formatUsdDisplay(lk.value_to_negotiate_usd);
+    
+    var hoursHtml = lk.hours ? '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;margin-top:4px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:11px;color:#a16207;font-weight:600">' + escapeHtml(lk.hours) + '</span></div>' : '';
+    
     return (
-      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s">' +
-      '<td style="padding:8px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.3;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
-      '<td class="ea-row-num" style="padding:8px 4px;text-align:center;font-size:14px;color:#64748b;font-weight:800">' + (idx + 1) + '</td>' +
-      '<td style="padding:8px 6px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:6px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8" title="URL de la imagen"></div></td>' +
-      '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
-      '<div style="display:flex;gap:2px;flex-shrink:0">' +
-      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
-      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
-      '</div></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + '"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';width:72px"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-value_chile_negotiated_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" value="' + (clpNegVal ? '$ ' + clpNegVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
-      '<td style="padding:8px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center;font-weight:700"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="Agregar comentario..." style="' + ci + '"></td>' +
-      '<td style="padding:8px 4px;text-align:center">' +
-      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
+      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #e2e8f0;transition:all .15s;background:#fff">' +
+      '<td style="padding:12px 8px;vertical-align:top">' +
+      '<div style="display:flex;gap:12px;align-items:flex-start">' +
+      '<div class="ea-drag-handle" style="cursor:grab;padding:8px 4px;opacity:.4;transition:opacity .2s;flex-shrink:0" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#64748b"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div>' +
+      imgHtml +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+      '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL de imagen..." style="' + ci + ';font-size:11px;flex:1;min-width:180px;color:#64748b" title="URL de la imagen">' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1;font-weight:500">' +
+      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#e0f2fe;cursor:pointer;color:#0284c7;padding:8px;border-radius:8px;display:flex;align-items:center;transition:all .15s;flex-shrink:0" title="Abrir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
+      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:8px;border-radius:8px;display:flex;align-items:center;transition:all .15s;flex-shrink:0" title="Copiar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + ';width:160px">' +
+      hoursHtml +
+      '<input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="Horas" style="' + ci + ';width:80px">' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '</td>' +
+      '<td style="padding:12px 8px;vertical-align:top;width:320px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+      '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px">' +
+      '<span style="font-size:9px;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">USA USD</span>' +
+      '<input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="border:none;background:transparent;font-size:15px;font-weight:700;color:#047857;width:100%;outline:none;padding:0;margin-top:2px">' +
+      '</div>' +
+      '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:8px;padding:8px 10px">' +
+      '<span style="font-size:9px;color:#b45309;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociar USD</span>' +
+      '<input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="border:none;background:transparent;font-size:15px;font-weight:700;color:#92400e;width:100%;outline:none;padding:0;margin-top:2px">' +
+      '</div>' +
+      '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:8px 10px">' +
+      '<span style="font-size:9px;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Chile CLP</span>' +
+      '<input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="border:none;background:transparent;font-size:15px;font-weight:700;color:#1d4ed8;width:100%;outline:none;padding:0;margin-top:2px">' +
+      '</div>' +
+      '<div style="background:linear-gradient(135deg,#fdf4ff,#f5d0fe);border:1px solid #d8b4fe;border-radius:8px;padding:8px 10px">' +
+      '<span style="font-size:9px;color:#9333ea;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociado CLP</span>' +
+      '<input class="ea-link-value_chile_negotiated_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" value="' + (clpNegVal ? '$ ' + clpNegVal : '') + '" placeholder="$ 0" style="border:none;background:transparent;font-size:15px;font-weight:700;color:#7e22ce;width:100%;outline:none;padding:0;margin-top:2px">' +
+      '</div>' +
+      '</div>' +
+      '</td>' +
+      '<td style="padding:12px 8px;vertical-align:top;width:180px">' +
+      '<div style="display:flex;flex-direction:column;gap:6px">' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<span style="font-size:10px;color:#64748b;font-weight:600">N° Sel:</span>' +
+      '<input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';width:50px;text-align:center;font-weight:700">' +
+      '</div>' +
+      '<textarea class="ea-link-comments" placeholder="Comentarios..." style="' + ci + ';min-height:60px;resize:vertical;font-size:12px">' + escapeHtml(lk.comments || "") + '</textarea>' +
+      '</div>' +
+      '</td>' +
+      '<td style="padding:12px 8px;vertical-align:top;width:50px">' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:10px;border-radius:10px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+      '</td>' +
       '</tr>'
     );
   }
@@ -938,6 +976,8 @@
     rows.forEach(function (row, idx) {
       var numCell = row.querySelector(".ea-row-num");
       if (numCell) numCell.textContent = idx + 1;
+      var numBadge = row.querySelector("[data-row-number]");
+      if (numBadge) numBadge.textContent = "#" + (idx + 1);
     });
   }
 
