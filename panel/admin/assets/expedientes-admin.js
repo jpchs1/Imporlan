@@ -429,6 +429,7 @@
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
       "<thead><tr>" +
       '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:36px">#</th>' +
+      '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:80px">Imagen</th>' +
       '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;min-width:200px">Link Opcion (USA)</th>' +
       '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Valor USA (USD)</th>' +
       '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Negociar (USD)</th>' +
@@ -445,9 +446,13 @@
 
   function renderLinkRow(lk, idx) {
     var cellInput = "padding:4px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#1e293b;width:100%;box-sizing:border-box;outline:none;background:#fff";
+    var imgPreview = lk.image_url
+      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:60px;height:45px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '" onerror="this.style.display=\'none\'" title="Click para ver">'
+      : '<div style="width:60px;height:45px;border-radius:6px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;background:#f8fafc"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     return (
       '<tr data-link-id="' + (lk.id || "") + '" style="border-bottom:1px solid #f1f5f9">' +
       '<td style="padding:6px 8px;text-align:center;font-size:13px;color:#64748b;font-weight:600">' + (idx + 1) + "</td>" +
+      '<td style="padding:6px 8px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + cellInput + ';font-size:11px;width:80px;text-align:center" title="URL de la imagen"></div></td>' +
       '<td style="padding:6px 8px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + cellInput + ';flex:1">' +
       (lk.url ? '<button class="ea-open-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Abrir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
         '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Copiar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' : "") +
@@ -500,6 +505,7 @@
         id: parseInt(row.getAttribute("data-link-id")) || null,
         row_index: idx + 1,
         url: (row.querySelector(".ea-link-url") || {}).value || null,
+        image_url: (row.querySelector(".ea-link-image_url") || {}).value || null,
         value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).value),
         value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
         value_chile_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_clp") || {}).value),
@@ -549,6 +555,17 @@
         var url = this.getAttribute("data-url");
         navigator.clipboard.writeText(url);
         showToast("Link copiado", "success");
+      });
+    });
+
+    container.querySelectorAll(".ea-img-preview").forEach(function (img) {
+      img.addEventListener("click", function () {
+        var url = this.getAttribute("data-url");
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s";
+        overlay.innerHTML = '<img src="' + url + '" style="max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)">';
+        overlay.addEventListener("click", function () { overlay.remove(); });
+        document.body.appendChild(overlay);
       });
     });
 

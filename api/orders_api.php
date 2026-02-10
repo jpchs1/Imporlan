@@ -176,6 +176,11 @@ function runMigration() {
             $pdo->exec("ALTER TABLE orders ADD COLUMN visible_to_client TINYINT(1) DEFAULT 1 AFTER admin_notes");
         }
 
+        $linkCols = $pdo->query("SHOW COLUMNS FROM order_links")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('image_url', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN image_url TEXT AFTER title");
+        }
+
         echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -510,7 +515,7 @@ function adminUpdateLinks() {
 
                 $stmt = $pdo->prepare("
                     UPDATE order_links SET
-                        url = ?, title = ?, value_usa_usd = ?, value_to_negotiate_usd = ?,
+                        url = ?, title = ?, image_url = ?, value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
                         selection_order = ?, comments = ?, row_index = ?
                     WHERE id = ? AND order_id = ?
@@ -518,6 +523,7 @@ function adminUpdateLinks() {
                 $stmt->execute([
                     $link['url'] ?? null,
                     $link['title'] ?? null,
+                    $link['image_url'] ?? null,
                     $link['value_usa_usd'] ?? null,
                     $link['value_to_negotiate_usd'] ?? null,
                     $link['value_chile_clp'] ?? null,
@@ -580,14 +586,15 @@ function adminAddLink() {
         $nextIndex = $maxStmt->fetch(PDO::FETCH_ASSOC)['next_index'];
 
         $stmt = $pdo->prepare("
-            INSERT INTO order_links (order_id, row_index, url, title, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO order_links (order_id, row_index, url, title, image_url, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $orderId,
             $nextIndex,
             $input['url'] ?? null,
             $input['title'] ?? null,
+            $input['image_url'] ?? null,
             $input['value_usa_usd'] ?? null,
             $input['value_to_negotiate_usd'] ?? null,
             $input['value_chile_clp'] ?? null,

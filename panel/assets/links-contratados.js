@@ -286,9 +286,16 @@
     var linksHtml = "";
     var links = order.links || [];
     if (links.length === 0) {
-      linksHtml = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;font-size:14px">No hay links registrados aun</td></tr>';
+      linksHtml = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#94a3b8;font-size:14px">No hay links registrados aun</td></tr>';
     } else {
       links.forEach(function (lk, idx) {
+        var imgCell = '';
+        if (lk.image_url) {
+          imgCell = '<img src="' + escapeHtml(lk.image_url) + '" style="width:70px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;transition:transform .2s" class="lc-img-preview" data-url="' + escapeHtml(lk.image_url) + '" onerror="this.style.display=\'none\'" title="Click para ampliar">';
+        } else {
+          imgCell = '<div style="width:70px;height:52px;border-radius:8px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;background:#f8fafc"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+        }
+
         var urlCell = "";
         if (lk.url) {
           urlCell =
@@ -321,6 +328,9 @@
           "<tr style=\"border-bottom:1px solid #f1f5f9;transition:background .15s\" onmouseover=\"this.style.background='#f8fafc'\" onmouseout=\"this.style.background='transparent'\">" +
           '<td style="padding:10px 12px;text-align:center;font-size:13px;color:#64748b;font-weight:600">' +
           (idx + 1) +
+          "</td>" +
+          '<td style="padding:10px 12px;text-align:center">' +
+          imgCell +
           "</td>" +
           '<td style="padding:10px 12px">' +
           urlCell +
@@ -411,6 +421,7 @@
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
       "<thead><tr>" +
       '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc;width:40px">#</th>' +
+      '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc;width:90px">Imagen</th>' +
       '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc;min-width:200px">Link Opcion (USA)</th>' +
       '<th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc">Valor USA (USD)</th>' +
       '<th style="padding:10px 12px;text-align:right;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc">Valor a Negociar (USD)</th>' +
@@ -463,6 +474,17 @@
         var url = this.getAttribute("data-url");
         var waUrl = "https://wa.me/?text=" + encodeURIComponent("Mira esta embarcacion: " + url);
         window.open(waUrl, "_blank");
+      });
+    });
+
+    container.querySelectorAll(".lc-img-preview").forEach(function (img) {
+      img.addEventListener("click", function () {
+        var url = this.getAttribute("data-url");
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:lcFadeIn .2s";
+        overlay.innerHTML = '<img src="' + url + '" style="max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)">';
+        overlay.addEventListener("click", function () { overlay.remove(); });
+        document.body.appendChild(overlay);
       });
     });
   }
