@@ -92,14 +92,19 @@
     setTimeout(function () { toast.style.opacity = "0"; toast.style.transition = "opacity .3s"; setTimeout(function () { toast.remove(); }, 300); }, 2500);
   }
 
-  /* ── Route helpers ── */
-  function isModulePage() {
-    var h = window.location.hash;
-    return h === "#myproducts" || h.startsWith("#myproducts/");
+  /* ── Page detection by DOM content (not hash) ── */
+  function isProductsPage() {
+    var main = document.querySelector("main");
+    if (!main) return false;
+    var headings = main.querySelectorAll("h1, h2, h3");
+    for (var i = 0; i < headings.length; i++) {
+      var t = (headings[i].textContent || "").trim();
+      if (t === "Mis Productos Contratados") return true;
+    }
+    return false;
   }
   function getDetailId() {
-    var m = window.location.hash.match(/#myproducts\/(\d+)/);
-    return m ? parseInt(m[1]) : null;
+    return null;
   }
 
   /* ── Data fetching ── */
@@ -524,42 +529,20 @@
 
   /* ── Module lifecycle ── */
   async function renderModule() {
-    if (!isModulePage() || moduleHidden || isRendering) return;
+    if (!isProductsPage() || isRendering) return;
+    if (document.getElementById("lc-expedientes-inject")) return;
     isRendering = true;
     try {
       var mainContent = document.querySelector("main");
       if (!mainContent) { isRendering = false; return; }
-      var detailId = getDetailId();
-      var container = document.getElementById("lc-module-container");
-
-      if (detailId) {
-        if (!container) {
-          container = document.createElement("div");
-          container.id = "lc-module-container";
-          container.style.cssText = "max-width:1100px;margin:0 auto;padding:20px;animation:lcFadeIn .3s ease;position:relative;z-index:10";
-          mainContent.appendChild(container);
-        }
-        mainContent.classList.add("lc-detail-active");
-        mainContent.classList.remove("lc-inject-active");
-        container.innerHTML = renderSkeleton();
-        var order = await fetchOrderDetail(detailId);
-        if (!isModulePage()) { hideModule(); isRendering = false; return; }
-        container.innerHTML = renderDetailView(order);
-        applyClientOrder(container);
-        attachListeners(container);
-      } else {
-        mainContent.classList.remove("lc-detail-active");
-        mainContent.classList.add("lc-inject-active");
-        if (container) container.remove();
-        await injectExpedientesSection(mainContent);
-      }
+      await injectExpedientesSection(mainContent);
     } catch (e) { console.error("Module renderModule error:", e); }
     isRendering = false;
   }
 
   async function injectExpedientesSection(mainContent) {
     var existing = document.getElementById("lc-expedientes-inject");
-    if (existing) existing.remove();
+    if (existing) return;
     var wrapper = document.createElement("div");
     wrapper.id = "lc-expedientes-inject";
     wrapper.style.cssText = "max-width:1100px;margin:24px auto 0;padding:0 20px 20px;animation:lcFadeIn .3s ease";
@@ -567,7 +550,7 @@
     mainContent.appendChild(wrapper);
     var results = await Promise.all([fetchOrders(), fetchPurchases()]);
     var orders = results[0];
-    if (!isModulePage() || getDetailId()) { wrapper.remove(); return; }
+    if (!isProductsPage()) { wrapper.remove(); return; }
     var expedientesHtml = renderExpedientesSection(orders);
     wrapper.innerHTML =
       '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
@@ -581,13 +564,10 @@
   }
 
   function hideModule() {
-    moduleHidden = true;
     var container = document.getElementById("lc-module-container");
     if (container) container.remove();
     var inject = document.getElementById("lc-expedientes-inject");
     if (inject) inject.remove();
-    var mainContent = document.querySelector("main");
-    if (mainContent) { mainContent.classList.remove("lc-detail-active"); mainContent.classList.remove("lc-inject-active"); }
   }
 
   /* ── Styles ── */
@@ -612,34 +592,33 @@
   }
 
   /* ── Init ── */
+  var checkTimer = null;
+  var lastPageWasProducts = false;
+
+  function checkPage() {
+    var isProducts = isProductsPage();
+    if (isProducts && !document.getElementById("lc-expedientes-inject") && !isRendering) {
+      renderModule();
+    } else if (!isProducts && lastPageWasProducts) {
+      hideModule();
+    }
+    lastPageWasProducts = isProducts;
+  }
+
   function init() {
     addStyles();
-    if (isModulePage()) { moduleHidden = false; setTimeout(renderModule, 600); }
-    window.addEventListener("hashchange", function () {
-      if (isModulePage()) { moduleHidden = false; setTimeout(renderModule, 300); }
-      else { hideModule(); }
+    checkPage();
+    var obs = new MutationObserver(function () {
+      clearTimeout(checkTimer);
+      checkTimer = setTimeout(checkPage, 300);
     });
-    document.addEventListener("click", function (e) {
-      var btn = e.target.closest("button, a");
-      if (!btn || !e.target.closest("aside")) return;
-      var text = (btn.textContent || "").trim().toLowerCase();
-      if (text.includes("productos contratados") || text.includes("myproducts")) return;
-      if (isModulePage()) hideModule();
-    }, true);
-    var mainEl = document.querySelector("main");
-    if (mainEl) {
-      var mainObs = new MutationObserver(function () {
-        if (isModulePage() && !getDetailId() && !document.getElementById("lc-expedientes-inject") && !isRendering) {
-          renderModule();
-        }
-      });
-      mainObs.observe(mainEl, { childList: true, subtree: false });
-    }
+    var root = document.getElementById("root") || document.body;
+    obs.observe(root, { childList: true, subtree: true });
   }
 
   function startWhenReady() {
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 400); });
-    else setTimeout(init, 400);
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 500); });
+    else setTimeout(init, 500);
   }
 
   startWhenReady();

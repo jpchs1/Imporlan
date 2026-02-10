@@ -8,8 +8,14 @@
   var injected = false;
 
   function isSettingsPage() {
-    var h = window.location.hash;
-    return h === "#settings" || h === "#configuracion" || h === "#ajustes" || h === "#profile";
+    var main = document.querySelector("main");
+    if (!main) return false;
+    var headings = main.querySelectorAll("h1, h2, h3");
+    for (var i = 0; i < headings.length; i++) {
+      var t = (headings[i].textContent || "").trim().toLowerCase();
+      if (t.indexOf("configuracion") !== -1 || t.indexOf("configuración") !== -1) return true;
+    }
+    return false;
   }
 
   function getUserData() {
@@ -214,26 +220,31 @@
     document.head.appendChild(style);
   }
 
-  function tryInject() {
-    if (!injected) injectPasswordSection();
+  var profCheckTimer = null;
+  var lastPageWasSettings = false;
+
+  function checkSettingsPage() {
+    var isSett = isSettingsPage();
+    if (isSett && !document.getElementById("prof-password-section")) {
+      injected = false;
+      injectPasswordSection();
+    } else if (!isSett && lastPageWasSettings) {
+      injected = false;
+      var el = document.getElementById("prof-password-section");
+      if (el) el.remove();
+    }
+    lastPageWasSettings = isSett;
   }
 
   function init() {
     addStyles();
-    if (isSettingsPage()) setTimeout(tryInject, 800);
-    window.addEventListener("hashchange", function () {
-      if (isSettingsPage()) { injected = false; setTimeout(tryInject, 600); }
-      else { injected = false; }
+    checkSettingsPage();
+    var obs = new MutationObserver(function () {
+      clearTimeout(profCheckTimer);
+      profCheckTimer = setTimeout(checkSettingsPage, 300);
     });
-    var mainEl = document.querySelector("main");
-    if (mainEl) {
-      var obs = new MutationObserver(function () {
-        if (isSettingsPage() && !injected && !document.getElementById("prof-password-section")) {
-          tryInject();
-        }
-      });
-      obs.observe(mainEl, { childList: true, subtree: true });
-    }
+    var root = document.getElementById("root") || document.body;
+    obs.observe(root, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 500); });
