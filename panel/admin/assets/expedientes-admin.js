@@ -545,7 +545,7 @@
   function renderCreateModal() {
     return (
       '<div id="ea-create-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s;backdrop-filter:blur(4px)">' +
-      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.3)">' +
       '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:24px 28px;display:flex;justify-content:space-between;align-items:center">' +
       '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
       '<h3 style="color:#fff;font-size:18px;font-weight:700;margin:0">Nuevo Expediente</h3></div>' +
