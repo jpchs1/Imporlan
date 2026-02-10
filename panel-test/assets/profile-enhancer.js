@@ -78,9 +78,6 @@
       'Cambiar Contrasena</h3>' +
       '<p style="margin:0 0 20px;font-size:13px;color:#94a3b8">Actualiza tu contrasena de acceso al panel</p>' +
       '<div style="display:flex;flex-direction:column;gap:16px">' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Contrasena Actual</label>' +
-      '<div style="position:relative"><input id="prof-current-pw" type="password" placeholder="Ingresa tu contrasena actual" style="width:100%;padding:12px 44px 12px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;transition:border-color .2s;outline:none" onfocus="this.style.borderColor=\'#0891b2\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
-      '<button type="button" class="prof-toggle-pw" data-target="prof-current-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:#94a3b8;padding:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Nueva Contrasena</label>' +
       '<div style="position:relative"><input id="prof-new-pw" type="password" placeholder="Minimo 6 caracteres" style="width:100%;padding:12px 44px 12px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;transition:border-color .2s;outline:none" onfocus="this.style.borderColor=\'#0891b2\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
       '<button type="button" class="prof-toggle-pw" data-target="prof-new-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:#94a3b8;padding:4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>' +
@@ -171,11 +168,9 @@
     var saveBtn = document.getElementById("prof-save-pw");
     if (saveBtn) {
       saveBtn.addEventListener("click", async function () {
-        var currentPw = document.getElementById("prof-current-pw");
         var newPw = document.getElementById("prof-new-pw");
         var confirmPw = document.getElementById("prof-confirm-pw");
-        if (!currentPw || !newPw || !confirmPw) return;
-        if (!currentPw.value) { showToast("Ingresa tu contrasena actual", "error"); currentPw.focus(); return; }
+        if (!newPw || !confirmPw) return;
         if (newPw.value.length < 6) { showToast("La nueva contrasena debe tener al menos 6 caracteres", "error"); newPw.focus(); return; }
         if (newPw.value !== confirmPw.value) { showToast("Las contrasenas no coinciden", "error"); confirmPw.focus(); return; }
         saveBtn.disabled = true;
@@ -185,11 +180,8 @@
           var auth = firebase && firebase.auth ? firebase.auth() : null;
           var firebaseUser = auth ? auth.currentUser : null;
           if (!firebaseUser) { showToast("Sesion no encontrada. Vuelve a iniciar sesion.", "error"); saveBtn.disabled = false; return; }
-          var credential = firebase.auth.EmailAuthProvider.credential(firebaseUser.email, currentPw.value);
-          await firebaseUser.reauthenticateWithCredential(credential);
           await firebaseUser.updatePassword(newPw.value);
           showToast("Contrasena actualizada correctamente", "success");
-          currentPw.value = "";
           newPw.value = "";
           confirmPw.value = "";
           var bar = document.getElementById("prof-pw-bar");

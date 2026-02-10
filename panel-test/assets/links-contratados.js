@@ -408,12 +408,12 @@
   /* ── Event listeners ── */
   function attachListeners(container) {
     container.querySelectorAll(".lc-order-card").forEach(function (card) {
-      card.addEventListener("click", function (e) { if (e.target.closest("button")) return; var id = this.getAttribute("data-id"); if (id) window.location.hash = "#myproducts/" + id; });
+      card.addEventListener("click", function (e) { if (e.target.closest("button")) return; var id = this.getAttribute("data-id"); if (id) showDetailInline(id); });
       card.addEventListener("mouseover", function () { this.style.boxShadow = "0 4px 16px rgba(0,0,0,.08)"; this.style.borderColor = "#cbd5e1"; this.style.transform = "translateY(-1px)"; });
       card.addEventListener("mouseout", function () { this.style.boxShadow = ""; this.style.borderColor = "#e2e8f0"; this.style.transform = ""; });
     });
-    container.querySelectorAll(".lc-btn-detail").forEach(function (btn) { btn.addEventListener("click", function (e) { e.stopPropagation(); window.location.hash = "#myproducts/" + this.getAttribute("data-id"); }); });
-    container.querySelectorAll(".lc-btn-back").forEach(function (btn) { btn.addEventListener("click", function () { window.location.hash = "#myproducts"; }); });
+    container.querySelectorAll(".lc-btn-detail").forEach(function (btn) { btn.addEventListener("click", function (e) { e.stopPropagation(); showDetailInline(this.getAttribute("data-id")); }); });
+    container.querySelectorAll(".lc-btn-back").forEach(function (btn) { btn.addEventListener("click", function () { hideDetailInline(); }); });
     container.querySelectorAll(".lc-open-link").forEach(function (btn) { btn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); window.open(this.getAttribute("data-url"), "_blank"); }); });
     container.querySelectorAll(".lc-copy-link").forEach(function (btn) {
       btn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); var url = this.getAttribute("data-url"); var b = this;
@@ -561,6 +561,27 @@
       '<span style="margin-left:auto;background:rgba(8,145,178,.3);color:#67e8f9;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600">' + orders.length + '</span></div>' +
       '<div style="padding:20px 24px">' + expedientesHtml + '</div></div>';
     attachListeners(wrapper);
+  }
+
+  async function showDetailInline(orderId) {
+    var inject = document.getElementById("lc-expedientes-inject");
+    if (!inject) return;
+    inject.setAttribute("data-prev", inject.innerHTML);
+    inject.innerHTML = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;padding:24px"><div style="height:200px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:12px"></div></div>';
+    var order = await fetchOrderDetail(orderId);
+    inject.innerHTML = renderDetailView(order);
+    applyClientOrder(inject);
+    attachListeners(inject);
+    inject.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function hideDetailInline() {
+    var inject = document.getElementById("lc-expedientes-inject");
+    if (!inject) return;
+    isRendering = false;
+    inject.remove();
+    var mainContent = document.querySelector("main");
+    if (mainContent) injectExpedientesSection(mainContent);
   }
 
   function hideModule() {
