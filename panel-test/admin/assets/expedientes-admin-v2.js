@@ -49,6 +49,23 @@
     return (v === null || v === undefined || v === '') ? '' : v;
   }
 
+  function formatDotNumber(v) {
+    if (v === null || v === undefined || v === '' || isNaN(v)) return '';
+    var n = Math.round(parseFloat(v));
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function formatUsdDisplay(v) {
+    if (v === null || v === undefined || v === '' || isNaN(v)) return '';
+    var n = parseFloat(v);
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function stripDots(s) {
+    if (!s) return '';
+    return s.toString().replace(/\./g, '');
+  }
+
   function parseNumOrNull(v) {
     if (v === '' || v === undefined || v === null) return null;
     var n = parseFloat(v);
@@ -498,17 +515,19 @@
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div>' +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
       '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
-      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
-      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
-      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:90px">Imagen</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Valor USA</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociar</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Chile CLP</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociado</th>' +
-      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:60px">N\u00b0 Sel</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Comentarios</th>' +
-      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Imagen</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Ubicacion</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Valor USA (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Negociar (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Chile (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Negociado (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:55px">N\u00b0 Sel</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:140px">Comentarios</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
       '</tr></thead><tbody id="ea-links-tbody">' +
       linksRows +
       "</tbody></table></div></div>"
@@ -517,28 +536,35 @@
 
   function renderLinkRow(lk, idx) {
     var ci = cellInputStyle();
+    var placeholderSvg = '<div class="ea-img-placeholder" style="width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     var imgPreview = lk.image_url
-      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:64px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;transition:transform .2s" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '" onerror="this.style.display=\'none\'" title="Click para ver">'
-      : '<div style="width:64px;height:48px;border-radius:8px;border:1px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '">'
+      : placeholderSvg;
+    var clpVal = formatDotNumber(lk.value_chile_clp);
+    var clpNegVal = formatDotNumber(lk.value_chile_negotiated_clp);
+    var usdVal = formatUsdDisplay(lk.value_usa_usd);
+    var usdNegVal = formatUsdDisplay(lk.value_to_negotiate_usd);
     return (
-      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .2s">' +
-      '<td style="padding:6px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.4;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
-      '<td class="ea-row-num" style="padding:6px 4px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700">' + (idx + 1) + "</td>" +
-      '<td style="padding:6px 4px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:11px;width:84px;text-align:center" title="URL de la imagen"></div></td>' +
-      '<td style="padding:6px 4px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
-      '<div style="display:flex;gap:1px;flex-shrink:0">' +
-      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
-      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
-      "</div></td>" +
-      '<td style="padding:6px 4px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
-      '<td style="padding:6px 4px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_to_negotiate_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
-      '<td style="padding:6px 4px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_clp) + '" placeholder="0" style="' + ci + '"></td>' +
-      '<td style="padding:6px 4px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" placeholder="0" style="' + ci + '"></td>' +
-      '<td style="padding:6px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center"></td>' +
-      '<td style="padding:6px 4px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="..." style="' + ci + '"></td>' +
-      '<td style="padding:6px 4px;text-align:center">' +
-      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
-      "</tr>"
+      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s">' +
+      '<td style="padding:8px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.3;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
+      '<td class="ea-row-num" style="padding:8px 4px;text-align:center;font-size:14px;color:#64748b;font-weight:800">' + (idx + 1) + '</td>' +
+      '<td style="padding:8px 6px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:6px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8" title="URL de la imagen"></div></td>' +
+      '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
+      '<div style="display:flex;gap:2px;flex-shrink:0">' +
+      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
+      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
+      '</div></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + '"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';width:72px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_chile_negotiated_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" value="' + (clpNegVal ? '$ ' + clpNegVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
+      '<td style="padding:8px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center;font-weight:700"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="Agregar comentario..." style="' + ci + '"></td>' +
+      '<td style="padding:8px 4px;text-align:center">' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
+      '</tr>'
     );
   }
 
@@ -580,10 +606,12 @@
         row_index: idx + 1,
         url: (row.querySelector(".ea-link-url") || {}).value || null,
         image_url: (row.querySelector(".ea-link-image_url") || {}).value || null,
-        value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).value),
-        value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
-        value_chile_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_clp") || {}).value),
-        value_chile_negotiated_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value),
+        location: (row.querySelector(".ea-link-location") || {}).value || null,
+        hours: (row.querySelector(".ea-link-hours") || {}).value || null,
+        value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_usa_usd") || {}).value),
+        value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
+        value_chile_clp: parseNumOrNull(stripDots(((row.querySelector(".ea-link-value_chile_clp") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_chile_clp") || {}).value || '').replace(/\$/g,'').trim())),
+        value_chile_negotiated_clp: parseNumOrNull(stripDots(((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value || '').replace(/\$/g,'').trim())),
         selection_order: parseNumOrNull((row.querySelector(".ea-link-selection_order") || {}).value),
         comments: (row.querySelector(".ea-link-comments") || {}).value || null,
       });
@@ -697,6 +725,44 @@
       });
     });
 
+    container.querySelectorAll('.ea-fmt-clp').forEach(function (inp) {
+      inp.addEventListener('focus', function () {
+        var raw = this.getAttribute('data-raw') || '';
+        this.value = raw;
+        this.select();
+      });
+      inp.addEventListener('blur', function () {
+        var val = stripDots(this.value.replace(/\$/g,'').trim());
+        var n = parseFloat(val);
+        if (!isNaN(n)) { this.setAttribute('data-raw', Math.round(n)); this.value = '$ ' + formatDotNumber(n); }
+        else if (!val) { this.setAttribute('data-raw', ''); this.value = ''; }
+      });
+    });
+
+    container.querySelectorAll('.ea-fmt-usd').forEach(function (inp) {
+      inp.addEventListener('focus', function () {
+        var raw = this.getAttribute('data-raw') || '';
+        this.value = raw;
+        this.select();
+      });
+      inp.addEventListener('blur', function () {
+        var val = this.value.replace(/,/g,'').trim();
+        var n = parseFloat(val);
+        if (!isNaN(n)) { this.setAttribute('data-raw', n); this.value = formatUsdDisplay(n); }
+        else if (!val) { this.setAttribute('data-raw', ''); this.value = ''; }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-preview").forEach(function (img) {
+      img.addEventListener("error", function () {
+        this.style.display = "none";
+        var placeholder = document.createElement("div");
+        placeholder.className = "ea-img-placeholder";
+        placeholder.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)";
+        placeholder.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        this.parentNode.insertBefore(placeholder, this);
+      });
+    });
     container.querySelectorAll(".ea-img-preview").forEach(function (img) {
       img.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -934,18 +1000,28 @@
   function hideModule() {
     moduleHidden = true;
     var container = document.getElementById("ea-module-container");
+    var mainContent = document.querySelector("main");
     if (container) {
       container.remove();
-      var mainContent = document.querySelector("main");
-      if (mainContent) {
-        mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+    }
+    if (mainContent) {
+      mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+        if (el.style.display === "none") {
           el.style.display = "";
-        });
-      }
+        }
+      });
+    }
+    if (window.location.hash === "#expedientes" || window.location.hash.startsWith("#expedientes/")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
     }
     currentOrderData = null;
     currentLinks = [];
     updateSidebarActive();
+    setTimeout(function () {
+      if (mainContent && mainContent.children.length === 0) {
+        window.location.reload();
+      }
+    }, 500);
   }
 
   function addStyles() {
@@ -959,8 +1035,10 @@
       "@keyframes eaSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}" +
       ".ea-spin{animation:eaSpin 1s linear infinite}" +
       "#ea-module-container input:focus,#ea-module-container select:focus,#ea-module-container textarea:focus{border-color:#0891b2!important;box-shadow:0 0 0 3px rgba(8,145,178,.12)!important}" +
-      ".ea-link-row:hover{background:#fafafa!important}" +
+      ".ea-link-row:hover{background:#f0f9ff!important}" +
       ".ea-link-row:hover .ea-drag-handle{opacity:1!important}" +
+      ".ea-link-row:hover img{border-color:#0891b2!important;box-shadow:0 4px 12px rgba(8,145,178,.15)!important}" +
+      ".ea-img-preview:hover{transform:scale(1.05)}" +
       ".ea-link-row.ea-dragging{opacity:.4;box-shadow:0 8px 24px rgba(0,0,0,.12)}" +
       ".ea-drag-handle:active{cursor:grabbing!important}" +
       ".ea-open-url:hover,.ea-copy-url:hover{background:#e2e8f0!important;color:#1e293b!important}" +
