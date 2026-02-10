@@ -101,18 +101,22 @@
   }
 
   function injectSidebarItem() {
-    if (document.getElementById("sidebar-links-contratados")) return;
     var nav = document.querySelector("aside nav") || document.querySelector("nav");
     if (!nav) return;
-    var refBtn = document.getElementById("sidebar-mis-productos");
-    if (!refBtn) {
-      nav.querySelectorAll("a, button").forEach(function (el) {
-        var text = el.textContent.trim().toLowerCase();
-        if (text.includes("mis productos") || text.includes("producto")) refBtn = el;
-      });
-    }
-    if (!refBtn) { var btns = nav.querySelectorAll("a, button"); if (btns.length > 0) refBtn = btns[btns.length - 1]; }
+    var refBtn = null;
+    nav.querySelectorAll("a, button").forEach(function (el) {
+      var text = (el.textContent || "").trim().toLowerCase();
+      if (text.includes("mis productos")) refBtn = el;
+    });
     if (!refBtn) return;
+    var refLi = refBtn.closest("li");
+    if (!refLi || !refLi.parentNode) return;
+    var existing = document.getElementById("sidebar-links-contratados");
+    if (existing) {
+      var existingLi = existing.closest("li");
+      if (existingLi && refLi.nextElementSibling === existingLi) return;
+      if (existingLi) existingLi.remove();
+    }
     var li = document.createElement("li");
     var btn = document.createElement("button");
     btn.id = "sidebar-links-contratados";
@@ -120,9 +124,7 @@
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/></svg> Mis Expedientes';
     btn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); moduleHidden = false; if (window.location.hash === "#links-contratados") renderModule(); else window.location.hash = "#links-contratados"; });
     li.appendChild(btn);
-    var refLi = refBtn.closest("li");
-    if (refLi && refLi.parentNode) refLi.parentNode.insertBefore(li, refLi.nextSibling);
-    else { var ul = nav.querySelector("ul"); if (ul) ul.appendChild(li); else nav.appendChild(li); }
+    refLi.parentNode.insertBefore(li, refLi.nextSibling);
     updateSidebarActive();
   }
 
