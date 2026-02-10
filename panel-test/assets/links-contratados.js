@@ -277,11 +277,11 @@
 
     var imgHtml = '';
     if (lk.image_url) {
-      imgHtml = '<div style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" class="lc-img-preview" data-url="' + escapeHtml(lk.image_url) + '">' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
         '<img src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="this.style.display=\'none\'">' +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     } else {
-      imgHtml = '<div style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;position:relative">' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;position:relative">' +
         '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>' +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
@@ -330,11 +330,11 @@
 
     return '<div class="lc-vessel-card" draggable="true" data-link-id="' + (lk.id || "") + '" data-idx="' + idx + '" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;transition:all .25s;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.04)">' +
       selOrderHtml +
-      '<div style="display:flex;gap:0">' +
+      '<div class="lc-card-row" style="display:flex;gap:0">' +
       '<div class="lc-drag-handle" style="flex-shrink:0;width:32px;display:flex;align-items:center;justify-content:center;cursor:grab;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-right:1px solid #e2e8f0;opacity:.6;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div>' +
-      '<div style="flex:1;padding:16px;display:flex;gap:16px;flex-wrap:wrap;min-width:0">' +
+      '<div class="lc-card-body" style="flex:1;padding:16px;display:flex;gap:16px;flex-wrap:wrap;min-width:0">' +
       imgHtml +
-      '<div style="flex:1;min-width:200px">' +
+      '<div class="lc-card-text" style="flex:1;min-width:0">' +
       (lk.title ? '<h4 style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1e293b">' + escapeHtml(lk.title) + '</h4>' : '') +
       locationHoursHtml + urlHtml + valuesHtml + commentsHtml +
       (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
@@ -644,7 +644,17 @@
       ".lc-img-preview:hover img{transform:scale(1.05)}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
-      "@media(max-width:768px){#lc-module-container{padding:12px!important}.lc-vessel-card>div>div:last-child{flex-direction:column!important}}";
+      "@media(max-width:768px){" +
+      "#lc-module-container{padding:8px!important}" +
+      ".lc-vessel-card{max-width:100%!important}" +
+      ".lc-card-row{flex-direction:column!important}" +
+      ".lc-drag-handle{width:100%!important;height:28px!important;border-right:none!important;border-bottom:1px solid #e2e8f0!important;flex-direction:row!important}" +
+      ".lc-card-body{flex-direction:column!important;gap:12px!important;padding:12px!important}" +
+      ".lc-img-preview{width:100%!important;height:180px!important}" +
+      ".lc-card-text{width:100%!important;min-width:0!important}" +
+      ".lc-vessel-card a[href]{word-break:break-all!important;white-space:normal!important;max-width:100%!important;font-size:12px!important;overflow:visible!important;text-overflow:unset!important}" +
+      ".lc-inspect-btn{width:100%!important;justify-content:center!important}" +
+      "}";
     document.head.appendChild(style);
   }
 
