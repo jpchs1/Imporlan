@@ -501,8 +501,10 @@
       '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
       '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
       '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:90px">Imagen</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
-      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Valor USA</th>' +
+            '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
+            '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:120px">Ubicacion</th>' +
+            '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
+            '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Valor USA</th>' +
       '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociar</th>' +
       '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Chile CLP</th>' +
       '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociado</th>' +
@@ -529,8 +531,10 @@
       '<div style="display:flex;gap:1px;flex-shrink:0">' +
       '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
       '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
-      "</div></td>" +
-      '<td style="padding:6px 4px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
+            "</div></td>" +
+            '<td style="padding:6px 4px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + '"></td>' +
+            '<td style="padding:6px 4px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';width:70px"></td>' +
+            '<td style="padding:6px 4px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
       '<td style="padding:6px 4px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_to_negotiate_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
       '<td style="padding:6px 4px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_clp) + '" placeholder="0" style="' + ci + '"></td>' +
       '<td style="padding:6px 4px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" placeholder="0" style="' + ci + '"></td>' +
@@ -580,6 +584,8 @@
         row_index: idx + 1,
         url: (row.querySelector(".ea-link-url") || {}).value || null,
         image_url: (row.querySelector(".ea-link-image_url") || {}).value || null,
+        location: (row.querySelector(".ea-link-location") || {}).value || null,
+        hours: (row.querySelector(".ea-link-hours") || {}).value || null,
         value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).value),
         value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
         value_chile_clp: parseNumOrNull((row.querySelector(".ea-link-value_chile_clp") || {}).value),

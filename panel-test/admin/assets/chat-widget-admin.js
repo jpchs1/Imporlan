@@ -547,9 +547,7 @@
         if (tokenRefreshAttempted) return false;
         tokenRefreshAttempted = true;
         
-        // Show message to user that they need to re-login
-        console.log('Chat: Token validation failed. Please re-login to use chat.');
-        alert('Tu sesion de chat ha expirado. Por favor, cierra sesion y vuelve a iniciar sesion para usar el chat.');
+        console.log('Chat: Token validation failed. Chat will retry on next interaction.');
         return false;
     }
 

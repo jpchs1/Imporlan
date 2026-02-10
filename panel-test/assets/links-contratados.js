@@ -108,10 +108,15 @@
       var nav = document.querySelector("aside nav") || document.querySelector("nav");
       if (!nav) { setTimeout(tryInject, 500); return; }
       var refBtn = null;
-      nav.querySelectorAll("a, button").forEach(function (el) {
-        var text = el.textContent.trim().toLowerCase();
-        if (text.includes("soporte") || text.includes("producto") || text.includes("servicio") || text.includes("importaciones")) refBtn = el;
-      });
+      var productosBtn = document.getElementById("sidebar-mis-productos");
+      if (productosBtn) { refBtn = productosBtn; }
+      else {
+        nav.querySelectorAll("a, button").forEach(function (el) {
+          var text = el.textContent.trim().toLowerCase();
+          if (text.includes("producto") || text.includes("mis productos")) refBtn = el;
+        });
+      }
+      if (!refBtn) { nav.querySelectorAll("a, button").forEach(function (el) { var text = el.textContent.trim().toLowerCase(); if (text.includes("soporte") || text.includes("servicio") || text.includes("importaciones")) refBtn = el; }); }
       if (!refBtn) { var btns = nav.querySelectorAll("a, button"); if (btns.length > 0) refBtn = btns[btns.length - 1]; }
       if (!refBtn) { setTimeout(tryInject, 500); return; }
       var li = document.createElement("li");
@@ -210,6 +215,14 @@
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
 
+    var locationHoursHtml = '';
+    if (lk.location || lk.hours) {
+      locationHoursHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
+      if (lk.location) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#15803d;font-weight:500">' + escapeHtml(lk.location) + '</span></div>';
+      if (lk.hours) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#a16207;font-weight:500">' + escapeHtml(lk.hours) + ' hrs</span></div>';
+      locationHoursHtml += '</div>';
+    }
+
     var valuesHtml = '';
     var vU = formatCurrency(lk.value_usa_usd, "USD");
     var vN = formatCurrency(lk.value_to_negotiate_usd, "USD");
@@ -254,7 +267,7 @@
       imgHtml +
       '<div style="flex:1;min-width:200px">' +
       (lk.title ? '<h4 style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1e293b">' + escapeHtml(lk.title) + '</h4>' : '') +
-      urlHtml + valuesHtml + commentsHtml +
+      locationHoursHtml + urlHtml + valuesHtml + commentsHtml +
       (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
       '</div></div></div></div>';
   }

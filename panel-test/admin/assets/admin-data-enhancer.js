@@ -115,20 +115,34 @@
     });
   }
 
+  function cleanupEnhancer() {
+    var main = document.querySelector("main");
+    if (!main) return;
+    main.querySelectorAll("[data-enhancer-hidden]").forEach(function (el) {
+      el.style.display = "";
+      el.removeAttribute("data-enhancer-hidden");
+    });
+    main.querySelectorAll("[data-enhancer-added]").forEach(function (el) {
+      el.remove();
+    });
+  }
+
   function enhancePlanes() {
     var main = document.querySelector("main");
     if (!main) return;
     var h1 = main.querySelector("h1");
     if (!h1) return;
     var subtitle = h1.nextElementSibling;
-    var newPlanBtn = main.querySelector("button");
     var children = Array.from(main.children);
     children.forEach(function (ch) {
-      if (ch !== h1 && ch !== subtitle && ch !== newPlanBtn && ch.tagName !== "BUTTON") {
-        ch.remove();
+      if (ch !== h1 && ch !== subtitle && !ch.getAttribute("data-enhancer-added")) {
+        ch.style.display = "none";
+        ch.setAttribute("data-enhancer-hidden", "true");
       }
     });
+    if (main.querySelector("[data-enhancer-added='plans']")) return;
     var container = document.createElement("div");
+    container.setAttribute("data-enhancer-added", "plans");
     container.style.cssText = "display:flex;gap:20px;flex-wrap:wrap;padding:20px 0";
     var html = "";
     REAL_PLANS.forEach(function (p) {
@@ -139,7 +153,6 @@
     });
     container.innerHTML = html;
     main.appendChild(container);
-    if (newPlanBtn) newPlanBtn.style.display = "none";
   }
 
   function enhancePagos() {
@@ -207,6 +220,7 @@
   function check() {
     var s = getSection();
     if (s && s !== lastSection) {
+      cleanupEnhancer();
       lastSection = s;
       enhanced = {};
       setTimeout(function () { enhance(s); }, 300);
