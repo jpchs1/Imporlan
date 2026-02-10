@@ -1,4 +1,20 @@
+/* === GLOBAL === */
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+#root {
+  width: 100%;
+  overflow-x: hidden;
+}
+#root > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* === MOBILE / TABLET (< 1024px) === */
 @media (max-width: 1023px) {
+  /* Sidebar: stacked full-width on top */
   aside.w-72,
   aside[class*="w-72"] {
     position: relative !important;
@@ -33,11 +49,14 @@
     width: 1rem !important;
     height: 1rem !important;
   }
+
+  /* Main content: full width, no margin */
   main {
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    padding: 1rem !important;
+    padding: 0.75rem !important;
+    box-sizing: border-box !important;
   }
   main[class*="ml-72"],
   main[class*="ml-20"] {
@@ -45,21 +64,205 @@
     width: 100% !important;
     max-width: 100% !important;
   }
+
+  /* All children inside main: full width, no overflow */
+  main > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  main div, main section, main article {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Flex rows: wrap on mobile */
+  main [class*="flex"][class*="items-center"],
+  main [class*="flex"][class*="justify-between"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* Flex children: allow shrinking */
+  main [class*="flex"] > * {
+    min-width: 0 !important;
+  }
+
+  /* Grid layouts: single column on mobile */
+  main [class*="grid-cols-2"],
+  main [class*="grid-cols-3"],
+  main [class*="grid-cols-4"] {
+    grid-template-columns: 1fr !important;
+  }
+  main [class*="lg:grid-cols"],
+  main [class*="md:grid-cols"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Cards and containers: full width */
+  main [class*="rounded"][class*="bg-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* General text: allow wrapping only when needed */
+  main p, main span, main div, main h1, main h2, main h3, main h4, main strong {
+    overflow-wrap: break-word !important;
+  }
+
+  /* ONLY URLs/links get aggressive break */
+  main a[href] {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+  }
+
+  /* Badges and short labels: never break */
+  main [class*="rounded-full"],
+  main [class*="px-2"][class*="py-"],
+  main [class*="px-3"][class*="py-"] {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Tables: responsive */
+  main table {
+    width: 100% !important;
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  main thead, main tbody, main tr {
+    max-width: 100% !important;
+  }
+
+  /* Fix fixed-width elements */
+  main [class*="w-64"],
+  main [class*="w-72"],
+  main [class*="w-80"],
+  main [class*="w-96"],
+  main [class*="min-w-"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Dashboard header: stack dolar info below title */
+  main > div > div:first-child {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  main > div > div:first-child > div {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  main > div > div:first-child [class*="flex"] {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Status cards grid: 2 columns on mobile */
+  main > div > div:nth-child(3) {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+
+  /* Importaciones / Alertas section: stack */
+  main [class*="lg:grid-cols-2"],
+  main [class*="xl:grid-cols"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Progress tracker: make it scrollable */
+  main [class*="overflow-x-auto"] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  /* Fix images */
+  main img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Truncated text: show full on mobile */
+  main [class*="truncate"] {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+
+  /* Injected modules (expedientes, productos, etc) */
+  #mis-productos-section,
+  #expedientes-detail-section,
+  [id*="expediente"],
+  [id*="producto"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  #mis-productos-section div,
+  #expedientes-detail-section div,
+  [id*="expediente"] div,
+  [id*="producto"] div {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  #mis-productos-section a,
+  #expedientes-detail-section a,
+  [id*="expediente"] a,
+  [id*="producto"] a {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+  }
+  #mis-productos-section img,
+  #expedientes-detail-section img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Expediente order cards: stack vertically on mobile */
+  .lc-order-card > div:nth-child(2) {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  .lc-order-card > div:nth-child(2) > div {
+    width: 100% !important;
+    flex: none !important;
+    flex-shrink: 1 !important;
+  }
+  .lc-order-card > div:nth-child(2) > div:last-child {
+    justify-content: flex-start !important;
+    margin-top: 8px !important;
+  }
+  .lc-order-card div {
+    min-width: auto !important;
+  }
+  .lc-order-card span,
+  .lc-order-card p,
+  .lc-order-card h3 {
+    white-space: normal !important;
+    word-break: normal !important;
+  }
+
+  /* React status badges: prevent text break */
+  main span[class*="text-xs"],
+  main span[class*="text-sm"][class*="font-"] {
+    white-space: nowrap !important;
+    word-break: normal !important;
+  }
 }
 
+/* === DESKTOP (>= 1024px) === */
 @media (min-width: 1024px) {
   main {
     width: calc(100% - 18rem) !important;
     max-width: none !important;
   }
-}
-
-html, body {
-  overflow-x: hidden;
-  width: 100%;
-}
-
-#root {
-  width: 100%;
-  overflow-x: hidden;
 }
