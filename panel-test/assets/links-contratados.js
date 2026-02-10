@@ -105,8 +105,9 @@
     if (!asideEl) return;
     var refLi = null;
     asideEl.querySelectorAll("li").forEach(function (li) {
+      if (refLi) return;
       var text = (li.textContent || "").trim().toLowerCase();
-      if (text.includes("mis productos")) refLi = li;
+      if (text.includes("productos contratados")) refLi = li;
     });
     if (!refLi || !refLi.parentNode) return;
     var existing = document.getElementById("sidebar-links-contratados");
