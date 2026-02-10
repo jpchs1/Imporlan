@@ -1,6 +1,6 @@
 /**
  * Expedientes Admin Module - Imporlan Admin Panel
- * Standalone JS module for managing expedition orders (admin side)
+ * Modern UI with drag & drop reordering
  */
 (function () {
   "use strict";
@@ -31,6 +31,7 @@
   let currentLinks = [];
   let hasUnsavedChanges = false;
   var moduleHidden = false;
+  var dragSrcRow = null;
 
   function getAdminToken() {
     return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
@@ -77,7 +78,7 @@
 
   function getStatusBadge(status) {
     var s = STATUS_COLORS[status] || STATUS_COLORS["new"];
-    return '<span style="display:inline-block;padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:600;background:' + s.bg + ";color:" + s.text + '">' + escapeHtml(s.label) + "</span>";
+    return '<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:9999px;font-size:12px;font-weight:600;background:' + s.bg + ';color:' + s.text + ';letter-spacing:.02em"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7"></span>' + escapeHtml(s.label) + '</span>';
   }
 
   function authHeaders() {
@@ -287,10 +288,24 @@
     }
   }
 
+  async function reorderLinks(orderId, linkIds) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_reorder_links", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId, link_ids: linkIds }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error reordering links:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
   function showToast(msg, type) {
     var toast = document.createElement("div");
     var bgColor = type === "error" ? "#ef4444" : "#10b981";
-    toast.style.cssText = "position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:10px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaFadeIn .3s;box-shadow:0 4px 12px rgba(0,0,0,.2);background:" + bgColor;
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);background:" + bgColor;
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(function () {
@@ -301,12 +316,16 @@
   }
 
   function inputStyle() {
-    return "width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;color:#1e293b;background:#fff;outline:none;transition:border-color .2s;box-sizing:border-box";
+    return "width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;background:#fff;outline:none;transition:all .2s;box-sizing:border-box";
+  }
+
+  function cellInputStyle() {
+    return "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;width:100%;box-sizing:border-box;outline:none;background:#fff;transition:all .2s";
   }
 
   function renderFilters() {
     return (
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0" id="ea-filters">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;padding:18px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;border:1px solid #e2e8f0" id="ea-filters">' +
       '<select id="ea-filter-status" style="' + inputStyle() + '">' +
       '<option value="">Todos los estados</option>' +
       STATUS_OPTIONS.map(function (s) { return '<option value="' + s.value + '">' + escapeHtml(s.label) + "</option>"; }).join("") +
@@ -320,7 +339,7 @@
       '<input type="date" id="ea-filter-from" style="' + inputStyle() + '" title="Desde">' +
       '<input type="date" id="ea-filter-to" style="' + inputStyle() + '" title="Hasta">' +
       '<input type="text" id="ea-filter-search" placeholder="Buscar cliente..." style="' + inputStyle() + '">' +
-      '<button id="ea-filter-btn" style="padding:8px 16px;border-radius:8px;border:none;background:#0891b2;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s" onmouseover="this.style.background=\'#0e7490\'" onmouseout="this.style.background=\'#0891b2\'">Filtrar</button>' +
+      '<button id="ea-filter-btn" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.25)">Filtrar</button>' +
       "</div>"
     );
   }
@@ -328,42 +347,44 @@
   function renderListView(orders) {
     var rows = "";
     if (orders.length === 0) {
-      rows = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;font-size:15px">No se encontraron expedientes</td></tr>';
+      rows = '<tr><td colspan="7" style="text-align:center;padding:50px;color:#94a3b8"><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size:15px">No se encontraron expedientes</span></div></td></tr>';
     } else {
       orders.forEach(function (o) {
+        var si = STATUS_COLORS[o.status] || STATUS_COLORS["new"];
         rows +=
-          "<tr style=\"border-bottom:1px solid #e2e8f0;transition:background .15s\" onmouseover=\"this.style.background='#f8fafc'\" onmouseout=\"this.style.background='transparent'\">" +
-          '<td style="padding:12px 14px"><span style="display:inline-block;padding:3px 10px;border-radius:6px;background:rgba(0,212,255,0.1);color:#0891b2;font-size:13px;font-weight:600">' + escapeHtml(o.order_number) + "</span></td>" +
-          '<td style="padding:12px 14px;font-size:14px;color:#334155">' + escapeHtml(o.customer_name) + '<br><span style="font-size:12px;color:#94a3b8">' + escapeHtml(o.customer_email) + "</span></td>" +
-          '<td style="padding:12px 14px;font-size:14px;color:#334155">' + escapeHtml(o.plan_name || "-") + "</td>" +
-          '<td style="padding:12px 14px">' + getStatusBadge(o.status) + "</td>" +
-          '<td style="padding:12px 14px;font-size:13px;color:#64748b">' + formatDate(o.created_at) + "</td>" +
-          '<td style="padding:12px 14px;font-size:14px;color:#334155">' + escapeHtml(o.agent_name || "-") + "</td>" +
-          '<td style="padding:12px 14px"><button class="ea-btn-edit" data-id="' + o.id + '" style="padding:6px 16px;border-radius:8px;border:none;background:#0891b2;color:#fff;font-size:13px;font-weight:500;cursor:pointer;transition:background .2s" onmouseover="this.style.background=\'#0e7490\'" onmouseout="this.style.background=\'#0891b2\'">Editar</button></td>' +
+          '<tr class="ea-list-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s;cursor:pointer" data-id="' + o.id + '">' +
+          '<td style="padding:14px 16px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(8,145,178,.08),rgba(6,182,212,.08));color:#0891b2;font-size:13px;font-weight:700;letter-spacing:.02em">' + escapeHtml(o.order_number) + "</span></td>" +
+          '<td style="padding:14px 16px"><div style="font-size:14px;color:#1e293b;font-weight:500">' + escapeHtml(o.customer_name) + '</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">' + escapeHtml(o.customer_email) + "</div></td>" +
+          '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.plan_name || "-") + "</td>" +
+          '<td style="padding:14px 16px">' + getStatusBadge(o.status) + "</td>" +
+          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.created_at) + "</td>" +
+          '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.agent_name || "-") + "</td>" +
+          '<td style="padding:14px 16px"><button class="ea-btn-edit" data-id="' + o.id + '" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.2)">Editar</button></td>' +
           "</tr>";
       });
     }
 
     return (
-      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">' +
-      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
-      '<div style="display:flex;align-items:center;gap:14px">' +
-      '<div style="width:44px;height:44px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:12px;display:flex;align-items:center;justify-content:center">' +
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
-      '<div><h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Expedientes</h2>' +
-      '<p style="color:#94a3b8;font-size:13px;margin:4px 0 0">Gestion de expedientes de busqueda</p></div></div>' +
-      '<button id="ea-btn-create" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .2s" onmouseover="this.style.background=\'#059669\'" onmouseout="this.style.background=\'#10b981\'">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Expediente</button></div>' +
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:28px 32px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(8,145,178,.12);border-radius:50%"></div>' +
+      '<div style="display:flex;align-items:center;gap:16px;position:relative">' +
+      '<div style="width:52px;height:52px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)">' +
+      '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<div><h2 style="color:#fff;font-size:22px;font-weight:700;margin:0">Expedientes</h2>' +
+      '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Gestion de expedientes de busqueda</p></div></div>' +
+      '<button id="ea-btn-create" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.3);position:relative">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Expediente</button></div>' +
       renderFilters() +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
-      "<thead><tr>" +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Pedido N°</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Cliente</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Plan</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Estado</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Fecha</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Agente</th>' +
-      '<th style="padding:12px 14px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;background:linear-gradient(to right,#f8fafc,#f1f5f9)">Acciones</th>' +
+      '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Pedido N\u00b0</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Cliente</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Plan</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Estado</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Fecha</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Agente</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Acciones</th>' +
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table></div></div>"
@@ -373,8 +394,8 @@
   function renderDetailView(order) {
     if (!order) {
       return (
-        '<div style="text-align:center;padding:60px;color:#94a3b8"><p>Expediente no encontrado</p>' +
-        '<button class="ea-btn-back" style="margin-top:16px;padding:8px 20px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;cursor:pointer">Volver</button></div>'
+        '<div style="text-align:center;padding:60px;color:#94a3b8"><p style="font-size:16px">Expediente no encontrado</p>' +
+        '<button class="ea-btn-back" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;cursor:pointer;font-size:14px;font-weight:500">Volver</button></div>'
       );
     }
 
@@ -391,106 +412,116 @@
     });
 
     if (currentLinks.length === 0) {
-      linksRows = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#94a3b8">No hay links. Agrega uno con el boton de abajo.</td></tr>';
+      linksRows = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>No hay links. Agrega uno con el boton de abajo.</td></tr>';
     }
 
     return (
-      '<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
-      '<button class="ea-btn-back" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor=\'#0891b2\';this.style.color=\'#0891b2\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">' +
+      '<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
+      '<button class="ea-btn-back" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Volver</button>' +
-      '<button id="ea-save-all" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .2s" onmouseover="this.style.background=\'#059669\'" onmouseout="this.style.background=\'#10b981\'">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button></div>' +
-      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:20px">' +
-      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:20px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
-      '<h2 style="color:#fff;font-size:18px;font-weight:700;margin:0">Expediente ' + escapeHtml(order.order_number) + "</h2>" +
-      '<select id="ea-status-select" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:13px;font-weight:500;cursor:pointer">' + statusOptions + "</select></div>" +
-      '<div style="padding:20px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + '" disabled></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + '" disabled></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Agente</label><input id="ea-f-agent_name" value="' + escapeHtml(order.agent_name || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
-      '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="margin-right:6px">Visible para cliente</label></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<span id="ea-unsaved-badge" style="display:none;padding:8px 16px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:500;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Cambios sin guardar</span>' +
+      '<button id="ea-save-all" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button></div></div>' +
+
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(8,145,178,.12);border-radius:50%"></div>' +
+      '<div style="display:flex;align-items:center;gap:14px;position:relative">' +
+      '<div style="width:44px;height:44px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:12px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Expediente ' + escapeHtml(order.order_number) + "</h2></div>" +
+      '<select id="ea-status-select" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(4px)">' + statusOptions + "</select></div>" +
+      '<div style="padding:24px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Agente</label><input id="ea-f-agent_name" value="' + escapeHtml(order.agent_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
+      '<div><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#0891b2;cursor:pointer">Visible para cliente</label></div>' +
       "</div></div></div>" +
-      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)">' +
-      '<div style="padding:16px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center">' +
-      '<div style="display:flex;align-items:center;gap:10px">' +
-      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
-      '<h3 style="margin:0;font-size:16px;font-weight:600;color:#1e293b">Links Opciones en USA</h3></div>' +
-      '<button id="ea-add-link" style="padding:6px 14px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s" onmouseover="this.style.background=\'#0891b2\';this.style.color=\'#fff\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'#0891b2\'">' +
+
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Links Opciones en USA</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las filas para reordenar por prioridad</p></div></div>' +
+      '<button id="ea-add-link" style="padding:8px 18px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div>' +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
-      "<thead><tr>" +
-      '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:36px">#</th>' +
-      '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:80px">Imagen</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;min-width:200px">Link Opcion (USA)</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Valor USA (USD)</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Negociar (USD)</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Chile (CLP)</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:110px">Negociado (CLP)</th>' +
-      '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:70px">N° Sel.</th>' +
-      '<th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;min-width:120px">Comentarios</th>' +
-      '<th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;background:#f8fafc;width:60px">Acc.</th>' +
-      "</tr></thead><tbody id=\"ea-links-tbody\">" +
+      '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
+      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
+      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
+      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:90px">Imagen</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Valor USA</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociar</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Chile CLP</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:110px">Negociado</th>' +
+      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:60px">N\u00b0 Sel</th>' +
+      '<th style="padding:12px 6px;text-align:left;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Comentarios</th>' +
+      '<th style="padding:12px 6px;text-align:center;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
+      '</tr></thead><tbody id="ea-links-tbody">' +
       linksRows +
       "</tbody></table></div></div>"
     );
   }
 
   function renderLinkRow(lk, idx) {
-    var cellInput = "padding:4px 6px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#1e293b;width:100%;box-sizing:border-box;outline:none;background:#fff";
+    var ci = cellInputStyle();
     var imgPreview = lk.image_url
-      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:60px;height:45px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '" onerror="this.style.display=\'none\'" title="Click para ver">'
-      : '<div style="width:60px;height:45px;border-radius:6px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;background:#f8fafc"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:64px;height:48px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;cursor:pointer;transition:transform .2s" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '" onerror="this.style.display=\'none\'" title="Click para ver">'
+      : '<div style="width:64px;height:48px;border-radius:8px;border:1px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     return (
-      '<tr data-link-id="' + (lk.id || "") + '" style="border-bottom:1px solid #f1f5f9">' +
-      '<td style="padding:6px 8px;text-align:center;font-size:13px;color:#64748b;font-weight:600">' + (idx + 1) + "</td>" +
-      '<td style="padding:6px 8px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + cellInput + ';font-size:11px;width:80px;text-align:center" title="URL de la imagen"></div></td>' +
-      '<td style="padding:6px 8px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + cellInput + ';flex:1">' +
-      (lk.url ? '<button class="ea-open-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Abrir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
-        '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url) + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px;flex-shrink:0" title="Copiar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' : "") +
+      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .2s">' +
+      '<td style="padding:6px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.4;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
+      '<td class="ea-row-num" style="padding:6px 4px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700">' + (idx + 1) + "</td>" +
+      '<td style="padding:6px 4px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:11px;width:84px;text-align:center" title="URL de la imagen"></div></td>' +
+      '<td style="padding:6px 4px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
+      '<div style="display:flex;gap:1px;flex-shrink:0">' +
+      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
+      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:6px;border-radius:6px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
       "</div></td>" +
-      '<td style="padding:6px 8px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_to_negotiate_usd) + '" placeholder="0.00" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_clp) + '" placeholder="0" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" placeholder="0" style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + cellInput + ';text-align:center"></td>' +
-      '<td style="padding:6px 8px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="..." style="' + cellInput + '"></td>' +
-      '<td style="padding:6px 8px;text-align:center;white-space:nowrap">' +
-      '<button class="ea-move-up" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px" title="Subir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg></button>' +
-      '<button class="ea-move-down" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#64748b;padding:2px" title="Bajar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>' +
-      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:none;cursor:pointer;color:#ef4444;padding:2px" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-value_usa_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_usa_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-value_to_negotiate_usd" type="number" step="0.01" value="' + numOrEmpty(lk.value_to_negotiate_usd) + '" placeholder="0.00" style="' + ci + '"></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-value_chile_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_clp) + '" placeholder="0" style="' + ci + '"></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-value_chile_negotiated_clp" type="number" step="1" value="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" placeholder="0" style="' + ci + '"></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center"></td>' +
+      '<td style="padding:6px 4px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="..." style="' + ci + '"></td>' +
+      '<td style="padding:6px 4px;text-align:center">' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
       "</tr>"
     );
   }
 
   function renderCreateModal() {
     return (
-      '<div id="ea-create-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s">' +
-      '<div style="background:#fff;border-radius:16px;width:90%;max-width:500px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">' +
-      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:20px 24px;display:flex;justify-content:space-between;align-items:center">' +
-      '<h3 style="color:#fff;font-size:18px;font-weight:600;margin:0">Nuevo Expediente</h3>' +
-      '<button id="ea-close-modal" style="border:none;background:none;color:#94a3b8;cursor:pointer;padding:4px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>' +
-      '<div style="padding:24px">' +
-      '<div style="display:grid;gap:14px">' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Email Cliente *</label><input id="ea-new-email" style="' + inputStyle() + '" placeholder="cliente@email.com"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Nombre Cliente *</label><input id="ea-new-name" style="' + inputStyle() + '" placeholder="Nombre completo"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Telefono Cliente</label><input id="ea-new-phone" style="' + inputStyle() + '" placeholder="+56 9 1234 5678"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Tipo Servicio</label><select id="ea-new-service-type" style="' + inputStyle() + '"><option value="plan_busqueda">Plan Busqueda</option><option value="cotizacion_link">Cotizacion Link</option></select></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Plan</label><input id="ea-new-plan" style="' + inputStyle() + '" placeholder="Plan Fragata, etc."></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Embarcacion/Objetivo</label><input id="ea-new-asset" style="' + inputStyle() + '" placeholder="Tipo de embarcacion"></div>' +
-      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:4px">Zona/Tipo</label><input id="ea-new-zone" style="' + inputStyle() + '" placeholder="Costa Este USA, etc."></div>' +
+      '<div id="ea-create-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s;backdrop-filter:blur(4px)">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:24px 28px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
+      '<h3 style="color:#fff;font-size:18px;font-weight:700;margin:0">Nuevo Expediente</h3></div>' +
+      '<button id="ea-close-modal" style="border:none;background:rgba(255,255,255,.1);color:#94a3b8;cursor:pointer;padding:8px;border-radius:8px;display:flex;align-items:center;transition:all .2s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>' +
+      '<div style="padding:28px">' +
+      '<div style="display:grid;gap:16px">' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email Cliente *</label><input id="ea-new-email" style="' + inputStyle() + '" placeholder="cliente@email.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Nombre Cliente *</label><input id="ea-new-name" style="' + inputStyle() + '" placeholder="Nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-new-phone" style="' + inputStyle() + '" placeholder="+56 9 1234 5678"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-new-service-type" style="' + inputStyle() + '"><option value="plan_busqueda">Plan Busqueda</option><option value="cotizacion_link">Cotizacion Link</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-new-plan" style="' + inputStyle() + '" placeholder="Plan Fragata, etc."></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-new-asset" style="' + inputStyle() + '" placeholder="Tipo de embarcacion"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Zona/Tipo</label><input id="ea-new-zone" style="' + inputStyle() + '" placeholder="Costa Este USA, etc."></div>' +
       '</div>' +
-      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">' +
-      '<button id="ea-cancel-create" style="padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;cursor:pointer">Cancelar</button>' +
-      '<button id="ea-submit-create" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:14px;font-weight:500;cursor:pointer">Crear Expediente</button>' +
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">' +
+      '<button id="ea-cancel-create" style="padding:10px 24px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;cursor:pointer;font-weight:500;transition:all .2s">Cancelar</button>' +
+      '<button id="ea-submit-create" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.25);transition:all .2s">Crear Expediente</button>' +
       "</div></div></div></div>"
     );
   }
@@ -517,25 +548,88 @@
     return links;
   }
 
-  async function reorderLinks(orderId, linkIds) {
-    try {
-      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_reorder_links", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ order_id: orderId, link_ids: linkIds }),
+  function initDragDrop() {
+    var tbody = document.getElementById("ea-links-tbody");
+    if (!tbody) return;
+
+    tbody.querySelectorAll(".ea-link-row").forEach(function (row) {
+      row.addEventListener("dragstart", function (e) {
+        dragSrcRow = this;
+        this.style.opacity = "0.4";
+        this.classList.add("ea-dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", this.getAttribute("data-link-id"));
       });
-      return await resp.json();
-    } catch (e) {
-      console.error("Error reordering links:", e);
-      return { error: "Error de conexion" };
-    }
+
+      row.addEventListener("dragend", function () {
+        this.style.opacity = "1";
+        this.classList.remove("ea-dragging");
+        var ind = tbody.querySelector(".ea-drop-indicator-row");
+        if (ind) ind.remove();
+        dragSrcRow = null;
+        renumberRows();
+        hasUnsavedChanges = true;
+        showUnsavedBadge();
+      });
+
+      row.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (this === dragSrcRow) return;
+
+        var rect = this.getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+
+        var existing = tbody.querySelector(".ea-drop-indicator-row");
+        if (existing) existing.remove();
+
+        var indicator = document.createElement("tr");
+        indicator.className = "ea-drop-indicator-row";
+        indicator.innerHTML = '<td colspan="11" style="padding:0;border:none"><div style="height:3px;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:2px;margin:0 8px"></div></td>';
+
+        if (e.clientY < midY) {
+          this.parentNode.insertBefore(indicator, this);
+        } else {
+          this.parentNode.insertBefore(indicator, this.nextSibling);
+        }
+      });
+
+      row.addEventListener("drop", function (e) {
+        e.preventDefault();
+        if (dragSrcRow === this) return;
+        var indicator = tbody.querySelector(".ea-drop-indicator-row");
+        if (indicator) {
+          tbody.insertBefore(dragSrcRow, indicator);
+          indicator.remove();
+        }
+      });
+    });
+  }
+
+  function showUnsavedBadge() {
+    var badge = document.getElementById("ea-unsaved-badge");
+    if (badge) badge.style.display = "inline-flex";
+  }
+
+  function hideUnsavedBadge() {
+    var badge = document.getElementById("ea-unsaved-badge");
+    if (badge) badge.style.display = "none";
   }
 
   function attachListeners(container) {
     container.querySelectorAll(".ea-btn-edit").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
         window.location.hash = "#expedientes/" + this.getAttribute("data-id");
       });
+    });
+
+    container.querySelectorAll(".ea-list-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        window.location.hash = "#expedientes/" + this.getAttribute("data-id");
+      });
+      row.addEventListener("mouseover", function () { this.style.background = "#f8fafc"; });
+      row.addEventListener("mouseout", function () { this.style.background = "transparent"; });
     });
 
     container.querySelectorAll(".ea-btn-back").forEach(function (btn) {
@@ -545,25 +639,28 @@
     });
 
     container.querySelectorAll(".ea-open-url").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        window.open(this.getAttribute("data-url"), "_blank");
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var url = this.getAttribute("data-url");
+        if (url) window.open(url, "_blank");
       });
     });
 
     container.querySelectorAll(".ea-copy-url").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
         var url = this.getAttribute("data-url");
-        navigator.clipboard.writeText(url);
-        showToast("Link copiado", "success");
+        if (url) { navigator.clipboard.writeText(url); showToast("Link copiado", "success"); }
       });
     });
 
     container.querySelectorAll(".ea-img-preview").forEach(function (img) {
-      img.addEventListener("click", function () {
+      img.addEventListener("click", function (e) {
+        e.stopPropagation();
         var url = this.getAttribute("data-url");
         var overlay = document.createElement("div");
-        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s";
-        overlay.innerHTML = '<img src="' + url + '" style="max-width:90%;max-height:90%;object-fit:contain;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)">';
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s;backdrop-filter:blur(8px)";
+        overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
         overlay.addEventListener("click", function () { overlay.remove(); });
         document.body.appendChild(overlay);
       });
@@ -633,7 +730,7 @@
     if (saveAllBtn && currentOrderData) {
       saveAllBtn.addEventListener("click", async function () {
         saveAllBtn.disabled = true;
-        saveAllBtn.textContent = "Guardando...";
+        saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Guardando...';
 
         var orderUpdate = {
           id: currentOrderData.id,
@@ -658,6 +755,8 @@
 
         if (r1.success && r2.success) {
           showToast("Expediente guardado exitosamente", "success");
+          hasUnsavedChanges = false;
+          hideUnsavedBadge();
         } else {
           showToast((r1.error || "") + " " + (r2.error || ""), "error");
         }
@@ -676,6 +775,7 @@
             id: result.link_id,
             row_index: result.row_index,
             url: "",
+            image_url: null,
             value_usa_usd: null,
             value_to_negotiate_usd: null,
             value_chile_clp: null,
@@ -688,6 +788,7 @@
           if (tbody) {
             if (tbody.querySelector("td[colspan]")) tbody.innerHTML = "";
             tbody.insertAdjacentHTML("beforeend", renderLinkRow(newLink, currentLinks.length - 1));
+            initDragDrop();
             attachListeners(container);
           }
           showToast("Fila agregada", "success");
@@ -698,7 +799,8 @@
     }
 
     container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
-      btn.addEventListener("click", async function () {
+      btn.addEventListener("click", async function (e) {
+        e.stopPropagation();
         var linkId = parseInt(this.getAttribute("data-link-id"));
         if (!linkId || !currentOrderData) return;
         if (!confirm("Eliminar esta fila de link?")) return;
@@ -715,29 +817,7 @@
       });
     });
 
-    container.querySelectorAll(".ea-move-up").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var row = this.closest("tr");
-        var prev = row.previousElementSibling;
-        if (prev) {
-          row.parentNode.insertBefore(row, prev);
-          renumberRows();
-          hasUnsavedChanges = true;
-        }
-      });
-    });
-
-    container.querySelectorAll(".ea-move-down").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var row = this.closest("tr");
-        var next = row.nextElementSibling;
-        if (next) {
-          row.parentNode.insertBefore(next, row);
-          renumberRows();
-          hasUnsavedChanges = true;
-        }
-      });
-    });
+    initDragDrop();
   }
 
   function renumberRows() {
@@ -745,20 +825,20 @@
     if (!tbody) return;
     var rows = tbody.querySelectorAll("tr[data-link-id]");
     rows.forEach(function (row, idx) {
-      var numCell = row.querySelector("td:first-child");
+      var numCell = row.querySelector(".ea-row-num");
       if (numCell) numCell.textContent = idx + 1;
     });
   }
 
   function renderSkeleton() {
     return (
-      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden">' +
-      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:24px 28px">' +
-      '<div style="width:200px;height:20px;background:rgba(255,255,255,.1);border-radius:4px;margin-bottom:8px"></div>' +
-      '<div style="width:150px;height:14px;background:rgba(255,255,255,.07);border-radius:4px"></div></div>' +
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:28px 32px">' +
+      '<div style="width:250px;height:24px;background:rgba(255,255,255,.1);border-radius:6px;margin-bottom:8px"></div>' +
+      '<div style="width:180px;height:14px;background:rgba(255,255,255,.06);border-radius:4px"></div></div>' +
       '<div style="padding:20px">' +
       [1, 2, 3, 4].map(function () {
-        return '<div style="display:flex;gap:12px;margin-bottom:14px"><div style="flex:1;height:36px;background:#f1f5f9;border-radius:8px;animation:eaPulse 1.5s infinite"></div><div style="flex:2;height:36px;background:#f1f5f9;border-radius:8px;animation:eaPulse 1.5s infinite"></div><div style="flex:1;height:36px;background:#f1f5f9;border-radius:8px;animation:eaPulse 1.5s infinite"></div></div>';
+        return '<div style="display:flex;gap:12px;margin-bottom:14px"><div style="flex:1;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div><div style="flex:2;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div><div style="flex:1;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div></div>';
       }).join("") +
       "</div></div>"
     );
@@ -821,9 +901,19 @@
     style.id = "ea-styles";
     style.textContent =
       "@keyframes eaFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}" +
+      "@keyframes eaSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}" +
       "@keyframes eaPulse{0%,100%{opacity:1}50%{opacity:.5}}" +
-      "#ea-module-container input:focus,#ea-module-container select:focus{border-color:#0891b2;box-shadow:0 0 0 2px rgba(8,145,178,.15)}" +
-      "@media(max-width:768px){#ea-module-container table{font-size:12px}#ea-module-container th,#ea-module-container td{padding:6px 4px!important}#ea-filters{grid-template-columns:1fr 1fr!important}}";
+      "@keyframes eaSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}" +
+      ".ea-spin{animation:eaSpin 1s linear infinite}" +
+      "#ea-module-container input:focus,#ea-module-container select:focus,#ea-module-container textarea:focus{border-color:#0891b2!important;box-shadow:0 0 0 3px rgba(8,145,178,.12)!important}" +
+      ".ea-link-row:hover{background:#fafafa!important}" +
+      ".ea-link-row:hover .ea-drag-handle{opacity:1!important}" +
+      ".ea-link-row.ea-dragging{opacity:.4;box-shadow:0 8px 24px rgba(0,0,0,.12)}" +
+      ".ea-drag-handle:active{cursor:grabbing!important}" +
+      ".ea-open-url:hover,.ea-copy-url:hover{background:#e2e8f0!important;color:#1e293b!important}" +
+      ".ea-delete-link:hover{background:#fee2e2!important}" +
+      "#ea-add-link:hover{background:#0891b2!important;color:#fff!important}" +
+      "@media(max-width:768px){#ea-module-container table{font-size:12px}#ea-module-container th,#ea-module-container td{padding:4px 3px!important}#ea-filters{grid-template-columns:1fr 1fr!important}}";
     document.head.appendChild(style);
   }
 
