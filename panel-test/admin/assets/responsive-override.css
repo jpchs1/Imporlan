@@ -163,6 +163,12 @@ html, body {
     gap: 0.5rem !important;
   }
 
+  /* Dolar cards: center text */
+  main > div > div:first-child > div:last-child > div {
+    text-align: center !important;
+    width: 100% !important;
+  }
+
   /* Status cards grid: 2 columns on mobile */
   main > div > div:nth-child(3) {
     display: grid !important;
@@ -177,7 +183,32 @@ html, body {
     grid-template-columns: 1fr !important;
   }
 
-  /* Progress tracker: make it scrollable */
+  /* Progress tracker: wrap into grid on mobile */
+  .relative.flex.justify-between.mx-8 {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px 8px !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+    justify-items: center !important;
+  }
+  .relative.flex.justify-between.mx-8 > div {
+    width: 100% !important;
+    text-align: center !important;
+  }
+  .relative.pt-12.pb-4 {
+    overflow: hidden !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .relative.pt-12.pb-4 > svg {
+    display: none !important;
+  }
+  .relative.pt-12.pb-4 > .absolute {
+    display: none !important;
+  }
+
+  /* Progress tracker: scrollable fallback */
   main [class*="overflow-x-auto"] {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -251,11 +282,96 @@ html, body {
     word-break: normal !important;
   }
 
+  /* Vessel cards (Ver Detalle): responsive mobile layout */
+  .lc-vessel-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  .lc-vessel-card > div:first-of-type {
+    flex-direction: column !important;
+  }
+  .lc-drag-handle {
+    width: 100% !important;
+    height: 24px !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  .lc-vessel-card > div:first-of-type > div:last-child {
+    flex-direction: column !important;
+    padding: 12px !important;
+    width: 100% !important;
+    gap: 12px !important;
+  }
+  .lc-vessel-card .lc-img-preview,
+  .lc-vessel-card > div:first-of-type > div:last-child > div:first-child {
+    width: 100% !important;
+    height: 180px !important;
+    flex-shrink: 0 !important;
+  }
+  .lc-vessel-card > div:first-of-type > div:last-child > div:nth-child(2) {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: none !important;
+  }
+
+  /* Vessel card links: full display with word break */
+  .lc-vessel-card a[href] {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    display: inline !important;
+    max-width: 100% !important;
+  }
+
+  /* Vessel card values/prices: wrap properly */
+  .lc-vessel-card [style*="display:flex"][style*="flex-wrap"] {
+    gap: 6px !important;
+  }
+
+  /* Vessel card action buttons: wrap */
+  .lc-vessel-card [style*="display:flex"][style*="gap:2px"] {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+
+  /* Vessel card inspect button: full width */
+  .lc-inspect-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Detail view container: reduce padding on mobile */
+  #lc-cards-container {
+    padding: 12px 8px !important;
+  }
+
+  /* Info grid in detail view: single column */
+  [style*="grid-template-columns:repeat(auto-fit"] {
+    grid-template-columns: 1fr !important;
+  }
+
   /* React status badges: prevent text break */
   main span[class*="text-xs"],
   main span[class*="text-sm"][class*="font-"] {
     white-space: nowrap !important;
     word-break: normal !important;
+  }
+}
+
+/* === SMALL MOBILE (< 480px) === */
+@media (max-width: 479px) {
+  .relative.flex.justify-between.mx-8 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px 8px !important;
+  }
+  .lc-vessel-card .lc-img-preview,
+  .lc-vessel-card > div:first-of-type > div:last-child > div:first-child {
+    height: 150px !important;
+  }
+  main {
+    padding: 0.5rem !important;
   }
 }
 
