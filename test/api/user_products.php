@@ -38,7 +38,7 @@ class UserProductsAPI {
                     payment_reference,
                     metadata,
                     DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at
-                FROM wp_user_products 
+                FROM user_products 
                 WHERE user_id = ? 
                 ORDER BY created_at DESC
             ");
@@ -85,7 +85,7 @@ class UserProductsAPI {
                     metadata,
                     DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
                     DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') as updated_at
-                FROM wp_user_products 
+                FROM user_products 
                 WHERE id = ? AND user_id = ?
             ");
             $stmt->execute([$productId, $userId]);
@@ -123,7 +123,7 @@ class UserProductsAPI {
         
         try {
             $stmt = $this->pdo->prepare("
-                INSERT INTO wp_user_products 
+                INSERT INTO user_products 
                 (user_id, product_id, product_name, product_type, status, start_date, end_date, price, currency, payment_method, payment_reference, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
@@ -171,7 +171,7 @@ class UserProductsAPI {
         
         try {
             $stmt = $this->pdo->prepare("
-                UPDATE wp_user_products 
+                UPDATE user_products 
                 SET status = ? 
                 WHERE id = ? AND user_id = ?
             ");

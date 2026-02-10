@@ -35,25 +35,16 @@
     let initTimer = null;
 
     function init() {
-        console.log('Chat: init() called, attempt:', initAttempts + 1);
-        
-        // Get user from localStorage (set by the panel app)
         const userStr = localStorage.getItem('imporlan_user');
         const token = localStorage.getItem('imporlan_token');
-        
-        console.log('Chat: userStr exists:', !!userStr, ', token exists:', !!token);
         
         if (!userStr || !token) {
             initAttempts++;
             if (initAttempts < MAX_INIT_ATTEMPTS) {
                 // Retry after 1 second - React may not have saved auth yet
                 initTimer = setTimeout(init, 1000);
-                if (initAttempts === 1) {
-                    console.log('Chat: Waiting for authentication...');
-                }
-                return;
+                    return;
             }
-            console.log('Chat: User not authenticated after ' + MAX_INIT_ATTEMPTS + ' attempts');
             return;
         }
 
@@ -66,39 +57,23 @@
         try {
             currentUser = JSON.parse(userStr);
             currentUser.token = token;
-            console.log('Chat: User parsed successfully:', currentUser.email);
         } catch (e) {
-            console.error('Chat: Failed to parse user data', e);
             return;
         }
 
         // Prevent double initialization
-        if (floatingBtn) {
-            console.log('Chat: Already initialized');
-            return;
-        }
-
-        console.log('Chat: Creating UI elements...');
+        if (floatingBtn) return;
         
         // Load CSS
         loadCSS();
-        console.log('Chat: CSS loaded');
-        
-        // Create floating button
         createFloatingButton();
-        console.log('Chat: Floating button created:', !!floatingBtn);
-        
-        // Create modal
         createChatModal();
-        console.log('Chat: Modal created');
         
         // Get initial unread count
         fetchUnreadCount();
         
         // Start polling for unread count
         setInterval(fetchUnreadCount, 30000);
-
-        console.log('Chat widget initialized for user:', currentUser.email);
     }
 
     // Load CSS
@@ -711,9 +686,7 @@
             
             unreadCount = newCount;
             updateFloatingBadge();
-        } catch (error) {
-            console.error('Failed to fetch unread count:', error);
-        }
+        } catch (error) {}
     }
 
     // Start polling
@@ -749,9 +722,7 @@
 
                 // Refresh conversations list
                 await fetchConversations();
-            } catch (error) {
-                console.error('Polling error:', error);
-            }
+            } catch (error) {}
         }, POLL_INTERVAL);
     }
 

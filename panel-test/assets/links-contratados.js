@@ -103,10 +103,6 @@
     }
     return false;
   }
-  function getDetailId() {
-    return null;
-  }
-
   /* ── Data fetching ── */
   async function fetchOrders() {
     var email = getUserEmail(); var userId = getUserId();
@@ -116,7 +112,7 @@
       var resp = await fetch(API_BASE + "/orders_api.php?action=user_list&" + params);
       var data = await resp.json();
       return data.success ? data.orders || [] : [];
-    } catch (e) { console.error("Error fetching orders:", e); return []; }
+    } catch (e) { return []; }
   }
 
   async function fetchOrderDetail(orderId) {
@@ -128,7 +124,7 @@
       var resp = await fetch(API_BASE + "/orders_api.php?action=user_detail&" + params);
       var data = await resp.json();
       return data.success ? data.order : null;
-    } catch (e) { console.error("Error fetching order detail:", e); return null; }
+    } catch (e) { return null; }
   }
 
   async function fetchPurchases() {
@@ -142,7 +138,7 @@
         linksApproved = (data.links || []).filter(function (l) { return l.status === "active"; });
         linksReview = (data.links || []).filter(function (l) { return l.status === "en_revision" || l.status === "pending"; });
       }
-    } catch (e) { console.error("Error fetching purchases:", e); }
+    } catch (e) {}
   }
 
   /* ── Products rendering (from mis-productos) ── */
@@ -233,41 +229,6 @@
         '<button class="lc-btn-detail" data-id="' + o.id + '" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.25)">Ver Detalle</button></div></div></div>';
     });
     return '<div style="display:flex;flex-direction:column;gap:12px">' + cards + '</div>';
-  }
-
-  /* ── Unified main view ── */
-  function renderUnifiedView(orders) {
-    var productsHtml = renderProductsSection();
-    var expedientesHtml = renderExpedientesSection(orders);
-
-    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
-      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:28px 32px;position:relative;overflow:hidden">' +
-      '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(8,145,178,.15);border-radius:50%"></div>' +
-      '<div style="display:flex;align-items:center;gap:16px;position:relative">' +
-      '<div style="width:52px;height:52px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +
-      '<div><h2 style="color:#fff;font-size:22px;font-weight:700;margin:0">Mis Productos Contratados</h2>' +
-      '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Tus planes, links y expedientes de busqueda</p></div></div></div>' +
-      '<div style="padding:24px 28px">' +
-
-      '<div style="margin-bottom:28px">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">' +
-      '<div style="width:32px;height:32px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +
-      '<h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Productos y Planes</h3>' +
-      '<span style="background:#e0f2fe;color:#0891b2;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600">' + (plans.length + linksApproved.length + linksReview.length) + '</span>' +
-      '</div>' +
-      productsHtml +
-      '</div>' +
-
-      '<div style="border-top:2px solid #f1f5f9;padding-top:28px">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">' +
-      '<div style="width:32px;height:32px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg></div>' +
-      '<h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Mis Expedientes</h3>' +
-      '<span style="background:#ccfbf1;color:#0d9488;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600">' + orders.length + '</span>' +
-      '</div>' +
-      expedientesHtml +
-      '</div>' +
-
-      '</div></div>';
   }
 
   /* ── Vessel card (for detail view) ── */
@@ -519,14 +480,6 @@
     document.body.appendChild(overlay);
   }
 
-  /* ── Skeleton loader ── */
-  function renderSkeleton() {
-    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden">' +
-      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:28px 32px"><div style="width:250px;height:24px;background:rgba(255,255,255,.1);border-radius:6px;margin-bottom:8px"></div><div style="width:180px;height:14px;background:rgba(255,255,255,.06);border-radius:4px"></div></div>' +
-      '<div style="padding:24px 28px"><div style="height:200px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:14px;margin-bottom:20px"></div>' +
-      '<div style="height:160px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:14px"></div></div></div>';
-  }
-
   /* ── Update React's native cards with real data ── */
   function updateReactCards() {
     var main = document.querySelector("main");
@@ -571,7 +524,7 @@
       var mainContent = document.querySelector("main");
       if (!mainContent) { isRendering = false; return; }
       await injectExpedientesSection(mainContent);
-    } catch (e) { console.error("Module renderModule error:", e); }
+    } catch (e) {}
     isRendering = false;
   }
 

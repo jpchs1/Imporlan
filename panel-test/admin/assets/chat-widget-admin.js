@@ -56,9 +56,7 @@
                         name: payload.role === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan'
                     });
                 }
-            } catch (e) {
-                console.log('Chat: Could not decode JWT');
-            }
+            } catch (e) {}
         }
         
         if (!userStr || !token) {
@@ -66,12 +64,8 @@
             if (initAttempts < MAX_INIT_ATTEMPTS) {
                 // Retry after 1 second - React may not have saved auth yet
                 initTimer = setTimeout(init, 1000);
-                if (initAttempts === 1) {
-                    console.log('Chat: Waiting for admin authentication...');
-                }
                 return;
             }
-            console.log('Chat: Admin not authenticated after ' + MAX_INIT_ATTEMPTS + ' attempts');
             return;
         }
 
@@ -82,18 +76,12 @@
         }
 
         // Prevent double initialization
-        if (isInitialized) {
-            console.log('Chat: Already initialized');
-            return;
-        }
+        if (isInitialized) return;
 
         try {
             currentAdmin = JSON.parse(userStr);
             currentAdmin.token = token;
-        } catch (e) {
-            console.error('Chat: Failed to parse admin data');
-            return;
-        }
+        } catch (e) { return; }
 
         isInitialized = true;
 
@@ -113,7 +101,6 @@
         // Listen for hash changes
         window.addEventListener('hashchange', handleRouteChange);
 
-        console.log('Admin chat widget initialized for:', currentAdmin.email);
     }
 
     // Handle route changes
@@ -547,7 +534,6 @@
         if (tokenRefreshAttempted) return false;
         tokenRefreshAttempted = true;
         
-        console.log('Chat: Token validation failed. Chat will retry on next interaction.');
         return false;
     }
 
@@ -576,7 +562,6 @@
         
         // If we get a 401, try to refresh the token and retry once
         if (response.status === 401 && retryOnAuth) {
-            console.log('Chat: Got 401, attempting to refresh token...');
             const refreshed = await refreshAdminToken();
             if (refreshed) {
                 // Retry with new token
@@ -685,7 +670,6 @@
                               (chatContainer ? chatContainer.querySelector('.chat-conversations-list') : null);
         
         if (!listContainer) {
-            console.log('Chat: No list container found');
             return;
         }
         
@@ -705,7 +689,6 @@
                 renderConversations();
             }
         } catch (error) {
-            console.error('Chat: Error fetching conversations', error);
             listContainer.innerHTML = `
                 <div class="chat-empty-state">
                     <p>Error al cargar conversaciones</p>
@@ -1156,7 +1139,6 @@
             unreadCount = newCount;
             updateNavBadge();
         } catch (error) {
-            console.error('Failed to fetch unread count:', error);
         }
     }
 
@@ -1234,7 +1216,6 @@
 
                 fetchUnreadCount();
             } catch (error) {
-                console.error('Polling error:', error);
             }
         }, POLL_INTERVAL);
     }

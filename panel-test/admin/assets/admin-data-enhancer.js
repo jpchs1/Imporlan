@@ -259,7 +259,7 @@
         case "Pagos": enhancePagos(); break;
         case "Contenido": setTimeout(enhanceContenido, 200); break;
       }
-    } catch (e) { console.warn("Admin enhancer error:", e); }
+    } catch (e) {}
   }
 
   function check() {

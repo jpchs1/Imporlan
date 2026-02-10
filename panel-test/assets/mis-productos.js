@@ -87,9 +87,7 @@
         linksApproved = (data.links || []).filter(function (l) { return l.status === "active"; });
         linksReview = (data.links || []).filter(function (l) { return l.status === "en_revision" || l.status === "pending"; });
       }
-    } catch (e) {
-      console.error("MisProductos: Error fetching purchases:", e);
-    }
+    } catch (e) {}
   }
 
   function injectSidebarItem() {

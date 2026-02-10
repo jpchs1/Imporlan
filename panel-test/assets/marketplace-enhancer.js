@@ -96,7 +96,7 @@ function run(){
   var header='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">'+
     '<div><h1 style="font-size:28px;font-weight:800;color:#0f172a;margin:0">Marketplace</h1>'+
     '<p style="font-size:14px;color:#64748b;margin:4px 0 0">Compra y vende embarcaciones en nuestra comunidad</p></div>'+
-    '<button style="display:flex;align-items:center;gap:6px;padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer" onclick="alert(\'Funcion disponible proximamente\')">'+
+    '<button style="display:flex;align-items:center;gap:6px;padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;opacity:.5;pointer-events:none">'+
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Publicar Embarcacion</button>'+
   '</div>';
 

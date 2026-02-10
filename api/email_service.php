@@ -1920,7 +1920,7 @@ BASE64;
         if (!$this->pdo) return null;
         try {
             $this->ensureEmailLogsTable();
-            $stmt = $this->pdo->prepare("INSERT INTO wp_email_logs (to_email, template, subject, status, error_message, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+            $stmt = $this->pdo->prepare("INSERT INTO email_logs (to_email, template, subject, status, error_message, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
             $stmt->execute([$to, $template, $subject, $status, $error, $metadata ? json_encode($metadata) : null]);
             return $this->pdo->lastInsertId();
         } catch (PDOException $e) {
@@ -1932,7 +1932,7 @@ BASE64;
     private function updateEmailLog($logId, $status, $error = null) {
         if (!$this->pdo || !$logId) return;
         try {
-            $stmt = $this->pdo->prepare("UPDATE wp_email_logs SET status = ?, error_message = ?, updated_at = NOW() WHERE id = ?");
+            $stmt = $this->pdo->prepare("UPDATE email_logs SET status = ?, error_message = ?, updated_at = NOW() WHERE id = ?");
             $stmt->execute([$status, $error, $logId]);
         } catch (PDOException $e) {
             error_log("[EmailService] Error updating email log: " . $e->getMessage());
@@ -1941,7 +1941,7 @@ BASE64;
     
     private function ensureEmailLogsTable() {
         try {
-            $this->pdo->exec("CREATE TABLE IF NOT EXISTS wp_email_logs (id INT AUTO_INCREMENT PRIMARY KEY, to_email VARCHAR(255) NOT NULL, template VARCHAR(100), subject VARCHAR(255), status ENUM('pending', 'sent', 'failed') DEFAULT 'pending', error_message TEXT, metadata JSON, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_to_email (to_email), INDEX idx_status (status), INDEX idx_created_at (created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $this->pdo->exec("CREATE TABLE IF NOT EXISTS email_logs (id INT AUTO_INCREMENT PRIMARY KEY, to_email VARCHAR(255) NOT NULL, template VARCHAR(100), subject VARCHAR(255), status ENUM('pending', 'sent', 'failed') DEFAULT 'pending', error_message TEXT, metadata JSON, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_to_email (to_email), INDEX idx_status (status), INDEX idx_created_at (created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         } catch (PDOException $e) {
             error_log("[EmailService] Error creating email_logs table: " . $e->getMessage());
         }
@@ -1955,11 +1955,11 @@ BASE64;
             if (!empty($filters['template'])) { $where[] = 'template LIKE ?'; $params[] = '%' . $filters['template'] . '%'; }
             if (!empty($filters['email'])) { $where[] = 'to_email LIKE ?'; $params[] = '%' . $filters['email'] . '%'; }
             $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-            $stmt = $this->pdo->prepare("SELECT * FROM wp_email_logs {$whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?");
+            $stmt = $this->pdo->prepare("SELECT * FROM email_logs {$whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?");
             $params[] = (int)$limit; $params[] = (int)$offset;
             $stmt->execute($params);
             $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM wp_email_logs {$whereClause}");
+            $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM email_logs {$whereClause}");
             $countStmt->execute(array_slice($params, 0, -2));
             $total = $countStmt->fetchColumn();
             return ['success' => true, 'logs' => $logs, 'total' => $total, 'limit' => $limit, 'offset' => $offset];
@@ -1972,9 +1972,9 @@ BASE64;
         if (!$this->pdo) return ['error' => 'Database connection failed'];
         try {
             $stats = [];
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM wp_email_logs"); $stats['total'] = (int)$stmt->fetchColumn();
-            $stmt = $this->pdo->query("SELECT status, COUNT(*) as count FROM wp_email_logs GROUP BY status"); $stats['by_status'] = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM wp_email_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"); $stats['last_24h'] = (int)$stmt->fetchColumn();
+            $stmt = $this->pdo->query("SELECT COUNT(*) FROM email_logs"); $stats['total'] = (int)$stmt->fetchColumn();
+            $stmt = $this->pdo->query("SELECT status, COUNT(*) as count FROM email_logs GROUP BY status"); $stats['by_status'] = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+            $stmt = $this->pdo->query("SELECT COUNT(*) FROM email_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)"); $stats['last_24h'] = (int)$stmt->fetchColumn();
             return ['success' => true, 'stats' => $stats];
         } catch (PDOException $e) {
             return ['error' => 'Failed to fetch stats: ' . $e->getMessage()];

@@ -218,10 +218,7 @@
       var resp = await fetch(API_BASE + "/orders_api.php?" + params.toString(), { headers: authHeaders() });
       var data = await resp.json();
       return data.success ? data.orders || [] : [];
-    } catch (e) {
-      console.error("Error fetching admin orders:", e);
-      return [];
-    }
+    } catch (e) { return []; }
   }
 
   async function fetchOrderDetail(orderId) {
@@ -229,10 +226,7 @@
       var resp = await fetch(API_BASE + "/orders_api.php?action=admin_detail&id=" + orderId, { headers: authHeaders() });
       var data = await resp.json();
       return data.success ? data.order : null;
-    } catch (e) {
-      console.error("Error fetching admin order detail:", e);
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
   async function saveOrder(orderData) {
@@ -243,10 +237,7 @@
         body: JSON.stringify(orderData),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error saving order:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function saveLinks(orderId, links) {
@@ -257,10 +248,7 @@
         body: JSON.stringify({ order_id: orderId, links: links }),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error saving links:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function addNewLink(orderId) {
@@ -271,10 +259,7 @@
         body: JSON.stringify({ order_id: orderId }),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error adding link:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function deleteLink(orderId, linkId) {
@@ -285,10 +270,7 @@
         body: JSON.stringify({ order_id: orderId, link_id: linkId }),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error deleting link:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function createNewOrder(orderData) {
@@ -299,10 +281,7 @@
         body: JSON.stringify(orderData),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error creating order:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function reorderLinks(orderId, linkIds) {
@@ -313,20 +292,14 @@
         body: JSON.stringify({ order_id: orderId, link_ids: linkIds }),
       });
       return await resp.json();
-    } catch (e) {
-      console.error("Error reordering links:", e);
-      return { error: "Error de conexion" };
-    }
+    } catch (e) { return { error: "Error de conexion" }; }
   }
 
   async function fetchClientPurchases(email) {
     try {
       var resp = await fetch(API_BASE + "/purchases.php?action=get&user_email=" + encodeURIComponent(email));
       return await resp.json();
-    } catch (e) {
-      console.error("Error fetching purchases:", e);
-      return { plans: [], links: [] };
-    }
+    } catch (e) { return { plans: [], links: [] }; }
   }
 
   function renderProductsSection(data) {
