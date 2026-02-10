@@ -5,7 +5,7 @@
 (function () {
   "use strict";
 
-  const API_BASE = window.location.pathname.includes("/test/")
+  const API_BASE = (window.location.pathname.includes("/test/") || window.location.pathname.includes("/panel-test"))
     ? "/test/api"
     : "/api";
 
@@ -30,6 +30,7 @@
   let currentOrderData = null;
   let currentLinks = [];
   let hasUnsavedChanges = false;
+  var moduleHidden = false;
 
   function getAdminToken() {
     return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
@@ -144,7 +145,12 @@
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
-        window.location.hash = "#expedientes";
+        moduleHidden = false;
+        if (window.location.hash === "#expedientes") {
+          renderModule();
+        } else {
+          window.location.hash = "#expedientes";
+        }
       });
 
       li.appendChild(btn);
@@ -743,6 +749,7 @@
 
   async function renderModule() {
     if (!isExpedientesPage()) return;
+    if (moduleHidden) return;
 
     var mainContent = document.querySelector("main");
     if (!mainContent) return;
@@ -775,6 +782,7 @@
   }
 
   function hideModule() {
+    moduleHidden = true;
     var container = document.getElementById("ea-module-container");
     if (container) {
       container.remove();
@@ -812,11 +820,19 @@
 
     window.addEventListener("hashchange", function () {
       if (isExpedientesPage()) {
+        moduleHidden = false;
         renderModule();
       } else {
         hideModule();
       }
     });
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("button, a");
+      if (btn && btn.id !== "sidebar-expedientes-admin" && e.target.closest("aside")) {
+        hideModule();
+      }
+    }, true);
 
     var mainEl = document.querySelector("main");
     if (mainEl) {
@@ -824,12 +840,18 @@
         if (!document.getElementById("sidebar-expedientes-admin")) {
           injectSidebarItem();
         }
-        if (isExpedientesPage() && !document.getElementById("ea-module-container")) {
+        if (isExpedientesPage() && !moduleHidden && !document.getElementById("ea-module-container")) {
           renderModule();
         }
       });
       observer.observe(mainEl, { childList: true, subtree: false });
     }
+
+    setInterval(function () {
+      if (!document.getElementById("sidebar-expedientes-admin")) {
+        injectSidebarItem();
+      }
+    }, 3000);
   }
 
   function startWhenReady() {
