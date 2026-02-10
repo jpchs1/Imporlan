@@ -529,39 +529,65 @@
     try {
       var mainContent = document.querySelector("main");
       if (!mainContent) { isRendering = false; return; }
-      var container = document.getElementById("lc-module-container");
-      if (!container) {
-        container = document.createElement("div");
-        container.id = "lc-module-container";
-        container.style.cssText = "max-width:1100px;margin:0 auto;padding:20px;animation:lcFadeIn .3s ease;position:relative;z-index:10";
-        mainContent.appendChild(container);
-      }
-      mainContent.classList.add("lc-active");
-      container.innerHTML = renderSkeleton();
-
       var detailId = getDetailId();
+      var container = document.getElementById("lc-module-container");
+
       if (detailId) {
+        if (!container) {
+          container = document.createElement("div");
+          container.id = "lc-module-container";
+          container.style.cssText = "max-width:1100px;margin:0 auto;padding:20px;animation:lcFadeIn .3s ease;position:relative;z-index:10";
+          mainContent.appendChild(container);
+        }
+        mainContent.classList.add("lc-detail-active");
+        mainContent.classList.remove("lc-inject-active");
+        container.innerHTML = renderSkeleton();
         var order = await fetchOrderDetail(detailId);
         if (!isModulePage()) { hideModule(); isRendering = false; return; }
         container.innerHTML = renderDetailView(order);
         applyClientOrder(container);
+        attachListeners(container);
       } else {
-        var results = await Promise.all([fetchOrders(), fetchPurchases()]);
-        var orders = results[0];
-        if (!isModulePage()) { hideModule(); isRendering = false; return; }
-        container.innerHTML = renderUnifiedView(orders);
+        mainContent.classList.remove("lc-detail-active");
+        mainContent.classList.add("lc-inject-active");
+        if (container) container.remove();
+        await injectExpedientesSection(mainContent);
       }
-      attachListeners(container);
     } catch (e) { console.error("Module renderModule error:", e); }
     isRendering = false;
+  }
+
+  async function injectExpedientesSection(mainContent) {
+    var existing = document.getElementById("lc-expedientes-inject");
+    if (existing) existing.remove();
+    var wrapper = document.createElement("div");
+    wrapper.id = "lc-expedientes-inject";
+    wrapper.style.cssText = "max-width:1100px;margin:24px auto 0;padding:0 20px 20px;animation:lcFadeIn .3s ease";
+    wrapper.innerHTML = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;padding:24px"><div style="height:120px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:12px"></div></div>';
+    mainContent.appendChild(wrapper);
+    var results = await Promise.all([fetchOrders(), fetchPurchases()]);
+    var orders = results[0];
+    if (!isModulePage() || getDetailId()) { wrapper.remove(); return; }
+    var expedientesHtml = renderExpedientesSection(orders);
+    wrapper.innerHTML =
+      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:20px 24px;display:flex;align-items:center;gap:14px">' +
+      '<div style="width:44px;height:44px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:18px;font-weight:700;color:#fff">Mis Expedientes</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:rgba(148,163,184,.8)">Tus planes de busqueda y embarcaciones</p></div>' +
+      '<span style="margin-left:auto;background:rgba(8,145,178,.3);color:#67e8f9;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600">' + orders.length + '</span></div>' +
+      '<div style="padding:20px 24px">' + expedientesHtml + '</div></div>';
+    attachListeners(wrapper);
   }
 
   function hideModule() {
     moduleHidden = true;
     var container = document.getElementById("lc-module-container");
     if (container) container.remove();
+    var inject = document.getElementById("lc-expedientes-inject");
+    if (inject) inject.remove();
     var mainContent = document.querySelector("main");
-    if (mainContent) mainContent.classList.remove("lc-active");
+    if (mainContent) { mainContent.classList.remove("lc-detail-active"); mainContent.classList.remove("lc-inject-active"); }
   }
 
   /* ── Styles ── */
@@ -572,7 +598,7 @@
       "@keyframes lcFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}" +
       "@keyframes lcSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}" +
       "@keyframes lcPulse{0%,100%{opacity:1}50%{opacity:.5}}" +
-      "main.lc-active>*:not(#lc-module-container){display:none!important}" +
+      "main.lc-detail-active>*:not(#lc-module-container){display:none!important}" +
       ".lc-vessel-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08)!important;border-color:#cbd5e1!important}" +
       ".lc-vessel-card:hover .lc-drag-handle{opacity:1!important}" +
       ".lc-vessel-card.lc-dragging{box-shadow:0 12px 36px rgba(0,0,0,.15)!important;transform:rotate(1deg)}" +
@@ -588,9 +614,9 @@
   /* ── Init ── */
   function init() {
     addStyles();
-    if (isModulePage()) { moduleHidden = false; setTimeout(renderModule, 200); }
+    if (isModulePage()) { moduleHidden = false; setTimeout(renderModule, 600); }
     window.addEventListener("hashchange", function () {
-      if (isModulePage()) { moduleHidden = false; renderModule(); }
+      if (isModulePage()) { moduleHidden = false; setTimeout(renderModule, 300); }
       else { hideModule(); }
     });
     document.addEventListener("click", function (e) {
@@ -600,6 +626,15 @@
       if (text.includes("productos contratados") || text.includes("myproducts")) return;
       if (isModulePage()) hideModule();
     }, true);
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var mainObs = new MutationObserver(function () {
+        if (isModulePage() && !getDetailId() && !document.getElementById("lc-expedientes-inject") && !isRendering) {
+          renderModule();
+        }
+      });
+      mainObs.observe(mainEl, { childList: true, subtree: false });
+    }
   }
 
   function startWhenReady() {
