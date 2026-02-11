@@ -6,11 +6,7 @@
 (function () {
   "use strict";
 
-  const API_BASE = window.location.pathname.includes("/panel-test")
-    ? "/test/api"
-    : window.location.pathname.includes("/test/")
-      ? "/test/api"
-      : "/api";
+  const API_BASE = "/api";
 
   const STATUS_COLORS = {
     new: { bg: "#3b82f6", text: "#ffffff", label: "Nuevo" },
@@ -528,15 +524,23 @@
   }
 
   /* ── Update React's native cards with real data ── */
-  function updateReactCards() {
+  function updateReactCards(orders) {
     var main = document.querySelector("main");
     if (!main) return;
-    var totalLinks = linksApproved.length + linksReview.length;
+    var ords = orders || [];
+    var orderPlans = ords.filter(function(o) { return o.service_type === "plan_busqueda" && o.status !== "expired" && o.status !== "canceled"; });
+    var orderLinks = ords.filter(function(o) { return o.service_type === "cotizacion_link"; });
+    var orderLinksActive = orderLinks.filter(function(o) { return o.status === "completed"; });
+    var orderLinksReview = orderLinks.filter(function(o) { return o.status !== "completed" && o.status !== "expired" && o.status !== "canceled"; });
+    var totalLinks = linksApproved.length + linksReview.length + orderLinks.length;
+    var totalPlans = plans.length + orderPlans.length;
+    var totalApproved = linksApproved.length + orderLinksActive.length;
+    var totalReview = linksReview.length + orderLinksReview.length;
     var cardMap = {
       "Links Contratados": totalLinks,
-      "Planes Activos": plans.length,
-      "Links Aprobados": linksApproved.length,
-      "En Revision": linksReview.length
+      "Planes Activos": totalPlans,
+      "Links Aprobados": totalApproved,
+      "En Revision": totalReview
     };
     var allP = main.querySelectorAll("p");
     for (var i = 0; i < allP.length; i++) {
@@ -586,7 +590,7 @@
     var results = await Promise.all([fetchOrders(), fetchPurchases()]);
     var orders = results[0];
     if (!isProductsPage()) { wrapper.remove(); return; }
-    updateReactCards();
+    updateReactCards(orders);
     var expedientesHtml = renderExpedientesSection(orders);
     wrapper.innerHTML =
       '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
