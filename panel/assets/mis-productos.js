@@ -1,717 +1,349 @@
 /**
- * Mis Productos/Servicios Module - Imporlan Panel
- * Standalone JavaScript module for displaying user's contracted products/services
+ * Mis Productos Contratados - Imporlan Panel Cliente
+ * Fetches real purchases and displays with tabs: Planes Activos, Links Aprobados, En Revisión
  */
+(function () {
+  "use strict";
 
-(function() {
-    'use strict';
+  const API_BASE = window.location.pathname.includes("/panel-test")
+    ? "/test/api"
+    : window.location.pathname.includes("/test/")
+      ? "/test/api"
+      : "/api";
 
-    const API_BASE = '/api';
-    const PANEL_URL = 'https://www.imporlan.cl/panel';
+  const STATUS_COLORS = {
+    active: { bg: "#10b981", text: "#ffffff", label: "Activo" },
+    en_revision: { bg: "#f59e0b", text: "#ffffff", label: "En Revisión" },
+    pending: { bg: "#6366f1", text: "#ffffff", label: "Pendiente" },
+    expired: { bg: "#ef4444", text: "#ffffff", label: "Vencido" },
+    canceled: { bg: "#64748b", text: "#ffffff", label: "Cancelado" },
+  };
 
-    // Status badge colors
-    const STATUS_COLORS = {
-        'activo': { bg: '#10b981', text: '#ffffff' },
-        'en_proceso': { bg: '#f59e0b', text: '#ffffff' },
-        'finalizado': { bg: '#6366f1', text: '#ffffff' },
-        'vencido': { bg: '#ef4444', text: '#ffffff' }
-    };
+  var container = null;
+  var plans = [];
+  var linksApproved = [];
+  var linksReview = [];
+  var activeTab = "planes";
+  var moduleHidden = false;
 
-    const STATUS_LABELS = {
-        'activo': 'Activo',
-        'en_proceso': 'En proceso',
-        'finalizado': 'Finalizado',
-        'vencido': 'Vencido'
-    };
+  function getUserData() {
+    try {
+      var raw = localStorage.getItem("imporlan_user");
+      if (raw) return JSON.parse(raw);
+      var raw2 = localStorage.getItem("user");
+      if (raw2) return JSON.parse(raw2);
+    } catch (e) {}
+    return null;
+  }
 
-    // Payment method icons
-    const PAYMENT_ICONS = {
-        'PayPal': 'paypal',
-        'MercadoPago': 'mercadopago',
-        'WebPay': 'webpay',
-        'Transferencia': 'bank'
-    };
+  function getUserEmail() {
+    var u = getUserData();
+    return u ? u.email || u.user_email || "" : "";
+  }
 
-    class MisProductosModule {
-        constructor() {
-            this.products = [];
-            this.viewMode = 'cards'; // 'cards' or 'table'
-            this.container = null;
-            this.userId = null;
-        }
+  function escapeHtml(text) {
+    if (!text) return "";
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
 
-        async init() {
-            // Get user ID from localStorage or session
-            this.userId = this.getUserId();
-            
-            if (!this.userId) {
-                console.log('MisProductos: No user logged in');
-                return;
-            }
+  function formatCurrency(amount) {
+    if (!amount && amount !== 0) return "$0";
+    var num = parseInt(amount);
+    if (isNaN(num)) return "$0";
+    return "$" + num.toLocaleString("es-CL");
+  }
 
-            // Wait for DOM to be ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.render());
-            } else {
-                this.render();
-            }
-        }
+  function getStatusBadge(status) {
+    var s = STATUS_COLORS[status] || STATUS_COLORS["pending"];
+    return '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:9999px;font-size:11px;font-weight:600;background:' + s.bg + ';color:' + s.text + '"><span style="width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.7"></span>' + escapeHtml(s.label) + "</span>";
+  }
 
-        getUserId() {
-            // Try to get user ID from various sources
-            try {
-                const userData = localStorage.getItem('user');
-                if (userData) {
-                    const user = JSON.parse(userData);
-                    return user.id || user.uid || user.user_id;
-                }
-                
-                // Try Firebase auth
-                if (window.firebase && window.firebase.auth) {
-                    const currentUser = window.firebase.auth().currentUser;
-                    if (currentUser) {
-                        return currentUser.uid;
-                    }
-                }
-            } catch (e) {
-                console.error('Error getting user ID:', e);
-            }
-            return null;
-        }
+  function truncateUrl(url, max) {
+    if (!url) return "";
+    max = max || 40;
+    try {
+      var u = new URL(url);
+      var display = u.hostname + u.pathname;
+      return display.length > max ? display.substring(0, max) + "..." : display;
+    } catch (e) {
+      return url.length <= max ? url : url.substring(0, max) + "...";
+    }
+  }
 
-        async fetchProducts() {
-            try {
-                const response = await fetch(`${API_BASE}/user_products.php?action=list&user_id=${this.userId}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.products = data.products || [];
-                } else {
-                    console.error('Error fetching products:', data.error);
-                    this.products = [];
-                }
-            } catch (error) {
-                console.error('Error fetching products:', error);
-                this.products = [];
-            }
-        }
+  function isProductsPage() {
+    return window.location.hash === "#mis-productos" || window.location.hash.startsWith("#mis-productos/");
+  }
 
-        async render() {
-            // Find or create container
-            this.container = document.getElementById('mis-productos-container');
-            
-            if (!this.container) {
-                // Try to inject into the main content area
-                const mainContent = document.querySelector('.main-content, main, #root > div > div');
-                if (mainContent) {
-                    this.container = document.createElement('div');
-                    this.container.id = 'mis-productos-container';
-                    mainContent.insertBefore(this.container, mainContent.firstChild);
-                } else {
-                    console.log('MisProductos: Could not find container');
-                    return;
-                }
-            }
+  async function fetchPurchases() {
+    var email = getUserEmail();
+    if (!email) return;
+    try {
+      var resp = await fetch(API_BASE + "/purchases.php?action=get&user_email=" + encodeURIComponent(email));
+      var data = await resp.json();
+      if (data.success) {
+        plans = (data.plans || []).filter(function (p) { return p.status === "active"; });
+        linksApproved = (data.links || []).filter(function (l) { return l.status === "active"; });
+        linksReview = (data.links || []).filter(function (l) { return l.status === "en_revision" || l.status === "pending"; });
+      }
+    } catch (e) {
+      console.error("MisProductos: Error fetching purchases:", e);
+    }
+  }
 
-            // Show loading state
-            this.container.innerHTML = this.renderSkeleton();
+  function injectSidebarItem() {
+    var checkCount = 0;
+    function tryInject() {
+      if (++checkCount > 60) return;
+      if (document.getElementById("sidebar-mis-productos")) return;
+      var nav = document.querySelector("aside nav") || document.querySelector("nav");
+      if (!nav) { setTimeout(tryInject, 500); return; }
+      var refBtn = null;
+      nav.querySelectorAll("a, button").forEach(function (el) {
+        var text = el.textContent.trim().toLowerCase();
+        if (text.includes("producto") || text.includes("servicio") || text.includes("importaciones")) refBtn = el;
+      });
+      if (!refBtn) { var btns = nav.querySelectorAll("a, button"); if (btns.length > 2) refBtn = btns[btns.length - 2]; }
+      if (!refBtn) { setTimeout(tryInject, 500); return; }
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.id = "sidebar-mis-productos";
+      if (refBtn.className) btn.className = refBtn.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400|bg-blue-50|text-blue-600/g, "");
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg> Mis Productos';
+      btn.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        moduleHidden = false;
+        if (window.location.hash === "#mis-productos") renderModule();
+        else window.location.hash = "#mis-productos";
+      });
+      li.appendChild(btn);
+      var refLi = refBtn.closest("li");
+      if (refLi && refLi.parentNode) refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      else { var ul = nav.querySelector("ul"); if (ul) ul.appendChild(li); else nav.appendChild(li); }
+      updateSidebarActive();
+    }
+    tryInject();
+  }
 
-            // Fetch products
-            await this.fetchProducts();
+  function updateSidebarActive() {
+    var item = document.getElementById("sidebar-mis-productos");
+    if (!item) return;
+    if (isProductsPage()) {
+      item.style.background = "rgba(0,212,255,0.15)";
+      item.style.color = "#00d4ff";
+      item.style.borderRight = "4px solid #00d4ff";
+      item.style.fontWeight = "600";
+    } else {
+      item.style.background = "transparent";
+      item.style.color = "";
+      item.style.borderRight = "none";
+      item.style.fontWeight = "";
+    }
+  }
 
-            // Render content
-            this.container.innerHTML = this.renderContent();
+  function renderTabButton(id, label, count, icon) {
+    var isActive = activeTab === id;
+    return '<button data-tab="' + id + '" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;' +
+      (isActive ? 'background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;box-shadow:0 4px 12px rgba(8,145,178,.3)' : 'background:rgba(255,255,255,.06);color:#94a3b8') + '">' +
+      icon + ' ' + escapeHtml(label) +
+      '<span style="background:' + (isActive ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.1)') + ';padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700">' + count + '</span></button>';
+  }
 
-            // Attach event listeners
-            this.attachEventListeners();
-        }
+  function renderPlanCard(plan) {
+    var progressPct = plan.proposalsTotal > 0 ? Math.round((plan.proposalsReceived / plan.proposalsTotal) * 100) : 0;
+    return '<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;transition:all .2s">' +
+      '<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);padding:20px 24px;border-bottom:1px solid #e2e8f0">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:44px;height:44px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:12px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a">' + escapeHtml(plan.planName) + '</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#64748b">Contratado: ' + escapeHtml(plan.startDate) + '</p></div></div>' +
+      getStatusBadge(plan.status) + '</div></div>' +
+      '<div style="padding:20px 24px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+      '<div style="background:#f8fafc;border-radius:10px;padding:14px"><p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;letter-spacing:.05em">Monto</p><p style="margin:4px 0 0;font-size:18px;font-weight:700;color:#0891b2">' + formatCurrency(plan.price) + ' CLP</p></div>' +
+      '<div style="background:#f8fafc;border-radius:10px;padding:14px"><p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;letter-spacing:.05em">Vigencia</p><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#0f172a">' + (plan.days || 30) + ' dias</p><p style="margin:2px 0 0;font-size:11px;color:#94a3b8">Hasta: ' + escapeHtml(plan.endDate || "N/A") + '</p></div></div>' +
+      '<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:12px;color:#64748b">Propuestas recibidas</span><span style="font-size:12px;font-weight:600;color:#0891b2">' + (plan.proposalsReceived || 0) + ' / ' + (plan.proposalsTotal || 0) + '</span></div>' +
+      '<div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden"><div style="height:100%;width:' + progressPct + '%;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:3px;transition:width .3s"></div></div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;color:#64748b">Metodo:</span><span style="font-size:12px;font-weight:600;color:#0f172a;text-transform:capitalize">' + escapeHtml(plan.payment_method || "N/A") + '</span></div>' +
+      '</div></div>';
+  }
 
-        renderSkeleton() {
-            return `
-                <div class="mis-productos-section" style="${this.getSectionStyles()}">
-                    <div class="mis-productos-header" style="${this.getHeaderStyles()}">
-                        <h2 style="${this.getTitleStyles()}">Mis Productos / Servicios Contratados</h2>
-                    </div>
-                    <div class="mis-productos-grid" style="${this.getGridStyles()}">
-                        ${[1, 2, 3].map(() => `
-                            <div class="skeleton-card" style="${this.getSkeletonCardStyles()}">
-                                <div class="skeleton-line" style="${this.getSkeletonLineStyles('60%')}"></div>
-                                <div class="skeleton-line" style="${this.getSkeletonLineStyles('40%')}"></div>
-                                <div class="skeleton-line" style="${this.getSkeletonLineStyles('80%')}"></div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
+  function renderLinkCard(link) {
+    var urlDisplay = truncateUrl(link.url, 50);
+    return '<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;transition:all .2s">' +
+      '<div style="padding:20px 24px">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
+      '<h3 style="margin:0;font-size:14px;font-weight:600;color:#0f172a">' + escapeHtml(link.title || "Cotizacion Online") + '</h3>' +
+      getStatusBadge(link.status) + '</div>' +
+      (link.url ? '<a href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#3b82f6;text-decoration:none;word-break:break-all;padding:6px 10px;background:#eff6ff;border-radius:6px;margin-bottom:10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' + escapeHtml(urlDisplay) + '</a>' : '') +
+      '</div></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-top:12px;border-top:1px solid #f1f5f9">' +
+      '<div><p style="margin:0;font-size:11px;color:#64748b">Monto</p><p style="margin:2px 0 0;font-size:14px;font-weight:700;color:#0891b2">' + formatCurrency(link.price) + ' CLP</p></div>' +
+      '<div><p style="margin:0;font-size:11px;color:#64748b">Contratado</p><p style="margin:2px 0 0;font-size:13px;font-weight:500;color:#0f172a">' + escapeHtml(link.contractedAt || "N/A") + '</p></div>' +
+      '<div><p style="margin:0;font-size:11px;color:#64748b">Metodo</p><p style="margin:2px 0 0;font-size:13px;font-weight:500;color:#0f172a;text-transform:capitalize">' + escapeHtml(link.payment_method || "N/A") + '</p></div>' +
+      '</div></div></div>';
+  }
 
-        renderContent() {
-            if (this.products.length === 0) {
-                return this.renderEmptyState();
-            }
+  function renderContent() {
+    var tabsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      renderTabButton("planes", "Planes Activos", plans.length, '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>') +
+      renderTabButton("links", "Links Aprobados", linksApproved.length, '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>') +
+      renderTabButton("revision", "En Revision", linksReview.length, '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>') +
+      '</div>';
 
-            return `
-                <div class="mis-productos-section" style="${this.getSectionStyles()}">
-                    <div class="mis-productos-header" style="${this.getHeaderStyles()}">
-                        <h2 style="${this.getTitleStyles()}">Mis Productos / Servicios Contratados</h2>
-                        <div class="view-toggle" style="${this.getToggleContainerStyles()}">
-                            <button class="toggle-btn ${this.viewMode === 'cards' ? 'active' : ''}" data-view="cards" style="${this.getToggleBtnStyles(this.viewMode === 'cards')}">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z"/></svg>
-                            </button>
-                            <button class="toggle-btn ${this.viewMode === 'table' ? 'active' : ''}" data-view="table" style="${this.getToggleBtnStyles(this.viewMode === 'table')}">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                    ${this.viewMode === 'cards' ? this.renderCards() : this.renderTable()}
-                </div>
-            `;
-        }
-
-        renderEmptyState() {
-            return `
-                <div class="mis-productos-section" style="${this.getSectionStyles()}">
-                    <div class="mis-productos-header" style="${this.getHeaderStyles()}">
-                        <h2 style="${this.getTitleStyles()}">Mis Productos / Servicios Contratados</h2>
-                    </div>
-                    <div class="empty-state" style="${this.getEmptyStateStyles()}">
-                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5">
-                            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                        </svg>
-                        <h3 style="margin: 20px 0 10px; color: #1a365d; font-size: 20px;">No tienes productos contratados</h3>
-                        <p style="margin: 0 0 25px; color: #64748b; font-size: 16px;">Explora nuestros planes y servicios para comenzar</p>
-                        <a href="${PANEL_URL}/planes" class="cta-button" style="${this.getCtaButtonStyles()}">
-                            Explorar planes
-                        </a>
-                    </div>
-                </div>
-            `;
-        }
-
-        renderCards() {
-            return `
-                <div class="mis-productos-grid" style="${this.getGridStyles()}">
-                    ${this.products.map(product => this.renderCard(product)).join('')}
-                </div>
-            `;
-        }
-
-        renderCard(product) {
-            const statusColor = STATUS_COLORS[product.status] || STATUS_COLORS['en_proceso'];
-            const statusLabel = STATUS_LABELS[product.status] || product.status;
-            
-            return `
-                <div class="product-card" style="${this.getCardStyles()}" data-product-id="${product.id}">
-                    <div class="card-header" style="${this.getCardHeaderStyles()}">
-                        <h3 style="${this.getCardTitleStyles()}">${this.escapeHtml(product.product_name)}</h3>
-                        <span class="status-badge" style="${this.getBadgeStyles(statusColor)}">${statusLabel}</span>
-                    </div>
-                    <div class="card-body" style="${this.getCardBodyStyles()}">
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Tipo:</span>
-                            <span class="value" style="${this.getValueStyles()}">${this.escapeHtml(product.product_type)}</span>
-                        </div>
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Fecha contratación:</span>
-                            <span class="value" style="${this.getValueStyles()}">${this.formatDate(product.start_date)}</span>
-                        </div>
-                        ${product.end_date ? `
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Fecha expiración:</span>
-                            <span class="value" style="${this.getValueStyles()}">${this.formatDate(product.end_date)}</span>
-                        </div>
-                        ` : ''}
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Monto:</span>
-                            <span class="value amount" style="${this.getAmountStyles()}">${this.formatCurrency(product.price, product.currency)}</span>
-                        </div>
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Método de pago:</span>
-                            <span class="value" style="${this.getValueStyles()}">${this.escapeHtml(product.payment_method)}</span>
-                        </div>
-                        <div class="info-row" style="${this.getInfoRowStyles()}">
-                            <span class="label" style="${this.getLabelStyles()}">Referencia:</span>
-                            <span class="value mono" style="${this.getMonoStyles()}">${this.escapeHtml(product.payment_reference || 'N/A')}</span>
-                        </div>
-                    </div>
-                    <div class="card-actions" style="${this.getCardActionsStyles()}">
-                        <button class="action-btn" data-action="detail" data-id="${product.id}" style="${this.getActionBtnStyles()}">
-                            Ver detalle
-                        </button>
-                        <button class="action-btn" data-action="tracking" data-id="${product.id}" style="${this.getActionBtnStyles()}">
-                            Seguimiento
-                        </button>
-                        <button class="action-btn secondary" data-action="support" style="${this.getActionBtnStyles(true)}">
-                            Soporte
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        renderTable() {
-            return `
-                <div class="table-container" style="${this.getTableContainerStyles()}">
-                    <table style="${this.getTableStyles()}">
-                        <thead>
-                            <tr>
-                                <th style="${this.getThStyles()}">Producto</th>
-                                <th style="${this.getThStyles()}">Tipo</th>
-                                <th style="${this.getThStyles()}">Estado</th>
-                                <th style="${this.getThStyles()}">Fecha</th>
-                                <th style="${this.getThStyles()}">Monto</th>
-                                <th style="${this.getThStyles()}">Método</th>
-                                <th style="${this.getThStyles()}">Referencia</th>
-                                <th style="${this.getThStyles()}">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.products.map(product => this.renderTableRow(product)).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
-        renderTableRow(product) {
-            const statusColor = STATUS_COLORS[product.status] || STATUS_COLORS['en_proceso'];
-            const statusLabel = STATUS_LABELS[product.status] || product.status;
-            
-            return `
-                <tr style="${this.getTrStyles()}" data-product-id="${product.id}">
-                    <td style="${this.getTdStyles()}">${this.escapeHtml(product.product_name)}</td>
-                    <td style="${this.getTdStyles()}">${this.escapeHtml(product.product_type)}</td>
-                    <td style="${this.getTdStyles()}">
-                        <span class="status-badge" style="${this.getBadgeStyles(statusColor)}">${statusLabel}</span>
-                    </td>
-                    <td style="${this.getTdStyles()}">${this.formatDate(product.start_date)}</td>
-                    <td style="${this.getTdStyles()}; ${this.getAmountStyles()}">${this.formatCurrency(product.price, product.currency)}</td>
-                    <td style="${this.getTdStyles()}">${this.escapeHtml(product.payment_method)}</td>
-                    <td style="${this.getTdStyles()}; font-family: monospace; font-size: 12px;">${this.escapeHtml(product.payment_reference || 'N/A')}</td>
-                    <td style="${this.getTdStyles()}">
-                        <div style="display: flex; gap: 8px;">
-                            <button class="action-btn small" data-action="detail" data-id="${product.id}" style="${this.getSmallActionBtnStyles()}">Ver</button>
-                            <button class="action-btn small" data-action="tracking" data-id="${product.id}" style="${this.getSmallActionBtnStyles()}">Seguir</button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
-
-        attachEventListeners() {
-            // View toggle buttons
-            const toggleBtns = this.container.querySelectorAll('.toggle-btn');
-            toggleBtns.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const view = e.currentTarget.dataset.view;
-                    if (view !== this.viewMode) {
-                        this.viewMode = view;
-                        this.container.innerHTML = this.renderContent();
-                        this.attachEventListeners();
-                    }
-                });
-            });
-
-            // Action buttons
-            const actionBtns = this.container.querySelectorAll('.action-btn');
-            actionBtns.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const action = e.currentTarget.dataset.action;
-                    const productId = e.currentTarget.dataset.id;
-                    this.handleAction(action, productId);
-                });
-            });
-        }
-
-        handleAction(action, productId) {
-            switch (action) {
-                case 'detail':
-                    window.location.href = `${PANEL_URL}/mis-productos/${productId}`;
-                    break;
-                case 'tracking':
-                    window.location.href = `${PANEL_URL}/seguimiento/${productId}`;
-                    break;
-                case 'support':
-                    window.location.href = 'mailto:contacto@imporlan.cl?subject=Soporte - Mis Productos';
-                    break;
-                default:
-                    console.log('Unknown action:', action);
-            }
-        }
-
-        // Utility methods
-        escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        formatDate(dateStr) {
-            if (!dateStr) return 'N/A';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        }
-
-        formatCurrency(amount, currency) {
-            const num = parseFloat(amount);
-            if (currency === 'USD') {
-                return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
-            }
-            return `$${num.toLocaleString('es-CL')} CLP`;
-        }
-
-        // Styles
-        getSectionStyles() {
-            return `
-                background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%);
-                border-radius: 16px;
-                padding: 30px;
-                margin: 20px 0;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            `;
-        }
-
-        getHeaderStyles() {
-            return `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 25px;
-                flex-wrap: wrap;
-                gap: 15px;
-            `;
-        }
-
-        getTitleStyles() {
-            return `
-                margin: 0;
-                color: #00d4ff;
-                font-size: 24px;
-                font-weight: 700;
-            `;
-        }
-
-        getToggleContainerStyles() {
-            return `
-                display: flex;
-                gap: 8px;
-                background: rgba(255, 255, 255, 0.1);
-                padding: 4px;
-                border-radius: 8px;
-            `;
-        }
-
-        getToggleBtnStyles(isActive) {
-            return `
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 40px;
-                height: 40px;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${isActive ? '#00d4ff' : 'transparent'};
-                color: ${isActive ? '#0a1628' : '#94a3b8'};
-            `;
-        }
-
-        getGridStyles() {
-            return `
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-                gap: 20px;
-            `;
-        }
-
-        getCardStyles() {
-            return `
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 12px;
-                overflow: hidden;
-                transition: transform 0.2s, box-shadow 0.2s;
-            `;
-        }
-
-        getCardHeaderStyles() {
-            return `
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                padding: 20px;
-                background: rgba(0, 212, 255, 0.1);
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            `;
-        }
-
-        getCardTitleStyles() {
-            return `
-                margin: 0;
-                color: #ffffff;
-                font-size: 18px;
-                font-weight: 600;
-                flex: 1;
-                padding-right: 10px;
-            `;
-        }
-
-        getBadgeStyles(color) {
-            return `
-                display: inline-block;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                background: ${color.bg};
-                color: ${color.text};
-                white-space: nowrap;
-            `;
-        }
-
-        getCardBodyStyles() {
-            return `
-                padding: 20px;
-            `;
-        }
-
-        getInfoRowStyles() {
-            return `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 8px 0;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            `;
-        }
-
-        getLabelStyles() {
-            return `
-                color: #94a3b8;
-                font-size: 14px;
-            `;
-        }
-
-        getValueStyles() {
-            return `
-                color: #ffffff;
-                font-size: 14px;
-                font-weight: 500;
-                text-align: right;
-            `;
-        }
-
-        getAmountStyles() {
-            return `
-                color: #00d4ff;
-                font-size: 16px;
-                font-weight: 700;
-            `;
-        }
-
-        getMonoStyles() {
-            return `
-                color: #ffffff;
-                font-size: 12px;
-                font-family: monospace;
-                text-align: right;
-            `;
-        }
-
-        getCardActionsStyles() {
-            return `
-                display: flex;
-                gap: 10px;
-                padding: 15px 20px;
-                background: rgba(0, 0, 0, 0.2);
-                flex-wrap: wrap;
-            `;
-        }
-
-        getActionBtnStyles(isSecondary = false) {
-            return `
-                flex: 1;
-                min-width: 80px;
-                padding: 10px 15px;
-                border: none;
-                border-radius: 8px;
-                font-size: 13px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s;
-                background: ${isSecondary ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #00d4ff 0%, #0099cc 100%)'};
-                color: ${isSecondary ? '#94a3b8' : '#ffffff'};
-            `;
-        }
-
-        getSmallActionBtnStyles() {
-            return `
-                padding: 6px 12px;
-                border: none;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 600;
-                cursor: pointer;
-                background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-                color: #ffffff;
-            `;
-        }
-
-        getTableContainerStyles() {
-            return `
-                overflow-x: auto;
-                border-radius: 12px;
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            `;
-        }
-
-        getTableStyles() {
-            return `
-                width: 100%;
-                border-collapse: collapse;
-                min-width: 800px;
-            `;
-        }
-
-        getThStyles() {
-            return `
-                padding: 15px;
-                text-align: left;
-                color: #00d4ff;
-                font-size: 13px;
-                font-weight: 600;
-                text-transform: uppercase;
-                background: rgba(0, 212, 255, 0.1);
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            `;
-        }
-
-        getTrStyles() {
-            return `
-                transition: background 0.2s;
-            `;
-        }
-
-        getTdStyles() {
-            return `
-                padding: 15px;
-                color: #ffffff;
-                font-size: 14px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            `;
-        }
-
-        getEmptyStateStyles() {
-            return `
-                text-align: center;
-                padding: 60px 20px;
-            `;
-        }
-
-        getCtaButtonStyles() {
-            return `
-                display: inline-block;
-                padding: 14px 30px;
-                background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-                color: #ffffff;
-                text-decoration: none;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
-                transition: transform 0.2s, box-shadow 0.2s;
-                box-shadow: 0 4px 14px rgba(0, 212, 255, 0.4);
-            `;
-        }
-
-        getSkeletonCardStyles() {
-            return `
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-                padding: 25px;
-                min-height: 200px;
-            `;
-        }
-
-        getSkeletonLineStyles(width) {
-            return `
-                height: 20px;
-                background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
-                background-size: 200% 100%;
-                animation: shimmer 1.5s infinite;
-                border-radius: 4px;
-                margin-bottom: 15px;
-                width: ${width};
-            `;
-        }
+    var contentHtml = "";
+    if (activeTab === "planes") {
+      if (plans.length === 0) {
+        contentHtml = '<div style="text-align:center;padding:40px 20px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" style="margin:0 auto 16px;display:block"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><p style="color:#64748b;font-size:14px;margin:0">No tienes planes activos</p></div>';
+      } else {
+        contentHtml = '<div style="display:grid;gap:16px">' + plans.map(renderPlanCard).join("") + '</div>';
+      }
+    } else if (activeTab === "links") {
+      if (linksApproved.length === 0) {
+        contentHtml = '<div style="text-align:center;padding:40px 20px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" style="margin:0 auto 16px;display:block"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><p style="color:#64748b;font-size:14px;margin:0">No tienes links aprobados</p></div>';
+      } else {
+        contentHtml = '<div style="display:grid;gap:12px">' + linksApproved.map(renderLinkCard).join("") + '</div>';
+      }
+    } else {
+      if (linksReview.length === 0) {
+        contentHtml = '<div style="text-align:center;padding:40px 20px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" style="margin:0 auto 16px;display:block"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><p style="color:#64748b;font-size:14px;margin:0">No tienes links en revision</p></div>';
+      } else {
+        contentHtml = '<div style="display:grid;gap:12px">' + linksReview.map(renderLinkCard).join("") + '</div>';
+      }
     }
 
-    // Add shimmer animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        
-        .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.2);
-        }
-        
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
-        }
-        
-        .toggle-btn:hover {
-            background: rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
-        }
-        
-        .toggle-btn.active:hover {
-            background: #00d4ff;
-            color: #0a1628;
-        }
-        
-        tr:hover {
-            background: rgba(0, 212, 255, 0.05);
-        }
-        
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5);
-        }
-        
-        @media (max-width: 768px) {
-            .mis-productos-grid {
-                grid-template-columns: 1fr !important;
-            }
-            
-            .mis-productos-header {
-                flex-direction: column;
-                align-items: flex-start !important;
-            }
-            
-            .card-actions {
-                flex-direction: column;
-            }
-            
-            .action-btn {
-                width: 100% !important;
-            }
-        }
-    `;
+    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:28px 32px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(8,145,178,.15);border-radius:50%"></div>' +
+      '<div style="display:flex;align-items:center;gap:16px;position:relative">' +
+      '<div style="width:52px;height:52px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +
+      '<div><h2 style="color:#fff;font-size:22px;font-weight:700;margin:0">Mis Productos Contratados</h2>' +
+      '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Planes de busqueda y <a href="#links-contratados" style="color:#22d3ee;text-decoration:underline;cursor:pointer">Links Contratados</a></p></div></div></div>' +
+      '<div style="padding:24px 28px">' +
+      tabsHtml +
+      '<div style="margin-top:20px">' + contentHtml + '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid #f1f5f9">' +
+      '<a href="#links-contratados" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .2s;box-shadow:0 4px 14px rgba(8,145,178,.3)">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>Ver Mis Expedientes</a></div>' +
+      '</div></div>';
+  }
+
+  function renderSkeleton() {
+    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;padding:32px">' +
+      '<div style="height:24px;width:60%;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:mpShimmer 1.5s infinite;border-radius:6px;margin-bottom:16px"></div>' +
+      '<div style="height:16px;width:40%;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:mpShimmer 1.5s infinite;border-radius:6px;margin-bottom:24px"></div>' +
+      '<div style="display:grid;gap:12px">' +
+      [1, 2].map(function () { return '<div style="height:120px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:mpShimmer 1.5s infinite;border-radius:12px"></div>'; }).join("") +
+      '</div></div>';
+  }
+
+  function attachListeners() {
+    if (!container) return;
+    container.querySelectorAll("[data-tab]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        activeTab = btn.dataset.tab;
+        container.querySelector("#mp-content-area").innerHTML = renderContent();
+        attachListeners();
+      });
+    });
+  }
+
+  async function renderModule() {
+    if (moduleHidden) return;
+    if (!isProductsPage()) return;
+
+    var mainEl = document.querySelector("main");
+    if (!mainEl) return;
+
+    var children = mainEl.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].id !== "mis-productos-root") {
+        children[i].style.display = "none";
+        children[i].setAttribute("data-mp-hidden", "true");
+      }
+    }
+
+    container = document.getElementById("mis-productos-root");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "mis-productos-root";
+      container.style.cssText = "padding:24px;max-width:900px;margin:0 auto";
+      mainEl.appendChild(container);
+    }
+    container.style.display = "block";
+    container.innerHTML = '<div id="mp-content-area">' + renderSkeleton() + '</div>';
+
+    await fetchPurchases();
+
+    if (!document.getElementById("mis-productos-root")) return;
+    container.querySelector("#mp-content-area").innerHTML = renderContent();
+    attachListeners();
+    updateSidebarActive();
+  }
+
+  function hideModule() {
+    moduleHidden = true;
+    var root = document.getElementById("mis-productos-root");
+    if (root) root.style.display = "none";
+    document.querySelectorAll("[data-mp-hidden]").forEach(function (el) {
+      el.style.display = "";
+      el.removeAttribute("data-mp-hidden");
+    });
+    updateSidebarActive();
+  }
+
+  function addStyles() {
+    if (document.getElementById("mp-styles")) return;
+    var style = document.createElement("style");
+    style.id = "mp-styles";
+    style.textContent = '@keyframes mpShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}';
     document.head.appendChild(style);
+  }
 
-    // Initialize module
-    window.MisProductosModule = MisProductosModule;
-    
-    // Auto-initialize if on the right page
-    if (window.location.pathname.includes('/panel') || window.location.pathname.includes('/mis-productos')) {
-        const module = new MisProductosModule();
-        module.init();
+  function init() {
+    addStyles();
+    injectSidebarItem();
+
+    document.addEventListener("click", function (e) {
+      var target = e.target.closest("a, button");
+      if (!target) return;
+      var text = (target.textContent || "").trim().toLowerCase();
+      var href = target.getAttribute("href") || "";
+      if (href === "#mis-productos" || (text.includes("producto") && target.closest("aside"))) {
+        return;
+      }
+      if (isProductsPage() && !href.includes("mis-productos") && (target.closest("aside") || target.closest("nav"))) {
+        hideModule();
+      }
+    }, true);
+
+    window.addEventListener("hashchange", function () {
+      if (isProductsPage()) {
+        moduleHidden = false;
+        renderModule();
+      } else {
+        hideModule();
+      }
+    });
+
+    if (isProductsPage()) {
+      moduleHidden = false;
+      renderModule();
     }
+  }
+
+  function startWhenReady() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 800); });
+    } else {
+      setTimeout(init, 800);
+    }
+  }
+
+  startWhenReady();
 })();

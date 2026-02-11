@@ -10,8 +10,8 @@
     'use strict';
 
     // Configuration - Auto-detect TEST environment
-    const isTestEnv = window.location.pathname.startsWith('/test/');
-    const API_BASE = isTestEnv ? '/test/api/chat_api.php' : '/api/chat_api.php';
+    const isTestEnv = window.location.pathname.startsWith('/test/') || window.location.pathname.startsWith('/panel/');
+    const API_BASE = isTestEnv ? '/api/chat_api.php' : '/api/chat_api.php';
     const POLL_INTERVAL = 3000; // 3 seconds for admin (faster updates)
     const NOTIFICATION_SOUND_ENABLED_KEY = 'imporlan_admin_chat_sound_enabled';
 
@@ -138,7 +138,7 @@
         link.id = 'chat-widget-css';
         link.rel = 'stylesheet';
         // Auto-detect TEST environment for CSS path
-        link.href = isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css';
+        link.href = window.location.pathname.startsWith('/panel/') ? '/panel/assets/chat-widget.css' : (isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css');
         document.head.appendChild(link);
     }
 
@@ -547,9 +547,7 @@
         if (tokenRefreshAttempted) return false;
         tokenRefreshAttempted = true;
         
-        // Show message to user that they need to re-login
-        console.log('Chat: Token validation failed. Please re-login to use chat.');
-        alert('Tu sesion de chat ha expirado. Por favor, cierra sesion y vuelve a iniciar sesion para usar el chat.');
+        console.log('Chat: Token validation failed. Chat will retry on next interaction.');
         return false;
     }
 

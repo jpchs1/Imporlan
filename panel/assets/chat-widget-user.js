@@ -10,8 +10,8 @@
     'use strict';
 
     // Configuration - Auto-detect TEST environment
-    const isTestEnv = window.location.pathname.startsWith('/test/');
-    const API_BASE = isTestEnv ? '/test/api/chat_api.php' : '/api/chat_api.php';
+    const isTestEnv = window.location.pathname.startsWith('/test/') || window.location.pathname.startsWith('/panel/');
+    const API_BASE = isTestEnv ? '/api/chat_api.php' : '/api/chat_api.php';
     const POLL_INTERVAL = 5000; // 5 seconds
     const NOTIFICATION_SOUND_ENABLED_KEY = 'imporlan_chat_sound_enabled';
 
@@ -109,7 +109,7 @@
         link.id = 'chat-widget-css';
         link.rel = 'stylesheet';
         // Auto-detect TEST environment for CSS path
-        link.href = isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css';
+        link.href = window.location.pathname.startsWith('/panel/') ? '/panel/assets/chat-widget.css' : (isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css');
         document.head.appendChild(link);
     }
 
