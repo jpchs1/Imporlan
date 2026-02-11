@@ -589,6 +589,136 @@
     } catch (e) {}
   }
 
+  /* ── Login page: password toggle eye icon ── */
+  function addPasswordToggle() {
+    var inputs = document.querySelectorAll('input[type="password"]');
+    for (var i = 0; i < inputs.length; i++) {
+      var inp = inputs[i];
+      if (inp.getAttribute('data-eye-added')) continue;
+      var parent = inp.parentElement;
+      if (!parent) continue;
+      if (parent.style.position !== 'absolute' && parent.style.position !== 'relative' && parent.style.position !== 'fixed') {
+        parent.style.position = 'relative';
+      }
+      inp.setAttribute('data-eye-added', '1');
+      inp.style.paddingRight = '44px';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.tabIndex = -1;
+      btn.style.cssText = 'position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:#94a3b8;display:flex;align-items:center;z-index:2';
+      btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+      btn.setAttribute('data-target-input', 'eye-' + i);
+      inp.setAttribute('data-eye-id', 'eye-' + i);
+      (function(toggleBtn, targetInput) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (targetInput.type === 'password') {
+            targetInput.type = 'text';
+            toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+          } else {
+            targetInput.type = 'password';
+            toggleBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+          }
+          targetInput.focus();
+        });
+      })(btn, inp);
+      parent.appendChild(btn);
+    }
+  }
+
+  /* ── Login page: forgot password functionality ── */
+  function enableForgotPassword() {
+    var buttons = document.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      var txt = (buttons[i].textContent || '').trim().toLowerCase();
+      if (txt.indexOf('olvidaste') !== -1 || txt.indexOf('olvidaste tu contrase') !== -1) {
+        var btn = buttons[i];
+        if (btn.getAttribute('data-forgot-fixed')) continue;
+        btn.setAttribute('data-forgot-fixed', '1');
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showForgotPasswordModal();
+        });
+      }
+    }
+  }
+
+  function showForgotPasswordModal() {
+    if (document.getElementById('de-forgot-overlay')) return;
+    var overlay = document.createElement('div');
+    overlay.id = 'de-forgot-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;animation:deFadeIn .2s ease';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:16px;padding:32px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:deSlideUp .3s ease">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b">Recuperar Contrasena</h3>' +
+      '<button id="de-forgot-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:20px">&times;</button></div>' +
+      '<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.5">Ingresa tu email y te enviaremos una contrasena temporal para que puedas acceder a tu cuenta.</p>' +
+      '<label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:#475569">Email</label>' +
+      '<input id="de-forgot-email" type="email" placeholder="tu@email.com" style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border .2s" />' +
+      '<div id="de-forgot-msg" style="margin-top:12px;font-size:13px;display:none"></div>' +
+      '<button id="de-forgot-send" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s">Enviar Contrasena Temporal</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var emailInput = document.getElementById('de-forgot-email');
+    var loginEmailInput = document.querySelector('input[type="email"]');
+    if (loginEmailInput && loginEmailInput.value) {
+      emailInput.value = loginEmailInput.value;
+    }
+
+    document.getElementById('de-forgot-close').addEventListener('click', function() { overlay.remove(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    document.getElementById('de-forgot-send').addEventListener('click', function() {
+      var email = emailInput.value.trim();
+      var msgEl = document.getElementById('de-forgot-msg');
+      var sendBtn = document.getElementById('de-forgot-send');
+      if (!email || email.indexOf('@') === -1) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#ef4444';
+        msgEl.textContent = 'Por favor ingresa un email valido.';
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Enviando...';
+      sendBtn.style.opacity = '0.7';
+      msgEl.style.display = 'none';
+
+      fetch(API_BASE + '/forgot_password.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        msgEl.style.display = 'block';
+        if (data.success) {
+          msgEl.style.color = '#10b981';
+          msgEl.textContent = 'Se ha enviado una contrasena temporal a tu email. Revisalo e inicia sesion.';
+          sendBtn.textContent = 'Enviado';
+          sendBtn.style.background = '#10b981';
+        } else {
+          msgEl.style.color = '#ef4444';
+          msgEl.textContent = data.error || 'No se pudo procesar la solicitud.';
+          sendBtn.disabled = false;
+          sendBtn.textContent = 'Enviar Contrasena Temporal';
+          sendBtn.style.opacity = '1';
+        }
+      })
+      .catch(function() {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#ef4444';
+        msgEl.textContent = 'Error de conexion. Intenta nuevamente.';
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Enviar Contrasena Temporal';
+        sendBtn.style.opacity = '1';
+      });
+    });
+  }
+
   /* ── Toast helper ── */
   function showToast(msg, type) {
     var toast = document.createElement("div");
@@ -611,6 +741,8 @@
 
   /* ── Main check loop ── */
   function runEnhancements() {
+    addPasswordToggle();
+    enableForgotPassword();
     fixCursorJitter();
     fixUserName();
     removeAdminButton();
