@@ -277,11 +277,11 @@
 
     var imgHtml = '';
     if (lk.image_url) {
-      imgHtml = '<div style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" class="lc-img-preview" data-url="' + escapeHtml(lk.image_url) + '">' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
         '<img src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="this.style.display=\'none\'">' +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     } else {
-      imgHtml = '<div style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;position:relative">' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;position:relative">' +
         '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>' +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
@@ -330,11 +330,11 @@
 
     return '<div class="lc-vessel-card" draggable="true" data-link-id="' + (lk.id || "") + '" data-idx="' + idx + '" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;transition:all .25s;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.04)">' +
       selOrderHtml +
-      '<div style="display:flex;gap:0">' +
+      '<div class="lc-card-row" style="display:flex;gap:0">' +
       '<div class="lc-drag-handle" style="flex-shrink:0;width:32px;display:flex;align-items:center;justify-content:center;cursor:grab;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-right:1px solid #e2e8f0;opacity:.6;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div>' +
-      '<div style="flex:1;padding:16px;display:flex;gap:16px;flex-wrap:wrap;min-width:0">' +
+      '<div class="lc-card-body" style="flex:1;padding:16px;display:flex;gap:16px;flex-wrap:wrap;min-width:0">' +
       imgHtml +
-      '<div style="flex:1;min-width:200px">' +
+      '<div class="lc-card-text" style="flex:1;min-width:0">' +
       (lk.title ? '<h4 style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1e293b">' + escapeHtml(lk.title) + '</h4>' : '') +
       locationHoursHtml + urlHtml + valuesHtml + commentsHtml +
       (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
@@ -386,7 +386,7 @@
     var whatsappUrl = "https://wa.me/56940211459?text=" + encodeURIComponent("Hola, necesito ayuda con mi expediente " + (order.order_number || ""));
 
     return '<div style="margin-bottom:16px"><button class="lc-btn-back" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Volver</button></div>' +
-      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
       '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;position:relative;overflow:hidden">' +
       '<div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(8,145,178,.12);border-radius:50%"></div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative">' +
@@ -395,8 +395,8 @@
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + getStatusBadge(order.status) +
       '<a href="' + whatsappUrl + '" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25d366;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contactar Soporte</a></div></div></div>' +
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
-      (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
-      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+            (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
+            '<div class="lc-detail-wrapper" style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
       '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
       '<div style="display:flex;align-items:center;gap:12px">' +
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
@@ -599,6 +599,72 @@
     attachListeners(wrapper);
   }
 
+  function fixMobileLayout() {
+    if (window.innerWidth >= 768) return;
+    var inject = document.getElementById("lc-expedientes-inject");
+    if (inject) {
+      inject.style.width = "100%";
+      inject.style.maxWidth = "100%";
+      inject.style.padding = "0";
+      inject.style.boxSizing = "border-box";
+      var children = inject.children;
+      for (var i = 0; i < children.length; i++) {
+        children[i].style.display = "block";
+        children[i].style.width = "100%";
+        children[i].style.maxWidth = "100%";
+        children[i].style.gridTemplateColumns = "none";
+        children[i].style.boxSizing = "border-box";
+        children[i].style.overflow = "hidden";
+      }
+    }
+    var cc = document.getElementById("lc-cards-container");
+    if (cc) {
+      cc.style.width = "100%";
+      cc.style.maxWidth = "100%";
+      cc.style.boxSizing = "border-box";
+      if (cc.parentElement) {
+        cc.parentElement.style.display = "block";
+        cc.parentElement.style.width = "100%";
+        cc.parentElement.style.maxWidth = "100%";
+        cc.parentElement.style.gridTemplateColumns = "none";
+        cc.parentElement.style.boxSizing = "border-box";
+      }
+    }
+    var cards = document.querySelectorAll(".lc-vessel-card");
+    for (var j = 0; j < cards.length; j++) {
+      cards[j].style.width = "100%";
+      cards[j].style.maxWidth = "100%";
+      cards[j].style.boxSizing = "border-box";
+      cards[j].style.overflow = "hidden";
+      var body = cards[j].querySelector(".lc-card-body");
+      if (body) {
+        body.style.width = "100%";
+        body.style.boxSizing = "border-box";
+        body.style.overflow = "hidden";
+        body.style.padding = "10px";
+      }
+      var text = cards[j].querySelector(".lc-card-text");
+      if (text) {
+        text.style.width = "100%";
+        text.style.boxSizing = "border-box";
+        text.style.overflow = "hidden";
+        var flexDivs = text.children;
+        for (var k = 0; k < flexDivs.length; k++) {
+          var cs = window.getComputedStyle(flexDivs[k]);
+          if (cs.display === "flex" && cs.flexWrap === "wrap") {
+            flexDivs[k].style.flexDirection = "column";
+            flexDivs[k].style.alignItems = "stretch";
+            var items = flexDivs[k].children;
+            for (var m = 0; m < items.length; m++) {
+              items[m].style.width = "100%";
+              items[m].style.boxSizing = "border-box";
+            }
+          }
+        }
+      }
+    }
+  }
+
   async function showDetailInline(orderId) {
     var inject = document.getElementById("lc-expedientes-inject");
     if (!inject) return;
@@ -608,6 +674,7 @@
     inject.innerHTML = renderDetailView(order);
     applyClientOrder(inject);
     attachListeners(inject);
+    fixMobileLayout();
     inject.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -644,7 +711,21 @@
       ".lc-img-preview:hover img{transform:scale(1.05)}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
-      "@media(max-width:768px){#lc-module-container{padding:12px!important}.lc-vessel-card>div>div:last-child{flex-direction:column!important}}";
+            "@media(max-width:768px){" +
+            "#lc-expedientes-inject{width:100%!important;max-width:100%!important;padding:0 8px!important}" +
+            "#lc-expedientes-inject>div{display:block!important;width:100%!important;max-width:100%!important;grid-template-columns:1fr!important}" +
+            ".lc-detail-wrapper{display:block!important;width:100%!important}" +
+            "#lc-cards-container{width:100%!important;max-width:100%!important}" +
+            "#lc-module-container{padding:8px!important}" +
+            ".lc-vessel-card{max-width:100%!important;width:100%!important}" +
+            ".lc-card-row{flex-direction:column!important;align-items:stretch!important}" +
+            ".lc-drag-handle{width:100%!important;height:28px!important;border-right:none!important;border-bottom:1px solid #e2e8f0!important;flex-direction:row!important}" +
+            ".lc-card-body{flex-direction:column!important;gap:12px!important;padding:12px!important;width:100%!important;box-sizing:border-box!important}" +
+            ".lc-img-preview{width:100%!important;height:180px!important;flex-shrink:0!important}" +
+            ".lc-card-text{width:100%!important;min-width:0!important}" +
+            ".lc-vessel-card a[href]{word-break:break-all!important;white-space:normal!important;max-width:100%!important;font-size:12px!important;overflow:visible!important;text-overflow:unset!important}" +
+            ".lc-inspect-btn{width:100%!important;justify-content:center!important}" +
+      "}";
     document.head.appendChild(style);
   }
 
