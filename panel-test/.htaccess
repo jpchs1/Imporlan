@@ -10,7 +10,7 @@ Header set Cache-Control "no-cache, no-store, must-revalidate"
 RewriteEngine On
 
 # Set the base for rewrites
-RewriteBase /panel-test/
+RewriteBase /panel/
 
 # If the requested file or directory exists, serve it directly
 RewriteCond %{REQUEST_FILENAME} !-f
