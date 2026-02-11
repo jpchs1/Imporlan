@@ -1,8 +1,16 @@
+# Disable LiteSpeed cache
+<IfModule LiteSpeed>
+CacheLookup off
+</IfModule>
+<IfModule mod_headers.c>
+Header set Cache-Control "no-cache, no-store, must-revalidate"
+</IfModule>
+
 # Enable RewriteEngine
 RewriteEngine On
 
 # Set the base for rewrites
-RewriteBase /panel/
+RewriteBase /panel-test/
 
 # If the requested file or directory exists, serve it directly
 RewriteCond %{REQUEST_FILENAME} !-f
