@@ -56,11 +56,11 @@
 
   function enhanceUsers() {
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) return false;
     var table = main.querySelector("table");
-    if (!table) return;
+    if (!table) return false;
     var tbody = table.querySelector("tbody");
-    if (!tbody) return;
+    if (!tbody) return false;
     var thead = table.querySelector("thead tr");
     if (thead) {
       var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
@@ -103,15 +103,16 @@
         console.warn("Error loading users:", err);
         tbody.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar usuarios</td></tr>';
       });
+    return true;
   }
 
   function enhanceSolicitudes() {
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) return false;
     var table = main.querySelector("table");
-    if (!table) return;
+    if (!table) return false;
     var tbody = table.querySelector("tbody");
-    if (!tbody) return;
+    if (!tbody) return false;
     var thead = table.querySelector("thead tr");
     if (thead) {
       var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
@@ -163,6 +164,7 @@
         console.warn("Error loading solicitudes:", err);
         tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar solicitudes</td></tr>';
       });
+    return true;
   }
 
   function cleanupEnhancer() {
@@ -179,9 +181,9 @@
 
   function enhancePlanes() {
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) return false;
     var h1 = main.querySelector("h1");
-    if (!h1) return;
+    if (!h1) return false;
     var subtitle = h1.nextElementSibling;
     var children = Array.from(main.children);
     children.forEach(function (ch) {
@@ -223,15 +225,16 @@
       .catch(function () {
         container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;width:100%">Error al cargar planes</div>';
       });
+    return true;
   }
 
   function enhancePagos() {
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) return false;
     var table = main.querySelector("table");
-    if (!table) return;
+    if (!table) return false;
     var tbody = table.querySelector("tbody");
-    if (!tbody) return;
+    if (!tbody) return false;
     var thead = table.querySelector("thead tr");
     if (thead) {
       var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
@@ -264,18 +267,20 @@
         console.warn("Error loading pagos:", err);
         tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar pagos</td></tr>';
       });
+    return true;
   }
 
   function enhanceContenido() {
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) return false;
     var contentArea = null;
     main.querySelectorAll("div").forEach(function (el) {
       if (el.children.length >= 3 && el.querySelector("h3")) contentArea = el;
     });
-    if (!contentArea) return;
+    if (!contentArea) return false;
     contentArea.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:0";
     contentArea.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;grid-column:1/-1">No hay resenas disponibles por el momento</div>';
+    return true;
   }
 
   function enhanceDashboard() {
@@ -318,39 +323,41 @@
 
   function enhance(section) {
     if (enhanced[section]) return;
-    enhanced[section] = true;
     addSkeletonStyles();
+    var ok = false;
     try {
       switch (section) {
-        case "Dashboard": enhanceDashboard(); break;
-        case "Usuarios": enhanceUsers(); break;
-        case "Solicitudes": enhanceSolicitudes(); break;
-        case "Planes": enhancePlanes(); break;
-        case "Pagos": enhancePagos(); break;
-        case "Contenido": enhanceContenido(); break;
+        case "Dashboard": enhanceDashboard(); ok = true; break;
+        case "Usuarios": ok = enhanceUsers(); break;
+        case "Solicitudes": ok = enhanceSolicitudes(); break;
+        case "Planes": ok = enhancePlanes(); break;
+        case "Pagos": ok = enhancePagos(); break;
+        case "Contenido": ok = enhanceContenido(); break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
+    if (ok) enhanced[section] = true;
   }
 
   function check() {
     var s = getSection();
-    if (s && s !== lastSection) {
+    if (!s) return;
+    if (s !== lastSection) {
       cleanupEnhancer();
       lastSection = s;
       enhanced = {};
-      enhance(s);
     }
+    if (!enhanced[s]) enhance(s);
   }
 
   function init() {
     new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
-    setInterval(check, 1000);
-    setTimeout(check, 500);
+    setInterval(check, 500);
+    check();
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 200); });
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    setTimeout(init, 200);
+    init();
   }
 })();
