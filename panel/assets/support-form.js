@@ -28,7 +28,7 @@
 
         detectApiBase() {
             const path = window.location.pathname;
-            if (path.includes('/test/') || path.includes('/panel/')) {
+            if (path.includes('/test/') || path.includes('/panel-test/')) {
                 return '/test/api';
             }
             return '/api';
