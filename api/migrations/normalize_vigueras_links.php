@@ -20,6 +20,11 @@
  *    - https://www.boattrader.com/boat/2024-cobalt-r4-9760941/
  *    - https://www.boattrader.com/boat/2021-cobalt-r5-10010524/
  *    - https://www.boattrader.com/boat/2021-cobalt-r5-9930489/
+ * 7. Added boat reference images (2026-02-11):
+ *    - Link 63: https://www.imporlan.cl/test/assets/boat-images/cobalt_r4_link1.jpg
+ *    - Link 64: https://www.imporlan.cl/test/assets/boat-images/cobalt_r4_link2.jpg
+ *    - Link 65: https://www.imporlan.cl/test/assets/boat-images/cobalt_r5_link3.jpg
+ *    - Link 66: https://www.imporlan.cl/test/assets/boat-images/cobalt_r5_link4.jpg
  * 
  * This script can be re-run safely (idempotent).
  * It will verify the current state and only make changes if needed.
@@ -41,6 +46,13 @@ $LINK_TITLES = [
     '2024 Cobalt R4',
     '2021 Cobalt R5',
     '2021 Cobalt R5',
+];
+
+$LINK_IMAGES = [
+    'https://www.imporlan.cl/test/assets/boat-images/cobalt_r4_link1.jpg',
+    'https://www.imporlan.cl/test/assets/boat-images/cobalt_r4_link2.jpg',
+    'https://www.imporlan.cl/test/assets/boat-images/cobalt_r5_link3.jpg',
+    'https://www.imporlan.cl/test/assets/boat-images/cobalt_r5_link4.jpg',
 ];
 
 $ORDER_ID = 7;
@@ -94,10 +106,10 @@ try {
 
         foreach ($REQUIRED_LINKS as $i => $url) {
             $insertStmt = $pdo->prepare("
-                INSERT INTO order_links (order_id, row_index, url, title, comments)
-                VALUES (?, ?, ?, ?, 'BoatTrader - Pendiente de análisis')
+                INSERT INTO order_links (order_id, row_index, url, title, image_url, comments)
+                VALUES (?, ?, ?, ?, ?, 'BoatTrader - Pendiente de análisis')
             ");
-            $insertStmt->execute([$ORDER_ID, $i + 1, $url, $LINK_TITLES[$i]]);
+            $insertStmt->execute([$ORDER_ID, $i + 1, $url, $LINK_TITLES[$i], $LINK_IMAGES[$i]]);
             $log[] = "Inserted link " . ($i + 1) . ": $url";
         }
     }
