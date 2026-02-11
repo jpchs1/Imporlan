@@ -10,21 +10,19 @@
     : "/api";
 
   const STATUS_COLORS = {
-    new: { bg: "#3b82f6", text: "#ffffff", label: "Nuevo" },
-    pending_admin_fill: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente Completar" },
+    new: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    pending: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    pending_admin_fill: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
     in_progress: { bg: "#10b981", text: "#ffffff", label: "En Proceso" },
     completed: { bg: "#6366f1", text: "#ffffff", label: "Completado" },
-    expired: { bg: "#ef4444", text: "#ffffff", label: "Vencido" },
-    canceled: { bg: "#64748b", text: "#ffffff", label: "Cancelado" },
+    expired: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    canceled: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
   };
 
   const STATUS_OPTIONS = [
-    { value: "new", label: "Nuevo" },
-    { value: "pending_admin_fill", label: "Pendiente Completar" },
+    { value: "pending", label: "Pendiente" },
     { value: "in_progress", label: "En Proceso" },
     { value: "completed", label: "Completado" },
-    { value: "expired", label: "Vencido" },
-    { value: "canceled", label: "Cancelado" },
   ];
 
   let currentOrderData = null;
@@ -677,6 +675,66 @@
     });
   }
 
+  async function autoFetchLinkData(urlInput) {
+    var url = urlInput.value.trim();
+    if (!url || !url.match(/^https?:\/\//i)) return;
+    var row = urlInput.closest("tr");
+    if (!row) return;
+
+    var loadingEl = document.createElement("div");
+    loadingEl.className = "ea-link-loading";
+    loadingEl.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:8px";
+    loadingEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:12px;color:#0369a1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Extrayendo datos...</div>';
+    row.style.position = "relative";
+    row.appendChild(loadingEl);
+
+    try {
+      var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
+      var data = await resp.json();
+      if (data.success) {
+        if (data.image_url) {
+          var imgInput = row.querySelector(".ea-link-image_url");
+          if (imgInput && !imgInput.value) {
+            imgInput.value = data.image_url;
+            var imgContainer = imgInput.closest("div");
+            var placeholder = imgContainer ? imgContainer.querySelector(".ea-img-placeholder") : null;
+            if (placeholder) {
+              var newImg = document.createElement("img");
+              newImg.src = data.image_url;
+              newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
+              newImg.className = "ea-img-preview";
+              newImg.setAttribute("data-url", data.image_url);
+              placeholder.parentNode.insertBefore(newImg, placeholder);
+              placeholder.remove();
+            }
+          }
+        }
+        if (data.location) {
+          var locInput = row.querySelector(".ea-link-location");
+          if (locInput && !locInput.value) locInput.value = data.location;
+        }
+        if (data.hours) {
+          var hrsInput = row.querySelector(".ea-link-hours");
+          if (hrsInput && !hrsInput.value) hrsInput.value = data.hours;
+        }
+        if (data.value_usa_usd) {
+          var usdInput = row.querySelector(".ea-link-value_usa_usd");
+          if (usdInput && !usdInput.value && !usdInput.getAttribute("data-raw")) {
+            usdInput.setAttribute("data-raw", data.value_usa_usd);
+            usdInput.value = formatUsdDisplay(data.value_usa_usd);
+          }
+        }
+        showToast("Datos extraidos del link", "success");
+        hasUnsavedChanges = true;
+        showUnsavedBadge();
+      }
+    } catch (e) {
+      console.warn("Auto-fetch failed:", e);
+    } finally {
+      if (loadingEl.parentNode) loadingEl.remove();
+    }
+  }
+
   function showUnsavedBadge() {
     var badge = document.getElementById("ea-unsaved-badge");
     if (badge) badge.style.display = "inline-flex";
@@ -722,6 +780,15 @@
         e.stopPropagation();
         var url = this.getAttribute("data-url");
         if (url) { navigator.clipboard.writeText(url); showToast("Link copiado", "success"); }
+      });
+    });
+
+    container.querySelectorAll(".ea-link-url").forEach(function (inp) {
+      inp.addEventListener("blur", function () {
+        var val = this.value.trim();
+        if (val && val.match(/^https?:\/\//i)) {
+          autoFetchLinkData(this);
+        }
       });
     });
 
@@ -829,6 +896,9 @@
           if (result.success) {
             modal.remove();
             showToast("Expediente creado: " + result.order_number, "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("expediente_edit", "expediente", result.order_id, null, { email: email, name: name }, "Expediente #" + result.order_number + " creado");
+            }
             window.location.hash = "#expedientes/" + result.order_id;
           } else {
             showToast(result.error || "Error al crear", "error");
@@ -868,6 +938,15 @@
           showToast("Expediente guardado exitosamente", "success");
           hasUnsavedChanges = false;
           hideUnsavedBadge();
+          if (typeof window.logAuditAction === "function") {
+            var oldStatus = currentOrderData.status || "";
+            var newStatus = orderUpdate.status || "";
+            if (oldStatus !== newStatus) {
+              window.logAuditAction("status_change", "expediente", currentOrderData.id, { status: oldStatus }, { status: newStatus }, "Estado cambiado de " + oldStatus + " a " + newStatus);
+            }
+            window.logAuditAction("expediente_edit", "expediente", currentOrderData.id, null, orderUpdate, "Expediente #" + currentOrderData.order_number + " actualizado");
+            window.logAuditAction("link_modification", "links", currentOrderData.id, null, { count: linksData.length }, "Links actualizados para expediente #" + currentOrderData.order_number);
+          }
         } else {
           showToast((r1.error || "") + " " + (r2.error || ""), "error");
         }
@@ -917,6 +996,9 @@
         if (!confirm("Eliminar esta fila de link?")) return;
         var result = await deleteLink(currentOrderData.id, linkId);
         if (result.success) {
+          if (typeof window.logAuditAction === "function") {
+            window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+          }
           var row = this.closest("tr");
           if (row) row.remove();
           currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
