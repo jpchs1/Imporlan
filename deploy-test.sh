@@ -32,10 +32,11 @@ echo ""
 echo "[3/7] Backing up and deploying Panel Test..."
 if [ -d "$PUBLIC_HTML/panel-test" ]; then
   echo "  -> Backing up panel-test to panel-test_backup_${TIMESTAMP}"
-  mv "$PUBLIC_HTML/panel-test" "$BACKUP_DIR/panel-test_backup_${TIMESTAMP}"
+  cp -a "$PUBLIC_HTML/panel-test" "$BACKUP_DIR/panel-test_backup_${TIMESTAMP}"
   echo "  -> Backup saved."
 else
   echo "  -> No existing panel-test to backup, skipping."
+  mkdir -p "$PUBLIC_HTML/panel-test"
 fi
 
 if [ ! -d "$STAGING_REPO/panel-test" ]; then
@@ -43,17 +44,18 @@ if [ ! -d "$STAGING_REPO/panel-test" ]; then
   exit 1
 fi
 
-cp -a "$STAGING_REPO/panel-test" "$PUBLIC_HTML/panel-test"
-echo "  -> Panel Test deployed."
+rsync -a "$STAGING_REPO/panel-test/" "$PUBLIC_HTML/panel-test/"
+echo "  -> Panel Test deployed (overlay, server-only files preserved)."
 
 echo ""
 echo "[4/7] Backing up and deploying Web Test..."
 if [ -d "$PUBLIC_HTML/test" ]; then
   echo "  -> Backing up test to test_backup_${TIMESTAMP}"
-  mv "$PUBLIC_HTML/test" "$BACKUP_DIR/test_backup_${TIMESTAMP}"
+  cp -a "$PUBLIC_HTML/test" "$BACKUP_DIR/test_backup_${TIMESTAMP}"
   echo "  -> Backup saved."
 else
   echo "  -> No existing /test directory, will create it."
+  mkdir -p "$PUBLIC_HTML/test"
 fi
 
 if [ ! -d "$STAGING_REPO/test" ]; then
@@ -61,8 +63,8 @@ if [ ! -d "$STAGING_REPO/test" ]; then
   exit 1
 fi
 
-cp -a "$STAGING_REPO/test" "$PUBLIC_HTML/test"
-echo "  -> Web Test deployed."
+rsync -a "$STAGING_REPO/test/" "$PUBLIC_HTML/test/"
+echo "  -> Web Test deployed (overlay, server-only files preserved)."
 
 echo ""
 echo "[5/7] Setting permissions..."
