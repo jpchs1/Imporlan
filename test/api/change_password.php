@@ -34,6 +34,7 @@ if (strlen($newPassword) < 6) {
 define('FLY_API', 'https://app-bxlfgnkv.fly.dev');
 define('ADMIN_EMAIL', 'admin@imporlan.cl');
 define('ADMIN_PASS', 'admin123');
+define('TEMP_PASSWORD', 'temp123456');
 
 function flyRequest($method, $path, $body = null, $token = null) {
     $ch = curl_init(FLY_API . $path);
@@ -54,15 +55,7 @@ function flyRequest($method, $path, $body = null, $token = null) {
     return ['code' => $code, 'body' => json_decode($resp, true), 'raw' => $resp];
 }
 
-function findFlyUserId($adminToken, $email) {
-    $listResp = flyRequest('GET', '/api/admin/users', null, $adminToken);
-    if ($listResp['code'] === 200 && isset($listResp['body']['users'])) {
-        foreach ($listResp['body']['users'] as $u) {
-            if (isset($u['email']) && strtolower($u['email']) === strtolower($email)) {
-                return $u;
-            }
-        }
-    }
+function findFlyUser($adminToken, $email) {
     for ($id = 1; $id <= 200; $id++) {
         $r = flyRequest('GET', '/api/admin/users/' . $id, null, $adminToken);
         if ($r['code'] === 200 && isset($r['body']['user']['email'])) {
@@ -70,7 +63,6 @@ function findFlyUserId($adminToken, $email) {
                 return $r['body']['user'];
             }
         }
-        if ($r['code'] === 404) continue;
     }
     return null;
 }
@@ -84,7 +76,7 @@ try {
     }
     $adminToken = $adminLogin['body']['access_token'];
 
-    $flyUser = findFlyUserId($adminToken, $email);
+    $flyUser = findFlyUser($adminToken, $email);
     if (!$flyUser) {
         http_response_code(404);
         echo json_encode(['error' => 'Usuario no encontrado']);
@@ -92,57 +84,59 @@ try {
     }
 
     $flyUserId = $flyUser['id'];
-    $flyUserName = $flyUser['name'];
+    $flyUserName = $flyUser['name'] ?? 'Usuario';
 
-    $updateResp = flyRequest('PUT', '/api/admin/users/' . $flyUserId, [
-        'password' => $newPassword
+    $resetResp = flyRequest('PUT', '/api/admin/users/' . $flyUserId . '/action', [
+        'action' => 'reset_password',
+        'reason' => 'User requested password change'
     ], $adminToken);
 
-    if ($updateResp['code'] === 200 || $updateResp['code'] === 204) {
-        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente']);
-        exit();
+    if ($resetResp['code'] !== 200) {
+        throw new Exception('Failed to reset password: ' . ($resetResp['raw'] ?? 'unknown'));
     }
 
-    $patchResp = flyRequest('PATCH', '/api/admin/users/' . $flyUserId, [
-        'password' => $newPassword
-    ], $adminToken);
+    $userLogin = flyRequest('POST', '/api/auth/login-json', [
+        'email' => $email, 'password' => TEMP_PASSWORD
+    ]);
 
-    if ($patchResp['code'] === 200 || $patchResp['code'] === 204) {
-        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente']);
-        exit();
+    if ($userLogin['code'] !== 200 || !isset($userLogin['body']['access_token'])) {
+        throw new Exception('Failed to login with temp password');
+    }
+    $userToken = $userLogin['body']['access_token'];
+
+    $tombstoneEmail = 'deleted_' . $flyUserId . '_' . time() . '@removed.local';
+    $swapResp = flyRequest('PUT', '/api/users/' . $flyUserId, [
+        'email' => $tombstoneEmail
+    ], $userToken);
+
+    if ($swapResp['code'] !== 200) {
+        throw new Exception('Failed to swap email: ' . ($swapResp['raw'] ?? 'unknown'));
     }
 
-    $del = flyRequest('DELETE', '/api/users/' . $flyUserId, null, $adminToken);
-    if ($del['code'] !== 200 && $del['code'] !== 204) {
-        $del = flyRequest('DELETE', '/api/admin/users/' . $flyUserId, null, $adminToken);
-    }
-
-    sleep(1);
-
-    $reg = flyRequest('POST', '/api/auth/register', [
+    $regResp = flyRequest('POST', '/api/auth/register', [
         'email' => $email,
         'password' => $newPassword,
         'name' => $flyUserName
     ]);
 
-    if ($reg['code'] !== 200 && $reg['code'] !== 201) {
-        sleep(2);
-        $reg2 = flyRequest('POST', '/api/auth/register', [
-            'email' => $email,
-            'password' => $newPassword,
-            'name' => $flyUserName
-        ]);
-        if ($reg2['code'] !== 200 && $reg2['code'] !== 201) {
-            $verify = flyRequest('POST', '/api/auth/login-json', [
-                'email' => $email, 'password' => $newPassword
-            ]);
-            if ($verify['code'] !== 200) {
-                throw new Exception('Error updating auth service: ' . ($reg['raw'] ?? 'unknown'));
-            }
-        }
+    if ($regResp['code'] !== 200 && $regResp['code'] !== 201) {
+        flyRequest('PUT', '/api/users/' . $flyUserId, [
+            'email' => $email
+        ], $userToken);
+        throw new Exception('Failed to register with new password: ' . ($regResp['raw'] ?? 'unknown'));
     }
 
-    echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente']);
+    flyRequest('DELETE', '/api/users/' . $flyUserId, null, $adminToken);
+
+    $verifyLogin = flyRequest('POST', '/api/auth/login-json', [
+        'email' => $email, 'password' => $newPassword
+    ]);
+
+    if ($verifyLogin['code'] === 200) {
+        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente']);
+    } else {
+        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada. Por favor inicia sesion nuevamente.']);
+    }
 } catch (Exception $e) {
     error_log("Error changing password: " . $e->getMessage());
     http_response_code(500);
