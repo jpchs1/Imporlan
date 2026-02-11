@@ -526,6 +526,38 @@ BASE64;
         return $latest['boat_links'] ?? [];
     }
     
+    public function sendPasswordResetEmail($userEmail, $firstName, $tempPassword) {
+        $c = $this->colors;
+        $panelUrl = $this->panelUrl;
+        
+        $content = '
+            <h2 style="margin: 0 0 15px 0; font-size: 22px; font-weight: 700; color: ' . $c['text_dark'] . ';">
+                Recuperacion de Contrasena
+            </h2>
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ',
+            </p>
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
+                Hemos recibido una solicitud para restablecer tu contrasena. Tu contrasena temporal es:
+            </p>
+            <div style="background: ' . $c['bg_dark'] . '; border-radius: 12px; padding: 20px; text-align: center; margin: 0 0 20px 0;">
+                <span style="color: ' . $c['accent'] . '; font-size: 24px; font-weight: 700; letter-spacing: 2px;">' . htmlspecialchars($tempPassword) . '</span>
+            </div>
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
+                Usa esta contrasena temporal para iniciar sesion y luego cambiala desde la seccion <strong>Ajustes</strong> en tu panel.
+            </p>
+            <div style="margin: 25px 0; text-align: center;">
+                ' . $this->getButton('Iniciar Sesion', $panelUrl) . '
+            </div>
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.5;">
+                Si no solicitaste este cambio, contactanos de inmediato a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . ';">contacto@imporlan.cl</a>
+            </p>';
+        
+        $subject = 'Recuperacion de Contrasena - Imporlan';
+        $htmlContent = $this->getBaseTemplate($content, $subject);
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'password_reset');
+    }
+    
     public function sendCriticalErrorNotification($errorData) {
         return $this->sendInternalNotification('critical_error', [
             'error_type' => $errorData['type'] ?? 'Unknown',
