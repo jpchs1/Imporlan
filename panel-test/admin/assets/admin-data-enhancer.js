@@ -322,12 +322,12 @@
     addSkeletonStyles();
     try {
       switch (section) {
-        case "Dashboard": setTimeout(enhanceDashboard, 400); break;
+        case "Dashboard": enhanceDashboard(); break;
         case "Usuarios": enhanceUsers(); break;
         case "Solicitudes": enhanceSolicitudes(); break;
-        case "Planes": setTimeout(enhancePlanes, 200); break;
+        case "Planes": enhancePlanes(); break;
         case "Pagos": enhancePagos(); break;
-        case "Contenido": setTimeout(enhanceContenido, 200); break;
+        case "Contenido": enhanceContenido(); break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
   }
@@ -338,7 +338,7 @@
       cleanupEnhancer();
       lastSection = s;
       enhanced = {};
-      setTimeout(function () { enhance(s); }, 300);
+      enhance(s);
     }
   }
 
@@ -349,8 +349,8 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 500); });
+    document.addEventListener("DOMContentLoaded", function () { setTimeout(init, 200); });
   } else {
-    setTimeout(init, 500);
+    setTimeout(init, 200);
   }
 })();

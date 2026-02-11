@@ -31,6 +31,18 @@
     if (!nav) return;
     var buttons = nav.querySelectorAll("button");
     if (buttons.length === 0) return;
+    for (var i = 0; i < buttons.length; i++) {
+      if (buttons[i].textContent.toLowerCase().includes("auditoria")) {
+        injected = true;
+        buttons[i].addEventListener("click", function () {
+          buttons.forEach(function (b) { b.style.background = ""; b.style.color = ""; });
+          this.style.background = "linear-gradient(135deg,#0891b2,#06b6d4)";
+          this.style.color = "#fff";
+          showAuditSection();
+        });
+        return;
+      }
+    }
     var lastBtn = buttons[buttons.length - 1];
     var auditBtn = document.createElement("button");
     auditBtn.className = lastBtn.className;
