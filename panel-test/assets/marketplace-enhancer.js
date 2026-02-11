@@ -1013,29 +1013,33 @@
     return false;
   };
 
+  let enhancing = false;
+
   async function enhanceMarketplace(force) {
     if (!isMarketplacePage()) {
       enhanced = false;
       return;
     }
-    if (enhanced && !force) return;
+    if ((enhanced && !force) || enhancing) return;
+    enhancing = true;
 
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) { enhancing = false; return; }
 
     var contentDiv = main.querySelector(".max-w-7xl") || main.firstElementChild;
-    if (!contentDiv) return;
+    if (!contentDiv) { enhancing = false; return; }
+
+    var target = contentDiv.querySelector(".space-y-6, .animate-fade-in") || contentDiv;
+    if (!target.querySelector('.mkt-enhanced')) {
+      target.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 20px"><div style="text-align:center"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:mktSpin 0.8s linear infinite;margin:0 auto 16px"></div><p style="color:#64748b;font-size:14px;margin:0">Cargando marketplace...</p></div></div>';
+    }
 
     await Promise.all([loadListings(), loadMyListings()]);
 
-    var existingContent = contentDiv.querySelector(".space-y-6, .animate-fade-in");
-    if (existingContent) {
-      existingContent.innerHTML = buildPage();
-    } else {
-      contentDiv.innerHTML = buildPage();
-    }
+    target.innerHTML = buildPage();
     applyMobileLayout();
     enhanced = true;
+    enhancing = false;
   }
 
   function showSuccessModal() {
@@ -1093,6 +1097,7 @@
     style.textContent =
       "@keyframes mktFadeIn{from{opacity:0}to{opacity:1}}" +
       "@keyframes mktSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}" +
+      "@keyframes mktSpin{to{transform:rotate(360deg)}}" +
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
@@ -1115,14 +1120,12 @@
     setTimeout(function () {
       applyMobileLayout();
       enhanceMarketplace();
-    }, 1500);
+    }, 500);
 
     var observer = new MutationObserver(function () {
       applyMobileLayout();
       if (isMarketplacePage() && !enhanced && !detailModalOpen) {
-        setTimeout(function () {
-          enhanceMarketplace();
-        }, 300);
+        enhanceMarketplace();
       }
       if (!isMarketplacePage()) {
         enhanced = false;
