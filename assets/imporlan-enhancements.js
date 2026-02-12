@@ -219,13 +219,15 @@
   }
   
   // ============================================
-  // 3.2 PUBLICAR BUTTON (DISABLED)
-  // Add disabled Publicar button to menu
+  // 3.2 PUBLICAR BUTTON
+  // Add Publicar button to menu - redirects to Marketplace
   // ============================================
   
   function addPublicarButton() {
     // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
+    
+    var panelUrl = window.location.pathname.includes('/test') ? '/panel-test/' : '/panel/';
     
     const checkInterval = setInterval(function() {
       const nav = document.querySelector('nav');
@@ -252,8 +254,8 @@
                 animStyle.id = 'publicar-animations';
                 animStyle.textContent = `
                   @keyframes pulseGlow {
-                    0%, 100% { box-shadow: 0 0 5px rgba(255, 100, 100, 0.3), 0 0 10px rgba(255, 100, 100, 0.2); }
-                    50% { box-shadow: 0 0 15px rgba(255, 100, 100, 0.5), 0 0 25px rgba(255, 100, 100, 0.3); }
+                    0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.3), 0 0 10px rgba(8, 145, 178, 0.2); }
+                    50% { box-shadow: 0 0 15px rgba(37, 99, 235, 0.5), 0 0 25px rgba(8, 145, 178, 0.3); }
                   }
                   @keyframes textPulse {
                     0%, 100% { opacity: 0.7; transform: scale(1); }
@@ -264,22 +266,23 @@
                     100% { background-position: 200% center; }
                   }
                   .publicar-btn-modern {
-                    background: linear-gradient(135deg, rgba(80, 80, 90, 0.6) 0%, rgba(60, 60, 70, 0.8) 100%);
-                    color: rgba(255, 255, 255, 0.85);
-                    border: 1px solid rgba(255, 120, 120, 0.4);
+                    background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+                    color: #ffffff;
+                    border: 1px solid rgba(37, 99, 235, 0.4);
                     padding: 10px 20px;
                     border-radius: 8px;
                     font-size: 14px;
                     font-weight: 500;
-                    cursor: not-allowed;
+                    cursor: pointer;
                     transition: all 0.3s ease;
                     animation: pulseGlow 2.5s ease-in-out infinite;
                     position: relative;
                     overflow: hidden;
                   }
                   .publicar-btn-modern:hover {
-                    border-color: rgba(255, 120, 120, 0.6);
+                    border-color: rgba(37, 99, 235, 0.6);
                     transform: translateY(-1px);
+                    opacity: 0.9;
                   }
                   .publicar-btn-modern::before {
                     content: '';
@@ -292,15 +295,15 @@
                     background-size: 200% 100%;
                     animation: shimmer 3s ease-in-out infinite;
                   }
-                  .proximamente-animated {
+                  .gratis-animated {
                     font-size: 11px;
                     font-weight: 600;
-                    color: #ff6b6b;
+                    color: #10b981;
                     margin-top: 4px;
                     text-transform: uppercase;
                     letter-spacing: 1px;
                     animation: textPulse 1.5s ease-in-out infinite;
-                    text-shadow: 0 0 8px rgba(255, 107, 107, 0.5);
+                    text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
                   }
                 `;
                 document.head.appendChild(animStyle);
@@ -313,17 +316,26 @@
               
               const publicarBtn = document.createElement('button');
               publicarBtn.className = 'publicar-btn publicar-btn-modern';
-              publicarBtn.disabled = true;
-              publicarBtn.title = 'Disponible proximamente';
+              publicarBtn.title = 'Publica tu embarcacion gratis';
               publicarBtn.innerHTML = '<span style="position: relative; z-index: 1;">Publicar</span>';
               
-              // Add animated "proximamente" text below the button
-              const proximamenteText = document.createElement('span');
-              proximamenteText.className = 'proximamente-animated';
-              proximamenteText.textContent = 'proximamente';
+              publicarBtn.addEventListener('click', function() {
+                var token = localStorage.getItem('imporlan_token');
+                if (token) {
+                  window.location.href = panelUrl + '#/marketplace/publicar';
+                } else {
+                  sessionStorage.setItem('imporlan_redirect_after_login', panelUrl + '#/marketplace/publicar');
+                  window.location.href = panelUrl;
+                }
+              });
+              
+              // Add animated "Gratis" text below the button
+              const gratisText = document.createElement('span');
+              gratisText.className = 'gratis-animated';
+              gratisText.textContent = 'Gratis';
               
               publicarContainer.appendChild(publicarBtn);
-              publicarContainer.appendChild(proximamenteText);
+              publicarContainer.appendChild(gratisText);
               
               // Insert after the last menu item
               lastMenuItem.parentElement.insertBefore(publicarContainer, lastMenuItem.nextSibling);
