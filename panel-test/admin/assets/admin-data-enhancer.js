@@ -333,38 +333,80 @@
     hideReactContent(main);
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "plans");
-    container.style.cssText = "display:flex;gap:20px;flex-wrap:wrap;padding:20px 0";
+    container.style.cssText = "padding:20px 0";
     container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:40px;width:100%;color:#94a3b8;font-size:14px">Cargando planes...</div>';
     main.appendChild(container);
-    fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var purchases = data.purchases || [];
-        var planTypes = {};
-        purchases.forEach(function (p) {
+    var plansPromise = fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" }).then(function(r) { return r.json(); });
+    var purchasesPromise = fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() }).then(function(r) { return r.json(); }).catch(function() { return { purchases: [] }; });
+    Promise.all([plansPromise, purchasesPromise])
+      .then(function(results) {
+        var plans = (results[0].plans || []);
+        var purchases = (results[1].purchases || []);
+        var purchaseStats = {};
+        purchases.forEach(function(p) {
           if (p.type === "plan") {
-            var name = p.plan_name || p.description || "Plan";
-            if (!planTypes[name]) planTypes[name] = { name: name, count: 0, revenue: 0 };
-            planTypes[name].count++;
-            planTypes[name].revenue += parseInt(p.amount_clp || p.amount || 0);
+            var name = (p.plan_name || p.description || "").toLowerCase().trim();
+            if (!purchaseStats[name]) purchaseStats[name] = { count: 0, revenue: 0 };
+            purchaseStats[name].count++;
+            purchaseStats[name].revenue += parseInt(p.amount_clp || p.amount || 0);
           }
         });
-        var plans = Object.values(planTypes);
         if (plans.length === 0) {
-          container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;width:100%">No se encontraron planes contratados</div>';
+          container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;width:100%">No hay planes configurados. Ejecute la migracion primero.</div>';
           return;
         }
-        var html = "";
-        plans.forEach(function (p) {
-          html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:28px;box-shadow:0 4px 16px rgba(0,0,0,.06);flex:1;min-width:280px">';
-          html += '<h3 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>';
-          html += '<p style="margin:0 0 16px;font-size:13px;color:#94a3b8">' + p.count + ' contrataciones</p>';
-          html += '<div><span style="font-size:28px;font-weight:800;color:#0891b2">' + fmtCLP(p.revenue) + '</span>';
-          html += '<span style="font-size:13px;color:#94a3b8;margin-left:4px">CLP total</span></div></div>';
+        var colors = ['#0891b2', '#8b5cf6', '#f59e0b'];
+        var icons = [
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>',
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+          '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3v18l7-3 7 3V3H5z"/></svg>'
+        ];
+        var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">';
+        plans.forEach(function(plan, i) {
+          var color = colors[i % colors.length];
+          var icon = icons[i % icons.length];
+          var features = (plan.features || '').split(',').filter(function(f) { return f.trim(); });
+          var nameKey = (plan.name || '').toLowerCase().trim();
+          var stats = purchaseStats[nameKey] || { count: 0, revenue: 0 };
+          var statusLabel = parseInt(plan.is_active) ? 'Activo' : 'Inactivo';
+          var statusColor = parseInt(plan.is_active) ? '#10b981' : '#ef4444';
+          html += '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">';
+          html += '<div style="padding:24px 28px;background:linear-gradient(135deg,' + color + '10,' + color + '05);border-bottom:1px solid #e2e8f0">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+          html += '<div><div style="color:' + color + ';margin-bottom:12px">' + icon + '</div>';
+          html += '<h3 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#1e293b">' + esc(plan.name) + '</h3>';
+          html += '<p style="margin:0;font-size:13px;color:#64748b">' + esc(plan.description || '') + '</p></div>';
+          html += '<span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + statusColor + '15;color:' + statusColor + '">' + statusLabel + '</span>';
+          html += '</div></div>';
+          html += '<div style="padding:20px 28px">';
+          html += '<div style="display:flex;align-items:baseline;gap:4px;margin-bottom:16px">';
+          html += '<span style="font-size:32px;font-weight:800;color:' + color + '">' + fmtCLP(plan.price_clp) + '</span>';
+          html += '<span style="font-size:13px;color:#94a3b8">CLP</span></div>';
+          html += '<div style="display:flex;gap:16px;margin-bottom:16px">';
+          html += '<div style="padding:8px 14px;background:#f8fafc;border-radius:10px;flex:1;text-align:center"><span style="font-size:18px;font-weight:700;color:#1e293b">' + (plan.duration_days || 0) + '</span><span style="display:block;font-size:11px;color:#94a3b8">dias</span></div>';
+          html += '<div style="padding:8px 14px;background:#f8fafc;border-radius:10px;flex:1;text-align:center"><span style="font-size:18px;font-weight:700;color:#1e293b">' + (plan.max_links || 0) + '</span><span style="display:block;font-size:11px;color:#94a3b8">links</span></div>';
+          html += '<div style="padding:8px 14px;background:#f8fafc;border-radius:10px;flex:1;text-align:center"><span style="font-size:18px;font-weight:700;color:' + color + '">' + stats.count + '</span><span style="display:block;font-size:11px;color:#94a3b8">ventas</span></div></div>';
+          if (features.length > 0) {
+            html += '<ul style="list-style:none;padding:0;margin:0">';
+            features.forEach(function(f) {
+              html += '<li style="padding:6px 0;font-size:13px;color:#475569;display:flex;align-items:center;gap:8px">';
+              html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+              html += esc(f.trim()) + '</li>';
+            });
+            html += '</ul>';
+          }
+          if (stats.revenue > 0) {
+            html += '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">';
+            html += '<span style="font-size:12px;color:#94a3b8">Ingresos totales</span>';
+            html += '<span style="font-size:16px;font-weight:700;color:#10b981">' + fmtCLP(stats.revenue) + ' CLP</span></div>';
+          }
+          html += '</div></div>';
         });
+        html += '</div>';
         container.innerHTML = html;
       })
-      .catch(function () {
+      .catch(function(err) {
+        console.warn("Error loading plans:", err);
         container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;width:100%">Error al cargar planes</div>';
       });
     return true;
