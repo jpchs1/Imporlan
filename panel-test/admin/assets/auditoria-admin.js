@@ -22,23 +22,27 @@
   };
 
   var injected = false;
+  var injectedBtn = null;
   var auditActive = false;
   var currentPage = 1;
   var filters = {};
-  var isProcessing = false;
+  var pendingCheck = null;
 
   function injectSidebarItem() {
-    if (injected) return;
     var nav = document.querySelector("aside nav");
     if (!nav) return;
     var buttons = nav.querySelectorAll("button");
     if (buttons.length === 0) return;
+    if (injected && injectedBtn && injectedBtn.isConnected) return;
+    injected = false;
+    injectedBtn = null;
     for (var i = 0; i < buttons.length; i++) {
       if (buttons[i].textContent.toLowerCase().includes("auditoria")) {
         injected = true;
+        injectedBtn = buttons[i];
         buttons[i].addEventListener("click", function () {
           auditActive = true;
-          showAuditSection();
+          setTimeout(showAuditSection, 200);
         });
         return;
       }
@@ -251,26 +255,28 @@
     return h ? h.textContent.trim() : "";
   }
 
-  function checkAuditSection() {
-    if (isProcessing) return;
-    isProcessing = true;
-    try {
-      injectSidebarItem();
-      var section = getSection();
-      if (section === "Auditoria") {
-        auditActive = true;
-        if (!document.querySelector("[data-audit-added]")) {
-          showAuditSection();
-        } else {
-          hideReactContent(document.querySelector("main"));
-        }
-      } else if (auditActive) {
-        auditActive = false;
-        cleanupAudit();
+  function doCheck() {
+    injectSidebarItem();
+    var section = getSection();
+    if (section === "Auditoria") {
+      auditActive = true;
+      if (!document.querySelector("[data-audit-added]")) {
+        showAuditSection();
+      } else {
+        hideReactContent(document.querySelector("main"));
       }
-    } finally {
-      isProcessing = false;
+    } else if (auditActive) {
+      auditActive = false;
+      cleanupAudit();
     }
+  }
+
+  function checkAuditSection() {
+    if (pendingCheck) clearTimeout(pendingCheck);
+    pendingCheck = setTimeout(function () {
+      pendingCheck = null;
+      doCheck();
+    }, 200);
   }
 
   function init() {
