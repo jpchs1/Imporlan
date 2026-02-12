@@ -30,6 +30,8 @@
 
   var lastSection = "";
   var enhanced = {};
+  var isEnhancing = false;
+  var checkTimer = null;
 
   function getSection() {
     var h = document.querySelector("main h1");
@@ -587,33 +589,36 @@
     var main = document.querySelector("main");
     if (!main) return false;
     if (main.querySelector("[data-enhancer-added='config']")) return true;
-    var children = Array.from(main.children);
-    children.forEach(function(ch) {
-      if (ch.getAttribute("data-enhancer-added")) return;
-      ch.style.display = "none";
-      ch.setAttribute("data-enhancer-hidden", "true");
-    });
-    var container = document.createElement("div");
-    container.setAttribute("data-enhancer-added", "config");
-    container.style.cssText = "padding:20px 0;max-width:1200px;margin:0 auto";
-    container.innerHTML = '<h1 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 20px">Configuracion</h1>' +
-      '<div style="display:flex;gap:8px;margin-bottom:20px">' +
-      '<button class="cfg-tab" data-tab="plans" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#0891b2;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Planes</button>' +
-      '<button class="cfg-tab" data-tab="agents" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Agentes</button>' +
-      '<button class="cfg-tab" data-tab="pricing" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Precios</button></div>' +
-      '<div id="cfg-content">' + makeSkeletonTable(3, 3) + '</div>';
-    main.appendChild(container);
-    container.querySelectorAll(".cfg-tab").forEach(function(btn) {
-      btn.onclick = function() {
-        configTab = this.getAttribute("data-tab");
-        container.querySelectorAll(".cfg-tab").forEach(function(b) {
-          b.style.background = "#fff"; b.style.color = "#64748b";
-        });
-        this.style.background = "#0891b2"; this.style.color = "#fff";
-        loadConfigTab(container);
-      };
-    });
-    loadConfigTab(container);
+    isEnhancing = true;
+    try {
+      var children = Array.from(main.children);
+      children.forEach(function(ch) {
+        if (ch.getAttribute("data-enhancer-added")) return;
+        ch.style.display = "none";
+        ch.setAttribute("data-enhancer-hidden", "true");
+      });
+      var container = document.createElement("div");
+      container.setAttribute("data-enhancer-added", "config");
+      container.style.cssText = "padding:20px 0;max-width:1200px;margin:0 auto";
+      container.innerHTML = '<h1 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 20px">Configuracion</h1>' +
+        '<div style="display:flex;gap:8px;margin-bottom:20px">' +
+        '<button class="cfg-tab" data-tab="plans" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#0891b2;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Planes</button>' +
+        '<button class="cfg-tab" data-tab="agents" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Agentes</button>' +
+        '<button class="cfg-tab" data-tab="pricing" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Precios</button></div>' +
+        '<div id="cfg-content">' + makeSkeletonTable(3, 3) + '</div>';
+      main.appendChild(container);
+      container.querySelectorAll(".cfg-tab").forEach(function(btn) {
+        btn.onclick = function() {
+          configTab = this.getAttribute("data-tab");
+          container.querySelectorAll(".cfg-tab").forEach(function(b) {
+            b.style.background = "#fff"; b.style.color = "#64748b";
+          });
+          this.style.background = "#0891b2"; this.style.color = "#fff";
+          loadConfigTab(container);
+        };
+      });
+      loadConfigTab(container);
+    } finally { isEnhancing = false; }
     return true;
   }
 
@@ -921,6 +926,7 @@
   }
 
   function check() {
+    if (isEnhancing) return;
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
@@ -931,12 +937,18 @@
     if (!enhanced[s]) enhance(s);
   }
 
-  function init() {
-    injectConfigSidebar();
-    new MutationObserver(function() {
+  function debouncedCheck() {
+    if (checkTimer) return;
+    checkTimer = setTimeout(function() {
+      checkTimer = null;
       injectConfigSidebar();
       check();
-    }).observe(document.body, { childList: true, subtree: true });
+    }, 100);
+  }
+
+  function init() {
+    injectConfigSidebar();
+    new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
     setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
   }
