@@ -274,11 +274,24 @@ function isUsefulImage($imgUrl) {
 }
 
 function fetchViaMicrolink($url, &$result) {
-    $d = callMicrolink($url);
+    $customParams = '&data.price.selector=' . urlencode("[class*=price],[data-e2e=price],.asking-price,.boat-price")
+        . '&data.price.type=text'
+        . '&data.pageText.selector=body&data.pageText.type=text';
+
+    $d = callMicrolink($url, $customParams);
     if (!$d) return;
 
     if (!$result['title'] && !empty($d['title'])) {
         $result['title'] = $d['title'];
+    }
+
+    $pageText = $d['pageText'] ?? '';
+
+    if (!$result['image_url'] && $pageText) {
+        $productImg = extractProductImage($pageText);
+        if ($productImg) {
+            $result['image_url'] = $productImg;
+        }
     }
 
     if (!$result['image_url']) {
@@ -289,19 +302,32 @@ function fetchViaMicrolink($url, &$result) {
         } elseif (is_string($img) && $img) {
             $imgUrl = $img;
         }
-        if (isUsefulImage($imgUrl)) {
+        if ($imgUrl && isUsefulImage($imgUrl) && !isScreenshotUrl($imgUrl)) {
             $result['image_url'] = $imgUrl;
         }
     }
 
-    if (!$result['image_url']) {
-        $d2 = callMicrolink($url, '&screenshot=true');
-        if ($d2) {
-            $ss = $d2['screenshot'] ?? null;
-            if (is_array($ss) && !empty($ss['url'])) {
-                $result['image_url'] = $ss['url'];
-            } elseif (is_string($ss) && $ss) {
-                $result['image_url'] = $ss;
+    if (!$result['value_usa_usd']) {
+        $priceText = $d['price'] ?? '';
+        if ($priceText && preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $priceText, $pm)) {
+            $val = floatval(str_replace(',', '', $pm[1]));
+            if ($val >= 500 && $val < 50000000) {
+                $result['value_usa_usd'] = $val;
+            }
+        }
+    }
+
+    if ($pageText && (!$result['hours'] || !$result['value_usa_usd'] || !$result['location'])) {
+        $cleanText = strip_tags($pageText);
+        if (!$result['hours']) {
+            if (preg_match('/Engine\s*Hours\s*(\d[\d,]*)/i', $cleanText, $hm)) {
+                $result['hours'] = preg_replace('/,/', '', $hm[1]);
+            }
+        }
+        if (!$result['value_usa_usd']) {
+            if (preg_match('/available for sale at \$([\d,]+(?:\.\d{1,2})?)/i', $cleanText, $pm)) {
+                $val = floatval(str_replace(',', '', $pm[1]));
+                if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
             }
         }
     }
@@ -311,6 +337,46 @@ function fetchViaMicrolink($url, &$result) {
     if ($fullText) {
         extractFieldsFromText($fullText, null, $result);
     }
+}
+
+function extractProductImage($html) {
+    $boatImageDomains = [
+        'images.boattrader.com',
+        'images.boatsgroup.com',
+        'images.yachtworld.com',
+        'images.boats.com',
+    ];
+    foreach ($boatImageDomains as $domain) {
+        if (preg_match('/https?:\/\/' . preg_quote($domain, '/') . '\/resize\/[^\s"<>\']+_LARGE\.[a-z]+/i', $html, $m)) {
+            return $m[0];
+        }
+    }
+    if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+        if (isUsefulImage($m[1])) return $m[1];
+    }
+    if (preg_match('/<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+        if (isUsefulImage($m[1])) return $m[1];
+    }
+    if (preg_match_all('/<script[^>]*type\s*=\s*["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/si', $html, $matches)) {
+        foreach ($matches[1] as $jsonText) {
+            $ld = @json_decode(trim($jsonText), true);
+            if (!$ld || !isset($ld['@type'])) continue;
+            if ($ld['@type'] === 'Product') {
+                $img = $ld['image'] ?? null;
+                if (is_string($img) && strlen($img) > 10) return $img;
+                if (is_array($img) && !empty($img['url'])) return $img['url'];
+                if (is_array($img) && isset($img[0])) {
+                    return is_string($img[0]) ? $img[0] : ($img[0]['url'] ?? null);
+                }
+            }
+        }
+    }
+    return null;
+}
+
+function isScreenshotUrl($url) {
+    if (!$url) return false;
+    return (bool)preg_match('/microlink\.io\//i', $url);
 }
 
 function parseUrlPatterns($url, $parsedUrl, &$result) {
