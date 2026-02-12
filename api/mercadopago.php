@@ -320,8 +320,22 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
             $formData
         );
         
+        if ($purchaseType === 'plan') {
+            $emailService->sendPlanBusquedaEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        } else {
+            $emailService->sendCotizacionPorLinksEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        }
+        
         $logFile = __DIR__ . '/mp_webhooks.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form\n";
+        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form+activation\n";
         file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/mp_webhooks.log';

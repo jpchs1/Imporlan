@@ -459,6 +459,40 @@ BASE64;
         return $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_links_paid', $purchaseData);
     }
     
+    /**
+     * Send "Cotizacion por Links" activation email
+     */
+    public function sendCotizacionPorLinksEmail($userEmail, $firstName, $purchaseData) {
+        $subject = 'Tu Cotizacion por Links ya esta activa! - Equipo Imporlan';
+        $htmlContent = $this->getCotizacionPorLinksTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('cotizacion_links_activated', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'plan_name' => 'Cotizacion por Links',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'cotizacion_por_links', $purchaseData);
+    }
+    
+    /**
+     * Send "Plan de Busqueda" activation email
+     */
+    public function sendPlanBusquedaEmail($userEmail, $firstName, $purchaseData) {
+        $subject = 'Tu Plan de Busqueda ya esta activo! - Equipo Imporlan';
+        $htmlContent = $this->getPlanBusquedaTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('plan_busqueda_activated', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'plan_name' => $purchaseData['plan_name'] ?? 'Plan de Busqueda',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'plan_busqueda', $purchaseData);
+    }
+    
     public function sendQuotationRequestNotification($requestData) {
         $this->storeQuotationRequest($requestData);
         
@@ -1526,6 +1560,307 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Formulario Cotizacion - Admin');
+    }
+    
+    private function getCotizacionPorLinksTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#9875;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p style="margin: 0 0 6px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Mensaje automatico - Equipo Imporlan
+            </p>
+            
+            <h2 style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Tu Cotizacion por Links ya esta activa!
+            </h2>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                El Equipo Imporlan ya recibio tu solicitud y ahora puedes gestionar tus embarcaciones directamente desde tu panel.
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128274;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ingresa con tu usuario y contrasena</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128194;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ve al menu &rarr; Mis Productos Contratados</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128270;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Haz click en Ver Detalles</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Ahi encontraras automaticamente los links que completaste en el formulario, ya cargados en tu panel &#9875;
+            </p>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                Ahora puedes ordenarlos segun tu preferencia:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px 0;">
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129351;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Arriba: la embarcacion que mas te gusta</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129352;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Luego tus siguientes prioridades</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#128315;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Abajo: la que menos te interesa</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 18px;">
+                        <p style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Para reorganizarlos:</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px; line-height: 1.6;">
+                            &#128433; Manten presionado el click y arrastra (drag &amp; drop) cada embarcacion hasta la posicion deseada.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Esto nos permite alinear el analisis tecnico y comercial segun tu prioridad real &#128674;&#128202;
+            </p>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 15px; text-align: center; line-height: 1.7;">
+                Gracias por confiar en Equipo Imporlan.
+            </p>
+            <p style="margin: 0; color: ' . $c['primary'] . '; font-size: 15px; text-align: center; font-weight: 600;">
+                Seguimos avanzando contigo &#9875;&#10024;
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links Activa - Imporlan');
+    }
+    
+    private function getPlanBusquedaTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        $planName = $purchaseData['plan_name'] ?? 'Plan de Busqueda';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#128674;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p style="margin: 0 0 6px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Mensaje automatico - Equipo Imporlan
+            </p>
+            
+            <h2 style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Tu Plan de Busqueda ya esta activo!
+            </h2>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                El Equipo Imporlan ya comenzo a trabajar en tu busqueda personalizada &#128674;
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128274;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ingresa con tu usuario y contrasena</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128194;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ve al menu &rarr; Mis Productos Contratados</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128270;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Haz click en Ver Detalles</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                En esta primera etapa visualizaras:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0;">
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128203;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">El requerimiento que completaste en el formulario</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 10px; border: 1px solid #93c5fd;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128206;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Las lineas de los links correspondientes al plan contratado (aun sin informacion cargada)</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 12px; border: 1px solid #fde68a;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#9203;</p>
+                        <p style="margin: 0 0 4px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Nuestro equipo se encuentra realizando la busqueda estrategica en el mercado de USA.</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px;">Este proceso puede tardar hasta un maximo de 72 horas.</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                Una vez que la busqueda este lista, podras:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px 0;">
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129351;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Ordenar desde arriba la embarcacion que mas te gusta</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#128315;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Dejar abajo la que menos te interesa</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128433;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Usando drag &amp; drop para reorganizarlas facilmente</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Esta priorizacion nos ayuda a enfocar el analisis, negociacion y estimaciones de importacion con mayor precision &#9875;&#128200;
+            </p>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 15px; text-align: center; line-height: 1.7;">
+                Gracias por confiar en Equipo Imporlan.
+            </p>
+            <p style="margin: 0; color: ' . $c['primary'] . '; font-size: 15px; text-align: center; font-weight: 600;">
+                Pronto tendras tu seleccion lista para revision &#128674;&#10024;
+            </p>';
+        
+        return $this->getBaseTemplate($content, htmlspecialchars($planName) . ' Activo - Imporlan');
     }
     
     private function getPaymentStatusTemplate($firstName, $statusData) {
