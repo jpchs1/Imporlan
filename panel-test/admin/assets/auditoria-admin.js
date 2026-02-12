@@ -275,7 +275,15 @@
     if (isOtherModuleActive()) {
       if (auditActive) {
         auditActive = false;
-        cleanupAudit();
+        var main = document.querySelector("main");
+        if (main) {
+          main.querySelectorAll("[data-audit-hidden]").forEach(function (el) {
+            el.removeAttribute("data-audit-hidden");
+          });
+          main.querySelectorAll("[data-audit-added]").forEach(function (el) {
+            el.remove();
+          });
+        }
       }
       return;
     }
