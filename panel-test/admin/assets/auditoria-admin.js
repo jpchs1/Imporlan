@@ -84,7 +84,10 @@
   function showAuditSection() {
     var main = document.querySelector("main");
     if (!main) return;
-    if (main.querySelector("[data-audit-added]")) return;
+    if (main.querySelector("[data-audit-added]")) {
+      hideReactContent(main);
+      return;
+    }
     hideReactContent(main);
     var container = document.createElement("div");
     container.setAttribute("data-audit-added", "true");
