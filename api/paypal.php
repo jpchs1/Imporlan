@@ -143,13 +143,7 @@ function createOrder() {
     }
     
     $order = json_decode($response, true);
-    echo json_encode([
-        'success' => true,
-        'order_id' => $order['id'],
-        'status' => $order['status']
-    ]);
     
-    // Notify admins about quotation request if data provided
     try {
         $emailService = new EmailService();
         $emailService->sendQuotationRequestNotification([
@@ -163,6 +157,12 @@ function createOrder() {
         $logFile = __DIR__ . '/paypal.log';
         file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
     }
+    
+    echo json_encode([
+        'success' => true,
+        'order_id' => $order['id'],
+        'status' => $order['status']
+    ]);
 }
 
 /**

@@ -126,13 +126,6 @@ function createPreference() {
     
     $preference = json_decode($response, true);
     
-    echo json_encode([
-        'success' => true,
-        'preference_id' => $preference['id'],
-        'init_point' => $preference['init_point'],
-        'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
-    ]);
-    
     try {
         $emailService = new EmailService();
         $boatLinks = $input['boat_links'] ?? [];
@@ -147,6 +140,13 @@ function createPreference() {
         $logFile = __DIR__ . '/mp_webhooks.log';
         file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
     }
+    
+    echo json_encode([
+        'success' => true,
+        'preference_id' => $preference['id'],
+        'init_point' => $preference['init_point'],
+        'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
+    ]);
 }
 
 /**
