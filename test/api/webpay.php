@@ -12,6 +12,8 @@
  */
 
 require_once 'config.php';
+require_once __DIR__ . '/email_service.php';
+require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
@@ -141,6 +143,19 @@ function createTransaction($data) {
         'url' => $result['url'],
         'redirect_url' => $result['url'] . '?token_ws=' . $result['token']
     ]);
+    
+    try {
+        $emailService = new EmailService();
+        $emailService->sendQuotationRequestNotification([
+            'name' => $data['payer_name'] ?? 'Cliente',
+            'email' => $data['user_email'] ?? '',
+            'phone' => $data['payer_phone'] ?? '',
+            'country' => $data['country'] ?? 'Chile',
+            'boat_links' => $data['boat_links'] ?? []
+        ]);
+    } catch (Exception $e) {
+        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+    }
 }
 
 /**
@@ -307,6 +322,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     // Send confirmation email if we have the user's email
     if ($userEmail) {
         sendPurchaseConfirmationEmail($purchase);
+        createWebpayPaymentNotificationMessage($purchase);
     }
     
     return $purchase;
@@ -387,9 +403,80 @@ function sendPurchaseConfirmationEmail($purchase) {
             $formData
         );
         
-        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form']);
+        if ($purchaseType === 'plan') {
+            $emailService->sendPlanBusquedaEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        } else {
+            $emailService->sendCotizacionPorLinksEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        }
+        
+        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
     } catch (Exception $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Create automated system message in panel chat after payment via WebPay
+ */
+function createWebpayPaymentNotificationMessage($purchase) {
+    try {
+        $pdo = getDbConnection();
+        if (!$pdo) return;
+
+        $userEmail = $purchase['user_email'];
+        if (empty($userEmail)) return;
+        $userName = $userEmail;
+
+        $stmt = $pdo->prepare("SELECT id FROM chat_conversations WHERE user_email = ? AND status = 'open' ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$conv) {
+            $stmt = $pdo->prepare("INSERT INTO chat_conversations (user_email, user_name, status, auto_messages_sent) VALUES (?, ?, 'open', '{}')");
+            $stmt->execute([$userEmail, $userName]);
+            $conversationId = intval($pdo->lastInsertId());
+        } else {
+            $conversationId = intval($conv['id']);
+        }
+
+        $amount = number_format($purchase['amount_clp'] ?? $purchase['amount'] ?? 0, 0, ',', '.');
+        $description = $purchase['description'] ?? 'Servicio Imporlan';
+        $isPlan = ($purchase['type'] ?? '') === 'plan';
+
+        if ($isPlan) {
+            $planName = $purchase['plan_name'] ?: $description;
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$planName} ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Tu plan ya esta activo. Nuestro equipo comenzara a trabajar en tu requerimiento de inmediato.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        } else {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por Cotizacion por Links ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Nuestro equipo revisara tu solicitud y te enviaremos la cotizacion a la brevedad.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message) VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)");
+        $stmt->execute([$conversationId, $message]);
+
+        $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$conversationId]);
+
+        logWebpay('CHAT_MSG_SENT', ['conv' => $conversationId, 'user' => $userEmail]);
+    } catch (Exception $e) {
+        logWebpay('CHAT_MSG_ERROR', ['error' => $e->getMessage()]);
     }
 }
 

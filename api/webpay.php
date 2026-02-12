@@ -12,6 +12,8 @@
  */
 
 require_once 'config.php';
+require_once __DIR__ . '/email_service.php';
+require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
@@ -141,6 +143,19 @@ function createTransaction($data) {
         'url' => $result['url'],
         'redirect_url' => $result['url'] . '?token_ws=' . $result['token']
     ]);
+    
+    try {
+        $emailService = new EmailService();
+        $emailService->sendQuotationRequestNotification([
+            'name' => $data['payer_name'] ?? 'Cliente',
+            'email' => $data['user_email'] ?? '',
+            'phone' => $data['payer_phone'] ?? '',
+            'country' => $data['country'] ?? 'Chile',
+            'boat_links' => $data['boat_links'] ?? []
+        ]);
+    } catch (Exception $e) {
+        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+    }
 }
 
 /**
@@ -307,6 +322,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     // Send confirmation email if we have the user's email
     if ($userEmail) {
         sendPurchaseConfirmationEmail($purchase);
+        createWebpayPaymentNotificationMessage($purchase);
     }
     
     return $purchase;
