@@ -387,7 +387,21 @@ function sendPurchaseConfirmationEmail($purchase) {
             $formData
         );
         
-        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form']);
+        if ($purchaseType === 'plan') {
+            $emailService->sendPlanBusquedaEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        } else {
+            $emailService->sendCotizacionPorLinksEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+        }
+        
+        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
     } catch (Exception $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
     }

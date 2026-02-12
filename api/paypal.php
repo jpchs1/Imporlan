@@ -337,8 +337,22 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
             $formData
         );
         
+        if ($purchaseType === 'plan') {
+            $emailService->sendPlanBusquedaEmail(
+                $userEmail,
+                $payerName,
+                $commonData
+            );
+        } else {
+            $emailService->sendCotizacionPorLinksEmail(
+                $userEmail,
+                $payerName,
+                $commonData
+            );
+        }
+        
         $logFile = __DIR__ . '/paypal.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form\n";
+        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form+activation\n";
         file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/paypal.log';
