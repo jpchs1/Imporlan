@@ -288,6 +288,21 @@
       return { error: "Error de conexion" };
     }
   }
+n ?
+
+  async function deleteOrder(orderId) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_delete", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ id: orderId }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error deleting order:", e);
+      return { error: "Error de conexion" };
+    }
+  }
 
   async function createNewOrder(orderData) {
     try {
@@ -476,7 +491,9 @@
       '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
       '<span id="ea-unsaved-badge" style="display:none;padding:8px 16px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:500;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Cambios sin guardar</span>' +
       '<button id="ea-save-all" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.25)">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button></div></div>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button>' +
+      '<button id="ea-delete-order" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(239,68,68,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente</button></div></div>' +
 
       '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
       '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden">' +
@@ -953,6 +970,28 @@
 
         saveAllBtn.disabled = false;
         saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo';
+      });
+    }
+
+    var deleteOrderBtn = document.getElementById("ea-delete-order");
+    if (deleteOrderBtn && currentOrderData) {
+      deleteOrderBtn.addEventListener("click", async function () {
+        if (!confirm("¿Estas seguro de eliminar el expediente " + currentOrderData.order_number + "?\n\nEsta accion eliminara el expediente y todos sus links asociados. No se puede deshacer.")) return;
+        if (!confirm("Confirmar eliminacion definitiva de " + currentOrderData.order_number + "?")) return;
+        deleteOrderBtn.disabled = true;
+        deleteOrderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Eliminando...';
+        var result = await deleteOrder(currentOrderData.id);
+        if (result.success) {
+          if (typeof window.logAuditAction === "function") {
+            window.logAuditAction("expediente_edit", "expediente", currentOrderData.id, { order_number: currentOrderData.order_number, customer: currentOrderData.customer_name }, null, "Expediente #" + currentOrderData.order_number + " eliminado");
+          }
+          showToast("Expediente " + result.order_number + " eliminado", "success");
+          window.location.hash = "#expedientes";
+        } else {
+          showToast(result.error || "Error al eliminar", "error");
+          deleteOrderBtn.disabled = false;
+          deleteOrderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente';
+        }
       });
     }
 

@@ -78,6 +78,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminCreateOrder();
             break;
+        case 'admin_delete':
+            requireAdminAuth();
+            adminDeleteOrder();
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Accion no valida']);
@@ -763,6 +767,53 @@ function adminCreateOrder() {
         error_log("Error creating order: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al crear expediente: ' . $e->getMessage()]);
+    }
+}
+
+function adminDeleteOrder() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT order_number, customer_name, customer_email FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $pdo->beginTransaction();
+        $pdo->prepare("DELETE FROM order_events WHERE order_id = ?")->execute([$orderId]);
+        $pdo->prepare("DELETE FROM order_links WHERE order_id = ?")->execute([$orderId]);
+        $pdo->prepare("DELETE FROM orders WHERE id = ?")->execute([$orderId]);
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Expediente eliminado',
+            'order_number' => $order['order_number']
+        ]);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error deleting order: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al eliminar expediente']);
     }
 }
 

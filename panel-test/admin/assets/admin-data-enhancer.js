@@ -62,6 +62,63 @@
     return html;
   }
 
+  var usersCache = null;
+
+  function renderUserRow(u) {
+    var stColor = u.status === "active" ? "#10b981" : "#ef4444";
+    var stLabel = u.status === "active" ? "Activo" : "Suspendido";
+    var roleLabel = u.role === "admin" ? "Admin" : u.role === "support" ? "Soporte" : "Usuario";
+    var roleBg = u.role === "admin" ? "#3b82f6" : u.role === "support" ? "#8b5cf6" : "#64748b";
+    var ini = (u.name || "?").charAt(0).toUpperCase();
+    return '<tr style="border-bottom:1px solid #f1f5f9" data-user-id="' + u.id + '">' +
+      '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p></div></div></td>' +
+      '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + roleBg + ';color:#fff">' + roleLabel + '</span></td>' +
+      '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + stColor + '20;color:' + stColor + '">' + stLabel + '</span></td>' +
+      '<td style="padding:14px 16px"><span style="color:#94a3b8;font-size:12px">' + fmtDate(u.created_at) + '</span></td>' +
+      '<td style="padding:14px 16px"><div style="display:flex;gap:6px">' +
+      '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+      '<button class="enhancer-delete-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>' +
+      '</div></td></tr>';
+  }
+
+  function renderUserModal(user) {
+    var isEdit = !!user;
+    var title = isEdit ? "Editar Usuario" : "Nuevo Usuario";
+    var name = isEdit ? user.name || "" : "";
+    var email = isEdit ? user.email || "" : "";
+    var phone = isEdit ? user.phone || "" : "";
+    var role = isEdit ? user.role || "user" : "user";
+    var status = isEdit ? user.status || "active" : "active";
+    return '<div id="enhancer-user-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:enhancerFadeIn .2s">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700">' + title + '</h3>' +
+      '<button id="enhancer-close-user-modal" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:16px">' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre *</label>' +
+      '<input id="enhancer-usr-name" value="' + esc(name) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email *</label>' +
+      '<input id="enhancer-usr-email" type="email" value="' + esc(email) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="email@ejemplo.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Contrasena ' + (isEdit ? '(dejar vacio para no cambiar)' : '*') + '</label>' +
+      '<input id="enhancer-usr-pass" type="password" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="********"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Telefono</label>' +
+      '<input id="enhancer-usr-phone" value="' + esc(phone) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="+56 9 1234 5678"></div>' +
+      '<div style="display:flex;gap:16px">' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Rol</label>' +
+      '<select id="enhancer-usr-role" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
+      '<option value="admin"' + (role === 'admin' ? ' selected' : '') + '>Admin</option>' +
+      '<option value="support"' + (role === 'support' ? ' selected' : '') + '>Soporte</option>' +
+      '<option value="user"' + (role === 'user' ? ' selected' : '') + '>Usuario</option></select></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Estado</label>' +
+      '<select id="enhancer-usr-status" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
+      '<option value="active"' + (status === 'active' ? ' selected' : '') + '>Activo</option>' +
+      '<option value="suspended"' + (status === 'suspended' ? ' selected' : '') + '>Suspendido</option></select></div></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="enhancer-cancel-user" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+      '<button id="enhancer-save-user" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + (isEdit ? 'Guardar Cambios' : 'Crear Usuario') + '</button>' +
+      '</div></div></div></div>';
+  }
+
   function enhanceUsers() {
     var main = document.querySelector("main");
     if (!main) return false;
@@ -72,55 +129,109 @@
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "users");
     container.style.cssText = "padding:20px 0";
-    container.innerHTML = makeSkeletonTable(4, 5);
+    container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-user" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Usuario</button></div>' +
+      '<div id="enhancer-users-table">' + makeSkeletonTable(5, 4) + '</div>';
     main.appendChild(container);
-    fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var purchases = data.purchases || [];
-        var userMap = {};
-        purchases.forEach(function (p) {
-          var email = (p.user_email || p.email || "").toLowerCase();
-          if (!email) return;
-          if (!userMap[email]) {
-            userMap[email] = { name: email.split("@")[0], email: email, role: "user", status: "active", purchases: 0, spent: 0 };
-          }
-          userMap[email].purchases++;
-          userMap[email].spent += parseInt(p.amount_clp || p.amount || 0);
-          if (p.user_name) userMap[email].name = p.user_name;
-        });
-        var users = Object.values(userMap);
-        if (users.length === 0) {
-          container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron usuarios con compras</div>';
-          return;
-        }
-        users.sort(function (a, b) { return b.spent - a.spent; });
-        var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
-        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
-        html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-        html += '<th style="' + thS + '">Usuario</th><th style="' + thS + '">Rol</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Info</th>';
-        html += '</tr></thead><tbody>';
-        users.forEach(function (u) {
-          var stColor = u.status === "active" ? "#10b981" : "#ef4444";
-          var stLabel = u.status === "active" ? "Activo" : "Suspendido";
-          var roleLabel = u.role === "admin" ? "Admin" : u.role === "support" ? "Soporte" : "Usuario";
-          var roleBg = u.role === "admin" ? "#3b82f6" : u.role === "support" ? "#8b5cf6" : "#64748b";
-          var ini = (u.name || "?").charAt(0).toUpperCase();
-          html += '<tr style="border-bottom:1px solid #f1f5f9">';
-          html += '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p></div></div></td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + roleBg + ';color:#fff">' + roleLabel + '</span></td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + stColor + '20;color:' + stColor + '">' + stLabel + '</span></td>';
-          html += '<td style="padding:14px 16px"><div style="display:flex;gap:6px;flex-wrap:wrap"><span style="padding:4px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:11px;font-weight:600">' + (u.purchases || 0) + ' compras</span>' + ((u.spent || 0) > 0 ? '<span style="padding:4px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:600">' + fmtCLP(u.spent) + '</span>' : '') + '</div></td>';
-          html += '</tr>';
-        });
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
-      })
-      .catch(function (err) {
-        console.warn("Error loading users:", err);
-        container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar usuarios</div>';
-      });
+    loadUsers(container);
     return true;
+  }
+
+  function loadUsers(container) {
+    fetch(API_BASE + "/users_api.php?action=list", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var users = data.users || [];
+        usersCache = users;
+        var tableDiv = container.querySelector("#enhancer-users-table");
+        if (!tableDiv) return;
+        if (users.length === 0) {
+          tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay usuarios. Crea uno nuevo.</div>';
+        } else {
+          var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
+          var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
+          html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
+          html += '<th style="' + thS + '">Usuario</th><th style="' + thS + '">Rol</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Creado</th><th style="' + thS + '">Acciones</th>';
+          html += '</tr></thead><tbody>';
+          users.forEach(function(u) { html += renderUserRow(u); });
+          html += '</tbody></table></div>';
+          tableDiv.innerHTML = html;
+        }
+        attachUserListeners(container);
+      })
+      .catch(function(err) {
+        console.warn("Error loading users:", err);
+        var tableDiv = container.querySelector("#enhancer-users-table");
+        if (tableDiv) tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar usuarios. Ejecute la migracion primero.</div>';
+      });
+  }
+
+  function attachUserListeners(container) {
+    var newBtn = document.getElementById("enhancer-new-user");
+    if (newBtn) { newBtn.onclick = function() { openUserModal(null, container); }; }
+    container.querySelectorAll(".enhancer-edit-user").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        var user = usersCache ? usersCache.find(function(u) { return u.id == id; }) : null;
+        if (user) openUserModal(user, container);
+      };
+    });
+    container.querySelectorAll(".enhancer-delete-user").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        var user = usersCache ? usersCache.find(function(u) { return u.id == id; }) : null;
+        var label = user ? user.name + " (" + user.email + ")" : "ID " + id;
+        if (!confirm("¿Eliminar usuario " + label + "?")) return;
+        fetch(API_BASE + "/users_api.php?action=delete", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ id: id })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            var cont = document.querySelector("[data-enhancer-added='users']");
+            if (cont) cont.remove();
+            enhanced = {};
+            enhanceUsers();
+          } else { alert(data.error || "Error"); }
+        });
+      };
+    });
+  }
+
+  function openUserModal(user, container) {
+    var existing = document.getElementById("enhancer-user-modal");
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML("beforeend", renderUserModal(user));
+    var modal = document.getElementById("enhancer-user-modal");
+    document.getElementById("enhancer-close-user-modal").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-cancel-user").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-save-user").onclick = function() {
+      var name = document.getElementById("enhancer-usr-name").value.trim();
+      var email = document.getElementById("enhancer-usr-email").value.trim();
+      var pass = document.getElementById("enhancer-usr-pass").value;
+      if (!name || !email) { alert("Nombre y email son requeridos"); return; }
+      if (!user && !pass) { alert("Contrasena es requerida para nuevos usuarios"); return; }
+      var payload = {
+        name: name,
+        email: email,
+        phone: document.getElementById("enhancer-usr-phone").value.trim(),
+        role: document.getElementById("enhancer-usr-role").value,
+        status: document.getElementById("enhancer-usr-status").value
+      };
+      if (pass) payload.password = pass;
+      var action = user ? "update" : "create";
+      if (user) payload.id = user.id;
+      fetch(API_BASE + "/users_api.php?action=" + action, {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          modal.remove();
+          var cont = document.querySelector("[data-enhancer-added='users']");
+          if (cont) cont.remove();
+          enhanced = {};
+          enhanceUsers();
+        } else { alert(data.error || "Error"); }
+      });
+    };
   }
 
   function enhanceSolicitudes() {
@@ -301,18 +412,66 @@
     return true;
   }
 
-  var REAL_REVIEWS = [
-    { name: "Carlos Rodriguez", role: "Empresario, Santiago", text: "Excelente servicio. Importaron mi Cobalt R30 sin ningun problema. Todo el proceso fue transparente y profesional." },
-    { name: "Maria Gonzalez", role: "Medico, Vina del Mar", text: "Muy recomendable. El equipo de Imporlan me ayudo a encontrar la lancha perfecta para mi familia." },
-    { name: "Pedro Martinez", role: "Ingeniero, Concepcion", text: "Proceso impecable de principio a fin. La comunicacion fue excelente y cumplieron con todos los plazos." },
-    { name: "Roberto Silva", role: "Abogado, Valparaiso", text: "Increible experiencia. Desde la busqueda hasta la entrega, todo fue perfecto. Mi Sea Ray llego en excelentes condiciones." },
-    { name: "Ana Fernandez", role: "Arquitecta, La Serena", text: "Profesionalismo de primer nivel. Me asesoraron en cada paso y el precio final fue exactamente el cotizado. Sin sorpresas." },
-    { name: "Diego Morales", role: "Empresario, Temuco", text: "Segunda lancha que importo con Imporlan. La confianza que generan es invaluable. Totalmente recomendados." },
-    { name: "Claudia Vargas", role: "Dentista, Puerto Montt", text: "El seguimiento en tiempo real me dio mucha tranquilidad. Siempre supe donde estaba mi embarcacion." },
-    { name: "Francisco Rojas", role: "Contador, Antofagasta", text: "Ahorre mas de 3 millones comparado con comprar en Chile. El servicio de Imporlan vale cada peso." },
-    { name: "Valentina Soto", role: "Ingeniera Civil, Rancagua", text: "La inspeccion previa fue muy detallada. Me enviaron fotos y videos de todo. Compre con total seguridad." },
-    { name: "Andres Munoz", role: "Medico, Iquique", text: "Atencion personalizada de principio a fin. Resolvieron todas mis dudas rapidamente. Excelente equipo." }
-  ];
+  function makeStars(rating) {
+    var starOn = '<svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    var starOff = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    var s = ""; for (var i = 0; i < 5; i++) s += i < rating ? starOn : starOff; return s;
+  }
+
+  function renderReviewCard(r) {
+    var ini = (r.author_name || "?").charAt(0).toUpperCase();
+    var activeLabel = r.is_active == 1 ? "Activa" : "Inactiva";
+    var activeBg = r.is_active == 1 ? "#10b981" : "#94a3b8";
+    return '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04);position:relative" data-review-id="' + r.id + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div style="display:flex;gap:6px;align-items:center"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#0891b220;color:#0891b2;text-transform:uppercase;letter-spacing:.04em">Resena</span>' +
+      '<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + activeLabel + '</span></div>' +
+      '<div style="display:flex;gap:2px">' + makeStars(r.rating || 5) + '</div></div>' +
+      '<p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;font-style:italic">' + esc(r.review_text) + '</p>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px">' +
+      '<div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">' + ini + '</div>' +
+      '<div><p style="margin:0;font-weight:600;color:#1e293b;font-size:13px">' + esc(r.author_name) + '</p><p style="margin:1px 0 0;color:#94a3b8;font-size:12px">' + esc(r.author_role || '') + '</p></div></div>' +
+      '<div style="display:flex;gap:6px">' +
+      '<button class="enhancer-edit-review" data-id="' + r.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s">Editar</button>' +
+      '<button class="enhancer-delete-review" data-id="' + r.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s">Eliminar</button>' +
+      '</div></div></div>';
+  }
+
+  function renderReviewModal(review) {
+    var isEdit = !!review;
+    var title = isEdit ? "Editar Resena" : "Nueva Resena";
+    var name = isEdit ? review.author_name || "" : "";
+    var role = isEdit ? review.author_role || "" : "";
+    var text = isEdit ? review.review_text || "" : "";
+    var rating = isEdit ? (review.rating || 5) : 5;
+    var active = isEdit ? review.is_active : 1;
+    return '<div id="enhancer-review-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:enhancerFadeIn .2s">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700">' + title + '</h3>' +
+      '<button id="enhancer-close-review-modal" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:16px">' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre del Autor *</label>' +
+      '<input id="enhancer-rv-name" value="' + esc(name) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Rol / Ciudad</label>' +
+      '<input id="enhancer-rv-role" value="' + esc(role) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Ej: Empresario, Santiago"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Texto de la Resena *</label>' +
+      '<textarea id="enhancer-rv-text" rows="4" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;box-sizing:border-box" placeholder="Texto de la resena...">' + esc(text) + '</textarea></div>' +
+      '<div style="display:flex;gap:16px">' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Rating (1-5)</label>' +
+      '<select id="enhancer-rv-rating" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
+      [1,2,3,4,5].map(function(n){ return '<option value="' + n + '"' + (n == rating ? ' selected' : '') + '>' + n + ' estrella' + (n > 1 ? 's' : '') + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Estado</label>' +
+      '<select id="enhancer-rv-active" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
+      '<option value="1"' + (active == 1 ? ' selected' : '') + '>Activa</option><option value="0"' + (active == 0 ? ' selected' : '') + '>Inactiva</option></select></div></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="enhancer-cancel-review" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+      '<button id="enhancer-save-review" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + (isEdit ? 'Guardar Cambios' : 'Crear Resena') + '</button>' +
+      '</div></div></div></div>';
+  }
+
+  var reviewsCache = null;
 
   function enhanceContenido() {
     var main = document.querySelector("main");
@@ -324,16 +483,383 @@
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "contenido");
     container.style.cssText = "padding:20px 0";
-    var starSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
-    var stars = ""; for (var i = 0; i < 5; i++) stars += starSvg;
-    var html = "";
-    REAL_REVIEWS.forEach(function (r) {
-      var ini = r.name.charAt(0);
-      html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#0891b220;color:#0891b2;text-transform:uppercase;letter-spacing:.04em">Resena Real</span><div style="display:flex;gap:2px">' + stars + '</div></div><p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;font-style:italic">' + esc(r.text) + '</p><div style="display:flex;align-items:center;gap:10px;border-top:1px solid #f1f5f9;padding-top:12px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:13px">' + esc(r.name) + '</p><p style="margin:1px 0 0;color:#94a3b8;font-size:12px">' + esc(r.role) + '</p></div></div></div>';
-    });
-    container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:0">' + html + '</div>';
+    container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-review" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nueva Resena</button></div>' +
+      '<div id="enhancer-reviews-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">' + makeSkeletonTable(1, 3) + '</div>';
     main.appendChild(container);
+
+    loadReviews(container);
     return true;
+  }
+
+  function loadReviews(container) {
+    fetch(API_BASE + "/reviews_api.php?action=list", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var reviews = data.reviews || [];
+        reviewsCache = reviews;
+        var grid = container.querySelector("#enhancer-reviews-grid");
+        if (!grid) return;
+        if (reviews.length === 0) {
+          grid.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;grid-column:1/-1">No hay resenas. Crea una nueva.</div>';
+        } else {
+          var html = "";
+          reviews.forEach(function(r) { html += renderReviewCard(r); });
+          grid.innerHTML = html;
+        }
+        attachReviewListeners(container);
+      })
+      .catch(function(err) {
+        console.warn("Error loading reviews:", err);
+        var grid = container.querySelector("#enhancer-reviews-grid");
+        if (grid) grid.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;grid-column:1/-1">Error al cargar resenas</div>';
+      });
+  }
+
+  function attachReviewListeners(container) {
+    var newBtn = document.getElementById("enhancer-new-review");
+    if (newBtn) {
+      newBtn.onclick = function() { openReviewModal(null, container); };
+    }
+    container.querySelectorAll(".enhancer-edit-review").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        var review = reviewsCache ? reviewsCache.find(function(r) { return r.id == id; }) : null;
+        if (review) openReviewModal(review, container);
+      };
+    });
+    container.querySelectorAll(".enhancer-delete-review").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        if (!confirm("¿Eliminar esta resena?")) return;
+        fetch(API_BASE + "/reviews_api.php?action=delete", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ id: id })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            enhanced = {};
+            enhanceContenido();
+          }
+        });
+      };
+    });
+  }
+
+  function openReviewModal(review, container) {
+    var existing = document.getElementById("enhancer-review-modal");
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML("beforeend", renderReviewModal(review));
+    var modal = document.getElementById("enhancer-review-modal");
+    document.getElementById("enhancer-close-review-modal").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-cancel-review").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-save-review").onclick = function() {
+      var name = document.getElementById("enhancer-rv-name").value.trim();
+      var text = document.getElementById("enhancer-rv-text").value.trim();
+      if (!name || !text) { alert("Nombre y texto son requeridos"); return; }
+      var payload = {
+        author_name: name,
+        author_role: document.getElementById("enhancer-rv-role").value.trim(),
+        review_text: text,
+        rating: parseInt(document.getElementById("enhancer-rv-rating").value),
+        is_active: parseInt(document.getElementById("enhancer-rv-active").value)
+      };
+      var action = review ? "update" : "create";
+      if (review) payload.id = review.id;
+      fetch(API_BASE + "/reviews_api.php?action=" + action, {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify(payload)
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+          modal.remove();
+          var cont = document.querySelector("[data-enhancer-added='contenido']");
+          if (cont) cont.remove();
+          enhanced = {};
+          enhanceContenido();
+        } else { alert(data.error || "Error"); }
+      });
+    };
+  }
+
+  var configTab = "plans";
+  var plansCache = null;
+  var agentsCache = null;
+
+  function enhanceConfiguracion() {
+    var main = document.querySelector("main");
+    if (!main) return false;
+    if (main.querySelector("[data-enhancer-added='config']")) return true;
+    var children = Array.from(main.children);
+    children.forEach(function(ch) {
+      if (ch.getAttribute("data-enhancer-added")) return;
+      ch.style.display = "none";
+      ch.setAttribute("data-enhancer-hidden", "true");
+    });
+    var container = document.createElement("div");
+    container.setAttribute("data-enhancer-added", "config");
+    container.style.cssText = "padding:20px 0;max-width:1200px;margin:0 auto";
+    container.innerHTML = '<h1 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 20px">Configuracion</h1>' +
+      '<div style="display:flex;gap:8px;margin-bottom:20px">' +
+      '<button class="cfg-tab" data-tab="plans" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#0891b2;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Planes</button>' +
+      '<button class="cfg-tab" data-tab="agents" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Agentes</button>' +
+      '<button class="cfg-tab" data-tab="pricing" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Precios</button></div>' +
+      '<div id="cfg-content">' + makeSkeletonTable(3, 3) + '</div>';
+    main.appendChild(container);
+    container.querySelectorAll(".cfg-tab").forEach(function(btn) {
+      btn.onclick = function() {
+        configTab = this.getAttribute("data-tab");
+        container.querySelectorAll(".cfg-tab").forEach(function(b) {
+          b.style.background = "#fff"; b.style.color = "#64748b";
+        });
+        this.style.background = "#0891b2"; this.style.color = "#fff";
+        loadConfigTab(container);
+      };
+    });
+    loadConfigTab(container);
+    return true;
+  }
+
+  function loadConfigTab(container) {
+    var content = container.querySelector("#cfg-content");
+    if (!content) return;
+    content.innerHTML = makeSkeletonTable(3, 3);
+    if (configTab === "plans") loadPlans(content);
+    else if (configTab === "agents") loadAgents(content);
+    else if (configTab === "pricing") loadPricing(content);
+  }
+
+  function loadPlans(content) {
+    fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        plansCache = data.plans || [];
+        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button id="cfg-new-plan" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button></div>';
+        if (plansCache.length === 0) {
+          html += '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay planes</div>';
+        } else {
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">';
+          plansCache.forEach(function(p) {
+            var activeBg = p.is_active == 1 ? "#10b981" : "#94a3b8";
+            html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+              '<h3 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>' +
+              '<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + (p.is_active == 1 ? "Activo" : "Inactivo") + '</span></div>' +
+              '<p style="margin:0 0 12px;font-size:13px;color:#64748b">' + esc(p.description || '') + '</p>' +
+              '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
+              '<span style="padding:4px 8px;border-radius:6px;background:#f0f9ff;color:#0891b2;font-size:12px;font-weight:600">' + fmtCLP(p.price_clp || 0) + '</span>' +
+              '<span style="padding:4px 8px;border-radius:6px;background:#fef3c7;color:#d97706;font-size:12px;font-weight:600">USD $' + (p.price_usd || 0) + '</span>' +
+              '<span style="padding:4px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.max_links || 0) + ' links</span>' +
+              '<span style="padding:4px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.duration_days || 0) + ' dias</span></div>' +
+              (p.features ? '<div style="margin-bottom:12px">' + p.features.split(',').map(function(f) { return '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:500;margin:2px 4px 2px 0">' + esc(f.trim()) + '</span>'; }).join('') + '</div>' : '') +
+              '<div style="display:flex;gap:6px;justify-content:flex-end">' +
+              '<button class="cfg-edit-plan" data-id="' + p.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+              '<button class="cfg-delete-plan" data-id="' + p.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></div>';
+          });
+          html += '</div>';
+        }
+        content.innerHTML = html;
+        document.getElementById("cfg-new-plan").onclick = function() { openPlanModal(null, content); };
+        content.querySelectorAll(".cfg-edit-plan").forEach(function(btn) {
+          btn.onclick = function() {
+            var id = parseInt(this.getAttribute("data-id"));
+            var plan = plansCache.find(function(p) { return p.id == id; });
+            if (plan) openPlanModal(plan, content);
+          };
+        });
+        content.querySelectorAll(".cfg-delete-plan").forEach(function(btn) {
+          btn.onclick = function() {
+            var id = parseInt(this.getAttribute("data-id"));
+            if (!confirm("¿Eliminar este plan?")) return;
+            fetch(API_BASE + "/config_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+              .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadPlans(content); else alert(d.error || "Error"); });
+          };
+        });
+      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar planes. Ejecute la migracion.</div>'; });
+  }
+
+  function openPlanModal(plan, content) {
+    var existing = document.getElementById("enhancer-plan-modal");
+    if (existing) existing.remove();
+    var isEdit = !!plan;
+    var html = '<div id="enhancer-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px">' + (isEdit ? "Editar Plan" : "Nuevo Plan") + '</h3>' +
+      '<button id="cfg-close-plan" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:14px">' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre *</label><input id="cfg-pl-name" value="' + esc(plan ? plan.name : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Descripcion</label><textarea id="cfg-pl-desc" rows="2" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:vertical">' + esc(plan ? plan.description : '') + '</textarea></div>' +
+      '<div style="display:flex;gap:12px"><div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Precio CLP</label><input id="cfg-pl-clp" type="number" value="' + (plan ? plan.price_clp || 0 : 0) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Precio USD</label><input id="cfg-pl-usd" type="number" step="0.01" value="' + (plan ? plan.price_usd || 0 : 0) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div></div>' +
+      '<div style="display:flex;gap:12px"><div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Max Links</label><input id="cfg-pl-links" type="number" value="' + (plan ? plan.max_links || 5 : 5) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Duracion (dias)</label><input id="cfg-pl-days" type="number" value="' + (plan ? plan.duration_days || 30 : 30) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Caracteristicas (separadas por coma)</label><input id="cfg-pl-feat" value="' + esc(plan ? plan.features : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Feature 1,Feature 2"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="cfg-cancel-plan" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;cursor:pointer">Cancelar</button>' +
+      '<button id="cfg-save-plan" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + (isEdit ? "Guardar" : "Crear") + '</button></div></div></div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    var modal = document.getElementById("enhancer-plan-modal");
+    document.getElementById("cfg-close-plan").onclick = function() { modal.remove(); };
+    document.getElementById("cfg-cancel-plan").onclick = function() { modal.remove(); };
+    document.getElementById("cfg-save-plan").onclick = function() {
+      var name = document.getElementById("cfg-pl-name").value.trim();
+      if (!name) { alert("Nombre requerido"); return; }
+      var payload = {
+        name: name,
+        description: document.getElementById("cfg-pl-desc").value.trim(),
+        price_clp: parseInt(document.getElementById("cfg-pl-clp").value) || 0,
+        price_usd: parseFloat(document.getElementById("cfg-pl-usd").value) || 0,
+        max_links: parseInt(document.getElementById("cfg-pl-links").value) || 5,
+        duration_days: parseInt(document.getElementById("cfg-pl-days").value) || 30,
+        features: document.getElementById("cfg-pl-feat").value.trim()
+      };
+      var action = isEdit ? "plans_update" : "plans_create";
+      if (isEdit) payload.id = plan.id;
+      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.success) { modal.remove(); loadPlans(content); }
+          else alert(d.error || "Error");
+        });
+    };
+  }
+
+  function loadAgents(content) {
+    fetch(API_BASE + "/config_api.php?action=agents_list", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        agentsCache = data.agents || [];
+        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button id="cfg-new-agent" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Agente</button></div>';
+        if (agentsCache.length === 0) {
+          html += '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay agentes</div>';
+        } else {
+          var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
+          html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr>' +
+            '<th style="' + thS + '">Agente</th><th style="' + thS + '">Contacto</th><th style="' + thS + '">Especialidad</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Acciones</th></tr></thead><tbody>';
+          agentsCache.forEach(function(a) {
+            var activeBg = a.is_active == 1 ? "#10b981" : "#94a3b8";
+            html += '<tr style="border-bottom:1px solid #f1f5f9">' +
+              '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">' + (a.name || "?").charAt(0).toUpperCase() + '</div><span style="font-weight:600;color:#1e293b;font-size:14px">' + esc(a.name) + '</span></div></td>' +
+              '<td style="padding:14px 16px"><div><span style="font-size:12px;color:#64748b">' + esc(a.email || '') + '</span><br><span style="font-size:12px;color:#94a3b8">' + esc(a.phone || '') + '</span></div></td>' +
+              '<td style="padding:14px 16px"><span style="padding:4px 8px;border-radius:6px;background:#f0f9ff;color:#0891b2;font-size:12px;font-weight:600">' + esc(a.specialization || 'General') + '</span></td>' +
+              '<td style="padding:14px 16px"><span style="padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + (a.is_active == 1 ? "Activo" : "Inactivo") + '</span></td>' +
+              '<td style="padding:14px 16px"><div style="display:flex;gap:6px">' +
+              '<button class="cfg-edit-agent" data-id="' + a.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+              '<button class="cfg-delete-agent" data-id="' + a.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></td></tr>';
+          });
+          html += '</tbody></table></div>';
+        }
+        content.innerHTML = html;
+        document.getElementById("cfg-new-agent").onclick = function() { openAgentModal(null, content); };
+        content.querySelectorAll(".cfg-edit-agent").forEach(function(btn) {
+          btn.onclick = function() {
+            var id = parseInt(this.getAttribute("data-id"));
+            var agent = agentsCache.find(function(a) { return a.id == id; });
+            if (agent) openAgentModal(agent, content);
+          };
+        });
+        content.querySelectorAll(".cfg-delete-agent").forEach(function(btn) {
+          btn.onclick = function() {
+            var id = parseInt(this.getAttribute("data-id"));
+            if (!confirm("¿Eliminar este agente?")) return;
+            fetch(API_BASE + "/config_api.php?action=agents_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+              .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadAgents(content); else alert(d.error || "Error"); });
+          };
+        });
+      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar agentes. Ejecute la migracion.</div>'; });
+  }
+
+  function openAgentModal(agent, content) {
+    var existing = document.getElementById("enhancer-agent-modal");
+    if (existing) existing.remove();
+    var isEdit = !!agent;
+    var html = '<div id="enhancer-agent-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px">' + (isEdit ? "Editar Agente" : "Nuevo Agente") + '</h3>' +
+      '<button id="cfg-close-agent" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:14px">' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre *</label><input id="cfg-ag-name" value="' + esc(agent ? agent.name : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email</label><input id="cfg-ag-email" type="email" value="' + esc(agent ? agent.email : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Telefono</label><input id="cfg-ag-phone" value="' + esc(agent ? agent.phone : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Especializacion</label><input id="cfg-ag-spec" value="' + esc(agent ? agent.specialization : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Bio</label><textarea id="cfg-ag-bio" rows="3" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:vertical">' + esc(agent ? agent.bio : '') + '</textarea></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="cfg-cancel-agent" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;cursor:pointer">Cancelar</button>' +
+      '<button id="cfg-save-agent" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + (isEdit ? "Guardar" : "Crear") + '</button></div></div></div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    var modal = document.getElementById("enhancer-agent-modal");
+    document.getElementById("cfg-close-agent").onclick = function() { modal.remove(); };
+    document.getElementById("cfg-cancel-agent").onclick = function() { modal.remove(); };
+    document.getElementById("cfg-save-agent").onclick = function() {
+      var name = document.getElementById("cfg-ag-name").value.trim();
+      if (!name) { alert("Nombre requerido"); return; }
+      var payload = {
+        name: name,
+        email: document.getElementById("cfg-ag-email").value.trim(),
+        phone: document.getElementById("cfg-ag-phone").value.trim(),
+        specialization: document.getElementById("cfg-ag-spec").value.trim(),
+        bio: document.getElementById("cfg-ag-bio").value.trim()
+      };
+      var action = isEdit ? "agents_update" : "agents_create";
+      if (isEdit) payload.id = agent.id;
+      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+        .then(function(r) { return r.json(); }).then(function(d) {
+          if (d.success) { modal.remove(); loadAgents(content); }
+          else alert(d.error || "Error");
+        });
+    };
+  }
+
+  function loadPricing(content) {
+    fetch(API_BASE + "/config_api.php?action=pricing_get", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var pricing = data.pricing || {};
+        var keys = Object.keys(pricing);
+        if (keys.length === 0) {
+          content.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay configuracion de precios</div>';
+          return;
+        }
+        var labels = { default_currency: "Moneda por Defecto", usd_to_clp_rate: "Tipo de Cambio USD/CLP", commission_percent: "Comision (%)", tax_percent: "IVA (%)", min_order_clp: "Monto Minimo CLP" };
+        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
+          '<h3 style="margin:0 0 20px;font-size:16px;font-weight:700;color:#1e293b">Configuracion de Precios</h3>' +
+          '<div style="display:flex;flex-direction:column;gap:16px">';
+        keys.forEach(function(key) {
+          var label = labels[key] || key;
+          var val = pricing[key].value || '';
+          html += '<div style="display:flex;align-items:center;gap:12px"><label style="min-width:180px;font-size:13px;color:#64748b;font-weight:600">' + esc(label) + '</label>' +
+            '<input class="cfg-pricing-input" data-key="' + esc(key) + '" value="' + esc(val) + '" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
+            '<span style="font-size:11px;color:#94a3b8;min-width:100px">' + esc(pricing[key].description || '') + '</span></div>';
+        });
+        html += '</div><div style="display:flex;justify-content:flex-end;margin-top:20px">' +
+          '<button id="cfg-save-pricing" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Guardar Precios</button></div></div>';
+        content.innerHTML = html;
+        document.getElementById("cfg-save-pricing").onclick = function() {
+          var configs = {};
+          content.querySelectorAll(".cfg-pricing-input").forEach(function(inp) {
+            configs[inp.getAttribute("data-key")] = inp.value.trim();
+          });
+          fetch(API_BASE + "/config_api.php?action=pricing_update", { method: "POST", headers: authHeaders(), body: JSON.stringify({ configs: configs }) })
+            .then(function(r) { return r.json(); }).then(function(d) {
+              if (d.success) alert("Precios actualizados"); else alert(d.error || "Error");
+            });
+        };
+      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar precios. Ejecute la migracion.</div>'; });
+  }
+
+  function injectConfigSidebar() {
+    if (document.getElementById("sidebar-config-admin")) return;
+    var aside = document.querySelector("aside nav");
+    if (!aside) return;
+    var btn = document.createElement("button");
+    btn.id = "sidebar-config-admin";
+    btn.style.cssText = "display:flex;align-items:center;gap:12px;width:100%;padding:10px 16px;border:none;background:transparent;color:#94a3b8;font-size:14px;font-weight:500;cursor:pointer;border-radius:8px;transition:all .2s;text-align:left;margin-top:4px";
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Configuracion';
+    btn.addEventListener("mouseenter", function() { this.style.background = "rgba(8,145,178,.08)"; this.style.color = "#0891b2"; });
+    btn.addEventListener("mouseleave", function() { if (!this.classList.contains("cfg-active")) { this.style.background = "transparent"; this.style.color = "#94a3b8"; } });
+    btn.addEventListener("click", function() {
+      var h1 = document.querySelector("main h1");
+      if (h1) h1.textContent = "Configuracion";
+    });
+    aside.appendChild(btn);
   }
 
   function enhanceDashboard() {
@@ -388,6 +914,7 @@
         case "Pagos": ok = enhancePagos(); break;
         case "Contenido": ok = enhanceContenido(); break;
         case "Auditoria": ok = true; break;
+        case "Configuracion": ok = enhanceConfiguracion(); break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
     if (ok) enhanced[section] = true;
@@ -405,8 +932,12 @@
   }
 
   function init() {
-    new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
-    setInterval(check, 500);
+    injectConfigSidebar();
+    new MutationObserver(function() {
+      injectConfigSidebar();
+      check();
+    }).observe(document.body, { childList: true, subtree: true });
+    setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
   }
 
