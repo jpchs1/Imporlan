@@ -81,12 +81,12 @@ function createPreference() {
             ]
         ],
         'back_urls' => [
-            'success' => 'https://www.imporlan.cl/panel/#myproducts',
-            'failure' => 'https://www.imporlan.cl/panel/#myproducts',
-            'pending' => 'https://www.imporlan.cl/panel/#myproducts'
+            'success' => 'https://www.imporlan.cl/panel-test/#myproducts',
+            'failure' => 'https://www.imporlan.cl/panel-test/#myproducts',
+            'pending' => 'https://www.imporlan.cl/panel-test/#myproducts'
         ],
         'auto_return' => 'approved',
-        'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
+        'notification_url' => 'https://www.imporlan.cl/test/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
         'external_reference' => $planName . '_' . time()
     ];

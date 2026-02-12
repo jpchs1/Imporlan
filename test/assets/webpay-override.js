@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  const API_BASE = 'https://www.imporlan.cl/api';
+  const API_BASE = 'https://www.imporlan.cl/test/api';
   const originalAlert = window.alert;
 
   // Override alert to intercept WebPay "proximamente" message
@@ -81,16 +81,39 @@
         planDays = 14;
       }
       
+      var formBoatLinks = [];
+      var formPhone = '';
+      var formName = '';
+      var formCountry = 'Chile';
+      try {
+        document.querySelectorAll('input[placeholder*="boattrader"], input[placeholder*="yachtworld"]').forEach(function(inp) {
+          var v = (inp.value || '').trim();
+          if (v && v.indexOf('http') === 0) formBoatLinks.push(v);
+        });
+        var phoneInp = document.querySelector('input[placeholder*="XXXX"]');
+        if (phoneInp && phoneInp.value) formPhone = phoneInp.value.trim();
+        var nameInp = document.querySelector('input[placeholder*="Tu nombre"]');
+        var lastInp = document.querySelector('input[placeholder*="Tus apellidos"]');
+        if (nameInp && nameInp.value) {
+          formName = nameInp.value.trim();
+          if (lastInp && lastInp.value) formName += ' ' + lastInp.value.trim();
+        }
+      } catch(e) { console.warn('webpay-override: form data read error', e); }
+
       const requestBody = {
         amount: parsedAmount,
         session_id: sessionId,
         buy_order: buyOrder,
         user_email: userEmail,
+        payer_name: formName || userEmail,
+        payer_phone: formPhone,
+        country: formCountry,
+        boat_links: formBoatLinks,
         plan_name: planName || description,
         description: description,
         type: purchaseType,
         days: planDays,
-        return_url: window.location.origin + '/api/webpay.php?action=callback'
+        return_url: window.location.origin + '/test/api/webpay.php?action=callback'
       };
       
       console.log('Webpay API request:', requestBody);
