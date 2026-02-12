@@ -64,6 +64,10 @@ function fetchLinkMetadata() {
         parseHtml($html, $url, $parsedUrl, $result);
     }
 
+    if ($result['image_url'] && !isUsefulImage($result['image_url'])) {
+        $result['image_url'] = null;
+    }
+
     $hasUsefulData = $result['image_url'] || $result['location'] || $result['hours'] || $result['value_usa_usd'];
     if (!$hasUsefulData) {
         fetchViaMicrolink($url, $result);
@@ -286,6 +290,8 @@ function isUsefulImage($imgUrl) {
     if (preg_match('/\.(svg|ico)(\?|$)/', $lower)) return false;
     if (preg_match('/(logo|favicon|icon|sprite|avatar|badge)/i', $lower)) return false;
     if (isVideoUrl($imgUrl)) return false;
+    if (preg_match('/static\.xx\.fbcdn\.net\/rsrc/', $lower)) return false;
+    if (preg_match('/fbcdn\.net.*\/rsrc\.php/', $lower)) return false;
     return true;
 }
 
@@ -349,7 +355,14 @@ function fetchViaMicrolink($url, &$result) {
     }
 
     $desc = $d['description'] ?? '';
-    $fullText = ($d['title'] ?? '') . ' ' . $desc;
+    if (!$result['value_usa_usd'] && $desc) {
+        if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $desc, $pm)) {
+            $val = floatval(str_replace(',', '', $pm[1]));
+            if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
+        }
+    }
+
+    $fullText = ($d['title'] ?? '') . ' ' . ($d['description'] ?? '');
     if ($fullText) {
         extractFieldsFromText($fullText, null, $result);
     }
@@ -364,7 +377,12 @@ function extractProductImage($html) {
     ];
     foreach ($boatImageDomains as $domain) {
         if (preg_match('/https?:\/\/' . preg_quote($domain, '/') . '\/resize\/[^\s"<>\']+_LARGE\.[a-z]+/i', $html, $m)) {
-            return $m[0];
+            return html_entity_decode($m[0]);
+        }
+    }
+    foreach ($boatImageDomains as $domain) {
+        if (preg_match('/https?:\/\/' . preg_quote($domain, '/') . '\/resize\/[^\s"<>\'&]+/i', $html, $m)) {
+            return html_entity_decode($m[0]);
         }
     }
     if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
