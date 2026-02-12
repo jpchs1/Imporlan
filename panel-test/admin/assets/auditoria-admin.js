@@ -247,7 +247,7 @@
   };
 
   function getSection() {
-    var h = document.querySelector("main h1");
+    var h = document.querySelector("main > h1");
     return h ? h.textContent.trim() : "";
   }
 
