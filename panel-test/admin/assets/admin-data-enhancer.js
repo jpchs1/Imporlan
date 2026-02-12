@@ -301,7 +301,38 @@
     return true;
   }
 
+  var REAL_REVIEWS = [
+    { name: "Carlos Rodriguez", role: "Empresario, Santiago", text: "Excelente servicio. Importaron mi Cobalt R30 sin ningun problema. Todo el proceso fue transparente y profesional." },
+    { name: "Maria Gonzalez", role: "Medico, Vina del Mar", text: "Muy recomendable. El equipo de Imporlan me ayudo a encontrar la lancha perfecta para mi familia." },
+    { name: "Pedro Martinez", role: "Ingeniero, Concepcion", text: "Proceso impecable de principio a fin. La comunicacion fue excelente y cumplieron con todos los plazos." },
+    { name: "Roberto Silva", role: "Abogado, Valparaiso", text: "Increible experiencia. Desde la busqueda hasta la entrega, todo fue perfecto. Mi Sea Ray llego en excelentes condiciones." },
+    { name: "Ana Fernandez", role: "Arquitecta, La Serena", text: "Profesionalismo de primer nivel. Me asesoraron en cada paso y el precio final fue exactamente el cotizado. Sin sorpresas." },
+    { name: "Diego Morales", role: "Empresario, Temuco", text: "Segunda lancha que importo con Imporlan. La confianza que generan es invaluable. Totalmente recomendados." },
+    { name: "Claudia Vargas", role: "Dentista, Puerto Montt", text: "El seguimiento en tiempo real me dio mucha tranquilidad. Siempre supe donde estaba mi embarcacion." },
+    { name: "Francisco Rojas", role: "Contador, Antofagasta", text: "Ahorre mas de 3 millones comparado con comprar en Chile. El servicio de Imporlan vale cada peso." },
+    { name: "Valentina Soto", role: "Ingeniera Civil, Rancagua", text: "La inspeccion previa fue muy detallada. Me enviaron fotos y videos de todo. Compre con total seguridad." },
+    { name: "Andres Munoz", role: "Medico, Iquique", text: "Atencion personalizada de principio a fin. Resolvieron todas mis dudas rapidamente. Excelente equipo." }
+  ];
+
   function enhanceContenido() {
+    var main = document.querySelector("main");
+    if (!main) return false;
+    var h1 = main.querySelector("h1");
+    if (!h1) return false;
+    if (main.querySelector("[data-enhancer-added='contenido']")) return true;
+    hideReactContent(main);
+    var container = document.createElement("div");
+    container.setAttribute("data-enhancer-added", "contenido");
+    container.style.cssText = "padding:20px 0";
+    var starSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    var stars = ""; for (var i = 0; i < 5; i++) stars += starSvg;
+    var html = "";
+    REAL_REVIEWS.forEach(function (r) {
+      var ini = r.name.charAt(0);
+      html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#0891b220;color:#0891b2;text-transform:uppercase;letter-spacing:.04em">Resena Real</span><div style="display:flex;gap:2px">' + stars + '</div></div><p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.6;font-style:italic">' + esc(r.text) + '</p><div style="display:flex;align-items:center;gap:10px;border-top:1px solid #f1f5f9;padding-top:12px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:13px">' + esc(r.name) + '</p><p style="margin:1px 0 0;color:#94a3b8;font-size:12px">' + esc(r.role) + '</p></div></div></div>';
+    });
+    container.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:0">' + html + '</div>';
+    main.appendChild(container);
     return true;
   }
 
