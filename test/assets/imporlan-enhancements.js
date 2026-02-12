@@ -22,24 +22,34 @@
   // ============================================
   
   const STORAGE_KEY = 'imporlan_cotizador_links';
+  const STORAGE_KEY_FORM = 'imporlan_cotizador_form';
   
   function saveCotizadorLinks() {
-    // Find all link inputs in the cotizador form on Home
-    const linkInputs = document.querySelectorAll('input[type="url"][placeholder*="Link"]');
+    var linkInputs = document.querySelectorAll('input[type="url"][placeholder*="Link"], input[type="url"][placeholder*="link"]');
     if (linkInputs.length > 0) {
-      const links = [];
+      var links = [];
       linkInputs.forEach(function(input) {
         if (input.value && input.value.trim()) {
           links.push(input.value.trim());
         }
       });
       if (links.length > 0) {
+        var formData = { links: links };
+        var nameInput = document.querySelector('input[placeholder="Tu nombre"]');
+        var emailInput = document.querySelector('input[type="email"][placeholder*="email"]');
+        var phoneInput = document.querySelector('input[type="tel"][placeholder*="56"]');
+        var countrySelect = document.querySelector('select');
+        if (nameInput && nameInput.value) formData.name = nameInput.value.trim();
+        if (emailInput && emailInput.value) formData.email = emailInput.value.trim();
+        if (phoneInput && phoneInput.value) formData.phone = phoneInput.value.trim();
+        if (countrySelect && countrySelect.value) formData.country = countrySelect.value;
         try {
           sessionStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+          sessionStorage.setItem(STORAGE_KEY_FORM, JSON.stringify(formData));
         } catch (e) {
-          // Fallback to localStorage
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+            localStorage.setItem(STORAGE_KEY_FORM, JSON.stringify(formData));
           } catch (e2) {
             console.warn('Could not save cotizador links:', e2);
           }
@@ -48,59 +58,93 @@
     }
   }
   
+  function setReactInputValue(input, value) {
+    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeInputValueSetter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function restoreCotizadorLinks() {
-    // Only run on panel page
     if (!window.location.pathname.includes('/panel')) return;
     
-    let links = null;
+    var formDataStr = null;
+    var linksStr = null;
     try {
-      links = sessionStorage.getItem(STORAGE_KEY);
-      if (!links) {
-        links = localStorage.getItem(STORAGE_KEY);
-      }
+      formDataStr = sessionStorage.getItem(STORAGE_KEY_FORM) || localStorage.getItem(STORAGE_KEY_FORM);
+      linksStr = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
     } catch (e) {
-      console.warn('Could not retrieve cotizador links:', e);
       return;
     }
     
-    if (!links) return;
-    
+    var linksArray = null;
+    var formData = null;
     try {
-      const linksArray = JSON.parse(links);
-      if (!Array.isArray(linksArray) || linksArray.length === 0) return;
-      
-      // Wait for panel cotizador to render
-      const checkInterval = setInterval(function() {
-        const linkInputs = document.querySelectorAll('input[type="url"][placeholder*="Link"], input[placeholder*="link"]');
-        if (linkInputs.length > 0) {
-          clearInterval(checkInterval);
-          
-          // Fill in the links
-          linksArray.forEach(function(link, index) {
-            if (linkInputs[index]) {
-              linkInputs[index].value = link;
-              // Trigger React's onChange
-              const event = new Event('input', { bubbles: true });
-              linkInputs[index].dispatchEvent(event);
-            }
-          });
-          
-          // Clear storage after successful restore
-          try {
-            sessionStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(STORAGE_KEY);
-          } catch (e) {}
-        }
-      }, 500);
-      
-      // Stop checking after 10 seconds
-      setTimeout(function() {
-        clearInterval(checkInterval);
-      }, 10000);
-      
+      if (formDataStr) formData = JSON.parse(formDataStr);
+      if (linksStr) linksArray = JSON.parse(linksStr);
+      if (formData && formData.links) linksArray = formData.links;
     } catch (e) {
-      console.warn('Could not restore cotizador links:', e);
+      return;
     }
+    
+    if (!linksArray || !Array.isArray(linksArray) || linksArray.length === 0) return;
+    
+    if (window.location.hash !== '#quotation') {
+      window.location.hash = '#quotation';
+    }
+    
+    var attempts = 0;
+    var maxAttempts = 40;
+    var checkInterval = setInterval(function() {
+      attempts++;
+      var linkInputs = document.querySelectorAll('input[placeholder*="boattrader.com"], input[placeholder*="yachtworld.com"], input[placeholder*="boats.com"]');
+      if (linkInputs.length === 0) {
+        var allInputs = document.querySelectorAll('input');
+        var candidates = [];
+        allInputs.forEach(function(inp) {
+          if (inp.placeholder && inp.placeholder.indexOf('https://') === 0 && inp.type !== 'email') {
+            candidates.push(inp);
+          }
+        });
+        if (candidates.length > 0) linkInputs = candidates;
+      }
+      
+      if (linkInputs.length > 0) {
+        clearInterval(checkInterval);
+        
+        linksArray.forEach(function(link, index) {
+          if (index < linkInputs.length) {
+            setReactInputValue(linkInputs[index], link);
+          }
+        });
+        
+        if (formData) {
+          if (formData.name) {
+            var nameInput = document.querySelector('input[placeholder="Tu nombre"]');
+            if (nameInput) setReactInputValue(nameInput, formData.name);
+          }
+          if (formData.email) {
+            var emailInput = document.querySelector('input[type="email"][placeholder*="email"]');
+            if (emailInput) setReactInputValue(emailInput, formData.email);
+          }
+          if (formData.phone) {
+            var phoneInput = document.querySelector('input[placeholder*="XXXX"]');
+            if (phoneInput) setReactInputValue(phoneInput, formData.phone);
+          }
+        }
+        
+        try {
+          sessionStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(STORAGE_KEY_FORM);
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(STORAGE_KEY_FORM);
+        } catch (e) {}
+      }
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+      }
+    }, 500);
   }
   
   // ============================================

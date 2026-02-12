@@ -132,6 +132,21 @@ function createPreference() {
         'init_point' => $preference['init_point'],
         'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
     ]);
+    
+    try {
+        $emailService = new EmailService();
+        $boatLinks = $input['boat_links'] ?? [];
+        $emailService->sendQuotationRequestNotification([
+            'name' => $payerName ?? 'Cliente',
+            'email' => $payerEmail ?? '',
+            'phone' => $input['payer_phone'] ?? '',
+            'country' => $input['country'] ?? 'Chile',
+            'boat_links' => $boatLinks
+        ]);
+    } catch (Exception $e) {
+        $logFile = __DIR__ . '/mp_webhooks.log';
+        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+    }
 }
 
 /**
@@ -216,6 +231,7 @@ function handleWebhook() {
             
             if (empty($purchase['_duplicate'])) {
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
+                createPaymentNotificationMessage($purchase, $payment);
             }
         }
     }
@@ -327,6 +343,65 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
         $logFile = __DIR__ . '/mp_webhooks.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";
         file_put_contents($logFile, $logEntry, FILE_APPEND);
+    }
+}
+
+/**
+ * Create automated system message in panel chat after payment
+ */
+function createPaymentNotificationMessage($purchase, $payment) {
+    try {
+        $pdo = getDbConnection();
+        if (!$pdo) return;
+
+        $userEmail = $purchase['user_email'];
+        $userName = trim(($payment['payer']['first_name'] ?? '') . ' ' . ($payment['payer']['last_name'] ?? ''));
+        if (empty($userName)) $userName = $userEmail;
+
+        $stmt = $pdo->prepare("SELECT id FROM chat_conversations WHERE user_email = ? AND status = 'open' ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$conv) {
+            $stmt = $pdo->prepare("INSERT INTO chat_conversations (user_email, user_name, status, auto_messages_sent) VALUES (?, ?, 'open', '{}')");
+            $stmt->execute([$userEmail, $userName]);
+            $conversationId = intval($pdo->lastInsertId());
+        } else {
+            $conversationId = intval($conv['id']);
+        }
+
+        $amount = number_format($purchase['amount_clp'] ?? $purchase['amount'] ?? 0, 0, ',', '.');
+        $description = $purchase['description'] ?? 'Servicio Imporlan';
+        $isPlan = ($purchase['type'] ?? '') === 'plan';
+
+        if ($isPlan) {
+            $planName = $purchase['plan_name'] ?: $description;
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$planName} ha sido procesado exitosamente.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Tu plan ya esta activo. Nuestro equipo comenzara a trabajar en tu requerimiento de inmediato.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        } else {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por Cotizacion por Links ha sido procesado exitosamente.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Nuestro equipo revisara tu solicitud y te enviaremos la cotizacion a la brevedad.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message) VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)");
+        $stmt->execute([$conversationId, $message]);
+
+        $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$conversationId]);
+
+        $logFile = __DIR__ . '/mp_webhooks.log';
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - CHAT_MSG_SENT: conv={$conversationId}, user={$userEmail}\n", FILE_APPEND);
+    } catch (Exception $e) {
+        $logFile = __DIR__ . '/mp_webhooks.log';
+        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - CHAT_MSG_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
     }
 }
 
