@@ -302,17 +302,6 @@
   }
 
   function enhanceContenido() {
-    var main = document.querySelector("main");
-    if (!main) return false;
-    var h1 = main.querySelector("h1");
-    if (!h1) return false;
-    if (main.querySelector("[data-enhancer-added='contenido']")) return true;
-    hideReactContent(main);
-    var container = document.createElement("div");
-    container.setAttribute("data-enhancer-added", "contenido");
-    container.style.cssText = "padding:20px 0";
-    container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay resenas disponibles por el momento</div>';
-    main.appendChild(container);
     return true;
   }
 
@@ -367,6 +356,7 @@
         case "Planes": ok = enhancePlanes(); break;
         case "Pagos": ok = enhancePagos(); break;
         case "Contenido": ok = enhanceContenido(); break;
+        case "Auditoria": ok = true; break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
     if (ok) enhanced[section] = true;
