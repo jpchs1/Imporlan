@@ -942,13 +942,6 @@
 
   function check() {
     if (isEnhancing) return;
-    if (configActive) {
-      var reactH1 = document.querySelector("main h1");
-      var reactText = reactH1 ? reactH1.textContent.trim() : "";
-      if (reactText && reactText !== "Configuracion" && reactText !== lastSection) {
-        configActive = false;
-      }
-    }
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
@@ -970,6 +963,11 @@
 
   function init() {
     injectConfigSidebar();
+    document.addEventListener("click", function(e) {
+      if (!configActive) return;
+      var btn = e.target.closest("aside nav ul button, aside nav ul a");
+      if (btn) configActive = false;
+    }, true);
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
     setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
