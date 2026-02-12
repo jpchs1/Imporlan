@@ -251,8 +251,16 @@
   };
 
   function getSection() {
-    var h = document.querySelector("main > h1");
-    return h ? h.textContent.trim() : "";
+    var h1s = document.querySelectorAll("main h1");
+    for (var i = 0; i < h1s.length; i++) {
+      var parent = h1s[i].parentElement;
+      while (parent && parent.tagName !== "MAIN") {
+        if (parent.getAttribute && parent.getAttribute("data-audit-added")) break;
+        parent = parent.parentElement;
+      }
+      if (parent && parent.tagName === "MAIN") return h1s[i].textContent.trim();
+    }
+    return "";
   }
 
   function doCheck() {
