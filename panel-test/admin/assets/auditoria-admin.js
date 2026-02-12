@@ -25,6 +25,7 @@
   var auditActive = false;
   var currentPage = 1;
   var filters = {};
+  var isProcessing = false;
 
   function injectSidebarItem() {
     if (injected) return;
@@ -142,7 +143,7 @@
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">Cargando registros de auditoria...</div>';
     var params = "action=list&page=" + currentPage;
     Object.keys(filters).forEach(function (k) { params += "&" + k + "=" + encodeURIComponent(filters[k]); });
-    fetch(API_BASE + "/audit_api.php?" + params, { headers: authHeaders() })
+    fetch(API_BASE + "/audit_api.php?" + params, { headers: authHeaders(), cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.success || !data.logs || data.logs.length === 0) {
@@ -191,7 +192,7 @@
     if (!modal || !content) return;
     modal.style.display = "flex";
     content.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Cargando...</div>';
-    fetch(API_BASE + "/audit_api.php?action=detail&id=" + id, { headers: authHeaders() })
+    fetch(API_BASE + "/audit_api.php?action=detail&id=" + id, { headers: authHeaders(), cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.success || !data.log) {
@@ -251,13 +252,24 @@
   }
 
   function checkAuditSection() {
-    injectSidebarItem();
-    var section = getSection();
-    if (section === "Auditoria" && auditActive) {
-      showAuditSection();
-    } else if (section !== "Auditoria" && auditActive) {
-      auditActive = false;
-      cleanupAudit();
+    if (isProcessing) return;
+    isProcessing = true;
+    try {
+      injectSidebarItem();
+      var section = getSection();
+      if (section === "Auditoria") {
+        auditActive = true;
+        if (!document.querySelector("[data-audit-added]")) {
+          showAuditSection();
+        } else {
+          hideReactContent(document.querySelector("main"));
+        }
+      } else if (auditActive) {
+        auditActive = false;
+        cleanupAudit();
+      }
+    } finally {
+      isProcessing = false;
     }
   }
 
