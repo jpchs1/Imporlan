@@ -288,7 +288,6 @@
       return { error: "Error de conexion" };
     }
   }
-n ?
 
   async function deleteOrder(orderId) {
     try {
