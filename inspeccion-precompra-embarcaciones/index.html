@@ -124,8 +124,8 @@
                     <a href="/#contacto">Contacto</a>
                 </div>
                 <div class="seo-nav-publicar">
-                    <button class="btn-publicar" disabled title="Disponible proximamente">Publicar</button>
-                    <span class="publicar-label">PROXIMAMENTE</span>
+                    <button class="btn-publicar" onclick="var t=localStorage.getItem('imporlan_token');if(t){window.location.href='/panel/#/marketplace/publicar';}else{sessionStorage.setItem('imporlan_redirect_after_login','/panel/#/marketplace/publicar');window.location.href='/panel/';}">Publicar</button>
+                    <span class="publicar-label">GRATIS</span>
                 </div>
                 <div class="seo-nav-auth">
                     <a href="/panel/" class="btn-login">Iniciar Sesion</a>
