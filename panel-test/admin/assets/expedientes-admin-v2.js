@@ -550,7 +550,7 @@
 
   function renderLinkRow(lk, idx) {
     var ci = cellInputStyle();
-    var placeholderSvg = '<div class="ea-img-placeholder" style="width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+    var placeholderSvg = '<div class="ea-img-placeholder" style="width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer" title="Click para subir imagen"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
     var imgPreview = lk.image_url
       ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '">'
       : placeholderSvg;
@@ -562,7 +562,13 @@
       '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s">' +
       '<td style="padding:8px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.3;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
       '<td class="ea-row-num" style="padding:8px 4px;text-align:center;font-size:14px;color:#64748b;font-weight:800">' + (idx + 1) + '</td>' +
-      '<td style="padding:8px 6px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:6px">' + imgPreview + '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8" title="URL de la imagen"></div></td>' +
+      '<td style="padding:8px 6px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview +
+      '<div style="display:flex;gap:2px;align-items:center">' +
+      '<button class="ea-upload-img-btn" style="border:none;background:#f0f9ff;cursor:pointer;color:#0891b2;padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:3px;font-size:10px;font-weight:600;transition:all .15s" title="Subir imagen"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Subir</button>' +
+      '<button class="ea-edit-imgurl-btn" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:4px 6px;border-radius:6px;display:flex;align-items:center;font-size:10px;transition:all .15s" title="Editar URL de imagen"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+      '</div>' +
+      '<input type="file" class="ea-img-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">' +
+      '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8;display:none" title="URL de la imagen"></div></td>' +
       '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
       '<div style="display:flex;gap:2px;flex-shrink:0">' +
       '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
@@ -761,6 +767,95 @@
     if (badge) badge.style.display = "none";
   }
 
+  async function uploadLinkImage(file, row) {
+    var uploadBtn = row.querySelector(".ea-upload-img-btn");
+    var origHtml = uploadBtn ? uploadBtn.innerHTML : "";
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+    }
+    try {
+      var formData = new FormData();
+      formData.append("image", file);
+      var resp = await fetch(API_BASE + "/image_upload.php?action=upload_link_image", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + getAdminToken() },
+        body: formData,
+      });
+      var data = await resp.json();
+      if (data.success && data.url) {
+        var imgInput = row.querySelector(".ea-link-image_url");
+        if (imgInput) imgInput.value = data.url;
+        updateImagePreview(row, data.url);
+        hasUnsavedChanges = true;
+        showUnsavedBadge();
+        showToast("Imagen subida exitosamente", "success");
+      } else {
+        showToast(data.error || "Error al subir imagen", "error");
+      }
+    } catch (e) {
+      console.error("Upload error:", e);
+      showToast("Error al subir imagen", "error");
+    } finally {
+      if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = origHtml;
+      }
+    }
+  }
+
+  function updateImagePreview(row, url) {
+    var container = row.querySelector("td:nth-child(3) > div");
+    if (!container) return;
+    var existingImg = container.querySelector(".ea-img-preview");
+    var existingPlaceholder = container.querySelector(".ea-img-placeholder");
+    if (url) {
+      if (existingImg) {
+        existingImg.src = url;
+        existingImg.setAttribute("data-url", url);
+        existingImg.style.display = "";
+      } else {
+        var newImg = document.createElement("img");
+        newImg.src = url;
+        newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
+        newImg.className = "ea-img-preview";
+        newImg.setAttribute("data-url", url);
+        newImg.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var overlay = document.createElement("div");
+          overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s;backdrop-filter:blur(8px)";
+          overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
+          overlay.addEventListener("click", function () { overlay.remove(); });
+          document.body.appendChild(overlay);
+        });
+        newImg.addEventListener("error", function () {
+          this.style.display = "none";
+        });
+        if (existingPlaceholder) {
+          container.insertBefore(newImg, existingPlaceholder);
+          existingPlaceholder.remove();
+        } else {
+          container.insertBefore(newImg, container.firstChild);
+        }
+      }
+    } else {
+      if (existingImg) existingImg.style.display = "none";
+      if (!existingPlaceholder) {
+        var ph = document.createElement("div");
+        ph.className = "ea-img-placeholder";
+        ph.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer";
+        ph.title = "Click para subir imagen";
+        ph.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        ph.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var r = this.closest("tr");
+          if (r) { var fi = r.querySelector(".ea-img-file-input"); if (fi) fi.click(); }
+        });
+        container.insertBefore(ph, container.firstChild);
+      }
+    }
+  }
+
   function attachListeners(container) {
     container.querySelectorAll(".ea-btn-edit").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
@@ -841,7 +936,8 @@
         this.style.display = "none";
         var placeholder = document.createElement("div");
         placeholder.className = "ea-img-placeholder";
-        placeholder.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9)";
+        placeholder.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer";
+        placeholder.title = "Click para subir imagen";
         placeholder.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
         this.parentNode.insertBefore(placeholder, this);
       });
@@ -855,6 +951,56 @@
         overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
         overlay.addEventListener("click", function () { overlay.remove(); });
         document.body.appendChild(overlay);
+      });
+    });
+
+    container.querySelectorAll(".ea-upload-img-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) {
+          var fileInput = row.querySelector(".ea-img-file-input");
+          if (fileInput) fileInput.click();
+        }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-placeholder").forEach(function (ph) {
+      ph.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) {
+          var fileInput = row.querySelector(".ea-img-file-input");
+          if (fileInput) fileInput.click();
+        }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-file-input").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        if (!this.files || !this.files[0]) return;
+        var file = this.files[0];
+        var row = this.closest("tr");
+        if (!row) return;
+        uploadLinkImage(file, row);
+      });
+    });
+
+    container.querySelectorAll(".ea-edit-imgurl-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (!row) return;
+        var imgInput = row.querySelector(".ea-link-image_url");
+        if (!imgInput) return;
+        var currentUrl = imgInput.value || "";
+        var newUrl = prompt("URL de la imagen:", currentUrl);
+        if (newUrl !== null) {
+          imgInput.value = newUrl.trim();
+          updateImagePreview(row, newUrl.trim());
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+        }
       });
     });
 
