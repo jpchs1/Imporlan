@@ -17,10 +17,10 @@ require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
-// WebPay Plus Production Credentials
-define('WEBPAY_COMMERCE_CODE', '597055555532'); // Replace with production code
-define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'); // Replace with production key
-define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl'); // Production environment
+// WebPay Plus Integration/Test Credentials
+define('WEBPAY_COMMERCE_CODE', '597055555532');
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
+define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
 
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -98,7 +98,7 @@ function createTransaction($data) {
     file_put_contents($tempFile, json_encode($purchaseInfo));
     
     // Use the callback URL for WebPay to return to
-    $returnUrl = 'https://www.imporlan.cl/api/webpay.php?action=callback';
+    $returnUrl = 'https://www.imporlan.cl/test/api/webpay.php?action=callback';
     
     $requestData = [
         'buy_order' => $buyOrder,
@@ -109,6 +109,19 @@ function createTransaction($data) {
     
     // Log the transaction creation
     logWebpay('CREATE_TRANSACTION', $requestData);
+    
+    try {
+        $emailService = new EmailService();
+        $emailService->sendQuotationRequestNotification([
+            'name' => $data['payer_name'] ?? 'Cliente',
+            'email' => $data['user_email'] ?? '',
+            'phone' => $data['payer_phone'] ?? '',
+            'country' => $data['country'] ?? 'Chile',
+            'boat_links' => $data['boat_links'] ?? []
+        ]);
+    } catch (Exception $e) {
+        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+    }
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, WEBPAY_API_URL . '/rswebpaytransaction/api/webpay/v1.2/transactions');
@@ -143,19 +156,6 @@ function createTransaction($data) {
         'url' => $result['url'],
         'redirect_url' => $result['url'] . '?token_ws=' . $result['token']
     ]);
-    
-    try {
-        $emailService = new EmailService();
-        $emailService->sendQuotationRequestNotification([
-            'name' => $data['payer_name'] ?? 'Cliente',
-            'email' => $data['user_email'] ?? '',
-            'phone' => $data['payer_phone'] ?? '',
-            'country' => $data['country'] ?? 'Chile',
-            'boat_links' => $data['boat_links'] ?? []
-        ]);
-    } catch (Exception $e) {
-        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
-    }
 }
 
 /**
@@ -170,12 +170,12 @@ function handleCallback() {
     
     // If TBK_TOKEN is present, user cancelled the transaction
     if ($tbkToken) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=cancelled');
         exit();
     }
     
     if (!$token) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=no_token');
         exit();
     }
     
@@ -200,7 +200,7 @@ function handleCallback() {
     logWebpay('COMMIT_RESULT', ['http_code' => $httpCode, 'result' => $result]);
     
     if ($httpCode !== 200) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=commit_failed');
         exit();
     }
     
@@ -214,9 +214,9 @@ function handleCallback() {
         // Save purchase to purchases.json with full information
         savePurchaseFromWebpay($result, $buyOrder);
         
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
 }

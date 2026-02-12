@@ -110,6 +110,19 @@ function createTransaction($data) {
     // Log the transaction creation
     logWebpay('CREATE_TRANSACTION', $requestData);
     
+    try {
+        $emailService = new EmailService();
+        $emailService->sendQuotationRequestNotification([
+            'name' => $data['payer_name'] ?? 'Cliente',
+            'email' => $data['user_email'] ?? '',
+            'phone' => $data['payer_phone'] ?? '',
+            'country' => $data['country'] ?? 'Chile',
+            'boat_links' => $data['boat_links'] ?? []
+        ]);
+    } catch (Exception $e) {
+        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+    }
+    
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, WEBPAY_API_URL . '/rswebpaytransaction/api/webpay/v1.2/transactions');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -143,19 +156,6 @@ function createTransaction($data) {
         'url' => $result['url'],
         'redirect_url' => $result['url'] . '?token_ws=' . $result['token']
     ]);
-    
-    try {
-        $emailService = new EmailService();
-        $emailService->sendQuotationRequestNotification([
-            'name' => $data['payer_name'] ?? 'Cliente',
-            'email' => $data['user_email'] ?? '',
-            'phone' => $data['payer_phone'] ?? '',
-            'country' => $data['country'] ?? 'Chile',
-            'boat_links' => $data['boat_links'] ?? []
-        ]);
-    } catch (Exception $e) {
-        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
-    }
 }
 
 /**
