@@ -296,7 +296,7 @@ BASE64;
      * Get the logo CID reference for use in HTML
      */
     private function getLogoCid() {
-        return 'cid:logo-imporlan';
+        return 'https://www.imporlan.cl/panel/assets/logo-imporlan-email.png';
     }
 
         public function sendWelcomeEmail($userEmail, $firstName) {
