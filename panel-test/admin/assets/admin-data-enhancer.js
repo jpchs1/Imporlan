@@ -966,7 +966,12 @@
     document.addEventListener("click", function(e) {
       if (!configActive) return;
       var btn = e.target.closest("aside nav ul button, aside nav ul a");
-      if (btn) configActive = false;
+      if (btn) {
+        configActive = false;
+        cleanupEnhancer();
+        lastSection = "";
+        enhanced = {};
+      }
     }, true);
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
     setInterval(function() { injectConfigSidebar(); check(); }, 500);
