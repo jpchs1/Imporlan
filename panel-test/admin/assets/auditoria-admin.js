@@ -22,22 +22,27 @@
   };
 
   var injected = false;
+  var injectedBtn = null;
   var auditActive = false;
   var currentPage = 1;
   var filters = {};
+  var pendingCheck = null;
 
   function injectSidebarItem() {
-    if (injected) return;
     var nav = document.querySelector("aside nav");
     if (!nav) return;
     var buttons = nav.querySelectorAll("button");
     if (buttons.length === 0) return;
+    if (injected && injectedBtn && injectedBtn.isConnected) return;
+    injected = false;
+    injectedBtn = null;
     for (var i = 0; i < buttons.length; i++) {
       if (buttons[i].textContent.toLowerCase().includes("auditoria")) {
         injected = true;
+        injectedBtn = buttons[i];
         buttons[i].addEventListener("click", function () {
           auditActive = true;
-          showAuditSection();
+          setTimeout(showAuditSection, 200);
         });
         return;
       }
@@ -142,7 +147,7 @@
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">Cargando registros de auditoria...</div>';
     var params = "action=list&page=" + currentPage;
     Object.keys(filters).forEach(function (k) { params += "&" + k + "=" + encodeURIComponent(filters[k]); });
-    fetch(API_BASE + "/audit_api.php?" + params, { headers: authHeaders() })
+    fetch(API_BASE + "/audit_api.php?" + params, { headers: authHeaders(), cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.success || !data.logs || data.logs.length === 0) {
@@ -191,7 +196,7 @@
     if (!modal || !content) return;
     modal.style.display = "flex";
     content.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">Cargando...</div>';
-    fetch(API_BASE + "/audit_api.php?action=detail&id=" + id, { headers: authHeaders() })
+    fetch(API_BASE + "/audit_api.php?action=detail&id=" + id, { headers: authHeaders(), cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.success || !data.log) {
@@ -246,19 +251,40 @@
   };
 
   function getSection() {
-    var h = document.querySelector("main h1");
-    return h ? h.textContent.trim() : "";
+    var h1s = document.querySelectorAll("main h1");
+    for (var i = 0; i < h1s.length; i++) {
+      var parent = h1s[i].parentElement;
+      while (parent && parent.tagName !== "MAIN") {
+        if (parent.getAttribute && parent.getAttribute("data-audit-added")) break;
+        parent = parent.parentElement;
+      }
+      if (parent && parent.tagName === "MAIN") return h1s[i].textContent.trim();
+    }
+    return "";
   }
 
-  function checkAuditSection() {
+  function doCheck() {
     injectSidebarItem();
     var section = getSection();
-    if (section === "Auditoria" && auditActive) {
-      showAuditSection();
-    } else if (section !== "Auditoria" && auditActive) {
+    if (section === "Auditoria") {
+      auditActive = true;
+      if (!document.querySelector("[data-audit-added]")) {
+        showAuditSection();
+      } else {
+        hideReactContent(document.querySelector("main"));
+      }
+    } else if (auditActive) {
       auditActive = false;
       cleanupAudit();
     }
+  }
+
+  function checkAuditSection() {
+    if (pendingCheck) clearTimeout(pendingCheck);
+    pendingCheck = setTimeout(function () {
+      pendingCheck = null;
+      doCheck();
+    }, 200);
   }
 
   function init() {
