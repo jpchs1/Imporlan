@@ -71,6 +71,10 @@ function fetchLinkMetadata() {
 
     parseUrlPatterns($url, $parsedUrl, $result);
 
+    if ($result['image_url'] && isVideoUrl($result['image_url'])) {
+        $result['image_url'] = null;
+    }
+
     echo json_encode($result);
 }
 
@@ -265,11 +269,23 @@ function callMicrolink($url, $extraParams = '') {
     return $data['data'] ?? [];
 }
 
+function isVideoUrl($url) {
+    if (!$url) return false;
+    $lower = strtolower($url);
+    $videoDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'tiktok.com', 'twitch.tv', 'wistia.com'];
+    foreach ($videoDomains as $domain) {
+        if (strpos($lower, $domain) !== false) return true;
+    }
+    if (preg_match('/\/watch\?/', $lower)) return true;
+    return false;
+}
+
 function isUsefulImage($imgUrl) {
     if (!$imgUrl) return false;
     $lower = strtolower($imgUrl);
     if (preg_match('/\.(svg|ico)(\?|$)/', $lower)) return false;
     if (preg_match('/(logo|favicon|icon|sprite|avatar|badge)/i', $lower)) return false;
+    if (isVideoUrl($imgUrl)) return false;
     return true;
 }
 
