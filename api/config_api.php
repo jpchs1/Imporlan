@@ -135,9 +135,9 @@ function configMigrate() {
         $countPlans = $pdo->query("SELECT COUNT(*) FROM search_plans")->fetchColumn();
         if ($countPlans == 0) {
             $stmt = $pdo->prepare("INSERT INTO search_plans (name, description, price_clp, price_usd, max_links, duration_days, features, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute(['Plan Basico', 'Busqueda basica de embarcaciones', 49990, 49.99, 5, 30, 'Busqueda en USA,Hasta 5 links,Soporte email', 1]);
-            $stmt->execute(['Plan Premium', 'Busqueda avanzada con mas opciones', 99990, 99.99, 15, 60, 'Busqueda en USA y Europa,Hasta 15 links,Soporte prioritario,Negociacion incluida', 2]);
-            $stmt->execute(['Plan Enterprise', 'Servicio completo de importacion', 199990, 199.99, 50, 90, 'Busqueda global,Links ilimitados,Agente dedicado,Negociacion premium,Seguimiento completo', 3]);
+            $stmt->execute(['Plan Fragata', 'Monitoreo por 7 dias', 67600, 69.99, 5, 7, '1 Requerimiento especifico,5 propuestas/cotizaciones,Analisis ofertas y recomendacion', 1]);
+            $stmt->execute(['Plan Capitan de Navio', 'Monitoreo por 14 dias', 119600, 124.99, 9, 14, '1 Requerimiento especifico,9 propuestas/cotizaciones,Analisis ofertas y recomendacion', 2]);
+            $stmt->execute(['Plan Almirante', 'Monitoreo por 21 dias', 189600, 199.99, 15, 21, '1 Requerimiento especifico,15 propuestas/cotizaciones,Analisis ofertas y recomendacion', 3]);
         }
 
         $countAgents = $pdo->query("SELECT COUNT(*) FROM agents")->fetchColumn();
