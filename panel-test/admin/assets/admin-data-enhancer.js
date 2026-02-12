@@ -32,8 +32,10 @@
   var enhanced = {};
   var isEnhancing = false;
   var checkTimer = null;
+  var configActive = false;
 
   function getSection() {
+    if (configActive) return "Configuracion";
     var h = document.querySelector("main h1");
     return h ? h.textContent.trim() : "";
   }
@@ -303,6 +305,7 @@
   }
 
   function cleanupEnhancer() {
+    configActive = false;
     var main = document.querySelector("main");
     if (!main) return;
     main.querySelectorAll("[data-enhancer-hidden]").forEach(function (el) {
@@ -861,8 +864,18 @@
     btn.addEventListener("mouseenter", function() { this.style.background = "rgba(8,145,178,.08)"; this.style.color = "#0891b2"; });
     btn.addEventListener("mouseleave", function() { if (!this.classList.contains("cfg-active")) { this.style.background = "transparent"; this.style.color = "#94a3b8"; } });
     btn.addEventListener("click", function() {
-      var h1 = document.querySelector("main h1");
-      if (h1) h1.textContent = "Configuracion";
+      configActive = true;
+      var sidebarBtns = document.querySelectorAll("aside nav ul button, aside nav ul a");
+      sidebarBtns.forEach(function(b) {
+        if (b.classList) b.classList.remove("active");
+        var li = b.closest("li");
+        if (li) li.classList.remove("active");
+      });
+      cleanupEnhancer();
+      lastSection = "";
+      enhanced = {};
+      configActive = true;
+      check();
     });
     aside.appendChild(btn);
   }
@@ -927,6 +940,13 @@
 
   function check() {
     if (isEnhancing) return;
+    if (configActive) {
+      var reactH1 = document.querySelector("main h1");
+      var reactText = reactH1 ? reactH1.textContent.trim() : "";
+      if (reactText && reactText !== "Configuracion" && reactText !== lastSection) {
+        configActive = false;
+      }
+    }
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
