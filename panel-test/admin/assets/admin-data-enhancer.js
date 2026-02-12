@@ -74,15 +74,22 @@
     var roleLabel = u.role === "admin" ? "Admin" : u.role === "support" ? "Soporte" : "Usuario";
     var roleBg = u.role === "admin" ? "#3b82f6" : u.role === "support" ? "#8b5cf6" : "#64748b";
     var ini = (u.name || "?").charAt(0).toUpperCase();
+    var avatarBg = u.source === "real" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#0891b2,#06b6d4)";
+    var purchasesInfo = (u.total_purchases || 0) > 0 ? '<span style="font-weight:600;color:#1e293b">' + u.total_purchases + '</span><span style="color:#94a3b8;font-size:11px;display:block">$' + Number(u.total_spent || 0).toLocaleString() + ' CLP</span>' : '<span style="color:#cbd5e1;font-size:12px">-</span>';
+    var isReal = u.source === "real";
+    var actions = isReal
+      ? '<span style="color:#94a3b8;font-size:11px;font-style:italic">Cliente</span>'
+      : '<div style="display:flex;gap:6px">' +
+        '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+        '<button class="enhancer-delete-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>' +
+        '</div>';
     return '<tr style="border-bottom:1px solid #f1f5f9" data-user-id="' + u.id + '">' +
-      '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p></div></div></td>' +
+      '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:' + avatarBg + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p></div></div></td>' +
       '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + roleBg + ';color:#fff">' + roleLabel + '</span></td>' +
       '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + stColor + '20;color:' + stColor + '">' + stLabel + '</span></td>' +
+      '<td style="padding:14px 16px;text-align:center">' + purchasesInfo + '</td>' +
       '<td style="padding:14px 16px"><span style="color:#94a3b8;font-size:12px">' + fmtDate(u.created_at) + '</span></td>' +
-      '<td style="padding:14px 16px"><div style="display:flex;gap:6px">' +
-      '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
-      '<button class="enhancer-delete-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>' +
-      '</div></td></tr>';
+      '<td style="padding:14px 16px">' + actions + '</td></tr>';
   }
 
   function renderUserModal(user) {
@@ -134,7 +141,7 @@
     container.setAttribute("data-enhancer-added", "users");
     container.style.cssText = "padding:20px 0";
     container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-user" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Usuario</button></div>' +
-      '<div id="enhancer-users-table">' + makeSkeletonTable(5, 4) + '</div>';
+      '<div id="enhancer-users-table">' + makeSkeletonTable(6, 4) + '</div>';
     main.appendChild(container);
     loadUsers(container);
     return true;
@@ -154,7 +161,7 @@
           var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
           var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
           html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-          html += '<th style="' + thS + '">Usuario</th><th style="' + thS + '">Rol</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Creado</th><th style="' + thS + '">Acciones</th>';
+          html += '<th style="' + thS + '">Usuario</th><th style="' + thS + '">Rol</th><th style="' + thS + '">Estado</th><th style="' + thS + ';text-align:center">Compras</th><th style="' + thS + '">Creado</th><th style="' + thS + '">Acciones</th>';
           html += '</tr></thead><tbody>';
           users.forEach(function(u) { html += renderUserRow(u); });
           html += '</tbody></table></div>';
