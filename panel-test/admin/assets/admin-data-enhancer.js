@@ -865,17 +865,19 @@
     btn.addEventListener("mouseleave", function() { if (!this.classList.contains("cfg-active")) { this.style.background = "transparent"; this.style.color = "#94a3b8"; } });
     btn.addEventListener("click", function() {
       configActive = true;
-      var sidebarBtns = document.querySelectorAll("aside nav ul button, aside nav ul a");
-      sidebarBtns.forEach(function(b) {
-        if (b.classList) b.classList.remove("active");
-        var li = b.closest("li");
-        if (li) li.classList.remove("active");
-      });
-      cleanupEnhancer();
-      lastSection = "";
+      var main = document.querySelector("main");
+      if (main) {
+        main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
+          el.style.display = "";
+          el.removeAttribute("data-enhancer-hidden");
+        });
+        main.querySelectorAll("[data-enhancer-added]").forEach(function(el) {
+          el.remove();
+        });
+      }
+      lastSection = "Configuracion";
       enhanced = {};
-      configActive = true;
-      check();
+      enhance("Configuracion");
     });
     aside.appendChild(btn);
   }
