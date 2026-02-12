@@ -108,8 +108,54 @@ function usersList() {
     }
     try {
         $stmt = $pdo->query("SELECT id, name, email, role, status, phone, last_login, created_at, updated_at FROM admin_users ORDER BY id ASC");
-        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'users' => $users, 'total' => count($users)]);
+        $adminUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($adminUsers as &$u) {
+            $u['source'] = 'admin';
+            $u['total_purchases'] = 0;
+            $u['total_spent'] = 0;
+        }
+        unset($u);
+
+        $adminEmails = array_map(function($u) { return strtolower($u['email']); }, $adminUsers);
+
+        $realUsers = [];
+        $purchasesFile = __DIR__ . '/purchases.json';
+        if (file_exists($purchasesFile)) {
+            $data = json_decode(file_get_contents($purchasesFile), true);
+            $purchases = $data['purchases'] ?? [];
+            $usersMap = [];
+            foreach ($purchases as $p) {
+                $email = strtolower($p['user_email'] ?? '');
+                if (!$email) continue;
+                if (in_array($email, $adminEmails)) continue;
+                if (!isset($usersMap[$email])) {
+                    $usersMap[$email] = [
+                        'id' => 'real_' . (count($usersMap) + 1),
+                        'name' => explode('@', $p['user_email'])[0],
+                        'email' => $p['user_email'],
+                        'role' => 'user',
+                        'status' => 'active',
+                        'phone' => null,
+                        'last_login' => $p['timestamp'] ?? null,
+                        'created_at' => $p['timestamp'] ?? ($p['date'] ?? null),
+                        'updated_at' => $p['timestamp'] ?? ($p['date'] ?? null),
+                        'source' => 'real',
+                        'total_purchases' => 0,
+                        'total_spent' => 0
+                    ];
+                }
+                $usersMap[$email]['total_purchases']++;
+                $usersMap[$email]['total_spent'] += floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+                if (($p['timestamp'] ?? '') > ($usersMap[$email]['last_login'] ?? '')) {
+                    $usersMap[$email]['last_login'] = $p['timestamp'];
+                    $usersMap[$email]['updated_at'] = $p['timestamp'];
+                }
+            }
+            $realUsers = array_values($usersMap);
+        }
+
+        $allUsers = array_merge($adminUsers, $realUsers);
+        echo json_encode(['success' => true, 'users' => $allUsers, 'total' => count($allUsers)]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al listar: ' . $e->getMessage()]);
