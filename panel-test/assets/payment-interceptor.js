@@ -122,6 +122,24 @@
           return;
         }
       }
+
+      if (pendingPaymentData && pendingPaymentData.amount > 0) {
+        console.log('Payment interceptor: Using saved payment data', pendingPaymentData);
+        processWebPay(pendingPaymentData.amount, pendingPaymentData.description);
+        return;
+      }
+
+      var pageText = document.body.textContent || '';
+      var pageAmountMatch = pageText.match(/Total a Pagar[\s\S]*?\$?([\.\d,]+)\s*CLP/i);
+      if (pageAmountMatch) {
+        var pageAmount = parseInt(pageAmountMatch[1].replace(/[,\.]/g, ''));
+        if (pageAmount > 0) {
+          console.log('Payment interceptor: Using page amount', pageAmount);
+          processWebPay(pageAmount, 'Cotizacion Online');
+          return;
+        }
+      }
+
       originalAlert('Procesando pago con WebPay...');
       return;
     }
@@ -226,11 +244,16 @@
     var modalText = modal.textContent || '';
     if (modalText.indexOf('Selecciona') === -1 || modalText.indexOf('Pago') === -1) return;
 
-    var webpayOption = modal.querySelector('[class*="border-red"]') ||
-                       modal.querySelector('[class*="ring-red"]') ||
-                       modal.querySelector('[class*="bg-red-50"]');
+    var webpayOption = null;
+    var allOptions = modal.querySelectorAll('div[class]');
+    for (var j = 0; j < allOptions.length; j++) {
+      if ((allOptions[j].textContent || '').indexOf('WebPay') !== -1 &&
+          (allOptions[j].textContent || '').indexOf('Tarjeta') !== -1) {
+        webpayOption = allOptions[j];
+        break;
+      }
+    }
     if (!webpayOption) return;
-    if ((webpayOption.textContent || '').indexOf('WebPay') === -1) return;
 
     var amountMatch = modalText.match(/\$?([\d,\.]+)\s*CLP/i);
     if (!amountMatch) return;
