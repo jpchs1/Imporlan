@@ -68,6 +68,11 @@ function fetchLinkMetadata() {
         $result['image_url'] = null;
     }
 
+    $isFacebookMarketplace = preg_match('/facebook\.com\/marketplace\/item\//', $url);
+    if ($isFacebookMarketplace && !$result['image_url']) {
+        fetchFacebookMobile($url, $result);
+    }
+
     $hasUsefulData = $result['image_url'] || $result['location'] || $result['hours'] || $result['value_usa_usd'];
     if (!$hasUsefulData) {
         fetchViaMicrolink($url, $result);
@@ -293,6 +298,81 @@ function isUsefulImage($imgUrl) {
     if (preg_match('/static\.xx\.fbcdn\.net\/rsrc/', $lower)) return false;
     if (preg_match('/fbcdn\.net.*\/rsrc\.php/', $lower)) return false;
     return true;
+}
+
+function fetchFacebookMobile($url, &$result) {
+    $mobileUrl = str_replace('www.facebook.com', 'm.facebook.com', $url);
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $mobileUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 12,
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        CURLOPT_HTTPHEADER => [
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+        ],
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 400 || !$html || strlen($html) < 500) return;
+
+    libxml_use_internal_errors(true);
+    $doc = new DOMDocument();
+    @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+    $xpath = new DOMXPath($doc);
+
+    $ogImage = $xpath->query('//meta[@property="og:image"]/@content');
+    if ($ogImage->length > 0) {
+        $imgUrl = html_entity_decode($ogImage->item(0)->nodeValue);
+        if (isUsefulImage($imgUrl)) {
+            $result['image_url'] = $imgUrl;
+        }
+    }
+
+    if (!$result['title']) {
+        $ogTitle = $xpath->query('//meta[@property="og:title"]/@content');
+        if ($ogTitle->length > 0) {
+            $title = trim($ogTitle->item(0)->nodeValue);
+            if ($title && stripos($title, 'log in') === false && stripos($title, 'facebook') === false) {
+                $result['title'] = $title;
+            }
+        }
+        if (!$result['title']) {
+            $titleTag = $xpath->query('//title');
+            if ($titleTag->length > 0) {
+                $title = trim($titleTag->item(0)->textContent);
+                if ($title && stripos($title, 'log in') === false && stripos($title, 'facebook') === false) {
+                    $result['title'] = $title;
+                }
+            }
+        }
+    }
+
+    $ogDesc = $xpath->query('//meta[@property="og:description"]/@content');
+    if ($ogDesc->length > 0) {
+        $desc = html_entity_decode($ogDesc->item(0)->nodeValue);
+        if ($desc && stripos($desc, 'log in') === false) {
+            if (!$result['value_usa_usd']) {
+                if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $desc, $pm)) {
+                    $val = floatval(str_replace(',', '', $pm[1]));
+                    if ($val >= 500 && $val < 50000000) {
+                        $result['value_usa_usd'] = $val;
+                    }
+                }
+            }
+            extractFieldsFromText($desc, null, $result);
+        }
+    }
+
+    libxml_clear_errors();
 }
 
 function fetchViaMicrolink($url, &$result) {
