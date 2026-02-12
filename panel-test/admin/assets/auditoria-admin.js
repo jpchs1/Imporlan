@@ -64,11 +64,11 @@
   }
 
   function hideReactContent(main) {
-    var h1 = main.querySelector("h1");
-    var subtitle = h1 ? h1.nextElementSibling : null;
     var children = Array.from(main.children);
     children.forEach(function (ch) {
       if (ch.getAttribute && ch.getAttribute("data-audit-added")) return;
+      if (ch.id === "ea-module-container") return;
+      if (ch.getAttribute && ch.getAttribute("data-enhancer-added")) return;
       ch.style.display = "none";
       ch.setAttribute("data-audit-hidden", "true");
     });
@@ -263,8 +263,22 @@
     return "";
   }
 
+  function isOtherModuleActive() {
+    var hash = window.location.hash;
+    if (hash === "#expedientes" || hash.startsWith("#expedientes/")) return true;
+    if (document.getElementById("ea-module-container")) return true;
+    return false;
+  }
+
   function doCheck() {
     injectSidebarItem();
+    if (isOtherModuleActive()) {
+      if (auditActive) {
+        auditActive = false;
+        cleanupAudit();
+      }
+      return;
+    }
     var section = getSection();
     if (section === "Auditoria") {
       auditActive = true;
