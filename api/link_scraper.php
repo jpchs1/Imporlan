@@ -187,8 +187,13 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
 
 function extractFieldsFromText($bodyText, $xpath, &$result) {
     if (!$result['location']) {
-        if (preg_match('/(?:for\s+sale\s+in|located?\s*(?:in|at|:)?\s*|location\s*:?\s*)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,?\s*[A-Z]{2}(?:\s+\d{5})?)/i', $bodyText, $m)) {
-            $result['location'] = trim(preg_replace('/\s+\d{5}$/', '', $m[1]));
+        if (preg_match('/(?:for\s+sale\s+in|located?\s*(?:in|at|:)?|location\s*:?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})(?:\s+\d{5})?/i', $bodyText, $m)) {
+            $result['location'] = trim($m[1]) . ', ' . strtoupper($m[2]);
+        }
+    }
+    if (!$result['location']) {
+        if (preg_match('/([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})(?:\s+\d{5})?/', $bodyText, $m)) {
+            $result['location'] = $m[1] . ', ' . $m[2];
         }
     }
     if (!$result['location'] && $xpath) {
@@ -217,9 +222,15 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     }
 
     if (!$result['value_usa_usd']) {
-        if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)\b/', $bodyText, $m)) {
+        if (preg_match('/(?:price|asking|sale|USD|\$)\s*:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $m)) {
             $val = floatval(str_replace(',', '', $m[1]));
-            if ($val > 100) $result['value_usa_usd'] = $val;
+            if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
+        }
+    }
+    if (!$result['value_usa_usd']) {
+        if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $m)) {
+            $val = floatval(str_replace(',', '', $m[1]));
+            if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
         }
     }
     if (!$result['value_usa_usd'] && $xpath) {
@@ -234,8 +245,8 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     }
 }
 
-function fetchViaMicrolink($url, &$result) {
-    $mlUrl = 'https://api.microlink.io/?url=' . urlencode($url) . '&screenshot=true&meta=true';
+function callMicrolink($url, $extraParams = '') {
+    $mlUrl = 'https://api.microlink.io/?url=' . urlencode($url) . '&meta=true' . $extraParams;
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => $mlUrl,
@@ -248,13 +259,23 @@ function fetchViaMicrolink($url, &$result) {
     $resp = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-
-    if ($httpCode !== 200 || !$resp) return;
-
+    if ($httpCode !== 200 || !$resp) return null;
     $data = @json_decode($resp, true);
-    if (!$data || ($data['status'] ?? '') !== 'success') return;
+    if (!$data || ($data['status'] ?? '') !== 'success') return null;
+    return $data['data'] ?? [];
+}
 
-    $d = $data['data'] ?? [];
+function isUsefulImage($imgUrl) {
+    if (!$imgUrl) return false;
+    $lower = strtolower($imgUrl);
+    if (preg_match('/\.(svg|ico)(\?|$)/', $lower)) return false;
+    if (preg_match('/(logo|favicon|icon|sprite|avatar|badge)/i', $lower)) return false;
+    return true;
+}
+
+function fetchViaMicrolink($url, &$result) {
+    $d = callMicrolink($url);
+    if (!$d) return;
 
     if (!$result['title'] && !empty($d['title'])) {
         $result['title'] = $d['title'];
@@ -262,19 +283,26 @@ function fetchViaMicrolink($url, &$result) {
 
     if (!$result['image_url']) {
         $img = $d['image'] ?? null;
+        $imgUrl = null;
         if (is_array($img) && !empty($img['url'])) {
-            $result['image_url'] = $img['url'];
+            $imgUrl = $img['url'];
         } elseif (is_string($img) && $img) {
-            $result['image_url'] = $img;
+            $imgUrl = $img;
+        }
+        if (isUsefulImage($imgUrl)) {
+            $result['image_url'] = $imgUrl;
         }
     }
 
     if (!$result['image_url']) {
-        $ss = $d['screenshot'] ?? null;
-        if (is_array($ss) && !empty($ss['url'])) {
-            $result['image_url'] = $ss['url'];
-        } elseif (is_string($ss) && $ss) {
-            $result['image_url'] = $ss;
+        $d2 = callMicrolink($url, '&screenshot=true');
+        if ($d2) {
+            $ss = $d2['screenshot'] ?? null;
+            if (is_array($ss) && !empty($ss['url'])) {
+                $result['image_url'] = $ss['url'];
+            } elseif (is_string($ss) && $ss) {
+                $result['image_url'] = $ss;
+            }
         }
     }
 
@@ -306,8 +334,8 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
 
     if (!$result['location'] && $result['title']) {
         $text = $result['title'] . ' ' . ($result['description'] ?? '');
-        if (preg_match('/(?:for\s+sale\s+in|in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,?\s+[A-Z]{2})/i', $text, $m)) {
-            $result['location'] = trim($m[1]);
+        if (preg_match('/(?:for\s+sale\s+in|located?\s+in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})/i', $text, $m)) {
+            $result['location'] = trim($m[1]) . ', ' . strtoupper($m[2]);
         }
     }
 }
