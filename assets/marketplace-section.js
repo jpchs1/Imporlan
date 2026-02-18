@@ -375,8 +375,42 @@
             '</div>' +
           '</div>';
         }).join('');
+
+        startCarouselAutoScroll(track);
       })
       .catch(function() { /* silently fail */ });
+  }
+
+  function startCarouselAutoScroll(track) {
+    if (!track || !track.children.length) return;
+    var scrollSpeed = 1;
+    var paused = false;
+    var direction = 1;
+
+    track.addEventListener('mouseenter', function() { paused = true; });
+    track.addEventListener('mouseleave', function() { paused = false; });
+    track.addEventListener('touchstart', function() { paused = true; }, {passive: true});
+    track.addEventListener('touchend', function() {
+      setTimeout(function() { paused = false; }, 3000);
+    });
+
+    function step() {
+      if (!paused) {
+        var maxScroll = track.scrollWidth - track.clientWidth;
+        if (maxScroll <= 0) { requestAnimationFrame(step); return; }
+
+        track.scrollLeft += scrollSpeed * direction;
+
+        if (track.scrollLeft >= maxScroll - 1) {
+          direction = -1;
+        } else if (track.scrollLeft <= 0) {
+          direction = 1;
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    setTimeout(function() { requestAnimationFrame(step); }, 2000);
   }
 
   onReady(function() {
