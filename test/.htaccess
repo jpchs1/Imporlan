@@ -4,6 +4,11 @@ RewriteEngine On
 # Set the base for rewrites
 RewriteBase /test/
 
+# Disable LiteSpeed cache for static SEO pages and assets
+<IfModule LiteSpeed>
+CacheLookup off
+</IfModule>
+
 # Serve static SEO pages directly (bypass SPA routing)
 RewriteRule ^pages/ - [L]
 
