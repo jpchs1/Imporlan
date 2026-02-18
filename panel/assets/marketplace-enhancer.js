@@ -1263,8 +1263,10 @@
     enhanced = true;
     enhancing = false;
 
-    if (sessionStorage.getItem('mkt_open_publish') === '1') {
+    var shouldPublish = sessionStorage.getItem('mkt_open_publish') === '1' || document.cookie.indexOf('mkt_publish=1') !== -1;
+    if (shouldPublish) {
       sessionStorage.removeItem('mkt_open_publish');
+      document.cookie = 'mkt_publish=;path=/;max-age=0';
       setTimeout(function () { window.__mktOpenPublish(); }, 100);
     }
   }
