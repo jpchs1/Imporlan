@@ -62,6 +62,9 @@ switch ($action) {
         $user = requireAuth();
         markListingSold($user);
         break;
+    case 'lead':
+        handleLeadSubmission();
+        break;
     case 'migrate_v2':
         $user = requireAuth();
         migrateMarketplaceV2();
@@ -530,6 +533,53 @@ function migrateMarketplaceV2() {
     $emailService = getMarketplaceEmailService();
     $result = $emailService->migrateMarketplaceSchema();
     echo json_encode($result);
+}
+
+function handleLeadSubmission() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = trim($input['email'] ?? '');
+    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email invalido']);
+        return;
+    }
+    $nombre = trim($input['nombre'] ?? '');
+    $intereses = trim($input['intereses'] ?? '');
+
+    $pdo = getDbConnection();
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS marketplace_leads (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                nombre VARCHAR(255),
+                intereses TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (PDOException $e) {
+        error_log('[Marketplace] Lead table creation: ' . $e->getMessage());
+    }
+
+    try {
+        $check = $pdo->prepare("SELECT id FROM marketplace_leads WHERE email = ?");
+        $check->execute([$email]);
+        if ($check->fetch()) {
+            $stmt = $pdo->prepare("UPDATE marketplace_leads SET nombre = COALESCE(NULLIF(?, ''), nombre), intereses = COALESCE(NULLIF(?, ''), intereses) WHERE email = ?");
+            $stmt->execute([$nombre, $intereses, $email]);
+            echo json_encode(['success' => true, 'message' => 'Informacion actualizada']);
+            return;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO marketplace_leads (email, nombre, intereses) VALUES (?, ?, ?)");
+        $stmt->execute([$email, $nombre, $intereses]);
+        echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
+    } catch (PDOException $e) {
+        error_log('[Marketplace] Lead save error: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar. Intente nuevamente.']);
+    }
 }
 
 function fetchListingById($pdo, $id) {

@@ -248,12 +248,17 @@
             <p>Vende tu embarcacion sin costo. Registrate y publica en minutos</p>\
           </div>\
         </div>\
-        <div class="marketplace-cta-wrapper">\
-          <button class="marketplace-cta-btn" id="marketplace-cta-btn">\
-            Ver Lanchas Usadas ' + iconArrow + '\
-          </button>\
-          <p class="marketplace-cta-sub">Necesitas una cuenta para acceder. <a id="marketplace-register-link">Registrate gratis aqui</a></p>\
-        </div>\
+          <div id="home-boattrader-carousel" style="display:none;margin-bottom:40px;">\
+            <h3 style="color:#fff;font-size:1.25rem;font-weight:600;margin-bottom:4px;text-align:center;">Oportunidades USA del Dia</h3>\
+            <p style="color:#6b7280;font-size:0.85rem;text-align:center;margin-bottom:16px;">Importacion personalizada con Imporlan</p>\
+            <div id="home-carousel-track" style="display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 12px;-ms-overflow-style:none;scrollbar-width:none;"></div>\
+          </div>\
+          <div class="marketplace-cta-wrapper">\
+            <a class="marketplace-cta-btn" href="/marketplace.html" id="marketplace-cta-btn">\
+              Ver Lanchas Usadas ' + iconArrow + '\
+            </a>\
+            <p class="marketplace-cta-sub">Explora el marketplace publico. <a id="marketplace-register-link">Registrate para publicar</a></p>\
+          </div>\
       </div>\
     ';
 
@@ -279,14 +284,7 @@
   }
 
   function goToMarketplace() {
-    var panelUrl = getPanelUrl();
-    var token = localStorage.getItem('imporlan_token');
-    if (token) {
-      window.location.href = panelUrl + '#/marketplace';
-    } else {
-      sessionStorage.setItem('imporlan_redirect_after_login', panelUrl + '#/marketplace');
-      window.location.href = panelUrl + '#/register';
-    }
+    window.location.href = '/marketplace.html';
   }
 
   function goToRegister() {
@@ -316,9 +314,11 @@
         targetSection.parentNode.insertBefore(marketplaceSection, targetSection);
 
         var ctaBtn = document.getElementById('marketplace-cta-btn');
-        if (ctaBtn) {
+        if (ctaBtn && !ctaBtn.getAttribute('href')) {
           ctaBtn.addEventListener('click', goToMarketplace);
         }
+
+        loadHomeCarousel();
 
         var registerLink = document.getElementById('marketplace-register-link');
         if (registerLink) {
@@ -335,6 +335,37 @@
     setTimeout(function() {
       clearInterval(checkInterval);
     }, 15000);
+  }
+
+  function loadHomeCarousel() {
+    var apiBase = window.location.pathname.indexOf('/test') !== -1 ? '/test/api' : '/api';
+    fetch(apiBase + '/boattrader_scraper.php?action=daily_top&limit=10')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || !data.boats || data.boats.length === 0) return;
+        var track = document.getElementById('home-carousel-track');
+        var section = document.getElementById('home-boattrader-carousel');
+        if (!track || !section) return;
+
+        section.style.display = '';
+        var svgCal = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+        track.innerHTML = data.boats.map(function(b) {
+          var price = b.price ? 'USD $' + Number(b.price).toLocaleString('en-US') : 'Consultar';
+          var title = b.make && b.model ? b.make + ' ' + b.model : b.title;
+          if (title && title.length > 35) title = title.substring(0, 32) + '...';
+          return '<div style="flex:0 0 220px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;cursor:pointer;transition:all 0.3s;" onclick="window.open(\'' + (b.url || '/marketplace.html').replace(/'/g, "\\'") + '\',\'_blank\')">' +
+            (b.image_url ? '<img src="' + b.image_url + '" style="width:100%;height:120px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="width:100%;height:120px;background:#1e293b;"></div>') +
+            '<div style="padding:10px 12px;">' +
+              '<div style="font-size:0.65rem;color:#34d399;font-weight:600;margin-bottom:2px;">IMPORTAR CON IMPORLAN</div>' +
+              '<div style="font-size:0.85rem;color:#fff;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (title || '') + '</div>' +
+              '<div style="font-size:0.7rem;color:#94a3b8;margin-bottom:6px;">' + (b.year ? svgCal + ' ' + b.year : '') + '</div>' +
+              '<div style="font-size:0.95rem;font-weight:700;background:linear-gradient(135deg,#2563eb,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">' + price + '</div>' +
+              '<a href="/marketplace.html" style="font-size:0.7rem;color:#60a5fa;text-decoration:none;font-weight:500;" onclick="event.stopPropagation()">Ver en Marketplace &rarr;</a>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      })
+      .catch(function() { /* silently fail */ });
   }
 
   onReady(function() {
