@@ -603,6 +603,104 @@ class MarketplaceEmailService extends EmailService {
     }
 
     // =========================================================
+    //  LEAD EMAILS
+    // =========================================================
+
+    public function sendLeadWelcomeEmail($userEmail, $userName, $intereses) {
+        $c = $this->colors;
+        $subject = 'Gracias por suscribirte a oportunidades semanales!';
+
+        $interesesList = '';
+        if ($intereses) {
+            $tipos = array_map('trim', explode(',', $intereses));
+            $interesesList = '<ul style="margin:10px 0;padding-left:20px;">';
+            foreach ($tipos as $t) {
+                if ($t) {
+                    $interesesList .= '<li style="color:' . $c['text_dark'] . ';font-size:14px;margin-bottom:6px;">' . htmlspecialchars($t) . '</li>';
+                }
+            }
+            $interesesList .= '</ul>';
+        }
+
+        $greeting = $userName ? 'Hola ' . htmlspecialchars($userName) . ', tu' : 'Tu';
+
+        $content = '
+            <div style="text-align:center;margin-bottom:25px;">
+                ' . $this->getStatusBadge('success', 'Suscripcion confirmada') . '
+            </div>
+            <h2 style="margin:0 0 8px;color:' . $c['text_dark'] . ';font-size:24px;font-weight:600;text-align:center;">
+                Bienvenido a Oportunidades Semanales
+            </h2>
+            <p style="margin:0 0 25px;color:' . $c['text_muted'] . ';font-size:14px;text-align:center;">
+                ' . $greeting . ' suscripcion ha sido registrada exitosamente.
+            </p>
+            ' . $this->getInfoCard('Que recibiras', [
+                'Frecuencia' => 'Seleccion semanal de embarcaciones',
+                'Contenido' => 'Veleros, lanchas, yates y catamaranes seleccionados segun tus intereses',
+                'Origen' => 'Oportunidades del mercado USA y Chile',
+            ]) . '
+            ' . ($interesesList ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                   style="background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);
+                          border-radius:12px;margin:20px 0;border-left:4px solid ' . $c['primary'] . ';">
+                <tr><td style="padding:16px 20px;">
+                    <p style="margin:0 0 8px;font-size:15px;font-weight:600;color:' . $c['text_dark'] . ';">Tus intereses:</p>
+                    ' . $interesesList . '
+                </td></tr>
+            </table>' : '') . '
+            <p style="margin:20px 0;color:' . $c['text_dark'] . ';font-size:15px;line-height:1.6;">
+                Ademas del catalogo semanal, con Imporlan puedes importar directamente desde USA con asesoria personalizada en todo el proceso: seleccion, compra, logistica y tramites aduaneros.
+            </p>
+            ' . $this->getInfoCard('Beneficios de tu suscripcion', [
+                'Acceso anticipado' => 'Se el primero en conocer nuevas oportunidades',
+                'Asesoria personalizada' => 'Te ayudamos a elegir la embarcacion ideal',
+                'Importacion directa' => 'Gestionamos todo el proceso desde USA a Chile',
+            ]) . '
+            <div style="margin:30px 0;">
+                ' . $this->getButton('Explorar Marketplace', $this->siteBaseUrl . '/marketplace.html') . '
+            </div>
+            <p style="margin:25px 0 0;color:' . $c['text_muted'] . ';font-size:13px;text-align:center;">
+                Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color:' . $c['primary'] . ';text-decoration:none;">contacto@imporlan.cl</a>
+            </p>';
+        $html = $this->getBaseTemplate($content, $subject);
+        return $this->sendEmail($userEmail, $subject, $html, 'lead_welcome', [
+            'lead_email' => $userEmail, 'lead_name' => $userName
+        ]);
+    }
+
+    public function sendAdminLeadEmail($leadEmail, $leadName, $intereses) {
+        $c = $this->colors;
+        $subject = 'Nuevo registro en oportunidades semanales';
+        $content = '
+            <div style="text-align:center;margin-bottom:25px;">
+                ' . $this->getStatusBadge('success', 'Nuevo lead') . '
+            </div>
+            <h2 style="margin:0 0 25px;color:' . $c['text_dark'] . ';font-size:20px;font-weight:600;text-align:center;">
+                Nuevo registro en oportunidades semanales
+            </h2>
+            ' . $this->getInfoCard('Datos del lead', [
+                'Nombre' => $leadName ?: 'No proporcionado',
+                'Email' => $leadEmail,
+                'Intereses' => $intereses ?: 'No especificados',
+                'Fecha de registro' => $this->fmtDateTime(date('Y-m-d H:i:s')),
+            ]) . '
+            <div style="margin:30px 0;text-align:center;">
+                ' . $this->getButton('Ver leads en admin', $this->adminBaseUrl) . '
+            </div>
+            <p style="margin:20px 0 0;color:' . $c['text_muted'] . ';font-size:13px;text-align:center;">
+                Notificacion automatica del sistema Marketplace
+            </p>';
+        $html = $this->getBaseTemplate($content, $subject . ' - Admin');
+        $results = [];
+        foreach ($this->adminEmails as $adminEmail) {
+            $results[] = $this->sendEmail($adminEmail, $subject, $html, 'admin_lead_new', [
+                'lead_email' => $leadEmail, 'lead_name' => $leadName
+            ]);
+        }
+        return ['success' => true, 'results' => $results];
+    }
+
+    // =========================================================
     //  IDEMPOTENCY (prevent duplicate sends)
     // =========================================================
 
