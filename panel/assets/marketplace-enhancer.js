@@ -1263,7 +1263,7 @@
     enhanced = true;
     enhancing = false;
 
-    if (window.location.hash === '#marketplace/publicar') {
+    if (new URLSearchParams(window.location.search).get('publicar') === '1') {
       setTimeout(function () { window.__mktOpenPublish(); }, 100);
     }
   }
