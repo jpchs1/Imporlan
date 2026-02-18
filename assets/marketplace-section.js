@@ -383,9 +383,10 @@
 
   function startCarouselAutoScroll(track) {
     if (!track || !track.children.length) return;
-    var scrollSpeed = 1;
     var paused = false;
     var direction = 1;
+
+    track.style.scrollBehavior = 'auto';
 
     track.addEventListener('mouseenter', function() { paused = true; });
     track.addEventListener('mouseleave', function() { paused = false; });
@@ -394,23 +395,19 @@
       setTimeout(function() { paused = false; }, 3000);
     });
 
-    function step() {
-      if (!paused) {
-        var maxScroll = track.scrollWidth - track.clientWidth;
-        if (maxScroll <= 0) { requestAnimationFrame(step); return; }
+    setInterval(function() {
+      if (paused) return;
+      var maxScroll = track.scrollWidth - track.clientWidth;
+      if (maxScroll <= 0) return;
 
-        track.scrollLeft += scrollSpeed * direction;
+      track.scrollLeft += direction;
 
-        if (track.scrollLeft >= maxScroll - 1) {
-          direction = -1;
-        } else if (track.scrollLeft <= 0) {
-          direction = 1;
-        }
+      if (track.scrollLeft >= maxScroll - 1) {
+        direction = -1;
+      } else if (track.scrollLeft <= 0) {
+        direction = 1;
       }
-      requestAnimationFrame(step);
-    }
-
-    setTimeout(function() { requestAnimationFrame(step); }, 2000);
+    }, 20);
   }
 
   onReady(function() {
