@@ -574,7 +574,17 @@ function handleLeadSubmission() {
 
         $stmt = $pdo->prepare("INSERT INTO marketplace_leads (email, nombre, intereses) VALUES (?, ?, ?)");
         $stmt->execute([$email, $nombre, $intereses]);
-        echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
+        $leadId = $pdo->lastInsertId();
+
+        try {
+            $emailService = getMarketplaceEmailService();
+            $emailService->sendLeadWelcomeEmail($email, $nombre, $intereses);
+            $emailService->sendAdminLeadEmail($email, $nombre, $intereses);
+        } catch (Exception $e) {
+            error_log('[Marketplace] Lead email send error: ' . $e->getMessage());
+        }
+
+        echo json_encode(['success' => true, 'id' => $leadId]);
     } catch (PDOException $e) {
         error_log('[Marketplace] Lead save error: ' . $e->getMessage());
         http_response_code(500);

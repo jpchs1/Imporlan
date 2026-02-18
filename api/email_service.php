@@ -372,7 +372,8 @@ BASE64;
             'support_request' => ['subject' => 'Solicitud de soporte/contacto', 'template' => 'internal_support_request'],
             'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
             'quotation_links_paid' => ['subject' => 'Cotizacion por Links - Pago Confirmado', 'template' => 'internal_quotation_links_paid'],
-            'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message']
+            'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message'],
+            'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead']
         ];
         
         if (!isset($notifications[$type])) {
@@ -1934,6 +1935,8 @@ BASE64;
                 return $this->getInternalQuotationLinksPaidTemplate($data);
             case 'internal_new_chat_message':
                 return $this->getInternalNewChatMessageTemplate($data);
+            case 'internal_marketplace_lead':
+                return $this->getInternalMarketplaceLeadTemplate($data);
             default:
                 return '';
         }
@@ -2243,6 +2246,32 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Nuevo mensaje de chat - Admin');
+    }
+    
+    private function getInternalMarketplaceLeadTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Nuevo lead') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Nuevo registro en oportunidades semanales
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del lead', [
+                'Nombre' => $data['lead_name'] ?: 'No proporcionado',
+                'Email' => $data['lead_email'],
+                'Intereses' => $data['intereses'] ?: 'No especificados',
+                'Fecha de registro' => $data['registration_date']
+            ]) . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Notificacion automatica del sistema Marketplace
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Nuevo lead marketplace - Admin');
     }
     
     /**
