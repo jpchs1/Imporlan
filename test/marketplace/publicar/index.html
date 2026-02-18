@@ -1,4 +1,4 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<script>var t=localStorage.getItem("imporlan_token");var p=window.location.pathname.indexOf("/test/")!==-1;var base=p?"/panel-test/":"/panel/";window.location.replace(t?base+"?publicar=1#marketplace":base+"#/register");</script>
+<script>var t=localStorage.getItem("imporlan_token");var p=window.location.pathname.indexOf("/test/")!==-1;var base=p?"/panel-test/":"/panel/";if(t){sessionStorage.setItem("mkt_open_publish","1");window.location.replace(base+"#marketplace")}else{window.location.replace(base+"#/register")}</script>
 </head><body></body></html>

@@ -1263,7 +1263,8 @@
     enhanced = true;
     enhancing = false;
 
-    if (new URLSearchParams(window.location.search).get('publicar') === '1') {
+    if (sessionStorage.getItem('mkt_open_publish') === '1') {
+      sessionStorage.removeItem('mkt_open_publish');
       setTimeout(function () { window.__mktOpenPublish(); }, 100);
     }
   }
