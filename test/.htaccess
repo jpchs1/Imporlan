@@ -19,7 +19,9 @@ CacheLookup off
 # Serve static files directly (bypass SPA routing)
 RewriteRule \.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|php|xml|webp|mp4|pdf)$ - [L]
 
-# Serve marketplace.html directly (bypass SPA routing)
+# Marketplace clean URLs
+RewriteRule ^marketplace/publicar/?$ /test/marketplace.html [L]
+RewriteRule ^marketplace/?$ /test/marketplace.html [L]
 RewriteRule ^marketplace\.html$ - [L]
 
 # Serve static SEO pages directly

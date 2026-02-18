@@ -1262,6 +1262,15 @@
     applyMobileLayout();
     enhanced = true;
     enhancing = false;
+
+    var fromPublicar = document.referrer.indexOf('/marketplace/publicar') !== -1;
+    var hasCookie = document.cookie.indexOf('mkt_publish=1') !== -1;
+    var hasStorage = sessionStorage.getItem('mkt_open_publish') === '1';
+    if (fromPublicar || hasCookie || hasStorage) {
+      sessionStorage.removeItem('mkt_open_publish');
+      document.cookie = 'mkt_publish=;path=/;max-age=0';
+      setTimeout(function () { window.__mktOpenPublish(); }, 100);
+    }
   }
 
   function showSuccessModal() {
