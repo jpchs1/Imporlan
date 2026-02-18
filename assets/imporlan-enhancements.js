@@ -453,6 +453,29 @@
   }
   
   // ============================================
+  // 4.3 FIX REGISTRARSE BUTTON HREF
+  // Point "Registrarse" nav button to register form
+  // ============================================
+
+  function fixRegistrarseButton() {
+    if (window.location.pathname.includes('/panel')) return;
+    var panelBase = window.location.pathname.includes('/test') ? '/panel-test/' : '/panel/';
+    var checkInterval = setInterval(function() {
+      var nav = document.querySelector('nav');
+      if (!nav) return;
+      var links = nav.querySelectorAll('a');
+      links.forEach(function(a) {
+        var btn = a.querySelector('button');
+        if (btn && btn.textContent.trim() === 'Registrarse') {
+          a.href = panelBase + '#/register';
+          clearInterval(checkInterval);
+        }
+      });
+    }, 500);
+    setTimeout(function() { clearInterval(checkInterval); }, 10000);
+  }
+
+  // ============================================
   // INITIALIZATION
   // ============================================
   
@@ -466,6 +489,7 @@
         setupProcesoMenuRedirect();
         addPublicarButton();
         improveProcesoUI();
+        fixRegistrarseButton();
         
         // Set up link saving on form interactions
         document.addEventListener('input', function(e) {
