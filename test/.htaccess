@@ -4,6 +4,17 @@ RewriteEngine On
 # Set the base for rewrites
 RewriteBase /test/
 
+# Disable LiteSpeed cache for static SEO pages and assets
+<IfModule LiteSpeed>
+CacheLookup off
+</IfModule>
+
+# Serve static SEO pages directly (bypass SPA routing)
+RewriteRule ^pages/ - [L]
+
+# Serve static asset subdirectories directly (seo css, etc.)
+RewriteRule ^assets/seo/ - [L]
+
 # If the requested file or directory exists, serve it directly
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
