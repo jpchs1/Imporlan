@@ -12,16 +12,24 @@
 (function () {
   "use strict";
 
-  const API_BASE = "/api";
+  const API_BASE = window.location.pathname.includes("/panel-test")
+    ? "/test/api"
+    : window.location.pathname.includes("/test/")
+      ? "/test/api"
+      : "/api";
 
   let enhanced = false;
+  let enhancing = false;
   let listings = [];
+  let filteredListings = [];
   let myListings = [];
   let uploadedPhotos = [];
   let isSubmitting = false;
   let detailModalOpen = false;
   let editPhotos = [];
   let editingId = null;
+  var USD_TO_CLP = 950;
+  var panelSortValue = 'recientes';
 
   function getUserData() {
     try {
@@ -481,18 +489,237 @@
     );
   }
 
+  function getPanelFilters() {
+    var filters = {};
+    var search = document.getElementById('mkt-panel-search');
+    if (search && search.value.trim()) filters.keyword = search.value.trim().toLowerCase();
+    var tipo = document.getElementById('mkt-panel-tipo');
+    if (tipo && tipo.value) filters.tipo = tipo.value;
+    var estado = document.getElementById('mkt-panel-estado');
+    if (estado && estado.value) filters.estado = estado.value;
+    var condicion = document.getElementById('mkt-panel-condicion');
+    if (condicion && condicion.value) filters.condicion = condicion.value;
+    var precioMin = document.getElementById('mkt-panel-precio-min');
+    if (precioMin && precioMin.value) filters.precio_min = parseFloat(precioMin.value);
+    var precioMax = document.getElementById('mkt-panel-precio-max');
+    if (precioMax && precioMax.value) filters.precio_max = parseFloat(precioMax.value);
+    var anoMin = document.getElementById('mkt-panel-ano-min');
+    if (anoMin && anoMin.value) filters.ano_min = parseInt(anoMin.value);
+    var anoMax = document.getElementById('mkt-panel-ano-max');
+    if (anoMax && anoMax.value) filters.ano_max = parseInt(anoMax.value);
+    var ubicacion = document.getElementById('mkt-panel-ubicacion');
+    if (ubicacion && ubicacion.value.trim()) filters.ubicacion = ubicacion.value.trim().toLowerCase();
+    var horasMin = document.getElementById('mkt-panel-horas-min');
+    if (horasMin && horasMin.value) filters.horas_min = parseInt(horasMin.value);
+    var horasMax = document.getElementById('mkt-panel-horas-max');
+    if (horasMax && horasMax.value) filters.horas_max = parseInt(horasMax.value);
+    return filters;
+  }
+
+  function applyPanelFilters(items, filters) {
+    return items.filter(function (l) {
+      if (filters.tipo && l.tipo !== filters.tipo) return false;
+      if (filters.estado && l.estado !== filters.estado) return false;
+      if (filters.condicion && l.condicion !== filters.condicion) return false;
+      if (filters.ano_min && (!l.ano || l.ano < filters.ano_min)) return false;
+      if (filters.ano_max && (!l.ano || l.ano > filters.ano_max)) return false;
+      var precio = parseFloat(l.precio) || 0;
+      if (l.moneda === 'CLP') precio = precio / USD_TO_CLP;
+      if (filters.precio_min && precio < filters.precio_min) return false;
+      if (filters.precio_max && precio > filters.precio_max) return false;
+      if (filters.ubicacion && l.ubicacion) {
+        if (l.ubicacion.toLowerCase().indexOf(filters.ubicacion) === -1) return false;
+      } else if (filters.ubicacion && !l.ubicacion) { return false; }
+      var horas = parseInt(l.horas) || 0;
+      if (filters.horas_min && horas < filters.horas_min) return false;
+      if (filters.horas_max && horas > filters.horas_max) return false;
+      if (filters.keyword) {
+        var searchText = [l.nombre, l.tipo, l.ubicacion, l.descripcion, l.estado, l.condicion]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (searchText.indexOf(filters.keyword) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function applyPanelSort(items) {
+    var sorted = items.slice();
+    switch (panelSortValue) {
+      case 'precio_asc':
+        sorted.sort(function (a, b) {
+          var pa = a.moneda === 'CLP' ? (parseFloat(a.precio) / USD_TO_CLP) : parseFloat(a.precio);
+          var pb = b.moneda === 'CLP' ? (parseFloat(b.precio) / USD_TO_CLP) : parseFloat(b.precio);
+          return (pa || 0) - (pb || 0);
+        }); break;
+      case 'precio_desc':
+        sorted.sort(function (a, b) {
+          var pa = a.moneda === 'CLP' ? (parseFloat(a.precio) / USD_TO_CLP) : parseFloat(a.precio);
+          var pb = b.moneda === 'CLP' ? (parseFloat(b.precio) / USD_TO_CLP) : parseFloat(b.precio);
+          return (pb || 0) - (pa || 0);
+        }); break;
+      case 'ano_desc':
+        sorted.sort(function (a, b) { return (b.ano || 0) - (a.ano || 0); }); break;
+      case 'ano_asc':
+        sorted.sort(function (a, b) { return (a.ano || 0) - (b.ano || 0); }); break;
+      default:
+        sorted.sort(function (a, b) {
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        });
+    }
+    return sorted;
+  }
+
+  function renderBuyTab() {
+    var container = document.getElementById('mkt-tab-content-buy');
+    if (!container) return;
+    var filters = getPanelFilters();
+    filteredListings = applyPanelFilters(listings, filters);
+    filteredListings = applyPanelSort(filteredListings);
+    var countEl = document.getElementById('mkt-panel-count');
+    if (countEl) {
+      countEl.textContent = 'Mostrando ' + filteredListings.length + ' de ' + listings.length + ' embarcaciones';
+    }
+    var gridEl = document.getElementById('mkt-panel-grid');
+    if (!gridEl) return;
+    if (filteredListings.length === 0) {
+      gridEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:#94a3b8">' +
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>' +
+        '<p style="font-size:16px;margin:0 0 8px;font-weight:600;color:#475569">Sin resultados</p>' +
+        '<p style="font-size:14px;margin:0">No encontramos embarcaciones con esos filtros</p>' +
+        '<button onclick="window.__mktClearFilters()" style="margin-top:16px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">Limpiar filtros</button></div>';
+    } else {
+      var html = '';
+      filteredListings.forEach(function (item) { html += buildListingCard(item); });
+      gridEl.innerHTML = html;
+    }
+  }
+
+  window.__mktApplyFilters = function () { renderBuyTab(); };
+
+  window.__mktClearFilters = function () {
+    var ids = ['mkt-panel-search','mkt-panel-tipo','mkt-panel-estado','mkt-panel-condicion',
+      'mkt-panel-precio-min','mkt-panel-precio-max','mkt-panel-ano-min','mkt-panel-ano-max',
+      'mkt-panel-ubicacion','mkt-panel-horas-min','mkt-panel-horas-max'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    var sortEl = document.getElementById('mkt-panel-sort');
+    if (sortEl) sortEl.value = 'recientes';
+    panelSortValue = 'recientes';
+    var adv = document.getElementById('mkt-panel-advanced');
+    if (adv) adv.style.display = 'none';
+    var togBtn = document.getElementById('mkt-panel-toggle-adv');
+    if (togBtn) togBtn.setAttribute('data-open', 'false');
+    renderBuyTab();
+  };
+
+  window.__mktToggleAdvanced = function () {
+    var adv = document.getElementById('mkt-panel-advanced');
+    var btn = document.getElementById('mkt-panel-toggle-adv');
+    if (!adv) return;
+    var isOpen = btn && btn.getAttribute('data-open') === 'true';
+    adv.style.display = isOpen ? 'none' : 'block';
+    if (btn) btn.setAttribute('data-open', isOpen ? 'false' : 'true');
+  };
+
+  function buildFilterBar() {
+    var selectStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;background:#fff;cursor:pointer;outline:none;min-width:0;color:#475569';
+    var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;min-width:0;color:#475569;width:100%';
+    var smallInputStyle = 'padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;color:#475569;width:100%;box-sizing:border-box';
+    return (
+      '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:16px;margin-bottom:20px">' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
+      '<div style="flex:1;min-width:200px;position:relative">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<input id="mkt-panel-search" type="text" placeholder="Buscar embarcaciones..." style="' + inputStyle + ';padding-left:36px" oninput="clearTimeout(window.__mktSearchTimer);window.__mktSearchTimer=setTimeout(window.__mktApplyFilters,300)">' +
+      '</div>' +
+      '<select id="mkt-panel-tipo" style="' + selectStyle + '" onchange="window.__mktApplyFilters()">' +
+      '<option value="">Todos los tipos</option>' +
+      '<option value="Bowrider">Bowrider</option>' +
+      '<option value="Pesca">Pesca</option>' +
+      '<option value="Jet Boat">Jet Boat</option>' +
+      '<option value="Yate">Yate</option>' +
+      '<option value="Velero">Velero</option>' +
+      '<option value="Moto de Agua">Moto de Agua</option>' +
+      '<option value="Catamaran">Catamaran</option>' +
+      '<option value="Otro">Otro</option>' +
+      '</select>' +
+      '<select id="mkt-panel-estado" style="' + selectStyle + '" onchange="window.__mktApplyFilters()">' +
+      '<option value="">Estado</option>' +
+      '<option value="Nueva">Nueva</option>' +
+      '<option value="Usada">Usada</option>' +
+      '</select>' +
+      '<select id="mkt-panel-condicion" style="' + selectStyle + '" onchange="window.__mktApplyFilters()">' +
+      '<option value="">Condicion</option>' +
+      '<option value="Excelente">Excelente</option>' +
+      '<option value="Muy Buena">Muy Buena</option>' +
+      '<option value="Buena">Buena</option>' +
+      '<option value="Regular">Regular</option>' +
+      '<option value="Para Reparacion">Para Reparacion</option>' +
+      '</select>' +
+      '<select id="mkt-panel-sort" style="' + selectStyle + '" onchange="panelSortValue=this.value;window.__mktApplyFilters()">' +
+      '<option value="recientes">Mas recientes</option>' +
+      '<option value="precio_asc">Precio: menor a mayor</option>' +
+      '<option value="precio_desc">Precio: mayor a menor</option>' +
+      '<option value="ano_desc">Ano: mas reciente</option>' +
+      '<option value="ano_asc">Ano: mas antiguo</option>' +
+      '</select>' +
+      '<button id="mkt-panel-toggle-adv" data-open="false" onclick="window.__mktToggleAdvanced()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#475569;white-space:nowrap;transition:all .2s" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.color=\'#2563eb\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Mas filtros</button>' +
+      '<button onclick="window.__mktClearFilters()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #fecaca;border-radius:10px;background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#dc2626;white-space:nowrap;transition:all .2s" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'#fff\'">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Limpiar</button>' +
+      '</div>' +
+      '<div id="mkt-panel-advanced" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #f1f5f9">' +
+      '<div class="mkt-adv-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Precio USD (min)</label>' +
+      '<input id="mkt-panel-precio-min" type="number" placeholder="Min" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Precio USD (max)</label>' +
+      '<input id="mkt-panel-precio-max" type="number" placeholder="Max" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Ano (min)</label>' +
+      '<input id="mkt-panel-ano-min" type="number" placeholder="2010" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Ano (max)</label>' +
+      '<input id="mkt-panel-ano-max" type="number" placeholder="2026" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Ubicacion</label>' +
+      '<input id="mkt-panel-ubicacion" type="text" placeholder="Ciudad" style="' + smallInputStyle + '" oninput="clearTimeout(window.__mktUbicTimer);window.__mktUbicTimer=setTimeout(window.__mktApplyFilters,300)">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Horas motor (min)</label>' +
+      '<input id="mkt-panel-horas-min" type="number" placeholder="Min" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#64748b">Horas motor (max)</label>' +
+      '<input id="mkt-panel-horas-max" type="number" placeholder="Max" style="' + smallInputStyle + '" onchange="window.__mktApplyFilters()">' +
+      '</div>' +
+      '</div></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">' +
+      '<span id="mkt-panel-count" style="font-size:13px;color:#64748b">Mostrando ' + listings.length + ' de ' + listings.length + ' embarcaciones</span>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
   function buildPage() {
     var user = getUserData();
     var initials = user ? userInitials(user.name) : "?";
 
+    filteredListings = applyPanelSort(listings.slice());
     var buyCards = "";
     if (listings.length === 0) {
       buyCards =
         '<div style="text-align:center;padding:60px 20px;color:#94a3b8"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block"><path d="M2 20L7 4l5 16 5-16 5 16"/></svg><p style="font-size:16px;margin:0">No hay embarcaciones publicadas aun</p></div>';
     } else {
-      buyCards =
-        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">';
-      listings.forEach(function (item) {
+      buyCards = '<div id="mkt-panel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">';
+      filteredListings.forEach(function (item) {
         buyCards += buildListingCard(item);
       });
       buyCards += "</div>";
@@ -530,6 +757,7 @@
       '<button id="mkt-tab-sell" onclick="window.__mktSwitchTab(\'sell\')" style="padding:12px 28px;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#64748b;margin-bottom:-2px;transition:all .2s">Mis Publicaciones</button>' +
       "</div></div>" +
       '<div id="mkt-tab-content-buy">' +
+      buildFilterBar() +
       buyCards +
       "</div>" +
       '<div id="mkt-tab-content-sell" style="display:none">' +
@@ -1014,24 +1242,26 @@
       enhanced = false;
       return;
     }
-    if (enhanced && !force) return;
+    if ((enhanced && !force) || enhancing) return;
+    enhancing = true;
 
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) { enhancing = false; return; }
 
     var contentDiv = main.querySelector(".max-w-7xl") || main.firstElementChild;
-    if (!contentDiv) return;
+    if (!contentDiv) { enhancing = false; return; }
+
+    var target = contentDiv.querySelector(".space-y-6, .animate-fade-in") || contentDiv;
+    if (!target.querySelector('.mkt-enhanced')) {
+      target.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:80px 20px"><div style="text-align:center"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:mktSpin 0.8s linear infinite;margin:0 auto 16px"></div><p style="color:#64748b;font-size:14px;margin:0">Cargando marketplace...</p></div></div>';
+    }
 
     await Promise.all([loadListings(), loadMyListings()]);
 
-    var existingContent = contentDiv.querySelector(".space-y-6, .animate-fade-in");
-    if (existingContent) {
-      existingContent.innerHTML = buildPage();
-    } else {
-      contentDiv.innerHTML = buildPage();
-    }
+    target.innerHTML = buildPage();
     applyMobileLayout();
     enhanced = true;
+    enhancing = false;
   }
 
   function showSuccessModal() {
@@ -1089,10 +1319,14 @@
     style.textContent =
       "@keyframes mktFadeIn{from{opacity:0}to{opacity:1}}" +
       "@keyframes mktSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}" +
+      "@keyframes mktSpin{to{transform:rotate(360deg)}}" +
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}}";
+      "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
+      "#mkt-tab-content-buy>div:first-child>div:first-child{flex-direction:column!important}" +
+      "#mkt-tab-content-buy select,#mkt-tab-content-buy button{width:100%!important;box-sizing:border-box}" +
+      ".mkt-adv-grid{grid-template-columns:1fr 1fr!important}}";
     document.head.appendChild(style);
   }
 
@@ -1111,14 +1345,12 @@
     setTimeout(function () {
       applyMobileLayout();
       enhanceMarketplace();
-    }, 1500);
+    }, 500);
 
     var observer = new MutationObserver(function () {
       applyMobileLayout();
       if (isMarketplacePage() && !enhanced && !detailModalOpen) {
-        setTimeout(function () {
-          enhanceMarketplace();
-        }, 300);
+        enhanceMarketplace();
       }
       if (!isMarketplacePage()) {
         enhanced = false;
