@@ -8,7 +8,7 @@
   <meta name="keywords" content="lanchas usadas Chile, embarcaciones venta, veleros, motos de agua, marketplace nautico, Imporlan">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.imporlan.cl/marketplace/">
-  <script>if(/^\/marketplace\/publicar\/?$/.test(window.location.pathname)){var t=localStorage.getItem('imporlan_token');window.location.replace(t?'/panel/#marketplace':'/panel/#/register');}</script>
+  <script>if(/\/marketplace\/publicar\/?$/.test(window.location.pathname)){var t=localStorage.getItem('imporlan_token');var p=window.location.pathname.indexOf('/test/')!==-1;var base=p?'/panel-test/':'/panel/';window.location.replace(t?base+'#marketplace':base+'#/register');}</script>
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="Marketplace de Embarcaciones | Imporlan Chile">
