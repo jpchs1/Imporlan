@@ -1,4 +1,4 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<script>var t=localStorage.getItem("imporlan_token");if(t){sessionStorage.setItem("mkt_open_publish","1");window.location.replace("/panel/#marketplace")}else{window.location.replace("/panel/#/register")}</script>
+<script>var t=localStorage.getItem("imporlan_token");window.location.replace(t?"/panel/?publicar=1#marketplace":"/panel/#/register");</script>
 </head><body></body></html>
