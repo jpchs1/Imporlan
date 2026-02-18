@@ -4,16 +4,25 @@ RewriteEngine On
 # Set the base for rewrites
 RewriteBase /test/
 
-# Disable LiteSpeed cache for static SEO pages and assets
+# Disable LiteSpeed cache for this directory
 <IfModule LiteSpeed>
 CacheLookup off
 </IfModule>
 
-# Serve static SEO pages directly (bypass SPA routing)
+# Serve static files directly (bypass SPA routing)
+RewriteRule \.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|php|xml|webp|mp4|pdf)$ - [L]
+
+# Serve marketplace.html directly (bypass SPA routing)
+RewriteRule ^marketplace\.html$ - [L]
+
+# Serve static SEO pages directly
 RewriteRule ^pages/ - [L]
 
-# Serve static asset subdirectories directly (seo css, etc.)
-RewriteRule ^assets/seo/ - [L]
+# Serve asset subdirectories directly
+RewriteRule ^assets/ - [L]
+
+# Serve API directory directly
+RewriteRule ^api/ - [L]
 
 # If the requested file or directory exists, serve it directly
 RewriteCond %{REQUEST_FILENAME} !-f
