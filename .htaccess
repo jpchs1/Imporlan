@@ -8,6 +8,11 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
 
 RewriteBase /
+
+# Marketplace clean URLs
+RewriteRule ^marketplace/publicar/?$ /marketplace.html [L]
+RewriteRule ^marketplace/?$ /marketplace.html [L]
+
 RewriteCond %{REQUEST_URI} ^/panel [OR]
 RewriteCond %{REQUEST_URI} ^/api [OR]
 RewriteCond %{REQUEST_URI} ^/test

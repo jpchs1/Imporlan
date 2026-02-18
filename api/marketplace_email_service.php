@@ -657,7 +657,7 @@ class MarketplaceEmailService extends EmailService {
                 'Importacion directa' => 'Gestionamos todo el proceso desde USA a Chile',
             ]) . '
             <div style="margin:30px 0;">
-                ' . $this->getButton('Explorar Marketplace', $this->siteBaseUrl . '/marketplace.html') . '
+                ' . $this->getButton('Explorar Marketplace', $this->siteBaseUrl . '/marketplace/') . '
             </div>
             <p style="margin:25px 0 0;color:' . $c['text_muted'] . ';font-size:13px;text-align:center;">
                 Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color:' . $c['primary'] . ';text-decoration:none;">contacto@imporlan.cl</a>

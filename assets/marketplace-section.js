@@ -285,7 +285,7 @@
   }
 
   function getMarketplaceUrl() {
-    return isTestEnv() ? '/test/marketplace.html' : '/marketplace.html';
+    return isTestEnv() ? '/test/marketplace.html' : '/marketplace/';
   }
 
   function goToMarketplace() {

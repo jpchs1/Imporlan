@@ -610,7 +610,7 @@
         window.open('https://wa.me/56920382479?text=' + encodeURIComponent(msg), '_blank');
       }
     } else if (action === 'share') {
-      var url = window.location.origin + '/marketplace.html?listing=' + id;
+      var url = window.location.origin + '/marketplace/?listing=' + id;
       if (navigator.share) {
         navigator.share({ title: 'Embarcacion en Imporlan', url: url });
       } else if (navigator.clipboard) {
