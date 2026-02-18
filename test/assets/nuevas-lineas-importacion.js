@@ -263,9 +263,9 @@
 
   function getBaseUrl() {
     if (window.location.pathname.indexOf('/test') !== -1) {
-      return '/test/pages';
+      return '/test/importaciones';
     }
-    return '/pages';
+    return '/importaciones';
   }
 
   function createNuevasLineasSection() {
