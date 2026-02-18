@@ -254,7 +254,7 @@
             <div id="home-carousel-track" style="display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 12px;-ms-overflow-style:none;scrollbar-width:none;"></div>\
           </div>\
           <div class="marketplace-cta-wrapper">\
-            <a class="marketplace-cta-btn" href="/marketplace.html" id="marketplace-cta-btn">\
+            <a class="marketplace-cta-btn" id="marketplace-cta-btn">\
               Ver Lanchas Usadas ' + iconArrow + '\
             </a>\
             <p class="marketplace-cta-sub">Explora el marketplace publico. <a id="marketplace-register-link">Registrate para publicar</a></p>\
@@ -276,15 +276,20 @@
     return null;
   }
 
+  function isTestEnv() {
+    return window.location.pathname.indexOf('/test') !== -1;
+  }
+
   function getPanelUrl() {
-    if (window.location.pathname.indexOf('/test') !== -1) {
-      return '/panel-test/';
-    }
-    return '/panel/';
+    return isTestEnv() ? '/panel-test/' : '/panel/';
+  }
+
+  function getMarketplaceUrl() {
+    return isTestEnv() ? '/test/marketplace.html' : '/marketplace.html';
   }
 
   function goToMarketplace() {
-    window.location.href = '/marketplace.html';
+    window.location.href = getMarketplaceUrl();
   }
 
   function goToRegister() {
@@ -314,8 +319,8 @@
         targetSection.parentNode.insertBefore(marketplaceSection, targetSection);
 
         var ctaBtn = document.getElementById('marketplace-cta-btn');
-        if (ctaBtn && !ctaBtn.getAttribute('href')) {
-          ctaBtn.addEventListener('click', goToMarketplace);
+        if (ctaBtn) {
+          ctaBtn.href = getMarketplaceUrl();
         }
 
         loadHomeCarousel();
@@ -360,7 +365,7 @@
               '<div style="font-size:0.85rem;color:#fff;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (title || '') + '</div>' +
               '<div style="font-size:0.7rem;color:#94a3b8;margin-bottom:6px;">' + (b.year ? svgCal + ' ' + b.year : '') + '</div>' +
               '<div style="font-size:0.95rem;font-weight:700;background:linear-gradient(135deg,#2563eb,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">' + price + '</div>' +
-              '<a href="/marketplace.html" style="font-size:0.7rem;color:#60a5fa;text-decoration:none;font-weight:500;" onclick="event.stopPropagation()">Ver en Marketplace &rarr;</a>' +
+              '<a href="' + getMarketplaceUrl() + '" style="font-size:0.7rem;color:#60a5fa;text-decoration:none;font-weight:500;" onclick="event.stopPropagation()">Ver en Marketplace &rarr;</a>' +
             '</div>' +
           '</div>';
         }).join('');
