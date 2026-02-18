@@ -4,10 +4,17 @@ RewriteEngine On
 # Set the base for rewrites
 RewriteBase /test/
 
-# Disable LiteSpeed cache for this directory
+# Disable LiteSpeed cache entirely for test environment
 <IfModule LiteSpeed>
 CacheLookup off
 </IfModule>
+
+# Prevent caching of index.html (SPA entry point)
+<FilesMatch "^index\.html$">
+  Header set Cache-Control "no-cache, no-store, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</FilesMatch>
 
 # Serve static files directly (bypass SPA routing)
 RewriteRule \.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|php|xml|webp|mp4|pdf)$ - [L]
