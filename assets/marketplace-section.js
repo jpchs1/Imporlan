@@ -251,7 +251,7 @@
           <div id="home-boattrader-carousel" style="display:none;margin-bottom:40px;">\
             <h3 style="color:#fff;font-size:1.25rem;font-weight:600;margin-bottom:4px;text-align:center;">Oportunidades USA del Dia</h3>\
             <p style="color:#6b7280;font-size:0.85rem;text-align:center;margin-bottom:16px;">Importacion personalizada con Imporlan</p>\
-            <div id="home-carousel-track" style="display:flex;gap:14px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 12px;-ms-overflow-style:none;scrollbar-width:none;"></div>\
+            <div id="home-carousel-track" style="display:flex;gap:16px;overflow-x:auto;scroll-behavior:smooth;padding:4px 20px 16px;-ms-overflow-style:none;scrollbar-width:none;"></div>\
           </div>\
           <div class="marketplace-cta-wrapper">\
             <a class="marketplace-cta-btn" id="marketplace-cta-btn">\
@@ -358,14 +358,20 @@
           var price = b.price ? 'USD $' + Number(b.price).toLocaleString('en-US') : 'Consultar';
           var title = b.make && b.model ? b.make + ' ' + b.model : b.title;
           if (title && title.length > 35) title = title.substring(0, 32) + '...';
-          return '<div style="flex:0 0 220px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;cursor:pointer;transition:all 0.3s;" onclick="window.open(\'' + (b.url || '/marketplace.html').replace(/'/g, "\\'") + '\',\'_blank\')">' +
-            (b.image_url ? '<img src="' + b.image_url + '" style="width:100%;height:120px;object-fit:cover;" loading="lazy" onerror="this.style.display=\'none\'">' : '<div style="width:100%;height:120px;background:#1e293b;"></div>') +
-            '<div style="padding:10px 12px;">' +
-              '<div style="font-size:0.65rem;color:#34d399;font-weight:600;margin-bottom:2px;">IMPORTAR CON IMPORLAN</div>' +
-              '<div style="font-size:0.85rem;color:#fff;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (title || '') + '</div>' +
-              '<div style="font-size:0.7rem;color:#94a3b8;margin-bottom:6px;">' + (b.year ? svgCal + ' ' + b.year : '') + '</div>' +
-              '<div style="font-size:0.95rem;font-weight:700;background:linear-gradient(135deg,#2563eb,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">' + price + '</div>' +
-              '<a href="' + getMarketplaceUrl() + '" style="font-size:0.7rem;color:#60a5fa;text-decoration:none;font-weight:500;" onclick="event.stopPropagation()">Ver en Marketplace &rarr;</a>' +
+          var loc = b.location || '';
+          return '<div class="home-carousel-card" style="flex:0 0 240px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.3s,box-shadow 0.3s;" onclick="window.open(\'' + (b.url || '/marketplace.html').replace(/'/g, "\\'") + '\',\'_blank\')" onmouseenter="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 8px 24px rgba(37,99,235,0.2)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'"> ' +
+            '<div style="position:relative;">' +
+              (b.image_url ? '<img src="' + b.image_url + '" style="width:100%;height:150px;object-fit:cover;background:#1e293b;" loading="lazy" onerror="this.parentElement.innerHTML=\'<div style=padding:40px;text-align:center;height:150px;background:#1e293b;display:flex;align-items:center;justify-content:center><svg width=40 height=40 viewBox=0_0_24_24 fill=none stroke=#475569 stroke-width=1.5><path d=M2_20_L7_13_L12_17_L17_10_L22_15/><circle cx=8 cy=7 r=2/></svg></div>\'">' : '<div style="width:100%;height:150px;background:#1e293b;"></div>') +
+              '<div style="position:absolute;top:8px;left:8px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;font-size:0.6rem;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:0.5px;">IMPORTAR</div>' +
+            '</div>' +
+            '<div style="padding:12px 14px;">' +
+              '<div style="font-size:0.9rem;color:#fff;font-weight:700;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (title || '') + '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+                (b.year ? '<span style="font-size:0.7rem;color:#94a3b8;display:flex;align-items:center;gap:3px;">' + svgCal + ' ' + b.year + '</span>' : '') +
+                (loc ? '<span style="font-size:0.7rem;color:#94a3b8;">&#x1F4CD; ' + loc.split(',')[0] + '</span>' : '') +
+              '</div>' +
+              '<div style="font-size:1rem;font-weight:800;background:linear-gradient(135deg,#2563eb,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;">' + price + '</div>' +
+              '<a href="' + getMarketplaceUrl() + '" style="display:block;text-align:center;font-size:0.75rem;color:#fff;background:rgba(37,99,235,0.2);border:1px solid rgba(37,99,235,0.3);padding:6px;border-radius:8px;text-decoration:none;font-weight:600;transition:background 0.2s;" onclick="event.stopPropagation()" onmouseenter="this.style.background=\'rgba(37,99,235,0.4)\'" onmouseleave="this.style.background=\'rgba(37,99,235,0.2)\'">Ver en Marketplace &rarr;</a>' +
             '</div>' +
           '</div>';
         }).join('');
