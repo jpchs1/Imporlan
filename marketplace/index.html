@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace de Embarcaciones | Imporlan Chile</title>
+  <meta name="description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
+  <meta name="keywords" content="lanchas usadas Chile, embarcaciones venta, veleros, motos de agua, marketplace nautico, Imporlan">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.imporlan.cl/marketplace/">
+  <script>if(/\/marketplace\/publicar\/?$/.test(window.location.pathname)){var t=localStorage.getItem('imporlan_token');var p=window.location.pathname.indexOf('/test/')!==-1;var base=p?'/panel-test/':'/panel/';window.location.replace(t?base+'#marketplace':base+'#/register');}</script>
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Marketplace de Embarcaciones | Imporlan Chile">
+  <meta property="og:description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
+  <meta property="og:url" content="https://www.imporlan.cl/marketplace/">
+  <meta property="og:site_name" content="Imporlan">
+  <meta property="og:locale" content="es_CL">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Marketplace de Embarcaciones | Imporlan Chile">
+  <meta name="twitter:description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
+
+  <link rel="icon" type="image/svg+xml" href="/vite.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/marketplace-public.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Marketplace de Embarcaciones",
+    "description": "Compra y vende embarcaciones usadas en Chile con la confianza de Imporlan.",
+    "url": "https://www.imporlan.cl/marketplace/",
+    "isPartOf": {
+      "@type": "WebSite",
+      "name": "Imporlan",
+      "url": "https://www.imporlan.cl"
+    },
+    "provider": {
+      "@type": "Organization",
+      "name": "Imporlan",
+      "url": "https://www.imporlan.cl"
+    }
+  }
+  </script>
+</head>
+<body class="marketplace-page">
+
+  <header class="mp-header">
+    <div class="mp-header-inner">
+      <a href="/" class="mp-logo">
+        <span class="mp-logo-text">IMPORLAN</span>
+        <span style="font-size:0.8rem;color:#64748b;font-weight:400;">Marketplace</span>
+      </a>
+      <nav class="mp-nav">
+        <a href="/" class="mp-nav-link"><span>Inicio</span></a>
+        <a href="/marketplace/" class="mp-nav-link" style="color:var(--mp-primary);font-weight:600;"><span>Marketplace</span></a>
+        <a href="/marketplace/publicar" class="mp-nav-link mp-btn-primary" id="mp-nav-publish">Publicar Gratis</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="mp-social-proof">
+    <div class="mp-social-proof-item">
+      <span class="mp-social-proof-dot"></span>
+      <span id="mp-social-count">Embarcaciones activas</span>
+    </div>
+    <div class="mp-social-proof-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>Publicaciones verificadas</span>
+    </div>
+    <div class="mp-social-proof-item">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>Confianza Imporlan</span>
+    </div>
+  </div>
+
+  <section class="mp-carousel-section" id="mp-carousel-section" style="display:none;">
+    <div class="mp-carousel-container" id="mp-carousel-container">
+      <h2 class="mp-section-title">Top Oportunidades del Mercado USA &ndash; Seleccion Imporlan</h2>
+      <p class="mp-section-subtitle">Actualizado diariamente | Importacion personalizada disponible</p>
+      <button class="mp-carousel-arrow left">&lsaquo;</button>
+      <div class="mp-carousel-track" id="mp-carousel-track"></div>
+      <button class="mp-carousel-arrow right">&rsaquo;</button>
+    </div>
+  </section>
+
+  <main class="mp-main">
+    <div class="mp-search-bar">
+      <input type="text" class="mp-search-input" id="mp-search-input" placeholder="Buscar embarcaciones por nombre, tipo, ubicacion...">
+      <button class="mp-search-btn" id="mp-search-btn">Buscar</button>
+    </div>
+
+    <button class="mp-mobile-filter-toggle" id="mp-mobile-filter-toggle">Mostrar Filtros</button>
+
+    <div class="mp-content">
+      <aside class="mp-filters-panel" id="mp-filters-panel">
+        <div class="mp-filters-header">
+          <span class="mp-filters-title">Filtros</span>
+          <button class="mp-filters-clear" id="mp-filters-clear">Limpiar filtros</button>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Tipo</label>
+          <select class="mp-filter-select" id="filter-tipo">
+            <option value="">Todos los tipos</option>
+            <option value="Bowrider">Bowrider</option>
+            <option value="Pesca">Pesca</option>
+            <option value="Jet Boat">Jet Boat</option>
+            <option value="Yate">Yate</option>
+            <option value="Velero">Velero</option>
+            <option value="Moto de Agua">Moto de Agua</option>
+            <option value="Catamaran">Catamaran</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Ano</label>
+          <div class="mp-filter-range">
+            <input type="number" class="mp-filter-input" id="filter-ano-min" placeholder="Min" min="1990" max="2028">
+            <span>-</span>
+            <input type="number" class="mp-filter-input" id="filter-ano-max" placeholder="Max" min="1990" max="2028">
+          </div>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Precio (USD)</label>
+          <div class="mp-filter-range">
+            <input type="number" class="mp-filter-input" id="filter-precio-min" placeholder="Min">
+            <span>-</span>
+            <input type="number" class="mp-filter-input" id="filter-precio-max" placeholder="Max">
+          </div>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Eslora</label>
+          <input type="text" class="mp-filter-input" id="filter-eslora" placeholder="Ej: 24 ft">
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Ubicacion</label>
+          <select class="mp-filter-select" id="filter-ubicacion">
+            <option value="">Todas</option>
+            <option value="Vina del Mar">Vina del Mar</option>
+            <option value="Algarrobo">Algarrobo</option>
+            <option value="Lago Rapel">Lago Rapel</option>
+            <option value="Lago Villarrica">Lago Villarrica</option>
+            <option value="Lago Llanquihue">Lago Llanquihue</option>
+            <option value="Concepcion">Concepcion</option>
+            <option value="Puerto Montt">Puerto Montt</option>
+            <option value="Santiago">Santiago</option>
+            <option value="Valparaiso">Valparaiso</option>
+            <option value="La Serena">La Serena</option>
+            <option value="Iquique">Iquique</option>
+            <option value="Antofagasta">Antofagasta</option>
+          </select>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Estado</label>
+          <select class="mp-filter-select" id="filter-estado">
+            <option value="">Todos</option>
+            <option value="Nueva">Nueva</option>
+            <option value="Usada">Usada</option>
+          </select>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Condicion</label>
+          <select class="mp-filter-select" id="filter-condicion">
+            <option value="">Todas</option>
+            <option value="Excelente">Excelente</option>
+            <option value="Muy Buena">Muy Buena</option>
+            <option value="Buena">Buena</option>
+            <option value="Regular">Regular</option>
+            <option value="Para Reparacion">Para Reparacion</option>
+          </select>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Horas de motor</label>
+          <div class="mp-filter-range">
+            <input type="number" class="mp-filter-input" id="filter-horas-min" placeholder="Min">
+            <span>-</span>
+            <input type="number" class="mp-filter-input" id="filter-horas-max" placeholder="Max">
+          </div>
+        </div>
+      </aside>
+
+      <div class="mp-listings-area">
+        <div class="mp-listings-toolbar">
+          <div class="mp-listings-count" id="mp-count">Cargando embarcaciones...</div>
+          <div class="mp-listings-sort">
+            <label>Ordenar:</label>
+            <select id="mp-sort">
+              <option value="recientes">Mas recientes</option>
+              <option value="precio_asc">Precio: menor a mayor</option>
+              <option value="precio_desc">Precio: mayor a menor</option>
+              <option value="ano_desc">Ano: mas reciente</option>
+              <option value="ano_asc">Ano: mas antiguo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mp-grid" id="mp-grid"></div>
+        <div class="mp-pagination" id="mp-pagination"></div>
+      </div>
+    </div>
+
+    <section class="mp-leads-section">
+      <div class="mp-leads-inner">
+        <h3>Recibe oportunidades semanales</h3>
+        <p>Suscribete para recibir las mejores oportunidades de embarcaciones directamente en tu email.</p>
+        <form class="mp-leads-form" id="mp-leads-form">
+          <div class="mp-leads-row">
+            <input type="email" class="mp-leads-input" name="email" placeholder="Tu email" required>
+            <input type="text" class="mp-leads-input" name="nombre" placeholder="Tu nombre">
+          </div>
+          <div class="mp-leads-checks">
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Bowrider"> Bowrider</label>
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Pesca"> Pesca</label>
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Velero"> Velero</label>
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Moto de Agua"> Moto de Agua</label>
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Yate"> Yate</label>
+            <label class="mp-leads-check"><input type="checkbox" name="interes" value="Catamaran"> Catamaran</label>
+          </div>
+          <button type="submit" class="mp-leads-submit">Suscribirme</button>
+        </form>
+        <div id="mp-leads-result"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="mp-modal-overlay" id="mp-modal-overlay">
+    <div class="mp-modal"></div>
+  </div>
+
+  <button class="mp-sticky-cta" id="mp-publish-sticky">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Publicar Gratis
+  </button>
+
+  <footer class="mp-footer">
+    <div class="mp-footer-inner">
+      <div class="mp-footer-col">
+        <h4>Imporlan</h4>
+        <a href="/">Inicio</a>
+        <a href="/marketplace/">Marketplace</a>
+        <a href="/embarcaciones-usadas/">Embarcaciones Usadas</a>
+        <a href="/como-comprar-lancha-usada-chile/">Como Comprar</a>
+      </div>
+      <div class="mp-footer-col">
+        <h4>Recursos</h4>
+        <a href="/documentos-tramites-vender-embarcacion-chile/">Documentos y Tramites</a>
+        <a href="/costo-mantener-lancha-chile/">Costos de Mantencion</a>
+        <a href="/seguro-embarcaciones-chile/">Seguros</a>
+        <a href="/preguntas-frecuentes-embarcaciones-usadas/">Preguntas Frecuentes</a>
+      </div>
+      <div class="mp-footer-col">
+        <h4>Contacto</h4>
+        <a href="https://wa.me/56920382479" target="_blank">WhatsApp</a>
+        <a href="mailto:contacto@imporlan.cl">contacto@imporlan.cl</a>
+        <div class="mp-footer-trust">
+          <div class="mp-footer-trust-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Sitio Seguro
+          </div>
+          <div class="mp-footer-trust-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            Verificado
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mp-footer-bottom">
+      &copy; 2026 Imporlan Chile. Todos los derechos reservados.
+    </div>
+  </footer>
+
+  <script src="/assets/marketplace-public.js"></script>
+</body>
+</html>
