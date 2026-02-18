@@ -1262,6 +1262,10 @@
     applyMobileLayout();
     enhanced = true;
     enhancing = false;
+
+    if (window.location.hash === '#marketplace/publicar') {
+      setTimeout(function () { window.__mktOpenPublish(); }, 100);
+    }
   }
 
   function showSuccessModal() {
