@@ -12,20 +12,121 @@
   // Override the window.alert function to intercept demo messages
   const originalAlert = window.alert;
   window.alert = function(message) {
-    // Check if this is a demo payment message
     if (message && typeof message === 'string') {
-      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara') ||
-          message.toLowerCase().includes('proximamente') ||
-          message.toLowerCase().includes('transbank') ||
-          message.toLowerCase().includes('configurar la api') ||
-          message.toLowerCase().includes('requiere configuracion')) {
-        console.log('Intercepted payment alert, processing real payment...');
+      var msgLower = message.toLowerCase();
+      if (msgLower.includes('proximamente') || msgLower.includes('próximamente') ||
+          msgLower.includes('configurar la api') || msgLower.includes('requiere configuracion') ||
+          (msgLower.includes('webpay') && msgLower.includes('transbank'))) {
+        console.log('Intercepted WebPay alert, launching real payment...');
+        extractAndProcessWebPay();
+        return;
+      }
+      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara')) {
+        console.log('Intercepted demo alert');
         return;
       }
     }
-    // For other alerts, show them normally
     return originalAlert.apply(this, arguments);
   };
+
+  function extractAndProcessWebPay() {
+    var modal = document.querySelector('[role="dialog"]');
+    if (!modal) {
+      console.error('WebPay: No payment modal found');
+      return;
+    }
+    var modalText = modal.textContent || '';
+    var amountMatch = modalText.match(/\$?([\d.,]+)\s*CLP/i);
+    if (!amountMatch) {
+      console.error('WebPay: Could not extract amount from modal');
+      return;
+    }
+    var amount = parseInt(amountMatch[1].replace(/[.,]/g, ''));
+    var descMatch = modalText.match(/por\s+(.+?)(?:\s*MercadoPago|\s*PayPal|\s*WebPay|\s*Cancelar|$)/i);
+    var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
+    if (isNaN(amount) || amount <= 0) {
+      console.error('WebPay: Invalid amount', amount);
+      return;
+    }
+    console.log('WebPay: Extracted payment data', { amount: amount, description: description });
+    processRealWebPay(amount, description);
+  }
+
+  async function processRealWebPay(amount, description) {
+    try {
+      showLoadingOverlay('Conectando con WebPay...');
+      var userStr = localStorage.getItem('imporlan_user');
+      var userEmail = '';
+      var userName = '';
+      if (userStr) {
+        try {
+          var u = JSON.parse(userStr);
+          userEmail = u.email || '';
+          userName = u.name || '';
+        } catch(e) {}
+      }
+      var buyOrder = 'ORD_' + Date.now();
+      var sessionId = 'panel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      var purchaseType = 'link';
+      var planName = description;
+      var planDays = 7;
+      if (description.toLowerCase().includes('fragata') || amount >= 60000) {
+        purchaseType = 'plan';
+        planName = 'Plan Fragata';
+      } else if (description.toLowerCase().includes('capitan') || amount >= 25000) {
+        purchaseType = 'plan';
+        planName = 'Plan Capitan';
+        planDays = 14;
+      }
+      sessionStorage.setItem('webpay_order', JSON.stringify({
+        buy_order: buyOrder,
+        user_email: userEmail,
+        purchase_type: purchaseType,
+        purchase_description: description,
+        amount_clp: amount,
+        plan_name: planName
+      }));
+      var response = await fetch(API_BASE + '/webpay.php?action=create_transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amount,
+          session_id: sessionId,
+          buy_order: buyOrder,
+          user_email: userEmail,
+          payer_name: userName,
+          plan_name: planName,
+          description: description,
+          type: purchaseType,
+          days: planDays,
+          return_url: window.location.origin + '/api/webpay.php?action=callback'
+        })
+      });
+      var data = await response.json();
+      hideLoadingOverlay();
+      if (data.success && data.url && data.token) {
+        console.log('WebPay transaction created, redirecting to Transbank...');
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.url;
+        form.style.display = 'none';
+        var tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'token_ws';
+        tokenInput.value = data.token;
+        form.appendChild(tokenInput);
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        var errorMsg = data.error || data.message || 'Error desconocido';
+        originalAlert('Error al procesar el pago con WebPay: ' + errorMsg);
+      }
+    } catch (error) {
+      hideLoadingOverlay();
+      console.error('WebPay connection error:', error);
+      originalAlert('Error al conectar con WebPay. Por favor intente nuevamente.');
+    }
+  }
 
   // Override window.open to intercept demo payment URLs
   const originalOpen = window.open;
