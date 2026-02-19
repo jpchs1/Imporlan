@@ -14,9 +14,12 @@
   window.alert = function(message) {
     // Check if this is a demo payment message
     if (message && typeof message === 'string') {
-      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara')) {
-        console.log('Intercepted demo alert, processing real payment...');
-        // Don't show the demo alert, the real payment will be processed
+      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara') ||
+          message.toLowerCase().includes('proximamente') ||
+          message.toLowerCase().includes('transbank') ||
+          message.toLowerCase().includes('configurar la api') ||
+          message.toLowerCase().includes('requiere configuracion')) {
+        console.log('Intercepted payment alert, processing real payment...');
         return;
       }
     }
