@@ -561,6 +561,14 @@ BASE64;
         return $latest['boat_links'] ?? [];
     }
     
+    public function sendExpedienteUpdateEmail($userEmail, $firstName, $orderData) {
+        $orderNumber = $orderData['order_number'] ?? 'N/A';
+        $subject = 'Actualizacion de tu Expediente ' . $orderNumber . ' - Imporlan';
+        $htmlContent = $this->getExpedienteUpdateTemplate($firstName, $orderData);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_update', $orderData);
+    }
+    
     public function sendCriticalErrorNotification($errorData) {
         return $this->sendInternalNotification('critical_error', [
             'error_type' => $errorData['type'] ?? 'Unknown',
@@ -1862,6 +1870,170 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, htmlspecialchars($planName) . ' Activo - Imporlan');
+    }
+    
+    private function getExpedienteUpdateTemplate($firstName, $orderData) {
+        $c = $this->colors;
+        $orderNumber = htmlspecialchars($orderData['order_number'] ?? 'N/A');
+        $statusLabels = [
+            'new' => 'Pendiente',
+            'pending' => 'Pendiente',
+            'pending_admin_fill' => 'Pendiente',
+            'in_progress' => 'En Proceso',
+            'completed' => 'Completado',
+            'expired' => 'Pendiente',
+            'canceled' => 'Pendiente'
+        ];
+        $statusColors = [
+            'new' => '#f59e0b',
+            'pending' => '#f59e0b',
+            'pending_admin_fill' => '#f59e0b',
+            'in_progress' => '#10b981',
+            'completed' => '#6366f1',
+            'expired' => '#f59e0b',
+            'canceled' => '#f59e0b'
+        ];
+        $status = $orderData['status'] ?? 'pending';
+        $statusLabel = $statusLabels[$status] ?? 'Pendiente';
+        $statusColor = $statusColors[$status] ?? '#f59e0b';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Actualizacion de Expediente') . '
+            </div>
+            
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 600; text-align: center;">
+                Expediente ' . $orderNumber . '
+            </h2>
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">
+                Hola ' . htmlspecialchars($firstName) . ', te compartimos la informacion actualizada de tu expediente.
+            </p>';
+        
+        $infoItems = [
+            'N de Expediente' => $orderNumber,
+            'Estado' => $statusLabel
+        ];
+        if (!empty($orderData['plan_name'])) {
+            $infoItems['Plan'] = $orderData['plan_name'];
+        }
+        if (!empty($orderData['service_type'])) {
+            $serviceLabels = ['plan_busqueda' => 'Plan de Busqueda', 'cotizacion_link' => 'Cotizacion por Link'];
+            $infoItems['Tipo de Servicio'] = $serviceLabels[$orderData['service_type']] ?? $orderData['service_type'];
+        }
+        if (!empty($orderData['asset_name'])) {
+            $infoItems['Embarcacion/Objetivo'] = $orderData['asset_name'];
+        }
+        if (!empty($orderData['type_zone'])) {
+            $infoItems['Tipo/Zona'] = $orderData['type_zone'];
+        }
+        if (!empty($orderData['requirement_name'])) {
+            $infoItems['Requerimiento'] = $orderData['requirement_name'];
+        }
+        if (!empty($orderData['agent_name'])) {
+            $agentInfo = $orderData['agent_name'];
+            if (!empty($orderData['agent_phone'])) {
+                $agentInfo .= ' (' . $orderData['agent_phone'] . ')';
+            }
+            $infoItems['Agente Asignado'] = $agentInfo;
+        }
+        $infoItems['Fecha de Creacion'] = !empty($orderData['created_at'])
+            ? date('d/m/Y', strtotime($orderData['created_at']))
+            : date('d/m/Y');
+        
+        $content .= $this->getInfoCard('Datos del Expediente', $infoItems);
+        
+        $links = $orderData['links'] ?? [];
+        $validLinks = array_filter($links, function($lk) {
+            return !empty($lk['url']);
+        });
+        
+        if (!empty($validLinks)) {
+            $content .= '
+            <h3 style="margin: 30px 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 600;">
+                Opciones Encontradas
+            </h3>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">';
+            
+            $linkIndex = 0;
+            foreach ($validLinks as $lk) {
+                $linkIndex++;
+                $url = htmlspecialchars($lk['url'] ?? '');
+                $title = htmlspecialchars($lk['title'] ?? '');
+                $location = htmlspecialchars($lk['location'] ?? '');
+                $hours = htmlspecialchars($lk['hours'] ?? '');
+                $imageUrl = htmlspecialchars($lk['image_url'] ?? '');
+                
+                $usdVal = '';
+                if (!empty($lk['value_usa_usd'])) {
+                    $usdVal = '$' . number_format(floatval($lk['value_usa_usd']), 2, '.', ',') . ' USD';
+                }
+                $clpVal = '';
+                if (!empty($lk['value_chile_clp'])) {
+                    $clpVal = '$' . number_format(floatval($lk['value_chile_clp']), 0, ',', '.') . ' CLP';
+                }
+                $comments = htmlspecialchars($lk['comments'] ?? '');
+                
+                $imgHtml = '';
+                if ($imageUrl) {
+                    $imgHtml = '<td width="90" style="padding: 12px 12px 12px 0; vertical-align: top;">
+                        <img src="' . $imageUrl . '" alt="" width="80" height="60" style="display: block; border-radius: 8px; object-fit: cover; border: 1px solid ' . $c['border'] . ';">
+                    </td>';
+                }
+                
+                $detailParts = [];
+                if ($location) $detailParts[] = $location;
+                if ($hours) $detailParts[] = $hours . ' hrs';
+                $detailLine = implode(' | ', $detailParts);
+                
+                $priceParts = [];
+                if ($usdVal) $priceParts[] = $usdVal;
+                if ($clpVal) $priceParts[] = $clpVal;
+                $priceLine = implode(' / ', $priceParts);
+                
+                $content .= '
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-radius: 12px; border: 1px solid ' . $c['border'] . ';">
+                            <tr>
+                                ' . $imgHtml . '
+                                <td style="padding: 12px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">
+                                        Opcion #' . $linkIndex . ($title ? ' - ' . $title : '') . '
+                                    </p>';
+                if ($detailLine) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 12px;">' . htmlspecialchars($detailLine) . '</p>';
+                }
+                if ($priceLine) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: #059669; font-size: 13px; font-weight: 600;">' . $priceLine . '</p>';
+                }
+                if ($comments) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 12px; font-style: italic;">' . $comments . '</p>';
+                }
+                $content .= '
+                                    <a href="' . $url . '" target="_blank" style="color: ' . $c['primary'] . '; font-size: 12px; text-decoration: none;">Ver detalle &rarr;</a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $content .= '</table>';
+        }
+        
+        $content .= '
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver mi Expediente en el Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre tu expediente, puedes contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - Imporlan');
     }
     
     private function getPaymentStatusTemplate($firstName, $statusData) {
