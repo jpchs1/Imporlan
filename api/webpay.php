@@ -17,10 +17,11 @@ require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
-// WebPay Plus Production Credentials
-define('WEBPAY_COMMERCE_CODE', '597055555532'); // Replace with production code
-define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'); // Replace with production key
-define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl'); // Production environment
+// WebPay Plus Integration/Test Credentials
+// TODO: Replace with production credentials when available from Transbank
+define('WEBPAY_COMMERCE_CODE', '597055555532');
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
+define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
 
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
