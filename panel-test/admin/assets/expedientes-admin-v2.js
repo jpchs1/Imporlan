@@ -491,6 +491,8 @@
       '<span id="ea-unsaved-badge" style="display:none;padding:8px 16px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:500;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Cambios sin guardar</span>' +
       '<button id="ea-save-all" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button>' +
+      '<button id="ea-send-client-update" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(59,130,246,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente</button>' +
       '<button id="ea-delete-order" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(239,68,68,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente</button></div></div>' +
 
@@ -697,6 +699,50 @@
     });
   }
 
+  function isBoatTraderUrl(url) {
+    return /boattrader\.com|boats\.com/i.test(url);
+  }
+
+  function applyScrapedData(row, data) {
+    var filled = false;
+    if (data.image_url) {
+      var imgInput = row.querySelector(".ea-link-image_url");
+      if (imgInput && !imgInput.value) {
+        imgInput.value = data.image_url;
+        var imgContainer = imgInput.closest("div");
+        var placeholder = imgContainer ? imgContainer.querySelector(".ea-img-placeholder") : null;
+        if (placeholder) {
+          var newImg = document.createElement("img");
+          newImg.src = data.image_url;
+          newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
+          newImg.className = "ea-img-preview";
+          newImg.setAttribute("data-url", data.image_url);
+          placeholder.parentNode.insertBefore(newImg, placeholder);
+          placeholder.remove();
+        }
+        filled = true;
+      }
+    }
+    if (data.location) {
+      var locInput = row.querySelector(".ea-link-location");
+      if (locInput && !locInput.value) { locInput.value = data.location; filled = true; }
+    }
+    if (data.hours) {
+      var hrsInput = row.querySelector(".ea-link-hours");
+      if (hrsInput && !hrsInput.value) { hrsInput.value = data.hours; filled = true; }
+    }
+    var priceVal = data.value_usa_usd || data.price;
+    if (priceVal) {
+      var usdInput = row.querySelector(".ea-link-value_usa_usd");
+      if (usdInput && !usdInput.value && !usdInput.getAttribute("data-raw")) {
+        usdInput.setAttribute("data-raw", priceVal);
+        usdInput.value = formatUsdDisplay(priceVal);
+        filled = true;
+      }
+    }
+    return filled;
+  }
+
   async function autoFetchLinkData(urlInput) {
     var url = urlInput.value.trim();
     if (!url || !url.match(/^https?:\/\//i)) return;
@@ -711,41 +757,21 @@
     row.appendChild(loadingEl);
 
     try {
-      var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
-      var data = await resp.json();
-      if (data.success) {
-        if (data.image_url) {
-          var imgInput = row.querySelector(".ea-link-image_url");
-          if (imgInput && !imgInput.value) {
-            imgInput.value = data.image_url;
-            var imgContainer = imgInput.closest("div");
-            var placeholder = imgContainer ? imgContainer.querySelector(".ea-img-placeholder") : null;
-            if (placeholder) {
-              var newImg = document.createElement("img");
-              newImg.src = data.image_url;
-              newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
-              newImg.className = "ea-img-preview";
-              newImg.setAttribute("data-url", data.image_url);
-              placeholder.parentNode.insertBefore(newImg, placeholder);
-              placeholder.remove();
-            }
-          }
+      var data = null;
+      if (isBoatTraderUrl(url)) {
+        var btResp = await fetch(API_BASE + "/boattrader_scraper.php?action=scrape&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        var btData = await btResp.json();
+        if (btData.success && btData.boat) {
+          data = btData.boat;
         }
-        if (data.location) {
-          var locInput = row.querySelector(".ea-link-location");
-          if (locInput && !locInput.value) locInput.value = data.location;
-        }
-        if (data.hours) {
-          var hrsInput = row.querySelector(".ea-link-hours");
-          if (hrsInput && !hrsInput.value) hrsInput.value = data.hours;
-        }
-        if (data.value_usa_usd) {
-          var usdInput = row.querySelector(".ea-link-value_usa_usd");
-          if (usdInput && !usdInput.value && !usdInput.getAttribute("data-raw")) {
-            usdInput.setAttribute("data-raw", data.value_usa_usd);
-            usdInput.value = formatUsdDisplay(data.value_usa_usd);
-          }
-        }
+      }
+      if (!data) {
+        var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        data = await resp.json();
+        if (!data.success) data = null;
+      }
+      if (data) {
+        applyScrapedData(row, data);
         showToast("Datos extraidos del link", "success");
         hasUnsavedChanges = true;
         showUnsavedBadge();
@@ -1137,6 +1163,40 @@
           deleteOrderBtn.disabled = false;
           deleteOrderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente';
         }
+      });
+    }
+
+    var sendUpdateBtn = document.getElementById("ea-send-client-update");
+    if (sendUpdateBtn && currentOrderData) {
+      sendUpdateBtn.addEventListener("click", async function () {
+        if (!currentOrderData.customer_email) {
+          showToast("El expediente no tiene email de cliente", "error");
+          return;
+        }
+        if (!confirm("Enviar actualizacion por email a " + currentOrderData.customer_email + "?\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.")) return;
+        sendUpdateBtn.disabled = true;
+        sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
+        try {
+          var resp = await fetch(API_BASE + "/orders_api.php?action=admin_send_client_update", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ id: currentOrderData.id, admin_user_id: (getAdminUser() || {}).id || null }),
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast(data.message || "Email enviado exitosamente", "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("client_update_sent", "expediente", currentOrderData.id, null, { email: currentOrderData.customer_email }, "Actualizacion enviada a " + currentOrderData.customer_email + " para expediente #" + currentOrderData.order_number);
+            }
+          } else {
+            showToast(data.error || "Error al enviar email", "error");
+          }
+        } catch (e) {
+          console.error("Error sending client update:", e);
+          showToast("Error de conexion al enviar email", "error");
+        }
+        sendUpdateBtn.disabled = false;
+        sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente';
       });
     }
 

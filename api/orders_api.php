@@ -82,6 +82,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminDeleteOrder();
             break;
+        case 'admin_send_client_update':
+            requireAdminAuth();
+            adminSendClientUpdate();
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Accion no valida']);
@@ -814,6 +818,83 @@ function adminDeleteOrder() {
         error_log("Error deleting order: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al eliminar expediente']);
+    }
+}
+
+function adminSendClientUpdate() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id del expediente']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        if (empty($order['customer_email'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'El expediente no tiene email de cliente']);
+            return;
+        }
+
+        $linkStmt = $pdo->prepare("SELECT * FROM order_links WHERE order_id = ? ORDER BY row_index ASC");
+        $linkStmt->execute([$orderId]);
+        $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+        $order['links'] = $links;
+
+        require_once __DIR__ . '/email_service.php';
+        $emailService = new EmailService();
+
+        $firstName = explode(' ', $order['customer_name'] ?? '')[0];
+        if (empty($firstName)) {
+            $firstName = explode('@', $order['customer_email'])[0];
+        }
+
+        $result = $emailService->sendExpedienteUpdateEmail(
+            $order['customer_email'],
+            $firstName,
+            $order
+        );
+
+        if ($result['success']) {
+            logOrderEvent($pdo, $orderId, 'client_update_sent', [
+                'email' => $order['customer_email'],
+                'sent_by' => $input['admin_user_id'] ?? null
+            ], $input['admin_user_id'] ?? null);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Email de actualizacion enviado a ' . $order['customer_email']
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al enviar email: ' . ($result['error'] ?? 'Error desconocido')
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Error sending client update: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al enviar actualizacion: ' . $e->getMessage()]);
     }
 }
 
