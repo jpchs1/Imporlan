@@ -6,13 +6,16 @@
         var originalAlert = window.alert;
         window.alert = function(message) {
           var msgLower = (message || '').toLowerCase();
+          if (msgLower.indexOf('error al procesar') !== -1 ||
+              msgLower.indexOf('error al conectar') !== -1) {
+            return originalAlert.call(window, message);
+          }
           if (msgLower.indexOf('proximamente') !== -1 || 
               msgLower.indexOf('próximamente') !== -1 ||
-              msgLower.indexOf('webpay') !== -1 ||
-              msgLower.indexOf('transbank') !== -1 ||
               msgLower.indexOf('configurar la api') !== -1 ||
-              msgLower.indexOf('requiere configuracion') !== -1) {
-            console.log('Payment override: Blocked alert -', message);
+              msgLower.indexOf('requiere configuracion') !== -1 ||
+              msgLower.indexOf('esta es una demo') !== -1) {
+            console.log('Payment override: Blocked demo alert');
             return;
           }
           return originalAlert.call(window, message);
@@ -38,7 +41,7 @@
     <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
-    <script src="/panel/assets/payment-override.js?v=9"></script>
+    <script src="/panel/assets/payment-override.js?v=10"></script>
     <script type="module" crossorigin src="/panel/assets/index-CnCPfROY.js"></script>
     <link rel="stylesheet" crossorigin href="/panel/assets/index-DasYcwDL.css">
     <!-- Chat Widget -->
@@ -60,8 +63,6 @@
     <script src="/panel/assets/marketplace-enhancer.js?v=4" defer></script>
     <!-- Post-Payment Popup -->
     <script src="/panel/assets/post-payment-popup.js?v=1" defer></script>
-    <!-- WebPay Override -->
-    <script src="/assets/webpay-override.js?v=20260219" defer></script>
     <!-- Registration Sync -->
     <script src="/panel/assets/registration-sync.js?v=1"></script>
   </body>
