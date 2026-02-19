@@ -360,6 +360,9 @@
     });
   }
 
+  var planesMigrationAttempted = false;
+  var planesCache = [];
+
   function enhancePlanes() {
     var main = document.querySelector("main");
     if (!main) return false;
@@ -369,41 +372,163 @@
     hideReactContent(main);
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "plans");
-    container.style.cssText = "display:flex;gap:20px;flex-wrap:wrap;padding:20px 0";
-    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:40px;width:100%;color:#94a3b8;font-size:14px">Cargando planes...</div>';
+    container.style.cssText = "padding:20px 0";
+    container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-plan" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button></div>' +
+      '<div id="enhancer-plans-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">' + makeSkeletonTable(3, 3) + '</div>';
     main.appendChild(container);
-    fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var purchases = data.purchases || [];
-        var planTypes = {};
-        purchases.forEach(function (p) {
-          if (p.type === "plan") {
-            var name = p.plan_name || p.description || "Plan";
-            if (!planTypes[name]) planTypes[name] = { name: name, count: 0, revenue: 0 };
-            planTypes[name].count++;
-            planTypes[name].revenue += parseInt(p.amount_clp || p.amount || 0);
-          }
-        });
-        var plans = Object.values(planTypes);
-        if (plans.length === 0) {
-          container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;width:100%">No se encontraron planes contratados</div>';
-          return;
-        }
-        var html = "";
-        plans.forEach(function (p) {
-          html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:28px;box-shadow:0 4px 16px rgba(0,0,0,.06);flex:1;min-width:280px">';
-          html += '<h3 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>';
-          html += '<p style="margin:0 0 16px;font-size:13px;color:#94a3b8">' + p.count + ' contrataciones</p>';
-          html += '<div><span style="font-size:28px;font-weight:800;color:#0891b2">' + fmtCLP(p.revenue) + '</span>';
-          html += '<span style="font-size:13px;color:#94a3b8;margin-left:4px">CLP total</span></div></div>';
-        });
-        container.innerHTML = html;
-      })
-      .catch(function () {
-        container.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;width:100%">Error al cargar planes</div>';
-      });
+    loadPlanes(container);
     return true;
+  }
+
+  function loadPlanes(container) {
+    fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
+      .then(function(r) {
+        if (!r.ok && !planesMigrationAttempted) {
+          planesMigrationAttempted = true;
+          return fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+            .then(function() {
+              return fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" });
+            })
+            .then(function(r2) { return r2.json(); });
+        }
+        return r.json();
+      })
+      .then(function(data) {
+        if (!data) return;
+        planesCache = data.plans || [];
+        var grid = container.querySelector("#enhancer-plans-grid");
+        if (!grid) return;
+        renderPlanesGrid(planesCache, grid, container);
+      })
+      .catch(function(err) {
+        console.warn("Error loading planes:", err);
+        if (!planesMigrationAttempted) {
+          planesMigrationAttempted = true;
+          fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+            .then(function() { loadPlanes(container); })
+            .catch(function() {
+              var grid = container.querySelector("#enhancer-plans-grid");
+              if (grid) grid.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;grid-column:1/-1">Error al cargar planes. Verifique la conexion a la base de datos.</div>';
+            });
+        } else {
+          var grid = container.querySelector("#enhancer-plans-grid");
+          if (grid) grid.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px;grid-column:1/-1">Error al cargar planes. Verifique la conexion a la base de datos.</div>';
+        }
+      });
+  }
+
+  function renderPlanCard(p) {
+    var activeBg = p.is_active == 1 ? "#10b981" : "#94a3b8";
+    var activeLabel = p.is_active == 1 ? "Activo" : "Inactivo";
+    var featuresHtml = "";
+    if (p.features) {
+      featuresHtml = '<div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px">';
+      p.features.split(",").forEach(function(f) {
+        if (f.trim()) featuresHtml += '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:500">' + esc(f.trim()) + '</span>';
+      });
+      featuresHtml += '</div>';
+    }
+    return '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:24px;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>' +
+      '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + activeLabel + '</span></div>' +
+      '<p style="margin:0 0 16px;font-size:13px;color:#64748b;line-height:1.5">' + esc(p.description || '') + '</p>' +
+      '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
+      '<span style="padding:5px 12px;border-radius:8px;background:#f0f9ff;color:#0891b2;font-size:13px;font-weight:700">' + fmtCLP(p.price_clp || 0) + '</span>' +
+      '<span style="padding:5px 12px;border-radius:8px;background:#fef3c7;color:#d97706;font-size:13px;font-weight:700">USD $' + (p.price_usd || 0) + '</span></div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:16px">' +
+      '<span style="padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.max_links || 0) + ' links</span>' +
+      '<span style="padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.duration_days || 0) + ' dias</span></div>' +
+      featuresHtml +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:16px">' +
+      '<button class="enhancer-edit-plan" data-id="' + p.id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+      '<button class="enhancer-delete-plan" data-id="' + p.id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></div>';
+  }
+
+  function renderPlanesGrid(plans, grid, container) {
+    if (plans.length === 0) {
+      grid.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;grid-column:1/-1">No hay planes. Crea uno nuevo.</div>';
+    } else {
+      var html = "";
+      plans.forEach(function(p) { html += renderPlanCard(p); });
+      grid.innerHTML = html;
+    }
+    attachPlanListeners(container);
+  }
+
+  function attachPlanListeners(container) {
+    var newBtn = container.querySelector("#enhancer-new-plan");
+    if (newBtn) newBtn.onclick = function() { openPlanModalPlanes(null, container); };
+    container.querySelectorAll(".enhancer-edit-plan").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        var plan = planesCache.find(function(p) { return p.id == id; });
+        if (plan) openPlanModalPlanes(plan, container);
+      };
+    });
+    container.querySelectorAll(".enhancer-delete-plan").forEach(function(btn) {
+      btn.onclick = function() {
+        var id = parseInt(this.getAttribute("data-id"));
+        if (!confirm("Eliminar este plan?")) return;
+        fetch(API_BASE + "/config_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+          .then(function(r) { return r.json(); })
+          .then(function(d) { if (d.success) loadPlanes(container); else alert(d.error || "Error"); });
+      };
+    });
+  }
+
+  function openPlanModalPlanes(plan, container) {
+    var existing = document.getElementById("enhancer-plan-modal");
+    if (existing) existing.remove();
+    var isEdit = !!plan;
+    var html = '<div id="enhancer-plan-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:enhancerFadeIn .2s">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700">' + (isEdit ? "Editar Plan" : "Nuevo Plan") + '</h3>' +
+      '<button id="enhancer-close-plan-modal" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:14px">' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Nombre *</label>' +
+      '<input id="enhancer-pl-name" value="' + esc(plan ? plan.name : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Nombre del plan"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Descripcion</label>' +
+      '<textarea id="enhancer-pl-desc" rows="2" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;resize:vertical">' + esc(plan ? plan.description : '') + '</textarea></div>' +
+      '<div style="display:flex;gap:12px"><div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Precio CLP</label>' +
+      '<input id="enhancer-pl-clp" type="number" value="' + (plan ? plan.price_clp || 0 : 0) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Precio USD</label>' +
+      '<input id="enhancer-pl-usd" type="number" step="0.01" value="' + (plan ? plan.price_usd || 0 : 0) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div></div>' +
+      '<div style="display:flex;gap:12px"><div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Max Links</label>' +
+      '<input id="enhancer-pl-links" type="number" value="' + (plan ? plan.max_links || 5 : 5) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div>' +
+      '<div style="flex:1"><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Duracion (dias)</label>' +
+      '<input id="enhancer-pl-days" type="number" value="' + (plan ? plan.duration_days || 30 : 30) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box"></div></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Caracteristicas (separadas por coma)</label>' +
+      '<input id="enhancer-pl-feat" value="' + esc(plan ? plan.features : '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Feature 1,Feature 2"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="enhancer-cancel-plan" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+      '<button id="enhancer-save-plan" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">' + (isEdit ? "Guardar Cambios" : "Crear Plan") + '</button></div></div></div></div>';
+    document.body.insertAdjacentHTML("beforeend", html);
+    var modal = document.getElementById("enhancer-plan-modal");
+    document.getElementById("enhancer-close-plan-modal").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-cancel-plan").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-save-plan").onclick = function() {
+      var name = document.getElementById("enhancer-pl-name").value.trim();
+      if (!name) { alert("Nombre requerido"); return; }
+      var payload = {
+        name: name,
+        description: document.getElementById("enhancer-pl-desc").value.trim(),
+        price_clp: parseInt(document.getElementById("enhancer-pl-clp").value) || 0,
+        price_usd: parseFloat(document.getElementById("enhancer-pl-usd").value) || 0,
+        max_links: parseInt(document.getElementById("enhancer-pl-links").value) || 5,
+        duration_days: parseInt(document.getElementById("enhancer-pl-days").value) || 30,
+        features: document.getElementById("enhancer-pl-feat").value.trim()
+      };
+      var action = isEdit ? "plans_update" : "plans_create";
+      if (isEdit) payload.id = plan.id;
+      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) { modal.remove(); loadPlanes(container); }
+          else alert(d.error || "Error");
+        });
+    };
   }
 
   function enhancePagos() {
