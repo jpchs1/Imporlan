@@ -56,8 +56,10 @@ try {
                 require_once $emailServiceFile;
             }
             $emailService = new EmailService();
+            $userName = $input['name'] ?? explode('@', $input['email'])[0];
+            $emailService->sendWelcomeEmail($input['email'], $userName);
             $emailService->sendInternalNotification('new_registration', [
-                'user_name' => $input['name'] ?? explode('@', $input['email'])[0],
+                'user_name' => $userName,
                 'user_email' => $input['email'],
                 'registration_date' => date('d/m/Y H:i:s')
             ]);
