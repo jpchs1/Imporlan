@@ -83,11 +83,13 @@ function createTransaction($data) {
     // Store purchase info in session for later use in callback
     $purchaseInfo = [
         'user_email' => $data['user_email'] ?? null,
+        'payer_name' => $data['payer_name'] ?? null,
         'plan_name' => $data['plan_name'] ?? '',
         'description' => $data['description'] ?? '',
         'type' => $data['type'] ?? 'link',
         'days' => $data['days'] ?? 7,
-        'amount' => $amount
+        'amount' => $amount,
+        'boat_links' => $data['boat_links'] ?? []
     ];
     
     // Save purchase info to a temporary file for retrieval in callback
