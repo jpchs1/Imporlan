@@ -9,6 +9,9 @@
  * - POST /purchases.php?action=add - Agregar una nueva compra
  */
 
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/orders_api.php';
+
 // CORS Headers
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -163,10 +166,27 @@ function addPurchase() {
     $data['purchases'][] = $purchase;
     
     file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
-    
+
+    $orderId = null;
+    try {
+        $purchaseData = array_merge($purchase, [
+            'customer_name' => $input['user_name'] ?? $input['customer_name'] ?? explode('@', $input['user_email'])[0],
+            'customer_phone' => $input['user_phone'] ?? $input['customer_phone'] ?? null,
+        ]);
+        if ($purchase['type'] === 'link' || $purchase['type'] === 'cotizacion') {
+            $storedLinks = $input['links'] ?? [];
+            $orderId = createOrderFromQuotation($purchaseData, $storedLinks);
+        } else {
+            $orderId = createOrderFromPurchase($purchaseData);
+        }
+    } catch (Exception $e) {
+        error_log("purchases.php: order creation error: " . $e->getMessage());
+    }
+
     echo json_encode([
         'success' => true,
-        'purchase' => $purchase
+        'purchase' => $purchase,
+        'order_id' => $orderId
     ]);
 }
 
