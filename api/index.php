@@ -524,7 +524,62 @@ switch (true) {
             'redirect' => 'https://www.imporlan.cl/panel/'
         ]);
         break;
-    
+
+    // Proxy: /api/test/* -> forward to bxlfgnkv Fly.dev backend at /api/*
+    case preg_match('#^(/api)?/test/(.+)$#', $uriPath, $matches):
+        $backendPath = '/api/' . $matches[2];
+        $query = parse_url($requestUri, PHP_URL_QUERY);
+        $targetUrl = 'https://app-bxlfgnkv.fly.dev' . $backendPath;
+        if ($query) $targetUrl .= '?' . $query;
+
+        $ch = curl_init($targetUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+        $proxyHeaders = [];
+        if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+            $proxyHeaders[] = 'Authorization: ' . $_SERVER['HTTP_AUTHORIZATION'];
+        }
+        if (isset($_SERVER['CONTENT_TYPE'])) {
+            $proxyHeaders[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
+        }
+        if (!empty($proxyHeaders)) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $proxyHeaders);
+        }
+
+        $input = file_get_contents('php://input');
+        if ($input) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $input);
+        }
+
+        $proxyResp = curl_exec($ch);
+        $proxyCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $proxyContentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $proxyErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($proxyErr) {
+            error_log("api-proxy error: $targetUrl - $proxyErr");
+            http_response_code(502);
+            echo json_encode(['detail' => 'Backend unavailable']);
+            break;
+        }
+
+        if ($proxyContentType) {
+            header('Content-Type: ' . $proxyContentType);
+        }
+        http_response_code($proxyCode);
+        echo $proxyResp;
+        break;
+
+    // Proxy: /api/register-proxy.php -> register on both backends + send email
+    case preg_match('#^(/api)?/register-proxy\.php$#', $uriPath):
+        require_once __DIR__ . '/register-proxy.php';
+        break;
+
     // Default - Not found
     default:
         http_response_code(404);
