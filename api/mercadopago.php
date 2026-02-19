@@ -232,6 +232,29 @@ function handleWebhook() {
             if (empty($purchase['_duplicate'])) {
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
                 createPaymentNotificationMessage($purchase, $payment);
+
+                try {
+                    $dbConfig = __DIR__ . '/db_config.php';
+                    if (file_exists($dbConfig)) {
+                        require_once $dbConfig;
+                        require_once __DIR__ . '/orders_api.php';
+                        $userEmail = $payment['payer']['email'];
+                        $payerName = trim(($payment['payer']['first_name'] ?? '') . ' ' . ($payment['payer']['last_name'] ?? ''));
+                        if (empty($payerName)) $payerName = explode('@', $userEmail)[0];
+                        $purchase['customer_name'] = $payerName;
+                        if ($purchaseType === 'plan') {
+                            createOrderFromPurchase($purchase);
+                        } else {
+                            require_once __DIR__ . '/email_service.php';
+                            $emailService = new EmailService();
+                            $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                            createOrderFromQuotation($purchase, $storedLinks);
+                        }
+                    }
+                } catch (Exception $e) {
+                    $logFile = __DIR__ . '/mp_webhooks.log';
+                    file_put_contents($logFile, date('Y-m-d H:i:s') . ' - ORDER_CREATE_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+                }
             }
         }
     }

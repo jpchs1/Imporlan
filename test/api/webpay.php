@@ -323,6 +323,25 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     if ($userEmail) {
         sendPurchaseConfirmationEmail($purchase);
         createWebpayPaymentNotificationMessage($purchase);
+
+        try {
+            $dbConfig = __DIR__ . '/../../api/db_config.php';
+            if (file_exists($dbConfig)) {
+                require_once $dbConfig;
+                require_once __DIR__ . '/../../api/orders_api.php';
+                $purchase['customer_name'] = explode('@', $userEmail)[0];
+                if ($purchaseType === 'plan') {
+                    createOrderFromPurchase($purchase);
+                } else {
+                    require_once __DIR__ . '/email_service.php';
+                    $emailService = new EmailService();
+                    $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                    createOrderFromQuotation($purchase, $storedLinks);
+                }
+            }
+        } catch (Exception $e) {
+            logWebpay('ORDER_CREATE_ERROR', ['error' => $e->getMessage()]);
+        }
     }
     
     return $purchase;
