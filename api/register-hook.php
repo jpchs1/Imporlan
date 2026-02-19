@@ -56,11 +56,8 @@ try {
                 require_once $emailServiceFile;
             }
             $emailService = new EmailService();
-            $emailService->sendInternalNotification('new_registration', [
-                'user_name' => $input['name'] ?? explode('@', $input['email'])[0],
-                'user_email' => $input['email'],
-                'registration_date' => date('d/m/Y H:i:s')
-            ]);
+            $userName = $input['name'] ?? explode('@', $input['email'])[0];
+            $emailService->sendWelcomeEmail($input['email'], $userName);
         }
     } catch (Exception $e) {
         error_log("register-hook email error: " . $e->getMessage());
