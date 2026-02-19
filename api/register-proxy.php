@@ -74,6 +74,26 @@ try {
     error_log("register-proxy email error: " . $e->getMessage());
 }
 
+try {
+    require_once __DIR__ . '/db_config.php';
+    $pdo = getDbConnection();
+    if ($pdo) {
+        $check = $pdo->prepare("SELECT id FROM admin_users WHERE email = ?");
+        $check->execute([strtolower($registrationData['email'])]);
+        if (!$check->fetch()) {
+            $stmt = $pdo->prepare("INSERT INTO admin_users (name, email, password_hash, role, status, phone) VALUES (?, ?, ?, 'user', 'active', ?)");
+            $stmt->execute([
+                $registrationData['name'] ?? explode('@', $registrationData['email'])[0],
+                strtolower($registrationData['email']),
+                password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
+                $registrationData['phone'] ?? null
+            ]);
+        }
+    }
+} catch (Exception $e) {
+    error_log("register-proxy db insert error: " . $e->getMessage());
+}
+
 http_response_code($primaryResult['code']);
 echo $primaryResult['raw'];
 
