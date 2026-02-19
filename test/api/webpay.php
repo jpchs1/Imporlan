@@ -17,10 +17,10 @@ require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
-// WebPay Plus Production Credentials
-define('WEBPAY_COMMERCE_CODE', '597055555532'); // Replace with production code
-define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'); // Replace with production key
-define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl'); // Production environment
+// WebPay Plus Integration/Test Credentials
+define('WEBPAY_COMMERCE_CODE', '597055555532');
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
+define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
 
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -100,7 +100,7 @@ function createTransaction($data) {
     file_put_contents($tempFile, json_encode($purchaseInfo));
     
     // Use the callback URL for WebPay to return to
-    $returnUrl = 'https://www.imporlan.cl/api/webpay.php?action=callback';
+    $returnUrl = 'https://www.imporlan.cl/test/api/webpay.php?action=callback';
     
     $requestData = [
         'buy_order' => $buyOrder,
@@ -172,12 +172,12 @@ function handleCallback() {
     
     // If TBK_TOKEN is present, user cancelled the transaction
     if ($tbkToken) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=cancelled');
         exit();
     }
     
     if (!$token) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=no_token');
         exit();
     }
     
@@ -202,7 +202,7 @@ function handleCallback() {
     logWebpay('COMMIT_RESULT', ['http_code' => $httpCode, 'result' => $result]);
     
     if ($httpCode !== 200) {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=commit_failed');
         exit();
     }
     
@@ -216,9 +216,9 @@ function handleCallback() {
         // Save purchase to purchases.json with full information
         savePurchaseFromWebpay($result, $buyOrder);
         
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
 }
@@ -327,10 +327,10 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
         createWebpayPaymentNotificationMessage($purchase);
 
         try {
-            $dbConfig = __DIR__ . '/db_config.php';
+            $dbConfig = __DIR__ . '/../../api/db_config.php';
             if (file_exists($dbConfig)) {
                 require_once $dbConfig;
-                require_once __DIR__ . '/orders_api.php';
+                require_once __DIR__ . '/../../api/orders_api.php';
                 $purchase['customer_name'] = explode('@', $userEmail)[0];
                 if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
@@ -441,6 +441,63 @@ function sendPurchaseConfirmationEmail($purchase) {
         logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
     } catch (Exception $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Create automated system message in panel chat after payment via WebPay
+ */
+function createWebpayPaymentNotificationMessage($purchase) {
+    try {
+        $pdo = getDbConnection();
+        if (!$pdo) return;
+
+        $userEmail = $purchase['user_email'];
+        if (empty($userEmail)) return;
+        $userName = $userEmail;
+
+        $stmt = $pdo->prepare("SELECT id FROM chat_conversations WHERE user_email = ? AND status = 'open' ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$conv) {
+            $stmt = $pdo->prepare("INSERT INTO chat_conversations (user_email, user_name, status, auto_messages_sent) VALUES (?, ?, 'open', '{}')");
+            $stmt->execute([$userEmail, $userName]);
+            $conversationId = intval($pdo->lastInsertId());
+        } else {
+            $conversationId = intval($conv['id']);
+        }
+
+        $amount = number_format($purchase['amount_clp'] ?? $purchase['amount'] ?? 0, 0, ',', '.');
+        $description = $purchase['description'] ?? 'Servicio Imporlan';
+        $isPlan = ($purchase['type'] ?? '') === 'plan';
+
+        if ($isPlan) {
+            $planName = $purchase['plan_name'] ?: $description;
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$planName} ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Tu plan ya esta activo. Nuestro equipo comenzara a trabajar en tu requerimiento de inmediato.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        } else {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por Cotizacion por Links ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Nuestro equipo revisara tu solicitud y te enviaremos la cotizacion a la brevedad.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message) VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)");
+        $stmt->execute([$conversationId, $message]);
+
+        $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$conversationId]);
+
+        logWebpay('CHAT_MSG_SENT', ['conv' => $conversationId, 'user' => $userEmail]);
+    } catch (Exception $e) {
+        logWebpay('CHAT_MSG_ERROR', ['error' => $e->getMessage()]);
     }
 }
 
