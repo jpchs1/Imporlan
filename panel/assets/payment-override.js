@@ -1,16 +1,15 @@
 /**
  * Payment Override for Imporlan Panel
  * Intercepts demo payment functions and redirects to real API calls.
- * Uses click interception (capturing phase) to capture payment data
- * BEFORE React's handler fires, solving the timing issue where
- * React closes the modal before async code can read it.
+ * Uses click interception (capturing phase) to DIRECTLY handle WebPay
+ * payments, bypassing React's handler entirely. This avoids all timing
+ * issues with alert overrides and modal closures.
  */
 
 (function() {
   'use strict';
 
   var API_BASE = 'https://www.imporlan.cl/api';
-  var _pendingPaymentData = null;
   var _webpayProcessing = false;
 
   function extractBoatLinksFromPage() {
@@ -51,6 +50,60 @@
 
   var originalAlert = window.alert;
 
+  function isWebPaySelected(modal) {
+    var texts = modal.querySelectorAll('h3, span, div, p, label');
+    for (var i = 0; i < texts.length; i++) {
+      var el = texts[i];
+      var text = (el.textContent || '').trim();
+      if (text === 'WebPay') {
+        var container = el.closest('[class*="border-red"], [class*="bg-red"], [class*="ring-red"]');
+        if (container) return true;
+        var parent = el.parentElement;
+        while (parent && parent !== modal) {
+          var cls = parent.className || '';
+          if (typeof cls === 'string' && (cls.indexOf('border-red') !== -1 || cls.indexOf('bg-red') !== -1 || cls.indexOf('ring') !== -1)) {
+            return true;
+          }
+          parent = parent.parentElement;
+        }
+      }
+    }
+    var checked = modal.querySelectorAll('input[type="radio"]:checked, [data-state="checked"], [aria-checked="true"]');
+    for (var j = 0; j < checked.length; j++) {
+      var radio = checked[j];
+      var radioParent = radio.closest('[role="dialog"] > div, [role="dialog"] div');
+      if (radioParent && (radioParent.textContent || '').indexOf('WebPay') !== -1) {
+        return true;
+      }
+    }
+    var allOptions = modal.querySelectorAll('[class*="cursor-pointer"], [role="option"], [role="radio"]');
+    for (var k = 0; k < allOptions.length; k++) {
+      var opt = allOptions[k];
+      if ((opt.textContent || '').indexOf('WebPay') !== -1) {
+        var cls2 = opt.className || '';
+        if (typeof cls2 === 'string' && (cls2.indexOf('border-red') !== -1 || cls2.indexOf('selected') !== -1 || cls2.indexOf('ring') !== -1)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function extractPaymentData(modal) {
+    var modalText = modal.textContent || '';
+    var amountMatch = modalText.match(/\$\s*([\d.,]+)\s*CLP/i);
+    if (!amountMatch) {
+      amountMatch = modalText.match(/([\d.,]+)\s*CLP/i);
+    }
+    if (!amountMatch) return null;
+    var rawAmount = amountMatch[1].replace(/[.\s]/g, '').replace(',', '.');
+    var amount = parseInt(rawAmount, 10);
+    if (isNaN(amount) || amount <= 0) return null;
+    var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Selecciona|Cancelar|Pagar))/i);
+    var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
+    return { amount: amount, description: description };
+  }
+
   document.addEventListener('click', function(e) {
     var btn = e.target && (e.target.closest ? e.target.closest('button') : null);
     if (!btn) return;
@@ -60,22 +113,29 @@
     var modal = (btn.closest ? btn.closest('[role="dialog"]') : null) || document.querySelector('[role="dialog"]');
     if (!modal) return;
 
-    var modalText = modal.textContent || '';
-    var amountMatch = modalText.match(/\$\s*([\d.,]+)\s*CLP/i);
-    if (!amountMatch) {
-      amountMatch = modalText.match(/([\d.,]+)\s*CLP/i);
+    if (!isWebPaySelected(modal)) {
+      console.log('WebPay override: Not WebPay selected, letting React handle');
+      return;
     }
-    if (!amountMatch) return;
 
-    var rawAmount = amountMatch[1].replace(/[.\s]/g, '').replace(',', '.');
-    var amount = parseInt(rawAmount, 10);
-    if (isNaN(amount) || amount <= 0) return;
+    if (_webpayProcessing) {
+      console.log('WebPay: Already processing');
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return;
+    }
 
-    var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Selecciona|Cancelar|Pagar))/i);
-    var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
+    var paymentData = extractPaymentData(modal);
+    if (!paymentData) {
+      console.error('WebPay: Could not extract payment data from modal');
+      return;
+    }
 
-    _pendingPaymentData = { amount: amount, description: description, ts: Date.now() };
-    console.log('WebPay: Pre-captured payment data from modal:', _pendingPaymentData);
+    console.log('WebPay: Intercepted click, processing payment directly:', paymentData);
+    e.stopImmediatePropagation();
+    e.preventDefault();
+
+    processRealWebPay(paymentData.amount, paymentData.description);
   }, true);
 
   window.alert = function(message) {
@@ -88,40 +148,7 @@
         msgLower.indexOf('configurar la api') !== -1 || msgLower.indexOf('requiere configuracion') !== -1 ||
         (msgLower.indexOf('webpay') !== -1 && msgLower.indexOf('transbank') !== -1) ||
         (msgLower.indexOf('webpay') !== -1 && msgLower.indexOf('disponible') !== -1)) {
-
-      if (_webpayProcessing) {
-        console.log('WebPay: Already processing, ignoring duplicate alert');
-        return;
-      }
-
-      console.log('WebPay: Intercepted alert:', message);
-
-      if (_pendingPaymentData && (Date.now() - _pendingPaymentData.ts < 5000)) {
-        console.log('WebPay: Using pre-captured data:', _pendingPaymentData);
-        var data = _pendingPaymentData;
-        _pendingPaymentData = null;
-        processRealWebPay(data.amount, data.description);
-        return;
-      }
-
-      var modal = document.querySelector('[role="dialog"]');
-      if (modal) {
-        var modalText = modal.textContent || '';
-        var amountMatch = modalText.match(/\$\s*([\d.,]+)\s*CLP/i) || modalText.match(/([\d.,]+)\s*CLP/i);
-        if (amountMatch) {
-          var rawAmount = amountMatch[1].replace(/[.\s]/g, '').replace(',', '.');
-          var amount = parseInt(rawAmount, 10);
-          if (!isNaN(amount) && amount > 0) {
-            var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Selecciona|Cancelar|Pagar))/i);
-            var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
-            console.log('WebPay: Extracted from modal fallback:', { amount: amount, description: description });
-            processRealWebPay(amount, description);
-            return;
-          }
-        }
-      }
-
-      console.error('WebPay: Could not extract payment data');
+      console.log('WebPay: Blocked demo alert');
       return;
     }
 
