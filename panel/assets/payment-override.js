@@ -13,6 +13,42 @@
   var _pendingPaymentData = null;
   var _webpayProcessing = false;
 
+  function extractBoatLinksFromPage() {
+    var links = [];
+    var inputs = document.querySelectorAll('input[type="text"], input[type="url"], input:not([type])');
+    inputs.forEach(function(input) {
+      var val = (input.value || '').trim();
+      var ph = (input.placeholder || '').toLowerCase();
+      if (val && (val.match(/^https?:\/\//i) || ph.includes('boattrader') || ph.includes('yacht') || ph.includes('boats.com'))) {
+        links.push(val);
+      }
+    });
+    if (links.length > 0) {
+      try { sessionStorage.setItem('imporlan_boat_links', JSON.stringify(links)); } catch(e) {}
+    }
+    if (links.length === 0) {
+      try {
+        var stored = sessionStorage.getItem('imporlan_boat_links');
+        if (stored) links = JSON.parse(stored);
+      } catch(e) {}
+    }
+    return links;
+  }
+
+  function extractUserInfo() {
+    var info = { email: '', name: '', phone: '' };
+    try {
+      var raw = localStorage.getItem('imporlan_user');
+      if (raw) {
+        var u = JSON.parse(raw);
+        info.email = u.email || u.user_email || '';
+        info.name = u.name || u.full_name || '';
+        info.phone = u.phone || u.telefono || '';
+      }
+    } catch(e) {}
+    return info;
+  }
+
   var originalAlert = window.alert;
 
   document.addEventListener('click', function(e) {
@@ -104,16 +140,10 @@
     try {
       showLoadingOverlay('Conectando con WebPay...');
 
-      var userStr = localStorage.getItem('imporlan_user');
-      var userEmail = '';
-      var userName = '';
-      if (userStr) {
-        try {
-          var u = JSON.parse(userStr);
-          userEmail = u.email || '';
-          userName = u.name || '';
-        } catch(e) {}
-      }
+      var userInfo = extractUserInfo();
+      var userEmail = userInfo.email;
+      var userName = userInfo.name;
+      var boatLinks = extractBoatLinksFromPage();
 
       var buyOrder = 'ORD_' + Date.now();
       var sessionId = 'panel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -130,13 +160,16 @@
         planDays = 14;
       }
 
+      console.log('WebPay: boat_links extracted:', boatLinks);
+
       sessionStorage.setItem('webpay_order', JSON.stringify({
         buy_order: buyOrder,
         user_email: userEmail,
         purchase_type: purchaseType,
         purchase_description: description,
         amount_clp: amount,
-        plan_name: planName
+        plan_name: planName,
+        boat_links: boatLinks
       }));
 
       console.log('WebPay: Creating transaction...', { amount: amount, buyOrder: buyOrder });
@@ -150,6 +183,9 @@
           buy_order: buyOrder,
           user_email: userEmail,
           payer_name: userName,
+          payer_phone: userInfo.phone,
+          country: 'Chile',
+          boat_links: boatLinks,
           plan_name: planName,
           description: description,
           type: purchaseType,
@@ -215,6 +251,10 @@
 
   async function processRealMercadoPago(amount, description) {
     try {
+      var userInfo = extractUserInfo();
+      var boatLinks = extractBoatLinksFromPage();
+      console.log('Processing MercadoPago payment:', { amount: amount, description: description, boatLinks: boatLinks });
+
       showLoadingOverlay('Procesando pago con MercadoPago...');
       var response = await fetch(API_BASE + '/mercadopago.php?action=create_preference', {
         method: 'POST',
@@ -222,7 +262,12 @@
         body: JSON.stringify({
           amount: parseInt(amount),
           description: decodeURIComponent(description || 'Pago Imporlan'),
-          plan_name: decodeURIComponent(description || 'Pago Imporlan')
+          plan_name: decodeURIComponent(description || 'Pago Imporlan'),
+          payer_email: userInfo.email,
+          payer_name: userInfo.name,
+          payer_phone: userInfo.phone,
+          country: 'Chile',
+          boat_links: boatLinks
         })
       });
       var data = await response.json();
@@ -246,6 +291,11 @@
         return;
       }
       showLoadingOverlay('Procesando pago con PayPal...');
+
+      var userInfo = extractUserInfo();
+      var boatLinks = extractBoatLinksFromPage();
+      console.log('PayPal: boat_links extracted:', boatLinks);
+
       var response = await fetch(API_BASE + '/paypal.php?action=create_order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +303,12 @@
           amount: parsedAmount,
           description: description || 'Pago Imporlan',
           plan_name: description || 'Pago Imporlan',
-          currency: 'USD'
+          currency: 'USD',
+          payer_email: userInfo.email,
+          payer_name: userInfo.name,
+          payer_phone: userInfo.phone,
+          country: 'Chile',
+          boat_links: boatLinks
         })
       });
       var data = await response.json();

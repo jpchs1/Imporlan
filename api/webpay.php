@@ -17,11 +17,10 @@ require_once __DIR__ . '/db_config.php';
 
 setCorsHeaders();
 
-// WebPay Plus Integration/Test Credentials
-// TODO: Replace with production credentials when available from Transbank
-define('WEBPAY_COMMERCE_CODE', '597055555532');
-define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
-define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
+// WebPay Plus Production Credentials
+define('WEBPAY_COMMERCE_CODE', '597055555532'); // Replace with production code
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C'); // Replace with production key
+define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl'); // Production environment
 
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -84,11 +83,13 @@ function createTransaction($data) {
     // Store purchase info in session for later use in callback
     $purchaseInfo = [
         'user_email' => $data['user_email'] ?? null,
+        'payer_name' => $data['payer_name'] ?? null,
         'plan_name' => $data['plan_name'] ?? '',
         'description' => $data['description'] ?? '',
         'type' => $data['type'] ?? 'link',
         'days' => $data['days'] ?? 7,
-        'amount' => $amount
+        'amount' => $amount,
+        'boat_links' => $data['boat_links'] ?? []
     ];
     
     // Save purchase info to a temporary file for retrieval in callback
