@@ -580,6 +580,11 @@ switch (true) {
         require_once __DIR__ . '/register-proxy.php';
         break;
 
+    // Hook: /api/register-hook.php -> insert user into local MySQL + send notification
+    case preg_match('#^(/api)?/register-hook\.php$#', $uriPath):
+        require_once __DIR__ . '/register-hook.php';
+        break;
+
     // Default - Not found
     default:
         http_response_code(404);
