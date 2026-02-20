@@ -491,6 +491,15 @@
     window.addEventListener("hashchange", function () {
       checkPage();
     });
+    var keepAliveCount = 0;
+    var keepAlive = setInterval(function () {
+      keepAliveCount++;
+      if (keepAliveCount > 30) { clearInterval(keepAlive); return; }
+      if (!document.getElementById("sidebar-tracking-admin")) {
+        injectSidebarItem();
+      }
+      checkPage();
+    }, 2000);
     if (isTrackingPage()) setTimeout(checkPage, 500);
   }
 
