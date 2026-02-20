@@ -399,14 +399,10 @@
       moduleHidden = false;
       checkPage();
     });
-    var keepAliveCount = 0;
-    var keepAlive = setInterval(function () {
-      keepAliveCount++;
-      if (keepAliveCount > 30) { clearInterval(keepAlive); return; }
+    setInterval(function () {
       if (!document.getElementById("sidebar-tracking-user")) {
         injectSidebarItem();
       }
-      checkPage();
     }, 2000);
     checkPage();
   }
