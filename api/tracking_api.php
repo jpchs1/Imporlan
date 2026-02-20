@@ -576,12 +576,7 @@ function adminRotateFeatured() {
             SELECT v.id FROM vessels v
             WHERE v.type='auto' AND v.status='active'
             AND v.destination_label LIKE '%Chile%'
-            AND EXISTS (
-                SELECT 1 FROM vessel_positions vp 
-                WHERE vp.vessel_id = v.id 
-                AND vp.lat < -30
-                ORDER BY vp.fetched_at DESC LIMIT 1
-            )
+            AND (SELECT vp.lat FROM vessel_positions vp WHERE vp.vessel_id = v.id ORDER BY vp.fetched_at DESC LIMIT 1) < -30
         ")->fetchAll(PDO::FETCH_COLUMN);
 
         $rotated = 0;
@@ -661,7 +656,11 @@ function adminAssignVessel() {
         $eventStmt = $pdo->prepare("INSERT INTO order_events (order_id, event_type, meta_json) VALUES (?, 'TRACKING_ASSIGNED', ?)");
         $eventStmt->execute([$orderId, json_encode(['vessel_id' => $vesselId, 'vessel_name' => $vessel['display_name'], 'token' => $token])]);
 
-        $trackingUrl = 'https://www.imporlan.cl/t/' . $token;
+        $scriptPath = $_SERVER['SCRIPT_FILENAME'] ?? __FILE__;
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        $isTest = (strpos($scriptPath, '/test/') !== false || strpos($requestUri, '/test/') !== false);
+        $baseUrl = $isTest ? 'https://www.imporlan.cl/test/t/' : 'https://www.imporlan.cl/t/';
+        $trackingUrl = $baseUrl . $token;
         $emailSent = false;
         if (!empty($order['customer_email'])) {
             try {

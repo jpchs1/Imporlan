@@ -12,12 +12,7 @@ try {
         SELECT v.id FROM vessels v
         WHERE v.type='auto' AND v.status='active'
         AND v.destination_label LIKE '%Chile%'
-        AND EXISTS (
-            SELECT 1 FROM vessel_positions vp
-            WHERE vp.vessel_id = v.id
-            AND vp.lat < -30
-            ORDER BY vp.fetched_at DESC LIMIT 1
-        )
+        AND (SELECT vp.lat FROM vessel_positions vp WHERE vp.vessel_id = v.id ORDER BY vp.fetched_at DESC LIMIT 1) < -30
     ")->fetchAll(PDO::FETCH_COLUMN);
 
     $rotatedCount = 0;
