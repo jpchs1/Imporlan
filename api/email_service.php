@@ -2504,6 +2504,82 @@ BASE64;
         }
     }
     
+    /**
+     * =====================================================
+     * TRACKING EMAILS
+     * =====================================================
+     */
+    
+    public function sendTrackingActivated($userEmail, $orderNumber, $trackingUrl) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Tracking Activo') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Tu Seguimiento esta Activo
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola, tu embarque <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($orderNumber) . '</strong> ya tiene tracking en tiempo real.
+                Podras ver la posicion de tu embarcacion en cualquier momento.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles del Seguimiento', [
+                'Expediente' => $orderNumber,
+                'Estado' => 'Activo - En seguimiento',
+                'Acceso' => 'Link exclusivo de seguimiento'
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver Seguimiento En Vivo', $trackingUrl) . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Este enlace es exclusivo para tu embarque. Puedes compartirlo con quien necesites.
+            </p>';
+        
+        $htmlContent = $this->getBaseTemplate($content, 'Tracking Activo - Imporlan');
+        return $this->sendEmail($userEmail, 'Tu Seguimiento esta Activo - Imporlan', $htmlContent, 'tracking_activated', ['order_number' => $orderNumber]);
+    }
+    
+    public function sendVesselArrived($userEmail, $orderNumber, $vesselName) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Arribado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                El Barco Arribo a Puerto
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                El buque <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($vesselName) . '</strong> con tu embarque 
+                <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($orderNumber) . '</strong> ha llegado a Chile.
+            </p>
+            
+            ' . $this->getInfoCard('Informacion de Arribo', [
+                'Embarcacion' => $vesselName,
+                'Expediente' => $orderNumber,
+                'Estado' => 'Arribado a puerto chileno'
+            ]) . '
+            
+            <p style="margin: 25px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Nuestro equipo se pondra en contacto contigo para coordinar los siguientes pasos del proceso de internacion.
+            </p>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ir al Panel', $this->panelUrl) . '
+            </div>';
+        
+        $htmlContent = $this->getBaseTemplate($content, 'Embarque Arribado - Imporlan');
+        return $this->sendEmail($userEmail, 'Tu Embarque ha Arribado - Imporlan', $htmlContent, 'vessel_arrived', ['order_number' => $orderNumber, 'vessel_name' => $vesselName]);
+    }
+    
     public function getEmailStats() {
         if (!$this->pdo) return ['error' => 'Database connection failed'];
         try {
