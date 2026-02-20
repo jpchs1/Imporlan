@@ -25,6 +25,8 @@
   var moduleHidden = false;
   var mapInstance = null;
   var leafletLoaded = false;
+  var isRendering = false;
+  var currentHash = '';
 
   function getAdminToken() {
     return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
@@ -232,7 +234,9 @@
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">IMO</label><input id="ta-f-imo" style="' + inputStyle() + '" placeholder="7 digitos" maxlength="7"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">MMSI</label><input id="ta-f-mmsi" style="' + inputStyle() + '" placeholder="9 digitos" maxlength="9"></div></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Naviera</label><input id="ta-f-shipping" style="' + inputStyle() + '" placeholder="Ej: MSC, Maersk, CMA CGM"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Call Sign</label><input id="ta-f-callsign" style="' + inputStyle() + '" placeholder="Ej: DFDG"></div></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Cliente</label><input id="ta-f-client" style="' + inputStyle() + '" placeholder="Nombre del cliente"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Origen</label><input id="ta-f-origin" style="' + inputStyle() + '" placeholder="Ej: Miami, FL"></div>' +
@@ -264,6 +268,7 @@
 
       var data = {
         display_name: name, imo: imo || null, mmsi: mmsi || null,
+        call_sign: document.getElementById("ta-f-callsign").value.trim() || null,
         shipping_line: document.getElementById("ta-f-shipping").value.trim() || null,
         client_name: document.getElementById("ta-f-client").value.trim() || null,
         origin_label: document.getElementById("ta-f-origin").value.trim() || null,
@@ -303,8 +308,9 @@
       '<div style="padding:24px 28px">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Nombre</label><input id="ta-e-name" value="' + escapeHtml(vessel.display_name) + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Cliente</label><input id="ta-e-client" value="' + escapeHtml(vessel.client_name || '') + '" style="' + inputStyle() + '" placeholder="Nombre del cliente"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Naviera</label><input id="ta-e-shipping" value="' + escapeHtml(vessel.shipping_line || '') + '" style="' + inputStyle() + '"></div>' +
-      '<div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Cliente</label><input id="ta-e-client" value="' + escapeHtml(vessel.client_name || '') + '" style="' + inputStyle() + '" placeholder="Nombre del cliente"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Call Sign</label><input id="ta-e-callsign" value="' + escapeHtml(vessel.call_sign || '') + '" style="' + inputStyle() + '" placeholder="Ej: DFDG"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">IMO</label><input id="ta-e-imo" value="' + escapeHtml(vessel.imo || '') + '" style="' + inputStyle() + '" maxlength="7"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">MMSI</label><input id="ta-e-mmsi" value="' + escapeHtml(vessel.mmsi || '') + '" style="' + inputStyle() + '" maxlength="9"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Origen</label><input id="ta-e-origin" value="' + escapeHtml(vessel.origin_label || '') + '" style="' + inputStyle() + '"></div>' +
@@ -364,8 +370,9 @@
         var data = {
           id: vid,
           display_name: document.getElementById("ta-e-name").value.trim(),
-          shipping_line: document.getElementById("ta-e-shipping").value.trim() || null,
           client_name: document.getElementById("ta-e-client").value.trim() || null,
+          shipping_line: document.getElementById("ta-e-shipping").value.trim() || null,
+          call_sign: document.getElementById("ta-e-callsign").value.trim() || null,
           imo: document.getElementById("ta-e-imo").value.trim() || null,
           mmsi: document.getElementById("ta-e-mmsi").value.trim() || null,
           origin_label: document.getElementById("ta-e-origin").value.trim() || null,
@@ -428,8 +435,14 @@
 
   async function renderModule() {
     if (!isTrackingPage()) return;
+    if (isRendering) return;
+    var newHash = window.location.hash;
+    if (newHash === currentHash && document.getElementById("ta-e-name")) return;
+    if (newHash === currentHash && document.getElementById("ta-search")) return;
+    currentHash = newHash;
+    isRendering = true;
     var main = document.querySelector("main");
-    if (!main) return;
+    if (!main) { isRendering = false; return; }
 
     var vesselId = getVesselIdFromHash();
 
@@ -458,6 +471,7 @@
 
     addStyles();
     attachListeners();
+    isRendering = false;
   }
 
   function hideModule() {
@@ -478,9 +492,12 @@
       injectSidebarItem();
     }
     updateSidebarActive();
-    if (isTrackingPage() && !moduleHidden) {
-      var main = document.querySelector("main");
-      if (main) renderModule();
+    if (isTrackingPage() && !moduleHidden && !isRendering) {
+      var newHash = window.location.hash;
+      if (newHash !== currentHash || (!document.getElementById("ta-search") && !document.getElementById("ta-e-name"))) {
+        var main = document.querySelector("main");
+        if (main) renderModule();
+      }
     }
   }
 
