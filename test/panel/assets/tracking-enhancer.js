@@ -167,11 +167,12 @@
       var lon = parseFloat(v.lon);
       if (isNaN(lat) || isNaN(lon)) return;
 
+      var labelName = v.client_name || v.display_name;
       var shipIcon = L.divIcon({
         className: "tracking-ship-icon",
-        html: '<div style="width:32px;height:32px;background:' + (v.id == selectedVesselId ? '#3b82f6' : '#0f172a') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        html: '<div style="display:flex;flex-direction:column;align-items:center"><div style="background:' + (v.id == selectedVesselId ? '#1e40af' : '#0f172a') + ';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,.3);max-width:120px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(labelName) + '</div><div style="width:32px;height:32px;background:' + (v.id == selectedVesselId ? '#3b82f6' : '#0f172a') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div></div>',
+        iconSize: [120, 52],
+        iconAnchor: [60, 52]
       });
 
       var marker = L.marker([lat, lon], { icon: shipIcon })
@@ -231,6 +232,7 @@
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
         '<div style="width:36px;height:36px;background:linear-gradient(135deg,' + (v.status === 'active' ? '#3b82f6,#60a5fa' : '#64748b,#94a3b8') + ');border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div>' +
         '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(v.display_name) + '</div>' +
+        (v.client_name ? '<div style="font-size:11px;color:#2563eb;font-weight:500;margin-top:1px">' + escapeHtml(v.client_name) + '</div>' : '') +
         '<div style="font-size:11px;color:#64748b;margin-top:2px">' + escapeHtml(v.shipping_line || '') + '</div></div>' +
         getStatusBadge(v.status) + '</div>' +
         '<div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8">' +
@@ -283,6 +285,7 @@
       '<div style="display:grid;gap:10px">';
 
     var fields = [
+      { label: "Cliente", value: vessel.client_name },
       { label: "Naviera", value: vessel.shipping_line },
       { label: "IMO", value: vessel.imo },
       { label: "MMSI", value: vessel.mmsi },
