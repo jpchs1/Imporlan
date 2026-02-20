@@ -207,6 +207,7 @@
       html += '<div class="ta-vessel-row" data-id="' + v.id + '" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:18px 24px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px">' +
         '<div style="width:44px;height:44px;background:linear-gradient(135deg,' + (v.status === 'active' ? '#3b82f6,#60a5fa' : '#64748b,#94a3b8') + ');border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div>' +
         '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600;color:#0f172a">' + escapeHtml(v.display_name) + '</div>' +
+        (v.client_name ? '<div style="font-size:12px;color:#2563eb;font-weight:500;margin-top:2px">Cliente: ' + escapeHtml(v.client_name) + '</div>' : '') +
         '<div style="font-size:12px;color:#64748b;margin-top:2px">' + (v.shipping_line ? escapeHtml(v.shipping_line) + ' | ' : '') + 'IMO: ' + escapeHtml(v.imo || '-') + ' | MMSI: ' + escapeHtml(v.mmsi || '-') + '</div></div>' +
         '<div style="display:flex;align-items:center;gap:12px">' +
         (v.lat ? '<span style="font-size:11px;color:#94a3b8">Lat: ' + parseFloat(v.lat).toFixed(2) + ', Lon: ' + parseFloat(v.lon).toFixed(2) + '</span>' : '') +
@@ -232,6 +233,7 @@
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">IMO</label><input id="ta-f-imo" style="' + inputStyle() + '" placeholder="7 digitos" maxlength="7"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">MMSI</label><input id="ta-f-mmsi" style="' + inputStyle() + '" placeholder="9 digitos" maxlength="9"></div></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Naviera</label><input id="ta-f-shipping" style="' + inputStyle() + '" placeholder="Ej: MSC, Maersk, CMA CGM"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Cliente</label><input id="ta-f-client" style="' + inputStyle() + '" placeholder="Nombre del cliente"></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Origen</label><input id="ta-f-origin" style="' + inputStyle() + '" placeholder="Ej: Miami, FL"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Destino</label><input id="ta-f-dest" style="' + inputStyle() + '" placeholder="Ej: San Antonio, Chile"></div></div>' +
@@ -263,6 +265,7 @@
       var data = {
         display_name: name, imo: imo || null, mmsi: mmsi || null,
         shipping_line: document.getElementById("ta-f-shipping").value.trim() || null,
+        client_name: document.getElementById("ta-f-client").value.trim() || null,
         origin_label: document.getElementById("ta-f-origin").value.trim() || null,
         destination_label: document.getElementById("ta-f-dest").value.trim() || null,
         lat: document.getElementById("ta-f-lat").value || null,
@@ -301,6 +304,7 @@
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Nombre</label><input id="ta-e-name" value="' + escapeHtml(vessel.display_name) + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Naviera</label><input id="ta-e-shipping" value="' + escapeHtml(vessel.shipping_line || '') + '" style="' + inputStyle() + '"></div>' +
+      '<div style="grid-column:1/-1"><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Cliente</label><input id="ta-e-client" value="' + escapeHtml(vessel.client_name || '') + '" style="' + inputStyle() + '" placeholder="Nombre del cliente"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">IMO</label><input id="ta-e-imo" value="' + escapeHtml(vessel.imo || '') + '" style="' + inputStyle() + '" maxlength="7"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">MMSI</label><input id="ta-e-mmsi" value="' + escapeHtml(vessel.mmsi || '') + '" style="' + inputStyle() + '" maxlength="9"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Origen</label><input id="ta-e-origin" value="' + escapeHtml(vessel.origin_label || '') + '" style="' + inputStyle() + '"></div>' +
@@ -361,6 +365,7 @@
           id: vid,
           display_name: document.getElementById("ta-e-name").value.trim(),
           shipping_line: document.getElementById("ta-e-shipping").value.trim() || null,
+          client_name: document.getElementById("ta-e-client").value.trim() || null,
           imo: document.getElementById("ta-e-imo").value.trim() || null,
           mmsi: document.getElementById("ta-e-mmsi").value.trim() || null,
           origin_label: document.getElementById("ta-e-origin").value.trim() || null,

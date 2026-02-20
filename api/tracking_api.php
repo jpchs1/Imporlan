@@ -109,6 +109,7 @@ function runTrackingMigration() {
                 mmsi VARCHAR(9) NULL,
                 call_sign VARCHAR(50) NULL,
                 shipping_line VARCHAR(255) NULL,
+                client_name VARCHAR(255) NULL,
                 origin_label VARCHAR(255) NULL,
                 destination_label VARCHAR(255) NULL,
                 eta_manual DATETIME NULL,
@@ -143,6 +144,11 @@ function runTrackingMigration() {
         }
         if (!in_array('tracking_public_token', $columns)) {
             $pdo->exec("ALTER TABLE orders ADD COLUMN tracking_public_token VARCHAR(64) NULL UNIQUE");
+        }
+
+        $vesselCols = $pdo->query("SHOW COLUMNS FROM vessels")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('client_name', $vesselCols)) {
+            $pdo->exec("ALTER TABLE vessels ADD COLUMN client_name VARCHAR(255) NULL AFTER shipping_line");
         }
 
         echo json_encode(['success' => true, 'message' => 'Tracking tables created/updated successfully']);
@@ -423,8 +429,8 @@ function adminCreateVessel() {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO vessels (type, display_name, imo, mmsi, call_sign, shipping_line,
-                                origin_label, destination_label, eta_manual, status, is_featured)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                client_name, origin_label, destination_label, eta_manual, status, is_featured)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $input['type'] ?? 'manual',
@@ -433,6 +439,7 @@ function adminCreateVessel() {
             $input['mmsi'] ?? null,
             $input['call_sign'] ?? null,
             $input['shipping_line'] ?? null,
+            $input['client_name'] ?? null,
             $input['origin_label'] ?? null,
             $input['destination_label'] ?? null,
             $input['eta_manual'] ?? null,
@@ -485,7 +492,7 @@ function adminUpdateVessel() {
 
     $allowedFields = [
         'type', 'display_name', 'imo', 'mmsi', 'call_sign', 'shipping_line',
-        'origin_label', 'destination_label', 'eta_manual', 'status', 'is_featured'
+        'client_name', 'origin_label', 'destination_label', 'eta_manual', 'status', 'is_featured'
     ];
 
     $sets = [];
