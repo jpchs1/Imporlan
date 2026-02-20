@@ -469,6 +469,9 @@
   }
 
   function checkPage() {
+    if (!document.getElementById("sidebar-tracking-admin")) {
+      injectSidebarItem();
+    }
     updateSidebarActive();
     if (isTrackingPage() && !moduleHidden) {
       var main = document.querySelector("main");
@@ -478,16 +481,14 @@
 
   function init() {
     injectSidebarItem();
-    var lastHash = window.location.hash;
     var observer = new MutationObserver(function () {
-      if (window.location.hash !== lastHash) {
-        lastHash = window.location.hash;
-        checkPage();
+      if (!document.getElementById("sidebar-tracking-admin")) {
+        injectSidebarItem();
       }
+      checkPage();
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("hashchange", function () {
-      lastHash = window.location.hash;
       checkPage();
     });
     if (isTrackingPage()) setTimeout(checkPage, 500);

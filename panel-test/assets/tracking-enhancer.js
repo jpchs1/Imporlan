@@ -372,6 +372,9 @@
   }
 
   function checkPage() {
+    if (!document.getElementById("sidebar-tracking-user")) {
+      injectSidebarItem();
+    }
     updateSidebarActive();
     if (isTrackingPage() && !moduleHidden) {
       var main = document.querySelector("main");
