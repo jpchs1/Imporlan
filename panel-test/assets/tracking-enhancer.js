@@ -68,28 +68,25 @@
       if (checkCount > maxChecks) return;
       if (document.getElementById("sidebar-tracking-user")) return;
 
-      var nav = document.querySelector("aside nav") || document.querySelector("aside");
+      var nav = document.querySelector("aside nav") || document.querySelector("nav");
       if (!nav) { setTimeout(tryInject, 500); return; }
 
-      var ul = nav.querySelector("ul");
+      var buttons = nav.querySelectorAll("button");
+      if (buttons.length === 0) { setTimeout(tryInject, 500); return; }
+
       var refBtn = null;
-      var buttons = nav.querySelectorAll("button, a");
       buttons.forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("productos") || text.includes("importaciones") || text.includes("marketplace")) {
+        if (text.includes("configuracion") || text.includes("auditoria") || text.includes("marketplace") || text.includes("productos")) {
           refBtn = el;
         }
       });
-      if (!refBtn && buttons.length > 0) refBtn = buttons[buttons.length - 1];
-      if (!refBtn) { setTimeout(tryInject, 500); return; }
+      if (!refBtn) refBtn = buttons[buttons.length - 1];
 
-      var li = document.createElement("li");
       var btn = document.createElement("button");
       btn.id = "sidebar-tracking-user";
-      if (refBtn.className) {
-        btn.className = refBtn.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400|bg-blue-50|text-blue-600/g, "");
-      }
-      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg> Seguimiento';
+      btn.className = refBtn.className.replace(/bg-blue-500\/20|bg-cyan-500\/20|text-cyan-400|text-blue-400|border-r-4|border-cyan-400/g, "");
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg> Seguimiento';
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -97,15 +94,7 @@
         window.location.hash = "#seguimiento";
       });
 
-      li.appendChild(btn);
-      var refLi = refBtn.closest("li");
-      if (refLi && refLi.parentNode) {
-        refLi.parentNode.insertBefore(li, refLi.nextSibling);
-      } else if (ul) {
-        ul.appendChild(li);
-      } else {
-        nav.appendChild(li);
-      }
+      refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
       updateSidebarActive();
     }
     tryInject();
@@ -114,12 +103,24 @@
   function updateSidebarActive() {
     var item = document.getElementById("sidebar-tracking-user");
     if (!item) return;
+    var nav = item.parentNode;
     if (isTrackingPage()) {
+      if (nav) {
+        var siblings = nav.querySelectorAll("button");
+        siblings.forEach(function (s) {
+          if (s !== item) {
+            s.className = s.className.replace(/bg-blue-500\/20|bg-blue-600|text-white/g, "");
+            if (s.className.indexOf("text-gray") === -1 && s.className.indexOf("text-slate") === -1) {
+              s.className = s.className.replace(/text-\S+/g, "") + " text-gray-300";
+            }
+          }
+        });
+      }
       item.style.background = "rgba(59,130,246,0.15)";
-      item.style.color = "#3b82f6";
+      item.style.color = "#60a5fa";
       item.style.fontWeight = "600";
     } else {
-      item.style.background = "transparent";
+      item.style.background = "";
       item.style.color = "";
       item.style.fontWeight = "";
     }
@@ -371,6 +372,9 @@
   }
 
   function checkPage() {
+    if (!document.getElementById("sidebar-tracking-user")) {
+      injectSidebarItem();
+    }
     updateSidebarActive();
     if (isTrackingPage() && !moduleHidden) {
       var main = document.querySelector("main");
