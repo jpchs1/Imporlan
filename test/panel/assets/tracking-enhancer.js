@@ -389,12 +389,25 @@
   function init() {
     injectSidebarItem();
     var observer = new MutationObserver(function () {
+      if (!document.getElementById("sidebar-tracking-user")) {
+        injectSidebarItem();
+      }
       checkPage();
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("hashchange", function () {
+      moduleHidden = false;
       checkPage();
     });
+    var keepAliveCount = 0;
+    var keepAlive = setInterval(function () {
+      keepAliveCount++;
+      if (keepAliveCount > 30) { clearInterval(keepAlive); return; }
+      if (!document.getElementById("sidebar-tracking-user")) {
+        injectSidebarItem();
+      }
+      checkPage();
+    }, 2000);
     checkPage();
   }
 
