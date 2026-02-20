@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seguimiento de Embarque - Imporlan</title>
+  <meta property="og:title" content="Seguimiento de Embarque - Imporlan">
+  <meta property="og:description" content="Sigue tu embarque en tiempo real con Imporlan">
+  <meta property="og:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
+    .header { background: linear-gradient(135deg, #0a1628 0%, #1a365d 100%); padding: 20px 0; }
+    .header-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .logo-text { color: #fff; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo-sub { color: #60a5fa; font-size: 12px; font-weight: 500; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .loading { text-align: center; padding: 80px 20px; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box { text-align: center; padding: 80px 20px; }
+    .error-box h2 { color: #ef4444; font-size: 20px; margin-bottom: 8px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 768px) { .info-grid { grid-template-columns: 1fr; } }
+    .card { background: #fff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+    .card-header h3 { font-size: 15px; font-weight: 600; color: #0f172a; }
+    .card-body { padding: 20px; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 13px; color: #64748b; }
+    .info-value { font-size: 14px; font-weight: 500; color: #0f172a; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .status-active { background: #10b981; color: #fff; }
+    .status-arrived { background: #3b82f6; color: #fff; }
+    .status-scheduled { background: #f59e0b; color: #fff; }
+    #map { width: 100%; height: 450px; border-radius: 16px; border: 1px solid #e2e8f0; }
+    @media (max-width: 768px) { #map { height: 300px; } }
+    .footer { text-align: center; padding: 24px; color: #94a3b8; font-size: 13px; }
+    .footer a { color: #3b82f6; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-inner">
+      <a href="https://www.imporlan.cl" class="logo">
+        <div>
+          <div class="logo-text">Imporlan</div>
+          <div class="logo-sub">Seguimiento de Embarque</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="container" id="tracking-content">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p style="color:#64748b">Cargando seguimiento...</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Powered by <a href="https://www.imporlan.cl" target="_blank">Imporlan</a> - Importacion de embarcaciones y motos de agua</p>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function () {
+      var pathParts = window.location.pathname.split('/').filter(Boolean);
+      var token = pathParts.length >= 2 ? pathParts[1] : null;
+      var API_BASE = '/api';
+
+      if (!token) {
+        showError('Token de seguimiento no valido');
+        return;
+      }
+
+      fetch(API_BASE + '/tracking_api.php?action=public_tracking&token=' + encodeURIComponent(token))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) {
+            showError(data.error || 'Seguimiento no encontrado');
+            return;
+          }
+          renderTracking(data.tracking);
+        })
+        .catch(function () {
+          showError('Error al cargar el seguimiento');
+        });
+
+      function showError(msg) {
+        document.getElementById('tracking-content').innerHTML =
+          '<div class="error-box"><h2>No disponible</h2><p style="color:#64748b">' + msg + '</p></div>';
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return 'N/A';
+        var d = new Date(dateStr);
+        return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+
+      function getStatusLabel(status) {
+        var labels = { active: 'Navegando', arrived: 'Arribado', scheduled: 'Programado', inactive: 'Inactivo' };
+        return labels[status] || status;
+      }
+
+      function getStatusClass(status) {
+        if (status === 'active') return 'status-active';
+        if (status === 'arrived') return 'status-arrived';
+        return 'status-scheduled';
+      }
+
+      function renderTracking(t) {
+        var pos = t.current_position;
+        var html = '<div style="margin-bottom:24px">' +
+          '<h1 style="font-size:24px;font-weight:700;color:#0f172a;margin-bottom:4px">Seguimiento: ' + escapeHtml(t.vessel_name) + '</h1>' +
+          '<p style="font-size:14px;color:#64748b">Expediente ' + escapeHtml(t.order_number) + '</p></div>';
+
+        html += '<div id="map" style="margin-bottom:24px"></div>';
+
+        html += '<div class="info-grid">';
+
+        html += '<div class="card"><div class="card-header"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg><h3>Embarcacion</h3></div><div class="card-body">' +
+          '<div class="info-row"><span class="info-label">Nombre</span><span class="info-value">' + escapeHtml(t.vessel_name) + '</span></div>' +
+          (t.shipping_line ? '<div class="info-row"><span class="info-label">Naviera</span><span class="info-value">' + escapeHtml(t.shipping_line) + '</span></div>' : '') +
+          (t.imo ? '<div class="info-row"><span class="info-label">IMO</span><span class="info-value">' + escapeHtml(t.imo) + '</span></div>' : '') +
+          '<div class="info-row"><span class="info-label">Estado</span><span class="status-badge ' + getStatusClass(t.vessel_status) + '"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7"></span>' + getStatusLabel(t.vessel_status) + '</span></div>' +
+          '</div></div>';
+
+        html += '<div class="card"><div class="card-header"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><h3>Ruta</h3></div><div class="card-body">' +
+          '<div class="info-row"><span class="info-label">Origen</span><span class="info-value">' + escapeHtml(t.origin_label || 'USA') + '</span></div>' +
+          '<div class="info-row"><span class="info-label">Destino</span><span class="info-value">' + escapeHtml(t.destination_label || 'Chile') + '</span></div>' +
+          (t.eta_manual ? '<div class="info-row"><span class="info-label">ETA</span><span class="info-value">' + formatDate(t.eta_manual) + '</span></div>' : '') +
+          (pos ? '<div class="info-row"><span class="info-label">Posicion</span><span class="info-value">' + parseFloat(pos.lat).toFixed(4) + ', ' + parseFloat(pos.lon).toFixed(4) + '</span></div>' : '') +
+          (pos && pos.speed ? '<div class="info-row"><span class="info-label">Velocidad</span><span class="info-value">' + pos.speed + ' nudos</span></div>' : '') +
+          (pos ? '<div class="info-row"><span class="info-label">Actualizado</span><span class="info-value">' + formatDate(pos.fetched_at) + '</span></div>' : '') +
+          '</div></div>';
+
+        html += '</div>';
+
+        document.getElementById('tracking-content').innerHTML = html;
+
+        if (pos && pos.lat && pos.lon) {
+          var lat = parseFloat(pos.lat);
+          var lon = parseFloat(pos.lon);
+          var map = L.map('map').setView([lat, lon], 5);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
+
+          var shipIcon = L.divIcon({
+            className: 'ship-marker',
+            html: '<div style="width:36px;height:36px;background:#3b82f6;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 18]
+          });
+
+          L.marker([lat, lon], { icon: shipIcon })
+            .bindPopup('<strong>' + escapeHtml(t.vessel_name) + '</strong><br>Lat: ' + lat.toFixed(4) + ', Lon: ' + lon.toFixed(4))
+            .addTo(map);
+
+          if (t.position_history && t.position_history.length > 1) {
+            var points = t.position_history.map(function (p) { return [parseFloat(p.lat), parseFloat(p.lon)]; });
+            L.polyline(points, { color: '#3b82f6', weight: 2, opacity: 0.6, dashArray: '6,8' }).addTo(map);
+            map.fitBounds(points, { padding: [40, 40], maxZoom: 8 });
+          }
+        } else {
+          document.getElementById('map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f8fafc;border-radius:16px;color:#94a3b8;font-size:14px">Posicion no disponible aun</div>';
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
