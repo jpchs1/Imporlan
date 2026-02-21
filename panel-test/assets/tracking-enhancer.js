@@ -16,6 +16,8 @@
   var selectedVesselId = null;
   var leafletLoaded = false;
   var moduleHidden = false;
+  var isRendering = false;
+  var currentHash = "";
 
   function getUserData() {
     try {
@@ -103,19 +105,7 @@
   function updateSidebarActive() {
     var item = document.getElementById("sidebar-tracking-user");
     if (!item) return;
-    var nav = item.parentNode;
     if (isTrackingPage()) {
-      if (nav) {
-        var siblings = nav.querySelectorAll("button");
-        siblings.forEach(function (s) {
-          if (s !== item) {
-            s.className = s.className.replace(/bg-blue-500\/20|bg-blue-600|text-white/g, "");
-            if (s.className.indexOf("text-gray") === -1 && s.className.indexOf("text-slate") === -1) {
-              s.className = s.className.replace(/text-\S+/g, "") + " text-gray-300";
-            }
-          }
-        });
-      }
       item.style.background = "rgba(59,130,246,0.15)";
       item.style.color = "#60a5fa";
       item.style.fontWeight = "600";
@@ -331,8 +321,19 @@
   function renderTrackingUI() {
     var main = document.querySelector("main");
     if (!main) return;
+    if (document.getElementById("tracking-module-wrapper")) return;
 
-    main.innerHTML = '<div style="padding:0">' +
+    var children = main.children;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].id !== "tracking-module-wrapper") {
+        children[i].setAttribute("data-tracking-hidden", "true");
+        children[i].style.display = "none";
+      }
+    }
+
+    var wrapper = document.createElement("div");
+    wrapper.id = "tracking-module-wrapper";
+    wrapper.innerHTML = '<div style="padding:0">' +
       '<div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between">' +
       '<div><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Seguimiento En Vivo</h1>' +
       '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Tracking de embarcaciones USA → Chile</p></div>' +
@@ -344,6 +345,7 @@
       '<div id="tracking-vessel-detail" style="overflow-y:auto;background:#fff;border-radius:14px;padding:18px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)"></div>' +
       '</div></div>';
 
+    main.appendChild(wrapper);
     addStyles();
     loadLeaflet(function () {
       initMap();
@@ -366,26 +368,45 @@
   }
 
   function hideModule() {
+    var wrapper = document.getElementById("tracking-module-wrapper");
+    if (wrapper) wrapper.remove();
+
+    var main = document.querySelector("main");
+    if (main) {
+      var hidden = main.querySelectorAll("[data-tracking-hidden]");
+      for (var i = 0; i < hidden.length; i++) {
+        hidden[i].removeAttribute("data-tracking-hidden");
+        hidden[i].style.display = "";
+      }
+    }
+
     if (mapInstance) {
       mapInstance.remove();
       mapInstance = null;
     }
     markers = {};
     routeLine = null;
+    selectedVesselId = null;
   }
 
   function checkPage() {
+    var hash = window.location.hash;
+    if (isRendering && hash === currentHash) return;
+
     if (!document.getElementById("sidebar-tracking-user")) {
       injectSidebarItem();
     }
     updateSidebarActive();
     if (isTrackingPage() && !moduleHidden) {
-      var main = document.querySelector("main");
-      if (main && !document.getElementById("tracking-map-container")) {
+      if (!document.getElementById("tracking-module-wrapper")) {
+        isRendering = true;
+        currentHash = hash;
         renderTrackingUI();
+        isRendering = false;
       }
     } else {
-      if (mapInstance) hideModule();
+      var wrapper = document.getElementById("tracking-module-wrapper");
+      if (wrapper || mapInstance) hideModule();
     }
   }
 
