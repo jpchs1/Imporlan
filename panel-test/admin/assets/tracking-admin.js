@@ -490,7 +490,8 @@
     style.id = "tracking-admin-styles";
     style.textContent = "@keyframes spin { to { transform: rotate(360deg) } }" +
       ".ta-vessel-row:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.1) }" +
-      "main.tracking-active > *:not(#tracking-admin-wrapper) { display: none !important; }";
+      "main.tracking-active > * { display: none !important; }" +
+      "main.tracking-active > #tracking-admin-wrapper { display: block !important; }";
     document.head.appendChild(style);
   }
 

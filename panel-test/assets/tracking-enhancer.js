@@ -357,7 +357,8 @@
       ".leaflet-container { font-family:system-ui,-apple-system,sans-serif !important }" +
       "@media (max-width:1024px) { #tracking-vessel-list { display:none } }" +
       "@media (max-width:768px) { main > div > div:last-child { grid-template-columns:1fr !important; height:auto !important } #tracking-vessel-detail { order:-1 } }" +
-      "main.tracking-active > *:not(#tracking-module-wrapper) { display: none !important; }";
+      "main.tracking-active > * { display: none !important; }" +
+      "main.tracking-active > #tracking-module-wrapper { display: block !important; }";
     document.head.appendChild(style);
   }
 
