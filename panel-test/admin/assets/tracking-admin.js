@@ -112,16 +112,7 @@
   function updateSidebarActive() {
     var item = document.getElementById("sidebar-tracking-admin");
     if (!item) return;
-    var nav = item.parentNode;
     if (isTrackingPage()) {
-      if (nav) {
-        var siblings = nav.querySelectorAll("button");
-        siblings.forEach(function (s) {
-          if (s !== item && s.id !== "sidebar-expedientes-admin") {
-            s.className = s.className.replace(/bg-cyan-500\/20|bg-blue-500\/20|bg-blue-600|text-white/g, "");
-          }
-        });
-      }
       item.style.background = "rgba(0,212,255,0.15)";
       item.style.color = "#00d4ff";
       item.style.fontWeight = "600";
@@ -444,26 +435,40 @@
     var main = document.querySelector("main");
     if (!main) { isRendering = false; return; }
 
+    var wrapper = document.getElementById("tracking-admin-wrapper");
+    if (!wrapper) {
+      var children = main.children;
+      for (var i = 0; i < children.length; i++) {
+        if (children[i].id !== "tracking-admin-wrapper") {
+          children[i].setAttribute("data-tracking-hidden", "true");
+          children[i].style.display = "none";
+        }
+      }
+      wrapper = document.createElement("div");
+      wrapper.id = "tracking-admin-wrapper";
+      main.appendChild(wrapper);
+    }
+
     var vesselId = getVesselIdFromHash();
 
     if (vesselId) {
-      main.innerHTML = '<div style="padding:0"><div style="text-align:center;padding:40px"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div></div></div>';
+      wrapper.innerHTML = '<div style="padding:0"><div style="text-align:center;padding:40px"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div></div></div>';
       try {
         var resp = await fetch(API_BASE + "/tracking_api.php?action=vessel_detail&id=" + vesselId, { headers: authHeaders() });
         var data = await resp.json();
         if (data.success && data.vessel) {
-          main.innerHTML = '<div style="padding:0">' + renderDetailView(data.vessel) + '</div>';
+          wrapper.innerHTML = '<div style="padding:0">' + renderDetailView(data.vessel) + '</div>';
         } else {
-          main.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444">Embarcacion no encontrada</div>';
+          wrapper.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444">Embarcacion no encontrada</div>';
         }
       } catch (e) {
-        main.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444">Error al cargar</div>';
+        wrapper.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444">Error al cargar</div>';
       }
     } else {
       var searchVal = document.getElementById("ta-search") ? document.getElementById("ta-search").value : "";
       var statusVal = document.getElementById("ta-filter-status") ? document.getElementById("ta-filter-status").value : "";
       var vessels = await fetchVessels({ search: searchVal, status: statusVal });
-      main.innerHTML = '<div style="padding:0">' +
+      wrapper.innerHTML = '<div style="padding:0">' +
         '<div style="margin-bottom:20px"><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Tracking Maritimo</h1>' +
         '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Gestion de embarcaciones y seguimiento</p></div>' +
         renderFilters() + renderListView(vessels) + '</div>';
@@ -475,7 +480,20 @@
   }
 
   function hideModule() {
+    var wrapper = document.getElementById("tracking-admin-wrapper");
+    if (wrapper) wrapper.remove();
+
+    var main = document.querySelector("main");
+    if (main) {
+      var hidden = main.querySelectorAll("[data-tracking-hidden]");
+      for (var i = 0; i < hidden.length; i++) {
+        hidden[i].removeAttribute("data-tracking-hidden");
+        hidden[i].style.display = "";
+      }
+    }
+
     if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+    currentHash = '';
   }
 
   function addStyles() {
@@ -498,11 +516,40 @@
         var main = document.querySelector("main");
         if (main) renderModule();
       }
+    } else if (!isTrackingPage()) {
+      var wrapper = document.getElementById("tracking-admin-wrapper");
+      if (wrapper || mapInstance) hideModule();
     }
+  }
+
+  var ADMIN_ROUTE_MAP = {
+    "dashboard": "#dashboard", "casos": "#casos", "pagos": "#pagos",
+    "usuarios": "#usuarios", "documentos": "#documentos", "auditoria": "#auditoria",
+    "configuracion": "#configuracion", "expedientes": "#expedientes",
+    "marketplace": "#marketplace", "soporte": "#soporte"
+  };
+
+  var adminInterceptorInstalled = false;
+  function installAdminSidebarInterceptor() {
+    if (adminInterceptorInstalled) return;
+    adminInterceptorInstalled = true;
+    document.addEventListener("click", function (e) {
+      if (!document.getElementById("tracking-admin-wrapper")) return;
+      var btn = e.target.closest ? e.target.closest("button") : null;
+      if (!btn || btn.id === "sidebar-tracking-admin") return;
+      var nav = btn.closest ? btn.closest("nav") : null;
+      if (!nav) return;
+      var text = (btn.textContent || "").trim().toLowerCase();
+      var route = ADMIN_ROUTE_MAP[text];
+      if (route && window.location.hash !== route) {
+        window.location.hash = route;
+      }
+    }, true);
   }
 
   function init() {
     injectSidebarItem();
+    installAdminSidebarInterceptor();
     var observer = new MutationObserver(function () {
       if (!document.getElementById("sidebar-tracking-admin")) {
         injectSidebarItem();
@@ -511,6 +558,7 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("hashchange", function () {
+      moduleHidden = false;
       checkPage();
     });
     setInterval(function () {
