@@ -424,6 +424,7 @@
   }
 
   function init() {
+    addStyles();
     injectSidebarItem();
     installSidebarInterceptor();
     var observer = new MutationObserver(function () {

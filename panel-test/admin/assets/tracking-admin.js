@@ -538,6 +538,7 @@
   }
 
   function init() {
+    addStyles();
     injectSidebarItem();
     installAdminSidebarInterceptor();
     var observer = new MutationObserver(function () {
