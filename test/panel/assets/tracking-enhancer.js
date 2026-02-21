@@ -323,14 +323,6 @@
     if (!main) return;
     if (document.getElementById("tracking-module-wrapper")) return;
 
-    var children = main.children;
-    for (var i = 0; i < children.length; i++) {
-      if (children[i].id !== "tracking-module-wrapper") {
-        children[i].setAttribute("data-tracking-hidden", "true");
-        children[i].style.display = "none";
-      }
-    }
-
     var wrapper = document.createElement("div");
     wrapper.id = "tracking-module-wrapper";
     wrapper.innerHTML = '<div style="padding:0">' +
@@ -346,6 +338,7 @@
       '</div></div>';
 
     main.appendChild(wrapper);
+    main.classList.add("tracking-active");
     addStyles();
     loadLeaflet(function () {
       initMap();
@@ -363,7 +356,8 @@
       ".tracking-vessel-card:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.15) }" +
       ".leaflet-container { font-family:system-ui,-apple-system,sans-serif !important }" +
       "@media (max-width:1024px) { #tracking-vessel-list { display:none } }" +
-      "@media (max-width:768px) { main > div > div:last-child { grid-template-columns:1fr !important; height:auto !important } #tracking-vessel-detail { order:-1 } }";
+      "@media (max-width:768px) { main > div > div:last-child { grid-template-columns:1fr !important; height:auto !important } #tracking-vessel-detail { order:-1 } }" +
+      "main.tracking-active > *:not(#tracking-module-wrapper) { display: none !important; }";
     document.head.appendChild(style);
   }
 
@@ -372,13 +366,7 @@
     if (wrapper) wrapper.remove();
 
     var main = document.querySelector("main");
-    if (main) {
-      var hidden = main.querySelectorAll("[data-tracking-hidden]");
-      for (var i = 0; i < hidden.length; i++) {
-        hidden[i].removeAttribute("data-tracking-hidden");
-        hidden[i].style.display = "";
-      }
-    }
+    if (main) main.classList.remove("tracking-active");
 
     if (mapInstance) {
       mapInstance.remove();

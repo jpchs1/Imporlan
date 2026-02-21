@@ -437,16 +437,10 @@
 
     var wrapper = document.getElementById("tracking-admin-wrapper");
     if (!wrapper) {
-      var children = main.children;
-      for (var i = 0; i < children.length; i++) {
-        if (children[i].id !== "tracking-admin-wrapper") {
-          children[i].setAttribute("data-tracking-hidden", "true");
-          children[i].style.display = "none";
-        }
-      }
       wrapper = document.createElement("div");
       wrapper.id = "tracking-admin-wrapper";
       main.appendChild(wrapper);
+      main.classList.add("tracking-active");
     }
 
     var vesselId = getVesselIdFromHash();
@@ -484,13 +478,7 @@
     if (wrapper) wrapper.remove();
 
     var main = document.querySelector("main");
-    if (main) {
-      var hidden = main.querySelectorAll("[data-tracking-hidden]");
-      for (var i = 0; i < hidden.length; i++) {
-        hidden[i].removeAttribute("data-tracking-hidden");
-        hidden[i].style.display = "";
-      }
-    }
+    if (main) main.classList.remove("tracking-active");
 
     if (mapInstance) { mapInstance.remove(); mapInstance = null; }
     currentHash = '';
@@ -501,7 +489,8 @@
     var style = document.createElement("style");
     style.id = "tracking-admin-styles";
     style.textContent = "@keyframes spin { to { transform: rotate(360deg) } }" +
-      ".ta-vessel-row:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.1) }";
+      ".ta-vessel-row:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.1) }" +
+      "main.tracking-active > *:not(#tracking-admin-wrapper) { display: none !important; }";
     document.head.appendChild(style);
   }
 
