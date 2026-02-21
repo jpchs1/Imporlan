@@ -523,10 +523,11 @@
   }
 
   var ADMIN_ROUTE_MAP = {
-    "dashboard": "#dashboard", "casos": "#casos", "pagos": "#pagos",
-    "usuarios": "#usuarios", "documentos": "#documentos", "auditoria": "#auditoria",
-    "configuracion": "#configuracion", "expedientes": "#expedientes",
-    "marketplace": "#marketplace", "soporte": "#soporte"
+    "dashboard": "#dashboard", "usuarios": "#usuarios", "solicitudes": "#solicitudes",
+    "planes": "#planes", "pagos": "#pagos", "contenido": "#contenido",
+    "auditoria": "#auditoria", "expedientes": "#expedientes",
+    "configuracion": "#configuracion", "casos": "#casos",
+    "documentos": "#documentos", "marketplace": "#marketplace", "soporte": "#soporte"
   };
 
   var adminInterceptorInstalled = false;
