@@ -410,12 +410,37 @@
     }
   }
 
+  var ROUTE_MAP = {
+    "dashboard": "#dashboard", "casos": "#casos", "pagos": "#pagos",
+    "usuarios": "#usuarios", "documentos": "#documentos", "auditoria": "#auditoria",
+    "configuracion": "#configuracion", "marketplace": "#marketplace",
+    "productos": "#productos", "expedientes": "#expedientes", "soporte": "#soporte"
+  };
+
+  function installSidebarInterceptor() {
+    var nav = document.querySelector("aside nav") || document.querySelector("nav");
+    if (!nav || nav.getAttribute("data-tracking-interceptor")) return;
+    nav.setAttribute("data-tracking-interceptor", "true");
+    nav.addEventListener("click", function (e) {
+      if (!document.getElementById("tracking-module-wrapper")) return;
+      var btn = e.target.closest("button");
+      if (!btn || btn.id === "sidebar-tracking-user") return;
+      var text = (btn.textContent || "").trim().toLowerCase();
+      var route = ROUTE_MAP[text];
+      if (route && window.location.hash !== route) {
+        window.location.hash = route;
+      }
+    }, true);
+  }
+
   function init() {
     injectSidebarItem();
+    installSidebarInterceptor();
     var observer = new MutationObserver(function () {
       if (!document.getElementById("sidebar-tracking-user")) {
         injectSidebarItem();
       }
+      installSidebarInterceptor();
       checkPage();
     });
     observer.observe(document.body, { childList: true, subtree: true });
