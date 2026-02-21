@@ -417,14 +417,16 @@
     "productos": "#productos", "expedientes": "#expedientes", "soporte": "#soporte"
   };
 
+  var sidebarInterceptorInstalled = false;
   function installSidebarInterceptor() {
-    var nav = document.querySelector("aside nav") || document.querySelector("nav");
-    if (!nav || nav.getAttribute("data-tracking-interceptor")) return;
-    nav.setAttribute("data-tracking-interceptor", "true");
-    nav.addEventListener("click", function (e) {
+    if (sidebarInterceptorInstalled) return;
+    sidebarInterceptorInstalled = true;
+    document.addEventListener("click", function (e) {
       if (!document.getElementById("tracking-module-wrapper")) return;
-      var btn = e.target.closest("button");
+      var btn = e.target.closest ? e.target.closest("button") : null;
       if (!btn || btn.id === "sidebar-tracking-user") return;
+      var nav = btn.closest ? btn.closest("nav") : null;
+      if (!nav) return;
       var text = (btn.textContent || "").trim().toLowerCase();
       var route = ROUTE_MAP[text];
       if (route && window.location.hash !== route) {
@@ -440,7 +442,6 @@
       if (!document.getElementById("sidebar-tracking-user")) {
         injectSidebarItem();
       }
-      installSidebarInterceptor();
       checkPage();
     });
     observer.observe(document.body, { childList: true, subtree: true });
