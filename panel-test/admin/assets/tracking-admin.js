@@ -103,7 +103,14 @@
         moduleHidden = false;
         window.location.hash = "#tracking";
       });
-      refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
+      var refLi = refBtn.closest ? refBtn.closest("li") : refBtn.parentNode;
+      if (refLi && refLi.tagName === "LI") {
+        var li = document.createElement("li");
+        li.appendChild(btn);
+        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      } else {
+        refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
+      }
       updateSidebarActive();
     }
     tryInject();
