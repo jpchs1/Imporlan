@@ -78,12 +78,17 @@
 
       var refBtn = null;
       buttons.forEach(function (el) {
+        if (!el.closest || !el.closest("li")) return;
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("configuracion") || text.includes("auditoria") || text.includes("marketplace") || text.includes("productos")) {
+        if (text.includes("auditoria") || text.includes("marketplace") || text.includes("productos")) {
           refBtn = el;
         }
       });
-      if (!refBtn) refBtn = buttons[buttons.length - 1];
+      if (!refBtn) {
+        var liButtons = nav.querySelectorAll("ul li button");
+        if (liButtons.length > 0) refBtn = liButtons[liButtons.length - 1];
+        else refBtn = buttons[buttons.length - 1];
+      }
 
       var btn = document.createElement("button");
       btn.id = "sidebar-tracking-user";

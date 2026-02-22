@@ -90,7 +90,7 @@
       var refBtn = null;
       buttons.forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("configuracion") || text.includes("auditoria") || text.includes("expedientes")) refBtn = el;
+        if (text.includes("auditoria") || text.includes("expedientes")) refBtn = el;
       });
       if (!refBtn) refBtn = buttons[buttons.length - 1];
 
