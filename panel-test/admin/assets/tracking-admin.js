@@ -90,7 +90,7 @@
       var refBtn = null;
       buttons.forEach(function (el) {
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("configuracion") || text.includes("auditoria") || text.includes("expedientes")) refBtn = el;
+        if (text.includes("auditoria") || text.includes("expedientes")) refBtn = el;
       });
       if (!refBtn) refBtn = buttons[buttons.length - 1];
 
@@ -103,7 +103,14 @@
         moduleHidden = false;
         window.location.hash = "#tracking";
       });
-      refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
+      var refLi = refBtn.closest ? refBtn.closest("li") : refBtn.parentNode;
+      if (refLi && refLi.tagName === "LI") {
+        var li = document.createElement("li");
+        li.appendChild(btn);
+        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      } else {
+        refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
+      }
       updateSidebarActive();
     }
     tryInject();
