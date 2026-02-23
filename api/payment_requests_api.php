@@ -40,9 +40,12 @@ switch ($action) {
     case 'get_by_id':
         getRequestById();
         break;
+    case 'admin_update':
+        adminUpdateRequest();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'admin_list', 'update_status', 'get_by_id']]);
+        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'admin_list', 'update_status', 'get_by_id', 'admin_update']]);
 }
 
 // ============================================================
@@ -440,6 +443,96 @@ function getRequestById() {
     echo json_encode([
         'success' => true,
         'request' => $request
+    ]);
+}
+
+/**
+ * F) admin_update - Editar solicitud de pago (admin)
+ */
+function adminUpdateRequest() {
+    $admin = requireAdminAuthShared();
+    
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Datos JSON invalidos']);
+        return;
+    }
+    
+    $requestId = $input['request_id'] ?? '';
+    if (empty($requestId)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'request_id es requerido']);
+        return;
+    }
+    
+    $request = findRequestById($requestId);
+    if (!$request) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Solicitud no encontrada']);
+        return;
+    }
+    
+    // Only allow editing pending requests
+    if ($request['status'] !== 'pending') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Solo se pueden editar solicitudes pendientes']);
+        return;
+    }
+    
+    $updates = [];
+    
+    if (isset($input['user_email'])) {
+        $email = strtolower(trim($input['user_email']));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'user_email invalido']);
+            return;
+        }
+        $updates['user_email'] = $email;
+    }
+    
+    if (isset($input['title'])) {
+        $title = trim($input['title']);
+        if (empty($title) || strlen($title) > 200) {
+            http_response_code(400);
+            echo json_encode(['error' => 'title es requerido (max 200 caracteres)']);
+            return;
+        }
+        $updates['title'] = $title;
+    }
+    
+    if (isset($input['description'])) {
+        $updates['description'] = trim($input['description']);
+    }
+    
+    if (isset($input['amount_clp'])) {
+        if (floatval($input['amount_clp']) <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'amount_clp debe ser mayor a 0']);
+            return;
+        }
+        $updates['amount_clp'] = intval($input['amount_clp']);
+    }
+    
+    if (array_key_exists('amount_usd', $input)) {
+        $updates['amount_usd'] = ($input['amount_usd'] !== null && $input['amount_usd'] > 0) ? floatval($input['amount_usd']) : null;
+    }
+    
+    if (empty($updates)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No hay campos para actualizar']);
+        return;
+    }
+    
+    $updated = updateRequestInFile($requestId, $updates);
+    
+    logPaymentRequest('UPDATED', ['id' => $requestId, 'fields' => array_keys($updates), 'admin' => $admin['email'] ?? 'admin']);
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Solicitud actualizada exitosamente',
+        'request' => $updated
     ]);
 }
 

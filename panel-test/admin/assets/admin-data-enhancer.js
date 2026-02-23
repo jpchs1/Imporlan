@@ -1116,6 +1116,7 @@
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(pr.created_at) + '</td>';
           html += '<td style="padding:14px 16px">';
           if (pr.status === "pending") {
+            html += '<button class="pr-edit-btn" data-pr-id="' + esc(pr.id) + '" data-pr-email="' + esc(pr.user_email || '') + '" data-pr-title="' + esc(pr.title || '') + '" data-pr-desc="' + esc(pr.description || '') + '" data-pr-clp="' + (pr.amount_clp || 0) + '" data-pr-usd="' + (pr.amount_usd || '') + '" style="padding:4px 10px;border-radius:6px;border:1px solid #93c5fd;background:#eff6ff;color:#3b82f6;font-size:11px;font-weight:600;cursor:pointer;margin-right:6px">Editar</button>';
             html += '<button class="pr-cancel-btn" data-pr-id="' + esc(pr.id) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff5f5;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">Cancelar</button>';
           }
           html += '</td>';
@@ -1164,6 +1165,19 @@
             loadPaymentRequests();
           } else { alert(data.error || "Error al cancelar"); }
         }).catch(function() { alert("Error de conexion"); });
+      };
+    });
+    document.querySelectorAll(".pr-edit-btn").forEach(function(btn) {
+      btn.onclick = function() {
+        var prData = {
+          id: this.getAttribute("data-pr-id"),
+          user_email: this.getAttribute("data-pr-email"),
+          title: this.getAttribute("data-pr-title"),
+          description: this.getAttribute("data-pr-desc"),
+          amount_clp: this.getAttribute("data-pr-clp"),
+          amount_usd: this.getAttribute("data-pr-usd")
+        };
+        openEditPaymentRequestModal(prData);
       };
     });
     document.querySelectorAll(".pr-page-btn").forEach(function(btn) {
@@ -1278,6 +1292,108 @@
       submitBtn.disabled = false;
       submitBtn.textContent = "Crear y Enviar";
       alert("Error de conexion al crear solicitud");
+    });
+  }
+
+  function openEditPaymentRequestModal(prData) {
+    var existingModal = document.getElementById("pr-modal-overlay");
+    if (existingModal) existingModal.remove();
+    var overlay = document.createElement("div");
+    overlay.id = "pr-modal-overlay";
+    overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
+    var modalHtml = '<div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">' +
+      '<div style="padding:24px 24px 0;display:flex;justify-content:space-between;align-items:center">' +
+        '<h2 style="margin:0;font-size:20px;font-weight:700;color:#1e293b">Editar Solicitud de Pago</h2>' +
+        '<button id="pr-edit-modal-close" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
+      '</div>' +
+      '<div style="padding:24px">' +
+        '<form id="editPaymentRequestForm">' +
+          '<input type="hidden" id="pr-edit-id" value="' + esc(prData.id) + '">' +
+          '<div style="margin-bottom:16px">' +
+            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Usuario (email) *</label>' +
+            '<input type="email" id="pr-edit-user-email" name="user_email" required placeholder="usuario@ejemplo.com" value="' + esc(prData.user_email) + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
+          '</div>' +
+          '<div style="margin-bottom:16px">' +
+            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Titulo de la solicitud *</label>' +
+            '<input type="text" id="pr-edit-title" name="title" maxlength="200" required placeholder="Ej: Inspeccion adicional barco X" value="' + esc(prData.title) + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
+          '</div>' +
+          '<div style="margin-bottom:16px">' +
+            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Descripcion</label>' +
+            '<textarea id="pr-edit-description" name="description" rows="3" placeholder="Describe el servicio o concepto del pago" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;resize:vertical;box-sizing:border-box">' + esc(prData.description) + '</textarea>' +
+          '</div>' +
+          '<div style="display:flex;gap:16px;margin-bottom:16px">' +
+            '<div style="flex:1">' +
+              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto CLP *</label>' +
+              '<input type="number" id="pr-edit-amount-clp" name="amount_clp" min="1" required placeholder="50000" value="' + (prData.amount_clp || '') + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
+            '</div>' +
+            '<div style="flex:1">' +
+              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto USD (opcional)</label>' +
+              '<input type="number" id="pr-edit-amount-usd" name="amount_usd" min="0" step="0.01" placeholder="60" value="' + (prData.amount_usd || '') + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
+            '</div>' +
+          '</div>' +
+        '</form>' +
+      '</div>' +
+      '<div style="padding:0 24px 24px;display:flex;justify-content:flex-end;gap:12px">' +
+        '<button id="pr-edit-modal-cancel" style="padding:10px 24px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+        '<button id="pr-edit-modal-submit" style="padding:10px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,.3)">Guardar Cambios</button>' +
+      '</div>' +
+    '</div>';
+    overlay.innerHTML = modalHtml;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) overlay.remove(); });
+    document.getElementById("pr-edit-modal-close").onclick = function() { overlay.remove(); };
+    document.getElementById("pr-edit-modal-cancel").onclick = function() { overlay.remove(); };
+    document.getElementById("pr-edit-modal-submit").onclick = function() { submitEditPaymentRequest(overlay); };
+  }
+
+  function submitEditPaymentRequest(overlay) {
+    var requestId = document.getElementById("pr-edit-id").value;
+    var userEmail = document.getElementById("pr-edit-user-email").value.trim();
+    var title = document.getElementById("pr-edit-title").value.trim();
+    var description = document.getElementById("pr-edit-description").value.trim();
+    var amountClp = document.getElementById("pr-edit-amount-clp").value;
+    var amountUsd = document.getElementById("pr-edit-amount-usd").value;
+
+    if (!userEmail || !title || !amountClp || parseInt(amountClp) <= 0) {
+      alert("Por favor completa los campos requeridos (email, titulo, monto CLP)");
+      return;
+    }
+
+    var submitBtn = document.getElementById("pr-edit-modal-submit");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Guardando...";
+
+    var payload = {
+      request_id: requestId,
+      user_email: userEmail,
+      title: title,
+      description: description,
+      amount_clp: parseInt(amountClp),
+      amount_usd: amountUsd ? parseFloat(amountUsd) : null
+    };
+
+    fetch(API_BASE + "/payment_requests_api.php?action=admin_update", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        overlay.remove();
+        loadPaymentRequests();
+        showPRNotification("Solicitud actualizada exitosamente", "success");
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Guardar Cambios";
+        alert("Error: " + (data.error || "Error desconocido"));
+      }
+    })
+    .catch(function(err) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Guardar Cambios";
+      alert("Error de conexion al actualizar solicitud");
     });
   }
 
