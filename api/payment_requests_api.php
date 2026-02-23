@@ -43,9 +43,12 @@ switch ($action) {
     case 'admin_update':
         adminUpdateRequest();
         break;
+    case 'user_list_public':
+        userListRequestsPublic();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'admin_list', 'update_status', 'get_by_id', 'admin_update']]);
+        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update']]);
 }
 
 // ============================================================
@@ -533,6 +536,39 @@ function adminUpdateRequest() {
         'success' => true,
         'message' => 'Solicitud actualizada exitosamente',
         'request' => $updated
+    ]);
+}
+
+/**
+ * G) user_list_public - Listar solicitudes por email (sin JWT, como otros endpoints)
+ * Usado por el panel de usuario para mostrar solicitudes de pago pendientes
+ */
+function userListRequestsPublic() {
+    $userEmail = $_GET['user_email'] ?? '';
+    if (empty($userEmail) || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'user_email es requerido y debe ser valido']);
+        return;
+    }
+    
+    $userEmail = strtolower(trim($userEmail));
+    $status = $_GET['status'] ?? 'all';
+    $data = loadPaymentRequests();
+    
+    $filtered = array_filter($data['requests'], function($r) use ($userEmail, $status) {
+        $emailMatch = strtolower($r['user_email']) === $userEmail;
+        if ($status === 'all') return $emailMatch;
+        return $emailMatch && $r['status'] === $status;
+    });
+    
+    // Sort by created_at DESC
+    usort($filtered, function($a, $b) {
+        return strtotime($b['created_at']) - strtotime($a['created_at']);
+    });
+    
+    echo json_encode([
+        'success' => true,
+        'requests' => array_values($filtered)
     ]);
 }
 
