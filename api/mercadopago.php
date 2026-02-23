@@ -62,6 +62,22 @@ function createPreference() {
     $description = $input['description'];
     $planName = $input['plan_name'] ?? 'Plan Imporlan';
     $quantity = intval($input['quantity'] ?? 1);
+    $paymentRequestId = $input['payment_request_id'] ?? null;
+    
+    // If payment_request_id is provided, load request data
+    if ($paymentRequestId) {
+        $prFile = __DIR__ . '/payment_requests.json';
+        if (file_exists($prFile)) {
+            $prData = json_decode(file_get_contents($prFile), true);
+            foreach (($prData['requests'] ?? []) as $pr) {
+                if ($pr['id'] === $paymentRequestId) {
+                    $planName = $pr['title'];
+                    $description = $pr['description'] ?: $pr['title'];
+                    break;
+                }
+            }
+        }
+    }
     
     // Información del comprador (opcional)
     $payerEmail = $input['payer_email'] ?? null;
@@ -88,7 +104,7 @@ function createPreference() {
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
-        'external_reference' => $planName . '_' . time()
+        'external_reference' => ($paymentRequestId ? $paymentRequestId . '_' : '') . $planName . '_' . time()
     ];
     
     // Agregar información del pagador si está disponible
@@ -230,6 +246,15 @@ function handleWebhook() {
             ]);
             
             if (empty($purchase['_duplicate'])) {
+                // Check if this is a payment request payment
+                if (strpos($externalRef, 'pr_') === 0) {
+                    require_once __DIR__ . '/payment_requests_helper.php';
+                    $prId = extractPaymentRequestId($externalRef);
+                    if ($prId) {
+                        handlePaymentRequestPaid($prId, $paymentId, 'mercadopago', $purchase['id'] ?? null);
+                    }
+                }
+                
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
                 createPaymentNotificationMessage($purchase, $payment);
 
