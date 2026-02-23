@@ -293,16 +293,20 @@
       notifList = outerContainer || main;
     }
 
-    // Build individual card elements that match the existing notification card style
-    // Each existing card is a shadcn Card with shadow-lg, border-l-4, p-4, flex layout
-    // We create cards that visually match but use inline styles for consistency
-    var markerDiv = document.createElement("div");
-    markerDiv.id = "pr-alerts-section";
-    markerDiv.style.display = "contents"; // invisible wrapper, children flow as siblings
+    // Insert each card as a DIRECT child of div.space-y-3 so that Tailwind's
+    // space-y-3 gap (which uses > * + * selector) applies equally between
+    // our cards and the existing notification cards.
+    // Use a hidden marker to track that we've already injected.
+    var marker = document.createElement("div");
+    marker.id = "pr-alerts-section";
+    marker.style.display = "none";
+    notifList.appendChild(marker);
 
+    // Build cards in reverse order so we can prepend each one and maintain order
+    var cardsToInsert = [];
     pendingRequests.forEach(function (req) {
       var card = document.createElement("div");
-      card.className = "shadow-lg border-l-4 border-l-amber-500 rounded-xl";
+      card.className = "pr-alert-card shadow-lg rounded-xl";
       card.style.cssText = "background:#fff;border-radius:12px;border:1px solid #e2e8f0;border-left:4px solid #f59e0b;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);cursor:pointer;overflow:hidden";
       card.onclick = function () { window.location.hash = "#payments"; };
 
@@ -322,14 +326,17 @@
         '<button style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">Ver Pago</button>' +
         '</div></div>';
 
-      markerDiv.appendChild(card);
+      cardsToInsert.push(card);
     });
 
-    // Insert the cards at the top of the notification list (before existing cards)
-    if (notifList.firstChild) {
-      notifList.insertBefore(markerDiv, notifList.firstChild);
-    } else {
-      notifList.appendChild(markerDiv);
+    // Insert cards at the top of the list in correct order (as direct children)
+    var firstExisting = notifList.firstChild;
+    for (var ci = cardsToInsert.length - 1; ci >= 0; ci--) {
+      if (firstExisting) {
+        notifList.insertBefore(cardsToInsert[ci], firstExisting);
+      } else {
+        notifList.appendChild(cardsToInsert[ci]);
+      }
     }
 
     alertsInjected = true;
