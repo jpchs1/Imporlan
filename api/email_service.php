@@ -2532,12 +2532,7 @@ BASE64;
         $description = htmlspecialchars($requestData['description'] ?? '');
         $createdAt = $requestData['created_at'] ?? date('d/m/Y');
         
-        $amountUsdHtml = '';
-        if (!empty($requestData['amount_usd']) && $requestData['amount_usd'] > 0) {
-            $amountUsdHtml = 'Monto USD' . '|||' . 'USD $' . number_format($requestData['amount_usd'], 2, ',', '.');
-        }
-        
-        $infoItems = [
+        $infoItems= [
             'Monto CLP' => '$' . $amount . ' CLP',
             'Fecha creacion' => date('d/m/Y', strtotime($createdAt))
         ];
@@ -2561,7 +2556,7 @@ BASE64;
         if (!empty($description)) {
             $content .= '
             <p style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6; background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid ' . $c['primary'] . ';">
-                ' . nl2br(htmlspecialchars($description)) . '
+                ' . nl2br($description) . '
             </p>';
         }
         

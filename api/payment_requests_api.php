@@ -69,7 +69,18 @@ function loadPaymentRequests() {
 
 function savePaymentRequests($data) {
     $file = getPaymentRequestsFile();
-    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    $fp = fopen($file, 'c');
+    if ($fp && flock($fp, LOCK_EX)) {
+        fseek($fp, 0);
+        ftruncate($fp, 0);
+        fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    } else {
+        if ($fp) fclose($fp);
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    }
 }
 
 function findRequestById($id) {

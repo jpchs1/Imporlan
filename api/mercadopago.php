@@ -104,7 +104,7 @@ function createPreference() {
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
-        'external_reference' => ($paymentRequestId ? 'pr_' . $paymentRequestId . '_' : '') . $planName . '_' . time()
+        'external_reference' => ($paymentRequestId ? $paymentRequestId . '_' : '') . $planName . '_' . time()
     ];
     
     // Agregar información del pagador si está disponible
@@ -248,11 +248,9 @@ function handleWebhook() {
             if (empty($purchase['_duplicate'])) {
                 // Check if this is a payment request payment
                 if (strpos($externalRef, 'pr_') === 0) {
-                    $prParts = explode('_', $externalRef);
-                    // Extract payment_request_id: pr_{id}_{timestamp}
-                    // The ID format is pr_XXXXX so we need positions 1 and 2
-                    if (count($prParts) >= 3) {
-                        $prId = 'pr_' . $prParts[1];
+                    require_once __DIR__ . '/payment_requests_helper.php';
+                    $prId = extractPaymentRequestId($externalRef);
+                    if ($prId) {
                         handlePaymentRequestPaid($prId, $paymentId, 'mercadopago', $purchase['id'] ?? null);
                     }
                 }
@@ -571,76 +569,4 @@ function getPayment() {
             'date_approved' => $payment['date_approved'] ?? null
         ]
     ]);
-}
-
-/**
- * Handle payment request completion after a successful payment
- * Updates payment_requests.json, sends emails and chat messages
- * Shared by all payment gateways
- */
-function handlePaymentRequestPaid($paymentRequestId, $paymentId, $paymentMethod, $purchaseId = null) {
-    try {
-        $prFile = __DIR__ . '/payment_requests.json';
-        if (!file_exists($prFile)) return;
-        
-        $data = json_decode(file_get_contents($prFile), true);
-        if (!$data || !isset($data['requests'])) return;
-        
-        $found = false;
-        foreach ($data['requests'] as &$request) {
-            if ($request['id'] === $paymentRequestId && $request['status'] === 'pending') {
-                $request['status'] = 'paid';
-                $request['paid_at'] = date('Y-m-d H:i:s');
-                $request['payment_id'] = $paymentId;
-                $request['payment_method'] = $paymentMethod;
-                $request['purchase_id'] = $purchaseId;
-                $found = true;
-                
-                file_put_contents($prFile, json_encode($data, JSON_PRETTY_PRINT));
-                
-                // Send paid email
-                try {
-                    require_once __DIR__ . '/email_service.php';
-                    $emailService = new EmailService();
-                    $firstName = explode('@', $request['user_email'])[0];
-                    $emailService->sendPaymentRequestPaidEmail(
-                        $request['user_email'],
-                        $firstName,
-                        $request,
-                        [
-                            'payment_id' => $paymentId,
-                            'payment_method' => $paymentMethod,
-                            'paid_at' => $request['paid_at']
-                        ]
-                    );
-                } catch (Exception $e) {
-                    $logFile = __DIR__ . '/payment_requests.log';
-                    file_put_contents($logFile, date('Y-m-d H:i:s') . ' - PAID_EMAIL_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-                }
-                
-                // Create chat message
-                try {
-                    require_once __DIR__ . '/payment_requests_api.php';
-                    createPaymentRequestChatMessage($request, 'paid');
-                } catch (Exception $e) {
-                    $logFile = __DIR__ . '/payment_requests.log';
-                    file_put_contents($logFile, date('Y-m-d H:i:s') . ' - PAID_CHAT_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-                }
-                
-                // Log
-                $logFile = __DIR__ . '/payment_requests.log';
-                file_put_contents($logFile, date('Y-m-d H:i:s') . ' [PAID] ' . json_encode([
-                    'id' => $paymentRequestId,
-                    'payment_id' => $paymentId,
-                    'method' => $paymentMethod,
-                    'user' => $request['user_email']
-                ]) . "\n", FILE_APPEND);
-                
-                break;
-            }
-        }
-    } catch (Exception $e) {
-        $logFile = __DIR__ . '/payment_requests.log';
-        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - HANDLE_PAID_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-    }
 }

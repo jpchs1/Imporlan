@@ -1077,12 +1077,15 @@
     return true;
   }
 
-  function loadPaymentRequests() {
+  var prCurrentPage = 1;
+
+  function loadPaymentRequests(page) {
+    if (page) prCurrentPage = page;
     var tableDiv = document.getElementById("enhancer-pr-table");
     if (!tableDiv) return;
     var filterStatus = document.getElementById("pr-filter-status");
     var statusParam = filterStatus ? filterStatus.value : "";
-    var url = API_BASE + "/payment_requests_api.php?action=admin_list";
+    var url = API_BASE + "/payment_requests_api.php?action=admin_list&page=" + prCurrentPage;
     if (statusParam) url += "&status=" + statusParam;
     fetch(url, { headers: authHeaders() })
       .then(function(r) { return r.json(); })
@@ -1165,8 +1168,8 @@
     });
     document.querySelectorAll(".pr-page-btn").forEach(function(btn) {
       btn.onclick = function() {
-        // Pagination handled via reload with page param
-        loadPaymentRequests();
+        var pageNum = parseInt(this.getAttribute("data-page"));
+        loadPaymentRequests(pageNum);
       };
     });
   }

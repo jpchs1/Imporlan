@@ -326,7 +326,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     // Check if this is a payment request
     $paymentRequestId = $purchaseInfo['payment_request_id'] ?? null;
     if ($paymentRequestId) {
-        require_once __DIR__ . '/mercadopago.php';
+        require_once __DIR__ . '/payment_requests_helper.php';
         handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null);
     }
     

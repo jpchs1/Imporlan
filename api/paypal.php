@@ -257,7 +257,7 @@ function captureOrder() {
         
         // Check if this is a payment request
         if ($paymentRequestId) {
-            require_once __DIR__ . '/mercadopago.php';
+            require_once __DIR__ . '/payment_requests_helper.php';
             handlePaymentRequestPaid($paymentRequestId, $captureId, 'paypal', $purchaseRecord['id'] ?? null);
         }
         
