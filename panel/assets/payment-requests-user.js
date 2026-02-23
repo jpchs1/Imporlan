@@ -271,7 +271,36 @@
     var main = document.querySelector("main");
     if (!main) return;
 
-    var alertHtml = '<div id="pr-alerts-section" style="margin-bottom:16px">';
+    // Build individual alert card elements to insert among existing notifications
+    // Find the notification list container (the div that holds the existing alert cards)
+    var notifList = null;
+    // Look for the container that holds the notification cards (usually a space-y-* div after the heading)
+    var spaceContainers = main.querySelectorAll(".space-y-4, .space-y-3, .space-y-2");
+    for (var sc = 0; sc < spaceContainers.length; sc++) {
+      // The notification list usually contains bordered cards with flex layout
+      var cards = spaceContainers[sc].querySelectorAll("[class*='border'], [class*='rounded']");
+      if (cards.length > 0) {
+        notifList = spaceContainers[sc];
+        break;
+      }
+    }
+    // Fallback: look for the div right after the heading area
+    if (!notifList) {
+      var allDivs = main.querySelectorAll("div");
+      for (var d = 0; d < allDivs.length; d++) {
+        var prevSib = allDivs[d].previousElementSibling;
+        if (prevSib && (prevSib.querySelector("h1, h2") || prevSib.tagName === "H1" || prevSib.tagName === "H2")) {
+          notifList = allDivs[d];
+          break;
+        }
+      }
+    }
+    // Final fallback: use space-y-6 container
+    if (!notifList) {
+      notifList = main.querySelector(".space-y-6") || main.querySelector(".space-y-4") || main;
+    }
+
+    var alertHtml = '<div id="pr-alerts-section">';
     pendingRequests.forEach(function (req) {
       alertHtml += '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fbbf24;border-radius:12px;padding:16px 20px;margin-bottom:8px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.location.hash=\'#payments\'">' +
         '<div style="width:40px;height:40px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
@@ -284,16 +313,11 @@
     });
     alertHtml += '</div>';
 
-    // Find container in alerts page
-    var container = main.querySelector(".space-y-6") || main.querySelector(".space-y-4") || main;
     var wrapper = document.createElement("div");
     wrapper.innerHTML = alertHtml;
 
-    if (container.firstChild) {
-      container.insertBefore(wrapper.firstElementChild, container.firstChild);
-    } else {
-      container.appendChild(wrapper.firstElementChild);
-    }
+    // Append at the end of the notification list (among existing alerts, not at the top)
+    notifList.appendChild(wrapper.firstElementChild);
 
     alertsInjected = true;
     console.log("[PaymentRequests] Injected " + pendingRequests.length + " alert(s) into Alertas page");
