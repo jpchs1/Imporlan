@@ -373,7 +373,10 @@ BASE64;
             'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
             'quotation_links_paid' => ['subject' => 'Cotizacion por Links - Pago Confirmado', 'template' => 'internal_quotation_links_paid'],
             'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message'],
-            'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead']
+            'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead'],
+            'payment_request_created' => ['subject' => 'Nueva solicitud de pago creada', 'template' => 'internal_payment_request_created'],
+            'payment_request_paid' => ['subject' => 'Solicitud de pago confirmada', 'template' => 'internal_payment_request_paid'],
+            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled']
         ];
         
         if (!isset($notifications[$type])) {
@@ -578,6 +581,69 @@ BASE64;
             'stack_trace' => $errorData['stack_trace'] ?? '',
             'date' => date('d/m/Y H:i:s')
         ]);
+    }
+    
+    // =====================================================
+    // PAYMENT REQUESTS EMAIL METHODS
+    // =====================================================
+    
+    /**
+     * Send payment request email to user (new request created)
+     */
+    public function sendPaymentRequestEmail($userEmail, $firstName, $requestData) {
+        $subject = 'Nueva solicitud de pago - Imporlan';
+        $htmlContent = $this->getPaymentRequestTemplate($firstName, $requestData);
+        
+        $this->sendInternalNotification('payment_request_created', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $requestData['title'] ?? 'N/A',
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'description' => $requestData['description'] ?? '',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request', $requestData);
+    }
+    
+    /**
+     * Send payment request paid confirmation email
+     */
+    public function sendPaymentRequestPaidEmail($userEmail, $firstName, $requestData, $paymentData) {
+        $title = $requestData['title'] ?? 'Solicitud de pago';
+        $subject = 'Pago confirmado - ' . $title;
+        $htmlContent = $this->getPaymentRequestPaidTemplate($firstName, $requestData, $paymentData);
+        
+        $this->sendInternalNotification('payment_request_paid', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $title,
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'payment_method' => $paymentData['payment_method'] ?? 'N/A',
+            'payment_id' => $paymentData['payment_id'] ?? 'N/A',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request_paid', array_merge($requestData, $paymentData));
+    }
+    
+    /**
+     * Send payment request cancelled email
+     */
+    public function sendPaymentRequestCancelledEmail($userEmail, $firstName, $requestData) {
+        $subject = 'Solicitud de pago cancelada - Imporlan';
+        $htmlContent = $this->getPaymentRequestCancelledTemplate($firstName, $requestData);
+        
+        $this->sendInternalNotification('payment_request_cancelled', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $requestData['title'] ?? 'N/A',
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'reason' => $requestData['cancelled_reason'] ?? 'No especificada',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request_cancelled', $requestData);
     }
     
     /**
@@ -2109,6 +2175,12 @@ BASE64;
                 return $this->getInternalNewChatMessageTemplate($data);
             case 'internal_marketplace_lead':
                 return $this->getInternalMarketplaceLeadTemplate($data);
+            case 'internal_payment_request_created':
+                return $this->getInternalPaymentRequestCreatedTemplate($data);
+            case 'internal_payment_request_paid':
+                return $this->getInternalPaymentRequestPaidTemplate($data);
+            case 'internal_payment_request_cancelled':
+                return $this->getInternalPaymentRequestCancelledTemplate($data);
             default:
                 return '';
         }
@@ -2444,6 +2516,278 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Nuevo lead marketplace - Admin');
+    }
+    
+    // =====================================================
+    // PAYMENT REQUEST TEMPLATES
+    // =====================================================
+    
+    /**
+     * Template: New payment request created (sent to user)
+     */
+    private function getPaymentRequestTemplate($firstName, $requestData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        $description = htmlspecialchars($requestData['description'] ?? '');
+        $createdAt = $requestData['created_at'] ?? date('d/m/Y');
+        
+        $amountUsdHtml = '';
+        if (!empty($requestData['amount_usd']) && $requestData['amount_usd'] > 0) {
+            $amountUsdHtml = 'Monto USD' . '|||' . 'USD $' . number_format($requestData['amount_usd'], 2, ',', '.');
+        }
+        
+        $infoItems = [
+            'Monto CLP' => '$' . $amount . ' CLP',
+            'Fecha creacion' => date('d/m/Y', strtotime($createdAt))
+        ];
+        if (!empty($requestData['amount_usd']) && $requestData['amount_usd'] > 0) {
+            $infoItems['Monto USD'] = 'USD $' . number_format($requestData['amount_usd'], 2, ',', '.');
+        }
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('warning', 'Pendiente') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', se ha creado una nueva solicitud de pago para ti.
+            </p>';
+        
+        if (!empty($description)) {
+            $content .= '
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6; background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid ' . $c['primary'] . ';">
+                ' . nl2br(htmlspecialchars($description)) . '
+            </p>';
+        }
+        
+        $content .= $this->getInfoCard('Detalles de la solicitud', $infoItems) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver y Pagar', $this->panelUrl . '/#payment-requests') . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; margin: 25px 0; padding: 20px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 700;">Metodos de pago disponibles</h3>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                            <tr>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #00b1ea; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">MercadoPago</span>
+                                </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #dc2626; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">WebPay</span>
+                                </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #003087; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">PayPal</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre esta solicitud, no dudes en contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud de Pago - Imporlan');
+    }
+    
+    /**
+     * Template: Payment request paid (confirmation to user)
+     */
+    private function getPaymentRequestPaidTemplate($firstName, $requestData, $paymentData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        
+        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual'];
+        $method = $paymentData['payment_method'] ?? 'N/A';
+        $methodLabel = $methodLabels[$method] ?? ucfirst($method);
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pagado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', tu pago ha sido procesado exitosamente.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles del pago', [
+                'Monto pagado' => '$' . $amount . ' CLP',
+                'Metodo de pago' => $methodLabel,
+                'Referencia' => $paymentData['payment_id'] ?? 'N/A',
+                'Fecha' => date('d/m/Y H:i', strtotime($paymentData['paid_at'] ?? 'now'))
+            ]) . '
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; margin: 25px 0;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0; color: ' . $c['success'] . '; font-size: 16px; font-weight: 700;">Gracias por tu pago</p>
+                        <p style="margin: 8px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px;">Tu solicitud ha sido completada correctamente.</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver mis productos', $this->panelUrl . '/#myproducts') . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Pago Confirmado - Imporlan');
+    }
+    
+    /**
+     * Template: Payment request cancelled (sent to user)
+     */
+    private function getPaymentRequestCancelledTemplate($firstName, $requestData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        $reason = htmlspecialchars($requestData['cancelled_reason'] ?? '');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('error', 'Cancelada') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', la siguiente solicitud de pago ha sido cancelada.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Monto' => '$' . $amount . ' CLP',
+                'Estado' => 'Cancelada'
+            ]);
+        
+        if (!empty($reason)) {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fef2f2; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['error'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['error'] . '; font-size: 15px; font-weight: 600;">Razon de cancelacion</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br($reason) . '</p>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $content .= '
+            <p style="margin: 25px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre esta cancelacion, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud Cancelada - Imporlan');
+    }
+    
+    /**
+     * Internal notification template: Payment request created
+     */
+    private function getInternalPaymentRequestCreatedTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('warning', 'Nueva solicitud') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Nueva solicitud de pago creada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Usuario' => $data['user_email'],
+                'Nombre' => $data['user_name'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Descripcion' => $data['description'] ?: 'N/A',
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud de pago creada - Admin');
+    }
+    
+    /**
+     * Internal notification template: Payment request paid
+     */
+    private function getInternalPaymentRequestPaidTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago confirmado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Solicitud de pago confirmada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles del pago', [
+                'Usuario' => $data['user_email'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Metodo' => $data['payment_method'],
+                'Referencia' => $data['payment_id'],
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Pago confirmado - Admin');
+    }
+    
+    /**
+     * Internal notification template: Payment request cancelled
+     */
+    private function getInternalPaymentRequestCancelledTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('error', 'Cancelada') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Solicitud de pago cancelada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Usuario' => $data['user_email'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Razon' => $data['reason'],
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud cancelada - Admin');
     }
     
     /**

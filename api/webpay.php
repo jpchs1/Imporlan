@@ -90,7 +90,8 @@ function createTransaction($data) {
         'type' => $data['type'] ?? 'link',
         'days' => $data['days'] ?? 7,
         'amount' => $amount,
-        'boat_links' => $data['boat_links'] ?? []
+        'boat_links' => $data['boat_links'] ?? [],
+        'payment_request_id' => $data['payment_request_id'] ?? null
     ];
     
     // Save purchase info to a temporary file for retrieval in callback
@@ -321,6 +322,13 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     
     // Log the saved purchase
     logWebpay('PURCHASE_SAVED', $purchase);
+    
+    // Check if this is a payment request
+    $paymentRequestId = $purchaseInfo['payment_request_id'] ?? null;
+    if ($paymentRequestId) {
+        require_once __DIR__ . '/mercadopago.php';
+        handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null);
+    }
     
     // Send confirmation email if we have the user's email
     if ($userEmail) {

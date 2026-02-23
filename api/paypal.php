@@ -185,6 +185,7 @@ function captureOrder() {
     $planName = $input['plan_name'] ?? '';
     $planDays = $input['plan_days'] ?? 7;
     $amountCLP = $input['amount_clp'] ?? 0;
+    $paymentRequestId = $input['payment_request_id'] ?? null;
     
     $accessToken = getAccessToken();
     if (!$accessToken) {
@@ -253,6 +254,12 @@ function captureOrder() {
             'order_id' => $orderId,
             'status' => 'pending'
         ]);
+        
+        // Check if this is a payment request
+        if ($paymentRequestId) {
+            require_once __DIR__ . '/mercadopago.php';
+            handlePaymentRequestPaid($paymentRequestId, $captureId, 'paypal', $purchaseRecord['id'] ?? null);
+        }
         
         sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
         createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
