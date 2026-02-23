@@ -271,53 +271,66 @@
     var main = document.querySelector("main");
     if (!main) return;
 
-    // Build individual alert card elements to insert among existing notifications
-    // Find the notification list container (the div that holds the existing alert cards)
+    // The Alertas page DOM structure (from React bundle) is:
+    //   div.space-y-6.animate-fade-in
+    //     div.flex.items-center.justify-between  (header row: title + "Marcar todas como leidas")
+    //     div.space-y-3  (notification cards list - THIS is where we insert)
+    //
+    // We need to insert our payment cards INSIDE div.space-y-3, among the existing cards.
+
+    // Find the notification list: div.space-y-3 inside the alerts page container
+    var outerContainer = main.querySelector(".space-y-6");
     var notifList = null;
-    // Look for the container that holds the notification cards (usually a space-y-* div after the heading)
-    var spaceContainers = main.querySelectorAll(".space-y-4, .space-y-3, .space-y-2");
-    for (var sc = 0; sc < spaceContainers.length; sc++) {
-      // The notification list usually contains bordered cards with flex layout
-      var cards = spaceContainers[sc].querySelectorAll("[class*='border'], [class*='rounded']");
-      if (cards.length > 0) {
-        notifList = spaceContainers[sc];
-        break;
-      }
+    if (outerContainer) {
+      notifList = outerContainer.querySelector(".space-y-3");
     }
-    // Fallback: look for the div right after the heading area
+    // Fallback: try any space-y-3 in main
     if (!notifList) {
-      var allDivs = main.querySelectorAll("div");
-      for (var d = 0; d < allDivs.length; d++) {
-        var prevSib = allDivs[d].previousElementSibling;
-        if (prevSib && (prevSib.querySelector("h1, h2") || prevSib.tagName === "H1" || prevSib.tagName === "H2")) {
-          notifList = allDivs[d];
-          break;
-        }
-      }
+      notifList = main.querySelector(".space-y-3");
     }
-    // Final fallback: use space-y-6 container
+    // Final fallback: use the outer container itself
     if (!notifList) {
-      notifList = main.querySelector(".space-y-6") || main.querySelector(".space-y-4") || main;
+      notifList = outerContainer || main;
     }
 
-    var alertHtml = '<div id="pr-alerts-section">';
+    // Build individual card elements that match the existing notification card style
+    // Each existing card is a shadcn Card with shadow-lg, border-l-4, p-4, flex layout
+    // We create cards that visually match but use inline styles for consistency
+    var markerDiv = document.createElement("div");
+    markerDiv.id = "pr-alerts-section";
+    markerDiv.style.display = "contents"; // invisible wrapper, children flow as siblings
+
     pendingRequests.forEach(function (req) {
-      alertHtml += '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fbbf24;border-radius:12px;padding:16px 20px;margin-bottom:8px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.location.hash=\'#payments\'">' +
-        '<div style="width:40px;height:40px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
-        '<div style="flex:1;min-width:0">' +
-        '<p style="margin:0;font-size:14px;font-weight:600;color:#92400e">Solicitud de pago: ' + escapeHtml(req.title) + '</p>' +
-        '<p style="margin:2px 0 0;font-size:12px;color:#a16207">Monto: ' + formatCLP(req.amount_clp) + ' CLP - Haz clic para pagar</p>' +
+      var card = document.createElement("div");
+      card.className = "shadow-lg border-l-4 border-l-amber-500 rounded-xl";
+      card.style.cssText = "background:#fff;border-radius:12px;border:1px solid #e2e8f0;border-left:4px solid #f59e0b;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);cursor:pointer;overflow:hidden";
+      card.onclick = function () { window.location.hash = "#payments"; };
+
+      card.innerHTML = '<div style="padding:16px">' +
+        '<div style="display:flex;align-items:flex-start;gap:16px">' +
+        '<div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fef3c7;color:#d97706">' +
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' +
         '</div>' +
-        '<span style="padding:4px 10px;background:#f59e0b;color:#fff;border-radius:6px;font-size:11px;font-weight:600;flex-shrink:0">Pendiente</span>' +
-        '</div>';
+        '<div style="flex:1">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<h3 style="margin:0;font-weight:700;color:#1e293b;font-size:14px">Solicitud de pago: ' + escapeHtml(req.title) + '</h3>' +
+        '<span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:#f59e0b;color:#fff">Pendiente</span>' +
+        '</div>' +
+        '<p style="margin:4px 0 0;color:#475569;font-size:14px">Monto: ' + formatCLP(req.amount_clp) + ' CLP - Haz clic para ir a Pagos</p>' +
+        '<p style="margin:8px 0 0;font-size:12px;color:#94a3b8">' + formatDate(req.created_at) + '</p>' +
+        '</div>' +
+        '<button style="display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#1e293b;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">Ver Pago</button>' +
+        '</div></div>';
+
+      markerDiv.appendChild(card);
     });
-    alertHtml += '</div>';
 
-    var wrapper = document.createElement("div");
-    wrapper.innerHTML = alertHtml;
-
-    // Append at the end of the notification list (among existing alerts, not at the top)
-    notifList.appendChild(wrapper.firstElementChild);
+    // Insert the cards at the top of the notification list (before existing cards)
+    if (notifList.firstChild) {
+      notifList.insertBefore(markerDiv, notifList.firstChild);
+    } else {
+      notifList.appendChild(markerDiv);
+    }
 
     alertsInjected = true;
     console.log("[PaymentRequests] Injected " + pendingRequests.length + " alert(s) into Alertas page");
