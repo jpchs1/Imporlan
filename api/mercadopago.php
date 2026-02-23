@@ -149,19 +149,22 @@ function createPreference() {
         'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
     ]);
     
-    try {
-        $emailService = new EmailService();
-        $boatLinks = $input['boat_links'] ?? [];
-        $emailService->sendQuotationRequestNotification([
-            'name' => $payerName ?? 'Cliente',
-            'email' => $payerEmail ?? '',
-            'phone' => $input['payer_phone'] ?? '',
-            'country' => $input['country'] ?? 'Chile',
-            'boat_links' => $boatLinks
-        ]);
-    } catch (Exception $e) {
-        $logFile = __DIR__ . '/mp_webhooks.log';
-        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+    // Only send cotización email for regular quotation payments, NOT for payment requests
+    if (!$paymentRequestId) {
+        try {
+            $emailService = new EmailService();
+            $boatLinks = $input['boat_links'] ?? [];
+            $emailService->sendQuotationRequestNotification([
+                'name' => $payerName ?? 'Cliente',
+                'email' => $payerEmail ?? '',
+                'phone' => $input['payer_phone'] ?? '',
+                'country' => $input['country'] ?? 'Chile',
+                'boat_links' => $boatLinks
+            ]);
+        } catch (Exception $e) {
+            $logFile = __DIR__ . '/mp_webhooks.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+        }
     }
 }
 

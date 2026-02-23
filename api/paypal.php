@@ -149,19 +149,22 @@ function createOrder() {
         'status' => $order['status']
     ]);
     
-    // Notify admins about quotation request if data provided
-    try {
-        $emailService = new EmailService();
-        $emailService->sendQuotationRequestNotification([
-            'name' => $input['payer_name'] ?? 'Cliente',
-            'email' => $input['payer_email'] ?? '',
-            'phone' => $input['payer_phone'] ?? '',
-            'country' => $input['country'] ?? 'Chile',
-            'boat_links' => $input['boat_links'] ?? []
-        ]);
-    } catch (Exception $e) {
-        $logFile = __DIR__ . '/paypal.log';
-        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+    // Only send cotización email for regular quotation payments, NOT for payment requests
+    $paymentRequestId = $input['payment_request_id'] ?? null;
+    if (!$paymentRequestId) {
+        try {
+            $emailService = new EmailService();
+            $emailService->sendQuotationRequestNotification([
+                'name' => $input['payer_name'] ?? 'Cliente',
+                'email' => $input['payer_email'] ?? '',
+                'phone' => $input['payer_phone'] ?? '',
+                'country' => $input['country'] ?? 'Chile',
+                'boat_links' => $input['boat_links'] ?? []
+            ]);
+        } catch (Exception $e) {
+            $logFile = __DIR__ . '/paypal.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - NOTIF_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
+        }
     }
 }
 

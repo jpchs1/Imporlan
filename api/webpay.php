@@ -114,17 +114,21 @@ function createTransaction($data) {
     // Log the transaction creation
     logWebpay('CREATE_TRANSACTION', $requestData);
     
-    try {
-        $emailService = new EmailService();
-        $emailService->sendQuotationRequestNotification([
-            'name' => $data['payer_name'] ?? 'Cliente',
-            'email' => $data['user_email'] ?? '',
-            'phone' => $data['payer_phone'] ?? '',
-            'country' => $data['country'] ?? 'Chile',
-            'boat_links' => $data['boat_links'] ?? []
-        ]);
-    } catch (Exception $e) {
-        logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+    // Only send cotización email for regular quotation payments, NOT for payment requests
+    $paymentRequestId = $data['payment_request_id'] ?? null;
+    if (!$paymentRequestId) {
+        try {
+            $emailService = new EmailService();
+            $emailService->sendQuotationRequestNotification([
+                'name' => $data['payer_name'] ?? 'Cliente',
+                'email' => $data['user_email'] ?? '',
+                'phone' => $data['payer_phone'] ?? '',
+                'country' => $data['country'] ?? 'Chile',
+                'boat_links' => $data['boat_links'] ?? []
+            ]);
+        } catch (Exception $e) {
+            logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+        }
     }
     
     $ch = curl_init();
