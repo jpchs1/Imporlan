@@ -348,18 +348,25 @@
 
   function buildArriendoPeriodosFields(prefix) {
     var pfx = prefix || '';
-    var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
+    var inputStyle = 'padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
+    var selectStyle = 'padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s;background:#fff;cursor:pointer;appearance:auto';
     var html = '<div id="' + pfx + 'mkt-arriendo-periodos" style="display:none;margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
-      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (CLP por periodo)</label>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
-    var periodos = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
-    periodos.forEach(function(p) {
-      html += '<div style="display:flex;flex-direction:column;gap:4px">' +
-        '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
-        '<input name="arriendo_' + p[0] + '" type="text" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
-        '</div>';
-    });
-    html += '</div></div>';
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:12px">Tarifa de Arriendo (CLP)</label>' +
+      '<div style="display:flex;gap:10px;align-items:flex-end">' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#92400e">Periodo</label>' +
+      '<select id="' + pfx + 'mkt-arriendo-periodo-select" name="arriendo_periodo_tipo" style="' + selectStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+      '<option value="" disabled selected>Seleccionar periodo</option>' +
+      '<option value="hora">Por Hora</option>' +
+      '<option value="medio_dia">Por 1/2 Dia</option>' +
+      '<option value="dia">Por Dia</option>' +
+      '<option value="semana">Por Semana</option>' +
+      '<option value="mes">Por Mes</option>' +
+      '</select></div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#92400e">Precio (CLP)</label>' +
+      '<input id="' + pfx + 'mkt-arriendo-precio-input" name="arriendo_precio" type="text" placeholder="Ej: 150.000" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
+      '</div></div></div>';
     return html;
   }
 
@@ -796,7 +803,10 @@
       '<h1 style="font-size:28px;font-weight:700;color:#0f172a;margin:0">Marketplace</h1>' +
       '<p style="color:#64748b;margin:4px 0 0;font-size:14px">Compra y vende embarcaciones en nuestra comunidad</p>' +
       "</div>" +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
       '<button onclick="window.__mktOpenPublish()" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'scale(1.02)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Publicar Embarcacion</button>' +
+      '<span style="font-size:12px;color:#64748b;font-weight:500">Para Venta y/o Arriendo</span>' +
+      '</div>' +
       "</div>" +
       '<div style="margin-bottom:20px">' +
       '<div style="display:flex;border-bottom:2px solid #e2e8f0;gap:0">' +
@@ -1031,19 +1041,34 @@
   function buildEditArriendoFields(item) {
     var periodos = item.arriendo_periodos || {};
     var isArriendo = item.tipo_publicacion === 'arriendo';
-    var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
-    var html = '<div id="edit-mkt-arriendo-periodos" style="display:' + (isArriendo ? 'block' : 'none') + ';margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
-      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (CLP por periodo)</label>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    var inputStyle = 'padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
+    var selectStyle = 'padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s;background:#fff;cursor:pointer;appearance:auto';
+    var selectedPeriodo = '';
+    var selectedPrecio = '';
     var ps = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
     ps.forEach(function(p) {
-      var fmtVal = (periodos[p[0]] || '') ? String(periodos[p[0]]).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-      html += '<div style="display:flex;flex-direction:column;gap:4px">' +
-        '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
-        '<input name="arriendo_' + p[0] + '" type="text" value="' + fmtVal + '" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
-        '</div>';
+      if (periodos[p[0]] && periodos[p[0]] > 0) {
+        selectedPeriodo = p[0];
+        selectedPrecio = String(periodos[p[0]]).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      }
     });
-    html += '</div></div>';
+    var html = '<div id="edit-mkt-arriendo-periodos" style="display:' + (isArriendo ? 'block' : 'none') + ';margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:12px">Tarifa de Arriendo (CLP)</label>' +
+      '<div style="display:flex;gap:10px;align-items:flex-end">' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#92400e">Periodo</label>' +
+      '<select id="edit-mkt-arriendo-periodo-select" name="arriendo_periodo_tipo" style="' + selectStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+      '<option value="" disabled' + (!selectedPeriodo ? ' selected' : '') + '>Seleccionar periodo</option>' +
+      '<option value="hora"' + (selectedPeriodo === 'hora' ? ' selected' : '') + '>Por Hora</option>' +
+      '<option value="medio_dia"' + (selectedPeriodo === 'medio_dia' ? ' selected' : '') + '>Por 1/2 Dia</option>' +
+      '<option value="dia"' + (selectedPeriodo === 'dia' ? ' selected' : '') + '>Por Dia</option>' +
+      '<option value="semana"' + (selectedPeriodo === 'semana' ? ' selected' : '') + '>Por Semana</option>' +
+      '<option value="mes"' + (selectedPeriodo === 'mes' ? ' selected' : '') + '>Por Mes</option>' +
+      '</select></div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+      '<label style="font-size:12px;font-weight:600;color:#92400e">Precio (CLP)</label>' +
+      '<input id="edit-mkt-arriendo-precio-input" name="arriendo_precio" type="text" value="' + selectedPrecio + '" placeholder="Ej: 150.000" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
+      '</div></div></div>';
     return html;
   }
 
@@ -1144,13 +1169,12 @@
 
     var arriendoPeriodos = {};
     if (tipoPub === 'arriendo') {
-      ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
-        var input = form.querySelector('input[name="arriendo_' + p + '"]');
-        if (input && input.value) {
-          var numVal = parseFloat(input.value.replace(/\./g, ''));
-          if (numVal > 0) arriendoPeriodos[p] = numVal;
-        }
-      });
+      var periodoSelect = form.querySelector('select[name="arriendo_periodo_tipo"]');
+      var precioInput = form.querySelector('input[name="arriendo_precio"]');
+      if (periodoSelect && periodoSelect.value && precioInput && precioInput.value) {
+        var numVal = parseFloat(precioInput.value.replace(/\./g, ''));
+        if (numVal > 0) arriendoPeriodos[periodoSelect.value] = numVal;
+      }
     }
 
     var data = {
@@ -1296,13 +1320,12 @@
 
     var arriendoPeriodos = {};
     if (tipoPub === 'arriendo') {
-      ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
-        var input = form.querySelector('input[name="arriendo_' + p + '"]');
-        if (input && input.value) {
-          var numVal = parseFloat(input.value.replace(/\./g, ''));
-          if (numVal > 0) arriendoPeriodos[p] = numVal;
-        }
-      });
+      var periodoSelect = form.querySelector('select[name="arriendo_periodo_tipo"]');
+      var precioInput = form.querySelector('input[name="arriendo_precio"]');
+      if (periodoSelect && periodoSelect.value && precioInput && precioInput.value) {
+        var numVal = parseFloat(precioInput.value.replace(/\./g, ''));
+        if (numVal > 0) arriendoPeriodos[periodoSelect.value] = numVal;
+      }
     }
 
     var data = {
