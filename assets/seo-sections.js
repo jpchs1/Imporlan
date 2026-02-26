@@ -707,7 +707,7 @@
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
               <h4 itemprop="name">¿Conviene importar una lancha usada o comprar en Chile?</h4>
               <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                <p itemprop="text"><strong>Importar lanchas usadas</strong> desde USA suele ser más conveniente, con ahorros de 10% a 20% respecto al mercado local chileno en compras sobre USD $25.000 (allá), además de mayor variedad de modelos y marcas disponibles. La gracia es que podrás elegir opciones que acá en Chile no se logran encontrar.</p>
+                <p itemprop="text"><strong>Importar lanchas usadas</strong> desde USA suele ser más conveniente, con ahorros de 10% a 20% respecto al mercado local chileno en compras sobre USD $25.000 (allá), además de mayor variedad de modelos y marcas disponibles. La gracia es que podrás elegir entre muchas más opciones.</p>
               </div>
             </div>
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
