@@ -164,8 +164,11 @@
       '" alt="' +
       (item.nombre || "") +
       '" style="width:100%;height:100%;object-fit:cover;transition:transform .4s" onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'none\'">' +
+      (item.tipo_publicacion === 'arriendo'
+        ? '<span style="position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700">EN ARRIENDO</span>'
+        : '<span style="position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700">EN VENTA</span>') +
       (item.estado === "Nueva"
-        ? '<span style="position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700">NUEVA</span>'
+        ? '<span style="position:absolute;top:10px;left:' + (item.tipo_publicacion === 'arriendo' ? '120' : '100') + 'px;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700">NUEVA</span>'
         : "") +
       '<span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600">' +
       (item.fotos ? item.fotos.length : 0) +
@@ -341,6 +344,44 @@
     );
   }
 
+  var PERIODO_LABELS = { 'hora': 'Hora', 'medio_dia': '1/2 Dia', 'dia': 'Dia', 'semana': 'Semana', 'mes': 'Mes' };
+
+  function buildArriendoPeriodosFields(prefix) {
+    var pfx = prefix || '';
+    var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
+    var html = '<div id="' + pfx + 'mkt-arriendo-periodos" style="display:none;margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (USD por periodo)</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    var periodos = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
+    periodos.forEach(function(p) {
+      html += '<div style="display:flex;flex-direction:column;gap:4px">' +
+        '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
+        '<input name="arriendo_' + p[0] + '" type="number" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+        '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function buildTipoPublicacionSelector(prefix) {
+    var pfx = prefix || '';
+    return '<div style="grid-column:1/-1;margin-bottom:6px">' +
+      '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:8px">Modalidad de Publicacion</label>' +
+      '<div style="display:flex;gap:10px">' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="' + pfx + 'mkt-label-venta" onclick="window.__mktSelectTipoPub(\'' + pfx + '\',\'venta\')"><input type="radio" name="tipo_publicacion" value="venta" checked style="accent-color:#22c55e"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Venta</div><div style="font-size:12px;color:#64748b">Vender embarcacion</div></div></label>' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="' + pfx + 'mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'' + pfx + '\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo" style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo</div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
+      '</div></div>';
+  }
+
+  window.__mktSelectTipoPub = function(prefix, tipo) {
+    var arriendoSection = document.getElementById(prefix + 'mkt-arriendo-periodos');
+    var labelVenta = document.getElementById(prefix + 'mkt-label-venta');
+    var labelArriendo = document.getElementById(prefix + 'mkt-label-arriendo');
+    if (arriendoSection) arriendoSection.style.display = tipo === 'arriendo' ? 'block' : 'none';
+    if (labelVenta) labelVenta.style.borderColor = tipo === 'venta' ? '#22c55e' : '#e2e8f0';
+    if (labelArriendo) labelArriendo.style.borderColor = tipo === 'arriendo' ? '#f59e0b' : '#e2e8f0';
+  };
+
   function buildPublishModal() {
     return (
       '<div id="mkt-publish-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:mktFadeIn .2s ease" onclick="if(event.target===this)window.__mktClosePublish()">' +
@@ -354,6 +395,7 @@
       "</div>" +
       '<form id="mkt-publish-form" style="padding:0 24px 24px" onsubmit="return window.__mktSubmitForm(event)">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+      buildTipoPublicacionSelector('') +
       buildField("nombre", "Nombre / Modelo", "text", "Ej: Sea Ray 250 SLX") +
       buildSelect("tipo", "Tipo", [
         { v: "", l: "Selecciona tipo" },
@@ -390,6 +432,7 @@
       ]) +
       buildField("horas", "Horas de Motor", "number", "150") +
       "</div>" +
+      buildArriendoPeriodosFields('') +
       '<div style="margin-top:14px">' +
       '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Descripcion</label>' +
       '<textarea name="descripcion" rows="3" placeholder="Describe tu embarcacion..." style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;font-family:inherit;outline:none;box-sizing:border-box;transition:border-color .2s" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></textarea>' +
@@ -458,6 +501,9 @@
       item.status === "sold"
         ? '<span style="background:#fef2f2;color:#b91c1c;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Vendida</span>'
         : '<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Activa</span>';
+    var tipoPubBadge = item.tipo_publicacion === 'arriendo'
+      ? '<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Arriendo</span>'
+      : '<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Venta</span>';
     return (
       '<div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
       '<img src="' +
@@ -468,7 +514,7 @@
       '<h3 style="font-weight:600;color:#1e293b;font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
       (item.nombre || "Sin nombre") +
       "</h3>" +
-      statusBadge +
+      statusBadge + ' ' + tipoPubBadge +
       "</div>" +
       '<p style="color:#2563eb;font-weight:700;font-size:16px;margin:4px 0">' +
       formatPrice(item.precio, item.moneda) +
@@ -981,6 +1027,34 @@
     }
   }
 
+  function buildEditArriendoFields(item) {
+    var periodos = item.arriendo_periodos || {};
+    var isArriendo = item.tipo_publicacion === 'arriendo';
+    var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
+    var html = '<div id="edit-mkt-arriendo-periodos" style="display:' + (isArriendo ? 'block' : 'none') + ';margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (USD por periodo)</label>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    var ps = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
+    ps.forEach(function(p) {
+      html += '<div style="display:flex;flex-direction:column;gap:4px">' +
+        '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
+        '<input name="arriendo_' + p[0] + '" type="number" value="' + (periodos[p[0]] || '') + '" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+        '</div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function buildEditTipoPubSelector(item) {
+    var isArriendo = item.tipo_publicacion === 'arriendo';
+    return '<div style="grid-column:1/-1;margin-bottom:6px">' +
+      '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:8px">Modalidad de Publicacion</label>' +
+      '<div style="display:flex;gap:10px">' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid ' + (!isArriendo ? '#22c55e' : '#e2e8f0') + ';border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="edit-mkt-label-venta" onclick="window.__mktSelectTipoPub(\'edit-\',\'venta\')"><input type="radio" name="tipo_publicacion" value="venta"' + (!isArriendo ? ' checked' : '') + ' style="accent-color:#22c55e"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Venta</div><div style="font-size:12px;color:#64748b">Vender embarcacion</div></div></label>' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid ' + (isArriendo ? '#f59e0b' : '#e2e8f0') + ';border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="edit-mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'edit-\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo"' + (isArriendo ? ' checked' : '') + ' style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo</div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
+      '</div></div>';
+  }
+
   function buildEditModal(item) {
     var selTipo = function (v) { return ['Bowrider','Pesca','Jet Boat','Yate','Velero','Moto de Agua','Catamaran','Otro'].map(function (o) { return '<option value="' + o + '"' + (o === (item.tipo || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
     var selEstado = function (v) { return ['Usada','Nueva'].map(function (o) { return '<option value="' + o + '"' + (o === (item.estado || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
@@ -999,6 +1073,7 @@
       '<form id="mkt-edit-form" style="padding:0 24px 24px" onsubmit="return window.__mktSubmitEdit(event)">' +
       '<input type="hidden" name="id" value="' + item.id + '">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+      buildEditTipoPubSelector(item) +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Nombre / Modelo</label><input name="nombre" type="text" value="' + (item.nombre || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Tipo</label><select name="tipo" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selTipo() + '</select></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Ano</label><input name="ano" type="number" value="' + (item.ano || '') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
@@ -1009,6 +1084,7 @@
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Condicion</label><select name="condicion" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selCondicion() + '</select></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Horas de Motor</label><input name="horas" type="number" value="' + (item.horas || '') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
       '</div>' +
+      buildEditArriendoFields(item) +
       '<div style="margin-top:14px"><label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Descripcion</label><textarea name="descripcion" rows="3" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;font-family:inherit;outline:none;box-sizing:border-box" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'">' + (item.descripcion || '') + '</textarea></div>' +
       '<div style="margin-top:14px">' +
       '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:6px">Fotos <span style="color:#94a3b8;font-weight:400">(maximo 8)</span></label>' +
@@ -1060,6 +1136,20 @@
     var oldText = btn.innerHTML;
     btn.innerHTML = 'Guardando...';
     btn.disabled = true;
+    var tipoPub = 'venta';
+    var tipoPubRadio = form.querySelector('input[name="tipo_publicacion"]:checked');
+    if (tipoPubRadio) tipoPub = tipoPubRadio.value;
+
+    var arriendoPeriodos = {};
+    if (tipoPub === 'arriendo') {
+      ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
+        var input = form.querySelector('input[name="arriendo_' + p + '"]');
+        if (input && input.value && parseFloat(input.value) > 0) {
+          arriendoPeriodos[p] = parseFloat(input.value);
+        }
+      });
+    }
+
     var data = {
       id: parseInt(form.id.value),
       nombre: form.nombre.value,
@@ -1073,7 +1163,9 @@
       estado: form.estado.value,
       condicion: form.condicion.value,
       horas: form.horas.value,
-      fotos: editPhotos
+      fotos: editPhotos,
+      tipo_publicacion: tipoPub,
+      arriendo_periodos: tipoPub === 'arriendo' ? arriendoPeriodos : null,
     };
     try {
       var result = await apiCall('?action=update', {
@@ -1195,6 +1287,20 @@
     btn.innerHTML = "Publicando...";
     btn.disabled = true;
 
+    var tipoPub = 'venta';
+    var tipoPubRadio = form.querySelector('input[name="tipo_publicacion"]:checked');
+    if (tipoPubRadio) tipoPub = tipoPubRadio.value;
+
+    var arriendoPeriodos = {};
+    if (tipoPub === 'arriendo') {
+      ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
+        var input = form.querySelector('input[name="arriendo_' + p + '"]');
+        if (input && input.value && parseFloat(input.value) > 0) {
+          arriendoPeriodos[p] = parseFloat(input.value);
+        }
+      });
+    }
+
     var data = {
       nombre: form.nombre.value,
       tipo: form.tipo.value,
@@ -1208,6 +1314,8 @@
       condicion: form.condicion.value,
       horas: form.horas.value,
       fotos: uploadedPhotos,
+      tipo_publicacion: tipoPub,
+      arriendo_periodos: tipoPub === 'arriendo' ? arriendoPeriodos : null,
     };
 
     try {
