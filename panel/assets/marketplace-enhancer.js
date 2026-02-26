@@ -350,13 +350,13 @@
     var pfx = prefix || '';
     var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
     var html = '<div id="' + pfx + 'mkt-arriendo-periodos" style="display:none;margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
-      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (USD por periodo)</label>' +
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (CLP por periodo)</label>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
     var periodos = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
     periodos.forEach(function(p) {
       html += '<div style="display:flex;flex-direction:column;gap:4px">' +
         '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
-        '<input name="arriendo_' + p[0] + '" type="number" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+        '<input name="arriendo_' + p[0] + '" type="text" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
         '</div>';
     });
     html += '</div></div>';
@@ -369,7 +369,7 @@
       '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:8px">Modalidad de Publicacion</label>' +
       '<div style="display:flex;gap:10px">' +
       '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="' + pfx + 'mkt-label-venta" onclick="window.__mktSelectTipoPub(\'' + pfx + '\',\'venta\')"><input type="radio" name="tipo_publicacion" value="venta" checked style="accent-color:#22c55e"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Venta</div><div style="font-size:12px;color:#64748b">Vender embarcacion</div></div></label>' +
-      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="' + pfx + 'mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'' + pfx + '\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo" style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo</div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="' + pfx + 'mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'' + pfx + '\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo" style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;vertical-align:middle;margin-left:4px;letter-spacing:.5px">NEW</span></div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
       '</div></div>';
   }
 
@@ -388,10 +388,11 @@
       '<div style="background:#fff;border-radius:20px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;position:relative;animation:mktSlideUp .3s ease">' +
       '<div style="padding:24px 24px 0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
-      '<h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0">Publicar Embarcacion</h2>' +
-      '<button onclick="window.__mktClosePublish()" style="background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
-      "</div>" +
-      '<p style="color:#64748b;font-size:14px;margin:0 0 20px">Completa los datos de tu embarcacion para publicarla en el marketplace</p>' +
+            '<h2 style="font-size:20px;font-weight:700;color:#0f172a;margin:0">Publicar Embarcacion</h2>' +
+            '<button onclick="window.__mktClosePublish()" style="background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
+            "</div>" +
+            '<p style="color:#64748b;font-size:14px;margin:0 0 6px">Completa los datos de tu embarcacion para publicarla en el marketplace</p>' +
+            '<p style="color:#f59e0b;font-size:13px;margin:0 0 20px;display:flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> Tambien puedes publicar tu embarcacion <strong>para Arriendo</strong> por periodos <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;letter-spacing:.5px">NEW</span></p>' +
       "</div>" +
       '<form id="mkt-publish-form" style="padding:0 24px 24px" onsubmit="return window.__mktSubmitForm(event)">' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
@@ -1032,13 +1033,14 @@
     var isArriendo = item.tipo_publicacion === 'arriendo';
     var inputStyle = 'padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s';
     var html = '<div id="edit-mkt-arriendo-periodos" style="display:' + (isArriendo ? 'block' : 'none') + ';margin-top:14px;padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a">' +
-      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (USD por periodo)</label>' +
+      '<label style="font-size:13px;font-weight:700;color:#92400e;display:block;margin-bottom:10px">Tarifas de Arriendo (CLP por periodo)</label>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
     var ps = [['hora', 'Por Hora'], ['medio_dia', 'Por 1/2 Dia'], ['dia', 'Por Dia'], ['semana', 'Por Semana'], ['mes', 'Por Mes']];
     ps.forEach(function(p) {
+      var fmtVal = (periodos[p[0]] || '') ? String(periodos[p[0]]).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
       html += '<div style="display:flex;flex-direction:column;gap:4px">' +
         '<label style="font-size:12px;font-weight:600;color:#92400e">' + p[1] + '</label>' +
-        '<input name="arriendo_' + p[0] + '" type="number" value="' + (periodos[p[0]] || '') + '" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+        '<input name="arriendo_' + p[0] + '" type="text" value="' + fmtVal + '" placeholder="0" style="' + inputStyle + '" onfocus="this.style.borderColor=\'#f59e0b\'" onblur="this.style.borderColor=\'#e2e8f0\'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\').replace(/\\B(?=(\\d{3})+(?!\\d))/g,\'.\')">' +
         '</div>';
     });
     html += '</div></div>';
@@ -1051,7 +1053,7 @@
       '<label style="font-size:13px;font-weight:600;color:#475569;display:block;margin-bottom:8px">Modalidad de Publicacion</label>' +
       '<div style="display:flex;gap:10px">' +
       '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid ' + (!isArriendo ? '#22c55e' : '#e2e8f0') + ';border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="edit-mkt-label-venta" onclick="window.__mktSelectTipoPub(\'edit-\',\'venta\')"><input type="radio" name="tipo_publicacion" value="venta"' + (!isArriendo ? ' checked' : '') + ' style="accent-color:#22c55e"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Venta</div><div style="font-size:12px;color:#64748b">Vender embarcacion</div></div></label>' +
-      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid ' + (isArriendo ? '#f59e0b' : '#e2e8f0') + ';border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="edit-mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'edit-\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo"' + (isArriendo ? ' checked' : '') + ' style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo</div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
+      '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border:2px solid ' + (isArriendo ? '#f59e0b' : '#e2e8f0') + ';border-radius:12px;cursor:pointer;transition:all .2s;background:#fff" id="edit-mkt-label-arriendo" onclick="window.__mktSelectTipoPub(\'edit-\',\'arriendo\')"><input type="radio" name="tipo_publicacion" value="arriendo"' + (isArriendo ? ' checked' : '') + ' style="accent-color:#f59e0b"><div><div style="font-weight:700;color:#1e293b;font-size:14px">Arriendo <span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;vertical-align:middle;margin-left:4px;letter-spacing:.5px">NEW</span></div><div style="font-size:12px;color:#64748b">Arrendar por periodos</div></div></label>' +
       '</div></div>';
   }
 
@@ -1144,8 +1146,9 @@
     if (tipoPub === 'arriendo') {
       ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
         var input = form.querySelector('input[name="arriendo_' + p + '"]');
-        if (input && input.value && parseFloat(input.value) > 0) {
-          arriendoPeriodos[p] = parseFloat(input.value);
+        if (input && input.value) {
+          var numVal = parseFloat(input.value.replace(/\./g, ''));
+          if (numVal > 0) arriendoPeriodos[p] = numVal;
         }
       });
     }
@@ -1295,8 +1298,9 @@
     if (tipoPub === 'arriendo') {
       ['hora','medio_dia','dia','semana','mes'].forEach(function(p) {
         var input = form.querySelector('input[name="arriendo_' + p + '"]');
-        if (input && input.value && parseFloat(input.value) > 0) {
-          arriendoPeriodos[p] = parseFloat(input.value);
+        if (input && input.value) {
+          var numVal = parseFloat(input.value.replace(/\./g, ''));
+          if (numVal > 0) arriendoPeriodos[p] = numVal;
         }
       });
     }

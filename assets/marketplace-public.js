@@ -326,7 +326,7 @@
     Object.keys(periodos).forEach(function(key) {
       if (periodos[key] && parseFloat(periodos[key]) > 0) {
         var label = PERIODO_LABELS[key] || key;
-        items.push('<span class="mp-arriendo-periodo-item">USD $' + Number(periodos[key]).toLocaleString('en-US') + '/' + label.toLowerCase() + '</span>');
+        items.push('<span class="mp-arriendo-periodo-item">$' + Number(periodos[key]).toLocaleString('es-CL') + ' CLP/' + label.toLowerCase() + '</span>');
       }
     });
     return items.length > 0 ? '<div class="mp-arriendo-periodos">' + items.join('') + '</div>' : '';
