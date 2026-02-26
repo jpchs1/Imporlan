@@ -614,7 +614,7 @@
 
     const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
 
-    section.innerHTML = \`
+    section.innerHTML = `
       <div class="lanchas-usadas-container">
         <h2><span class="kw-highlight">Lanchas Usadas</span> en Chile: Compra, Venta e <span class="kw-highlight">Importacion de Lanchas</span></h2>
         <p class="section-intro">
@@ -627,7 +627,7 @@
         <div class="lanchas-content-grid">
           <div class="lanchas-content-block">
             <h3>
-              <span class="block-icon icon-blue">\${icons.boat}</span>
+              <span class="block-icon icon-blue">${icons.boat}</span>
               Lanchas Usadas en Venta
             </h3>
             <p>En nuestro <strong>marketplace de lanchas usadas</strong> encontraras embarcaciones verificadas publicadas por particulares y dealers en todo Chile. Desde <strong>lanchas de pesca usadas</strong>, lanchas deportivas, hasta cabinadas y pontones.</p>
@@ -643,7 +643,7 @@
           
           <div class="lanchas-content-block">
             <h3>
-              <span class="block-icon icon-cyan">\${icons.globe}</span>
+              <span class="block-icon icon-cyan">${icons.globe}</span>
               Importacion de Lanchas desde USA
             </h3>
             <p>Somos expertos en la <strong>importacion de lanchas</strong> desde Estados Unidos a Chile. Nuestro servicio integral cubre todo el proceso: busqueda, inspeccion, compra, transporte maritimo, internacion aduanera y entrega en tu puerto.</p>
@@ -659,7 +659,7 @@
           
           <div class="lanchas-content-block">
             <h3>
-              <span class="block-icon icon-green">\${icons.sailboat}</span>
+              <span class="block-icon icon-green">${icons.sailboat}</span>
               Tipos de Lanchas Usadas Disponibles
             </h3>
             <p>Ya sea que busques <strong>lanchas usadas</strong> para pesca, paseo familiar o deportes acuaticos, en Imporlan tenemos opciones para todos los presupuestos y necesidades.</p>
@@ -674,7 +674,7 @@
           
           <div class="lanchas-content-block">
             <h3>
-              <span class="block-icon icon-orange">\${icons.anchor}</span>
+              <span class="block-icon icon-orange">${icons.anchor}</span>
               Por que Elegir Imporlan para tu Lancha
             </h3>
             <p>Con anos de experiencia en la <strong>importacion de lanchas</strong> y <strong>venta de lanchas usadas</strong>, Imporlan se ha posicionado como el referente del mercado nautico en Chile.</p>
@@ -721,11 +721,11 @@
         
         <div class="lanchas-cta-wrapper">
           <a class="lanchas-cta-btn" href="/marketplace/">
-            Ver Lanchas Usadas en Venta \${arrowIcon}
+            Ver Lanchas Usadas en Venta ${arrowIcon}
           </a>
         </div>
       </div>
-    \`;
+    `;
 
     return section;
   }
