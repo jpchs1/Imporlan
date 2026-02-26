@@ -76,24 +76,26 @@
       var buttons = nav.querySelectorAll("button");
       if (buttons.length === 0) { setTimeout(tryInject, 500); return; }
 
-      var refBtn = null;
+      // Find Dashboard button to insert Seguimiento right after it (2nd position)
+      var dashboardBtn = null;
       buttons.forEach(function (el) {
         if (!el.closest || !el.closest("li")) return;
         var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("auditoria") || text.includes("marketplace") || text.includes("productos")) {
-          refBtn = el;
+        if (text.includes("dashboard")) {
+          dashboardBtn = el;
         }
       });
-      if (!refBtn) {
+      // Fallback: use first button if Dashboard not found
+      if (!dashboardBtn) {
         var liButtons = nav.querySelectorAll("ul li button");
-        if (liButtons.length > 0) refBtn = liButtons[liButtons.length - 1];
-        else refBtn = buttons[buttons.length - 1];
+        if (liButtons.length > 0) dashboardBtn = liButtons[0];
+        else dashboardBtn = buttons[0];
       }
 
       var btn = document.createElement("button");
       btn.id = "sidebar-tracking-user";
-      btn.className = refBtn.className.replace(/bg-blue-500\/20|bg-cyan-500\/20|text-cyan-400|text-blue-400|border-r-4|border-cyan-400/g, "");
-      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg> Seguimiento';
+      btn.className = dashboardBtn.className.replace(/bg-blue-500\/20|bg-cyan-500\/20|text-cyan-400|text-blue-400|border-r-4|border-cyan-400/g, "");
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg> Seguimiento <span style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:9999px;margin-left:6px;letter-spacing:.5px;text-transform:uppercase;animation:newPulse 2s ease-in-out infinite">NEW</span>';
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -101,13 +103,13 @@
         window.location.hash = "#seguimiento";
       });
 
-      var refLi = refBtn.closest ? refBtn.closest("li") : refBtn.parentNode;
-      if (refLi && refLi.tagName === "LI") {
+      var dashLi = dashboardBtn.closest ? dashboardBtn.closest("li") : dashboardBtn.parentNode;
+      if (dashLi && dashLi.tagName === "LI") {
         var li = document.createElement("li");
         li.appendChild(btn);
-        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+        dashLi.parentNode.insertBefore(li, dashLi.nextSibling);
       } else {
-        refBtn.parentNode.insertBefore(btn, refBtn.nextSibling);
+        dashboardBtn.parentNode.insertBefore(btn, dashboardBtn.nextSibling);
       }
       updateSidebarActive();
     }
@@ -365,6 +367,7 @@
     style.textContent =
       "@keyframes spin { to { transform: rotate(360deg) } }" +
       "@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }" +
+      "@keyframes newPulse { 0%,100% { opacity:1;transform:scale(1) } 50% { opacity:.8;transform:scale(1.05) } }" +
       ".tracking-vessel-card:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.15) }" +
       ".leaflet-container { font-family:system-ui,-apple-system,sans-serif !important }" +
       "@media (max-width:1024px) { #tracking-vessel-list { display:none } }" +
