@@ -62,9 +62,15 @@ switch ($action) {
         $user = requireAuth();
         markListingSold($user);
         break;
+    case 'lead':
+        handleLeadSubmission();
+        break;
     case 'migrate_v2':
         $user = requireAuth();
         migrateMarketplaceV2();
+        break;
+    case 'migrate_arriendo':
+        migrateArriendoFields();
         break;
     default:
         http_response_code(400);
@@ -178,6 +184,9 @@ function listListings() {
     $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($listings as &$l) {
         $l['fotos'] = $l['fotos'] ? json_decode($l['fotos'], true) : [];
+        if (!empty($l['arriendo_periodos'])) {
+            $l['arriendo_periodos'] = json_decode($l['arriendo_periodos'], true) ?: [];
+        }
     }
     echo json_encode(['listings' => $listings]);
 }
@@ -193,6 +202,9 @@ function myListings($user) {
     $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($listings as &$l) {
         $l['fotos'] = $l['fotos'] ? json_decode($l['fotos'], true) : [];
+        if (!empty($l['arriendo_periodos'])) {
+            $l['arriendo_periodos'] = json_decode($l['arriendo_periodos'], true) ?: [];
+        }
     }
     echo json_encode(['listings' => $listings]);
 }
@@ -236,22 +248,23 @@ function createListing($user) {
         error_log('[Marketplace] Auto-migration on create: ' . $e->getMessage());
     }
 
+    // Auto-migrate arriendo fields if needed
+    try { ensureArriendoColumns($pdo); } catch (Exception $e) {
+        error_log('[Marketplace] Auto-migrate arriendo: ' . $e->getMessage());
+    }
+
     $cols = $pdo->query("SHOW COLUMNS FROM marketplace_listings")->fetchAll(PDO::FETCH_COLUMN);
     $hasDateCols = in_array('published_at', $cols) && in_array('expires_at', $cols);
+    $hasArriendoCols = in_array('tipo_publicacion', $cols);
 
-    if ($hasDateCols) {
-        $stmt = $pdo->prepare("
-            INSERT INTO marketplace_listings
-            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos, published_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-    } else {
-        $stmt = $pdo->prepare("
-            INSERT INTO marketplace_listings
-            (user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
+    $tipoPub = in_array($input['tipo_publicacion'] ?? '', ['venta','arriendo']) ? $input['tipo_publicacion'] : 'venta';
+    $arriendoPeriodos = null;
+    if ($tipoPub === 'arriendo' && isset($input['arriendo_periodos'])) {
+        $arriendoPeriodos = is_string($input['arriendo_periodos']) ? $input['arriendo_periodos'] : json_encode($input['arriendo_periodos']);
     }
+
+    $baseCols = 'user_email, user_name, nombre, tipo, ano, eslora, precio, moneda, ubicacion, descripcion, estado, condicion, horas, fotos';
+    $basePlaceholders = '?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?';
     $params = [
         $user['email'],
         $user['name'] ?? explode('@', $user['email'])[0],
@@ -268,10 +281,21 @@ function createListing($user) {
         intval($input['horas'] ?? 0) ?: null,
         $fotos,
     ];
+
+    if ($hasArriendoCols) {
+        $baseCols .= ', tipo_publicacion, arriendo_periodos';
+        $basePlaceholders .= ', ?, ?';
+        $params[] = $tipoPub;
+        $params[] = $arriendoPeriodos;
+    }
     if ($hasDateCols) {
+        $baseCols .= ', published_at, expires_at';
+        $basePlaceholders .= ', ?, ?';
         $params[] = $now;
         $params[] = $expiresAt;
     }
+
+    $stmt = $pdo->prepare("INSERT INTO marketplace_listings ($baseCols) VALUES ($basePlaceholders)");
     $stmt->execute($params);
     $id = $pdo->lastInsertId();
 
@@ -394,7 +418,8 @@ function updateListing($user) {
         'ubicacion' => 'string', 'descripcion' => 'string',
         'estado' => 'enum:Nueva,Usada',
         'condicion' => 'enum:Excelente,Muy Buena,Buena,Regular,Para Reparacion',
-        'horas' => 'int'
+        'horas' => 'int',
+        'tipo_publicacion' => 'enum:venta,arriendo'
     ];
 
     foreach ($allowedFields as $field => $type) {
@@ -417,6 +442,11 @@ function updateListing($user) {
     if (isset($input['fotos']) && is_array($input['fotos'])) {
         $fields[] = 'fotos = ?';
         $params[] = json_encode($input['fotos']);
+    }
+
+    if (isset($input['arriendo_periodos'])) {
+        $fields[] = 'arriendo_periodos = ?';
+        $params[] = is_string($input['arriendo_periodos']) ? $input['arriendo_periodos'] : json_encode($input['arriendo_periodos']);
     }
 
     if (empty($fields)) {
@@ -532,6 +562,63 @@ function migrateMarketplaceV2() {
     echo json_encode($result);
 }
 
+function handleLeadSubmission() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = trim($input['email'] ?? '');
+    if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email invalido']);
+        return;
+    }
+    $nombre = trim($input['nombre'] ?? '');
+    $intereses = trim($input['intereses'] ?? '');
+
+    $pdo = getDbConnection();
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS marketplace_leads (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                nombre VARCHAR(255),
+                intereses TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    } catch (PDOException $e) {
+        error_log('[Marketplace] Lead table creation: ' . $e->getMessage());
+    }
+
+    try {
+        $check = $pdo->prepare("SELECT id FROM marketplace_leads WHERE email = ?");
+        $check->execute([$email]);
+        if ($check->fetch()) {
+            $stmt = $pdo->prepare("UPDATE marketplace_leads SET nombre = COALESCE(NULLIF(?, ''), nombre), intereses = COALESCE(NULLIF(?, ''), intereses) WHERE email = ?");
+            $stmt->execute([$nombre, $intereses, $email]);
+            echo json_encode(['success' => true, 'message' => 'Informacion actualizada']);
+            return;
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO marketplace_leads (email, nombre, intereses) VALUES (?, ?, ?)");
+        $stmt->execute([$email, $nombre, $intereses]);
+        $leadId = $pdo->lastInsertId();
+
+        try {
+            $emailService = getMarketplaceEmailService();
+            $emailService->sendLeadWelcomeEmail($email, $nombre, $intereses);
+            $emailService->sendAdminLeadEmail($email, $nombre, $intereses);
+        } catch (Exception $e) {
+            error_log('[Marketplace] Lead email send error: ' . $e->getMessage());
+        }
+
+        echo json_encode(['success' => true, 'id' => $leadId]);
+    } catch (PDOException $e) {
+        error_log('[Marketplace] Lead save error: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar. Intente nuevamente.']);
+    }
+}
+
 function fetchListingById($pdo, $id) {
     $stmt = $pdo->prepare("SELECT * FROM marketplace_listings WHERE id = ?");
     $stmt->execute([intval($id)]);
@@ -539,5 +626,29 @@ function fetchListingById($pdo, $id) {
     if ($listing && $listing['fotos']) {
         $listing['fotos'] = json_decode($listing['fotos'], true) ?: [];
     }
+    if ($listing && !empty($listing['arriendo_periodos'])) {
+        $listing['arriendo_periodos'] = json_decode($listing['arriendo_periodos'], true) ?: [];
+    }
     return $listing ?: null;
+}
+
+function ensureArriendoColumns($pdo) {
+    $cols = $pdo->query("SHOW COLUMNS FROM marketplace_listings")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('tipo_publicacion', $cols)) {
+        $pdo->exec("ALTER TABLE marketplace_listings ADD COLUMN tipo_publicacion ENUM('venta','arriendo') DEFAULT 'venta' AFTER fotos");
+    }
+    if (!in_array('arriendo_periodos', $cols)) {
+        $pdo->exec("ALTER TABLE marketplace_listings ADD COLUMN arriendo_periodos TEXT DEFAULT NULL AFTER tipo_publicacion");
+    }
+}
+
+function migrateArriendoFields() {
+    $pdo = getDbConnection();
+    try {
+        ensureArriendoColumns($pdo);
+        echo json_encode(['success' => true, 'message' => 'Campos de arriendo migrados correctamente']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
 }
