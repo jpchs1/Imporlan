@@ -228,8 +228,8 @@
       <div class="marketplace-container">\
         <div class="marketplace-header">\
           <div class="marketplace-badge">' + iconBoat + ' Marketplace Imporlan</div>\
-          <h2>Encuentra <span class="highlight-text">Lanchas Usadas</span> en Chile</h2>\
-          <p class="subtitle">Explora el Marketplace de Imporlan con embarcaciones usadas publicadas por otros usuarios. Compra directo, sin intermediarios y con la confianza de nuestra comunidad.</p>\
+          <h2>Encuentra <span class="highlight-text">Lanchas Usadas</span> en Venta en Chile</h2>\
+          <p class="subtitle">Explora el Marketplace de Imporlan con lanchas usadas y embarcaciones publicadas por particulares y dealers. Compra directo, sin intermediarios, o solicita la importacion de lanchas desde USA.</p>\
         </div>\
         <div class="marketplace-grid">\
           <div class="marketplace-feature">\
