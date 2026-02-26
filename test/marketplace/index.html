@@ -59,6 +59,7 @@
         <a href="/" class="mp-nav-link"><span>Inicio</span></a>
         <a href="/marketplace/" class="mp-nav-link" style="color:var(--mp-primary);font-weight:600;"><span>Marketplace</span></a>
         <a href="/marketplace/publicar" class="mp-nav-link mp-btn-primary" id="mp-nav-publish">Publicar Gratis</a>
+        <a href="/marketplace/publicar?modo=arriendo" class="mp-nav-link mp-btn-arriendo" id="mp-nav-publish-arriendo">Publicar para Arriendo</a>
       </nav>
     </div>
   </header>
@@ -101,6 +102,15 @@
         <div class="mp-filters-header">
           <span class="mp-filters-title">Filtros</span>
           <button class="mp-filters-clear" id="mp-filters-clear">Limpiar filtros</button>
+        </div>
+
+        <div class="mp-filter-group">
+          <label class="mp-filter-label">Modalidad</label>
+          <select class="mp-filter-select" id="filter-tipo-publicacion">
+            <option value="">Todas</option>
+            <option value="venta">En Venta</option>
+            <option value="arriendo">En Arriendo</option>
+          </select>
         </div>
 
         <div class="mp-filter-group">
@@ -239,10 +249,16 @@
     <div class="mp-modal"></div>
   </div>
 
-  <button class="mp-sticky-cta" id="mp-publish-sticky">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Publicar Gratis
-  </button>
+  <div class="mp-sticky-cta-group">
+    <button class="mp-sticky-cta" id="mp-publish-sticky">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Publicar Venta
+    </button>
+    <button class="mp-sticky-cta mp-sticky-cta-arriendo" id="mp-publish-sticky-arriendo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Publicar Arriendo
+    </button>
+  </div>
 
   <footer class="mp-footer">
     <div class="mp-footer-inner">

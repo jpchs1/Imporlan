@@ -98,8 +98,19 @@
     return [];
   }
 
+  var PERIODO_LABELS = {
+    'hora': 'Hora',
+    'medio_dia': '1/2 Dia',
+    'dia': 'Dia',
+    'semana': 'Semana',
+    'mes': 'Mes'
+  };
+
   function getFiltersFromUI() {
     var filters = {};
+    var tipoPub = document.getElementById('filter-tipo-publicacion');
+    if (tipoPub && tipoPub.value) filters.tipo_publicacion = tipoPub.value;
+
     var tipo = document.getElementById('filter-tipo');
     if (tipo && tipo.value) filters.tipo = tipo.value;
 
@@ -170,6 +181,11 @@
       var horas = parseInt(l.horas) || 0;
       if (filters.horas_min && horas < filters.horas_min) return false;
       if (filters.horas_max && horas > filters.horas_max) return false;
+
+      if (filters.tipo_publicacion) {
+        var tipoPub = l.tipo_publicacion || 'venta';
+        if (tipoPub !== filters.tipo_publicacion) return false;
+      }
 
       if (filters.keyword) {
         var searchText = [l.nombre, l.tipo, l.ubicacion, l.descripcion, l.estado, l.condicion]
@@ -304,9 +320,22 @@
   var svgRuler = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20"/><path d="M6 8v8"/><path d="M10 10v4"/><path d="M14 10v4"/><path d="M18 8v8"/></svg>';
   var svgBoat = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M12 2v4"/></svg>';
 
+  function formatArriendoPeriodos(periodos) {
+    if (!periodos || typeof periodos !== 'object') return '';
+    var items = [];
+    Object.keys(periodos).forEach(function(key) {
+      if (periodos[key] && parseFloat(periodos[key]) > 0) {
+        var label = PERIODO_LABELS[key] || key;
+        items.push('<span class="mp-arriendo-periodo-item">USD $' + Number(periodos[key]).toLocaleString('en-US') + '/' + label.toLowerCase() + '</span>');
+      }
+    });
+    return items.length > 0 ? '<div class="mp-arriendo-periodos">' + items.join('') + '</div>' : '';
+  }
+
   function renderCard(listing) {
     var fotos = listing.fotos || [];
     var mainPhoto = fotos.length > 0 ? fotos[0] : '';
+    var isArriendo = listing.tipo_publicacion === 'arriendo';
     var priceInfo = formatPriceDisplay(listing.precio, listing.moneda);
     var priceMain = typeof priceInfo === 'string' ? priceInfo : priceInfo.main;
     var priceSec = typeof priceInfo === 'string' ? '' : priceInfo.secondary;
@@ -315,6 +344,9 @@
       ? '<img class="mp-card-img" data-src="' + escapeHtml(mainPhoto) + '" alt="' + escapeHtml(listing.nombre) + '" loading="lazy">'
       : '<div class="mp-card-img-placeholder">' + svgBoat + '</div>';
 
+    var badgeTipoPub = isArriendo
+      ? '<span class="mp-badge mp-badge-arriendo">EN ARRIENDO</span>'
+      : '<span class="mp-badge mp-badge-venta">EN VENTA</span>';
     var badgeEstado = listing.estado === 'Nueva'
       ? '<span class="mp-badge mp-badge-new">Nueva</span>'
       : '<span class="mp-badge mp-badge-used">Usada</span>';
@@ -322,9 +354,14 @@
       ? '<span class="mp-badge mp-badge-condition">' + escapeHtml(listing.condicion) + '</span>'
       : '';
 
-    return '<div class="mp-card" data-id="' + listing.id + '">' +
+    var arriendoHtml = '';
+    if (isArriendo && listing.arriendo_periodos) {
+      arriendoHtml = formatArriendoPeriodos(listing.arriendo_periodos);
+    }
+
+    return '<div class="mp-card' + (isArriendo ? ' mp-card-arriendo' : '') + '" data-id="' + listing.id + '">' +
       '<div class="mp-card-img-wrap">' + imgHtml +
-        '<div class="mp-card-badges">' + badgeEstado + badgeCondicion + '</div>' +
+        '<div class="mp-card-badges">' + badgeTipoPub + badgeEstado + badgeCondicion + '</div>' +
       '</div>' +
       '<div class="mp-card-body">' +
         (listing.tipo ? '<div class="mp-card-type">' + escapeHtml(listing.tipo) + '</div>' : '') +
@@ -337,9 +374,10 @@
         '</div>' +
         '<div class="mp-card-price">' + priceMain + '</div>' +
         (priceSec ? '<div class="mp-card-price-clp">' + priceSec + '</div>' : '') +
+        arriendoHtml +
         '<div class="mp-card-actions">' +
           '<button class="mp-card-btn mp-card-btn-primary" data-action="details" data-id="' + listing.id + '">Ver Detalles</button>' +
-          '<button class="mp-card-btn mp-card-btn-outline" data-action="contact" data-id="' + listing.id + '">Contactar</button>' +
+          '<button class="mp-card-btn mp-card-btn-outline" data-action="contact" data-id="' + listing.id + '">' + (isArriendo ? 'Consultar Arriendo' : 'Contactar') + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -527,7 +565,9 @@
         svgBoat + '<button class="mp-modal-close" id="mp-modal-close-gallery">&times;</button></div>';
     }
 
+    var isArriendo = listing.tipo_publicacion === 'arriendo';
     var specs = [];
+    specs.push({ label: 'Modalidad', value: isArriendo ? 'Arriendo' : 'Venta' });
     if (listing.tipo) specs.push({ label: 'Tipo', value: listing.tipo });
     if (listing.ano) specs.push({ label: 'Ano', value: listing.ano });
     if (listing.eslora) specs.push({ label: 'Eslora', value: listing.eslora });
@@ -550,13 +590,14 @@
         '<div class="mp-modal-price">' + priceMain + '</div>' +
         (priceSec ? '<div class="mp-modal-price-clp">' + priceSec + '</div>' : '') +
         specsHtml +
+        (isArriendo && listing.arriendo_periodos ? '<div class="mp-modal-arriendo-section"><h4>Tarifas de Arriendo</h4>' + formatArriendoPeriodos(listing.arriendo_periodos) + '</div>' : '') +
         (listing.descripcion ? '<div class="mp-modal-description"><h4>Descripcion</h4><p>' + escapeHtml(listing.descripcion) + '</p></div>' : '') +
         '<div class="mp-modal-seller">' +
           '<div class="mp-modal-seller-name">Publicado por: ' + escapeHtml(listing.user_name || 'Usuario') + '</div>' +
           '<div class="mp-modal-seller-date">Publicado ' + timeAgo(listing.created_at) + '</div>' +
         '</div>' +
         '<div class="mp-modal-actions">' +
-          '<button class="mp-modal-btn mp-modal-btn-primary" data-action="contact-modal" data-id="' + listing.id + '">Contactar Vendedor</button>' +
+          '<button class="mp-modal-btn mp-modal-btn-primary" data-action="contact-modal" data-id="' + listing.id + '">' + (isArriendo ? 'Consultar Arriendo' : 'Contactar Vendedor') + '</button>' +
           '<a class="mp-modal-btn mp-modal-btn-secondary" href="https://wa.me/56920382479?text=' + encodeURIComponent('Hola, me interesa la embarcacion ' + listing.nombre + ' publicada en Imporlan Marketplace.') + '" target="_blank">Cotizar Importacion</a>' +
           '<button class="mp-modal-btn mp-modal-btn-outline" data-action="share" data-id="' + listing.id + '">Compartir</button>' +
         '</div>' +
@@ -606,7 +647,10 @@
     } else if (action === 'contact' || action === 'contact-modal') {
       var listing = allListings.find(function(l) { return String(l.id) === String(id); });
       if (listing) {
-        var msg = 'Hola, me interesa la embarcacion ' + (listing.nombre || '') + ' publicada en Imporlan Marketplace.';
+        var isArr = listing.tipo_publicacion === 'arriendo';
+        var msg = isArr
+          ? 'Hola, me interesa arrendar la embarcacion ' + (listing.nombre || '') + ' publicada en Imporlan Marketplace.'
+          : 'Hola, me interesa la embarcacion ' + (listing.nombre || '') + ' publicada en Imporlan Marketplace.';
         window.open('https://wa.me/56920382479?text=' + encodeURIComponent(msg), '_blank');
       }
     } else if (action === 'share') {
@@ -792,6 +836,21 @@
           window.location.href = panelUrl + '#/marketplace/publicar';
         } else {
           sessionStorage.setItem('imporlan_redirect_after_login', panelUrl + '#/marketplace/publicar');
+          window.location.href = panelUrl + '#/register';
+        }
+      });
+    }
+
+    var publishArriendoBtn = document.getElementById('mp-publish-sticky-arriendo');
+    if (publishArriendoBtn) {
+      publishArriendoBtn.addEventListener('click', function() {
+        var token = localStorage.getItem('imporlan_token');
+        var path = window.location.pathname;
+        var panelUrl = path.indexOf('/test/') !== -1 ? '/panel-test/' : '/panel/';
+        if (token) {
+          window.location.href = panelUrl + '#/marketplace/publicar?modo=arriendo';
+        } else {
+          sessionStorage.setItem('imporlan_redirect_after_login', panelUrl + '#/marketplace/publicar?modo=arriendo');
           window.location.href = panelUrl + '#/register';
         }
       });
