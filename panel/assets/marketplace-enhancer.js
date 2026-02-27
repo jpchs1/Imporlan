@@ -384,7 +384,9 @@
     var arriendoSection = document.getElementById(prefix + 'mkt-arriendo-periodos');
     var labelVenta = document.getElementById(prefix + 'mkt-label-venta');
     var labelArriendo = document.getElementById(prefix + 'mkt-label-arriendo');
+    var precioField = document.getElementById(prefix + 'mkt-precio-field');
     if (arriendoSection) arriendoSection.style.display = tipo === 'arriendo' ? 'block' : 'none';
+    if (precioField) precioField.style.display = tipo === 'arriendo' ? 'none' : 'flex';
     if (labelVenta) labelVenta.style.borderColor = tipo === 'venta' ? '#22c55e' : '#e2e8f0';
     if (labelArriendo) labelArriendo.style.borderColor = tipo === 'arriendo' ? '#f59e0b' : '#e2e8f0';
   };
@@ -418,7 +420,7 @@
       ]) +
       buildField("ano", "Ano", "number", "2023") +
       buildField("eslora", "Eslora (pies)", "text", "25 ft") +
-      '<div style="display:flex;flex-direction:column;gap:4px">' +
+      '<div id="mkt-precio-field" style="display:flex;flex-direction:column;gap:4px">' +
       '<label style="font-size:13px;font-weight:600;color:#475569">Precio</label>' +
       '<div style="display:flex;gap:8px">' +
       '<input name="precio" type="number" placeholder="50000" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;transition:border-color .2s" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
@@ -1105,7 +1107,7 @@
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Tipo</label><select name="tipo" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selTipo() + '</select></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Ano</label><input name="ano" type="number" value="' + (item.ano || '') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Eslora (pies)</label><input name="eslora" type="text" value="' + (item.eslora || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
-      '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Precio</label><div style="display:flex;gap:8px"><input name="precio" type="number" value="' + (item.precio || '') + '" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"><select name="moneda" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer;min-width:90px">' + selMoneda() + '</select></div></div>' +
+      '<div id="edit-mkt-precio-field" style="' + (isArriendo ? 'display:none' : 'display:flex') + ';flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Precio</label><div style="display:flex;gap:8px"><input name="precio" type="number" value="' + (item.precio || '') + '" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"><select name="moneda" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer;min-width:90px">' + selMoneda() + '</select></div></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Ubicacion</label><input name="ubicacion" type="text" value="' + (item.ubicacion || '').replace(/"/g, '&quot;') + '" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'"></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Estado</label><select name="estado" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selEstado() + '</select></div>' +
       '<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:13px;font-weight:600;color:#475569">Condicion</label><select name="condicion" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;background:#fff;cursor:pointer">' + selCondicion() + '</select></div>' +
