@@ -92,4 +92,76 @@
         <priority>0.6</priority>
     </url>
 
+    <!-- English pages -->
+    <url>
+        <loc>https://www.imporlan.cl/en/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/en/private-tours-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/en/luxury-travel-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/en/custom-tours-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/en/destination-management-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <!-- Portuguese (Brazil) pages -->
+    <url>
+        <loc>https://www.imporlan.cl/br/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.5</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/br/dmc-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/br/tours-privados-no-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/br/viagens-de-luxo-no-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/br/tours-personalizados-no-chile/</loc>
+        <lastmod>2026-02-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
 </urlset>
