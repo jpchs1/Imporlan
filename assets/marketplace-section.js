@@ -62,6 +62,30 @@
         text-transform: uppercase;\
         letter-spacing: 0.5px;\
       }\
+      .marketplace-badge-arriendo {\
+        display: inline-flex;\
+        align-items: center;\
+        gap: 8px;\
+        background: rgba(245, 158, 11, 0.18);\
+        border: 1px solid rgba(245, 158, 11, 0.35);\
+        border-radius: 24px;\
+        padding: 6px 16px;\
+        font-size: 13px;\
+        font-weight: 700;\
+        color: #fbbf24;\
+        margin-bottom: 10px;\
+        text-transform: uppercase;\
+        letter-spacing: 0.5px;\
+        animation: arriendo-pulse 2s ease-in-out infinite;\
+      }\
+      @keyframes arriendo-pulse {\
+        0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.25); }\
+        50% { box-shadow: 0 0 16px 4px rgba(245, 158, 11, 0.18); }\
+      }\
+      .marketplace-badge-arriendo svg {\
+        width: 16px;\
+        height: 16px;\
+      }\
       .marketplace-badge svg {\
         width: 16px;\
         height: 16px;\
@@ -79,6 +103,13 @@
         -webkit-text-fill-color: transparent;\
         background-clip: text;\
       }\
+      .marketplace-header h2 .highlight-arriendo {\
+        background: linear-gradient(135deg, #f59e0b, #f97316);\
+        -webkit-background-clip: text;\
+        -webkit-text-fill-color: transparent;\
+        background-clip: text;\
+        font-size: 1.1em;\
+      }\
       .marketplace-header .subtitle {\
         color: #9ca3af;\
         font-size: 1.1rem;\
@@ -88,7 +119,7 @@
       }\
       .marketplace-grid {\
         display: grid;\
-        grid-template-columns: repeat(3, 1fr);\
+        grid-template-columns: repeat(4, 1fr);\
         gap: 24px;\
         margin-bottom: 48px;\
       }\
@@ -128,6 +159,32 @@
       }\
       .marketplace-feature .feature-icon.icon-orange {\
         background: linear-gradient(135deg, #f59e0b, #d97706);\
+      }\
+      .marketplace-feature .feature-icon.icon-amber {\
+        background: linear-gradient(135deg, #f59e0b, #ea580c);\
+      }\
+      .marketplace-feature.feature-arriendo {\
+        border-color: rgba(245, 158, 11, 0.5);\
+        background: linear-gradient(145deg, #3d2a0a 0%, #2a1f0a 100%);\
+        position: relative;\
+        overflow: hidden;\
+      }\
+      .marketplace-feature.feature-arriendo::before {\
+        content: "NUEVO";\
+        position: absolute;\
+        top: 12px;\
+        right: -28px;\
+        background: linear-gradient(135deg, #f59e0b, #ea580c);\
+        color: #fff;\
+        font-size: 0.6rem;\
+        font-weight: 800;\
+        padding: 3px 32px;\
+        transform: rotate(45deg);\
+        letter-spacing: 1px;\
+      }\
+      .marketplace-feature.feature-arriendo:hover {\
+        border-color: #f59e0b;\
+        box-shadow: 0 8px 32px rgba(245, 158, 11, 0.2);\
       }\
       .marketplace-feature h3 {\
         color: #ffffff;\
@@ -195,8 +252,13 @@
           font-size: 1.75rem;\
         }\
         .marketplace-grid {\
-          grid-template-columns: 1fr;\
+          grid-template-columns: 1fr 1fr;\
           gap: 16px;\
+        }\
+        @media (max-width: 480px) {\
+          .marketplace-grid {\
+            grid-template-columns: 1fr;\
+          }\
         }\
         .marketplace-feature {\
           padding: 24px 20px;\
@@ -223,29 +285,36 @@
     var iconStar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
     var iconArrow = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
     var iconBoat = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M12 2v4"/><path d="m4.93 10.93 2.83 2.83"/><path d="m19.07 10.93-2.83 2.83"/></svg>';
+    var iconKey = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>';
 
     section.innerHTML = '\
       <div class="marketplace-container">\
         <div class="marketplace-header">\
           <div class="marketplace-badge">' + iconBoat + ' Marketplace Imporlan</div>\
-          <h2>Encuentra <span class="highlight-text">Lanchas Usadas</span> en Venta en Chile</h2>\
-          <p class="subtitle">Explora el Marketplace de Imporlan con lanchas usadas y embarcaciones publicadas por particulares y dealers. Compra directo, sin intermediarios, o solicita la importacion de lanchas desde USA.</p>\
+          <div class="marketplace-badge-arriendo">' + iconKey + ' Ahora tambien Arriendos!</div>\
+          <h2>Venta <span class="highlight-arriendo">& Arriendo</span> de <span class="highlight-text">Lanchas, Embarcaciones y Motos de Agua</span></h2>\
+          <p class="subtitle">Explora el Marketplace de Imporlan: compra, vende y arrienda lanchas, embarcaciones y motos de agua. Publica tu embarcacion en venta o en arriendo, o encuentra la embarcacion ideal para arrendar por dias, semanas o temporada.</p>\
         </div>\
         <div class="marketplace-grid">\
           <div class="marketplace-feature">\
             <div class="feature-icon icon-cyan">' + iconSearch + '</div>\
             <h3>Explora Embarcaciones</h3>\
-            <p>Navega por lanchas, veleros y motos de agua publicadas por nuestra comunidad</p>\
+            <p>Navega por lanchas, veleros y motos de agua en venta y en arriendo</p>\
+          </div>\
+          <div class="marketplace-feature feature-arriendo">\
+            <div class="feature-icon icon-amber">' + iconKey + '</div>\
+            <h3>Arrienda Embarcaciones</h3>\
+            <p>Arrienda lanchas, embarcaciones y motos de agua por dias, semanas o temporada completa</p>\
           </div>\
           <div class="marketplace-feature">\
             <div class="feature-icon icon-green">' + iconShield + '</div>\
             <h3>Compra con Confianza</h3>\
-            <p>Todas las publicaciones son verificadas para tu seguridad y tranquilidad</p>\
+            <p>Publicaciones verificadas. Compra o arrienda con total seguridad y tranquilidad</p>\
           </div>\
           <div class="marketplace-feature">\
             <div class="feature-icon icon-orange">' + iconTag + '</div>\
             <h3>Publica Gratis</h3>\
-            <p>Vende tu embarcacion sin costo. Registrate y publica en minutos</p>\
+            <p>Publica tu embarcacion en venta o en arriendo sin costo. Registrate y publica en minutos</p>\
           </div>\
         </div>\
           <div id="home-boattrader-carousel" style="display:none;margin-bottom:40px;">\
@@ -255,9 +324,9 @@
           </div>\
           <div class="marketplace-cta-wrapper">\
             <a class="marketplace-cta-btn" id="marketplace-cta-btn">\
-              Ver Lanchas Usadas ' + iconArrow + '\
+              Visitar Marketplace: Venta & Arriendo ' + iconArrow + '\
             </a>\
-            <p class="marketplace-cta-sub">Explora el marketplace publico. <a id="marketplace-register-link">Registrate para publicar</a></p>\
+            <p class="marketplace-cta-sub">Compra, vende o arrienda embarcaciones. <a id="marketplace-register-link">Registrate para publicar o arrendar</a></p>\
           </div>\
       </div>\
     ';
