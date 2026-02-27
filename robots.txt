@@ -14,6 +14,3 @@ Allow: /assets/*.css
 Allow: /assets/*.js
 
 Sitemap: https://www.imporlan.cl/sitemap.xml
-Sitemap: https://www.imporlan.cl/sitemap-seo.xml
-
-Crawl-delay: 1
