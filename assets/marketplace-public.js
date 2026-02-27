@@ -22,6 +22,19 @@
     return '$' + Number(val).toLocaleString('es-CL') + ' CLP';
   }
 
+  function getArriendoPriceText(listing) {
+    if (listing.tipo_publicacion !== 'arriendo' || !listing.arriendo_periodos) return null;
+    var periodos = listing.arriendo_periodos;
+    var labels = { 'hora': 'Hora', 'medio_dia': '1/2 Dia', 'dia': 'Dia', 'semana': 'Semana', 'mes': 'Mes' };
+    var keys = ['hora', 'medio_dia', 'dia', 'semana', 'mes'];
+    for (var i = 0; i < keys.length; i++) {
+      if (periodos[keys[i]] && parseFloat(periodos[keys[i]]) > 0) {
+        return '$' + Number(periodos[keys[i]]).toLocaleString('es-CL') + ' CLP/' + labels[keys[i]];
+      }
+    }
+    return null;
+  }
+
   function formatPriceDisplay(precio, moneda) {
     if (!precio || precio <= 0) return 'Consultar';
     if (moneda === 'CLP') {
@@ -336,7 +349,8 @@
     var fotos = listing.fotos || [];
     var mainPhoto = fotos.length > 0 ? fotos[0] : '';
     var isArriendo = listing.tipo_publicacion === 'arriendo';
-    var priceInfo = formatPriceDisplay(listing.precio, listing.moneda);
+    var arriendoPrice = getArriendoPriceText(listing);
+    var priceInfo = arriendoPrice ? arriendoPrice : formatPriceDisplay(listing.precio, listing.moneda);
     var priceMain = typeof priceInfo === 'string' ? priceInfo : priceInfo.main;
     var priceSec = typeof priceInfo === 'string' ? '' : priceInfo.secondary;
 
@@ -547,7 +561,8 @@
 
     var fotos = listing.fotos || [];
     var currentPhoto = 0;
-    var priceInfo = formatPriceDisplay(listing.precio, listing.moneda);
+    var arriendoPrice = getArriendoPriceText(listing);
+    var priceInfo = arriendoPrice ? arriendoPrice : formatPriceDisplay(listing.precio, listing.moneda);
     var priceMain = typeof priceInfo === 'string' ? priceInfo : priceInfo.main;
     var priceSec = typeof priceInfo === 'string' ? '' : priceInfo.secondary;
 

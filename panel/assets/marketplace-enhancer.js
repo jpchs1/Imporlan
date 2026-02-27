@@ -84,6 +84,19 @@
     return "USD $" + n.toLocaleString("en-US");
   }
 
+  function getArriendoPrice(item) {
+    if (item.tipo_publicacion !== 'arriendo' || !item.arriendo_periodos) return null;
+    var periodos = item.arriendo_periodos;
+    var labels = { 'hora': 'Hora', 'medio_dia': '1/2 Dia', 'dia': 'Dia', 'semana': 'Semana', 'mes': 'Mes' };
+    var keys = ['hora', 'medio_dia', 'dia', 'semana', 'mes'];
+    for (var i = 0; i < keys.length; i++) {
+      if (periodos[keys[i]] && parseFloat(periodos[keys[i]]) > 0) {
+        return '$' + Number(periodos[keys[i]]).toLocaleString('es-CL') + ' CLP/' + labels[keys[i]];
+      }
+    }
+    return null;
+  }
+
   function condicionColor(cond) {
     var map = {
       Excelente: "#059669",
@@ -189,7 +202,7 @@
       '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
       '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
       '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
-      formatPrice(item.precio, item.moneda) +
+      (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) +
       "</p></div>" +
       "</div></div>" +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' +
@@ -293,7 +306,7 @@
       (item.nombre || "") +
       "</h2>" +
       '<p style="font-size:28px;font-weight:700;color:#2563eb;margin:0 0 16px">' +
-      formatPrice(item.precio, item.moneda) +
+      (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) +
       "</p>" +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">' +
       estadoBadge(item.estado) +
@@ -527,7 +540,7 @@
       statusBadge + ' ' + tipoPubBadge +
       "</div>" +
       '<p style="color:#2563eb;font-weight:700;font-size:16px;margin:4px 0">' +
-      formatPrice(item.precio, item.moneda) +
+      (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) +
       "</p>" +
       '<p style="color:#94a3b8;font-size:12px;margin:0">' +
       (item.tipo || "") +
