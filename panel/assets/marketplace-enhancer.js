@@ -1085,6 +1085,7 @@
   }
 
   function buildEditModal(item) {
+    var isArriendo = item.tipo_publicacion === 'arriendo';
     var selTipo = function (v) { return ['Bowrider','Pesca','Jet Boat','Yate','Velero','Moto de Agua','Catamaran','Otro'].map(function (o) { return '<option value="' + o + '"' + (o === (item.tipo || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
     var selEstado = function (v) { return ['Usada','Nueva'].map(function (o) { return '<option value="' + o + '"' + (o === (item.estado || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
     var selCondicion = function () { return ['Excelente','Muy Buena','Buena','Regular','Para Reparacion'].map(function (o) { return '<option value="' + o + '"' + (o === (item.condicion || '') ? ' selected' : '') + '>' + o + '</option>'; }).join(''); };
