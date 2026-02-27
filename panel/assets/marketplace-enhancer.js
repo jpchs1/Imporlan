@@ -832,16 +832,35 @@
     uploadedPhotos.forEach(function (url, idx) {
       var div = document.createElement("div");
       div.style.cssText =
-        "position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0";
+        "position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:" + (idx === 0 ? '2px solid #2563eb' : '1px solid #e2e8f0') + ";cursor:grab;user-select:none";
+      div.draggable = true;
+      div.dataset.photoIdx = idx;
       div.innerHTML =
-        '<img src="' +
-        url +
-        '" style="width:100%;height:100%;object-fit:cover">' +
-        '<button onclick="window.__mktRemovePhoto(' +
-        idx +
-        ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>';
+        '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none">' +
+        (idx === 0 ? '<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(37,99,235,.85);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:2px 0;letter-spacing:.3px">PORTADA</span>' : '') +
+        '<button onclick="event.stopPropagation();window.__mktRemovePhoto(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>';
+      div.addEventListener('dragstart', function(e) { e.dataTransfer.setData('text/plain', idx); this.style.opacity = '0.5'; });
+      div.addEventListener('dragend', function() { this.style.opacity = '1'; });
+      div.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#2563eb'; });
+      div.addEventListener('dragleave', function() { this.style.borderColor = idx === 0 ? '#2563eb' : '#e2e8f0'; });
+      div.addEventListener('drop', function(e) {
+        e.preventDefault();
+        var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        var toIdx = parseInt(this.dataset.photoIdx);
+        if (fromIdx !== toIdx) {
+          var moved = uploadedPhotos.splice(fromIdx, 1)[0];
+          uploadedPhotos.splice(toIdx, 0, moved);
+          renderPhotoPreview();
+        }
+      });
       container.appendChild(div);
     });
+    if (uploadedPhotos.length > 1) {
+      var hint = document.createElement('p');
+      hint.style.cssText = 'color:#94a3b8;font-size:11px;margin:4px 0 0;width:100%';
+      hint.textContent = 'Arrastra para reordenar. La primera foto sera la portada.';
+      container.appendChild(hint);
+    }
     var dropzone = document.getElementById("mkt-photo-dropzone");
     if (dropzone) {
       dropzone.style.display = uploadedPhotos.length >= 8 ? "none" : "block";
@@ -997,11 +1016,34 @@
     container.innerHTML = '';
     editPhotos.forEach(function (url, idx) {
       var div = document.createElement('div');
-      div.style.cssText = 'position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0';
-      div.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover">' +
-        '<button onclick="window.__mktRemoveEditPhoto(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>';
+      div.style.cssText = 'position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;border:' + (idx === 0 ? '2px solid #2563eb' : '1px solid #e2e8f0') + ';cursor:grab;user-select:none';
+      div.draggable = true;
+      div.dataset.photoIdx = idx;
+      div.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;pointer-events:none">' +
+        (idx === 0 ? '<span style="position:absolute;bottom:0;left:0;right:0;background:rgba(37,99,235,.85);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:2px 0;letter-spacing:.3px">PORTADA</span>' : '') +
+        '<button onclick="event.stopPropagation();window.__mktRemoveEditPhoto(' + idx + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>';
+      div.addEventListener('dragstart', function(e) { e.dataTransfer.setData('text/plain', idx); this.style.opacity = '0.5'; });
+      div.addEventListener('dragend', function() { this.style.opacity = '1'; });
+      div.addEventListener('dragover', function(e) { e.preventDefault(); this.style.borderColor = '#2563eb'; });
+      div.addEventListener('dragleave', function() { this.style.borderColor = idx === 0 ? '#2563eb' : '#e2e8f0'; });
+      div.addEventListener('drop', function(e) {
+        e.preventDefault();
+        var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        var toIdx = parseInt(this.dataset.photoIdx);
+        if (fromIdx !== toIdx) {
+          var moved = editPhotos.splice(fromIdx, 1)[0];
+          editPhotos.splice(toIdx, 0, moved);
+          renderEditPhotoPreview();
+        }
+      });
       container.appendChild(div);
     });
+    if (editPhotos.length > 1) {
+      var hint = document.createElement('p');
+      hint.style.cssText = 'color:#94a3b8;font-size:11px;margin:4px 0 0;width:100%';
+      hint.textContent = 'Arrastra para reordenar. La primera foto sera la portada.';
+      container.appendChild(hint);
+    }
     var dropzone = document.getElementById('mkt-edit-photo-dropzone');
     if (dropzone) dropzone.style.display = editPhotos.length >= 8 ? 'none' : 'block';
   }
