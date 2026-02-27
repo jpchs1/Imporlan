@@ -51,6 +51,59 @@ if ($token !== DEPLOY_TOKEN) {
     die(json_encode(['success' => false, 'error' => 'Invalid token']));
 }
 
+// Action: sync_files - fetch specific files from GitHub raw content
+$action = $_GET['action'] ?? '';
+if ($action === 'sync_files') {
+    $env = $_GET['env'] ?? 'prod';
+    $targetPath = ($env === 'test') ? PATH_TEST : PATH_PROD;
+    
+    $filesToSync = [
+        'assets/marketplace-public.js',
+        'panel/assets/marketplace-enhancer.js',
+    ];
+    
+    $ghRawBase = 'https://raw.githubusercontent.com/jpchs1/Imporlan/main/';
+    $results = [];
+    
+    foreach ($filesToSync as $file) {
+        $url = $ghRawBase . $file . '?t=' . time();
+        $ctx = stream_context_create(['http' => ['timeout' => 30, 'header' => "Cache-Control: no-cache\r\n"]]);
+        $content = @file_get_contents($url, false, $ctx);
+        
+        if ($content === false) {
+            $results[] = ['file' => $file, 'status' => 'FAILED to download'];
+            continue;
+        }
+        
+        $destPath = $targetPath . '/' . $file;
+        $dir = dirname($destPath);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        
+        if (file_exists($destPath)) {
+            @copy($destPath, $destPath . '.bak');
+        }
+        
+        $written = @file_put_contents($destPath, $content);
+        $results[] = [
+            'file' => $file,
+            'status' => ($written !== false) ? 'OK' : 'FAILED to write',
+            'bytes' => $written,
+            'dest' => $destPath
+        ];
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'action' => 'sync_files',
+        'environment' => $env,
+        'results' => $results,
+        'timestamp' => date('Y-m-d H:i:s')
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
 // Verificar ambiente
 $env = $_GET['env'] ?? '';
 if (!in_array($env, ['test', 'prod'])) {
