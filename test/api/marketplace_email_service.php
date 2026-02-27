@@ -495,6 +495,7 @@ class MarketplaceEmailService extends EmailService {
             <h2 style="margin:0 0 25px;color:' . $c['text_dark'] . ';font-size:20px;font-weight:600;text-align:center;">
                 ' . htmlspecialchars($title) . '
             </h2>
+            ' . $this->getListingCard($listing) . '
             ' . $this->getInfoCard('Detalles del anuncio', $items) . '
             ' . $extraHtml . '
             <div style="margin:30px 0;text-align:center;">
