@@ -369,7 +369,7 @@
       : '';
 
     var arriendoHtml = '';
-    if (isArriendo && listing.arriendo_periodos) {
+    if (isArriendo && listing.arriendo_periodos && !arriendoPrice) {
       arriendoHtml = formatArriendoPeriodos(listing.arriendo_periodos);
     }
 
@@ -605,7 +605,7 @@
         '<div class="mp-modal-price">' + priceMain + '</div>' +
         (priceSec ? '<div class="mp-modal-price-clp">' + priceSec + '</div>' : '') +
         specsHtml +
-        (isArriendo && listing.arriendo_periodos ? '<div class="mp-modal-arriendo-section"><h4>Tarifas de Arriendo</h4>' + formatArriendoPeriodos(listing.arriendo_periodos) + '</div>' : '') +
+        (isArriendo && listing.arriendo_periodos && !arriendoPrice ? '<div class="mp-modal-arriendo-section"><h4>Tarifas de Arriendo</h4>' + formatArriendoPeriodos(listing.arriendo_periodos) + '</div>' : '') +
         (listing.descripcion ? '<div class="mp-modal-description"><h4>Descripcion</h4><p>' + escapeHtml(listing.descripcion) + '</p></div>' : '') +
         '<div class="mp-modal-seller">' +
           '<div class="mp-modal-seller-name">Publicado por: ' + escapeHtml(listing.user_name || 'Usuario') + '</div>' +
