@@ -56,10 +56,10 @@ RewriteRule ^ index.html [L]
   ExpiresByType image/svg+xml "access plus 1 year"
   ExpiresByType image/x-icon "access plus 1 year"
   
-  # CSS and JavaScript - cache for 1 year (versioned files)
-  ExpiresByType text/css "access plus 1 year"
-  ExpiresByType application/javascript "access plus 1 year"
-  ExpiresByType text/javascript "access plus 1 year"
+  # CSS and JavaScript - cache for 1 week (revalidate on deploy)
+  ExpiresByType text/css "access plus 1 week"
+  ExpiresByType application/javascript "access plus 1 week"
+  ExpiresByType text/javascript "access plus 1 week"
   
   # Fonts - cache for 1 year
   ExpiresByType font/woff "access plus 1 year"
@@ -76,14 +76,19 @@ RewriteRule ^ index.html [L]
 
 # Cache-Control headers
 <IfModule mod_headers.c>
-  # Cache static assets for 1 year
-  <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|webp|js|css|swf|woff|woff2)$">
+  # Cache images and fonts for 1 year (rarely change)
+  <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|webp|swf|woff|woff2)$">
     Header set Cache-Control "max-age=31536000, public, immutable"
   </FilesMatch>
   
-  # HTML files - short cache
+  # JS and CSS - cache for 1 week with revalidation (changes on deploy)
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "max-age=604800, public, must-revalidate"
+  </FilesMatch>
+  
+  # HTML files - no cache (always fetch fresh)
   <FilesMatch "\.(html|htm)$">
-    Header set Cache-Control "max-age=3600, public, must-revalidate"
+    Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
   
   # PHP files - no cache
@@ -100,11 +105,8 @@ RewriteRule ^ index.html [L]
   AddType image/webp .webp
 </IfModule>
 
-# ETags for cache validation
-<IfModule mod_headers.c>
-  Header unset ETag
-</IfModule>
-FileETag None
+# ETags for cache validation (enabled for JS/CSS revalidation)
+FileETag MTime Size
 
 # php -- BEGIN cPanel-generated handler, do not edit
 # Set the "ea-php74" package as the default "PHP" programming language.

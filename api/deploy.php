@@ -51,8 +51,45 @@ if ($token !== DEPLOY_TOKEN) {
     die(json_encode(['success' => false, 'error' => 'Invalid token']));
 }
 
-// Action: sync_files - fetch specific files from GitHub raw content
+// Action handler
 $action = $_GET['action'] ?? '';
+
+// Action: purge_cache - clear LiteSpeed and server-side caches
+if ($action === 'purge_cache') {
+    $env = $_GET['env'] ?? 'prod';
+    $targetPath = ($env === 'test') ? PATH_TEST : PATH_PROD;
+    $results = [];
+    
+    // Clear LiteSpeed cache directory if it exists
+    $lscachePath = $targetPath . '/lscache';
+    if (is_dir($lscachePath)) {
+        shell_exec("rm -rf " . escapeshellarg($lscachePath) . "/*");
+        $results[] = 'LiteSpeed cache directory purged';
+    }
+    
+    // Touch .htaccess to force server config reload
+    $htaccessPath = $targetPath . '/.htaccess';
+    if (file_exists($htaccessPath)) {
+        touch($htaccessPath);
+        $results[] = '.htaccess touched to invalidate server cache';
+    }
+    
+    // Touch all JS and CSS files to update their mtime (forces ETag refresh)
+    $touchCmd = "find " . escapeshellarg($targetPath) . " -name '*.js' -o -name '*.css' -o -name '*.html' | xargs touch 2>&1";
+    shell_exec($touchCmd);
+    $results[] = 'All JS/CSS/HTML files touched to refresh ETags';
+    
+    echo json_encode([
+        'success' => true,
+        'action' => 'purge_cache',
+        'environment' => $env,
+        'results' => $results,
+        'timestamp' => date('Y-m-d H:i:s')
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
+// Action: sync_files - fetch specific files from GitHub raw content
 if ($action === 'sync_files') {
     $env = $_GET['env'] ?? 'prod';
     $targetPath = ($env === 'test') ? PATH_TEST : PATH_PROD;
@@ -181,6 +218,21 @@ try {
     $log[] = ['step' => 'restore', 'message' => 'Sensitive files restored'];
     
     shell_exec("rm -rf " . escapeshellarg($tempPath));
+    
+    // Purge LiteSpeed cache after deploy
+    $lscachePath = $targetPath . '/lscache';
+    if (is_dir($lscachePath)) {
+        shell_exec("rm -rf " . escapeshellarg($lscachePath) . "/*");
+        $log[] = ['step' => 'cache_purge', 'message' => 'LiteSpeed cache directory purged'];
+    }
+    // Touch .htaccess to force LiteSpeed to re-read config and invalidate cache
+    $htaccessPath = $targetPath . '/.htaccess';
+    if (file_exists($htaccessPath)) {
+        touch($htaccessPath);
+        $log[] = ['step' => 'cache_invalidate', 'message' => '.htaccess touched to invalidate server cache'];
+    }
+    // Create/update a cache-buster file that records deploy timestamp
+    file_put_contents($targetPath . '/.deploy_timestamp', date('Y-m-d H:i:s') . ' ' . $commitHash);
     
     $historyFile = '/home/wwimpo/deploy_history.json';
     $history = file_exists($historyFile) ? json_decode(file_get_contents($historyFile), true) : [];
