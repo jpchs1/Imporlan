@@ -351,7 +351,7 @@
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">ETA</label><input id="ta-f-eta" type="datetime-local" style="' + inputStyle() + '"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Estado</label><select id="ta-f-status" style="' + inputStyle() + '">' + STATUS_OPTIONS.map(function (s) { return '<option value="' + s.value + '">' + s.label + '</option>'; }).join('') + '</select></div></div>' +
-      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:flex;align-items:center;gap:8px"><input type="checkbox" id="ta-f-featured"> Embarcacion Destacada (visible en panel usuario)</label></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:flex;align-items:center;gap:8px"><input type="checkbox" id="ta-f-featured" checked> Embarcacion Destacada (visible en panel usuario)</label></div>' +
       '</div>' +
       '<div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">' +
       '<button id="ta-btn-cancel" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;font-weight:600;cursor:pointer">Cancelar</button>' +
