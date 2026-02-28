@@ -93,6 +93,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminLookupVessel();
             break;
+        case 'admin_fetch_vessel_position':
+            requireAdminAuth();
+            adminFetchVesselPosition();
+            break;
         case 'run_position_update':
             runPositionUpdateViaHTTP();
             break;
@@ -798,6 +802,62 @@ function adminAddPosition() {
         error_log("Error adding position: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al agregar posicion']);
+    }
+}
+
+/**
+ * Fetch position for a specific vessel on-demand (admin action).
+ * Tries all available sources: cached, VesselFinder API, AISstream on-demand.
+ */
+function adminFetchVesselPosition() {
+    $vesselId = intval($_GET['vessel_id'] ?? 0);
+    if (!$vesselId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere vessel_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT id, display_name, imo, mmsi FROM vessels WHERE id = ?");
+        $stmt->execute([$vesselId]);
+        $vessel = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$vessel) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Embarcacion no encontrada']);
+            return;
+        }
+
+        $provider = getAISProvider();
+        $position = $provider->getVesselPosition($vessel['imo'], $vessel['mmsi']);
+
+        if ($position) {
+            echo json_encode([
+                'success' => true,
+                'vessel_id' => $vesselId,
+                'vessel_name' => $vessel['display_name'],
+                'position' => $position
+            ]);
+        } else {
+            echo json_encode([
+                'success' => true,
+                'vessel_id' => $vesselId,
+                'vessel_name' => $vessel['display_name'],
+                'position' => null,
+                'message' => 'No se pudo obtener posicion. El barco puede no estar transmitiendo AIS actualmente.'
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching vessel position: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener posicion']);
     }
 }
 
