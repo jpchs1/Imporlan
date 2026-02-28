@@ -801,6 +801,78 @@ function adminAddPosition() {
     }
 }
 
+/**
+ * Scrape vessel info from VesselFinder's public detail page (no API key needed).
+ * Works for IMO (7 digits) and MMSI (9 digits) lookups.
+ */
+function scrapeVesselFinderPublic($query) {
+    $isIMO = preg_match('/^\d{7}$/', $query);
+    $isMMSI = preg_match('/^\d{9}$/', $query);
+    if (!$isIMO && !$isMMSI) return null;
+
+    // VesselFinder detail page works with IMO numbers directly
+    if ($isIMO) {
+        $url = "https://www.vesselfinder.com/vessels/details/" . urlencode($query);
+    } else {
+        // For MMSI, use the search page
+        $url = "https://www.vesselfinder.com/vessels?name=&imo=&mmsi=" . urlencode($query) . "&type=&flag=";
+    }
+
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => 10,
+            'method' => 'GET',
+            'header' => "User-Agent: Mozilla/5.0 (compatible; ImporlanBot/1.0)\r\nAccept: text/html\r\n",
+            'follow_location' => true
+        ]
+    ]);
+
+    $html = @file_get_contents($url, false, $ctx);
+    if ($html === false) return null;
+
+    $result = [
+        'source' => 'vesselfinder_public',
+        'display_name' => '',
+        'imo' => '',
+        'mmsi' => '',
+        'call_sign' => '',
+        'shipping_line' => '',
+        'origin_label' => '',
+        'destination_label' => '',
+    ];
+
+    // Extract vessel name from <title> tag: "VESSEL NAME, Type - Details ... - IMO XXXXXXX"
+    if (preg_match('/<title>([^,]+),\s*([^-]+)\s*-\s*Details[^<]*<\/title>/', $html, $m)) {
+        $result['display_name'] = trim($m[1]);
+    } elseif (preg_match('/<h1[^>]*class="title"[^>]*>([^<]+)<\/h1>/', $html, $m)) {
+        $result['display_name'] = trim($m[1]);
+    }
+
+    // Extract IMO and MMSI from meta description or script vars
+    // Pattern: "IMO 9777589, MMSI 218833000"
+    if (preg_match('/var vu_imo=(\d{7})/', $html, $m)) {
+        $result['imo'] = $m[1];
+    } elseif (preg_match('/IMO\s*[:=]?\s*(\d{7})/', $html, $m)) {
+        $result['imo'] = $m[1];
+    }
+
+    if (preg_match('/var MMSI=(\d{9})/', $html, $m)) {
+        $result['mmsi'] = $m[1];
+    } elseif (preg_match('/MMSI\s*[:=]?\s*(\d{9})/', $html, $m)) {
+        $result['mmsi'] = $m[1];
+    }
+
+    // Extract destination from the page
+    if (preg_match('/en route to the port of\s*<strong>([^<]+)<\/strong>/', $html, $m)) {
+        $result['destination_label'] = trim($m[1]);
+    }
+
+    // Only return if we found at least the vessel name
+    if (!$result['display_name']) return null;
+
+    return $result;
+}
+
 function adminLookupVessel() {
     $query = trim($_GET['query'] ?? '');
     if (strlen($query) < 2) {
@@ -889,6 +961,18 @@ function adminLookupVessel() {
             }
         } catch (Exception $e) {
             error_log("Error looking up vessel from VesselFinder: " . $e->getMessage());
+        }
+    }
+
+    // Fallback: scrape VesselFinder public page for IMO/MMSI lookups (no API key needed)
+    if (count($results) === 0 && (preg_match('/^\d{7}$/', $query) || preg_match('/^\d{9}$/', $query))) {
+        try {
+            $vfResult = scrapeVesselFinderPublic($query);
+            if ($vfResult) {
+                $results[] = $vfResult;
+            }
+        } catch (Exception $e) {
+            error_log("Error scraping VesselFinder public: " . $e->getMessage());
         }
     }
 
