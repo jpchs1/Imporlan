@@ -538,6 +538,155 @@
         } else showToast(result.error || "Error", "error");
       });
     }
+
+    attachAISConfigListeners();
+  }
+
+  function renderAISConfigSection() {
+    return '<div style="margin-top:32px;background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:24px">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>' +
+      '<h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a">Configuracion AIS</h3>' +
+      '<span id="ta-ais-status" style="font-size:11px;padding:3px 10px;border-radius:6px;background:#fef3c7;color:#d97706">Cargando...</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">AISstream API Key</label>' +
+      '<input id="ta-cfg-aisstream" type="password" placeholder="Tu API key de aisstream.io" style="' + inputStyle() + '"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Token Cron (para trigger HTTP)</label>' +
+      '<input id="ta-cfg-cron-token" type="text" placeholder="Token secreto aleatorio" style="' + inputStyle() + '"></div>' +
+      '</div>' +
+      '<div style="margin-top:12px;display:flex;align-items:center;gap:12px">' +
+      '<button id="ta-cfg-save" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:600;cursor:pointer">Guardar Configuracion</button>' +
+      '<button id="ta-cfg-migrate" style="padding:8px 20px;border-radius:10px;border:1px solid #d1d5db;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer">Ejecutar Migracion</button>' +
+      '<button id="ta-cfg-test" style="padding:8px 20px;border-radius:10px;border:1px solid #d1d5db;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer">Actualizar Posiciones Ahora</button>' +
+      '<span id="ta-cfg-msg" style="font-size:12px;color:#64748b"></span>' +
+      '</div>' +
+      '<div id="ta-cfg-url" style="margin-top:12px;font-size:11px;color:#94a3b8;display:none">URL cron: <code id="ta-cfg-url-text" style="background:#f1f5f9;padding:2px 8px;border-radius:4px;user-select:all"></code></div>' +
+      '</div>';
+  }
+
+  async function loadAISConfig() {
+    try {
+      var resp = await fetch(API_BASE + "/tracking_api.php?action=tracking_config_get", { headers: authHeaders() });
+      var data = await resp.json();
+      if (data.success) {
+        var cfg = data.config || {};
+        var status = data.status || {};
+        // Fill fields
+        var aisInput = document.getElementById("ta-cfg-aisstream");
+        var cronInput = document.getElementById("ta-cfg-cron-token");
+        if (aisInput && cfg.AISSTREAM_API_KEY) aisInput.value = cfg.AISSTREAM_API_KEY.value || '';
+        if (cronInput && cfg.CRON_SECRET_TOKEN) cronInput.value = cfg.CRON_SECRET_TOKEN.value || '';
+        // Update status badge
+        var badge = document.getElementById("ta-ais-status");
+        if (badge) {
+          if (status.aisstream_configured) {
+            badge.textContent = "Configurado (" + (status.aisstream_key_source || 'database') + ")";
+            badge.style.background = "#dcfce7"; badge.style.color = "#16a34a";
+          } else {
+            badge.textContent = "No configurado";
+            badge.style.background = "#fef2f2"; badge.style.color = "#dc2626";
+          }
+        }
+        // Show cron URL if token is set
+        var cronToken = cronInput ? cronInput.value : '';
+        if (cronToken) {
+          var urlDiv = document.getElementById("ta-cfg-url");
+          var urlText = document.getElementById("ta-cfg-url-text");
+          if (urlDiv && urlText) {
+            urlText.textContent = window.location.origin + API_BASE + "/tracking_api.php?action=run_position_update&token=" + cronToken;
+            urlDiv.style.display = "block";
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error loading AIS config:", e);
+    }
+  }
+
+  function attachAISConfigListeners() {
+    var saveBtn = document.getElementById("ta-cfg-save");
+    var migrateBtn = document.getElementById("ta-cfg-migrate");
+    var testBtn = document.getElementById("ta-cfg-test");
+    var msgEl = document.getElementById("ta-cfg-msg");
+
+    if (saveBtn && !saveBtn._bound) {
+      saveBtn._bound = true;
+      saveBtn.addEventListener("click", async function () {
+        var aisKey = document.getElementById("ta-cfg-aisstream").value.trim();
+        var cronToken = document.getElementById("ta-cfg-cron-token").value.trim();
+        if (!aisKey) { showToast("Ingresa la API key de AISstream", "error"); return; }
+        if (!cronToken) {
+          // Auto-generate a random token
+          cronToken = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+          document.getElementById("ta-cfg-cron-token").value = cronToken;
+        }
+        msgEl.textContent = "Guardando...";
+        try {
+          var resp = await fetch(API_BASE + "/tracking_api.php?action=tracking_config_save", {
+            method: "POST", headers: authHeaders(),
+            body: JSON.stringify({ configs: { AISSTREAM_API_KEY: aisKey, CRON_SECRET_TOKEN: cronToken } })
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast("Configuracion AIS guardada");
+            msgEl.textContent = "";
+            loadAISConfig();
+          } else {
+            showToast(data.error || "Error al guardar", "error");
+            msgEl.textContent = "";
+          }
+        } catch (e) {
+          showToast("Error de conexion", "error");
+          msgEl.textContent = "";
+        }
+      });
+    }
+
+    if (migrateBtn && !migrateBtn._bound) {
+      migrateBtn._bound = true;
+      migrateBtn.addEventListener("click", async function () {
+        msgEl.textContent = "Ejecutando migracion...";
+        try {
+          var resp = await fetch(API_BASE + "/tracking_api.php?action=migrate", { headers: authHeaders() });
+          var data = await resp.json();
+          showToast(data.success ? "Migracion completada" : (data.error || "Error"), data.success ? "" : "error");
+          msgEl.textContent = "";
+        } catch (e) {
+          showToast("Error de conexion", "error");
+          msgEl.textContent = "";
+        }
+      });
+    }
+
+    if (testBtn && !testBtn._bound) {
+      testBtn._bound = true;
+      testBtn.addEventListener("click", async function () {
+        var cronToken = document.getElementById("ta-cfg-cron-token").value.trim();
+        if (!cronToken) { showToast("Guarda primero la configuracion con un token", "error"); return; }
+        msgEl.textContent = "Conectando a AISstream (~30s)...";
+        testBtn.disabled = true;
+        testBtn.style.opacity = "0.5";
+        try {
+          var resp = await fetch(API_BASE + "/tracking_api.php?action=run_position_update&token=" + encodeURIComponent(cronToken), {
+            headers: { "Content-Type": "application/json" }
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast("Recibidas " + data.positions_received + " posicion(es) de " + data.vessels_tracked + " embarcacion(es)");
+            msgEl.textContent = data.positions_received + " posiciones en " + data.listen_seconds + "s";
+          } else {
+            showToast(data.error || "Error", "error");
+            msgEl.textContent = data.error || "Error";
+          }
+        } catch (e) {
+          showToast("Error de conexion o timeout", "error");
+          msgEl.textContent = "Error";
+        }
+        testBtn.disabled = false;
+        testBtn.style.opacity = "1";
+      });
+    }
   }
 
   async function renderModule() {
@@ -581,7 +730,8 @@
       wrapper.innerHTML = '<div style="padding:0">' +
         '<div style="margin-bottom:20px"><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Tracking Maritimo</h1>' +
         '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Gestion de embarcaciones y seguimiento</p></div>' +
-        renderFilters() + renderListView(vessels) + '</div>';
+        renderFilters() + renderListView(vessels) + renderAISConfigSection() + '</div>';
+      loadAISConfig();
     }
 
     addStyles();

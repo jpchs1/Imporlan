@@ -21,6 +21,10 @@
  * 
  * Cron endpoint (require token):
  * - GET  ?action=run_position_update&token=X - Trigger AISstream position update via HTTP
+ * 
+ * Tracking config endpoints (require admin auth):
+ * - GET  ?action=tracking_config_get         - Get tracking configuration
+ * - POST ?action=tracking_config_save        - Save tracking configuration
  */
 
 require_once __DIR__ . '/db_config.php';
@@ -92,6 +96,14 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         case 'run_position_update':
             runPositionUpdateViaHTTP();
             break;
+        case 'tracking_config_get':
+            requireAdminAuth();
+            trackingConfigGet();
+            break;
+        case 'tracking_config_save':
+            requireAdminAuth();
+            trackingConfigSave();
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Accion no valida']);
@@ -161,6 +173,17 @@ function runTrackingMigration() {
         if (!in_array('client_name', $vesselCols)) {
             $pdo->exec("ALTER TABLE vessels ADD COLUMN client_name VARCHAR(255) NULL AFTER shipping_line");
         }
+
+        // Tracking configuration table (for AIS API keys, cron tokens, etc.)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS tracking_config (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                config_key VARCHAR(100) NOT NULL UNIQUE,
+                config_value TEXT,
+                description VARCHAR(255),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
 
         echo json_encode(['success' => true, 'message' => 'Tracking tables created/updated successfully']);
     } catch (PDOException $e) {
@@ -1025,4 +1048,111 @@ function runPositionUpdateViaHTTP() {
         'listen_seconds' => time() - $startTime,
         'updates' => $updates
     ]);
+}
+
+/**
+ * Get tracking configuration (admin only)
+ */
+function trackingConfigGet() {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Ensure table exists
+        $check = $pdo->query("SHOW TABLES LIKE 'tracking_config'");
+        if ($check->rowCount() === 0) {
+            echo json_encode(['success' => true, 'config' => new \stdClass(), 'message' => 'Run migration first']);
+            return;
+        }
+
+        $stmt = $pdo->query("SELECT config_key, config_value, description FROM tracking_config ORDER BY id ASC");
+        $configs = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $configs[$row['config_key']] = [
+                'value' => $row['config_value'],
+                'description' => $row['description']
+            ];
+        }
+
+        // Check which sources are active
+        require_once __DIR__ . '/tracking/ais_config_helper.php';
+        $aisStreamKey = getAISConfig('AISSTREAM_API_KEY');
+        $cronToken = getAISConfig('CRON_SECRET_TOKEN');
+
+        echo json_encode([
+            'success' => true,
+            'config' => $configs,
+            'status' => [
+                'aisstream_configured' => !empty($aisStreamKey),
+                'cron_token_configured' => !empty($cronToken),
+                'aisstream_key_source' => !empty(getenv('AISSTREAM_API_KEY')) ? 'env' : (!empty($configs['AISSTREAM_API_KEY']['value'] ?? '') ? 'database' : 'none')
+            ]
+        ]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error getting config: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Save tracking configuration (admin only)
+ */
+function trackingConfigSave() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input || !isset($input['configs'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere configs']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    // Only allow specific config keys
+    $allowedKeys = [
+        'AISSTREAM_API_KEY' => 'API key de AISstream.io para posiciones en tiempo real',
+        'AIS_API_KEY' => 'API key de VesselFinder para consultas REST',
+        'CRON_SECRET_TOKEN' => 'Token secreto para trigger HTTP del cron de posiciones'
+    ];
+
+    try {
+        // Ensure table exists
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS tracking_config (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                config_key VARCHAR(100) NOT NULL UNIQUE,
+                config_value TEXT,
+                description VARCHAR(255),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $stmt = $pdo->prepare("
+            INSERT INTO tracking_config (config_key, config_value, description) 
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value), description = VALUES(description)
+        ");
+
+        $saved = [];
+        foreach ($input['configs'] as $key => $value) {
+            if (!array_key_exists($key, $allowedKeys)) {
+                continue;
+            }
+            $stmt->execute([$key, $value, $allowedKeys[$key]]);
+            $saved[] = $key;
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Configuracion guardada', 'saved' => $saved]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error saving config: ' . $e->getMessage()]);
+    }
 }
