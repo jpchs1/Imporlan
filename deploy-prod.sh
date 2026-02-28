@@ -56,7 +56,21 @@ fi
 echo "  -> Panel backup complete."
 
 echo ""
+echo "[5.5/9] Backing up production index.html..."
+if [ -f "$PUBLIC_HTML/index.html" ]; then
+  cp "$PUBLIC_HTML/index.html" "$BACKUP_DIR/index_backup_${TIMESTAMP}.html"
+  echo "  -> index.html backup saved."
+fi
+
+echo ""
 echo "[6/9] Deploying production files..."
+
+# Deploy index.html (homepage)
+if [ -f "$STAGING_REPO/index.html" ]; then
+  cp "$STAGING_REPO/index.html" "$PUBLIC_HTML/index.html"
+  chmod 644 "$PUBLIC_HTML/index.html"
+  echo "  -> index.html deployed."
+fi
 
 # Deploy assets (JS, CSS)
 rsync -a "$STAGING_REPO/assets/" "$PUBLIC_HTML/assets/"
@@ -121,6 +135,11 @@ fi
 
 if [ ! -f "$PUBLIC_HTML/panel/index.html" ]; then
   echo "  ERROR: Missing $PUBLIC_HTML/panel/index.html"
+  VALID=false
+fi
+
+if [ ! -f "$PUBLIC_HTML/index.html" ]; then
+  echo "  ERROR: Missing $PUBLIC_HTML/index.html"
   VALID=false
 fi
 
