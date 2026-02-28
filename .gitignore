@@ -16,6 +16,7 @@ api/config.php
 api/db_config.php
 **/config.php
 **/db_config.php
+api/tracking/ais_config.php
 
 # IDE
 .idea/

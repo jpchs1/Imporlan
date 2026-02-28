@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/ais_provider_interface.php';
 require_once __DIR__ . '/../db_config.php';
+require_once __DIR__ . '/ais_config_helper.php';
 
 class AISProvider implements AISProviderInterface {
     private $cacheMinutes = 10;
@@ -10,8 +11,8 @@ class AISProvider implements AISProviderInterface {
 
     public function __construct() {
         $this->pdo = getDbConnection();
-        $this->apiKey = getenv('AIS_API_KEY') ?: '';
-        $this->aisStreamKey = getenv('AISSTREAM_API_KEY') ?: '';
+        $this->apiKey = getAISConfig('AIS_API_KEY');
+        $this->aisStreamKey = getAISConfig('AISSTREAM_API_KEY');
     }
 
     public function getVesselPosition($imo = null, $mmsi = null) {
