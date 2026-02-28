@@ -14,14 +14,15 @@
 
 require_once __DIR__ . '/../db_config.php';
 require_once __DIR__ . '/websocket_client.php';
+require_once __DIR__ . '/ais_config_helper.php';
 
 // Configuration
 $LISTEN_SECONDS = 30; // How long to listen for position updates
-$API_KEY = getenv('AISSTREAM_API_KEY') ?: '';
+$API_KEY = getAISConfig('AISSTREAM_API_KEY');
 $WS_URL = 'wss://stream.aisstream.io/v0/stream';
 
 if (!$API_KEY) {
-    logMsg("ERROR: AISSTREAM_API_KEY environment variable not set");
+    logMsg("ERROR: AISSTREAM_API_KEY not set (check env var or ais_config.php)");
     exit(1);
 }
 

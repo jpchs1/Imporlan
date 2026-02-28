@@ -18,6 +18,9 @@
  * - POST ?action=admin_add_position         - Add manual position
  * - GET  ?action=admin_lookup_vessel        - Lookup vessel by name/IMO/MMSI from VesselFinder
  * - GET  ?action=migrate                    - Create/update tables
+ * 
+ * Cron endpoint (require token):
+ * - GET  ?action=run_position_update&token=X - Trigger AISstream position update via HTTP
  */
 
 require_once __DIR__ . '/db_config.php';
@@ -85,6 +88,9 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         case 'admin_lookup_vessel':
             requireAdminAuth();
             adminLookupVessel();
+            break;
+        case 'run_position_update':
+            runPositionUpdateViaHTTP();
             break;
         default:
             http_response_code(400);
@@ -864,4 +870,159 @@ function adminLookupVessel() {
     }
 
     echo json_encode(['success' => true, 'results' => $results]);
+}
+
+/**
+ * Run AISstream position update via HTTP request (alternative to server cron).
+ * Protected by a secret token configured in ais_config.php.
+ * 
+ * Usage: GET ?action=run_position_update&token=YOUR_SECRET_TOKEN
+ */
+function runPositionUpdateViaHTTP() {
+    require_once __DIR__ . '/tracking/ais_config_helper.php';
+    require_once __DIR__ . '/tracking/websocket_client.php';
+
+    $expectedToken = getAISConfig('CRON_SECRET_TOKEN');
+    $providedToken = $_GET['token'] ?? '';
+
+    if (!$expectedToken || $providedToken !== $expectedToken) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Token invalido o no configurado']);
+        return;
+    }
+
+    $apiKey = getAISConfig('AISSTREAM_API_KEY');
+    if (!$apiKey) {
+        http_response_code(500);
+        echo json_encode(['error' => 'AISSTREAM_API_KEY no configurada']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    // Get active vessels with MMSI
+    try {
+        $stmt = $pdo->query("
+            SELECT id, display_name, imo, mmsi 
+            FROM vessels 
+            WHERE status IN ('active', 'arrived') 
+              AND (mmsi IS NOT NULL AND mmsi != '')
+        ");
+        $vessels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error getting vessels: ' . $e->getMessage()]);
+        return;
+    }
+
+    if (empty($vessels)) {
+        echo json_encode(['success' => true, 'message' => 'No active vessels with MMSI to track', 'positions' => 0]);
+        return;
+    }
+
+    // Build MMSI list
+    $mmsiList = [];
+    $mmsiToVessel = [];
+    foreach ($vessels as $v) {
+        $mmsi = trim($v['mmsi']);
+        if ($mmsi) {
+            $mmsiList[] = $mmsi;
+            $mmsiToVessel[$mmsi] = $v['id'];
+        }
+    }
+
+    $mmsiList = array_slice($mmsiList, 0, 50);
+
+    // Connect to AISstream
+    $ws = new WebSocketClient();
+    if (!$ws->connect('wss://stream.aisstream.io/v0/stream')) {
+        http_response_code(502);
+        echo json_encode(['error' => 'Failed to connect to AISstream WebSocket']);
+        return;
+    }
+
+    // Subscribe
+    $subscription = json_encode([
+        'APIKey' => $apiKey,
+        'BoundingBoxes' => [[[-90, -180], [90, 180]]],
+        'FiltersShipMMSI' => $mmsiList,
+        'FilterMessageTypes' => ['PositionReport', 'StandardClassBPositionReport']
+    ]);
+    $ws->send($subscription);
+
+    // Listen for 30 seconds max
+    $listenSeconds = 30;
+    $startTime = time();
+    $positionsReceived = 0;
+    $updates = [];
+
+    while ((time() - $startTime) < $listenSeconds) {
+        $remaining = $listenSeconds - (time() - $startTime);
+        if ($remaining <= 0) break;
+
+        $data = $ws->read(min($remaining, 5));
+        if ($data === null) continue;
+
+        $message = json_decode($data, true);
+        if (!$message) continue;
+
+        if (isset($message['error'])) {
+            $ws->close();
+            http_response_code(502);
+            echo json_encode(['error' => 'AISstream error: ' . $message['error']]);
+            return;
+        }
+
+        $msgType = $message['MessageType'] ?? '';
+        $metadata = $message['MetaData'] ?? [];
+        $mmsi = strval($metadata['MMSI'] ?? '');
+        $shipName = $metadata['ShipName'] ?? '';
+
+        if ($msgType === 'PositionReport' || $msgType === 'StandardClassBPositionReport') {
+            $report = $message['Message'][$msgType] ?? [];
+            $lat = $report['Latitude'] ?? $metadata['latitude'] ?? null;
+            $lon = $report['Longitude'] ?? $metadata['longitude'] ?? null;
+            $speed = isset($report['Sog']) ? floatval($report['Sog']) : null;
+            $course = isset($report['Cog']) ? floatval($report['Cog']) : null;
+
+            if ($lat !== null && $lon !== null && isset($mmsiToVessel[$mmsi])) {
+                $vesselId = $mmsiToVessel[$mmsi];
+                try {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO vessel_positions (vessel_id, lat, lon, speed, course, destination, eta, source, fetched_at)
+                        VALUES (?, ?, ?, ?, ?, NULL, NULL, 'aisstream', NOW())
+                    ");
+                    $stmt->execute([$vesselId, $lat, $lon, $speed, $course]);
+                    $positionsReceived++;
+                    $updates[] = [
+                        'vessel_id' => $vesselId,
+                        'ship_name' => trim($shipName),
+                        'mmsi' => $mmsi,
+                        'lat' => $lat,
+                        'lon' => $lon,
+                        'speed' => $speed,
+                        'course' => $course
+                    ];
+                } catch (PDOException $e) {
+                    error_log("[run_position_update] Error saving position: " . $e->getMessage());
+                }
+            }
+        }
+    }
+
+    $ws->close();
+
+    echo json_encode([
+        'success' => true,
+        'message' => "AISstream update completed",
+        'vessels_tracked' => count($mmsiList),
+        'positions_received' => $positionsReceived,
+        'listen_seconds' => time() - $startTime,
+        'updates' => $updates
+    ]);
 }
