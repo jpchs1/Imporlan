@@ -16,6 +16,7 @@
  * - POST ?action=admin_rotate_featured      - Rotate featured vessels
  * - POST ?action=admin_assign_vessel        - Assign vessel to order
  * - POST ?action=admin_add_position         - Add manual position
+ * - GET  ?action=admin_lookup_vessel        - Lookup vessel by name/IMO/MMSI from VesselFinder
  * - GET  ?action=migrate                    - Create/update tables
  */
 
@@ -80,6 +81,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         case 'admin_add_position':
             requireAdminAuth();
             adminAddPosition();
+            break;
+        case 'admin_lookup_vessel':
+            requireAdminAuth();
+            adminLookupVessel();
             break;
         default:
             http_response_code(400);
@@ -732,4 +737,98 @@ function adminAddPosition() {
         http_response_code(500);
         echo json_encode(['error' => 'Error al agregar posicion']);
     }
+}
+
+function adminLookupVessel() {
+    $query = trim($_GET['query'] ?? '');
+    if (strlen($query) < 2) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere al menos 2 caracteres']);
+        return;
+    }
+
+    $results = [];
+
+    // First search in local DB
+    $pdo = getDbConnection();
+    if ($pdo) {
+        try {
+            $search = '%' . $query . '%';
+            $stmt = $pdo->prepare("
+                SELECT id, display_name, imo, mmsi, call_sign, shipping_line,
+                       origin_label, destination_label, eta_manual, status
+                FROM vessels
+                WHERE display_name LIKE ? OR imo LIKE ? OR mmsi LIKE ? OR call_sign LIKE ?
+                ORDER BY updated_at DESC
+                LIMIT 10
+            ");
+            $stmt->execute([$search, $search, $search, $search]);
+            $localVessels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($localVessels as $v) {
+                $results[] = [
+                    'source' => 'local',
+                    'display_name' => $v['display_name'],
+                    'imo' => $v['imo'],
+                    'mmsi' => $v['mmsi'],
+                    'call_sign' => $v['call_sign'],
+                    'shipping_line' => $v['shipping_line'],
+                    'origin_label' => $v['origin_label'],
+                    'destination_label' => $v['destination_label'],
+                    'local_id' => intval($v['id'])
+                ];
+            }
+        } catch (PDOException $e) {
+            error_log("Error searching local vessels: " . $e->getMessage());
+        }
+    }
+
+    // Then try VesselFinder API if configured
+    $apiKey = getenv('AIS_API_KEY') ?: '';
+    if ($apiKey && count($results) === 0) {
+        try {
+            // Try by IMO if query is numeric and 7 digits
+            if (preg_match('/^\d{7}$/', $query)) {
+                $url = "https://api.vesselfinder.com/vessel?userkey=" . urlencode($apiKey) . "&imo=" . urlencode($query);
+            } elseif (preg_match('/^\d{9}$/', $query)) {
+                $url = "https://api.vesselfinder.com/vessel?userkey=" . urlencode($apiKey) . "&mmsi=" . urlencode($query);
+            } else {
+                $url = null;
+            }
+
+            if ($url) {
+                $ctx = stream_context_create([
+                    'http' => [
+                        'timeout' => 8,
+                        'method' => 'GET',
+                        'header' => "Accept: application/json\r\n"
+                    ]
+                ]);
+                $response = @file_get_contents($url, false, $ctx);
+                if ($response !== false) {
+                    $data = json_decode($response, true);
+                    if ($data && isset($data['AIS'])) {
+                        $ais = $data['AIS'];
+                        $results[] = [
+                            'source' => 'vesselfinder',
+                            'display_name' => $ais['NAME'] ?? '',
+                            'imo' => strval($ais['IMO'] ?? ''),
+                            'mmsi' => strval($ais['MMSI'] ?? ''),
+                            'call_sign' => $ais['CALLSIGN'] ?? '',
+                            'shipping_line' => '',
+                            'origin_label' => '',
+                            'destination_label' => $ais['DESTINATION'] ?? '',
+                            'lat' => $ais['LATITUDE'] ?? null,
+                            'lon' => $ais['LONGITUDE'] ?? null,
+                            'speed' => $ais['SPEED'] ?? null,
+                            'course' => $ais['COURSE'] ?? null
+                        ];
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Error looking up vessel from VesselFinder: " . $e->getMessage());
+        }
+    }
+
+    echo json_encode(['success' => true, 'results' => $results]);
 }
