@@ -274,7 +274,7 @@
             (r.shipping_line ? '| ' + escapeHtml(r.shipping_line) : '') +
             '</div>' +
             '<div style="font-size:10px;color:#94a3b8;margin-top:1px">' +
-            (r.source === 'local' ? 'Base de datos local' : 'VesselFinder') +
+            (r.source === 'local' ? 'Base de datos local' : 'VesselFinder (publico)') +
             '</div></div>';
         });
         dropdown.innerHTML = html;
