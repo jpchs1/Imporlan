@@ -191,6 +191,24 @@ function getFeaturedVessels() {
         ");
         $vessels = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // For vessels without position data, try to fetch live from AIS provider
+        $provider = getAISProvider();
+        foreach ($vessels as &$vessel) {
+            if (empty($vessel['lat']) && empty($vessel['lon'])) {
+                $livePos = $provider->getVesselPosition($vessel['imo'], $vessel['mmsi']);
+                if ($livePos) {
+                    $vessel['lat'] = $livePos['lat'];
+                    $vessel['lon'] = $livePos['lon'];
+                    $vessel['speed'] = $livePos['speed'];
+                    $vessel['course'] = $livePos['course'];
+                    $vessel['pos_destination'] = $livePos['destination'];
+                    $vessel['pos_eta'] = $livePos['eta'];
+                    $vessel['last_position_update'] = $livePos['lastUpdate'];
+                }
+            }
+        }
+        unset($vessel);
+
         echo json_encode(['success' => true, 'vessels' => $vessels]);
     } catch (PDOException $e) {
         error_log("Error getting featured vessels: " . $e->getMessage());
@@ -398,6 +416,21 @@ function adminListVessels() {
         ");
         $stmt->execute($params);
         $vessels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // For vessels without position data, try to fetch live from AIS provider
+        $provider = getAISProvider();
+        foreach ($vessels as &$vessel) {
+            if (empty($vessel['lat']) && empty($vessel['lon'])) {
+                $livePos = $provider->getVesselPosition($vessel['imo'], $vessel['mmsi']);
+                if ($livePos) {
+                    $vessel['lat'] = $livePos['lat'];
+                    $vessel['lon'] = $livePos['lon'];
+                    $vessel['speed'] = $livePos['speed'];
+                    $vessel['last_position_update'] = $livePos['lastUpdate'];
+                }
+            }
+        }
+        unset($vessel);
 
         $countStmt = $pdo->query("SELECT COUNT(*) as total FROM vessels");
         $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
