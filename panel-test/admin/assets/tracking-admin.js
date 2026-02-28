@@ -197,6 +197,13 @@
     } catch (e) { console.error("Lookup error:", e); return []; }
   }
 
+  async function fetchVesselPosition(vesselId) {
+    try {
+      var resp = await fetch(API_BASE + "/tracking_api.php?action=admin_fetch_vessel_position&vessel_id=" + vesselId, { headers: authHeaders() });
+      return await resp.json();
+    } catch (e) { return { error: "Error de conexion" }; }
+  }
+
   function renderFilters() {
     return '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px">' +
       '<input id="ta-search" type="text" placeholder="Buscar por nombre, IMO, MMSI..." style="' + inputStyle() + ';max-width:300px">' +
@@ -392,6 +399,18 @@
         showToast("Embarcacion creada");
         overlay.remove();
         renderModule();
+        // Auto-trigger position fetch for the new vessel in background
+        if (result.vessel_id) {
+          showToast("Buscando posicion del barco...");
+          fetchVesselPosition(result.vessel_id).then(function (posResult) {
+            if (posResult && posResult.position) {
+              showToast("Posicion encontrada: Lat " + posResult.position.lat.toFixed(2) + ", Lon " + posResult.position.lon.toFixed(2));
+              renderModule();
+            } else {
+              showToast("Posicion no disponible aun. Se actualizara automaticamente.", "warning");
+            }
+          });
+        }
       } else {
         showToast(result.error || "Error al crear", "error");
       }
