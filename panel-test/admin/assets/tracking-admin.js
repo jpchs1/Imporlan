@@ -727,6 +727,21 @@
       var searchVal = document.getElementById("ta-search") ? document.getElementById("ta-search").value : "";
       var statusVal = document.getElementById("ta-filter-status") ? document.getElementById("ta-filter-status").value : "";
       var vessels = await fetchVessels({ search: searchVal, status: statusVal });
+      // Re-acquire wrapper from DOM after async wait (native framework may have replaced main content)
+      var currentWrapper = document.getElementById("tracking-admin-wrapper");
+      if (!currentWrapper) {
+        // Wrapper was removed during fetch - recreate it
+        var freshMain = document.querySelector("main");
+        if (freshMain) {
+          currentWrapper = document.createElement("div");
+          currentWrapper.id = "tracking-admin-wrapper";
+          freshMain.appendChild(currentWrapper);
+          freshMain.classList.add("tracking-active");
+        }
+      }
+      if (currentWrapper) {
+        wrapper = currentWrapper;
+      }
       wrapper.innerHTML = '<div style="padding:0">' +
         '<div style="margin-bottom:20px"><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Tracking Maritimo</h1>' +
         '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Gestion de embarcaciones y seguimiento</p></div>' +
@@ -737,6 +752,11 @@
     addStyles();
     attachListeners();
     isRendering = false;
+
+    // Self-healing: verify AIS config section survived DOM after render
+    if (!getVesselIdFromHash()) {
+      setTimeout(function () { ensureAISConfigSection(); }, 150);
+    }
   }
 
   function hideModule() {
@@ -761,6 +781,22 @@
     document.head.appendChild(style);
   }
 
+  // Self-healing: ensure AIS config section is present on tracking list page
+  function ensureAISConfigSection() {
+    if (!isTrackingPage() || getVesselIdFromHash() || isRendering) return;
+    var wrapper = document.getElementById("tracking-admin-wrapper");
+    if (!wrapper) return;
+    // Check if AIS config section already exists
+    if (document.getElementById("ta-cfg-save")) return;
+    // AIS config section is missing - append it
+    var innerDiv = wrapper.querySelector('div[style*="padding"]');
+    if (innerDiv) {
+      innerDiv.insertAdjacentHTML('beforeend', renderAISConfigSection());
+      loadAISConfig();
+      attachAISConfigListeners();
+    }
+  }
+
   function checkPage() {
     if (!document.getElementById("sidebar-tracking-admin")) {
       injectSidebarItem();
@@ -771,6 +807,9 @@
       if (newHash !== currentHash || (!document.getElementById("ta-search") && !document.getElementById("ta-e-name"))) {
         var main = document.querySelector("main");
         if (main) renderModule();
+      } else {
+        // Page is rendered but AIS config might be missing due to framework race condition
+        ensureAISConfigSection();
       }
     } else if (!isTrackingPage()) {
       var wrapper = document.getElementById("tracking-admin-wrapper");
