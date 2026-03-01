@@ -55,9 +55,12 @@ switch ($action) {
     case 'delete_solicitud':
         deleteSolicitud();
         break;
+    case 'request_payment':
+        requestPayment();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment']);
 }
 
 /**
@@ -420,6 +423,109 @@ function deleteSolicitud() {
         $data['purchases'] = $filtered;
         file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
         echo json_encode(['success' => true, 'deleted_id' => $id, 'source' => 'purchases']);
+    }
+}
+
+/**
+ * Send a payment request email to a specific solicitud by ID
+ * Admin action - sends reminder to the user associated with the solicitud
+ */
+function requestPayment() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Metodo no permitido. Use POST']);
+        return;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? '';
+
+    if (empty($id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta el campo: id']);
+        return;
+    }
+
+    // Find the solicitud data
+    $email = '';
+    $name = '';
+    $requestData = null;
+    $source = '';
+
+    if (strpos($id, 'qr_') === 0) {
+        // Look in quotation_requests.json
+        $file = __DIR__ . '/quotation_requests.json';
+        if (file_exists($file)) {
+            $data = json_decode(file_get_contents($file), true);
+            foreach (($data['requests'] ?? []) as $req) {
+                if (($req['id'] ?? '') === $id) {
+                    $email = $req['email'] ?? '';
+                    $name = $req['name'] ?? '';
+                    $requestData = $req;
+                    $source = 'quotation_requests';
+                    break;
+                }
+            }
+        }
+    } else {
+        // Look in purchases.json
+        global $purchasesFile;
+        $data = json_decode(file_get_contents($purchasesFile), true);
+        foreach (($data['purchases'] ?? []) as $p) {
+            if (($p['id'] ?? '') === $id) {
+                $email = $p['user_email'] ?? $p['email'] ?? '';
+                $name = $p['payer_name'] ?? $p['user_name'] ?? '';
+                $requestData = [
+                    'id' => $id,
+                    'email' => $email,
+                    'name' => $name,
+                    'date' => $p['timestamp'] ?? $p['date'] ?? date('d/m/Y'),
+                    'boat_links' => []
+                ];
+                // Try to extract links from description
+                $desc = $p['description'] ?? '';
+                if (strpos($desc, 'http') !== false) {
+                    preg_match_all('/https?:\/\/[^\s,|]+/', $desc, $matches);
+                    if (!empty($matches[0])) {
+                        $requestData['boat_links'] = $matches[0];
+                    }
+                }
+                $source = 'purchases';
+                break;
+            }
+        }
+    }
+
+    if (!$requestData) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Solicitud no encontrada: ' . $id]);
+        return;
+    }
+
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'La solicitud no tiene un email valido para enviar el recordatorio']);
+        return;
+    }
+
+    // Send the payment reminder email
+    require_once __DIR__ . '/email_service.php';
+    $emailService = new EmailService();
+    $result = $emailService->sendPaymentReminderEmail($email, $name, $requestData);
+
+    if ($result && ($result['success'] ?? false)) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Recordatorio de pago enviado a ' . $email,
+            'email' => $email,
+            'source' => $source
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode([
+            'error' => 'Error al enviar email: ' . ($result['error'] ?? 'Error desconocido'),
+            'email' => $email
+        ]);
     }
 }
 
