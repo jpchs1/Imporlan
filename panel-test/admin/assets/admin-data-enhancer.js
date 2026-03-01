@@ -34,10 +34,8 @@
   var isEnhancing = false;
   var checkTimer = null;
   var configActive = false;
-  var paymentRequestsActive = false;
 
   function getSection() {
-    if (paymentRequestsActive) return "Solicitudes de Pago";
     if (configActive) return "Configuracion";
     var h = document.querySelector("main h1");
     return h ? h.textContent.trim() : "";
@@ -350,7 +348,7 @@
         var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
         var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto">';
         html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Tipo</th><th style="' + thS + '">Servicio</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Descripcion</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Medio Pago</th><th style="' + thS + '">Fecha</th>';
+        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Tipo</th><th style="' + thS + '">Servicio</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Descripcion</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Medio Pago</th><th style="' + thS + '">Fecha</th><th style="' + thS + '">Acciones</th>';
         html += '</tr></thead><tbody>';
         allItems.forEach(function (p, idx) {
           var isQR = p._is_quotation_request;
@@ -368,14 +366,14 @@
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
           var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
           var email = p.user_email || p.email || "";
-          var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (email ? email.split("@")[0] : "N/A");
+          var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (p.payer_name || p.user_name || (email ? email.split("@")[0] : "N/A"));
           var desc = p.description || p.desc || p.plan_name || (isQR ? "Solicitud de cotizacion" : "");
           var amount = p.amount_clp || p.amount || 0;
           var date = p.timestamp || p.date || "";
           var displayId = p.id || (idx + 1);
           var hasLinks = (isQR && p._boat_links && p._boat_links.length > 0) || (!isQR && type === "link");
           var rowId = "sol-row-" + idx;
-          html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f1f5f9' + (isQR ? ';background:#fff7ed' : '') + (hasLinks ? ';cursor:pointer' : '') + '" ' + (hasLinks ? 'class="enhancer-clickable-row" data-row-idx="' + idx + '"' : '') + '>';
+          html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f1f5f9' + (hasLinks ? ';cursor:pointer' : '') + '" ' + (hasLinks ? 'class="enhancer-clickable-row" data-row-idx="' + idx + '"' : '') + '>';
           html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(displayId)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:' + tipoBg + ';color:' + tipoColor + '">' + tipoLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + servicioBg + ';color:' + servicioColor + '">' + servicioLabel + '</span></td>';
@@ -391,6 +389,7 @@
           html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + (isQR ? '<span style="color:#94a3b8;font-weight:400">-</span>' : fmtCLP(amount)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
+          html += '<td style="padding:14px 16px"><button class="enhancer-delete-sol" data-sol-id="' + esc(String(displayId)) + '" data-sol-type="' + (isQR ? 'qr' : 'purchase') + '" style="padding:6px 10px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s" title="Eliminar solicitud"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
           html += '</tr>';
           // Hidden detail row for boat links
           if (hasLinks) {
@@ -404,8 +403,8 @@
                 if (matches) links = matches;
               }
             }
-            html += '<tr id="' + rowId + '-detail" style="display:none;background:' + (isQR ? '#fff7ed' : '#f8fafc') + '">';
-            html += '<td colspan="9" style="padding:0 16px 16px 52px">';
+            html += '<tr id="' + rowId + '-detail" style="display:none;background:#f8fafc">';
+            html += '<td colspan="10" style="padding:0 16px 16px 52px">';
             html += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:4px">';
             if (isQR) {
               html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">';
@@ -435,7 +434,9 @@
 
         // Attach click handlers for expandable rows
         container.querySelectorAll(".enhancer-clickable-row").forEach(function(row) {
-          row.addEventListener("click", function() {
+          row.addEventListener("click", function(e) {
+            // Don't toggle if clicking delete button or a link
+            if (e.target.closest(".enhancer-delete-sol") || e.target.closest("a")) return;
             var detailId = row.id + "-detail";
             var detail = document.getElementById(detailId);
             if (detail) {
@@ -447,6 +448,46 @@
           // Hover effect
           row.addEventListener("mouseenter", function() { row.style.opacity = "0.85"; });
           row.addEventListener("mouseleave", function() { row.style.opacity = "1"; });
+        });
+
+        // Attach delete handlers
+        container.querySelectorAll(".enhancer-delete-sol").forEach(function(btn) {
+          btn.addEventListener("mouseenter", function() { btn.style.background = "#ef4444"; btn.style.color = "#fff"; });
+          btn.addEventListener("mouseleave", function() { btn.style.background = "transparent"; btn.style.color = "#ef4444"; });
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var solId = btn.getAttribute("data-sol-id");
+            if (!confirm("Eliminar solicitud #" + solId + "?")) return;
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            fetch(API_BASE + "/purchases.php?action=delete_solicitud", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ id: solId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                var row = btn.closest("tr");
+                if (row) {
+                  var detailRow = document.getElementById(row.id + "-detail");
+                  if (detailRow) detailRow.remove();
+                  row.style.transition = "opacity .3s";
+                  row.style.opacity = "0";
+                  setTimeout(function() { row.remove(); }, 300);
+                }
+              } else {
+                alert(data.error || "Error al eliminar");
+                btn.disabled = false;
+                btn.style.opacity = "1";
+              }
+            })
+            .catch(function() {
+              alert("Error de conexion al eliminar");
+              btn.disabled = false;
+              btn.style.opacity = "1";
+            });
+          });
         });
       })
       .catch(function (err) {
@@ -1157,399 +1198,6 @@
       }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar precios. Ejecute la migracion.</div>'; });
   }
 
-  // =====================================================
-  // PAYMENT REQUESTS SECTION
-  // =====================================================
-
-  function enhancePaymentRequests() {
-    var main = document.querySelector("main");
-    if (!main) return false;
-    var h1 = main.querySelector("h1");
-    if (h1) h1.textContent = "Solicitudes de Pago";
-    if (main.querySelector("[data-enhancer-added='payment-requests']")) return true;
-    hideReactContent(main);
-    var container = document.createElement("div");
-    container.setAttribute("data-enhancer-added", "payment-requests");
-    container.style.cssText = "padding:20px 0";
-    container.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
-      '<div style="display:flex;gap:8px;align-items:center">' +
-        '<select id="pr-filter-status" style="padding:8px 12px;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;color:#475569;background:#fff">' +
-          '<option value="">Todos los estados</option><option value="pending">Pendientes</option><option value="paid">Pagados</option><option value="cancelled">Cancelados</option>' +
-        '</select>' +
-      '</div>' +
-      '<button id="enhancer-new-pr" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(8,145,178,.3)">' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nueva Solicitud' +
-      '</button>' +
-    '</div>' +
-    '<div id="enhancer-pr-table">' + makeSkeletonTable(7, 5) + '</div>';
-    main.appendChild(container);
-    loadPaymentRequests(container);
-    attachPaymentRequestListeners(container);
-    return true;
-  }
-
-  var prCurrentPage = 1;
-
-  function loadPaymentRequests(page) {
-    if (page) prCurrentPage = page;
-    var tableDiv = document.getElementById("enhancer-pr-table");
-    if (!tableDiv) return;
-    var filterStatus = document.getElementById("pr-filter-status");
-    var statusParam = filterStatus ? filterStatus.value : "";
-    var url = API_BASE + "/payment_requests_api.php?action=admin_list&page=" + prCurrentPage;
-    if (statusParam) url += "&status=" + statusParam;
-    fetch(url, { headers: authHeaders() })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var requests = data.requests || [];
-        if (!Array.isArray(requests) || requests.length === 0) {
-          tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron solicitudes de pago</div>';
-          return;
-        }
-        var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
-        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto">';
-        html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Titulo</th><th style="' + thS + '">Monto CLP</th><th style="' + thS + '">Monto USD</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Fecha</th><th style="' + thS + '">Acciones</th>';
-        html += '</tr></thead><tbody>';
-        requests.forEach(function(pr) {
-          var stMap = { pending: { l: "Pendiente", c: "#f59e0b" }, paid: { l: "Pagado", c: "#10b981" }, cancelled: { l: "Cancelada", c: "#ef4444" } };
-          var st = stMap[pr.status] || stMap.pending;
-          var email = pr.user_email || "";
-          var userName = email.split("@")[0];
-          var amountUsd = pr.amount_usd ? "USD $" + parseFloat(pr.amount_usd).toLocaleString("en-US", {minimumFractionDigits: 2}) : "-";
-          html += '<tr style="border-bottom:1px solid #f1f5f9">';
-          html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:12px;font-family:monospace">' + esc(pr.id) + '</td>';
-          html += '<td style="padding:14px 16px"><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(userName) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(email) + '</p></div></td>';
-          html += '<td style="padding:14px 16px;font-size:13px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(pr.title) + '">' + esc(pr.title) + '</td>';
-          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(pr.amount_clp) + '</td>';
-          html += '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + esc(amountUsd) + '</td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
-          html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(pr.created_at) + '</td>';
-          html += '<td style="padding:14px 16px">';
-          if (pr.status === "pending") {
-            html += '<button class="pr-edit-btn" data-pr-id="' + esc(pr.id) + '" data-pr-email="' + esc(pr.user_email || '') + '" data-pr-title="' + esc(pr.title || '') + '" data-pr-desc="' + esc(pr.description || '') + '" data-pr-clp="' + (pr.amount_clp || 0) + '" data-pr-usd="' + (pr.amount_usd || '') + '" style="padding:4px 10px;border-radius:6px;border:1px solid #93c5fd;background:#eff6ff;color:#3b82f6;font-size:11px;font-weight:600;cursor:pointer;margin-right:6px">Editar</button>';
-            html += '<button class="pr-cancel-btn" data-pr-id="' + esc(pr.id) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff5f5;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">Cancelar</button>';
-          }
-          html += '</td>';
-          html += '</tr>';
-        });
-        html += '</tbody></table></div>';
-        if (data.pages > 1) {
-          html += '<div style="display:flex;justify-content:center;gap:8px;margin-top:16px;padding:8px">';
-          for (var p = 1; p <= data.pages; p++) {
-            var active = p === data.page;
-            html += '<button class="pr-page-btn" data-page="' + p + '" style="padding:6px 12px;border-radius:6px;border:1px solid ' + (active ? '#0891b2' : '#e2e8f0') + ';background:' + (active ? '#0891b2' : '#fff') + ';color:' + (active ? '#fff' : '#64748b') + ';font-size:12px;cursor:pointer">' + p + '</button>';
-          }
-          html += '</div>';
-        }
-        tableDiv.innerHTML = html;
-        attachPRTableListeners();
-      })
-      .catch(function(err) {
-        console.warn("Error loading payment requests:", err);
-        tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar solicitudes de pago</div>';
-      });
-  }
-
-  function attachPaymentRequestListeners(container) {
-    var newBtn = document.getElementById("enhancer-new-pr");
-    if (newBtn) {
-      newBtn.onclick = function() { openPaymentRequestModal(); };
-    }
-    var filterSelect = document.getElementById("pr-filter-status");
-    if (filterSelect) {
-      filterSelect.onchange = function() { loadPaymentRequests(); };
-    }
-  }
-
-  function attachPRTableListeners() {
-    document.querySelectorAll(".pr-cancel-btn").forEach(function(btn) {
-      btn.onclick = function() {
-        var prId = this.getAttribute("data-pr-id");
-        var reason = prompt("Razon de cancelacion (opcional):");
-        if (reason === null) return;
-        fetch(API_BASE + "/payment_requests_api.php?action=update_status", {
-          method: "POST", headers: authHeaders(),
-          body: JSON.stringify({ request_id: prId, new_status: "cancelled", reason: reason || "" })
-        }).then(function(r) { return r.json(); }).then(function(data) {
-          if (data.success) {
-            loadPaymentRequests();
-          } else { alert(data.error || "Error al cancelar"); }
-        }).catch(function() { alert("Error de conexion"); });
-      };
-    });
-    document.querySelectorAll(".pr-edit-btn").forEach(function(btn) {
-      btn.onclick = function() {
-        var prData = {
-          id: this.getAttribute("data-pr-id"),
-          user_email: this.getAttribute("data-pr-email"),
-          title: this.getAttribute("data-pr-title"),
-          description: this.getAttribute("data-pr-desc"),
-          amount_clp: this.getAttribute("data-pr-clp"),
-          amount_usd: this.getAttribute("data-pr-usd")
-        };
-        openEditPaymentRequestModal(prData);
-      };
-    });
-    document.querySelectorAll(".pr-page-btn").forEach(function(btn) {
-      btn.onclick = function() {
-        var pageNum = parseInt(this.getAttribute("data-page"));
-        loadPaymentRequests(pageNum);
-      };
-    });
-  }
-
-  function openPaymentRequestModal() {
-    var existingModal = document.getElementById("pr-modal-overlay");
-    if (existingModal) existingModal.remove();
-    var overlay = document.createElement("div");
-    overlay.id = "pr-modal-overlay";
-    overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
-    var modalHtml = '<div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">' +
-      '<div style="padding:24px 24px 0;display:flex;justify-content:space-between;align-items:center">' +
-        '<h2 style="margin:0;font-size:20px;font-weight:700;color:#1e293b">Nueva Solicitud de Pago</h2>' +
-        '<button id="pr-modal-close" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
-      '</div>' +
-      '<div style="padding:24px">' +
-        '<form id="paymentRequestForm">' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Usuario (email) *</label>' +
-            '<input type="email" id="pr-user-email" name="user_email" required placeholder="usuario@ejemplo.com" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-          '</div>' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Titulo de la solicitud *</label>' +
-            '<input type="text" id="pr-title" name="title" maxlength="200" required placeholder="Ej: Inspeccion adicional barco X" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-          '</div>' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Descripcion</label>' +
-            '<textarea id="pr-description" name="description" rows="3" placeholder="Describe el servicio o concepto del pago" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;resize:vertical;box-sizing:border-box"></textarea>' +
-          '</div>' +
-          '<div style="display:flex;gap:16px;margin-bottom:16px">' +
-            '<div style="flex:1">' +
-              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto CLP *</label>' +
-              '<input type="number" id="pr-amount-clp" name="amount_clp" min="1" required placeholder="50000" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-            '</div>' +
-            '<div style="flex:1">' +
-              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto USD (opcional)</label>' +
-              '<input type="number" id="pr-amount-usd" name="amount_usd" min="0" step="0.01" placeholder="60" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-            '</div>' +
-          '</div>' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer">' +
-              '<input type="checkbox" id="pr-send-email" name="send_email" checked style="width:16px;height:16px">' +
-              'Enviar email de notificacion al usuario' +
-            '</label>' +
-          '</div>' +
-        '</form>' +
-      '</div>' +
-      '<div style="padding:0 24px 24px;display:flex;justify-content:flex-end;gap:12px">' +
-        '<button id="pr-modal-cancel" style="padding:10px 24px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
-        '<button id="pr-modal-submit" style="padding:10px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(8,145,178,.3)">Crear y Enviar</button>' +
-      '</div>' +
-    '</div>';
-    overlay.innerHTML = modalHtml;
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener("click", function(e) { if (e.target === overlay) overlay.remove(); });
-    document.getElementById("pr-modal-close").onclick = function() { overlay.remove(); };
-    document.getElementById("pr-modal-cancel").onclick = function() { overlay.remove(); };
-    document.getElementById("pr-modal-submit").onclick = function() { submitPaymentRequest(overlay); };
-  }
-
-  function submitPaymentRequest(overlay) {
-    var userEmail = document.getElementById("pr-user-email").value.trim();
-    var title = document.getElementById("pr-title").value.trim();
-    var description = document.getElementById("pr-description").value.trim();
-    var amountClp = document.getElementById("pr-amount-clp").value;
-    var amountUsd = document.getElementById("pr-amount-usd").value;
-    var sendEmail = document.getElementById("pr-send-email").checked;
-
-    if (!userEmail || !title || !amountClp || parseInt(amountClp) <= 0) {
-      alert("Por favor completa los campos requeridos (email, titulo, monto CLP)");
-      return;
-    }
-
-    var submitBtn = document.getElementById("pr-modal-submit");
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Creando...";
-
-    var payload = {
-      user_email: userEmail,
-      title: title,
-      description: description,
-      amount_clp: parseInt(amountClp),
-      amount_usd: amountUsd ? parseFloat(amountUsd) : null,
-      send_email: sendEmail
-    };
-
-    fetch(API_BASE + "/payment_requests_api.php?action=admin_create", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(payload)
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.success) {
-        overlay.remove();
-        loadPaymentRequests();
-        showPRNotification("Solicitud creada exitosamente" + (sendEmail ? " y email enviado a " + userEmail : ""), "success");
-      } else {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Crear y Enviar";
-        alert("Error: " + (data.error || "Error desconocido") + (data.details ? "\n" + data.details.join("\n") : ""));
-      }
-    })
-    .catch(function(err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Crear y Enviar";
-      alert("Error de conexion al crear solicitud");
-    });
-  }
-
-  function openEditPaymentRequestModal(prData) {
-    var existingModal = document.getElementById("pr-modal-overlay");
-    if (existingModal) existingModal.remove();
-    var overlay = document.createElement("div");
-    overlay.id = "pr-modal-overlay";
-    overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px";
-    var modalHtml = '<div style="background:#fff;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)">' +
-      '<div style="padding:24px 24px 0;display:flex;justify-content:space-between;align-items:center">' +
-        '<h2 style="margin:0;font-size:20px;font-weight:700;color:#1e293b">Editar Solicitud de Pago</h2>' +
-        '<button id="pr-edit-modal-close" style="border:none;background:none;font-size:24px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
-      '</div>' +
-      '<div style="padding:24px">' +
-        '<form id="editPaymentRequestForm">' +
-          '<input type="hidden" id="pr-edit-id" value="' + esc(prData.id) + '">' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Usuario (email) *</label>' +
-            '<input type="email" id="pr-edit-user-email" name="user_email" required placeholder="usuario@ejemplo.com" value="' + esc(prData.user_email) + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-          '</div>' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Titulo de la solicitud *</label>' +
-            '<input type="text" id="pr-edit-title" name="title" maxlength="200" required placeholder="Ej: Inspeccion adicional barco X" value="' + esc(prData.title) + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-          '</div>' +
-          '<div style="margin-bottom:16px">' +
-            '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Descripcion</label>' +
-            '<textarea id="pr-edit-description" name="description" rows="3" placeholder="Describe el servicio o concepto del pago" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;resize:vertical;box-sizing:border-box">' + esc(prData.description) + '</textarea>' +
-          '</div>' +
-          '<div style="display:flex;gap:16px;margin-bottom:16px">' +
-            '<div style="flex:1">' +
-              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto CLP *</label>' +
-              '<input type="number" id="pr-edit-amount-clp" name="amount_clp" min="1" required placeholder="50000" value="' + (prData.amount_clp || '') + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-            '</div>' +
-            '<div style="flex:1">' +
-              '<label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">Monto USD (opcional)</label>' +
-              '<input type="number" id="pr-edit-amount-usd" name="amount_usd" min="0" step="0.01" placeholder="60" value="' + (prData.amount_usd || '') + '" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;font-size:14px;box-sizing:border-box">' +
-            '</div>' +
-          '</div>' +
-        '</form>' +
-      '</div>' +
-      '<div style="padding:0 24px 24px;display:flex;justify-content:flex-end;gap:12px">' +
-        '<button id="pr-edit-modal-cancel" style="padding:10px 24px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
-        '<button id="pr-edit-modal-submit" style="padding:10px 24px;border-radius:8px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,.3)">Guardar Cambios</button>' +
-      '</div>' +
-    '</div>';
-    overlay.innerHTML = modalHtml;
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener("click", function(e) { if (e.target === overlay) overlay.remove(); });
-    document.getElementById("pr-edit-modal-close").onclick = function() { overlay.remove(); };
-    document.getElementById("pr-edit-modal-cancel").onclick = function() { overlay.remove(); };
-    document.getElementById("pr-edit-modal-submit").onclick = function() { submitEditPaymentRequest(overlay); };
-  }
-
-  function submitEditPaymentRequest(overlay) {
-    var requestId = document.getElementById("pr-edit-id").value;
-    var userEmail = document.getElementById("pr-edit-user-email").value.trim();
-    var title = document.getElementById("pr-edit-title").value.trim();
-    var description = document.getElementById("pr-edit-description").value.trim();
-    var amountClp = document.getElementById("pr-edit-amount-clp").value;
-    var amountUsd = document.getElementById("pr-edit-amount-usd").value;
-
-    if (!userEmail || !title || !amountClp || parseInt(amountClp) <= 0) {
-      alert("Por favor completa los campos requeridos (email, titulo, monto CLP)");
-      return;
-    }
-
-    var submitBtn = document.getElementById("pr-edit-modal-submit");
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Guardando...";
-
-    var payload = {
-      request_id: requestId,
-      user_email: userEmail,
-      title: title,
-      description: description,
-      amount_clp: parseInt(amountClp),
-      amount_usd: amountUsd ? parseFloat(amountUsd) : null
-    };
-
-    fetch(API_BASE + "/payment_requests_api.php?action=admin_update", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(payload)
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.success) {
-        overlay.remove();
-        loadPaymentRequests();
-        showPRNotification("Solicitud actualizada exitosamente", "success");
-      } else {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Guardar Cambios";
-        alert("Error: " + (data.error || "Error desconocido"));
-      }
-    })
-    .catch(function(err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Guardar Cambios";
-      alert("Error de conexion al actualizar solicitud");
-    });
-  }
-
-  function showPRNotification(message, type) {
-    var existing = document.getElementById("pr-notification");
-    if (existing) existing.remove();
-    var bgColor = type === "success" ? "#10b981" : type === "error" ? "#ef4444" : "#0891b2";
-    var notif = document.createElement("div");
-    notif.id = "pr-notification";
-    notif.style.cssText = "position:fixed;top:20px;right:20px;z-index:10001;padding:14px 24px;border-radius:12px;background:" + bgColor + ";color:#fff;font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.15);transition:opacity .3s;max-width:400px";
-    notif.textContent = message;
-    document.body.appendChild(notif);
-    setTimeout(function() { notif.style.opacity = "0"; setTimeout(function() { notif.remove(); }, 300); }, 4000);
-  }
-
-  function injectPaymentRequestsSidebar() {
-    if (document.getElementById("sidebar-payment-requests")) return;
-    var aside = document.querySelector("aside nav");
-    if (!aside) return;
-    var btn = document.createElement("button");
-    btn.id = "sidebar-payment-requests";
-    btn.style.cssText = "display:flex;align-items:center;gap:12px;width:100%;padding:10px 16px;border:none;background:transparent;color:#94a3b8;font-size:14px;font-weight:500;cursor:pointer;border-radius:8px;transition:all .2s;text-align:left;margin-top:4px";
-    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Solicitudes de Pago';
-    btn.addEventListener("mouseenter", function() { this.style.background = "rgba(8,145,178,.08)"; this.style.color = "#0891b2"; });
-    btn.addEventListener("mouseleave", function() { if (!paymentRequestsActive) { this.style.background = "transparent"; this.style.color = "#94a3b8"; } });
-    btn.addEventListener("click", function() {
-      paymentRequestsActive = true;
-      configActive = false;
-      var main = document.querySelector("main");
-      if (main) {
-        main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
-          el.style.display = "";
-          el.removeAttribute("data-enhancer-hidden");
-        });
-        main.querySelectorAll("[data-enhancer-added]").forEach(function(el) {
-          el.remove();
-        });
-      }
-      lastSection = "Solicitudes de Pago";
-      enhanced = {};
-      enhance("Solicitudes de Pago");
-    });
-    aside.appendChild(btn);
-  }
-
   function injectConfigSidebar() {
     if (document.getElementById("sidebar-config-admin")) return;
     var aside = document.querySelector("aside nav");
@@ -1632,7 +1280,6 @@
         case "Contenido": ok = enhanceContenido(); break;
         case "Auditoria": ok = true; break;
         case "Configuracion": ok = enhanceConfiguracion(); break;
-        case "Solicitudes de Pago": ok = enhancePaymentRequests(); break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
     if (ok) enhanced[section] = true;
@@ -1655,27 +1302,24 @@
     checkTimer = setTimeout(function() {
       checkTimer = null;
       injectConfigSidebar();
-      injectPaymentRequestsSidebar();
       check();
     }, 100);
   }
 
   function init() {
     injectConfigSidebar();
-    injectPaymentRequestsSidebar();
     document.addEventListener("click", function(e) {
-      if (!configActive && !paymentRequestsActive) return;
+      if (!configActive) return;
       var btn = e.target.closest("aside nav ul button, aside nav ul a");
       if (btn) {
         configActive = false;
-        paymentRequestsActive = false;
         cleanupEnhancer();
         lastSection = "";
         enhanced = {};
       }
     }, true);
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
-    setInterval(function() { injectConfigSidebar(); injectPaymentRequestsSidebar(); check(); }, 500);
+    setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
   }
 
