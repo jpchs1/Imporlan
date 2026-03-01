@@ -800,6 +800,46 @@
   }
   
   // ============================================
+  // 2.9 COTIZAR-IMPORTACION PAGE NOTICE
+  // Add link pricing notice to /cotizar-importacion/ form
+  // ============================================
+  
+  function updateCotizarImportacionForm() {
+    // Only run on the /cotizar-importacion/ page
+    if (!window.location.pathname.includes('/cotizar-importacion')) return;
+    
+    const checkInterval = setInterval(function() {
+      const forms = document.querySelectorAll('form');
+      
+      forms.forEach(function(form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.textContent.includes('Cotizacion')) {
+          clearInterval(checkInterval);
+          
+          // Add notice before the form
+          const existingNotice = form.parentElement.querySelector('.cotizar-links-notice');
+          if (!existingNotice) {
+            const noticeDiv = document.createElement('div');
+            noticeDiv.className = 'cotizar-links-notice';
+            noticeDiv.style.cssText = 'background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; color: #fbbf24; line-height: 1.6;';
+            noticeDiv.innerHTML = '<strong>&#9888; Importante:</strong> Para recibir una cotizacion por links online, debe ser a traves del <a href="/panel/" style="color: #60a5fa; text-decoration: underline; font-weight: 600;">formulario de Cotizacion Online</a> en el Panel de Usuario.<br><span style="color: #93c5fd;">Cada link tiene un costo de <strong style="color: #34d399;">CLP $9.900</strong>.</span>';
+            form.parentElement.insertBefore(noticeDiv, form);
+          }
+          
+          // Update button text - remove "Gratis"
+          if (submitBtn.textContent.includes('Gratis')) {
+            submitBtn.textContent = submitBtn.textContent.replace('Gratis', '').trim();
+          }
+        }
+      });
+    }, 500);
+    
+    setTimeout(function() {
+      clearInterval(checkInterval);
+    }, 10000);
+  }
+
+  // ============================================
   // INITIALIZATION
   // ============================================
   
@@ -813,6 +853,7 @@
         setupProcesoMenuRedirect();
         addPublicarButton();
         improveProcesoUI();
+        updateCotizarImportacionForm();
         
         // Set up link saving on form interactions
         document.addEventListener('input', function(e) {
