@@ -623,6 +623,8 @@ BASE64;
                 'Content-Type: multipart/related; boundary="' . $boundary . '"',
                 'From: ' . $this->fromName . ' <' . $this->fromEmail . '>',
                 'Reply-To: ' . $this->replyTo,
+                'Date: ' . date('r'),
+                'Message-ID: <' . uniqid('imporlan_', true) . '@imporlan.cl>',
                 'X-Mailer: Imporlan-Mailer/4.0',
                 'X-Priority: 3'
             ];
@@ -663,7 +665,7 @@ BASE64;
             }
             
             $this->smtpGetResponse($socket);
-            $this->smtpSendCommand($socket, "EHLO " . gethostname());
+            $this->smtpSendCommand($socket, "EHLO imporlan.cl");
             $this->smtpGetResponse($socket);
             $this->smtpSendCommand($socket, "AUTH LOGIN");
             $this->smtpGetResponse($socket);
