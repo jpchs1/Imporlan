@@ -178,86 +178,245 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     exit();
 }
 
-// Handle /api/admin/* endpoints locally - return stub responses
-// The React SPA calls these but real data comes from enhancer scripts calling local PHP APIs
+// Handle /api/admin/* endpoints locally - return real data for dashboard, stubs for others
+// The React SPA calls these; dashboard returns computed stats, other sections use enhancer scripts
 if (preg_match('#^/api/admin(/|$)#', $path)) {
     header('Content-Type: application/json');
     
     $adminPath = preg_replace('#^/api/admin/?#', '', $path);
-    $adminPath = explode('?', $adminPath)[0]; // remove query string from path
-    
-    // Return appropriate empty stub data matching the React SPA's expected response shapes.
-    // The enhancer scripts (admin-data-enhancer.js) provide the real data via local PHP APIs;
-    // these stubs just prevent the React error handler from showing error toasts/messages.
+    $adminPath = explode('?', $adminPath)[0];
     $firstSegment = explode('/', $adminPath)[0];
     
     switch ($firstSegment) {
         case 'dashboard':
-            echo json_encode([
-                'stats' => [
-                    'total_users' => 0,
-                    'new_users_7d' => 0,
-                    'pending_submissions' => 0,
-                    'total_submissions' => 0,
-                    'total_revenue_clp' => 0,
-                    'payments_paid' => 0,
-                    'active_plans' => 0,
-                    'total_plans' => 0
-                ],
-                'recent_activity' => [],
-                'payments_by_provider' => (object)[],
-                'submissions_by_status' => (object)[],
-                'users_by_role' => (object)[]
-            ]);
+            echo json_encode(computeDashboardStats());
             break;
         case 'users':
-            echo json_encode([
-                'items' => [],
-                'total' => 0,
-                'pages' => 0
-            ]);
-            break;
         case 'submissions':
-            echo json_encode([
-                'items' => [],
-                'total' => 0,
-                'pages' => 0
-            ]);
+        case 'payments':
+        case 'audit-logs':
+            echo json_encode(['items' => [], 'total' => 0, 'pages' => 0]);
             break;
         case 'plans':
-            echo json_encode([
-                'items' => []
-            ]);
-            break;
-        case 'payments':
-            echo json_encode([
-                'items' => [],
-                'total' => 0,
-                'pages' => 0
-            ]);
-            break;
         case 'content':
-            echo json_encode([
-                'items' => []
-            ]);
-            break;
-        case 'audit-logs':
-            echo json_encode([
-                'items' => [],
-                'total' => 0,
-                'pages' => 0
-            ]);
+            echo json_encode(['items' => []]);
             break;
         default:
-            // Generic empty response for any other admin endpoint
-            echo json_encode([
-                'items' => [],
-                'total' => 0,
-                'pages' => 0
-            ]);
+            echo json_encode(['items' => [], 'total' => 0, 'pages' => 0]);
             break;
     }
     exit();
+}
+
+/**
+ * Convert a timestamp string to ISO 8601 format for React compatibility.
+ * Handles MySQL format "2026-03-01 12:16:51" -> "2026-03-01T12:16:51"
+ */
+function toISO8601($ts) {
+    if (!$ts) return '';
+    // Already has T separator - likely ISO format
+    if (strpos($ts, 'T') !== false) return $ts;
+    // Try to parse and reformat
+    $parsed = strtotime($ts);
+    if ($parsed !== false && $parsed > 0) {
+        return date('c', $parsed); // ISO 8601 with timezone
+    }
+    // Fallback: replace space with T
+    return str_replace(' ', 'T', $ts);
+}
+
+/**
+ * Compute real dashboard statistics from purchases.json, quotation_requests.json, and database
+ */
+function computeDashboardStats() {
+    $apiDir = dirname(__DIR__); // /api directory
+
+    // --- Purchases data ---
+    $purchases = [];
+    $purchasesFile = $apiDir . '/purchases.json';
+    if (file_exists($purchasesFile)) {
+        $data = json_decode(file_get_contents($purchasesFile), true);
+        $purchases = $data['purchases'] ?? [];
+    }
+
+    // --- Quotation requests data ---
+    $quotationRequests = [];
+    $qrFile = $apiDir . '/quotation_requests.json';
+    if (file_exists($qrFile)) {
+        $data = json_decode(file_get_contents($qrFile), true);
+        $quotationRequests = $data['requests'] ?? [];
+    }
+
+    // --- Compute stats from purchases ---
+    $totalRevenue = 0;
+    $paymentsPaid = 0;
+    $activePlans = 0;
+    $totalPlans = 0;
+    $paymentsByProvider = [];
+    $submissionsByStatus = [];
+    $purchaseEmails = [];
+    $recentActivity = [];
+
+    foreach ($purchases as $p) {
+        $amount = floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+        $totalRevenue += $amount;
+        $paymentsPaid++;
+
+        // Count plans
+        if (($p['type'] ?? '') === 'plan') {
+            $totalPlans++;
+            $status = $p['status'] ?? 'pending';
+            if ($status === 'active') $activePlans++;
+        }
+
+        // Payments by provider
+        $method = $p['payment_method'] ?? $p['method'] ?? 'otro';
+        if (!isset($paymentsByProvider[$method])) $paymentsByProvider[$method] = 0;
+        $paymentsByProvider[$method]++;
+
+        // Submissions by status
+        $status = $p['status'] ?? 'pending';
+        if (!isset($submissionsByStatus[$status])) $submissionsByStatus[$status] = 0;
+        $submissionsByStatus[$status]++;
+
+        // Track unique emails for user count
+        $email = strtolower($p['user_email'] ?? '');
+        if ($email) $purchaseEmails[$email] = true;
+
+        // Recent activity from purchases
+        $timestamp = $p['timestamp'] ?? $p['date'] ?? '';
+        if ($timestamp) {
+            $userName = explode('@', $p['user_email'] ?? '')[0];
+            $type = $p['type'] ?? 'link';
+            $desc = $type === 'plan'
+                ? 'Compra de plan: ' . ($p['plan_name'] ?? $p['description'] ?? 'Plan')
+                : 'Cotizacion por links';
+            $iso = toISO8601($timestamp);
+            $recentActivity[] = [
+                'type' => 'purchase',
+                'description' => $desc,
+                'user' => $userName,
+                'timestamp' => $iso,
+                'created_at' => $iso
+            ];
+        }
+    }
+
+    // --- Quotation requests stats ---
+    $pendingSubmissions = 0;
+    foreach ($quotationRequests as $qr) {
+        $qrEmail = strtolower($qr['email'] ?? '');
+        // Count as pending if no matching purchase
+        if (!$qrEmail || !isset($purchaseEmails[$qrEmail])) {
+            $pendingSubmissions++;
+            if (!isset($submissionsByStatus['nueva_solicitud'])) $submissionsByStatus['nueva_solicitud'] = 0;
+            $submissionsByStatus['nueva_solicitud']++;
+        }
+
+        // Recent activity from quotation requests
+        $date = $qr['date'] ?? '';
+        if ($date) {
+            $qrName = $qr['name'] ?? ($qrEmail ? explode('@', $qrEmail)[0] : 'Anonimo');
+            $linksCount = count($qr['boat_links'] ?? []);
+            $isoDate = toISO8601($date);
+            $recentActivity[] = [
+                'type' => 'quotation_request',
+                'description' => 'Nueva solicitud de cotizacion' . ($linksCount > 0 ? " ($linksCount links)" : ''),
+                'user' => $qrName,
+                'timestamp' => $isoDate,
+                'created_at' => $isoDate
+            ];
+        }
+    }
+
+    $totalSubmissions = count($purchases) + $pendingSubmissions;
+
+    // Sort recent activity by timestamp descending, take last 10
+    usort($recentActivity, function($a, $b) {
+        return strtotime($b['timestamp'] ?? '0') - strtotime($a['timestamp'] ?? '0');
+    });
+    $recentActivity = array_slice($recentActivity, 0, 10);
+
+    // --- Database stats (users, audit) ---
+    $totalUsers = count($purchaseEmails); // Start with unique purchase emails
+    $newUsers7d = 0;
+    $usersByRole = [];
+    $dbConfigPath = dirname(__DIR__) . '/db_config.php';
+
+    if (file_exists($dbConfigPath)) {
+        try {
+            require_once $dbConfigPath;
+            $pdo = getDbConnection();
+            if ($pdo) {
+                // Admin users count
+                try {
+                    $stmt = $pdo->query("SELECT role, COUNT(*) as cnt FROM admin_users GROUP BY role");
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $usersByRole[$row['role']] = (int)$row['cnt'];
+                        $totalUsers += (int)$row['cnt'];
+                    }
+                    // New users in last 7 days
+                    $stmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM admin_users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+                    $stmt->execute();
+                    $newUsers7d = (int)$stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+                } catch (Exception $e) {
+                    // admin_users table might not exist yet
+                }
+
+                // Recent audit activity
+                try {
+                    $stmt = $pdo->query("SELECT user_name, action_type, description, created_at FROM audit_log ORDER BY created_at DESC LIMIT 5");
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $isoAudit = toISO8601($row['created_at']);
+                        $recentActivity[] = [
+                            'type' => 'audit',
+                            'description' => $row['description'] ?? $row['action_type'],
+                            'user' => $row['user_name'] ?? '',
+                            'timestamp' => $isoAudit,
+                            'created_at' => $isoAudit
+                        ];
+                    }
+                    // Re-sort after adding audit entries
+                    usort($recentActivity, function($a, $b) {
+                        return strtotime($b['timestamp'] ?? '0') - strtotime($a['timestamp'] ?? '0');
+                    });
+                    $recentActivity = array_slice($recentActivity, 0, 10);
+                } catch (Exception $e) {
+                    // audit_log table might not exist yet
+                }
+            }
+        } catch (Exception $e) {
+            // DB not available, continue with file-based data only
+        }
+    }
+
+    // Also count unique quotation request users
+    $usersByRole['cliente'] = count($purchaseEmails);
+    // Count new "users" from purchases in last 7 days
+    $sevenDaysAgo = strtotime('-7 days');
+    foreach ($purchases as $p) {
+        $ts = strtotime($p['timestamp'] ?? $p['date'] ?? '');
+        if ($ts && $ts >= $sevenDaysAgo) {
+            $newUsers7d++;
+        }
+    }
+
+    return [
+        'stats' => [
+            'total_users' => $totalUsers,
+            'new_users_7d' => $newUsers7d,
+            'pending_submissions' => $pendingSubmissions,
+            'total_submissions' => $totalSubmissions,
+            'total_revenue_clp' => (int)$totalRevenue,
+            'payments_paid' => $paymentsPaid,
+            'active_plans' => $activePlans,
+            'total_plans' => $totalPlans
+        ],
+        'recent_activity' => $recentActivity,
+        'payments_by_provider' => (object)$paymentsByProvider,
+        'submissions_by_status' => (object)$submissionsByStatus,
+        'users_by_role' => (object)$usersByRole
+    ];
 }
 
 $targetUrl = $TARGET_BACKEND . $path;
