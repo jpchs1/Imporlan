@@ -299,8 +299,8 @@
                 animStyle.id = 'publicar-animations';
                 animStyle.textContent = `
                   @keyframes pulseGlow {
-                    0%, 100% { box-shadow: 0 0 5px rgba(37, 99, 235, 0.3), 0 0 10px rgba(8, 145, 178, 0.2); }
-                    50% { box-shadow: 0 0 15px rgba(37, 99, 235, 0.5), 0 0 25px rgba(8, 145, 178, 0.3); }
+                    0%, 100% { box-shadow: 0 0 5px rgba(249, 115, 22, 0.3), 0 0 10px rgba(251, 146, 60, 0.2); }
+                    50% { box-shadow: 0 0 15px rgba(249, 115, 22, 0.5), 0 0 25px rgba(251, 146, 60, 0.3); }
                   }
                   @keyframes textPulse {
                     0%, 100% { opacity: 0.7; transform: scale(1); }
@@ -311,9 +311,9 @@
                     100% { background-position: 200% center; }
                   }
                   .publicar-btn-modern {
-                    background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+                    background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
                     color: #ffffff;
-                    border: 1px solid rgba(37, 99, 235, 0.4);
+                    border: 1px solid rgba(249, 115, 22, 0.4);
                     padding: 10px 20px;
                     border-radius: 8px;
                     font-size: 14px;
@@ -325,7 +325,7 @@
                     overflow: hidden;
                   }
                   .publicar-btn-modern:hover {
-                    border-color: rgba(37, 99, 235, 0.6);
+                    border-color: rgba(249, 115, 22, 0.6);
                     transform: translateY(-1px);
                     opacity: 0.9;
                   }
