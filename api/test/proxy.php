@@ -178,6 +178,82 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     exit();
 }
 
+// Handle /api/admin/* endpoints locally - return stub responses
+// The React SPA calls these but real data comes from enhancer scripts calling local PHP APIs
+if (preg_match('#^/api/admin(/|$)#', $path)) {
+    header('Content-Type: application/json');
+    
+    $adminPath = preg_replace('#^/api/admin/?#', '', $path);
+    $adminPath = explode('?', $adminPath)[0]; // remove query string from path
+    
+    // Return appropriate empty stub data based on endpoint
+    switch ($adminPath) {
+        case 'dashboard':
+            echo json_encode([
+                'total_users' => 0,
+                'total_orders' => 0,
+                'total_revenue' => 0,
+                'recent_orders' => [],
+                'stats' => []
+            ]);
+            break;
+        case 'content':
+            echo json_encode([
+                'items' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'users':
+            echo json_encode([
+                'users' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'requests':
+        case 'solicitudes':
+            echo json_encode([
+                'requests' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'plans':
+        case 'planes':
+            echo json_encode([
+                'plans' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'payments':
+        case 'pagos':
+            echo json_encode([
+                'payments' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'audit':
+        case 'auditoria':
+            echo json_encode([
+                'logs' => [],
+                'total' => 0
+            ]);
+            break;
+        case 'settings':
+        case 'configuracion':
+            echo json_encode([
+                'settings' => []
+            ]);
+            break;
+        default:
+            // Generic empty response for any other admin endpoint
+            echo json_encode([
+                'data' => [],
+                'total' => 0
+            ]);
+            break;
+    }
+    exit();
+}
+
 $targetUrl = $TARGET_BACKEND . $path;
 if ($query) {
     $targetUrl .= '?' . $query;
