@@ -49,9 +49,12 @@ switch ($action) {
     case 'quotation_requests':
         getQuotationRequests();
         break;
+    case 'send_payment_reminders':
+        sendPaymentReminders();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders']);
 }
 
 /**
@@ -210,6 +213,137 @@ function getAllPurchases() {
         'success' => true,
         'purchases' => $data['purchases'] ?? [],
         'total' => count($data['purchases'] ?? [])
+    ]);
+}
+
+/**
+ * Send payment reminder emails to all quotation requests without payment
+ * Reads quotation_requests.json, cross-references with purchases.json,
+ * and sends reminder emails to users who haven't paid
+ */
+function sendPaymentReminders() {
+    $purchasesFile = __DIR__ . '/purchases.json';
+    $quotationFile = __DIR__ . '/quotation_requests.json';
+    
+    if (!file_exists($quotationFile)) {
+        echo json_encode(['success' => true, 'sent' => 0, 'message' => 'No hay solicitudes de cotizacion']);
+        return;
+    }
+    
+    // Load quotation requests
+    $qrData = json_decode(file_get_contents($quotationFile), true);
+    $requests = $qrData['requests'] ?? [];
+    
+    // Load purchases to cross-reference
+    $purchaseEmails = [];
+    if (file_exists($purchasesFile)) {
+        $pData = json_decode(file_get_contents($purchasesFile), true);
+        foreach (($pData['purchases'] ?? []) as $p) {
+            $email = strtolower($p['user_email'] ?? '');
+            if (!empty($email)) {
+                $purchaseEmails[$email] = true;
+            }
+        }
+    }
+    
+    // Initialize email service
+    require_once __DIR__ . '/email_service.php';
+    $emailService = new EmailService();
+    
+    $sent = 0;
+    $failed = 0;
+    $skipped = 0;
+    $details = [];
+    $processedEmails = [];
+    
+    foreach ($requests as $request) {
+        $email = strtolower(trim($request['email'] ?? ''));
+        $name = trim($request['name'] ?? '');
+        
+        // Skip if no valid email
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $skipped++;
+            $details[] = [
+                'id' => $request['id'] ?? 'unknown',
+                'email' => $email,
+                'status' => 'skipped',
+                'reason' => 'Email invalido o vacio'
+            ];
+            continue;
+        }
+        
+        // Skip if already has a purchase (already paid)
+        if (isset($purchaseEmails[$email])) {
+            $skipped++;
+            $details[] = [
+                'id' => $request['id'] ?? 'unknown',
+                'email' => $email,
+                'status' => 'skipped',
+                'reason' => 'Ya tiene compra registrada'
+            ];
+            continue;
+        }
+        
+        // Skip if already sent reminder to this email in this batch
+        if (isset($processedEmails[$email])) {
+            $skipped++;
+            $details[] = [
+                'id' => $request['id'] ?? 'unknown',
+                'email' => $email,
+                'status' => 'skipped',
+                'reason' => 'Ya se envio recordatorio a este email'
+            ];
+            continue;
+        }
+        
+        // Send reminder email
+        $result = $emailService->sendPaymentReminderEmail($email, $name, $request);
+        $processedEmails[$email] = true;
+        
+        if ($result && ($result['success'] ?? false)) {
+            $sent++;
+            $details[] = [
+                'id' => $request['id'] ?? 'unknown',
+                'email' => $email,
+                'name' => $name,
+                'status' => 'sent',
+                'boat_links' => count($request['boat_links'] ?? [])
+            ];
+        } else {
+            $failed++;
+            $details[] = [
+                'id' => $request['id'] ?? 'unknown',
+                'email' => $email,
+                'status' => 'failed',
+                'error' => $result['error'] ?? 'Unknown error'
+            ];
+        }
+    }
+    
+    // Update quotation_requests.json with reminder tracking
+    $now = date('Y-m-d H:i:s');
+    $updated = false;
+    foreach ($qrData['requests'] as &$req) {
+        $reqEmail = strtolower(trim($req['email'] ?? ''));
+        if (isset($processedEmails[$reqEmail])) {
+            $req['reminder_sent'] = true;
+            $req['reminder_date'] = $now;
+            $updated = true;
+        }
+    }
+    unset($req);
+    
+    if ($updated) {
+        file_put_contents($quotationFile, json_encode($qrData, JSON_PRETTY_PRINT));
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'sent' => $sent,
+        'failed' => $failed,
+        'skipped' => $skipped,
+        'total_requests' => count($requests),
+        'details' => $details
     ]);
 }
 
