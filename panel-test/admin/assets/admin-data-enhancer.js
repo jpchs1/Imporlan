@@ -321,7 +321,9 @@
           if (!purchaseEmails[qrEmail]) {
             var linksDesc = "";
             if (qr.boat_links && qr.boat_links.length > 0) {
-              linksDesc = qr.boat_links.length + " link(s) de lanchas";
+              linksDesc = qr.boat_links.map(function(l, i) { return "Link " + (i+1) + ": " + l; }).join(" | ");
+            } else {
+              linksDesc = "Solicitud de cotizacion" + (qr.country ? " - " + qr.country : "");
             }
             convertedRequests.push({
               id: qr.id || "qr",
@@ -368,11 +370,8 @@
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
           var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
           var email = p.user_email || p.email || "";
-          var userName = isQR ? (p._name || email.split("@")[0]) : email.split("@")[0];
-          var desc = p.description || p.desc || p.plan_name || "";
-          if (isQR && p._boat_links && p._boat_links.length > 0) {
-            desc = p._boat_links.map(function(l, i) { return "Link " + (i+1) + ": " + l; }).join(" | ");
-          }
+          var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (email ? email.split("@")[0] : "N/A");
+          var desc = p.description || p.desc || p.plan_name || (isQR ? "Solicitud de cotizacion" : "");
           var amount = p.amount_clp || p.amount || 0;
           var date = p.timestamp || p.date || "";
           var displayId = p.id || (idx + 1);
