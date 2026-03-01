@@ -186,68 +186,74 @@ if (preg_match('#^/api/admin(/|$)#', $path)) {
     $adminPath = preg_replace('#^/api/admin/?#', '', $path);
     $adminPath = explode('?', $adminPath)[0]; // remove query string from path
     
-    // Return appropriate empty stub data based on endpoint
-    switch ($adminPath) {
+    // Return appropriate empty stub data matching the React SPA's expected response shapes.
+    // The enhancer scripts (admin-data-enhancer.js) provide the real data via local PHP APIs;
+    // these stubs just prevent the React error handler from showing error toasts/messages.
+    $firstSegment = explode('/', $adminPath)[0];
+    
+    switch ($firstSegment) {
         case 'dashboard':
             echo json_encode([
-                'total_users' => 0,
-                'total_orders' => 0,
-                'total_revenue' => 0,
-                'recent_orders' => [],
-                'stats' => []
-            ]);
-            break;
-        case 'content':
-            echo json_encode([
-                'items' => [],
-                'total' => 0
+                'stats' => [
+                    'total_users' => 0,
+                    'new_users_7d' => 0,
+                    'pending_submissions' => 0,
+                    'total_submissions' => 0,
+                    'total_revenue_clp' => 0,
+                    'payments_paid' => 0,
+                    'active_plans' => 0,
+                    'total_plans' => 0
+                ],
+                'recent_activity' => [],
+                'payments_by_provider' => (object)[],
+                'submissions_by_status' => (object)[],
+                'users_by_role' => (object)[]
             ]);
             break;
         case 'users':
             echo json_encode([
-                'users' => [],
-                'total' => 0
+                'items' => [],
+                'total' => 0,
+                'pages' => 0
             ]);
             break;
-        case 'requests':
-        case 'solicitudes':
+        case 'submissions':
             echo json_encode([
-                'requests' => [],
-                'total' => 0
+                'items' => [],
+                'total' => 0,
+                'pages' => 0
             ]);
             break;
         case 'plans':
-        case 'planes':
             echo json_encode([
-                'plans' => [],
-                'total' => 0
+                'items' => []
             ]);
             break;
         case 'payments':
-        case 'pagos':
             echo json_encode([
-                'payments' => [],
-                'total' => 0
+                'items' => [],
+                'total' => 0,
+                'pages' => 0
             ]);
             break;
-        case 'audit':
-        case 'auditoria':
+        case 'content':
             echo json_encode([
-                'logs' => [],
-                'total' => 0
+                'items' => []
             ]);
             break;
-        case 'settings':
-        case 'configuracion':
+        case 'audit-logs':
             echo json_encode([
-                'settings' => []
+                'items' => [],
+                'total' => 0,
+                'pages' => 0
             ]);
             break;
         default:
             // Generic empty response for any other admin endpoint
             echo json_encode([
-                'data' => [],
-                'total' => 0
+                'items' => [],
+                'total' => 0,
+                'pages' => 0
             ]);
             break;
     }
