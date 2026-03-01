@@ -3081,6 +3081,233 @@ BASE64;
             return ['error' => 'Failed to fetch stats: ' . $e->getMessage()];
         }
     }
+    
+    /**
+     * =====================================================
+     * INSPECTION PRE-PURCHASE EMAILS
+     * =====================================================
+     */
+    
+    /**
+     * Send confirmation email to the user who submitted the inspection form
+     */
+    public function sendInspectionConfirmation($data) {
+        $c = $this->colors;
+        $countryLabel = $data['country'] === 'usa' ? 'Estados Unidos' : 'Chile';
+        $name = htmlspecialchars($data['full_name']);
+        
+        // Build location string
+        if ($data['country'] === 'usa') {
+            $location = $data['city'] . ', ' . $data['state_usa'];
+        } else {
+            $location = $data['city'] . ', ' . $data['region_chile'];
+        }
+        
+        // Build inspection types list
+        $inspectionTypes = $data['inspection_types'] ?? [];
+        $inspectionListHtml = '';
+        if (!empty($inspectionTypes)) {
+            foreach ($inspectionTypes as $type) {
+                $inspectionListHtml .= '<li style="color: ' . $c['text_dark'] . '; font-size: 14px; padding: 3px 0;">' . htmlspecialchars($type) . '</li>';
+            }
+        }
+        if (!empty($data['wants_recommendation'])) {
+            $inspectionListHtml .= '<li style="color: ' . $c['primary'] . '; font-size: 14px; padding: 3px 0; font-style: italic;">Solicita recomendacion del tipo de inspeccion</li>';
+        }
+        
+        // Build summary items (includes optional fields)
+        $summaryItems = [
+            'Embarcacion' => $data['vessel_type'] . ' ' . $data['brand'] . ' ' . $data['model'] . ' (' . $data['vessel_year'] . ') - ' . $data['length_value'] . ' ' . $data['length_unit'],
+            'Ubicacion' => $location,
+            'Plazo' => $data['inspection_timeline']
+        ];
+
+        if ($data['country'] === 'usa' && !empty($data['import_to_chile'])) {
+            $summaryItems['Importar a Chile'] = $data['import_to_chile'];
+        }
+
+        if (!empty($data['listing_url'])) {
+            $summaryItems['Link del aviso'] = $data['listing_url'];
+        }
+        
+        // Comments
+        $commentsHtml = '';
+        if (!empty($data['comments'])) {
+            $commentsHtml = '
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px;">
+                <strong style="color: ' . $c['text_dark'] . ';">Tus comentarios:</strong><br>
+                ' . nl2br(htmlspecialchars($data['comments'])) . '
+            </p>';
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Solicitud Recibida') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Hemos recibido tu solicitud
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . $name . ', gracias por tu solicitud. Ya recibimos tu requerimiento para inspeccion pre-compra en <strong style="color: ' . $c['text_dark'] . ';">' . $countryLabel . '</strong>.
+            </p>
+            
+            ' . $this->getInfoCard('Resumen de tu solicitud', $summaryItems) . '
+            
+            ' . (!empty($inspectionListHtml) ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; margin: 15px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Tipos de inspeccion solicitados</h3>
+                        <ul style="margin: 0; padding-left: 20px;">' . $inspectionListHtml . '</ul>
+                    </td>
+                </tr>
+            </table>' : '') . '
+            
+            ' . $commentsHtml . '
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 25px 0;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Proximos pasos</h3>
+                        <ol style="margin: 0; padding-left: 20px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.8;">
+                            <li>Revisaremos la informacion y validaremos disponibilidad.</li>
+                            <li>Te enviaremos la cotizacion y el plan de accion.</li>
+                        </ol>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Si quieres acelerar el proceso, responde este email o contactanos por WhatsApp.
+            </p>
+            
+            <div style="margin: 25px 0 10px 0; text-align: center;">
+                ' . $this->getButton('Contactar por WhatsApp', 'https://wa.me/56940211459?text=Hola,%20envie%20una%20solicitud%20de%20inspeccion%20pre-compra') . '
+            </div>';
+
+        $subject = 'Imporlan | Solicitud recibida - Inspeccion pre-compra de embarcacion';
+        $htmlContent = $this->getBaseTemplate($content, $subject);
+        return $this->sendEmail($data['email'], $subject, $htmlContent, 'inspection_confirmation', $data);
+    }
+    
+    /**
+     * Send notification email to admin about new inspection lead
+     */
+    public function sendInspectionAdminNotification($data, $leadId = null) {
+        $c = $this->colors;
+        $countryLabel = $data['country'] === 'usa' ? 'USA' : 'Chile';
+        
+        // Build location
+        if ($data['country'] === 'usa') {
+            $location = ($data['city'] ?? '') . ', ' . ($data['state_usa'] ?? '');
+        } else {
+            $location = ($data['city'] ?? '') . ', ' . ($data['region_chile'] ?? '');
+        }
+        
+        // Inspection types
+        $inspectionTypes = $data['inspection_types'] ?? [];
+        $inspectionList = !empty($inspectionTypes) ? implode(', ', array_map('htmlspecialchars', $inspectionTypes)) : 'No especificado';
+        
+        // Build mailto and whatsapp links
+        $mailtoLink = 'mailto:' . rawurlencode($data['email']) . '?subject=' . rawurlencode('Re: Inspeccion pre-compra - ' . $data['brand'] . ' ' . $data['model']);
+        $phoneClean = preg_replace('/[^0-9+]/', '', $data['phone']);
+        $whatsappLink = 'https://wa.me/' . ltrim($phoneClean, '+');
+        
+        // Build inspection/location items (includes country-specific extras)
+        $inspectionLocationItems = [
+            'Pais' => $countryLabel,
+            'Ubicacion' => $location,
+            'Marina' => $data['marina'] ?: 'No indicada',
+            'En agua/seco' => $data['water_status'] ?: 'No indicado',
+            'Inspeccion' => $inspectionList,
+            'Plazo' => $data['inspection_timeline']
+        ];
+
+        if ($data['country'] === 'usa') {
+            $inspectionLocationItems['Importar a Chile'] = $data['import_to_chile'] ?? 'No especificado';
+
+            if (!empty($data['has_broker']) && $data['has_broker'] === 'si') {
+                $brokerValue = trim(($data['broker_name'] ?? '') . ' - ' . ($data['broker_contact'] ?? ''));
+                $inspectionLocationItems['Broker'] = $brokerValue !== '-' ? $brokerValue : 'Sí (sin datos)';
+            }
+        } else {
+            if (!empty($data['lake_or_sea'])) {
+                $inspectionLocationItems['Lago/Mar'] = $data['lake_or_sea'];
+            }
+            if (!empty($data['engine_type_chile'])) {
+                $inspectionLocationItems['Tipo de motor'] = $data['engine_type_chile'];
+            }
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                ' . $this->getStatusBadge('info', 'Nuevo Lead') . '
+            </div>
+            
+            <h2 style="margin: 0 0 5px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 700; text-align: center;">
+                Inspeccion Pre-Compra (' . $countryLabel . ')
+            </h2>
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Nuevo lead desde /inspeccion-precompra-embarcaciones/' . ($leadId ? ' | ID: #' . $leadId : '') . '
+            </p>
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Nombre' => htmlspecialchars($data['full_name']),
+                'Email' => htmlspecialchars($data['email']),
+                'WhatsApp/Tel' => htmlspecialchars($data['phone']),
+                'Origen' => htmlspecialchars($data['how_found'] ?: 'No especificado')
+            ]) . '
+            
+            ' . $this->getInfoCard('Embarcacion', [
+                'Tipo' => htmlspecialchars($data['vessel_type']),
+                'Marca / Modelo' => htmlspecialchars($data['brand'] . ' ' . $data['model']),
+                'Ano' => $data['vessel_year'],
+                'Eslora' => $data['length_value'] . ' ' . htmlspecialchars($data['length_unit']),
+                'Material casco' => htmlspecialchars($data['hull_material']),
+                'Precio publicado' => !empty($data['published_price']) ? htmlspecialchars($data['published_price'] . ' ' . ($data['price_currency'] ?? '')) : 'No indicado',
+                'Link aviso' => !empty($data['listing_url']) ? htmlspecialchars($data['listing_url']) : 'No indicado'
+            ]) . '
+            
+            ' . $this->getInfoCard('Motores y Sistemas', [
+                'N motores' => htmlspecialchars($data['num_engines']),
+                'Marca/modelo motor' => htmlspecialchars($data['engine_brand_model'] ?: 'No indicado'),
+                'Horas motor' => htmlspecialchars($data['engine_hours'] ?: 'No indicado'),
+                'Generador' => htmlspecialchars($data['has_generator'] ?: 'No indicado'),
+                'Electronica' => htmlspecialchars($data['electronics'] ?: 'No indicado')
+            ]) . '
+            
+            ' . $this->getInfoCard('Inspeccion y Ubicacion', $inspectionLocationItems) . '
+            
+            ' . (!empty($data['comments']) ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fffbeb; border-radius: 12px; margin: 15px 0; border-left: 4px solid #f59e0b;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Comentarios del cliente</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br(htmlspecialchars($data['comments'])) . '</p>
+                    </td>
+                </tr>
+            </table>' : '') . '
+            
+            <div style="margin: 25px 0 10px 0; text-align: center;">
+                ' . $this->getButton('Responder al Cliente', $mailtoLink) . '
+            </div>
+            <div style="margin: 10px 0; text-align: center;">
+                ' . $this->getSecondaryButton('WhatsApp', $whatsappLink) . '
+            </div>';
+
+        $subject = '[LEAD] Inspeccion pre-compra (' . $countryLabel . ') - ' . $data['brand'] . ' ' . $data['model'] . ' ' . $data['vessel_year'];
+        $htmlContent = $this->getBaseTemplate($content, $subject);
+        
+        // Send to all admin emails
+        $results = [];
+        foreach ($this->adminEmails as $adminEmail) {
+            $results[] = $this->sendEmail($adminEmail, $subject, $htmlContent, 'inspection_admin_notification', $data);
+        }
+        
+        return ['success' => true, 'results' => $results];
+    }
 }
 
 function getEmailService() {
