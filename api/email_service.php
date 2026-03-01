@@ -688,7 +688,7 @@ BASE64;
             ' . $this->getInfoCard('Datos de tu Solicitud', $detailItems) . '
             
             <div style="margin: 30px 0;">
-                ' . $this->getButton('Completar Pago Ahora', $this->panelUrl) . '
+                ' . $this->getButton('Completar Pago Ahora', $this->panelUrl . '/#quotation') . '
             </div>
             
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-radius: 12px; border: 1px solid #fed7aa;">
@@ -696,9 +696,9 @@ BASE64;
                     <td style="padding: 20px; text-align: center;">
                         <p style="margin: 0 0 4px 0; color: #ea580c; font-size: 14px; font-weight: 600;">Como funciona?</p>
                         <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
-                            1. Ingresa a tu panel de cliente<br>
-                            2. Selecciona el servicio de Cotizacion por Links<br>
-                            3. Completa el pago con MercadoPago, WebPay o PayPal<br>
+                            1. Haz clic en el boton "Completar Pago Ahora"<br>
+                            2. Inicia sesion en tu panel de cliente<br>
+                            3. Tus links ya estaran cargados, solo elige tu metodo de pago<br>
                             4. Nuestro equipo revisara tus links y te enviara la cotizacion
                         </p>
                     </td>
