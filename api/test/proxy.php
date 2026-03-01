@@ -209,6 +209,23 @@ if (preg_match('#^/api/admin(/|$)#', $path)) {
 }
 
 /**
+ * Convert a timestamp string to ISO 8601 format for React compatibility.
+ * Handles MySQL format "2026-03-01 12:16:51" -> "2026-03-01T12:16:51"
+ */
+function toISO8601($ts) {
+    if (!$ts) return '';
+    // Already has T separator - likely ISO format
+    if (strpos($ts, 'T') !== false) return $ts;
+    // Try to parse and reformat
+    $parsed = strtotime($ts);
+    if ($parsed !== false && $parsed > 0) {
+        return date('c', $parsed); // ISO 8601 with timezone
+    }
+    // Fallback: replace space with T
+    return str_replace(' ', 'T', $ts);
+}
+
+/**
  * Compute real dashboard statistics from purchases.json, quotation_requests.json, and database
  */
 function computeDashboardStats() {
@@ -278,7 +295,7 @@ function computeDashboardStats() {
                 'type' => 'purchase',
                 'description' => $desc,
                 'user' => $userName,
-                'timestamp' => $timestamp
+                'timestamp' => toISO8601($timestamp)
             ];
         }
     }
@@ -303,7 +320,7 @@ function computeDashboardStats() {
                 'type' => 'quotation_request',
                 'description' => 'Nueva solicitud de cotizacion' . ($linksCount > 0 ? " ($linksCount links)" : ''),
                 'user' => $qrName,
-                'timestamp' => $date
+                'timestamp' => toISO8601($date)
             ];
         }
     }
@@ -350,7 +367,7 @@ function computeDashboardStats() {
                             'type' => 'audit',
                             'description' => $row['description'] ?? $row['action_type'],
                             'user' => $row['user_name'] ?? '',
-                            'timestamp' => $row['created_at']
+                            'timestamp' => toISO8601($row['created_at'])
                         ];
                     }
                     // Re-sort after adding audit entries
