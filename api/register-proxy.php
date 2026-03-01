@@ -167,6 +167,7 @@ function sendFallbackEmail($data) {
         $headers .= "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
         $headers .= "Date: " . date('r') . "\r\n";
+        $headers .= "Message-ID: <" . uniqid('imporlan_', true) . "@imporlan.cl>\r\n";
         $headers .= "\r\n";
 
         fwrite($smtp, $headers . $body . "\r\n.\r\n");

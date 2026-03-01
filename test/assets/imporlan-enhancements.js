@@ -506,7 +506,7 @@
             const infoDiv = document.createElement('div');
             infoDiv.className = 'cotizacion-info-text';
             infoDiv.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #93c5fd; text-align: center;';
-            infoDiv.innerHTML = 'Para solicitar una cotizacion online debes <a href="/panel/" style="color: #60a5fa; text-decoration: underline;">registrarte</a> e ingresar al Cotizador Online del Panel de Usuario.';
+            infoDiv.innerHTML = 'Para solicitar una cotizacion online debes <a href="/panel/" style="color: #60a5fa; text-decoration: underline;">registrarte</a> e ingresar al Cotizador Online del Panel de Usuario.<br><br><strong style="color: #fbbf24;">&#9888; Para recibir una cotizacion por links online, debe ser a traves del formulario de Cotizacion Online.</strong><br><span style="color: #93c5fd;">Cada link tiene un costo de <strong style="color: #34d399;">CLP $9.900</strong>.</span>';
             form.insertBefore(infoDiv, form.firstChild);
           }
           
