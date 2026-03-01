@@ -3254,28 +3254,28 @@ BASE64;
             </p>
             
             ' . $this->getInfoCard('Datos del Cliente', [
-                'Nombre' => htmlspecialchars($data['full_name']),
-                'Email' => htmlspecialchars($data['email']),
-                'WhatsApp/Tel' => htmlspecialchars($data['phone']),
-                'Origen' => htmlspecialchars($data['how_found'] ?: 'No especificado')
+                'Nombre' => $data['full_name'],
+                'Email' => $data['email'],
+                'WhatsApp/Tel' => $data['phone'],
+                'Origen' => $data['how_found'] ?: 'No especificado'
             ]) . '
             
             ' . $this->getInfoCard('Embarcacion', [
-                'Tipo' => htmlspecialchars($data['vessel_type']),
-                'Marca / Modelo' => htmlspecialchars($data['brand'] . ' ' . $data['model']),
+                'Tipo' => $data['vessel_type'],
+                'Marca / Modelo' => $data['brand'] . ' ' . $data['model'],
                 'Ano' => $data['vessel_year'],
-                'Eslora' => $data['length_value'] . ' ' . htmlspecialchars($data['length_unit']),
-                'Material casco' => htmlspecialchars($data['hull_material']),
-                'Precio publicado' => !empty($data['published_price']) ? htmlspecialchars($data['published_price'] . ' ' . ($data['price_currency'] ?? '')) : 'No indicado',
-                'Link aviso' => !empty($data['listing_url']) ? htmlspecialchars($data['listing_url']) : 'No indicado'
+                'Eslora' => $data['length_value'] . ' ' . $data['length_unit'],
+                'Material casco' => $data['hull_material'],
+                'Precio publicado' => !empty($data['published_price']) ? $data['published_price'] . ' ' . ($data['price_currency'] ?? '') : 'No indicado',
+                'Link aviso' => !empty($data['listing_url']) ? $data['listing_url'] : 'No indicado'
             ]) . '
             
             ' . $this->getInfoCard('Motores y Sistemas', [
-                'N motores' => htmlspecialchars($data['num_engines']),
-                'Marca/modelo motor' => htmlspecialchars($data['engine_brand_model'] ?: 'No indicado'),
-                'Horas motor' => htmlspecialchars($data['engine_hours'] ?: 'No indicado'),
-                'Generador' => htmlspecialchars($data['has_generator'] ?: 'No indicado'),
-                'Electronica' => htmlspecialchars($data['electronics'] ?: 'No indicado')
+                'N motores' => $data['num_engines'],
+                'Marca/modelo motor' => $data['engine_brand_model'] ?: 'No indicado',
+                'Horas motor' => $data['engine_hours'] ?: 'No indicado',
+                'Generador' => $data['has_generator'] ?: 'No indicado',
+                'Electronica' => $data['electronics'] ?: 'No indicado'
             ]) . '
             
             ' . $this->getInfoCard('Inspeccion y Ubicacion', $inspectionLocationItems) . '

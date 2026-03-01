@@ -704,13 +704,16 @@
     function validateForm(form) {
         var errors = [];
         var requiredFields = form.querySelectorAll('[required]');
+        var checkedRadioGroups = {};
 
         requiredFields.forEach(function(field) {
             var group = field.closest('.form-group');
 
             if (field.type === 'radio') {
-                // Check if any radio in the group is checked
+                // Check if any radio in the group is checked (only once per group)
                 var name = field.name;
+                if (checkedRadioGroups[name]) return;
+                checkedRadioGroups[name] = true;
                 var checked = form.querySelector('input[name="' + name + '"]:checked');
                 if (!checked) {
                     if (group) group.classList.add('has-error');

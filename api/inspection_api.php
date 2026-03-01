@@ -145,7 +145,6 @@ function sanitize($value) {
     if ($value === null) return null;
     $value = trim($value);
     $value = strip_tags($value);
-    $value = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
     return $value;
 }
 
@@ -176,9 +175,7 @@ try {
     $pdo = getDbConnection();
 
     // Rate limit check
-    $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_X_REAL_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    $clientIp = explode(',', $clientIp)[0]; // Take first IP if multiple
-    $clientIp = trim($clientIp);
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
     if (!checkRateLimit($pdo, $clientIp)) {
         http_response_code(429);
@@ -275,7 +272,7 @@ try {
         'engine_hours' => sanitize($input['engine_hours'] ?? ''),
         'has_generator' => sanitize($input['has_generator'] ?? ''),
         'electronics' => sanitize($input['electronics'] ?? ''),
-        'inspection_types' => $input['inspection_types'] ?? [],
+        'inspection_types' => is_array($input['inspection_types'] ?? []) ? array_map('strip_tags', array_map('trim', $input['inspection_types'])) : [],
         'wants_recommendation' => !empty($input['wants_recommendation']) ? 1 : 0,
         'state_usa' => sanitize($input['state_usa'] ?? ''),
         'city' => sanitize($input['city'] ?? ''),
