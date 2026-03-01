@@ -289,11 +289,59 @@
     container.style.cssText = "padding:20px 0";
     container.innerHTML = makeSkeletonTable(9, 5);
     main.appendChild(container);
-    fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() })
+
+    var purchasesPromise = fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() })
       .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var purchases = data.purchases || [];
-        if (!Array.isArray(purchases) || purchases.length === 0) {
+      .then(function (data) { return data.purchases || []; })
+      .catch(function () { return []; });
+
+    var quotationsPromise = fetch(API_BASE + "/purchases.php?action=quotation_requests", { headers: authHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { return data.requests || []; })
+      .catch(function () { return []; });
+
+    Promise.all([purchasesPromise, quotationsPromise])
+      .then(function (results) {
+        var purchases = results[0];
+        var quotationRequests = results[1];
+
+        // Convert quotation requests to a compatible format and check if already in purchases
+        var purchaseEmails = {};
+        purchases.forEach(function (p) {
+          var key = (p.user_email || p.email || "").toLowerCase();
+          if (key) purchaseEmails[key] = true;
+        });
+
+        var convertedRequests = [];
+        quotationRequests.forEach(function (qr) {
+          var qrEmail = (qr.email || "").toLowerCase();
+          // Only show quotation requests that don't have a matching purchase
+          if (!purchaseEmails[qrEmail]) {
+            var linksDesc = "";
+            if (qr.boat_links && qr.boat_links.length > 0) {
+              linksDesc = qr.boat_links.length + " link(s) de lanchas";
+            }
+            convertedRequests.push({
+              id: qr.id || "qr",
+              type: "quotation_request",
+              user_email: qr.email || "",
+              description: linksDesc,
+              status: "nueva_solicitud",
+              amount_clp: 0,
+              payment_method: "pendiente",
+              timestamp: qr.date || "",
+              _name: qr.name || "",
+              _phone: qr.phone || "",
+              _country: qr.country || "",
+              _boat_links: qr.boat_links || [],
+              _is_quotation_request: true
+            });
+          }
+        });
+
+        var allItems = convertedRequests.concat(purchases);
+
+        if (!Array.isArray(allItems) || allItems.length === 0) {
           container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron solicitudes</div>';
           return;
         }
@@ -302,33 +350,38 @@
         html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
         html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Tipo</th><th style="' + thS + '">Servicio</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Descripcion</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Medio Pago</th><th style="' + thS + '">Fecha</th>';
         html += '</tr></thead><tbody>';
-        purchases.forEach(function (p, idx) {
-          var status = p.status || "pending";
-          var stMap = { pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
+        allItems.forEach(function (p, idx) {
+          var isQR = p._is_quotation_request;
+          var status = isQR ? "nueva_solicitud" : (p.status || "pending");
+          var stMap = { nueva_solicitud: { l: "Nueva Solicitud", c: "#ea580c" }, pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
           var st = stMap[status] || stMap.pending;
           var type = p.type || "link";
-          var tipoColor = type === "plan" ? "#7c3aed" : "#0891b2";
-          var tipoBg = type === "plan" ? "#8b5cf620" : "#0891b220";
-          var servicioLabel = type === "plan" ? "Plan de Busqueda" : "Cotizacion por Links";
-          var servicioColor = type === "plan" ? "#7c3aed" : "#0891b2";
-          var servicioBg = type === "plan" ? "#7c3aed15" : "#0891b215";
-          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual" };
+          var tipoColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var tipoBg = isQR ? "#ea580c20" : (type === "plan" ? "#8b5cf620" : "#0891b220");
+          var tipoLabel = isQR ? "Cotizacion" : (type === "plan" ? "Plan" : "Link");
+          var servicioLabel = isQR ? "Cotizacion por Links" : (type === "plan" ? "Plan de Busqueda" : "Cotizacion por Links");
+          var servicioColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var servicioBg = isQR ? "#ea580c15" : (type === "plan" ? "#7c3aed15" : "#0891b215");
+          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", pendiente: "Sin Pago" };
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
-          var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : "#64748b";
+          var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
           var email = p.user_email || p.email || "";
-          var userName = email.split("@")[0];
+          var userName = isQR ? (p._name || email.split("@")[0]) : email.split("@")[0];
           var desc = p.description || p.desc || p.plan_name || "";
+          if (isQR && p._boat_links && p._boat_links.length > 0) {
+            desc = p._boat_links.map(function(l, i) { return "Link " + (i+1) + ": " + l; }).join(" | ");
+          }
           var amount = p.amount_clp || p.amount || 0;
           var date = p.timestamp || p.date || "";
           var displayId = p.id || (idx + 1);
-          html += '<tr style="border-bottom:1px solid #f1f5f9">';
+          html += '<tr style="border-bottom:1px solid #f1f5f9' + (isQR ? ';background:#fff7ed' : '') + '">';
           html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(displayId)) + '</td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:' + tipoBg + ';color:' + tipoColor + '">' + (type === "plan" ? "Plan" : "Link") + '</span></td>';
+          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:' + tipoBg + ';color:' + tipoColor + '">' + tipoLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + servicioBg + ';color:' + servicioColor + '">' + servicioLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(userName) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(email) + '</p></div></td>';
-          html += '<td style="padding:14px 16px;font-size:13px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(desc) + '</td>';
+          html += '<td style="padding:14px 16px;font-size:13px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(desc) + '">' + esc(desc) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
-          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(amount) + '</td>';
+          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + (isQR ? '<span style="color:#94a3b8;font-weight:400">-</span>' : fmtCLP(amount)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
           html += '</tr>';

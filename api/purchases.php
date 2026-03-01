@@ -46,9 +46,12 @@ switch ($action) {
     case 'all':
         getAllPurchases();
         break;
+    case 'quotation_requests':
+        getQuotationRequests();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests']);
 }
 
 /**
@@ -207,5 +210,36 @@ function getAllPurchases() {
         'success' => true,
         'purchases' => $data['purchases'] ?? [],
         'total' => count($data['purchases'] ?? [])
+    ]);
+}
+
+/**
+ * Get all quotation requests (admin only)
+ * Reads from quotation_requests.json stored by email_service.php
+ */
+function getQuotationRequests() {
+    $file = __DIR__ . '/quotation_requests.json';
+    
+    if (!file_exists($file)) {
+        echo json_encode([
+            'success' => true,
+            'requests' => [],
+            'total' => 0
+        ]);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents($file), true);
+    $requests = $data['requests'] ?? [];
+    
+    // Sort by date descending (newest first)
+    usort($requests, function($a, $b) {
+        return strtotime($b['date'] ?? '0') - strtotime($a['date'] ?? '0');
+    });
+    
+    echo json_encode([
+        'success' => true,
+        'requests' => $requests,
+        'total' => count($requests)
     ]);
 }
