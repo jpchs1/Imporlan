@@ -341,6 +341,13 @@
 
         var allItems = convertedRequests.concat(purchases);
 
+        // Sort by date descending (newest first)
+        allItems.sort(function(a, b) {
+          var dateA = new Date(a.timestamp || a.date || 0);
+          var dateB = new Date(b.timestamp || b.date || 0);
+          return dateB - dateA;
+        });
+
         if (!Array.isArray(allItems) || allItems.length === 0) {
           container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron solicitudes</div>';
           return;
@@ -387,9 +394,18 @@
           html += '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
           html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(amount) + '</td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
+          var isPendiente = (p.payment_method || p.method) === 'pendiente';
+          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span>';
+          if (isPendiente) {
+            html += '<p style="margin:4px 0 0;font-size:10px;color:#f59e0b;font-weight:500">Pendiente de pago para procesar solicitud</p>';
+          }
+          html += '</td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
-          html += '<td style="padding:14px 16px"><button class="enhancer-delete-sol" data-sol-id="' + esc(String(displayId)) + '" data-sol-type="' + (isQR ? 'qr' : 'purchase') + '" style="padding:6px 10px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s" title="Eliminar solicitud"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
+          html += '<td style="padding:14px 16px;white-space:nowrap">';
+          if (isPendiente && email) {
+            html += '<button class="enhancer-request-pay" data-sol-id="' + esc(String(displayId)) + '" data-sol-email="' + esc(email) + '" data-sol-name="' + esc(userName) + '" style="padding:6px 10px;border-radius:8px;border:1px solid #f59e0b;background:transparent;color:#f59e0b;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s;margin-right:6px" title="Enviar recordatorio de pago"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Solicitar Pago</button>';
+          }
+          html += '<button class="enhancer-delete-sol" data-sol-id="' + esc(String(displayId)) + '" data-sol-type="' + (isQR ? 'qr' : 'purchase') + '" style="padding:6px 10px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s" title="Eliminar solicitud"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
           html += '</tr>';
           // Hidden detail row for boat links
           if (hasLinks) {
@@ -432,11 +448,53 @@
         html += '</tbody></table></div>';
         container.innerHTML = html;
 
+        // Attach "Solicitar Pago" handlers
+        container.querySelectorAll(".enhancer-request-pay").forEach(function(btn) {
+          btn.addEventListener("mouseenter", function() { btn.style.background = "#f59e0b"; btn.style.color = "#fff"; });
+          btn.addEventListener("mouseleave", function() { btn.style.background = "transparent"; btn.style.color = "#f59e0b"; });
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var solId = btn.getAttribute("data-sol-id");
+            var solEmail = btn.getAttribute("data-sol-email");
+            var solName = btn.getAttribute("data-sol-name");
+            if (!confirm("Enviar recordatorio de pago a " + solEmail + "?")) return;
+            btn.disabled = true;
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4m-3.93 7.07l-2.83-2.83M7.76 7.76L4.93 4.93"/></svg> Enviando...';
+            btn.style.opacity = "0.7";
+            fetch(API_BASE + "/purchases.php?action=request_payment", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ id: solId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                btn.style.background = "#10b981";
+                btn.style.border = "1px solid #10b981";
+                btn.style.color = "#fff";
+                btn.style.opacity = "1";
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Enviado a ' + solEmail;
+              } else {
+                alert(data.error || "Error al enviar recordatorio");
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Solicitar Pago';
+              }
+            })
+            .catch(function() {
+              alert("Error de conexion al enviar recordatorio");
+              btn.disabled = false;
+              btn.style.opacity = "1";
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Solicitar Pago';
+            });
+          });
+        });
+
         // Attach click handlers for expandable rows
         container.querySelectorAll(".enhancer-clickable-row").forEach(function(row) {
           row.addEventListener("click", function(e) {
-            // Don't toggle if clicking delete button or a link
-            if (e.target.closest(".enhancer-delete-sol") || e.target.closest("a")) return;
+            // Don't toggle if clicking delete button, payment button, or a link
+            if (e.target.closest(".enhancer-delete-sol") || e.target.closest(".enhancer-request-pay") || e.target.closest("a")) return;
             var detailId = row.id + "-detail";
             var detail = document.getElementById(detailId);
             if (detail) {
