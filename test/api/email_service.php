@@ -526,6 +526,154 @@ BASE64;
         return $latest['boat_links'] ?? [];
     }
     
+    /**
+     * Send payment reminder email to user who submitted a quotation request but hasn't paid
+     * Also sends notification to admin emails
+     */
+    public function sendPaymentReminderEmail($userEmail, $firstName, $requestData) {
+        $boatLinks = $requestData['boat_links'] ?? [];
+        $requestDate = $requestData['date'] ?? date('d/m/Y');
+        $requestId = $requestData['id'] ?? 'N/A';
+        
+        $subject = 'Recordatorio: Completa tu solicitud de cotizacion - Imporlan';
+        $htmlContent = $this->getPaymentReminderTemplate($firstName, $requestData);
+        
+        // Send to user
+        $userResult = $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_reminder', $requestData);
+        
+        // Send notification to admin
+        $this->sendInternalNotification('payment_reminder_sent', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'request_id' => $requestId,
+            'boat_links_count' => count($boatLinks),
+            'request_date' => $requestDate,
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $userResult;
+    }
+    
+    /**
+     * Get payment reminder email template for user
+     */
+    private function getPaymentReminderTemplate($firstName, $requestData) {
+        $c = $this->colors;
+        $boatLinks = $requestData['boat_links'] ?? [];
+        $requestDate = $requestData['date'] ?? date('d/m/Y');
+        $linkCount = count($boatLinks);
+        
+        $linksHtml = '';
+        if (!empty($boatLinks)) {
+            $linksHtml = '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 700; text-align: center;">
+                            Links que Enviaste para Cotizar
+                        </h3>
+                    </td>
+                </tr>';
+            
+            foreach ($boatLinks as $i => $link) {
+                $domain = parse_url($link, PHP_URL_HOST) ?: $link;
+                $linksHtml .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 10px; border: 1px solid #93c5fd;">
+                            <tr>
+                                <td width="48" align="center" valign="middle" style="padding: 14px 0 14px 14px;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" valign="middle" style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50%; color: white; font-size: 14px; font-weight: 700;">
+                                                ' . ($i + 1) . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td style="padding: 14px 14px 14px 12px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Enlace ' . ($i + 1) . '</p>
+                                    <a href="' . htmlspecialchars($link) . '" style="color: ' . $c['primary'] . '; text-decoration: none; font-size: 13px; font-weight: 500; word-break: break-all; line-height: 1.4;" target="_blank">' . htmlspecialchars($link) . '</a>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['text_light'] . '; font-size: 11px;">' . htmlspecialchars($domain) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $linksHtml .= '</table>';
+        }
+        
+        $greeting = !empty($firstName) ? htmlspecialchars($firstName) : 'Estimado cliente';
+        
+        $summaryText = $linkCount > 0
+            ? 'Notamos que enviaste ' . $linkCount . ' enlace' . ($linkCount > 1 ? 's' : '') . ' para cotizar pero aun no has completado el proceso de pago. Para que nuestro equipo pueda revisar tu solicitud y enviarte una cotizacion detallada, necesitamos que completes el pago.'
+            : 'Notamos que enviaste una solicitud de cotizacion pero aun no has completado el proceso de pago. Para que nuestro equipo pueda procesar tu requerimiento, necesitamos que completes el pago.';
+        
+        $detailItems = [];
+        if (!empty($firstName)) {
+            $detailItems['Nombre'] = $firstName;
+        }
+        if (!empty($requestData['email'])) {
+            $detailItems['Email'] = $requestData['email'];
+        }
+        if (!empty($requestData['country'])) {
+            $detailItems['Pais'] = $requestData['country'];
+        }
+        $detailItems['Fecha solicitud'] = $requestDate;
+        $detailItems['Estado'] = 'Pendiente de Pago';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['warning'] . ' 0%, #ea580c 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#9888;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Recordatorio de Pago
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['warning'] . '; font-size: 14px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1px;">
+                Cotizacion por Links - Pendiente
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Hola ' . $greeting . ', ' . $summaryText . '
+            </p>
+            
+            ' . $linksHtml . '
+            
+            ' . $this->getInfoCard('Datos de tu Solicitud', $detailItems) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Completar Pago Ahora', $this->panelUrl) . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-radius: 12px; border: 1px solid #fed7aa;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0 0 4px 0; color: #ea580c; font-size: 14px; font-weight: 600;">Como funciona?</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
+                            1. Ingresa a tu panel de cliente<br>
+                            2. Selecciona el servicio de Cotizacion por Links<br>
+                            3. Completa el pago con MercadoPago, WebPay o PayPal<br>
+                            4. Nuestro equipo revisara tus links y te enviara la cotizacion
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Recordatorio de Pago - Imporlan');
+    }
+    
     public function sendPasswordResetEmail($userEmail, $firstName, $tempPassword) {
         $c = $this->colors;
         $panelUrl = $this->panelUrl;
