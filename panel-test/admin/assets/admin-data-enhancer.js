@@ -319,12 +319,10 @@
           var qrEmail = (qr.email || "").toLowerCase();
           // Only show quotation requests that don't have a matching purchase
           if (!purchaseEmails[qrEmail]) {
-            var linksDesc = "";
-            if (qr.boat_links && qr.boat_links.length > 0) {
-              linksDesc = qr.boat_links.map(function(l, i) { return "Link " + (i+1) + ": " + l; }).join(" | ");
-            } else {
-              linksDesc = "Solicitud de cotizacion" + (qr.country ? " - " + qr.country : "");
-            }
+            var linksCount = (qr.boat_links && qr.boat_links.length) || 0;
+            var linksDesc = linksCount > 0
+              ? "Cotizacion Online - " + linksCount + " links"
+              : "Solicitud de cotizacion" + (qr.country ? " - " + qr.country : "");
             convertedRequests.push({
               id: qr.id || "qr",
               type: "quotation_request",
@@ -375,20 +373,81 @@
           var amount = p.amount_clp || p.amount || 0;
           var date = p.timestamp || p.date || "";
           var displayId = p.id || (idx + 1);
-          html += '<tr style="border-bottom:1px solid #f1f5f9' + (isQR ? ';background:#fff7ed' : '') + '">';
+          var hasLinks = (isQR && p._boat_links && p._boat_links.length > 0) || (!isQR && type === "link");
+          var rowId = "sol-row-" + idx;
+          html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f1f5f9' + (isQR ? ';background:#fff7ed' : '') + (hasLinks ? ';cursor:pointer' : '') + '" ' + (hasLinks ? 'class="enhancer-clickable-row" data-row-idx="' + idx + '"' : '') + '>';
           html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(displayId)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:' + tipoBg + ';color:' + tipoColor + '">' + tipoLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + servicioBg + ';color:' + servicioColor + '">' + servicioLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(userName) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(email) + '</p></div></td>';
-          html += '<td style="padding:14px 16px;font-size:13px;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(desc) + '">' + esc(desc) + '</td>';
+          html += '<td style="padding:14px 16px;font-size:13px;color:#475569;max-width:250px">';
+          if (hasLinks) {
+            html += '<span style="display:inline-flex;align-items:center;gap:4px;color:#0891b2;font-weight:500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> ' + esc(desc) + '</span>';
+          } else {
+            html += '<span title="' + esc(desc) + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:200px">' + esc(desc) + '</span>';
+          }
+          html += '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
           html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + (isQR ? '<span style="color:#94a3b8;font-weight:400">-</span>' : fmtCLP(amount)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
           html += '</tr>';
+          // Hidden detail row for boat links
+          if (hasLinks) {
+            var links = isQR ? (p._boat_links || []) : [];
+            // For purchases, try to extract links from description
+            if (!isQR && type === "link") {
+              var descText = p.description || "";
+              if (descText.indexOf("http") !== -1) {
+                var urlRegex = /https?:\/\/[^\s,|]+/g;
+                var matches = descText.match(urlRegex);
+                if (matches) links = matches;
+              }
+            }
+            html += '<tr id="' + rowId + '-detail" style="display:none;background:' + (isQR ? '#fff7ed' : '#f8fafc') + '">';
+            html += '<td colspan="9" style="padding:0 16px 16px 52px">';
+            html += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:4px">';
+            if (isQR) {
+              html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">';
+              html += '<div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600">Nombre</span><p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#1e293b">' + esc(p._name || "Sin nombre") + '</p></div>';
+              html += '<div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600">Email</span><p style="margin:4px 0 0;font-size:14px;color:#1e293b">' + (email ? '<a href="mailto:' + esc(email) + '" style="color:#0891b2;text-decoration:none">' + esc(email) + '</a>' : '<span style="color:#94a3b8">No disponible</span>') + '</p></div>';
+              html += '<div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600">Telefono</span><p style="margin:4px 0 0;font-size:14px;color:#1e293b">' + esc(p._phone || "No disponible") + '</p></div>';
+              html += '<div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600">Pais</span><p style="margin:4px 0 0;font-size:14px;color:#1e293b">' + esc(p._country || "Chile") + '</p></div>';
+              html += '</div>';
+            }
+            if (links.length > 0) {
+              html += '<div style="margin-top:8px"><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;display:block;margin-bottom:8px">Links Solicitados (' + links.length + ')</span>';
+              html += '<div style="display:flex;flex-direction:column;gap:6px">';
+              links.forEach(function(link, li) {
+                html += '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;text-decoration:none;color:#0369a1;font-size:13px;transition:background .15s">';
+                html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" style="flex-shrink:0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+                html += '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Link ' + (li + 1) + ': ' + esc(link) + '</span></a>';
+              });
+              html += '</div></div>';
+            } else if (!isQR) {
+              html += '<p style="margin:8px 0 0;font-size:13px;color:#64748b">' + esc(desc) + '</p>';
+            }
+            html += '</div></td></tr>';
+          }
         });
         html += '</tbody></table></div>';
         container.innerHTML = html;
+
+        // Attach click handlers for expandable rows
+        container.querySelectorAll(".enhancer-clickable-row").forEach(function(row) {
+          row.addEventListener("click", function() {
+            var detailId = row.id + "-detail";
+            var detail = document.getElementById(detailId);
+            if (detail) {
+              var isVisible = detail.style.display !== "none";
+              detail.style.display = isVisible ? "none" : "table-row";
+              row.style.borderBottom = isVisible ? "1px solid #f1f5f9" : "none";
+            }
+          });
+          // Hover effect
+          row.addEventListener("mouseenter", function() { row.style.opacity = "0.85"; });
+          row.addEventListener("mouseleave", function() { row.style.opacity = "1"; });
+        });
       })
       .catch(function (err) {
         console.warn("Error loading solicitudes:", err);
