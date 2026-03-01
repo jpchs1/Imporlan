@@ -200,7 +200,8 @@ try {
     
     $excludes = "--exclude='.git' --exclude='api/config.php' --exclude='api/db_config.php'";
     if ($env === 'prod') {
-        $excludes .= " --exclude='test' --exclude='panel-test'";
+        // Exclude root-level test dirs but keep api/test/ (used by admin panel proxy)
+        $excludes .= " --exclude='/test' --exclude='/panel-test'";
     }
     
     $rsyncCmd = "rsync -av --delete $excludes " . escapeshellarg($tempPath) . "/ " . escapeshellarg($targetPath) . "/ 2>&1";
