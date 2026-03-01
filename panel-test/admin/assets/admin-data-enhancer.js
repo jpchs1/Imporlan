@@ -353,15 +353,15 @@
         allItems.forEach(function (p, idx) {
           var isQR = p._is_quotation_request;
           var status = isQR ? "nueva_solicitud" : (p.status || "pending");
-          var stMap = { nueva_solicitud: { l: "Nueva Solicitud", c: "#ea580c" }, pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
+          var stMap = { nueva_solicitud: { l: "Pendiente", c: "#f59e0b" }, pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
           var st = stMap[status] || stMap.pending;
           var type = p.type || "link";
-          var tipoColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
-          var tipoBg = isQR ? "#ea580c20" : (type === "plan" ? "#8b5cf620" : "#0891b220");
-          var tipoLabel = isQR ? "Cotizacion" : (type === "plan" ? "Plan" : "Link");
+          var tipoColor = isQR ? "#0891b2" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var tipoBg = isQR ? "#0891b220" : (type === "plan" ? "#8b5cf620" : "#0891b220");
+          var tipoLabel = isQR ? "Link" : (type === "plan" ? "Plan" : "Link");
           var servicioLabel = isQR ? "Cotizacion por Links" : (type === "plan" ? "Plan de Busqueda" : "Cotizacion por Links");
-          var servicioColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
-          var servicioBg = isQR ? "#ea580c15" : (type === "plan" ? "#7c3aed15" : "#0891b215");
+          var servicioColor = isQR ? "#0891b2" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var servicioBg = isQR ? "#0891b215" : (type === "plan" ? "#7c3aed15" : "#0891b215");
           var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", pendiente: "Sin Pago" };
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
           var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
@@ -386,7 +386,7 @@
           }
           html += '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
-          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + (isQR ? '<span style="color:#94a3b8;font-weight:400">-</span>' : fmtCLP(amount)) + '</td>';
+          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(amount) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
           html += '<td style="padding:14px 16px"><button class="enhancer-delete-sol" data-sol-id="' + esc(String(displayId)) + '" data-sol-type="' + (isQR ? 'qr' : 'purchase') + '" style="padding:6px 10px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s" title="Eliminar solicitud"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
