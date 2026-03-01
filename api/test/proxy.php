@@ -291,11 +291,13 @@ function computeDashboardStats() {
             $desc = $type === 'plan'
                 ? 'Compra de plan: ' . ($p['plan_name'] ?? $p['description'] ?? 'Plan')
                 : 'Cotizacion por links';
+            $iso = toISO8601($timestamp);
             $recentActivity[] = [
                 'type' => 'purchase',
                 'description' => $desc,
                 'user' => $userName,
-                'timestamp' => toISO8601($timestamp)
+                'timestamp' => $iso,
+                'created_at' => $iso
             ];
         }
     }
@@ -316,11 +318,13 @@ function computeDashboardStats() {
         if ($date) {
             $qrName = $qr['name'] ?? ($qrEmail ? explode('@', $qrEmail)[0] : 'Anonimo');
             $linksCount = count($qr['boat_links'] ?? []);
+            $isoDate = toISO8601($date);
             $recentActivity[] = [
                 'type' => 'quotation_request',
                 'description' => 'Nueva solicitud de cotizacion' . ($linksCount > 0 ? " ($linksCount links)" : ''),
                 'user' => $qrName,
-                'timestamp' => toISO8601($date)
+                'timestamp' => $isoDate,
+                'created_at' => $isoDate
             ];
         }
     }
@@ -363,11 +367,13 @@ function computeDashboardStats() {
                 try {
                     $stmt = $pdo->query("SELECT user_name, action_type, description, created_at FROM audit_log ORDER BY created_at DESC LIMIT 5");
                     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $isoAudit = toISO8601($row['created_at']);
                         $recentActivity[] = [
                             'type' => 'audit',
                             'description' => $row['description'] ?? $row['action_type'],
                             'user' => $row['user_name'] ?? '',
-                            'timestamp' => toISO8601($row['created_at'])
+                            'timestamp' => $isoAudit,
+                            'created_at' => $isoAudit
                         ];
                     }
                     // Re-sort after adding audit entries
