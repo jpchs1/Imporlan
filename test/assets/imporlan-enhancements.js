@@ -430,6 +430,7 @@
   function updateCotizacionForm() {
     // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
+    if (window.location.pathname.includes('/cotizar-importacion')) return;
     
     // Add Google Cloud input styles
     addGoogleCloudInputStyles();
