@@ -30,6 +30,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../assets/seo/seo-pages.css">
+    <link rel="stylesheet" href="inspection-form.css">
     
     <script type="application/ld+json">
     {
@@ -719,6 +720,54 @@
         </div>
     </section>
 
+    <!-- ===== Inspection Quotation Form ===== -->
+    <section class="inspection-form-section" id="cotizar-inspeccion">
+        <div class="inspection-form-container">
+            <div class="form-header">
+                <h2>Cotiza tu Inspección Pre-Compra</h2>
+                <p>Completa el formulario y recibe una cotización personalizada para la inspección de tu embarcación.</p>
+            </div>
+
+            <div class="form-stepper">
+                <div class="stepper-step active" data-step="1">
+                    <div class="stepper-number">1</div>
+                    <span class="stepper-label">País</span>
+                </div>
+                <div class="stepper-connector" data-after="1"></div>
+                <div class="stepper-step" data-step="2">
+                    <div class="stepper-number">2</div>
+                    <span class="stepper-label">Datos</span>
+                </div>
+                <div class="stepper-connector" data-after="2"></div>
+                <div class="stepper-step" data-step="3">
+                    <div class="stepper-number">3</div>
+                    <span class="stepper-label">Enviar</span>
+                </div>
+            </div>
+
+            <div class="form-card">
+                <div id="formContent">
+                    <div class="country-selector">
+                        <button type="button" class="country-btn" data-country="chile">
+                            <span class="country-flag">&#x1F1E8;&#x1F1F1;</span>
+                            <div>
+                                <div class="country-label">Inspección en Chile</div>
+                                <div class="country-sublabel">Embarcaciones en territorio nacional</div>
+                            </div>
+                        </button>
+                        <button type="button" class="country-btn" data-country="usa">
+                            <span class="country-flag">&#x1F1FA;&#x1F1F8;</span>
+                            <div>
+                                <div class="country-label">Inspección en USA</div>
+                                <div class="country-sublabel">Embarcaciones en Estados Unidos</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="cta-section">
         <div class="container">
             <h2>¿Necesitas una Inspección Profesional?</h2>
@@ -817,6 +866,7 @@
         </div>
     </footer>
 
+    <script src="inspection-form.js"></script>
     <script>
         document.querySelectorAll('.faq-question').forEach(button => {
             button.addEventListener('click', () => {
