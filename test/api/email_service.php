@@ -296,7 +296,7 @@ BASE64;
      * Get the logo CID reference for use in HTML
      */
     private function getLogoCid() {
-        return 'cid:logo-imporlan';
+        return 'https://www.imporlan.cl/panel/assets/logo-imporlan-email.png';
     }
 
         public function sendWelcomeEmail($userEmail, $firstName) {
@@ -372,7 +372,11 @@ BASE64;
             'support_request' => ['subject' => 'Solicitud de soporte/contacto', 'template' => 'internal_support_request'],
             'quotation_request' => ['subject' => 'Nueva solicitud de cotizacion', 'template' => 'internal_quotation_request'],
             'quotation_links_paid' => ['subject' => 'Cotizacion por Links - Pago Confirmado', 'template' => 'internal_quotation_links_paid'],
-            'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message']
+            'new_chat_message' => ['subject' => 'Nuevo mensaje de chat', 'template' => 'internal_new_chat_message'],
+            'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead'],
+            'payment_request_created' => ['subject' => 'Nueva solicitud de pago creada', 'template' => 'internal_payment_request_created'],
+            'payment_request_paid' => ['subject' => 'Solicitud de pago confirmada', 'template' => 'internal_payment_request_paid'],
+            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled']
         ];
         
         if (!isset($notifications[$type])) {
@@ -457,6 +461,40 @@ BASE64;
         ]);
         
         return $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_links_paid', $purchaseData);
+    }
+    
+    /**
+     * Send "Cotizacion por Links" activation email
+     */
+    public function sendCotizacionPorLinksEmail($userEmail, $firstName, $purchaseData) {
+        $subject = 'Tu Cotizacion por Links ya esta activa! - Equipo Imporlan';
+        $htmlContent = $this->getCotizacionPorLinksTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('cotizacion_links_activated', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'plan_name' => 'Cotizacion por Links',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'cotizacion_por_links', $purchaseData);
+    }
+    
+    /**
+     * Send "Plan de Busqueda" activation email
+     */
+    public function sendPlanBusquedaEmail($userEmail, $firstName, $purchaseData) {
+        $subject = 'Tu Plan de Busqueda ya esta activo! - Equipo Imporlan';
+        $htmlContent = $this->getPlanBusquedaTemplate($firstName, $purchaseData);
+        
+        $this->sendInternalNotification('plan_busqueda_activated', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'plan_name' => $purchaseData['plan_name'] ?? 'Plan de Busqueda',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'plan_busqueda', $purchaseData);
     }
     
     public function sendQuotationRequestNotification($requestData) {
@@ -650,7 +688,7 @@ BASE64;
             ' . $this->getInfoCard('Datos de tu Solicitud', $detailItems) . '
             
             <div style="margin: 30px 0;">
-                ' . $this->getButton('Completar Pago Ahora', $this->panelUrl) . '
+                ' . $this->getButton('Completar Pago Ahora', $this->panelUrl . '/#quotation') . '
             </div>
             
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0 0 0; background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-radius: 12px; border: 1px solid #fed7aa;">
@@ -658,9 +696,9 @@ BASE64;
                     <td style="padding: 20px; text-align: center;">
                         <p style="margin: 0 0 4px 0; color: #ea580c; font-size: 14px; font-weight: 600;">Como funciona?</p>
                         <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">
-                            1. Ingresa a tu panel de cliente<br>
-                            2. Selecciona el servicio de Cotizacion por Links<br>
-                            3. Completa el pago con MercadoPago, WebPay o PayPal<br>
+                            1. Haz clic en el boton "Completar Pago Ahora"<br>
+                            2. Inicia sesion en tu panel de cliente<br>
+                            3. Tus links ya estaran cargados, solo elige tu metodo de pago<br>
                             4. Nuestro equipo revisara tus links y te enviara la cotizacion
                         </p>
                     </td>
@@ -674,36 +712,12 @@ BASE64;
         return $this->getBaseTemplate($content, 'Recordatorio de Pago - Imporlan');
     }
     
-    public function sendPasswordResetEmail($userEmail, $firstName, $tempPassword) {
-        $c = $this->colors;
-        $panelUrl = $this->panelUrl;
+    public function sendExpedienteUpdateEmail($userEmail, $firstName, $orderData) {
+        $orderNumber = $orderData['order_number'] ?? 'N/A';
+        $subject = 'Actualizacion de tu Expediente ' . $orderNumber . ' - Imporlan';
+        $htmlContent = $this->getExpedienteUpdateTemplate($firstName, $orderData);
         
-        $content = '
-            <h2 style="margin: 0 0 15px 0; font-size: 22px; font-weight: 700; color: ' . $c['text_dark'] . ';">
-                Recuperacion de Contrasena
-            </h2>
-            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
-                Hola ' . htmlspecialchars($firstName) . ',
-            </p>
-            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
-                Hemos recibido una solicitud para restablecer tu contrasena. Tu contrasena temporal es:
-            </p>
-            <div style="background: ' . $c['bg_dark'] . '; border-radius: 12px; padding: 20px; text-align: center; margin: 0 0 20px 0;">
-                <span style="color: ' . $c['accent'] . '; font-size: 24px; font-weight: 700; letter-spacing: 2px;">' . htmlspecialchars($tempPassword) . '</span>
-            </div>
-            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 15px; line-height: 1.6;">
-                Usa esta contrasena temporal para iniciar sesion y luego cambiala desde la seccion <strong>Ajustes</strong> en tu panel.
-            </p>
-            <div style="margin: 25px 0; text-align: center;">
-                ' . $this->getButton('Iniciar Sesion', $panelUrl) . '
-            </div>
-            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.5;">
-                Si no solicitaste este cambio, contactanos de inmediato a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . ';">contacto@imporlan.cl</a>
-            </p>';
-        
-        $subject = 'Recuperacion de Contrasena - Imporlan';
-        $htmlContent = $this->getBaseTemplate($content, $subject);
-        return $this->sendEmail($userEmail, $subject, $htmlContent, 'password_reset');
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_update', $orderData);
     }
     
     public function sendCriticalErrorNotification($errorData) {
@@ -715,6 +729,69 @@ BASE64;
             'stack_trace' => $errorData['stack_trace'] ?? '',
             'date' => date('d/m/Y H:i:s')
         ]);
+    }
+    
+    // =====================================================
+    // PAYMENT REQUESTS EMAIL METHODS
+    // =====================================================
+    
+    /**
+     * Send payment request email to user (new request created)
+     */
+    public function sendPaymentRequestEmail($userEmail, $firstName, $requestData) {
+        $subject = 'Nueva solicitud de pago - Imporlan';
+        $htmlContent = $this->getPaymentRequestTemplate($firstName, $requestData);
+        
+        $this->sendInternalNotification('payment_request_created', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $requestData['title'] ?? 'N/A',
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'description' => $requestData['description'] ?? '',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request', $requestData);
+    }
+    
+    /**
+     * Send payment request paid confirmation email
+     */
+    public function sendPaymentRequestPaidEmail($userEmail, $firstName, $requestData, $paymentData) {
+        $title = $requestData['title'] ?? 'Solicitud de pago';
+        $subject = 'Pago confirmado - ' . $title;
+        $htmlContent = $this->getPaymentRequestPaidTemplate($firstName, $requestData, $paymentData);
+        
+        $this->sendInternalNotification('payment_request_paid', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $title,
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'payment_method' => $paymentData['payment_method'] ?? 'N/A',
+            'payment_id' => $paymentData['payment_id'] ?? 'N/A',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request_paid', array_merge($requestData, $paymentData));
+    }
+    
+    /**
+     * Send payment request cancelled email
+     */
+    public function sendPaymentRequestCancelledEmail($userEmail, $firstName, $requestData) {
+        $subject = 'Solicitud de pago cancelada - Imporlan';
+        $htmlContent = $this->getPaymentRequestCancelledTemplate($firstName, $requestData);
+        
+        $this->sendInternalNotification('payment_request_cancelled', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'title' => $requestData['title'] ?? 'N/A',
+            'amount' => number_format($requestData['amount_clp'] ?? 0, 0, ',', '.'),
+            'reason' => $requestData['cancelled_reason'] ?? 'No especificada',
+            'date' => date('d/m/Y H:i')
+        ]);
+        
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'payment_request_cancelled', $requestData);
     }
     
     /**
@@ -1710,6 +1787,471 @@ BASE64;
         return $this->getBaseTemplate($content, 'Formulario Cotizacion - Admin');
     }
     
+    private function getCotizacionPorLinksTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#9875;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p style="margin: 0 0 6px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Mensaje automatico - Equipo Imporlan
+            </p>
+            
+            <h2 style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Tu Cotizacion por Links ya esta activa!
+            </h2>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                El Equipo Imporlan ya recibio tu solicitud y ahora puedes gestionar tus embarcaciones directamente desde tu panel.
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128274;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ingresa con tu usuario y contrasena</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128194;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ve al menu &rarr; Mis Productos Contratados</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128270;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Haz click en Ver Detalles</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Ahi encontraras automaticamente los links que completaste en el formulario, ya cargados en tu panel &#9875;
+            </p>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                Ahora puedes ordenarlos segun tu preferencia:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px 0;">
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129351;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Arriba: la embarcacion que mas te gusta</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129352;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Luego tus siguientes prioridades</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#128315;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Abajo: la que menos te interesa</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 18px;">
+                        <p style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Para reorganizarlos:</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px; line-height: 1.6;">
+                            &#128433; Manten presionado el click y arrastra (drag &amp; drop) cada embarcacion hasta la posicion deseada.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Esto nos permite alinear el analisis tecnico y comercial segun tu prioridad real &#128674;&#128202;
+            </p>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 15px; text-align: center; line-height: 1.7;">
+                Gracias por confiar en Equipo Imporlan.
+            </p>
+            <p style="margin: 0; color: ' . $c['primary'] . '; font-size: 15px; text-align: center; font-weight: 600;">
+                Seguimos avanzando contigo &#9875;&#10024;
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Cotizacion por Links Activa - Imporlan');
+    }
+    
+    private function getPlanBusquedaTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        $planName = $purchaseData['plan_name'] ?? 'Plan de Busqueda';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 12px 24px; background: linear-gradient(135deg, ' . $c['primary'] . ' 0%, ' . $c['primary_hover'] . ' 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 22px; line-height: 1;">&#128674;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <p style="margin: 0 0 6px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Mensaje automatico - Equipo Imporlan
+            </p>
+            
+            <h2 style="margin: 0 0 20px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Tu Plan de Busqueda ya esta activo!
+            </h2>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                El Equipo Imporlan ya comenzo a trabajar en tu busqueda personalizada &#128674;
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128274;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ingresa con tu usuario y contrasena</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128194;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Ve al menu &rarr; Mis Productos Contratados</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0;">
+                                    <span style="color: ' . $c['primary'] . '; font-size: 16px; margin-right: 8px;">&#128270;</span>
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px;">Haz click en Ver Detalles</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                En esta primera etapa visualizaras:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0;">
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128203;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">El requerimiento que completaste en el formulario</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 10px; border: 1px solid #93c5fd;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128206;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Las lineas de los links correspondientes al plan contratado (aun sin informacion cargada)</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 12px; border: 1px solid #fde68a;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#9203;</p>
+                        <p style="margin: 0 0 4px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Nuestro equipo se encuentra realizando la busqueda estrategica en el mercado de USA.</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px;">Este proceso puede tardar hasta un maximo de 72 horas.</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">
+                Una vez que la busqueda este lista, podras:
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px 0;">
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#129351;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Ordenar desde arriba la embarcacion que mas te gusta</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 10px;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 20px;">&#128315;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Dejar abajo la que menos te interesa</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 10px; border: 1px solid #bbf7d0;">
+                            <tr>
+                                <td width="40" align="center" valign="middle" style="padding: 12px 0 12px 12px;">
+                                    <span style="font-size: 18px;">&#128433;</span>
+                                </td>
+                                <td style="padding: 12px 12px 12px 8px;">
+                                    <span style="color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 500;">Usando drag &amp; drop para reorganizarlas facilmente</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
+                Esta priorizacion nos ayuda a enfocar el analisis, negociacion y estimaciones de importacion con mayor precision &#9875;&#128200;
+            </p>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 15px; text-align: center; line-height: 1.7;">
+                Gracias por confiar en Equipo Imporlan.
+            </p>
+            <p style="margin: 0; color: ' . $c['primary'] . '; font-size: 15px; text-align: center; font-weight: 600;">
+                Pronto tendras tu seleccion lista para revision &#128674;&#10024;
+            </p>';
+        
+        return $this->getBaseTemplate($content, htmlspecialchars($planName) . ' Activo - Imporlan');
+    }
+    
+    private function getExpedienteUpdateTemplate($firstName, $orderData) {
+        $c = $this->colors;
+        $orderNumber = htmlspecialchars($orderData['order_number'] ?? 'N/A');
+        $statusLabels = [
+            'new' => 'Pendiente',
+            'pending' => 'Pendiente',
+            'pending_admin_fill' => 'Pendiente',
+            'in_progress' => 'En Proceso',
+            'completed' => 'Completado',
+            'expired' => 'Pendiente',
+            'canceled' => 'Pendiente'
+        ];
+        $statusColors = [
+            'new' => '#f59e0b',
+            'pending' => '#f59e0b',
+            'pending_admin_fill' => '#f59e0b',
+            'in_progress' => '#10b981',
+            'completed' => '#6366f1',
+            'expired' => '#f59e0b',
+            'canceled' => '#f59e0b'
+        ];
+        $status = $orderData['status'] ?? 'pending';
+        $statusLabel = $statusLabels[$status] ?? 'Pendiente';
+        $statusColor = $statusColors[$status] ?? '#f59e0b';
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Actualizacion de Expediente') . '
+            </div>
+            
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 600; text-align: center;">
+                Expediente ' . $orderNumber . '
+            </h2>
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">
+                Hola ' . htmlspecialchars($firstName) . ', te compartimos la informacion actualizada de tu expediente.
+            </p>';
+        
+        $infoItems = [
+            'N de Expediente' => $orderNumber,
+            'Estado' => $statusLabel
+        ];
+        if (!empty($orderData['plan_name'])) {
+            $infoItems['Plan'] = $orderData['plan_name'];
+        }
+        if (!empty($orderData['service_type'])) {
+            $serviceLabels = ['plan_busqueda' => 'Plan de Busqueda', 'cotizacion_link' => 'Cotizacion por Link'];
+            $infoItems['Tipo de Servicio'] = $serviceLabels[$orderData['service_type']] ?? $orderData['service_type'];
+        }
+        if (!empty($orderData['asset_name'])) {
+            $infoItems['Embarcacion/Objetivo'] = $orderData['asset_name'];
+        }
+        if (!empty($orderData['type_zone'])) {
+            $infoItems['Tipo/Zona'] = $orderData['type_zone'];
+        }
+        if (!empty($orderData['requirement_name'])) {
+            $infoItems['Requerimiento'] = $orderData['requirement_name'];
+        }
+        if (!empty($orderData['agent_name'])) {
+            $agentInfo = $orderData['agent_name'];
+            if (!empty($orderData['agent_phone'])) {
+                $agentInfo .= ' (' . $orderData['agent_phone'] . ')';
+            }
+            $infoItems['Agente Asignado'] = $agentInfo;
+        }
+        $infoItems['Fecha de Creacion'] = !empty($orderData['created_at'])
+            ? date('d/m/Y', strtotime($orderData['created_at']))
+            : date('d/m/Y');
+        
+        $content .= $this->getInfoCard('Datos del Expediente', $infoItems);
+        
+        $links = $orderData['links'] ?? [];
+        $validLinks = array_filter($links, function($lk) {
+            return !empty($lk['url']);
+        });
+        
+        if (!empty($validLinks)) {
+            $content .= '
+            <h3 style="margin: 30px 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 600;">
+                Opciones Encontradas
+            </h3>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">';
+            
+            $linkIndex = 0;
+            foreach ($validLinks as $lk) {
+                $linkIndex++;
+                $url = htmlspecialchars($lk['url'] ?? '');
+                $title = htmlspecialchars($lk['title'] ?? '');
+                $location = htmlspecialchars($lk['location'] ?? '');
+                $hours = htmlspecialchars($lk['hours'] ?? '');
+                $imageUrl = htmlspecialchars($lk['image_url'] ?? '');
+                
+                $usdVal = '';
+                if (!empty($lk['value_usa_usd'])) {
+                    $usdVal = '$' . number_format(floatval($lk['value_usa_usd']), 2, '.', ',') . ' USD';
+                }
+                $clpVal = '';
+                if (!empty($lk['value_chile_clp'])) {
+                    $clpVal = '$' . number_format(floatval($lk['value_chile_clp']), 0, ',', '.') . ' CLP';
+                }
+                $comments = htmlspecialchars($lk['comments'] ?? '');
+                
+                $imgHtml = '';
+                if ($imageUrl) {
+                    $imgHtml = '<td width="90" style="padding: 12px 12px 12px 0; vertical-align: top;">
+                        <img src="' . $imageUrl . '" alt="" width="80" height="60" style="display: block; border-radius: 8px; object-fit: cover; border: 1px solid ' . $c['border'] . ';">
+                    </td>';
+                }
+                
+                $detailParts = [];
+                if ($location) $detailParts[] = $location;
+                if ($hours) $detailParts[] = $hours . ' hrs';
+                $detailLine = implode(' | ', $detailParts);
+                
+                $priceParts = [];
+                if ($usdVal) $priceParts[] = $usdVal;
+                if ($clpVal) $priceParts[] = $clpVal;
+                $priceLine = implode(' / ', $priceParts);
+                
+                $content .= '
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-radius: 12px; border: 1px solid ' . $c['border'] . ';">
+                            <tr>
+                                ' . $imgHtml . '
+                                <td style="padding: 12px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">
+                                        Opcion #' . $linkIndex . ($title ? ' - ' . $title : '') . '
+                                    </p>';
+                if ($detailLine) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 12px;">' . htmlspecialchars($detailLine) . '</p>';
+                }
+                if ($priceLine) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: #059669; font-size: 13px; font-weight: 600;">' . $priceLine . '</p>';
+                }
+                if ($comments) {
+                    $content .= '
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_muted'] . '; font-size: 12px; font-style: italic;">' . $comments . '</p>';
+                }
+                $content .= '
+                                    <a href="' . $url . '" target="_blank" style="color: ' . $c['primary'] . '; font-size: 12px; text-decoration: none;">Ver detalle &rarr;</a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+            }
+            
+            $content .= '</table>';
+        }
+        
+        $content .= '
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver mi Expediente en el Panel', $this->panelUrl) . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre tu expediente, puedes contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - Imporlan');
+    }
+    
     private function getPaymentStatusTemplate($firstName, $statusData) {
         $c = $this->colors;
         $status = $statusData['status'];
@@ -1781,6 +2323,14 @@ BASE64;
                 return $this->getInternalQuotationLinksPaidTemplate($data);
             case 'internal_new_chat_message':
                 return $this->getInternalNewChatMessageTemplate($data);
+            case 'internal_marketplace_lead':
+                return $this->getInternalMarketplaceLeadTemplate($data);
+            case 'internal_payment_request_created':
+                return $this->getInternalPaymentRequestCreatedTemplate($data);
+            case 'internal_payment_request_paid':
+                return $this->getInternalPaymentRequestPaidTemplate($data);
+            case 'internal_payment_request_cancelled':
+                return $this->getInternalPaymentRequestCancelledTemplate($data);
             default:
                 return '';
         }
@@ -2092,6 +2642,299 @@ BASE64;
         return $this->getBaseTemplate($content, 'Nuevo mensaje de chat - Admin');
     }
     
+    private function getInternalMarketplaceLeadTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Nuevo lead') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Nuevo registro en oportunidades semanales
+            </h2>
+            
+            ' . $this->getInfoCard('Datos del lead', [
+                'Nombre' => $data['lead_name'] ?: 'No proporcionado',
+                'Email' => $data['lead_email'],
+                'Intereses' => $data['intereses'] ?: 'No especificados',
+                'Fecha de registro' => $data['registration_date']
+            ]) . '
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Notificacion automatica del sistema Marketplace
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Nuevo lead marketplace - Admin');
+    }
+    
+    // =====================================================
+    // PAYMENT REQUEST TEMPLATES
+    // =====================================================
+    
+    /**
+     * Template: New payment request created (sent to user)
+     */
+    private function getPaymentRequestTemplate($firstName, $requestData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        $description = htmlspecialchars($requestData['description'] ?? '');
+        $createdAt = $requestData['created_at'] ?? date('d/m/Y');
+        
+        $infoItems= [
+            'Monto CLP' => '$' . $amount . ' CLP',
+            'Fecha creacion' => date('d/m/Y', strtotime($createdAt))
+        ];
+        if (!empty($requestData['amount_usd']) && $requestData['amount_usd'] > 0) {
+            $infoItems['Monto USD'] = 'USD $' . number_format($requestData['amount_usd'], 2, ',', '.');
+        }
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('warning', 'Pendiente') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', se ha creado una nueva solicitud de pago para ti.
+            </p>';
+        
+        if (!empty($description)) {
+            $content .= '
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6; background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid ' . $c['primary'] . ';">
+                ' . nl2br($description) . '
+            </p>';
+        }
+        
+        $content .= $this->getInfoCard('Detalles de la solicitud', $infoItems) . '
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver y Pagar', $this->panelUrl . '/#payment-requests') . '
+            </div>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; margin: 25px 0; padding: 20px;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 700;">Metodos de pago disponibles</h3>
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                            <tr>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #00b1ea; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">MercadoPago</span>
+                                </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #dc2626; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">WebPay</span>
+                                </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #003087; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">PayPal</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre esta solicitud, no dudes en contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud de Pago - Imporlan');
+    }
+    
+    /**
+     * Template: Payment request paid (confirmation to user)
+     */
+    private function getPaymentRequestPaidTemplate($firstName, $requestData, $paymentData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        
+        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual'];
+        $method = $paymentData['payment_method'] ?? 'N/A';
+        $methodLabel = $methodLabels[$method] ?? ucfirst($method);
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pagado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', tu pago ha sido procesado exitosamente.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles del pago', [
+                'Monto pagado' => '$' . $amount . ' CLP',
+                'Metodo de pago' => $methodLabel,
+                'Referencia' => $paymentData['payment_id'] ?? 'N/A',
+                'Fecha' => date('d/m/Y H:i', strtotime($paymentData['paid_at'] ?? 'now'))
+            ]) . '
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; margin: 25px 0;">
+                <tr>
+                    <td style="padding: 20px; text-align: center;">
+                        <p style="margin: 0; color: ' . $c['success'] . '; font-size: 16px; font-weight: 700;">Gracias por tu pago</p>
+                        <p style="margin: 8px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px;">Tu solicitud ha sido completada correctamente.</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver mis productos', $this->panelUrl . '/#myproducts') . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Pago Confirmado - Imporlan');
+    }
+    
+    /**
+     * Template: Payment request cancelled (sent to user)
+     */
+    private function getPaymentRequestCancelledTemplate($firstName, $requestData) {
+        $c = $this->colors;
+        $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
+        $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
+        $reason = htmlspecialchars($requestData['cancelled_reason'] ?? '');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('error', 'Cancelada') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                ' . $title . '
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', la siguiente solicitud de pago ha sido cancelada.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Monto' => '$' . $amount . ' CLP',
+                'Estado' => 'Cancelada'
+            ]);
+        
+        if (!empty($reason)) {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fef2f2; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['error'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['error'] . '; font-size: 15px; font-weight: 600;">Razon de cancelacion</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br($reason) . '</p>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $content .= '
+            <p style="margin: 25px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre esta cancelacion, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud Cancelada - Imporlan');
+    }
+    
+    /**
+     * Internal notification template: Payment request created
+     */
+    private function getInternalPaymentRequestCreatedTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('warning', 'Nueva solicitud') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Nueva solicitud de pago creada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Usuario' => $data['user_email'],
+                'Nombre' => $data['user_name'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Descripcion' => $data['description'] ?: 'N/A',
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud de pago creada - Admin');
+    }
+    
+    /**
+     * Internal notification template: Payment request paid
+     */
+    private function getInternalPaymentRequestPaidTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago confirmado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Solicitud de pago confirmada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles del pago', [
+                'Usuario' => $data['user_email'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Metodo' => $data['payment_method'],
+                'Referencia' => $data['payment_id'],
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Pago confirmado - Admin');
+    }
+    
+    /**
+     * Internal notification template: Payment request cancelled
+     */
+    private function getInternalPaymentRequestCancelledTemplate($data) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('error', 'Cancelada') . '
+            </div>
+            
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                Solicitud de pago cancelada
+            </h2>
+            
+            ' . $this->getInfoCard('Detalles', [
+                'Usuario' => $data['user_email'],
+                'Titulo' => $data['title'],
+                'Monto CLP' => '$' . $data['amount'],
+                'Razon' => $data['reason'],
+                'Fecha' => $data['date']
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver en Admin Panel', 'https://www.imporlan.cl/panel/admin/') . '
+            </div>';
+        
+        return $this->getBaseTemplate($content, 'Solicitud cancelada - Admin');
+    }
+    
     /**
      * =====================================================
      * LOGGING
@@ -2148,6 +2991,82 @@ BASE64;
         } catch (PDOException $e) {
             return ['error' => 'Failed to fetch logs: ' . $e->getMessage()];
         }
+    }
+    
+    /**
+     * =====================================================
+     * TRACKING EMAILS
+     * =====================================================
+     */
+    
+    public function sendTrackingActivated($userEmail, $orderNumber, $trackingUrl) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Tracking Activo') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Tu Seguimiento esta Activo
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola, tu embarque <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($orderNumber) . '</strong> ya tiene tracking en tiempo real.
+                Podras ver la posicion de tu embarcacion en cualquier momento.
+            </p>
+            
+            ' . $this->getInfoCard('Detalles del Seguimiento', [
+                'Expediente' => $orderNumber,
+                'Estado' => 'Activo - En seguimiento',
+                'Acceso' => 'Link exclusivo de seguimiento'
+            ]) . '
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver Seguimiento En Vivo', $trackingUrl) . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Este enlace es exclusivo para tu embarque. Puedes compartirlo con quien necesites.
+            </p>';
+        
+        $htmlContent = $this->getBaseTemplate($content, 'Tracking Activo - Imporlan');
+        return $this->sendEmail($userEmail, 'Tu Seguimiento esta Activo - Imporlan', $htmlContent, 'tracking_activated', ['order_number' => $orderNumber]);
+    }
+    
+    public function sendVesselArrived($userEmail, $orderNumber, $vesselName) {
+        $c = $this->colors;
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Arribado') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                El Barco Arribo a Puerto
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                El buque <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($vesselName) . '</strong> con tu embarque 
+                <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($orderNumber) . '</strong> ha llegado a Chile.
+            </p>
+            
+            ' . $this->getInfoCard('Informacion de Arribo', [
+                'Embarcacion' => $vesselName,
+                'Expediente' => $orderNumber,
+                'Estado' => 'Arribado a puerto chileno'
+            ]) . '
+            
+            <p style="margin: 25px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Nuestro equipo se pondra en contacto contigo para coordinar los siguientes pasos del proceso de internacion.
+            </p>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ir al Panel', $this->panelUrl) . '
+            </div>';
+        
+        $htmlContent = $this->getBaseTemplate($content, 'Embarque Arribado - Imporlan');
+        return $this->sendEmail($userEmail, 'Tu Embarque ha Arribado - Imporlan', $htmlContent, 'vessel_arrived', ['order_number' => $orderNumber, 'vessel_name' => $vesselName]);
     }
     
     public function getEmailStats() {
