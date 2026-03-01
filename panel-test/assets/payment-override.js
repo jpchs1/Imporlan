@@ -33,15 +33,60 @@
 
   function extractUserInfo() {
     var info = { email: '', name: '', phone: '' };
-    try {
-      var raw = localStorage.getItem('imporlan_user');
-      if (raw) {
-        var u = JSON.parse(raw);
-        info.email = u.email || u.user_email || '';
-        info.name = u.name || u.full_name || '';
-        info.phone = u.phone || u.telefono || '';
-      }
-    } catch(e) {}
+
+    // Try multiple localStorage keys where user data may be stored
+    var keys = ['imporlan_user', 'user', 'userData', 'imporlan_userData'];
+    for (var i = 0; i < keys.length; i++) {
+      try {
+        var raw = localStorage.getItem(keys[i]);
+        if (raw) {
+          var u = JSON.parse(raw);
+          if (!info.email) info.email = u.email || u.user_email || u.correo || '';
+          if (!info.name) info.name = u.name || u.full_name || u.nombre || u.firstName || '';
+          if (!info.phone) info.phone = u.phone || u.telefono || u.tel || '';
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try to decode JWT token for email/name
+    if (!info.email) {
+      try {
+        var token = localStorage.getItem('token') || localStorage.getItem('imporlan_token') || '';
+        if (token) {
+          var parts = token.split('.');
+          if (parts.length === 3) {
+            var payload = JSON.parse(atob(parts[1]));
+            if (!info.email) info.email = payload.email || payload.sub || '';
+            if (!info.name) info.name = payload.name || payload.user_name || '';
+          }
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try sessionStorage
+    if (!info.email) {
+      try {
+        var sessRaw = sessionStorage.getItem('imporlan_user') || sessionStorage.getItem('user');
+        if (sessRaw) {
+          var su = JSON.parse(sessRaw);
+          if (!info.email) info.email = su.email || su.user_email || '';
+          if (!info.name) info.name = su.name || su.full_name || '';
+          if (!info.phone) info.phone = su.phone || su.telefono || '';
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try to find email in the DOM (some pages display user email)
+    if (!info.email) {
+      try {
+        var emailEls = document.querySelectorAll('[data-user-email], .user-email, .profile-email');
+        for (var j = 0; j < emailEls.length; j++) {
+          var val = (emailEls[j].getAttribute('data-user-email') || emailEls[j].textContent || '').trim();
+          if (val && val.indexOf('@') !== -1) { info.email = val; break; }
+        }
+      } catch(e) {}
+    }
+
     return info;
   }
 
