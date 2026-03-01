@@ -155,6 +155,7 @@
   function updateCotizacionForm() {
     // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
+    if (window.location.pathname.includes('/cotizar-importacion')) return;
     
     const checkInterval = setInterval(function() {
       // Find the form section
