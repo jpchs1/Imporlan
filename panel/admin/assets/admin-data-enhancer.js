@@ -348,32 +348,32 @@
         var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
         var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow-x:auto">';
         html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Tipo</th><th style="' + thS + '">Servicio</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Descripcion</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Medio Pago</th><th style="' + thS + '">Fecha</th>';
+        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Tipo</th><th style="' + thS + '">Servicio</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Descripcion</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Medio Pago</th><th style="' + thS + '">Fecha</th><th style="' + thS + '">Acciones</th>';
         html += '</tr></thead><tbody>';
         allItems.forEach(function (p, idx) {
           var isQR = p._is_quotation_request;
           var status = isQR ? "nueva_solicitud" : (p.status || "pending");
-          var stMap = { nueva_solicitud: { l: "Nueva Solicitud", c: "#ea580c" }, pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
+          var stMap = { nueva_solicitud: { l: "Pendiente", c: "#f59e0b" }, pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Activa", c: "#10b981" }, completed: { l: "Completada", c: "#6366f1" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelada", c: "#ef4444" } };
           var st = stMap[status] || stMap.pending;
           var type = p.type || "link";
-          var tipoColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
-          var tipoBg = isQR ? "#ea580c20" : (type === "plan" ? "#8b5cf620" : "#0891b220");
-          var tipoLabel = isQR ? "Cotizacion" : (type === "plan" ? "Plan" : "Link");
+          var tipoColor = isQR ? "#0891b2" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var tipoBg = isQR ? "#0891b220" : (type === "plan" ? "#8b5cf620" : "#0891b220");
+          var tipoLabel = isQR ? "Link" : (type === "plan" ? "Plan" : "Link");
           var servicioLabel = isQR ? "Cotizacion por Links" : (type === "plan" ? "Plan de Busqueda" : "Cotizacion por Links");
-          var servicioColor = isQR ? "#ea580c" : (type === "plan" ? "#7c3aed" : "#0891b2");
-          var servicioBg = isQR ? "#ea580c15" : (type === "plan" ? "#7c3aed15" : "#0891b215");
+          var servicioColor = isQR ? "#0891b2" : (type === "plan" ? "#7c3aed" : "#0891b2");
+          var servicioBg = isQR ? "#0891b215" : (type === "plan" ? "#7c3aed15" : "#0891b215");
           var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", pendiente: "Sin Pago" };
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
           var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
           var email = p.user_email || p.email || "";
-          var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (email ? email.split("@")[0] : "N/A");
+          var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (p.payer_name || p.user_name || (email ? email.split("@")[0] : "N/A"));
           var desc = p.description || p.desc || p.plan_name || (isQR ? "Solicitud de cotizacion" : "");
           var amount = p.amount_clp || p.amount || 0;
           var date = p.timestamp || p.date || "";
           var displayId = p.id || (idx + 1);
           var hasLinks = (isQR && p._boat_links && p._boat_links.length > 0) || (!isQR && type === "link");
           var rowId = "sol-row-" + idx;
-          html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f1f5f9' + (isQR ? ';background:#fff7ed' : '') + (hasLinks ? ';cursor:pointer' : '') + '" ' + (hasLinks ? 'class="enhancer-clickable-row" data-row-idx="' + idx + '"' : '') + '>';
+          html += '<tr id="' + rowId + '" style="border-bottom:1px solid #f1f5f9' + (hasLinks ? ';cursor:pointer' : '') + '" ' + (hasLinks ? 'class="enhancer-clickable-row" data-row-idx="' + idx + '"' : '') + '>';
           html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(displayId)) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:' + tipoBg + ';color:' + tipoColor + '">' + tipoLabel + '</span></td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + servicioBg + ';color:' + servicioColor + '">' + servicioLabel + '</span></td>';
@@ -386,9 +386,10 @@
           }
           html += '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
-          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + (isQR ? '<span style="color:#94a3b8;font-weight:400">-</span>' : fmtCLP(amount)) + '</td>';
+          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(amount) + '</td>';
           html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + methodColor + '15;color:' + methodColor + '">' + esc(method) + '</span></td>';
           html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(date) + '</td>';
+          html += '<td style="padding:14px 16px"><button class="enhancer-delete-sol" data-sol-id="' + esc(String(displayId)) + '" data-sol-type="' + (isQR ? 'qr' : 'purchase') + '" style="padding:6px 10px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s" title="Eliminar solicitud"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
           html += '</tr>';
           // Hidden detail row for boat links
           if (hasLinks) {
@@ -402,8 +403,8 @@
                 if (matches) links = matches;
               }
             }
-            html += '<tr id="' + rowId + '-detail" style="display:none;background:' + (isQR ? '#fff7ed' : '#f8fafc') + '">';
-            html += '<td colspan="9" style="padding:0 16px 16px 52px">';
+            html += '<tr id="' + rowId + '-detail" style="display:none;background:#f8fafc">';
+            html += '<td colspan="10" style="padding:0 16px 16px 52px">';
             html += '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:4px">';
             if (isQR) {
               html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px">';
@@ -433,7 +434,9 @@
 
         // Attach click handlers for expandable rows
         container.querySelectorAll(".enhancer-clickable-row").forEach(function(row) {
-          row.addEventListener("click", function() {
+          row.addEventListener("click", function(e) {
+            // Don't toggle if clicking delete button or a link
+            if (e.target.closest(".enhancer-delete-sol") || e.target.closest("a")) return;
             var detailId = row.id + "-detail";
             var detail = document.getElementById(detailId);
             if (detail) {
@@ -445,6 +448,46 @@
           // Hover effect
           row.addEventListener("mouseenter", function() { row.style.opacity = "0.85"; });
           row.addEventListener("mouseleave", function() { row.style.opacity = "1"; });
+        });
+
+        // Attach delete handlers
+        container.querySelectorAll(".enhancer-delete-sol").forEach(function(btn) {
+          btn.addEventListener("mouseenter", function() { btn.style.background = "#ef4444"; btn.style.color = "#fff"; });
+          btn.addEventListener("mouseleave", function() { btn.style.background = "transparent"; btn.style.color = "#ef4444"; });
+          btn.addEventListener("click", function(e) {
+            e.stopPropagation();
+            var solId = btn.getAttribute("data-sol-id");
+            if (!confirm("Eliminar solicitud #" + solId + "?")) return;
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            fetch(API_BASE + "/purchases.php?action=delete_solicitud", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ id: solId })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success) {
+                var row = btn.closest("tr");
+                if (row) {
+                  var detailRow = document.getElementById(row.id + "-detail");
+                  if (detailRow) detailRow.remove();
+                  row.style.transition = "opacity .3s";
+                  row.style.opacity = "0";
+                  setTimeout(function() { row.remove(); }, 300);
+                }
+              } else {
+                alert(data.error || "Error al eliminar");
+                btn.disabled = false;
+                btn.style.opacity = "1";
+              }
+            })
+            .catch(function() {
+              alert("Error de conexion al eliminar");
+              btn.disabled = false;
+              btn.style.opacity = "1";
+            });
+          });
         });
       })
       .catch(function (err) {

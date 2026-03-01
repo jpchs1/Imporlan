@@ -52,9 +52,12 @@ switch ($action) {
     case 'send_payment_reminders':
         sendPaymentReminders();
         break;
+    case 'delete_solicitud':
+        deleteSolicitud();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud']);
 }
 
 /**
@@ -345,6 +348,79 @@ function sendPaymentReminders() {
         'total_requests' => count($requests),
         'details' => $details
     ]);
+}
+
+/**
+ * Delete a solicitud (quotation request or purchase) by ID
+ * Admin only - removes from quotation_requests.json or purchases.json
+ */
+function deleteSolicitud() {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Metodo no permitido. Use POST']);
+        return;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = $input['id'] ?? '';
+
+    if (empty($id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta el campo: id']);
+        return;
+    }
+
+    // Determine if it's a quotation request or a purchase based on ID prefix
+    if (strpos($id, 'qr_') === 0) {
+        // Delete from quotation_requests.json
+        $file = __DIR__ . '/quotation_requests.json';
+        if (!file_exists($file)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'No se encontro el archivo de solicitudes']);
+            return;
+        }
+        $data = json_decode(file_get_contents($file), true);
+        $requests = $data['requests'] ?? [];
+        $found = false;
+        $filtered = [];
+        foreach ($requests as $req) {
+            if (($req['id'] ?? '') === $id) {
+                $found = true;
+            } else {
+                $filtered[] = $req;
+            }
+        }
+        if (!$found) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Solicitud no encontrada: ' . $id]);
+            return;
+        }
+        $data['requests'] = $filtered;
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+        echo json_encode(['success' => true, 'deleted_id' => $id, 'source' => 'quotation_requests']);
+    } else {
+        // Delete from purchases.json
+        global $purchasesFile;
+        $data = json_decode(file_get_contents($purchasesFile), true);
+        $purchases = $data['purchases'] ?? [];
+        $found = false;
+        $filtered = [];
+        foreach ($purchases as $p) {
+            if (($p['id'] ?? '') === $id) {
+                $found = true;
+            } else {
+                $filtered[] = $p;
+            }
+        }
+        if (!$found) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Compra no encontrada: ' . $id]);
+            return;
+        }
+        $data['purchases'] = $filtered;
+        file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+        echo json_encode(['success' => true, 'deleted_id' => $id, 'source' => 'purchases']);
+    }
 }
 
 /**
