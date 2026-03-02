@@ -326,8 +326,24 @@
 
     var refreshBtn = document.getElementById("btn-refresh-tracking");
     if (refreshBtn) {
-      refreshBtn.addEventListener("click", function () {
-        loadVessels();
+      refreshBtn.addEventListener("click", async function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizando...';
+        try {
+          // Force refresh position from AIS providers (bypasses 10-min cache)
+          if (selectedVesselId) {
+            await fetch(API_BASE + "/tracking_api.php?action=refresh_vessel_position&id=" + selectedVesselId);
+          }
+          // Reload vessel list, map markers, and detail panel
+          await loadVessels();
+          if (selectedVesselId) {
+            await loadVesselDetail(selectedVesselId);
+          }
+        } catch (e) {
+          console.error("Error refreshing:", e);
+        }
       });
     }
   }

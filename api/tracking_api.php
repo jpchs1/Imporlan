@@ -97,6 +97,9 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminFetchVesselPosition();
             break;
+        case 'refresh_vessel_position':
+            refreshVesselPosition();
+            break;
         case 'run_position_update':
             runPositionUpdateViaHTTP();
             break;
@@ -802,6 +805,135 @@ function adminAddPosition() {
         error_log("Error adding position: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al agregar posicion']);
+    }
+}
+
+/**
+ * Public endpoint: force-refresh a vessel's position bypassing cache.
+ * Used by the "Actualizar" button in the user panel.
+ * GET ?action=refresh_vessel_position&id=X
+ */
+function refreshVesselPosition() {
+    $vesselId = intval($_GET['id'] ?? 0);
+    if (!$vesselId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Only allow refresh for featured/active vessels (public safety)
+        $stmt = $pdo->prepare("SELECT id, display_name, imo, mmsi FROM vessels WHERE id = ? AND is_featured = 1");
+        $stmt->execute([$vesselId]);
+        $vessel = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$vessel) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Embarcacion no encontrada']);
+            return;
+        }
+
+        // Rate limit: only allow refresh if last position is older than 2 minutes
+        $rateStmt = $pdo->prepare("
+            SELECT fetched_at FROM vessel_positions
+            WHERE vessel_id = ? AND fetched_at > DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+            ORDER BY fetched_at DESC LIMIT 1
+        ");
+        $rateStmt->execute([$vesselId]);
+        $recent = $rateStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($recent) {
+            // Return current position without re-fetching
+            $posStmt = $pdo->prepare("
+                SELECT lat, lon, speed, course, destination, eta, source, fetched_at
+                FROM vessel_positions WHERE vessel_id = ? ORDER BY fetched_at DESC LIMIT 1
+            ");
+            $posStmt->execute([$vesselId]);
+            $pos = $posStmt->fetch(PDO::FETCH_ASSOC);
+            echo json_encode([
+                'success' => true,
+                'vessel_id' => $vesselId,
+                'position' => $pos ? [
+                    'lat' => floatval($pos['lat']),
+                    'lon' => floatval($pos['lon']),
+                    'speed' => $pos['speed'] !== null ? floatval($pos['speed']) : null,
+                    'course' => $pos['course'] !== null ? floatval($pos['course']) : null,
+                    'destination' => $pos['destination'],
+                    'eta' => $pos['eta'],
+                    'lastUpdate' => $pos['fetched_at'],
+                    'source' => $pos['source']
+                ] : null,
+                'cached' => true,
+                'message' => 'Posicion reciente disponible (menos de 2 min)'
+            ]);
+            return;
+        }
+
+        // Force fresh fetch bypassing cache
+        $provider = getAISProvider();
+        // Temporarily set cache to 0 to bypass
+        $position = null;
+
+        // Try VesselFinder API first (fast HTTP)
+        $apiKey = getAISConfig('AIS_API_KEY');
+        if ($apiKey) {
+            $identifier = $vessel['imo'] ? "imo=" . $vessel['imo'] : "mmsi=" . $vessel['mmsi'];
+            $url = "https://api.vesselfinder.com/vessel?userkey=" . urlencode($apiKey) . "&" . $identifier;
+            $ctx = stream_context_create(['http' => ['timeout' => 10, 'method' => 'GET', 'header' => "Accept: application/json\r\n"]]);
+            $response = @file_get_contents($url, false, $ctx);
+            if ($response !== false) {
+                $data = json_decode($response, true);
+                if ($data && isset($data['AIS'])) {
+                    $ais = $data['AIS'];
+                    $position = [
+                        'lat' => floatval($ais['LATITUDE'] ?? 0),
+                        'lon' => floatval($ais['LONGITUDE'] ?? 0),
+                        'speed' => isset($ais['SPEED']) ? floatval($ais['SPEED']) : null,
+                        'course' => isset($ais['COURSE']) ? floatval($ais['COURSE']) : null,
+                        'destination' => $ais['DESTINATION'] ?? null,
+                        'eta' => $ais['ETA'] ?? null,
+                        'lastUpdate' => date('Y-m-d H:i:s'),
+                        'source' => 'vesselfinder'
+                    ];
+                }
+            }
+        }
+
+        // Fallback to getVesselPosition (which includes MyShipTracking, AISstream on-demand)
+        if (!$position) {
+            $position = $provider->getVesselPosition($vessel['imo'], $vessel['mmsi']);
+        } else {
+            // Persist the fresh VesselFinder position
+            $insertStmt = $pdo->prepare("
+                INSERT INTO vessel_positions (vessel_id, lat, lon, speed, course, destination, eta, source, fetched_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $insertStmt->execute([
+                $vesselId, $position['lat'], $position['lon'],
+                $position['speed'], $position['course'],
+                $position['destination'], $position['eta'],
+                $position['source']
+            ]);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'vessel_id' => $vesselId,
+            'vessel_name' => $vessel['display_name'],
+            'position' => $position,
+            'cached' => false
+        ]);
+    } catch (Exception $e) {
+        error_log("Error refreshing vessel position: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar posicion']);
     }
 }
 
