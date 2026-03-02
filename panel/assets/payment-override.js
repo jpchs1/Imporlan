@@ -141,7 +141,7 @@
       amountMatch = modalText.match(/([\d.,]+)\s*CLP/i);
     }
     if (!amountMatch) return null;
-    var rawAmount = amountMatch[1].replace(/[.\s]/g, '').replace(',', '.');
+    var rawAmount = amountMatch[1].replace(/[^0-9]/g, '');
     var amount = parseInt(rawAmount, 10);
     if (isNaN(amount) || amount <= 0) return null;
     var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Selecciona|Cancelar|Pagar))/i);

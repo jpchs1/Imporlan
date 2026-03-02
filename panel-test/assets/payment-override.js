@@ -7,7 +7,7 @@
 (function() {
   'use strict';
 
-  const API_BASE = 'https://www.imporlan.cl/api';
+  const API_BASE = 'https://www.imporlan.cl/test/api';
 
   function extractBoatLinksFromPage() {
     var links = [];
@@ -122,7 +122,7 @@
       console.error('WebPay: Could not extract amount from modal');
       return;
     }
-    var amount = parseInt(amountMatch[1].replace(/[.,]/g, ''));
+    var amount = parseInt(amountMatch[1].replace(/[^0-9]/g, ''));
     var descMatch = modalText.match(/por\s+(.+?)(?:\s*MercadoPago|\s*PayPal|\s*WebPay|\s*Cancelar|$)/i);
     var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
     if (isNaN(amount) || amount <= 0) {
@@ -179,7 +179,7 @@
           description: description,
           type: purchaseType,
           days: planDays,
-          return_url: window.location.origin + '/api/webpay.php?action=callback'
+          return_url: window.location.origin + '/test/api/webpay.php?action=callback'
         })
       });
       var data = await response.json();
