@@ -331,10 +331,10 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
         createWebpayPaymentNotificationMessage($purchase);
 
         try {
-            $dbConfig = __DIR__ . '/../../api/db_config.php';
+            $dbConfig = __DIR__ . '/db_config.php';
             if (file_exists($dbConfig)) {
-                require_once $dbConfig;
-                require_once __DIR__ . '/../../api/orders_api.php';
+                // db_config.php already loaded at top of file, no need to re-require
+                require_once __DIR__ . '/orders_api.php';
                 $purchase['customer_name'] = explode('@', $userEmail)[0];
                 if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
