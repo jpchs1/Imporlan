@@ -358,7 +358,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
             $dbConfig = __DIR__ . '/db_config.php';
             if (file_exists($dbConfig)) {
                 // db_config.php already loaded at top of file, no need to re-require
-                require_once __DIR__ . '/orders_api.php';
+                require_once __DIR__ . '/../../api/orders_api.php';
                 $purchase['customer_name'] = explode('@', $userEmail)[0];
                 if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
