@@ -126,8 +126,8 @@ function createTransaction($data) {
                 'country' => $data['country'] ?? 'Chile',
                 'boat_links' => $data['boat_links'] ?? []
             ]);
-        } catch (Exception $e) {
-            logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            logWebpay('NOTIF_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
         }
     }
     
@@ -170,6 +170,10 @@ function createTransaction($data) {
  * Handle WebPay callback when user returns from payment
  */
 function handleCallback() {
+    // Start output buffering to prevent any accidental output from
+    // breaking the header() redirect (emails, order creation, etc.)
+    ob_start();
+    
     $token = $_POST['token_ws'] ?? $_GET['token_ws'] ?? null;
     $tbkToken = $_POST['TBK_TOKEN'] ?? $_GET['TBK_TOKEN'] ?? null;
     
@@ -222,8 +226,11 @@ function handleCallback() {
         // Save purchase to purchases.json with full information
         savePurchaseFromWebpay($result, $buyOrder);
         
+        // Discard any output that may have been generated during processing
+        ob_end_clean();
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
+        ob_end_clean();
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
@@ -354,8 +361,8 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
                     createOrderFromQuotation($purchase, $storedLinks);
                 }
             }
-        } catch (Exception $e) {
-            logWebpay('ORDER_CREATE_ERROR', ['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            logWebpay('ORDER_CREATE_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
         }
     }
     
@@ -452,8 +459,8 @@ function sendPurchaseConfirmationEmail($purchase) {
         }
         
         logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
-    } catch (Exception $e) {
-        logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
+    } catch (\Throwable $e) {
+        logWebpay('EMAIL_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
     }
 }
 
