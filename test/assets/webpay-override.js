@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  const API_BASE = 'https://www.imporlan.cl/api';
+  const API_BASE = 'https://www.imporlan.cl/test/api';
   const originalAlert = window.alert;
 
   // Override alert to intercept WebPay "proximamente" message
@@ -90,7 +90,7 @@
         description: description,
         type: purchaseType,
         days: planDays,
-        return_url: window.location.origin + '/api/webpay.php?action=callback'
+        return_url: window.location.origin + '/test/api/webpay.php?action=callback'
       };
       
       console.log('Webpay API request:', requestBody);
