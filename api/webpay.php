@@ -15,21 +15,25 @@ require_once 'config.php';
 require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/db_config.php';
 
-setCorsHeaders();
-
 // WebPay Plus Integration/Test Credentials
 // TODO: Replace with production credentials when available from Transbank
 define('WEBPAY_COMMERCE_CODE', '597055555532');
 define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
 define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
 
+// Detect callback BEFORE setting CORS/JSON headers.
+// The callback is a browser redirect flow (not an API call), so it must NOT
+// have Content-Type: application/json set — otherwise the redirect header
+// can be silently dropped by LiteSpeed/Apache and a 500 is returned.
+if (isset($_POST['token_ws']) || isset($_GET['token_ws']) || isset($_POST['TBK_TOKEN'])) {
+    handleCallback();
+    exit();
+}
+
+setCorsHeaders();
+
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
-
-// Handle WebPay callback (when user returns from payment)
-if (isset($_POST['token_ws']) || isset($_GET['token_ws'])) {
-    $action = 'callback';
-}
 
 // Get JSON input for API calls
 $input = json_decode(file_get_contents('php://input'), true);
@@ -126,8 +130,8 @@ function createTransaction($data) {
                 'country' => $data['country'] ?? 'Chile',
                 'boat_links' => $data['boat_links'] ?? []
             ]);
-        } catch (Exception $e) {
-            logWebpay('NOTIF_ERROR', ['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            logWebpay('NOTIF_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
         }
     }
     
@@ -170,6 +174,10 @@ function createTransaction($data) {
  * Handle WebPay callback when user returns from payment
  */
 function handleCallback() {
+    // Start output buffering to prevent any accidental output from
+    // breaking the header() redirect (emails, order creation, etc.)
+    ob_start();
+    
     $token = $_POST['token_ws'] ?? $_GET['token_ws'] ?? null;
     $tbkToken = $_POST['TBK_TOKEN'] ?? $_GET['TBK_TOKEN'] ?? null;
     
@@ -178,11 +186,17 @@ function handleCallback() {
     
     // If TBK_TOKEN is present, user cancelled the transaction
     if ($tbkToken) {
+        if (ob_get_level()) ob_end_clean();
+        header_remove('Content-Type');
+        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
         exit();
     }
     
     if (!$token) {
+        if (ob_get_level()) ob_end_clean();
+        header_remove('Content-Type');
+        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
         exit();
     }
@@ -208,6 +222,9 @@ function handleCallback() {
     logWebpay('COMMIT_RESULT', ['http_code' => $httpCode, 'result' => $result]);
     
     if ($httpCode !== 200) {
+        if (ob_get_level()) ob_end_clean();
+        header_remove('Content-Type');
+        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
         exit();
     }
@@ -222,8 +239,16 @@ function handleCallback() {
         // Save purchase to purchases.json with full information
         savePurchaseFromWebpay($result, $buyOrder);
         
+        // Discard any output that may have been generated during processing
+        if (ob_get_level()) ob_end_clean();
+        // Clear any previously set headers and redirect
+        header_remove('Content-Type');
+        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
+        if (ob_get_level()) ob_end_clean();
+        header_remove('Content-Type');
+        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
@@ -354,8 +379,8 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
                     createOrderFromQuotation($purchase, $storedLinks);
                 }
             }
-        } catch (Exception $e) {
-            logWebpay('ORDER_CREATE_ERROR', ['error' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            logWebpay('ORDER_CREATE_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
         }
     }
     
@@ -452,8 +477,8 @@ function sendPurchaseConfirmationEmail($purchase) {
         }
         
         logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
-    } catch (Exception $e) {
-        logWebpay('EMAIL_ERROR', ['error' => $e->getMessage()]);
+    } catch (\Throwable $e) {
+        logWebpay('EMAIL_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
     }
 }
 
