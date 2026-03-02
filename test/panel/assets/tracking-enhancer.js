@@ -317,18 +317,43 @@
     }
 
     html += '<div style="margin-top:16px;text-align:center">' +
-      '<button id="btn-refresh-tracking" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .2s">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizar</button></div>';
+      '<button id="btn-refresh-tracking" style="padding:12px 24px;border-radius:10px;border:1px solid #3b82f6;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 2px 8px rgba(59,130,246,.25)">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizar Posici\u00f3n</button></div>';
 
     detail.innerHTML = html;
 
     var refreshBtn = document.getElementById("btn-refresh-tracking");
     if (refreshBtn) {
+      refreshBtn.addEventListener("mouseenter", function () {
+        this.style.transform = "translateY(-1px)";
+        this.style.boxShadow = "0 4px 12px rgba(59,130,246,.35)";
+      });
+      refreshBtn.addEventListener("mouseleave", function () {
+        this.style.transform = "";
+        this.style.boxShadow = "0 2px 8px rgba(59,130,246,.25)";
+      });
       refreshBtn.addEventListener("click", async function () {
         var btn = this;
+        var detailPanel = document.getElementById("tracking-vessel-detail");
         btn.disabled = true;
-        btn.style.opacity = "0.6";
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizando...';
+
+        // Show overlay on entire detail panel
+        var overlay = document.createElement("div");
+        overlay.id = "tracking-refresh-overlay";
+        overlay.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;border-radius:14px;backdrop-filter:blur(2px)";
+        overlay.innerHTML = '<div style="width:48px;height:48px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px"></div>' +
+          '<div style="font-size:15px;font-weight:600;color:#1e40af;margin-bottom:4px">Actualizando posici\u00f3n...</div>' +
+          '<div style="font-size:12px;color:#64748b">Consultando proveedores AIS</div>';
+        if (detailPanel) {
+          detailPanel.style.position = "relative";
+          detailPanel.appendChild(overlay);
+        }
+
+        // Animate button
+        btn.style.background = "linear-gradient(135deg,#64748b,#475569)";
+        btn.style.borderColor = "#64748b";
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 0.8s linear infinite"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizando...';
+
         try {
           // Force refresh position from AIS providers (bypasses 10-min cache)
           if (selectedVesselId) {
@@ -339,11 +364,51 @@
           if (selectedVesselId) {
             await loadVesselDetail(selectedVesselId);
           }
+          // Show success toast
+          showTrackingToast("Posici\u00f3n actualizada correctamente", "success");
         } catch (e) {
           console.error("Error refreshing:", e);
+          showTrackingToast("Error al actualizar posici\u00f3n", "error");
+          // Remove overlay on error
+          var ol = document.getElementById("tracking-refresh-overlay");
+          if (ol) ol.remove();
+          // Restore button state so user can retry
+          btn.disabled = false;
+          btn.style.background = "linear-gradient(135deg,#3b82f6,#2563eb)";
+          btn.style.borderColor = "#3b82f6";
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizar Posici\u00f3n';
         }
       });
     }
+  }
+
+  function showTrackingToast(message, type) {
+    // Remove existing toast
+    var existing = document.getElementById("tracking-toast");
+    if (existing) existing.remove();
+
+    var isSuccess = type === "success";
+    var toast = document.createElement("div");
+    toast.id = "tracking-toast";
+    toast.style.cssText = "position:fixed;top:24px;right:24px;z-index:10000;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);transform:translateX(120%);transition:transform .4s cubic-bezier(.4,0,.2,1);" +
+      (isSuccess ? "background:linear-gradient(135deg,#059669,#10b981);color:#fff" : "background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff");
+    toast.innerHTML = (isSuccess
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>')
+      + '<span>' + message + '</span>';
+
+    document.body.appendChild(toast);
+    // Trigger animation
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        toast.style.transform = "translateX(0)";
+      });
+    });
+    // Auto-remove after 3.5s
+    setTimeout(function () {
+      toast.style.transform = "translateX(120%)";
+      setTimeout(function () { toast.remove(); }, 400);
+    }, 3500);
   }
 
   function renderTrackingUI() {
