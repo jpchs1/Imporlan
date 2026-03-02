@@ -229,24 +229,36 @@ function handleCallback() {
     
     // Check if transaction was approved
     $approved = isset($result['response_code']) && $result['response_code'] === 0;
+    $buyOrder = $result['buy_order'] ?? null;
+    
+    // IMPORTANT: Send the redirect to the browser FIRST, before any heavy
+    // processing (purchase saving, emails, order creation, chat messages).
+    // LiteSpeed drops the response with HTTP 500 if PHP takes too long
+    // before sending headers. litespeed_finish_request() flushes the
+    // response to the client and lets PHP continue in the background.
+    if (ob_get_level()) ob_end_clean();
+    header_remove('Content-Type');
+    http_response_code(302);
     
     if ($approved) {
-        // Get the buy_order to retrieve purchase info
-        $buyOrder = $result['buy_order'] ?? null;
-        
-        // Save purchase to purchases.json with full information
-        savePurchaseFromWebpay($result, $buyOrder);
-        
-        // Discard any output that may have been generated during processing
-        if (ob_get_level()) ob_end_clean();
-        header_remove('Content-Type');
-        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
-        if (ob_get_level()) ob_end_clean();
-        header_remove('Content-Type');
-        http_response_code(302);
         header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+    }
+    
+    // Flush the response to the browser immediately so the user sees
+    // the redirect. Processing continues in the background.
+    if (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    } elseif (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    
+    // Now do the heavy processing (save purchase, emails, order creation)
+    // after the user has already been redirected.
+    if ($approved) {
+        ignore_user_abort(true);
+        savePurchaseFromWebpay($result, $buyOrder);
     }
     exit();
 }
