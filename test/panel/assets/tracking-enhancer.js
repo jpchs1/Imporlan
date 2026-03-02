@@ -372,6 +372,11 @@
           // Remove overlay on error
           var ol = document.getElementById("tracking-refresh-overlay");
           if (ol) ol.remove();
+          // Restore button state so user can retry
+          btn.disabled = false;
+          btn.style.background = "linear-gradient(135deg,#3b82f6,#2563eb)";
+          btn.style.borderColor = "#3b82f6";
+          btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>Actualizar Posici\u00f3n';
         }
       });
     }
