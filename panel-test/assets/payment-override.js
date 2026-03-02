@@ -156,38 +156,6 @@
     return { amount: amount, description: description };
   }
 
-  function replaceWebPayLabelWithTarjeta(modal) {
-    try {
-      var els = modal.querySelectorAll('h3, span, div, p, label');
-      for (var i = 0; i < els.length; i++) {
-        var el = els[i];
-        var t = (el.textContent || '').trim();
-        if (!t) continue;
-
-        if (t === 'WebPay') {
-          el.textContent = 'Tarjeta';
-        } else if (t.indexOf('WebPay') !== -1 && t.length <= 40) {
-          // E.g. "WebPay (Transbank)" -> "Tarjeta (Transbank)"
-          el.textContent = t.replace('WebPay', 'Tarjeta');
-        }
-      }
-    } catch (e) {}
-  }
-
-  function ensureTarjetaLabel() {
-    var modal = document.querySelector('[role="dialog"]');
-    if (!modal) return;
-    replaceWebPayLabelWithTarjeta(modal);
-  }
-
-  try {
-    var _tarjetaObs = new MutationObserver(function () {
-      ensureTarjetaLabel();
-    });
-    _tarjetaObs.observe(document.body, { childList: true, subtree: true });
-    setTimeout(ensureTarjetaLabel, 800);
-  } catch (e) {}
-
   document.addEventListener('click', function(e) {
     var btn = e.target && (e.target.closest ? e.target.closest('button') : null);
     if (!btn) return;
