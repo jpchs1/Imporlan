@@ -49,15 +49,15 @@
     if (!main) return;
     var realName = getUserName();
     if (!realName) return;
-    var h1s = main.querySelectorAll("h1");
-    for (var i = 0; i < h1s.length; i++) {
-      var txt = h1s[i].textContent || "";
+    var els = main.querySelectorAll("h1, h2, h3, p, span");
+    for (var i = 0; i < els.length; i++) {
+      var txt = els[i].textContent || "";
       if (txt.indexOf("Bienvenido") !== -1) {
         var parts = txt.split(",");
         if (parts.length >= 2) {
-          h1s[i].textContent = parts[0].trim() + ", " + realName;
+          els[i].textContent = parts[0].trim() + ", " + realName;
         } else {
-          h1s[i].textContent = "Bienvenido de vuelta, " + realName;
+          els[i].textContent = "Bienvenido de vuelta, " + realName;
         }
       }
     }
