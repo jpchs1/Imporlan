@@ -143,6 +143,7 @@ if (!function_exists('handlePaymentRequestPaid')) {
                 }
                 $message .= "\nPuedes pagar desde la seccion 'Pagos Pendientes' de tu panel usando:\n" .
                     "- Tarjeta de Credito/Debito\n" .
+                    "- WebPay\n" .
                     "- MercadoPago\n" .
                     "- PayPal\n\n" .
                     "Ingresa a tu panel para ver los detalles.";
