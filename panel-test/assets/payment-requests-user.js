@@ -371,10 +371,16 @@
       '<div style="padding:20px 28px">' +
       '<div style="display:grid;gap:12px">' +
 
-      // WebPay
-      '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'webpay\')" style="padding:16px 20px;border:2px solid #fecaca;background:#fef2f2;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#f87171\';this.style.boxShadow=\'0 4px 12px rgba(239,68,68,0.15)\'" onmouseout="this.style.borderColor=\'#fecaca\';this.style.boxShadow=\'none\'">' +
-      '<div style="width:48px;height:36px;background:#E31837;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-weight:700;font-size:11px">WebPay</span></div>' +
-      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">WebPay (Transbank)</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">Tarjeta credito o debito chilena</p></div></div>' +
+      // Tarjeta de Crédito/Débito (via WebPay)
+      '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'webpay\')" style="padding:16px 20px;border:2px solid #c7d2fe;background:#eef2ff;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#818cf8\';this.style.boxShadow=\'0 4px 12px rgba(129,140,248,0.15)\'" onmouseout="this.style.borderColor=\'#c7d2fe\';this.style.boxShadow=\'none\'">' +
+      '<div style="width:48px;height:36px;background:linear-gradient(135deg,#4f46e5,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
+      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">Tarjeta de Credito / Debito</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">Pago con tarjeta via WebPay (Transbank)</p>' +
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">VISA</span>' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">MASTERCARD</span>' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">AMEX</span>' +
+      '</div>' +
+      '</div></div>' +
 
       // MercadoPago
       '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'mercadopago\')" style="padding:16px 20px;border:2px solid #bae6fd;background:#f0f9ff;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#38bdf8\';this.style.boxShadow=\'0 4px 12px rgba(56,189,248,0.15)\'" onmouseout="this.style.borderColor=\'#bae6fd\';this.style.boxShadow=\'none\'">' +

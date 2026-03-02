@@ -100,13 +100,16 @@
     for (var i = 0; i < texts.length; i++) {
       var el = texts[i];
       var text = (el.textContent || '').trim();
-      if (text === 'WebPay') {
-        var container = el.closest('[class*="border-red"], [class*="bg-red"], [class*="ring-red"]');
+      if (text === 'WebPay' || text === 'Tarjeta') {
+        var container = el.closest('[class*="border-red"], [class*="bg-red"], [class*="ring-red"], [class*="border-indigo"], [class*="bg-indigo"], [class*="ring-indigo"]');
         if (container) return true;
         var parent = el.parentElement;
         while (parent && parent !== modal) {
           var cls = parent.className || '';
-          if (typeof cls === 'string' && (cls.indexOf('border-red') !== -1 || cls.indexOf('bg-red') !== -1 || cls.indexOf('ring') !== -1)) {
+          if (typeof cls === 'string' && (
+            cls.indexOf('border-red') !== -1 || cls.indexOf('bg-red') !== -1 || cls.indexOf('ring') !== -1 ||
+            cls.indexOf('border-indigo') !== -1 || cls.indexOf('bg-indigo') !== -1
+          )) {
             return true;
           }
           parent = parent.parentElement;
@@ -117,16 +120,20 @@
     for (var j = 0; j < checked.length; j++) {
       var radio = checked[j];
       var radioParent = radio.closest('[role="dialog"] > div, [role="dialog"] div');
-      if (radioParent && (radioParent.textContent || '').indexOf('WebPay') !== -1) {
-        return true;
+      if (radioParent) {
+        var txt = radioParent.textContent || '';
+        if (txt.indexOf('WebPay') !== -1 || txt.indexOf('Tarjeta') !== -1) {
+          return true;
+        }
       }
     }
     var allOptions = modal.querySelectorAll('[class*="cursor-pointer"], [role="option"], [role="radio"]');
     for (var k = 0; k < allOptions.length; k++) {
       var opt = allOptions[k];
-      if ((opt.textContent || '').indexOf('WebPay') !== -1) {
+      var optText = opt.textContent || '';
+      if (optText.indexOf('WebPay') !== -1 || optText.indexOf('Tarjeta') !== -1) {
         var cls2 = opt.className || '';
-        if (typeof cls2 === 'string' && (cls2.indexOf('border-red') !== -1 || cls2.indexOf('selected') !== -1 || cls2.indexOf('ring') !== -1)) {
+        if (typeof cls2 === 'string' && (cls2.indexOf('border-red') !== -1 || cls2.indexOf('selected') !== -1 || cls2.indexOf('ring') !== -1 || cls2.indexOf('border-indigo') !== -1)) {
           return true;
         }
       }
@@ -144,10 +151,42 @@
     var rawAmount = amountMatch[1].replace(/[^0-9]/g, '');
     var amount = parseInt(rawAmount, 10);
     if (isNaN(amount) || amount <= 0) return null;
-    var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Selecciona|Cancelar|Pagar))/i);
+    var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Tarjeta|Selecciona|Cancelar|Pagar))/i);
     var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
     return { amount: amount, description: description };
   }
+
+  function replaceWebPayLabelWithTarjeta(modal) {
+    try {
+      var els = modal.querySelectorAll('h3, span, div, p, label');
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        var t = (el.textContent || '').trim();
+        if (!t) continue;
+
+        if (t === 'WebPay') {
+          el.textContent = 'Tarjeta';
+        } else if (t.indexOf('WebPay') !== -1 && t.length <= 40) {
+          // E.g. "WebPay (Transbank)" -> "Tarjeta (Transbank)"
+          el.textContent = t.replace('WebPay', 'Tarjeta');
+        }
+      }
+    } catch (e) {}
+  }
+
+  function ensureTarjetaLabel() {
+    var modal = document.querySelector('[role="dialog"]');
+    if (!modal) return;
+    replaceWebPayLabelWithTarjeta(modal);
+  }
+
+  try {
+    var _tarjetaObs = new MutationObserver(function () {
+      ensureTarjetaLabel();
+    });
+    _tarjetaObs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(ensureTarjetaLabel, 800);
+  } catch (e) {}
 
   document.addEventListener('click', function(e) {
     var btn = e.target && (e.target.closest ? e.target.closest('button') : null);
