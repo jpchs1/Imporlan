@@ -13,7 +13,8 @@
           if (msgLower.indexOf('configurar la api') !== -1 ||
               msgLower.indexOf('requiere configuracion') !== -1 ||
               msgLower.indexOf('esta es una demo') !== -1) {
-            console.log('Payment override: Blocked demo alert');
+            console.log('Payment override: Blocked demo alert, showing Proximamente');
+            originalAlert.call(window, 'WebPay (Transbank) estar\u00e1 disponible pr\u00f3ximamente. Por favor seleccione MercadoPago o PayPal como m\u00e9todo de pago alternativo.');
             return;
           }
           return originalAlert.call(window, message);
@@ -39,7 +40,7 @@
     <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
-    <script src="/panel/assets/payment-override.js?v=13"></script>
+    <script src="/panel/assets/payment-override.js?v=14"></script>
     <script type="module" crossorigin src="/panel/assets/index-CnCPfROY.js"></script>
     <link rel="stylesheet" crossorigin href="/panel/assets/index-DasYcwDL.css">
     <!-- Chat Widget -->
