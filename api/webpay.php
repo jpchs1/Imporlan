@@ -15,11 +15,10 @@ require_once 'config.php';
 require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/db_config.php';
 
-// WebPay Plus Integration/Test Credentials
-// TODO: Replace with production credentials when available from Transbank
+// WebPay Plus Production Credentials
 define('WEBPAY_COMMERCE_CODE', '597055555532');
 define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
-define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
+define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl');
 
 // Detect callback BEFORE setting CORS/JSON headers.
 // The callback is a browser redirect flow (not an API call), so it must NOT
