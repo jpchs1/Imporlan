@@ -1312,6 +1312,48 @@
         init();
     }
 
+    // Open chat modal targeting a specific user by email
+    async function openChatWithUser(userEmail, userName) {
+        // Ensure modal is created and open
+        if (!chatModal) {
+            createChatModal();
+        }
+        chatModal.style.display = 'flex';
+        isModalOpen = true;
+
+        // Center the modal
+        requestAnimationFrame(() => {
+            const modalContent = chatModal.querySelector('#chat-modal-content');
+            if (modalContent) {
+                const width = modalContent.offsetWidth || 900;
+                const height = modalContent.offsetHeight || 600;
+                modalContent.style.left = `${Math.max(0, (window.innerWidth - width) / 2)}px`;
+                modalContent.style.top = `${Math.max(0, (window.innerHeight - height) / 2)}px`;
+            }
+        });
+
+        try {
+            // Use the admin_start_conversation endpoint to find or create a conversation
+            const result = await apiCall('admin_start_conversation', 'POST', {
+                user_email: userEmail,
+                user_name: userName || ''
+            });
+
+            if (result.success && result.conversation_id) {
+                // Fetch conversations to populate the list
+                await fetchConversations();
+                // Select the conversation
+                await selectConversationInModal(result.conversation_id);
+            }
+        } catch (e) {
+            console.error('Error opening chat with user:', e);
+            // Still fetch conversations even if start fails
+            fetchConversations();
+        }
+
+        startPolling();
+    }
+
     // Export for external access
     window.ImporlanAdminChat = {
         init,
@@ -1319,6 +1361,7 @@
         fetchUnreadCount,
         closeModal: closeChatModal,
         selectConv: selectConversationInModal,
-        sendMsg: sendMessageFromModal
+        sendMsg: sendMessageFromModal,
+        openChatWithUser: openChatWithUser
     };
 })();

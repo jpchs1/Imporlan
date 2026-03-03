@@ -100,6 +100,10 @@ switch ($action) {
         $admin = requireAdminAuth();
         getAdminUserDetails($admin);
         break;
+    case 'admin_start_conversation':
+        $admin = requireAdminAuth();
+        adminStartConversation($admin);
+        break;
     
     // Polling endpoint for real-time updates
     case 'poll':
@@ -748,6 +752,89 @@ function getAdminUserDetails($admin) {
         'total_purchases' => count($purchases),
         'conversation_stats' => $conversationStats
     ]);
+}
+
+// Admin starts a conversation with a user
+function adminStartConversation($admin) {
+    $pdo = getDbConnection();
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    $userEmail = trim($input['user_email'] ?? '');
+    $userName = trim($input['user_name'] ?? '');
+    $initialMessage = sanitizeMessage($input['message'] ?? '');
+    
+    if (empty($userEmail)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta email del usuario']);
+        return;
+    }
+    
+    // Check if there is already an open conversation with this user
+    $stmt = $pdo->prepare("
+        SELECT id FROM chat_conversations 
+        WHERE user_email = ? AND status = 'open' 
+        ORDER BY updated_at DESC LIMIT 1
+    ");
+    $stmt->execute([$userEmail]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($existing) {
+        // If there's an existing open conversation, return it
+        // Optionally send the initial message if provided
+        if (!empty($initialMessage)) {
+            $adminName = $admin['role'] === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan';
+            $stmt = $pdo->prepare("
+                INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$existing['id'], $admin['sub'], $admin['role'], $adminName, $admin['email'], $initialMessage]);
+            
+            $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$existing['id']]);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'conversation_id' => (int)$existing['id'],
+            'existing' => true
+        ]);
+        return;
+    }
+    
+    // Create a new conversation
+    try {
+        $pdo->beginTransaction();
+        
+        $adminName = $admin['role'] === 'admin' ? 'Administrador Imporlan' : 'Soporte Imporlan';
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO chat_conversations (user_id, user_email, user_name, assigned_to_id, assigned_to_role, assigned_to_name, status)
+            VALUES (0, ?, ?, ?, ?, ?, 'open')
+        ");
+        $stmt->execute([$userEmail, $userName ?: explode('@', $userEmail)[0], $admin['sub'], $admin['role'], $adminName]);
+        $conversationId = $pdo->lastInsertId();
+        
+        // Add initial admin message if provided
+        if (!empty($initialMessage)) {
+            $stmt = $pdo->prepare("
+                INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$conversationId, $admin['sub'], $admin['role'], $adminName, $admin['email'], $initialMessage]);
+        }
+        
+        $pdo->commit();
+        
+        echo json_encode([
+            'success' => true,
+            'conversation_id' => (int)$conversationId,
+            'existing' => false
+        ]);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al crear conversacion: ' . $e->getMessage()]);
+    }
 }
 
 // Polling endpoint
