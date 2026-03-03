@@ -150,8 +150,8 @@ function createOrder() {
         mkdir($pendingDir, 0755, true);
     }
     $pendingInfo = [
-        'user_email' => $payerEmail,
-        'payer_name' => $payerName,
+        'user_email' => $input['payer_email'] ?? '',
+        'payer_name' => $input['payer_name'] ?? '',
         'payer_phone' => $input['payer_phone'] ?? '',
         'plan_name' => $planName,
         'description' => $description,
