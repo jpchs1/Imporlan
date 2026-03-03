@@ -183,12 +183,11 @@
       return;
     }
 
-    console.log('WebPay: Intercepted click - WebPay temporarily disabled (Próximamente)');
+    console.log('WebPay: Intercepted click, processing real WebPay payment');
     e.stopImmediatePropagation();
     e.preventDefault();
 
-    // WebPay is temporarily disabled until production Transbank credentials are configured
-    originalAlert('WebPay (Transbank) estará disponible próximamente. Por favor seleccione MercadoPago o PayPal como método de pago alternativo.');
+    processRealWebPay(paymentData.amount, paymentData.description);
   }, true);
 
   window.alert = function(message) {
@@ -199,8 +198,7 @@
 
     if (msgLower.indexOf('configurar la api') !== -1 || msgLower.indexOf('requiere configuracion') !== -1 ||
         msgLower.indexOf('esta es una demo') !== -1 || msgLower.indexOf('en produccion se integrara') !== -1) {
-      console.log('WebPay: Blocked demo alert, showing Próximamente instead');
-      originalAlert.call(window, 'WebPay (Transbank) estará disponible próximamente. Por favor seleccione MercadoPago o PayPal como método de pago alternativo.');
+      console.log('WebPay: Blocked demo alert (test credentials active)');
       return;
     }
 
