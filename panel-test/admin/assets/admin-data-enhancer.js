@@ -82,10 +82,12 @@
     var avatarBg = u.source === "real" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#0891b2,#06b6d4)";
     var purchasesInfo = (u.total_purchases || 0) > 0 ? '<span style="font-weight:600;color:#1e293b">' + u.total_purchases + '</span><span style="color:#94a3b8;font-size:11px;display:block">$' + Number(u.total_spent || 0).toLocaleString() + ' CLP</span>' : '<span style="color:#cbd5e1;font-size:12px">-</span>';
     var isReal = u.source === "real";
+    var chatBtn = '<button class="enhancer-chat-user" data-email="' + esc(u.email) + '" data-name="' + esc(u.name) + '" style="padding:6px 12px;border-radius:8px;border:1px solid #8b5cf6;background:transparent;color:#8b5cf6;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Chat</button>';
     var actions = isReal
-      ? '<span style="color:#94a3b8;font-size:11px;font-style:italic">Cliente</span>'
+      ? '<div style="display:flex;gap:6px">' + chatBtn + '</div>'
       : '<div style="display:flex;gap:6px">' +
         '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+        chatBtn +
         '<button class="enhancer-delete-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>' +
         '</div>';
     return '<tr style="border-bottom:1px solid #f1f5f9" data-user-id="' + u.id + '">' +
@@ -216,6 +218,17 @@
         var id = parseInt(this.getAttribute("data-id"));
         var user = usersCache ? usersCache.find(function(u) { return u.id == id; }) : null;
         if (user) openUserModal(user, container);
+      };
+    });
+    container.querySelectorAll(".enhancer-chat-user").forEach(function(btn) {
+      btn.onclick = function() {
+        var email = this.getAttribute("data-email");
+        var name = this.getAttribute("data-name");
+        if (window.ImporlanAdminChat && window.ImporlanAdminChat.openChatWithUser) {
+          window.ImporlanAdminChat.openChatWithUser(email, name);
+        } else {
+          alert("El widget de chat no esta disponible. Recarga la pagina e intenta de nuevo.");
+        }
       };
     });
     container.querySelectorAll(".enhancer-delete-user").forEach(function(btn) {
