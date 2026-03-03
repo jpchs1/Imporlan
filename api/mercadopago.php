@@ -142,6 +142,23 @@ function createPreference() {
     
     $preference = json_decode($response, true);
     
+    // Store purchase info (including boat_links) for retrieval during webhook
+    $pendingDir = __DIR__ . '/mp_pending';
+    if (!is_dir($pendingDir)) {
+        mkdir($pendingDir, 0755, true);
+    }
+    $pendingInfo = [
+        'user_email' => $payerEmail,
+        'payer_name' => $payerName,
+        'payer_phone' => $input['payer_phone'] ?? '',
+        'plan_name' => $planName,
+        'description' => $description,
+        'boat_links' => $input['boat_links'] ?? [],
+        'payment_request_id' => $paymentRequestId
+    ];
+    $extRef = $preferenceData['external_reference'] ?? '';
+    file_put_contents($pendingDir . '/' . md5($extRef) . '.json', json_encode($pendingInfo));
+    
     echo json_encode([
         'success' => true,
         'preference_id' => $preference['id'],
@@ -261,6 +278,15 @@ function handleWebhook() {
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
                 createPaymentNotificationMessage($purchase, $payment);
 
+                // Retrieve stored boat_links from pending file
+                $pendingBoatLinks = [];
+                $pendingFile = __DIR__ . '/mp_pending/' . md5($externalRef) . '.json';
+                if (file_exists($pendingFile)) {
+                    $pendingInfo = json_decode(file_get_contents($pendingFile), true);
+                    $pendingBoatLinks = $pendingInfo['boat_links'] ?? [];
+                    unlink($pendingFile);
+                }
+                
                 try {
                     $dbConfig = __DIR__ . '/db_config.php';
                     if (file_exists($dbConfig)) {
@@ -276,6 +302,10 @@ function handleWebhook() {
                             require_once __DIR__ . '/email_service.php';
                             $emailService = new EmailService();
                             $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                            // Fallback: use boat_links from pending payment info
+                            if (empty($storedLinks) && !empty($pendingBoatLinks)) {
+                                $storedLinks = $pendingBoatLinks;
+                            }
                             createOrderFromQuotation($purchase, $storedLinks);
                         }
                     }

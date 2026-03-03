@@ -143,6 +143,26 @@ function createOrder() {
     }
     
     $order = json_decode($response, true);
+    
+    // Store purchase info (including boat_links) for retrieval during capture
+    $pendingDir = __DIR__ . '/paypal_pending';
+    if (!is_dir($pendingDir)) {
+        mkdir($pendingDir, 0755, true);
+    }
+    $pendingInfo = [
+        'user_email' => $input['payer_email'] ?? '',
+        'payer_name' => $input['payer_name'] ?? '',
+        'payer_phone' => $input['payer_phone'] ?? '',
+        'plan_name' => $planName,
+        'description' => $description,
+        'type' => $input['type'] ?? 'link',
+        'days' => $input['days'] ?? 7,
+        'amount' => $amount,
+        'boat_links' => $input['boat_links'] ?? [],
+        'payment_request_id' => $input['payment_request_id'] ?? null
+    ];
+    file_put_contents($pendingDir . '/' . $order['id'] . '.json', json_encode($pendingInfo));
+    
     echo json_encode([
         'success' => true,
         'order_id' => $order['id'],
@@ -267,6 +287,19 @@ function captureOrder() {
         sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
         createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
         
+        // Retrieve stored boat_links from pending file
+        $pendingBoatLinks = [];
+        $pendingFile = __DIR__ . '/paypal_pending/' . $orderId . '.json';
+        if (file_exists($pendingFile)) {
+            $pendingInfo = json_decode(file_get_contents($pendingFile), true);
+            $pendingBoatLinks = $pendingInfo['boat_links'] ?? [];
+            // Use payer_name from pending info if available
+            if (!empty($pendingInfo['payer_name'])) {
+                $purchaseRecord['customer_name'] = $pendingInfo['payer_name'];
+            }
+            unlink($pendingFile);
+        }
+        
         // Create expedition order automatically
         try {
             require_once __DIR__ . '/orders_api.php';
@@ -276,6 +309,10 @@ function captureOrder() {
                 require_once __DIR__ . '/email_service.php';
                 $emailService = new EmailService();
                 $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                // Fallback: use boat_links from pending payment info
+                if (empty($storedLinks) && !empty($pendingBoatLinks)) {
+                    $storedLinks = $pendingBoatLinks;
+                }
                 createOrderFromQuotation($purchaseRecord, $storedLinks);
             }
         } catch (Exception $e) {
