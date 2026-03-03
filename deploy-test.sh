@@ -44,7 +44,8 @@ if [ ! -d "$STAGING_REPO/panel-test" ]; then
   exit 1
 fi
 
-rsync -a "$STAGING_REPO/panel-test/" "$PUBLIC_HTML/panel-test/"
+\cp -a "$STAGING_REPO/panel-test/"* "$PUBLIC_HTML/panel-test/" 2>/dev/null || true
+\cp -a "$STAGING_REPO/panel-test/".* "$PUBLIC_HTML/panel-test/" 2>/dev/null || true
 echo "  -> Panel Test deployed (overlay, server-only files preserved)."
 
 echo ""
@@ -63,7 +64,8 @@ if [ ! -d "$STAGING_REPO/test" ]; then
   exit 1
 fi
 
-rsync -a "$STAGING_REPO/test/" "$PUBLIC_HTML/test/"
+\cp -a "$STAGING_REPO/test/"* "$PUBLIC_HTML/test/" 2>/dev/null || true
+\cp -a "$STAGING_REPO/test/".* "$PUBLIC_HTML/test/" 2>/dev/null || true
 echo "  -> Web Test deployed (overlay, server-only files preserved)."
 
 echo ""
