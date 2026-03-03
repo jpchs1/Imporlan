@@ -10,9 +10,7 @@
               msgLower.indexOf('error al conectar') !== -1) {
             return originalAlert.call(window, message);
           }
-          if (msgLower.indexOf('proximamente') !== -1 || 
-              msgLower.indexOf('próximamente') !== -1 ||
-              msgLower.indexOf('configurar la api') !== -1 ||
+          if (msgLower.indexOf('configurar la api') !== -1 ||
               msgLower.indexOf('requiere configuracion') !== -1 ||
               msgLower.indexOf('esta es una demo') !== -1) {
             console.log('Payment override: Blocked demo alert');
@@ -41,7 +39,7 @@
     <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
-    <script src="/panel/assets/payment-override.js?v=12"></script>
+    <script src="/panel/assets/payment-override.js?v=13"></script>
     <script type="module" crossorigin src="/panel/assets/index-CnCPfROY.js"></script>
     <link rel="stylesheet" crossorigin href="/panel/assets/index-DasYcwDL.css">
     <!-- Chat Widget -->
@@ -68,7 +66,7 @@
     <!-- Registration Sync -->
     <script src="/panel/assets/registration-sync.js?v=1"></script>
     <!-- Payment Requests User - Solicitudes de Pago -->
-    <script src="/panel/assets/payment-requests-user.js?v=1" defer></script>
+    <script src="/panel/assets/payment-requests-user.js?v=2" defer></script>
     <!-- Tracking Enhancer - Seguimiento En Vivo -->
     <script src="/panel/assets/tracking-enhancer.js?v=9" defer></script>
   </body>

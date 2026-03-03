@@ -371,21 +371,25 @@
       '<div style="padding:20px 28px">' +
       '<div style="display:grid;gap:12px">' +
 
-      // Tarjeta de Crédito/Débito (via WebPay)
-      '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'webpay\')" style="padding:16px 20px;border:2px solid #c7d2fe;background:#eef2ff;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#818cf8\';this.style.boxShadow=\'0 4px 12px rgba(129,140,248,0.15)\'" onmouseout="this.style.borderColor=\'#c7d2fe\';this.style.boxShadow=\'none\'">' +
-      '<div style="width:48px;height:36px;background:linear-gradient(135deg,#4f46e5,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
-      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">Tarjeta de Credito / Debito</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">Pago con tarjeta via WebPay (Transbank)</p>' +
+      // Tarjeta de Crédito/Débito (via WebPay) - DISABLED: Próximamente
+      '<div style="padding:16px 20px;border:2px solid #e2e8f0;background:#f8fafc;border-radius:14px;cursor:not-allowed;opacity:0.65;display:flex;align-items:center;gap:14px;position:relative">' +
+      '<div style="width:48px;height:36px;background:linear-gradient(135deg,#94a3b8,#cbd5e1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
+      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#64748b">Tarjeta de Credito / Debito</h4><p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Pago con tarjeta via WebPay (Transbank)</p>' +
       '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
-      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">VISA</span>' +
-      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">MASTERCARD</span>' +
-      '<span style="font-size:10px;padding:2px 6px;border:1px solid #c7d2fe;border-radius:9999px;color:#3730a3">AMEX</span>' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:9999px;color:#94a3b8">VISA</span>' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:9999px;color:#94a3b8">MASTERCARD</span>' +
+      '<span style="font-size:10px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:9999px;color:#94a3b8">AMEX</span>' +
       '</div>' +
-      '</div></div>' +
+      '</div>' +
+      '<span style="position:absolute;top:8px;right:12px;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9999px">PROXIMAMENTE</span>' +
+      '</div>' +
 
-      // WebPay
-      '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'webpay\')" style="padding:16px 20px;border:2px solid #fecaca;background:#fef2f2;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#f87171\';this.style.boxShadow=\'0 4px 12px rgba(239,68,68,0.15)\'" onmouseout="this.style.borderColor=\'#fecaca\';this.style.boxShadow=\'none\'">' +
-      '<div style="width:48px;height:36px;background:#E31837;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-weight:700;font-size:11px">WebPay</span></div>' +
-      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">WebPay (Transbank)</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">OnePay y Tarjeta credito o debito</p></div></div>' +
+      // WebPay - DISABLED: Próximamente
+      '<div style="padding:16px 20px;border:2px solid #e2e8f0;background:#f8fafc;border-radius:14px;cursor:not-allowed;opacity:0.65;display:flex;align-items:center;gap:14px;position:relative">' +
+      '<div style="width:48px;height:36px;background:#94a3b8;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-weight:700;font-size:11px">WebPay</span></div>' +
+      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#64748b">WebPay (Transbank)</h4><p style="margin:2px 0 0;font-size:12px;color:#94a3b8">OnePay y Tarjeta credito o debito</p></div>' +
+      '<span style="position:absolute;top:8px;right:12px;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9999px">PROXIMAMENTE</span>' +
+      '</div>' +
 
       // MercadoPago
       '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'mercadopago\')" style="padding:16px 20px;border:2px solid #bae6fd;background:#f0f9ff;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#38bdf8\';this.style.boxShadow=\'0 4px 12px rgba(56,189,248,0.15)\'" onmouseout="this.style.borderColor=\'#bae6fd\';this.style.boxShadow=\'none\'">' +
@@ -418,7 +422,9 @@
     var userName = getUserName();
 
     if (method === "webpay") {
-      await processWebPayPayment(req, userEmail, userName, userInfo);
+      // WebPay temporarily disabled - show Próximamente message
+      alert("WebPay (Transbank) estará disponible próximamente. Por favor seleccione MercadoPago o PayPal como método de pago alternativo.");
+      return;
     } else if (method === "mercadopago") {
       await processMercadoPagoPayment(req, userEmail, userName, userInfo);
     } else if (method === "paypal") {

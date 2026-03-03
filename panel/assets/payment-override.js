@@ -183,11 +183,12 @@
       return;
     }
 
-    console.log('WebPay: Intercepted click, processing payment directly:', paymentData);
+    console.log('WebPay: Intercepted click - WebPay temporarily disabled (Próximamente)');
     e.stopImmediatePropagation();
     e.preventDefault();
 
-    processRealWebPay(paymentData.amount, paymentData.description);
+    // WebPay is temporarily disabled until production Transbank credentials are configured
+    originalAlert('WebPay (Transbank) estará disponible próximamente. Por favor seleccione MercadoPago o PayPal como método de pago alternativo.');
   }, true);
 
   window.alert = function(message) {
@@ -196,10 +197,7 @@
     }
     var msgLower = message.toLowerCase();
 
-    if (msgLower.indexOf('proximamente') !== -1 || msgLower.indexOf('pr\u00f3ximamente') !== -1 ||
-        msgLower.indexOf('configurar la api') !== -1 || msgLower.indexOf('requiere configuracion') !== -1 ||
-        (msgLower.indexOf('webpay') !== -1 && msgLower.indexOf('transbank') !== -1) ||
-        (msgLower.indexOf('webpay') !== -1 && msgLower.indexOf('disponible') !== -1)) {
+    if (msgLower.indexOf('configurar la api') !== -1 || msgLower.indexOf('requiere configuracion') !== -1) {
       console.log('WebPay: Blocked demo alert');
       return;
     }
