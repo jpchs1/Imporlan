@@ -359,13 +359,17 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
             if (file_exists($dbConfig)) {
                 // db_config.php already loaded at top of file, no need to re-require
                 require_once __DIR__ . '/../../api/orders_api.php';
-                $purchase['customer_name'] = explode('@', $userEmail)[0];
+                $purchase['customer_name'] = $purchaseInfo['payer_name'] ?? explode('@', $userEmail)[0];
                 if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
                 } else {
                     require_once __DIR__ . '/email_service.php';
                     $emailService = new EmailService();
                     $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+                    // Fallback: use boat_links from purchase info if quotation_requests.json has none
+                    if (empty($storedLinks) && !empty($purchaseInfo['boat_links'])) {
+                        $storedLinks = $purchaseInfo['boat_links'];
+                    }
                     createOrderFromQuotation($purchase, $storedLinks);
                 }
             }
