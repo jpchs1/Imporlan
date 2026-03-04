@@ -804,6 +804,14 @@ BASE64;
      * TEST MODE: When isTestEnvironment is true, all emails are redirected to testRecipient
      * The original recipient is logged but not used for actual delivery
      */
+    /**
+     * Public method to send a custom email with arbitrary HTML content.
+     * Used by the report generation system to send report notification emails.
+     */
+    public function sendCustomEmail($to, $subject, $htmlContent) {
+        return $this->sendEmail($to, $subject, $htmlContent, 'custom_report', ['type' => 'report_notification']);
+    }
+
     protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
