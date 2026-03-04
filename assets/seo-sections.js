@@ -583,14 +583,12 @@
       }
       
       /* FAQ accordion */
-      .lanchas-faq-item {
-        cursor: pointer;
-        user-select: none;
-      }
       .lanchas-faq-item h4 {
         display: flex;
         align-items: center;
         gap: 8px;
+        cursor: pointer;
+        user-select: none;
       }
       .lanchas-faq-item h4 .faq-toggle {
         margin-left: auto;
@@ -820,11 +818,14 @@
           });
         }
       });
-      // Attach FAQ accordion behavior
+      // Attach FAQ accordion behavior (on h4 only, not entire item)
       section.querySelectorAll('[data-faq]').forEach(function(item) {
-        item.addEventListener('click', function() {
-          item.classList.toggle('faq-expanded');
-        });
+        var faqHeading = item.querySelector('h4');
+        if (faqHeading) {
+          faqHeading.addEventListener('click', function() {
+            item.classList.toggle('faq-expanded');
+          });
+        }
       });
     }, 50);
 

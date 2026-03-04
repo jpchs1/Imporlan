@@ -225,12 +225,25 @@
         margin-top: 32px;
       }
       
-      /* Collapsible grid: hide cards beyond the initial visible count */
+      /* Collapsible grid: hide cards beyond the initial visible count
+         Using max-height/overflow instead of display:none for SEO safety */
       .seo-pages-grid .seo-page-card.seo-card-hidden {
-        display: none;
+        max-height: 0;
+        overflow: hidden;
+        padding: 0;
+        margin: 0;
+        border: none;
+        opacity: 0;
+        pointer-events: none;
       }
       .seo-pages-grid.seo-pages-expanded .seo-page-card.seo-card-hidden {
-        display: flex;
+        max-height: 500px;
+        overflow: visible;
+        padding: 28px 24px;
+        border: 1px solid #2d5a87;
+        opacity: 1;
+        pointer-events: auto;
+        transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease;
       }
       
       .seo-pages-toggle-btn {
