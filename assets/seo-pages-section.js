@@ -225,6 +225,45 @@
         margin-top: 32px;
       }
       
+      /* Collapsible grid: hide cards beyond the initial visible count */
+      .seo-pages-grid .seo-page-card.seo-card-hidden {
+        display: none;
+      }
+      .seo-pages-grid.seo-pages-expanded .seo-page-card.seo-card-hidden {
+        display: flex;
+      }
+      
+      .seo-pages-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin: 32px auto 0;
+        background: linear-gradient(135deg, #1e3a5f 0%, #152a45 100%);
+        border: 1px solid #2d5a87;
+        border-radius: 12px;
+        padding: 14px 32px;
+        color: #60a5fa;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      .seo-pages-toggle-btn:hover {
+        border-color: #3b82f6;
+        background: linear-gradient(135deg, #253f6a 0%, #1a3050 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+      }
+      .seo-pages-toggle-btn svg {
+        width: 18px;
+        height: 18px;
+        transition: transform 0.3s ease;
+      }
+      .seo-pages-toggle-btn.seo-btn-expanded svg {
+        transform: rotate(180deg);
+      }
+      
       @media (max-width: 768px) {
         .seo-pages-section {
           padding: 60px 16px;
@@ -266,25 +305,66 @@
     `;
   }
 
+  const INITIAL_VISIBLE_CARDS = 6;
+
   function createSection(pages) {
     const section = document.createElement('section');
     section.className = 'seo-pages-section';
     section.id = 'guias-recursos';
     
-    const cardsHtml = pages.map(createPageCard).join('');
+    const cardsHtml = pages.map(function(page, index) {
+      const cardHtml = createPageCard(page);
+      if (index >= INITIAL_VISIBLE_CARDS) {
+        return cardHtml.replace('class="seo-page-card"', 'class="seo-page-card seo-card-hidden"');
+      }
+      return cardHtml;
+    }).join('');
+    
+    const hiddenCount = Math.max(0, pages.length - INITIAL_VISIBLE_CARDS);
+    const toggleBtnHtml = hiddenCount > 0 ? `
+      <button class="seo-pages-toggle-btn" id="seo-pages-toggle" aria-expanded="false">
+        <span>Ver todas las guias (${pages.length})</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    ` : '';
     
     section.innerHTML = `
       <div class="seo-pages-container">
         <h2>Guias y Recursos</h2>
         <p class="section-subtitle">Todo lo que necesitas saber sobre embarcaciones, importacion y el mundo nautico en Chile</p>
         
-        <div class="seo-pages-grid">
+        <div class="seo-pages-grid" id="seo-pages-grid">
           ${cardsHtml}
         </div>
         
+        ${toggleBtnHtml}
         <p class="seo-pages-count">${pages.length} guias disponibles</p>
       </div>
     `;
+    
+    // Attach toggle behavior after inserting into DOM
+    setTimeout(function() {
+      const toggleBtn = document.getElementById('seo-pages-toggle');
+      const grid = document.getElementById('seo-pages-grid');
+      if (toggleBtn && grid) {
+        toggleBtn.addEventListener('click', function() {
+          const isExpanded = grid.classList.contains('seo-pages-expanded');
+          if (isExpanded) {
+            grid.classList.remove('seo-pages-expanded');
+            toggleBtn.classList.remove('seo-btn-expanded');
+            toggleBtn.querySelector('span').textContent = 'Ver todas las guias (' + pages.length + ')';
+            toggleBtn.setAttribute('aria-expanded', 'false');
+            // Scroll back to the section
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else {
+            grid.classList.add('seo-pages-expanded');
+            toggleBtn.classList.add('seo-btn-expanded');
+            toggleBtn.querySelector('span').textContent = 'Ver menos guias';
+            toggleBtn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+    }, 100);
     
     return section;
   }
