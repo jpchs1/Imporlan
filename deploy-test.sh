@@ -68,6 +68,13 @@ fi
 \cp -a "$STAGING_REPO/test/".* "$PUBLIC_HTML/test/" 2>/dev/null || true
 echo "  -> Web Test deployed (overlay, server-only files preserved)."
 
+# Ensure assets/seo/ subdirectory is properly copied (critical for seo-pages-section.js)
+if [ -d "$STAGING_REPO/test/assets/seo" ]; then
+  mkdir -p "$PUBLIC_HTML/test/assets/seo"
+  \cp -a "$STAGING_REPO/test/assets/seo/"* "$PUBLIC_HTML/test/assets/seo/" 2>/dev/null || true
+  echo "  -> SEO assets subdirectory synced (seo-pages.json, seo-pages.css, nautical-icons.js)."
+fi
+
 echo ""
 echo "[5/8] Syncing server-only API files from /api/ to /test/api/..."
 if [ -d "$PUBLIC_HTML/api" ] && [ -d "$PUBLIC_HTML/test/api" ]; then

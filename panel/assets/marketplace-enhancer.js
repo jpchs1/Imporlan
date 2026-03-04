@@ -250,10 +250,12 @@
       '<span style="font-size:13px;color:#475569;font-weight:500">' +
       (item.user_name || "Usuario") +
       "</span></div>" +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<button onclick="window.__mktShareListing(' + item.id + ')" style="background:#f1f5f9;border:1px solid #e2e8f0;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'" title="Compartir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>' +
       '<button onclick="window.__mktShowDetail(' +
       item.id +
       ')" style="background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.opacity=\'0.9\';this.style.transform=\'scale(1.02)\'" onmouseout="this.style.opacity=\'1\';this.style.transform=\'none\'">Ver Detalles</button>' +
-      "</div></div></div>"
+      "</div></div></div></div>"
     );
   }
 
@@ -342,6 +344,9 @@
           item.descripcion +
           "</p></div>"
         : "") +
+      '<div style="display:flex;gap:12px;margin-bottom:12px">' +
+      '<button onclick="window.__mktShareListing(' + item.id + ')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:14px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartir</button>' +
+      '</div>' +
       '<div style="display:flex;gap:12px">' +
       '<a href="https://wa.me/56940211459?text=' +
       encodeURIComponent(
@@ -976,6 +981,38 @@
     document.body.style.overflow = "hidden";
     detailModalOpen = true;
   };
+
+  window.__mktShareListing = function (id) {
+    var item = listings.find(function (l) { return l.id == id; });
+    var shareTitle = item ? item.nombre + ' | Imporlan Marketplace' : 'Embarcacion en Imporlan';
+    var shareText = item ? (item.nombre + (item.tipo ? ' - ' + item.tipo : '') + (item.ano ? ' ' + item.ano : '')) : '';
+    var isTestEnv = window.location.pathname.indexOf('/panel-test') !== -1 || window.location.pathname.indexOf('/test/') !== -1;
+    var shareBase = isTestEnv ? '/test/marketplace/embarcacion/' : '/marketplace/embarcacion/';
+    var url = window.location.origin + shareBase + id;
+    if (navigator.share) {
+      navigator.share({ title: shareTitle, text: shareText, url: url }).catch(function() {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function() {
+        showShareToast('Enlace copiado al portapapeles');
+      });
+    } else {
+      prompt('Copia este enlace para compartir:', url);
+    }
+  };
+
+  function showShareToast(message) {
+    var existing = document.getElementById('mkt-share-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'mkt-share-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:10001;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 2500);
+  }
 
   window.__mktCloseDetail = function () {
     var overlay = document.getElementById("mkt-detail-overlay");

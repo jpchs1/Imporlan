@@ -149,294 +149,17 @@
   
   // ============================================
   // 2.4 SOLICITAR COTIZACION FORM UPDATE
-  // Update form text, title, and add Google Cloud-style visual effects
+  // Update form text and redirect to login
   // ============================================
-  
-  function addGoogleCloudInputStyles() {
-    if (document.getElementById('google-cloud-input-styles')) return;
-    
-    const style = document.createElement('style');
-    style.id = 'google-cloud-input-styles';
-    style.textContent = `
-      /* Google Cloud AI Input Box Effect - Enhanced Contrast Version */
-      @keyframes borderGradientAnimation {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-      }
-      
-      @keyframes glowPulse {
-        0%, 100% { 
-          box-shadow: 0 0 30px rgba(66, 133, 244, 0.4), 
-                      0 0 60px rgba(52, 168, 83, 0.3), 
-                      0 0 90px rgba(251, 188, 5, 0.2);
-        }
-        50% { 
-          box-shadow: 0 0 40px rgba(66, 133, 244, 0.5), 
-                      0 0 80px rgba(234, 67, 53, 0.4), 
-                      0 0 120px rgba(52, 168, 83, 0.3);
-        }
-      }
-      
-      @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
-      }
-      
-      .cotizacion-form-container {
-        position: relative;
-        background: linear-gradient(145deg, rgba(8, 15, 30, 0.98) 0%, rgba(20, 30, 48, 0.98) 100%);
-        border-radius: 24px;
-        padding: 32px;
-        margin: 20px 0;
-        animation: glowPulse 3s ease-in-out infinite;
-      }
-      
-      .cotizacion-form-container::before {
-        content: '';
-        position: absolute;
-        top: -3px;
-        left: -3px;
-        right: -3px;
-        bottom: -3px;
-        background: linear-gradient(90deg, 
-          #4285f4, #34a853, #fbbc05, #ea4335, 
-          #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
-        background-size: 400% 400%;
-        border-radius: 27px;
-        z-index: -1;
-        animation: borderGradientAnimation 3s linear infinite;
-        filter: blur(1px);
-      }
-      
-      .cotizacion-form-container::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(145deg, rgba(8, 15, 30, 0.99) 0%, rgba(20, 30, 48, 0.99) 100%);
-        border-radius: 24px;
-        z-index: -1;
-      }
-      
-      .cotizacion-title-gcloud {
-        font-size: 26px;
-        font-weight: 700;
-        text-align: center;
-        margin-bottom: 8px;
-        letter-spacing: -0.5px;
-      }
-      
-      .cotizacion-title-gcloud .title-blue {
-        color: #4285f4;
-      }
-      
-      .cotizacion-title-gcloud .title-gray {
-        color: rgba(180, 195, 210, 0.9);
-        font-weight: 400;
-      }
-      
-      .cotizacion-subtitle-gcloud {
-        font-size: 15px;
-        color: rgba(180, 195, 210, 0.95);
-        text-align: center;
-        margin-bottom: 24px;
-        line-height: 1.6;
-        max-width: 500px;
-        margin-left: auto;
-        margin-right: auto;
-      }
-      
-      .gcloud-input-wrapper {
-        position: relative;
-        margin-bottom: 16px;
-      }
-      
-      .gcloud-input-wrapper::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(90deg, 
-          #4285f4, #34a853, #fbbc05, #ea4335, 
-          #4285f4, #34a853, #fbbc05, #ea4335, #4285f4);
-        background-size: 400% 400%;
-        border-radius: 18px;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        z-index: 0;
-      }
-      
-      .gcloud-input-wrapper:focus-within::before {
-        opacity: 1;
-        animation: borderGradientAnimation 2s linear infinite;
-      }
-      
-      .gcloud-input-wrapper input,
-      .gcloud-input-wrapper textarea {
-        position: relative;
-        width: 100%;
-        padding: 16px 20px;
-        background: rgba(15, 25, 40, 0.95);
-        border: 2px solid rgba(100, 130, 170, 0.4);
-        border-radius: 16px;
-        color: #ffffff;
-        font-size: 15px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 1;
-      }
-      
-      .gcloud-input-wrapper input::placeholder,
-      .gcloud-input-wrapper textarea::placeholder {
-        color: rgba(160, 175, 195, 0.7);
-      }
-      
-      .gcloud-input-wrapper input:focus,
-      .gcloud-input-wrapper textarea:focus {
-        outline: none;
-        border-color: transparent;
-        background: rgba(15, 25, 40, 0.98);
-        box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.6), 
-                    0 4px 25px rgba(66, 133, 244, 0.25),
-                    0 8px 40px rgba(52, 168, 83, 0.15);
-      }
-      
-      .gcloud-input-wrapper input:hover:not(:focus),
-      .gcloud-input-wrapper textarea:hover:not(:focus) {
-        border-color: rgba(100, 130, 170, 0.6);
-        background: rgba(15, 25, 40, 0.97);
-        box-shadow: 0 2px 15px rgba(66, 133, 244, 0.1);
-      }
-      
-      .gcloud-submit-btn {
-        width: 100%;
-        padding: 18px 24px;
-        background: linear-gradient(135deg, #4285f4 0%, #1a73e8 50%, #0d47a1 100%);
-        border: none;
-        border-radius: 16px;
-        color: #ffffff;
-        font-size: 17px;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        margin-top: 12px;
-        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      }
-      
-      .gcloud-submit-btn::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 200%;
-        height: 100%;
-        background: linear-gradient(90deg, 
-          transparent, 
-          rgba(255, 255, 255, 0.3), 
-          transparent);
-        transition: left 0.6s ease;
-      }
-      
-      .gcloud-submit-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 35px rgba(66, 133, 244, 0.5),
-                    0 4px 15px rgba(52, 168, 83, 0.3);
-        background: linear-gradient(135deg, #5a9cf5 0%, #2b85f0 50%, #1565c0 100%);
-      }
-      
-      .gcloud-submit-btn:hover::before {
-        left: 100%;
-      }
-      
-      .gcloud-submit-btn:active {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
-      }
-      
-      .gcloud-powered-by {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        margin-top: 20px;
-        font-size: 13px;
-        color: rgba(160, 175, 195, 0.7);
-      }
-      
-      .gcloud-powered-by svg {
-        width: 18px;
-        height: 18px;
-        color: #4285f4;
-      }
-      
-      .gcloud-suggestion-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 16px;
-        justify-content: center;
-      }
-      
-      .gcloud-chip {
-        padding: 8px 16px;
-        background: rgba(66, 133, 244, 0.15);
-        border: 1px solid rgba(66, 133, 244, 0.4);
-        border-radius: 20px;
-        color: #93c5fd;
-        font-size: 13px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      
-      .gcloud-chip:hover {
-        background: rgba(66, 133, 244, 0.25);
-        border-color: rgba(66, 133, 244, 0.6);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(66, 133, 244, 0.2);
-      }
-      
-      /* Enhanced info text styling */
-      .cotizacion-info-text {
-        background: rgba(66, 133, 244, 0.15) !important;
-        border: 1px solid rgba(66, 133, 244, 0.4) !important;
-        border-radius: 12px !important;
-        padding: 14px 18px !important;
-        margin-bottom: 20px !important;
-        font-size: 14px !important;
-        color: #a5d6ff !important;
-        text-align: center !important;
-      }
-      
-      .cotizacion-info-text a {
-        color: #60a5fa !important;
-        text-decoration: underline !important;
-        font-weight: 600 !important;
-      }
-      
-      .cotizacion-info-text a:hover {
-        color: #93c5fd !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
   
   function updateCotizacionForm() {
     // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
     if (window.location.pathname.includes('/cotizar-importacion')) return;
     
-    // Add Google Cloud input styles
-    addGoogleCloudInputStyles();
-    
     const checkInterval = setInterval(function() {
       // Find the form section
+      const formHeading = document.querySelector('h3');
       const forms = document.querySelectorAll('form');
       
       forms.forEach(function(form) {
@@ -445,81 +168,15 @@
         if (submitBtn && submitBtn.textContent.includes('Cotizacion')) {
           clearInterval(checkInterval);
           
-          // Check if already enhanced
-          if (form.parentElement.querySelector('.cotizacion-form-container')) return;
-          
-          // Update the section description text (left side)
-          const formSection = form.closest('section') || form.parentElement;
-          const allParagraphs = formSection.querySelectorAll('p');
-          allParagraphs.forEach(function(p) {
-            if (p.textContent.includes('Busca en los principales portales de USA') || 
-                p.textContent.includes('Te cotizaremos el precio total')) {
-              p.textContent = 'Explora lanchas usadas en los principales portales de USA y envíanos los links de las embarcaciones que te interesan. Te entregamos una cotización completa para importar tu lancha usada, con precio final puesto en el puerto de tu elección o bien en tu casa o donde más te acomode.';
-            }
-          });
-          
-          // Find and update the form title
-          const headings = formSection.querySelectorAll('h2, h3');
-          headings.forEach(function(heading) {
-            if (heading.textContent.includes('Solicitar Cotizacion') || heading.textContent.includes('Cotizacion')) {
-              heading.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
-              heading.className = 'cotizacion-title-gcloud';
-            }
-          });
-          
-          // Create container with Google Cloud style
-          const container = document.createElement('div');
-          container.className = 'cotizacion-form-container';
-          
-          // Add title if not found
-          if (!formSection.querySelector('.cotizacion-title-gcloud')) {
-            const title = document.createElement('h3');
-            title.className = 'cotizacion-title-gcloud';
-            title.innerHTML = '<span class="title-blue">Solicitar Cotización</span> <span class="title-gray">por links online</span>';
-            container.appendChild(title);
-          }
-          
-          // Add subtitle
-          const subtitle = document.createElement('p');
-          subtitle.className = 'cotizacion-subtitle-gcloud';
-          subtitle.textContent = 'Pega los links de las embarcaciones que te interesan';
-          container.appendChild(subtitle);
-          
-          // Wrap existing inputs with Google Cloud style
-          const inputs = form.querySelectorAll('input, textarea');
-          inputs.forEach(function(input) {
-            if (!input.closest('.gcloud-input-wrapper')) {
-              const wrapper = document.createElement('div');
-              wrapper.className = 'gcloud-input-wrapper';
-              input.parentNode.insertBefore(wrapper, input);
-              wrapper.appendChild(input);
-            }
-          });
-          
-          // Style the submit button
-          if (submitBtn) {
-            submitBtn.classList.add('gcloud-submit-btn');
-          }
-          
-          // Add info text
+          // Add info text before the form
           const existingInfo = form.parentElement.querySelector('.cotizacion-info-text');
           if (!existingInfo) {
             const infoDiv = document.createElement('div');
             infoDiv.className = 'cotizacion-info-text';
-            infoDiv.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #93c5fd; text-align: center;';
+            infoDiv.style.cssText = 'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; color: #93c5fd;';
             infoDiv.innerHTML = 'Para solicitar una cotizacion online debes <a href="/panel/" style="color: #60a5fa; text-decoration: underline;">registrarte</a> e ingresar al Cotizador Online del Panel de Usuario.<br><br><strong style="color: #fbbf24;">&#9888; Para recibir una cotizacion por links online, debe ser a traves del formulario de Cotizacion Online.</strong><br><span style="color: #93c5fd;">Cada link tiene un costo de <strong style="color: #34d399;">CLP $9.900</strong>.</span>';
-            form.insertBefore(infoDiv, form.firstChild);
+            form.parentElement.insertBefore(infoDiv, form);
           }
-          
-          // Add powered by text
-          const poweredBy = document.createElement('div');
-          poweredBy.className = 'gcloud-powered-by';
-          poweredBy.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Cotizador Imporlan';
-          form.appendChild(poweredBy);
-          
-          // Wrap form in container
-          form.parentNode.insertBefore(container, form);
-          container.appendChild(form);
           
           // Save links before redirecting
           form.addEventListener('submit', function(e) {
@@ -580,34 +237,30 @@
   // Make Proceso menu item scroll to section
   // ============================================
   
+  function scrollToProcesoSection() {
+    var sections = document.querySelectorAll('section');
+    sections.forEach(function(section) {
+      var heading = section.querySelector('h2');
+      if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
+        setTimeout(function() {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 400);
+      }
+    });
+  }
+
   function setupProcesoMenuRedirect() {
-    // Only run on Home page
     if (window.location.pathname.includes('/panel')) return;
-    
-    const checkInterval = setInterval(function() {
-      const navLinks = document.querySelectorAll('nav a, header a');
-      navLinks.forEach(function(link) {
-        if (link.textContent.trim() === 'Proceso') {
-          clearInterval(checkInterval);
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            // Find the PROCESO DE COMPRA USA section
-            const sections = document.querySelectorAll('section');
-            sections.forEach(function(section) {
-              const heading = section.querySelector('h2');
-              if (heading && heading.textContent.includes('PROCESO DE COMPRA USA')) {
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            });
-          });
-        }
-      });
-    }, 500);
-    
-    setTimeout(function() {
-      clearInterval(checkInterval);
-    }, 10000);
+
+    window.addEventListener('hashchange', function() {
+      if (window.location.hash === '#proceso') {
+        scrollToProcesoSection();
+      }
+    });
+
+    if (window.location.hash === '#proceso') {
+      scrollToProcesoSection();
+    }
   }
   
   // ============================================
@@ -801,6 +454,29 @@
   }
   
   // ============================================
+  // 4.3 FIX REGISTRARSE BUTTON HREF
+  // Point "Registrarse" nav button to register form
+  // ============================================
+
+  function fixRegistrarseButton() {
+    if (window.location.pathname.includes('/panel')) return;
+    var panelBase = window.location.pathname.includes('/test') ? '/panel-test/' : '/panel/';
+    var checkInterval = setInterval(function() {
+      var nav = document.querySelector('nav');
+      if (!nav) return;
+      var links = nav.querySelectorAll('a');
+      links.forEach(function(a) {
+        var btn = a.querySelector('button');
+        if (btn && btn.textContent.trim() === 'Registrarse') {
+          a.href = panelBase + '#/register';
+          clearInterval(checkInterval);
+        }
+      });
+    }, 500);
+    setTimeout(function() { clearInterval(checkInterval); }, 10000);
+  }
+
+  // ============================================
   // 2.9 COTIZAR-IMPORTACION PAGE NOTICE
   // Add link pricing notice to /cotizar-importacion/ form
   // ============================================
@@ -854,6 +530,7 @@
         setupProcesoMenuRedirect();
         addPublicarButton();
         improveProcesoUI();
+        fixRegistrarseButton();
         updateCotizarImportacionForm();
         
         // Set up link saving on form interactions

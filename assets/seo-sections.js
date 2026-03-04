@@ -547,6 +547,73 @@
         line-height: 1.6;
         margin: 0;
       }
+      
+      /* Collapsible content blocks */
+      .lanchas-content-block .block-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease, opacity 0.3s ease;
+        opacity: 0;
+      }
+      .lanchas-content-block.block-expanded .block-body {
+        max-height: 600px;
+        opacity: 1;
+      }
+      .lanchas-content-block h3 {
+        cursor: pointer;
+        user-select: none;
+      }
+      .lanchas-content-block h3 .block-toggle {
+        margin-left: auto;
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.3s ease;
+        color: #60a5fa;
+      }
+      .lanchas-content-block.block-expanded h3 .block-toggle {
+        transform: rotate(180deg);
+      }
+      .lanchas-content-block h3 .block-toggle svg {
+        width: 18px;
+        height: 18px;
+      }
+      
+      /* FAQ accordion */
+      .lanchas-faq-item h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .lanchas-faq-item h4 .faq-toggle {
+        margin-left: auto;
+        min-width: 18px;
+        transition: transform 0.3s ease;
+        color: #60a5fa;
+      }
+      .lanchas-faq-item h4 .faq-toggle svg {
+        width: 16px;
+        height: 16px;
+      }
+      .lanchas-faq-item .faq-answer {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.35s ease, opacity 0.3s ease;
+        opacity: 0;
+      }
+      .lanchas-faq-item.faq-expanded .faq-answer {
+        max-height: 300px;
+        opacity: 1;
+      }
+      .lanchas-faq-item.faq-expanded h4 .faq-toggle {
+        transform: rotate(180deg);
+      }
+      
       .lanchas-cta-wrapper {
         text-align: center;
         margin-top: 48px;
@@ -614,6 +681,8 @@
 
     const arrowIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
 
+    const chevronDown = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
     section.innerHTML = `
       <div class="lanchas-usadas-container">
         <h2><span class="kw-highlight">Lanchas Usadas</span> en Chile: Compra, Venta e <span class="kw-highlight">Importacion de Lanchas</span></h2>
@@ -625,94 +694,106 @@
         <meta itemprop="areaServed" content="Chile">
         
         <div class="lanchas-content-grid">
-          <div class="lanchas-content-block">
+          <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-blue">${icons.boat}</span>
               Lanchas Usadas en Venta
+              <span class="block-toggle">${chevronDown}</span>
             </h3>
-            <p>En nuestro <strong>marketplace de lanchas usadas</strong> encontraras embarcaciones verificadas publicadas por particulares y dealers en todo Chile. Desde <strong>lanchas de pesca usadas</strong>, lanchas deportivas, hasta cabinadas y pontones.</p>
-            <p>Comprar una <strong>lancha usada</strong> es la forma mas inteligente de acceder a la navegacion recreativa. En Imporlan te ayudamos a encontrar la lancha perfecta al mejor precio del mercado.</p>
-            <ul>
-              <li>Lanchas de pesca usadas desde $3.000.000</li>
-              <li>Lanchas deportivas y wakeboard usadas</li>
-              <li>Lanchas cabinadas y crucero usadas</li>
-              <li>Motos de agua y Jet Ski usados</li>
-              <li>Veleros y yates usados en Chile</li>
-            </ul>
+            <div class="block-body">
+              <p>En nuestro <strong>marketplace de lanchas usadas</strong> encontraras embarcaciones verificadas publicadas por particulares y dealers en todo Chile. Desde <strong>lanchas de pesca usadas</strong>, lanchas deportivas, hasta cabinadas y pontones.</p>
+              <p>Comprar una <strong>lancha usada</strong> es la forma mas inteligente de acceder a la navegacion recreativa. En Imporlan te ayudamos a encontrar la lancha perfecta al mejor precio del mercado.</p>
+              <ul>
+                <li>Lanchas de pesca usadas desde $3.000.000</li>
+                <li>Lanchas deportivas y wakeboard usadas</li>
+                <li>Lanchas cabinadas y crucero usadas</li>
+                <li>Motos de agua y Jet Ski usados</li>
+                <li>Veleros y yates usados en Chile</li>
+              </ul>
+            </div>
           </div>
           
-          <div class="lanchas-content-block">
+          <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-cyan">${icons.globe}</span>
               Importacion de Lanchas desde USA
+              <span class="block-toggle">${chevronDown}</span>
             </h3>
-            <p>Somos expertos en la <strong>importacion de lanchas</strong> desde Estados Unidos a Chile. Nuestro servicio integral cubre todo el proceso: busqueda, inspeccion, compra, transporte maritimo, internacion aduanera y entrega en tu puerto.</p>
-            <p><strong>Importar una lancha usada</strong> desde USA te permite acceder a embarcaciones de alta calidad a precios significativamente menores que en el mercado local, con ahorros de hasta un 40%.</p>
-            <ul>
-              <li>Cotizacion gratuita y sin compromiso</li>
-              <li>Busqueda personalizada en BoatTrader y YachtWorld</li>
-              <li>Inspeccion pre-compra profesional</li>
-              <li>Transporte maritimo y tramites aduaneros</li>
-              <li>Entrega puerta a puerta en Chile</li>
-            </ul>
+            <div class="block-body">
+              <p>Somos expertos en la <strong>importacion de lanchas</strong> desde Estados Unidos a Chile. Nuestro servicio integral cubre todo el proceso: busqueda, inspeccion, compra, transporte maritimo, internacion aduanera y entrega en tu puerto.</p>
+              <p><strong>Importar una lancha usada</strong> desde USA te permite acceder a embarcaciones de alta calidad a precios significativamente menores que en el mercado local, con ahorros de hasta un 40%.</p>
+              <ul>
+                <li>Cotizacion gratuita y sin compromiso</li>
+                <li>Busqueda personalizada en BoatTrader y YachtWorld</li>
+                <li>Inspeccion pre-compra profesional</li>
+                <li>Transporte maritimo y tramites aduaneros</li>
+                <li>Entrega puerta a puerta en Chile</li>
+              </ul>
+            </div>
           </div>
           
-          <div class="lanchas-content-block">
+          <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-green">${icons.sailboat}</span>
               Tipos de Lanchas Usadas Disponibles
+              <span class="block-toggle">${chevronDown}</span>
             </h3>
-            <p>Ya sea que busques <strong>lanchas usadas</strong> para pesca, paseo familiar o deportes acuaticos, en Imporlan tenemos opciones para todos los presupuestos y necesidades.</p>
-            <ul>
-              <li><strong>Lanchas de pesca:</strong> Center console, bass boats y walkaround</li>
-              <li><strong>Lanchas deportivas:</strong> Bowrider, runabout y ski boats</li>
-              <li><strong>Lanchas familiares:</strong> Deck boats y pontones</li>
-              <li><strong>Lanchas cabinadas:</strong> Cuddy cabin y cruiser</li>
-              <li><strong>Motos de agua:</strong> Yamaha, Sea-Doo y Kawasaki</li>
-            </ul>
+            <div class="block-body">
+              <p>Ya sea que busques <strong>lanchas usadas</strong> para pesca, paseo familiar o deportes acuaticos, en Imporlan tenemos opciones para todos los presupuestos y necesidades.</p>
+              <ul>
+                <li><strong>Lanchas de pesca:</strong> Center console, bass boats y walkaround</li>
+                <li><strong>Lanchas deportivas:</strong> Bowrider, runabout y ski boats</li>
+                <li><strong>Lanchas familiares:</strong> Deck boats y pontones</li>
+                <li><strong>Lanchas cabinadas:</strong> Cuddy cabin y cruiser</li>
+                <li><strong>Motos de agua:</strong> Yamaha, Sea-Doo y Kawasaki</li>
+              </ul>
+            </div>
           </div>
           
-          <div class="lanchas-content-block">
+          <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-orange">${icons.anchor}</span>
               Por que Elegir Imporlan para tu Lancha
+              <span class="block-toggle">${chevronDown}</span>
             </h3>
-            <p>Con anos de experiencia en la <strong>importacion de lanchas</strong> y <strong>venta de lanchas usadas</strong>, Imporlan se ha posicionado como el referente del mercado nautico en Chile.</p>
-            <ul>
-              <li><strong>+200 embarcaciones</strong> importadas exitosamente</li>
-              <li>Servicio integral <strong>puerta a puerta</strong></li>
-              <li>Precios transparentes sin costos ocultos</li>
-              <li>Marketplace con <strong>lanchas usadas verificadas</strong></li>
-              <li>Asesoria nautica profesional gratuita</li>
-              <li>Financiamiento y seguros nauticos</li>
-            </ul>
+            <div class="block-body">
+              <p>Con anos de experiencia en la <strong>importacion de lanchas</strong> y <strong>venta de lanchas usadas</strong>, Imporlan se ha posicionado como el referente del mercado nautico en Chile.</p>
+              <ul>
+                <li><strong>+200 embarcaciones</strong> importadas exitosamente</li>
+                <li>Servicio integral <strong>puerta a puerta</strong></li>
+                <li>Precios transparentes sin costos ocultos</li>
+                <li>Marketplace con <strong>lanchas usadas verificadas</strong></li>
+                <li>Asesoria nautica profesional gratuita</li>
+                <li>Financiamiento y seguros nauticos</li>
+              </ul>
+            </div>
           </div>
         </div>
         
         <div class="lanchas-faq-section" itemscope itemtype="https://schema.org/FAQPage">
           <h3>Preguntas Frecuentes sobre Lanchas Usadas e Importacion</h3>
           <div class="lanchas-faq-grid">
-            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-              <h4 itemprop="name">¿Cuanto cuesta una lancha usada en Chile?</h4>
-              <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
+              <h4 itemprop="name">¿Cuanto cuesta una lancha usada en Chile? <span class="faq-toggle">${chevronDown}</span></h4>
+              <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
                 <p itemprop="text">Las <strong>lanchas usadas</strong> en Chile tienen precios desde $3.000.000 CLP para modelos basicos de pesca, hasta $80.000.000+ para lanchas cabinadas premium. El precio depende del tamano, marca, motor y estado general.</p>
               </div>
             </div>
-            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-              <h4 itemprop="name">¿Cuanto cuesta importar una lancha desde USA?</h4>
-              <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
+              <h4 itemprop="name">¿Cuanto cuesta importar una lancha desde USA? <span class="faq-toggle">${chevronDown}</span></h4>
+              <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
                 <p itemprop="text">La <strong>importacion de lanchas</strong> desde USA tiene costos que incluyen: precio de compra, transporte maritimo ($2.000-$5.000 USD), internacion aduanera (6% arancel + 19% IVA) y logistica local. Cotiza gratis con Imporlan.</p>
               </div>
             </div>
-            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-              <h4 itemprop="name">¿Conviene importar una lancha usada o comprar en Chile?</h4>
-              <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
+              <h4 itemprop="name">¿Conviene importar una lancha usada o comprar en Chile? <span class="faq-toggle">${chevronDown}</span></h4>
+              <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
                 <p itemprop="text"><strong>Importar lanchas usadas</strong> desde USA suele ser más conveniente, con ahorros de 10% a 20% respecto al mercado local chileno en compras sobre USD $25.000 (allá), además de mayor variedad de modelos y marcas disponibles. La gracia es que podrás elegir entre muchas más opciones.</p>
               </div>
             </div>
-            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-              <h4 itemprop="name">¿Que documentos necesito para importar una lancha?</h4>
-              <div itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
+            <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
+              <h4 itemprop="name">¿Que documentos necesito para importar una lancha? <span class="faq-toggle">${chevronDown}</span></h4>
+              <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
                 <p itemprop="text">Para la <strong>importacion de lanchas</strong> necesitas: Bill of Sale, titulo de propiedad, factura comercial, Bill of Lading y documentos aduaneros. Imporlan gestiona todos los tramites por ti.</p>
               </div>
             </div>
@@ -726,6 +807,27 @@
         </div>
       </div>
     `;
+
+    // Attach collapsible behavior to content blocks
+    setTimeout(function() {
+      section.querySelectorAll('[data-collapsible]').forEach(function(block) {
+        var heading = block.querySelector('h3');
+        if (heading) {
+          heading.addEventListener('click', function() {
+            block.classList.toggle('block-expanded');
+          });
+        }
+      });
+      // Attach FAQ accordion behavior (on h4 only, not entire item)
+      section.querySelectorAll('[data-faq]').forEach(function(item) {
+        var faqHeading = item.querySelector('h4');
+        if (faqHeading) {
+          faqHeading.addEventListener('click', function() {
+            item.classList.toggle('faq-expanded');
+          });
+        }
+      });
+    }, 50);
 
     return section;
   }
@@ -773,32 +875,42 @@
       if (procesoSection && beneficiosSection) {
         clearInterval(checkInterval);
         
-        // Add styles
-        addSEOStyles();
-        addLanchasUsadasStyles();
-        
-        // Insert Guia section after Proceso
-        const guiaSection = createGuiaSection();
-        procesoSection.parentNode.insertBefore(guiaSection, procesoSection.nextSibling);
-        
-        // Insert Servicios section after Beneficios
-        const serviciosSection = createServiciosSection();
-        beneficiosSection.parentNode.insertBefore(serviciosSection, beneficiosSection.nextSibling);
-        
-        // Insert Lanchas Usadas SEO section at the end of main content (before footer)
-        const lanchasSection = createLanchasUsadasSection();
-        const footer = document.querySelector('footer');
-        if (footer) {
-          footer.parentNode.insertBefore(lanchasSection, footer);
-        } else {
-          // If no footer found, append to root or last section
-          const root = document.getElementById('root');
-          if (root) {
-            root.appendChild(lanchasSection);
+        try {
+          // Add styles
+          addSEOStyles();
+          addLanchasUsadasStyles();
+          
+          // Insert Guia section after Proceso
+          const guiaSection = createGuiaSection();
+          procesoSection.parentNode.insertBefore(guiaSection, procesoSection.nextSibling);
+          console.log('[SEO Sections v2] Inserted Guia section');
+          
+          // Insert Servicios section after Beneficios
+          const serviciosSection = createServiciosSection();
+          beneficiosSection.parentNode.insertBefore(serviciosSection, beneficiosSection.nextSibling);
+          console.log('[SEO Sections v2] Inserted Servicios section');
+          
+          // Insert Lanchas Usadas SEO section at the end of main content (before footer)
+          const lanchasSection = createLanchasUsadasSection();
+          const footer = document.querySelector('footer');
+          if (footer && footer.parentNode) {
+            footer.parentNode.insertBefore(lanchasSection, footer);
+            console.log('[SEO Sections v2] Inserted Lanchas Usadas section before footer');
+          } else {
+            // If no footer found, append to root or last section
+            const root = document.getElementById('root');
+            if (root) {
+              root.appendChild(lanchasSection);
+              console.log('[SEO Sections v2] Inserted Lanchas Usadas section in root (no footer found)');
+            } else {
+              console.warn('[SEO Sections v2] Could not find footer or root to insert Lanchas Usadas section');
+            }
           }
+          
+          console.log('[SEO Sections v2] Successfully inserted Guia, Servicios and Lanchas Usadas sections');
+        } catch (err) {
+          console.error('[SEO Sections v2] Error inserting sections:', err);
         }
-        
-        console.log('[SEO Sections v2] Successfully inserted Guia, Servicios and Lanchas Usadas sections');
       }
     }, 500);
     

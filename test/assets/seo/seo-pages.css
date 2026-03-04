@@ -174,12 +174,12 @@ a:hover {
 }
 
 .btn-publicar {
-  background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
   color: #ffffff;
   font-size: 0.9rem;
   font-weight: 500;
   padding: 8px 20px;
-  border: 1px solid rgba(37, 99, 235, 0.4);
+  border: 1px solid rgba(249, 115, 22, 0.4);
   border-radius: 8px;
   cursor: pointer;
   opacity: 1;

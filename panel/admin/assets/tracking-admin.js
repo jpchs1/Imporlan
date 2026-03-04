@@ -36,6 +36,15 @@
     return { "Content-Type": "application/json", Authorization: "Bearer " + getAdminToken() };
   }
 
+  function validateIMO(imo) {
+    if (!/^\d{7}$/.test(imo)) return false;
+    var digits = imo.split('').map(Number);
+    var weights = [7, 6, 5, 4, 3, 2];
+    var sum = 0;
+    for (var i = 0; i < 6; i++) sum += digits[i] * weights[i];
+    return (sum % 10) === digits[6];
+  }
+
   function escapeHtml(text) {
     if (!text) return "";
     var div = document.createElement("div");
@@ -56,7 +65,8 @@
 
   function showToast(msg, type) {
     var toast = document.createElement("div");
-    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,.2);background:" + (type === "error" ? "#ef4444" : "#10b981");
+    var bgColor = type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#10b981';
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:400px;background:" + bgColor;
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(function () { toast.style.opacity = "0"; toast.style.transition = "opacity .3s"; setTimeout(function () { toast.remove(); }, 300); }, 2500);
@@ -193,6 +203,7 @@
     try {
       var resp = await fetch(API_BASE + "/tracking_api.php?action=admin_lookup_vessel&query=" + encodeURIComponent(query), { headers: authHeaders() });
       var data = await resp.json();
+      if (data.warning) showToast(data.warning, "warning");
       return data.success ? data.results || [] : [];
     } catch (e) { console.error("Lookup error:", e); return []; }
   }
@@ -312,7 +323,18 @@
         clearTimeout(fieldTimer);
         fieldTimer = setTimeout(function () {
           var val = field.value.trim();
-          if ((fieldId === "ta-f-imo" && val.length === 7) || (fieldId === "ta-f-mmsi" && val.length === 9)) {
+          if (fieldId === "ta-f-imo" && val.length === 7) {
+            if (!validateIMO(val)) {
+              showToast("IMO " + val + " tiene digito de verificacion invalido. Verifique el numero.", "warning");
+              return;
+            }
+            lookupVessel(val).then(function (results) {
+              if (results.length > 0) {
+                fillFormFromResult(results[0]);
+                showToast("Datos autocompletados desde " + (results[0].source === 'local' ? 'base de datos' : 'VesselFinder'));
+              }
+            });
+          } else if (fieldId === "ta-f-mmsi" && val.length === 9) {
             lookupVessel(val).then(function (results) {
               if (results.length > 0) {
                 fillFormFromResult(results[0]);
@@ -568,9 +590,11 @@
       '<h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a">Configuracion AIS</h3>' +
       '<span id="ta-ais-status" style="font-size:11px;padding:3px 10px;border-radius:6px;background:#fef3c7;color:#d97706">Cargando...</span>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">AISstream API Key</label>' +
       '<input id="ta-cfg-aisstream" type="password" placeholder="Tu API key de aisstream.io" style="' + inputStyle() + '"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">VesselFinder API Key</label>' +
+      '<input id="ta-cfg-ais-api" type="password" placeholder="Tu API key de VesselFinder" style="' + inputStyle() + '"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Token Cron (para trigger HTTP)</label>' +
       '<input id="ta-cfg-cron-token" type="text" placeholder="Token secreto aleatorio" style="' + inputStyle() + '"></div>' +
       '</div>' +
@@ -595,6 +619,8 @@
         var aisInput = document.getElementById("ta-cfg-aisstream");
         var cronInput = document.getElementById("ta-cfg-cron-token");
         if (aisInput && cfg.AISSTREAM_API_KEY) aisInput.value = cfg.AISSTREAM_API_KEY.value || '';
+        var aisApiInput = document.getElementById("ta-cfg-ais-api");
+        if (aisApiInput && cfg.AIS_API_KEY) aisApiInput.value = cfg.AIS_API_KEY.value || '';
         if (cronInput && cfg.CRON_SECRET_TOKEN) cronInput.value = cfg.CRON_SECRET_TOKEN.value || '';
         // Update status badge
         var badge = document.getElementById("ta-ais-status");
@@ -633,6 +659,7 @@
       saveBtn._bound = true;
       saveBtn.addEventListener("click", async function () {
         var aisKey = document.getElementById("ta-cfg-aisstream").value.trim();
+        var aisApiKey = document.getElementById("ta-cfg-ais-api").value.trim();
         var cronToken = document.getElementById("ta-cfg-cron-token").value.trim();
         if (!aisKey) { showToast("Ingresa la API key de AISstream", "error"); return; }
         if (!cronToken) {
@@ -644,7 +671,7 @@
         try {
           var resp = await fetch(API_BASE + "/tracking_api.php?action=tracking_config_save", {
             method: "POST", headers: authHeaders(),
-            body: JSON.stringify({ configs: { AISSTREAM_API_KEY: aisKey, CRON_SECRET_TOKEN: cronToken } })
+            body: JSON.stringify({ configs: { AISSTREAM_API_KEY: aisKey, AIS_API_KEY: aisApiKey, CRON_SECRET_TOKEN: cronToken } })
           });
           var data = await resp.json();
           if (data.success) {

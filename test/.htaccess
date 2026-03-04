@@ -20,6 +20,7 @@ CacheLookup off
 RewriteRule \.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|php|xml|webp|mp4|pdf)$ - [L]
 
 # Marketplace clean URLs
+RewriteRule ^marketplace/embarcacion/([0-9]+)/?.*$ /test/marketplace/embarcacion.php [L]
 RewriteRule ^marketplace/publicar/?$ /test/marketplace.html [L]
 RewriteRule ^marketplace/?$ /test/marketplace.html [L]
 RewriteRule ^marketplace\.html$ - [L]
