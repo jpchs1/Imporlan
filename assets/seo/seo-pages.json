@@ -159,6 +159,102 @@
       "url": "/transporte-logistica-embarcaciones-chile/",
       "category": "Logística",
       "icon": "truck"
+    },
+    {
+      "id": "lanchas",
+      "title": "Lanchas en Venta",
+      "description": "Encuentra lanchas en venta: nuevas, usadas, importadas desde USA. Asesoría experta.",
+      "url": "/lanchas/",
+      "category": "Catálogo",
+      "icon": "boat"
+    },
+    {
+      "id": "veleros-usados",
+      "title": "Veleros Usados en Venta",
+      "description": "Veleros usados: crucero, regata y navegación costera. Importación desde USA.",
+      "url": "/veleros-usados/",
+      "category": "Catálogo",
+      "icon": "sailboat"
+    },
+    {
+      "id": "veleros-usados-a-la-venta-en-chile-o-usa",
+      "title": "Veleros Usados: Chile o USA",
+      "description": "Guía comparativa para comprar veleros usados en Chile o importar desde USA.",
+      "url": "/veleros-usados-a-la-venta-en-chile-o-usa/",
+      "category": "Guías",
+      "icon": "sailboat"
+    },
+    {
+      "id": "embarcaciones",
+      "title": "Embarcaciones en Venta",
+      "description": "Todo tipo de embarcaciones: lanchas, veleros, yates, motos de agua. Nuevas, usadas e importadas.",
+      "url": "/embarcaciones/",
+      "category": "Catálogo",
+      "icon": "ship"
+    },
+    {
+      "id": "lanchas-de-pesca-usadas",
+      "title": "Lanchas de Pesca Usadas",
+      "description": "Bass boats, center console y walkaround. Importación desde USA e inspección técnica.",
+      "url": "/lanchas-de-pesca-usadas/",
+      "category": "Catálogo",
+      "icon": "boat"
+    },
+    {
+      "id": "botes-de-pesca",
+      "title": "Botes de Pesca",
+      "description": "Botes de pesca en aluminio y fibra de vidrio. Nuevos y usados para lagos, ríos y costa.",
+      "url": "/botes-de-pesca/",
+      "category": "Catálogo",
+      "icon": "boat"
+    },
+    {
+      "id": "importar-embarcaciones-usa",
+      "title": "Importar Embarcaciones desde USA",
+      "description": "Guía paso a paso para importar embarcaciones desde Estados Unidos a Chile.",
+      "url": "/importar-embarcaciones-usa/",
+      "category": "Importación",
+      "icon": "globe"
+    },
+    {
+      "id": "servicios-importacion",
+      "title": "Servicios de Importación",
+      "description": "Servicios completos de importación náutica: búsqueda, inspección, transporte y aduana.",
+      "url": "/servicios-importacion/",
+      "category": "Servicios",
+      "icon": "ship"
+    },
+    {
+      "id": "comprar-lanchas-usadas-en-chile-o-en-usa",
+      "title": "Comprar Lanchas: ¿Chile o USA?",
+      "description": "Comparativa completa: comprar lancha usada en Chile vs importar desde USA.",
+      "url": "/comprar-lanchas-usadas-en-chile-o-en-usa/",
+      "category": "Guías",
+      "icon": "boat"
+    },
+    {
+      "id": "lanchas-usadas-en-chile-2",
+      "title": "Lanchas Usadas en Chile",
+      "description": "Catálogo actualizado de lanchas usadas en Chile. Todas las marcas y precios.",
+      "url": "/lanchas-usadas-en-chile-2/",
+      "category": "Catálogo",
+      "icon": "boat"
+    },
+    {
+      "id": "lanchas-de-ski",
+      "title": "Lanchas de Ski y Wakeboard",
+      "description": "Lanchas de ski acuático y wakeboard: MasterCraft, Malibu, Nautique. Importadas desde USA.",
+      "url": "/lanchas-de-ski/",
+      "category": "Catálogo",
+      "icon": "boat"
+    },
+    {
+      "id": "lanchas-usadas",
+      "title": "Lanchas Usadas",
+      "description": "Portal de lanchas usadas: compra, venta e importación. Todas las marcas y tamaños.",
+      "url": "/lanchas-usadas/",
+      "category": "Catálogo",
+      "icon": "boat"
     }
   ],
   "categories": [
