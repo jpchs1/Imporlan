@@ -38,16 +38,16 @@
   const categoryColors = {
     'Compra': 'icon-blue',
     'Venta': 'icon-green',
-    'Importacion': 'icon-cyan',
-    'Documentacion': 'icon-purple',
+    'Importación': 'icon-cyan',
+    'Documentación': 'icon-purple',
     'Costos': 'icon-gold',
     'Seguros': 'icon-red',
-    'Logistica': 'icon-orange',
-    'Guias': 'icon-blue',
+    'Logística': 'icon-orange',
+    'Guías': 'icon-blue',
     'FAQ': 'icon-purple',
-    'Catalogo': 'icon-cyan',
+    'Catálogo': 'icon-cyan',
     'Servicios': 'icon-blue',
-    'Cotizacion': 'icon-green',
+    'Cotización': 'icon-green',
     'Casos': 'icon-purple'
   };
 
