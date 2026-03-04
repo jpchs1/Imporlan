@@ -24,6 +24,14 @@
     return localStorage.getItem("token") || localStorage.getItem("imporlan_token") || "";
   }
 
+  function authHeaders() {
+    return {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + getUserToken(),
+      "X-User-Email": getUserEmail(),
+    };
+  }
+
   function formatTimeAgo(dateStr) {
     if (!dateStr) return "";
     var now = new Date();
@@ -89,11 +97,11 @@
       var email = getUserEmail();
       if (!email) return;
       try {
-        await fetch(API_BASE + "/notifications_api.php?action=mark_all_read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_email: email }),
-        });
+          await fetch(API_BASE + "/notifications_api.php?action=mark_all_read", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ user_email: email }),
+          });
         updateBadge(0);
         loadNotifications();
       } catch (e) {
@@ -117,7 +125,9 @@
     var email = getUserEmail();
     if (!email) return;
     try {
-      var resp = await fetch(API_BASE + "/notifications_api.php?action=unread_count&user_email=" + encodeURIComponent(email));
+      var resp = await fetch(API_BASE + "/notifications_api.php?action=unread_count&user_email=" + encodeURIComponent(email), {
+        headers: authHeaders(),
+      });
       var data = await resp.json();
       if (data.success) {
         updateBadge(data.count);
@@ -136,7 +146,9 @@
     }
 
     try {
-      var resp = await fetch(API_BASE + "/notifications_api.php?action=list&user_email=" + encodeURIComponent(email) + "&limit=20");
+      var resp = await fetch(API_BASE + "/notifications_api.php?action=list&user_email=" + encodeURIComponent(email) + "&limit=20", {
+        headers: authHeaders(),
+      });
       var data = await resp.json();
 
       if (data.success && data.notifications && data.notifications.length > 0) {
@@ -165,7 +177,7 @@
               try {
                 await fetch(API_BASE + "/notifications_api.php?action=mark_read", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: authHeaders(),
                   body: JSON.stringify({ id: parseInt(id) }),
                 });
               } catch (e) {}

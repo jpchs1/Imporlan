@@ -26,7 +26,7 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     if (!$isHtmlAction) {
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Email, X-User-Name');
         header('Content-Type: application/json');
     } else {
         header('Access-Control-Allow-Origin: *');
@@ -1340,11 +1340,22 @@ function resendReport() {
 }
 
 function userListReports() {
+    // Require user authentication
+    $userPayload = requireUserAuthShared();
+    $authenticatedEmail = $userPayload['email'] ?? '';
+
     $userEmail = $_GET['user_email'] ?? '';
 
     if (empty($userEmail)) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere user_email']);
+        return;
+    }
+
+    // Verify the authenticated user can only access their own reports
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($userEmail)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado para ver reportes de otro usuario']);
         return;
     }
 

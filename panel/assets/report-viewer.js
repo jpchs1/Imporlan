@@ -28,6 +28,7 @@
     return {
       "Content-Type": "application/json",
       Authorization: "Bearer " + getUserToken(),
+      "X-User-Email": getUserEmail(),
     };
   }
 

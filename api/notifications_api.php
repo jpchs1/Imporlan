@@ -12,11 +12,12 @@
  */
 
 require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/auth_helper.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Email, X-User-Name');
     header('Content-Type: application/json');
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -26,18 +27,22 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 
     $action = $_GET['action'] ?? '';
 
+    // All notification endpoints require user authentication
+    $userPayload = requireUserAuthShared();
+    $authenticatedEmail = $userPayload['email'] ?? '';
+
     switch ($action) {
         case 'list':
-            listNotifications();
+            listNotifications($authenticatedEmail);
             break;
         case 'unread_count':
-            unreadCount();
+            unreadCount($authenticatedEmail);
             break;
         case 'mark_read':
-            markRead();
+            markRead($authenticatedEmail);
             break;
         case 'mark_all_read':
-            markAllRead();
+            markAllRead($authenticatedEmail);
             break;
         default:
             http_response_code(400);
@@ -45,11 +50,18 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     }
 }
 
-function listNotifications() {
+function listNotifications($authenticatedEmail = '') {
     $userEmail = $_GET['user_email'] ?? '';
     if (empty($userEmail)) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere user_email']);
+        return;
+    }
+
+    // Verify the authenticated user can only access their own notifications
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($userEmail)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado para ver notificaciones de otro usuario']);
         return;
     }
 
@@ -79,11 +91,18 @@ function listNotifications() {
     }
 }
 
-function unreadCount() {
+function unreadCount($authenticatedEmail = '') {
     $userEmail = $_GET['user_email'] ?? '';
     if (empty($userEmail)) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere user_email']);
+        return;
+    }
+
+    // Verify the authenticated user can only access their own notifications
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($userEmail)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado']);
         return;
     }
 
@@ -106,7 +125,7 @@ function unreadCount() {
     }
 }
 
-function markRead() {
+function markRead($authenticatedEmail = '') {
     $input = json_decode(file_get_contents('php://input'), true);
     $id = intval($input['id'] ?? $_GET['id'] ?? 0);
 
@@ -124,8 +143,9 @@ function markRead() {
     }
 
     try {
-        $stmt = $pdo->prepare("UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL");
-        $stmt->execute([$id]);
+        // Only allow marking own notifications as read
+        $stmt = $pdo->prepare("UPDATE notifications SET read_at = NOW() WHERE id = ? AND read_at IS NULL AND user_email = ?");
+        $stmt->execute([$id, $authenticatedEmail]);
 
         echo json_encode(['success' => true]);
     } catch (PDOException $e) {
@@ -134,13 +154,20 @@ function markRead() {
     }
 }
 
-function markAllRead() {
+function markAllRead($authenticatedEmail = '') {
     $input = json_decode(file_get_contents('php://input'), true);
     $userEmail = $input['user_email'] ?? $_GET['user_email'] ?? '';
 
     if (empty($userEmail)) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere user_email']);
+        return;
+    }
+
+    // Verify the authenticated user can only modify their own notifications
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($userEmail)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado']);
         return;
     }
 
