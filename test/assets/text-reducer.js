@@ -161,16 +161,21 @@
 
     if (!inspeccionesH3) return false;
 
-    // Collect all siblings from Inspecciones h3 onward until the YouTube button link
+    // The h3 is nested inside div.max-w-[1400px] inside div.mb-10
+    // We need to walk at the div.mb-10 container level
+    var inspeccionesContainer = inspeccionesH3.closest('.mb-10') || inspeccionesH3.parentElement.parentElement;
+    if (!inspeccionesContainer || !inspeccionesContainer.parentElement) return false;
+
+    // Collect all div.mb-10 siblings from Inspecciones onward
     var wrapper = document.createElement('div');
     wrapper.className = 'tr-videos-hidden';
 
-    var current = inspeccionesH3;
+    var current = inspeccionesContainer;
     var elementsToMove = [];
     while (current) {
       var next = current.nextElementSibling;
-      // Stop before the YouTube "Ver Todos" button (it's an <a> with a <button> inside)
-      if (current.tagName === 'A' && current.querySelector('button')) {
+      // Stop before the YouTube "Ver Todos" button container (div.text-center with an <a><button>)
+      if (current.querySelector && current.querySelector('a > button')) {
         break;
       }
       elementsToMove.push(current);
