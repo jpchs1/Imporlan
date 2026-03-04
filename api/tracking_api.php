@@ -994,6 +994,21 @@ function adminFetchVesselPosition() {
 }
 
 /**
+ * Validate IMO number using check digit algorithm (IMO Resolution A.600(15)).
+ * The check digit (7th digit) equals the sum of (first 6 digits × weights 7,6,5,4,3,2) mod 10.
+ */
+function validateIMOCheckDigit($imo) {
+    if (!preg_match('/^\d{7}$/', $imo)) return false;
+    $digits = str_split($imo);
+    $weights = [7, 6, 5, 4, 3, 2];
+    $sum = 0;
+    for ($i = 0; $i < 6; $i++) {
+        $sum += intval($digits[$i]) * $weights[$i];
+    }
+    return ($sum % 10) === intval($digits[6]);
+}
+
+/**
  * Scrape vessel info from VesselFinder's public detail page (no API key needed).
  * Works for IMO (7 digits) and MMSI (9 digits) lookups.
  */
@@ -1074,6 +1089,17 @@ function adminLookupVessel() {
     }
 
     $results = [];
+    $warnings = [];
+
+    // Validate IMO check digit if query is 7 digits
+    if (preg_match('/^\d{7}$/', $query) && !validateIMOCheckDigit($query)) {
+        echo json_encode([
+            'success' => true,
+            'results' => [],
+            'warning' => 'El numero IMO ' . $query . ' tiene un digito de verificacion invalido. Por favor verifique el numero e intente nuevamente.'
+        ]);
+        return;
+    }
 
     // First search in local DB
     $pdo = getDbConnection();
@@ -1169,7 +1195,11 @@ function adminLookupVessel() {
         }
     }
 
-    echo json_encode(['success' => true, 'results' => $results]);
+    $response = ['success' => true, 'results' => $results];
+    if (count($results) === 0 && (preg_match('/^\d{7}$/', $query) || preg_match('/^\d{9}$/', $query))) {
+        $response['warning'] = 'No se encontro ninguna embarcacion con ' . (strlen($query) === 7 ? 'IMO' : 'MMSI') . ' ' . $query . '. Verifique el numero o ingrese los datos manualmente.';
+    }
+    echo json_encode($response);
 }
 
 /**
