@@ -888,10 +888,10 @@ function generateReportHtml($order, $links, $analysisResults, $reportVersion, $a
 // ============================================================
 
 function sendReport() {
-    $orderId = intval($_GET['id'] ?? 0);
+    $orderId = intval($_GET['id'] ?? $_GET['order_id'] ?? 0);
     if (!$orderId) {
         $input = json_decode(file_get_contents('php://input'), true);
-        $orderId = intval($input['id'] ?? 0);
+        $orderId = intval($input['id'] ?? $input['order_id'] ?? 0);
     }
 
     if (!$orderId) {
@@ -1033,10 +1033,10 @@ function sendReport() {
 }
 
 function previewReport() {
-    $orderId = intval($_GET['id'] ?? 0);
+    $orderId = intval($_GET['id'] ?? $_GET['order_id'] ?? 0);
     if (!$orderId) {
         $input = json_decode(file_get_contents('php://input'), true);
-        $orderId = intval($input['id'] ?? 0);
+        $orderId = intval($input['id'] ?? $input['order_id'] ?? 0);
     }
 
     if (!$orderId) {
