@@ -568,9 +568,11 @@
       '<h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a">Configuracion AIS</h3>' +
       '<span id="ta-ais-status" style="font-size:11px;padding:3px 10px;border-radius:6px;background:#fef3c7;color:#d97706">Cargando...</span>' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">AISstream API Key</label>' +
       '<input id="ta-cfg-aisstream" type="password" placeholder="Tu API key de aisstream.io" style="' + inputStyle() + '"></div>' +
+      '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">VesselFinder API Key</label>' +
+      '<input id="ta-cfg-ais-api" type="password" placeholder="Tu API key de VesselFinder" style="' + inputStyle() + '"></div>' +
       '<div><label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px">Token Cron (para trigger HTTP)</label>' +
       '<input id="ta-cfg-cron-token" type="text" placeholder="Token secreto aleatorio" style="' + inputStyle() + '"></div>' +
       '</div>' +
@@ -595,6 +597,8 @@
         var aisInput = document.getElementById("ta-cfg-aisstream");
         var cronInput = document.getElementById("ta-cfg-cron-token");
         if (aisInput && cfg.AISSTREAM_API_KEY) aisInput.value = cfg.AISSTREAM_API_KEY.value || '';
+        var aisApiInput = document.getElementById("ta-cfg-ais-api");
+        if (aisApiInput && cfg.AIS_API_KEY) aisApiInput.value = cfg.AIS_API_KEY.value || '';
         if (cronInput && cfg.CRON_SECRET_TOKEN) cronInput.value = cfg.CRON_SECRET_TOKEN.value || '';
         // Update status badge
         var badge = document.getElementById("ta-ais-status");
@@ -633,6 +637,7 @@
       saveBtn._bound = true;
       saveBtn.addEventListener("click", async function () {
         var aisKey = document.getElementById("ta-cfg-aisstream").value.trim();
+        var aisApiKey = document.getElementById("ta-cfg-ais-api").value.trim();
         var cronToken = document.getElementById("ta-cfg-cron-token").value.trim();
         if (!aisKey) { showToast("Ingresa la API key de AISstream", "error"); return; }
         if (!cronToken) {
@@ -644,7 +649,7 @@
         try {
           var resp = await fetch(API_BASE + "/tracking_api.php?action=tracking_config_save", {
             method: "POST", headers: authHeaders(),
-            body: JSON.stringify({ configs: { AISSTREAM_API_KEY: aisKey, CRON_SECRET_TOKEN: cronToken } })
+            body: JSON.stringify({ configs: { AISSTREAM_API_KEY: aisKey, AIS_API_KEY: aisApiKey, CRON_SECRET_TOKEN: cronToken } })
           });
           var data = await resp.json();
           if (data.success) {

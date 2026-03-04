@@ -1109,7 +1109,8 @@ function adminLookupVessel() {
     }
 
     // Then try VesselFinder API if configured
-    $apiKey = getenv('AIS_API_KEY') ?: '';
+    require_once __DIR__ . '/tracking/ais_config_helper.php';
+    $apiKey = getAISConfig('AIS_API_KEY') ?: '';
     if ($apiKey && count($results) === 0) {
         try {
             // Try by IMO if query is numeric and 7 digits
