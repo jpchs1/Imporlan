@@ -16,9 +16,9 @@ if (preg_match('#/marketplace/embarcacion/(\d+)#', $requestUri, $m)) {
 
 // Detect test environment
 $isTest = strpos($requestUri, '/test/') !== false;
-$apiDir = $isTest
-    ? dirname(__DIR__) . '/test/api'
-    : dirname(__DIR__) . '/api';
+// In test/marketplace/embarcacion.php, dirname(__DIR__) = .../test
+// so the api dir is simply dirname(__DIR__) . '/api'
+$apiDir = dirname(__DIR__) . '/api';
 
 // Default OG values (fallback)
 $ogTitle = 'Marketplace de Embarcaciones | Imporlan Chile';
