@@ -95,6 +95,7 @@
         gap: 24px;
         max-width: 1100px;
         margin: 0 auto;
+        position: relative;
       }
       
       .seo-page-card {
@@ -228,7 +229,8 @@
       }
       
       /* Collapsible grid: hide cards beyond the initial visible count
-         Using max-height/overflow instead of display:none for SEO safety */
+         Using max-height/overflow instead of display:none for SEO safety
+         position:absolute takes them out of flow so grid gap collapses */
       .seo-pages-grid .seo-page-card.seo-card-hidden {
         max-height: 0;
         overflow: hidden;
@@ -237,6 +239,8 @@
         border: none;
         opacity: 0;
         pointer-events: none;
+        position: absolute;
+        width: 0;
       }
       .seo-pages-grid.seo-pages-expanded .seo-page-card.seo-card-hidden {
         max-height: 500px;
@@ -245,6 +249,8 @@
         border: 1px solid #2d5a87;
         opacity: 1;
         pointer-events: auto;
+        position: static;
+        width: auto;
         transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease;
       }
       
