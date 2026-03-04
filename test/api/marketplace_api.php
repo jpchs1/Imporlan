@@ -184,6 +184,7 @@ function listListings() {
     $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($listings as &$l) {
         $l['fotos'] = $l['fotos'] ? json_decode($l['fotos'], true) : [];
+        $l['fotos'] = normalizePhotoUrls($l['fotos']);
         if (!empty($l['arriendo_periodos'])) {
             $l['arriendo_periodos'] = json_decode($l['arriendo_periodos'], true) ?: [];
         }
@@ -202,6 +203,7 @@ function myListings($user) {
     $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($listings as &$l) {
         $l['fotos'] = $l['fotos'] ? json_decode($l['fotos'], true) : [];
+        $l['fotos'] = normalizePhotoUrls($l['fotos']);
         if (!empty($l['arriendo_periodos'])) {
             $l['arriendo_periodos'] = json_decode($l['arriendo_periodos'], true) ?: [];
         }
@@ -226,6 +228,7 @@ function getListing() {
         return;
     }
     $listing['fotos'] = $listing['fotos'] ? json_decode($listing['fotos'], true) : [];
+    $listing['fotos'] = normalizePhotoUrls($listing['fotos']);
     echo json_encode(['listing' => $listing]);
 }
 
@@ -334,7 +337,14 @@ function uploadPhoto($user) {
         return;
     }
 
-    $uploadDir = __DIR__ . '/marketplace_photos/';
+    // Always save photos to the production api/marketplace_photos/ directory
+    // to avoid losing them when the test environment is redeployed
+    $prodUploadDir = realpath(__DIR__ . '/../../') . '/api/marketplace_photos/';
+    if (is_dir($prodUploadDir)) {
+        $uploadDir = $prodUploadDir;
+    } else {
+        $uploadDir = __DIR__ . '/marketplace_photos/';
+    }
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
@@ -349,9 +359,8 @@ function uploadPhoto($user) {
         return;
     }
 
-    $isTest = strpos($_SERVER['REQUEST_URI'] ?? '', '/test/') !== false;
-    $baseUrl = $isTest ? '/test/api/marketplace_photos/' : '/api/marketplace_photos/';
-    $url = $baseUrl . $filename;
+    // Always use production URL path for photos
+    $url = '/api/marketplace_photos/' . $filename;
 
     echo json_encode(['success' => true, 'url' => $url]);
 }
@@ -619,12 +628,24 @@ function handleLeadSubmission() {
     }
 }
 
+/**
+ * Normalize photo URLs: convert /test/api/marketplace_photos/ to /api/marketplace_photos/
+ * so photos always point to the production directory where they are permanently stored.
+ */
+function normalizePhotoUrls($fotos) {
+    if (!is_array($fotos)) return $fotos;
+    return array_map(function($url) {
+        return str_replace('/test/api/marketplace_photos/', '/api/marketplace_photos/', $url);
+    }, $fotos);
+}
+
 function fetchListingById($pdo, $id) {
     $stmt = $pdo->prepare("SELECT * FROM marketplace_listings WHERE id = ?");
     $stmt->execute([intval($id)]);
     $listing = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($listing && $listing['fotos']) {
         $listing['fotos'] = json_decode($listing['fotos'], true) ?: [];
+        $listing['fotos'] = normalizePhotoUrls($listing['fotos']);
     }
     if ($listing && !empty($listing['arriendo_periodos'])) {
         $listing['arriendo_periodos'] = json_decode($listing['arriendo_periodos'], true) ?: [];

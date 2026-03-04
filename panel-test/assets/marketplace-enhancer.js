@@ -113,14 +113,26 @@
     }
   }
 
+  // Normalize photo URLs: convert /test/api/marketplace_photos/ to /api/marketplace_photos/
+  function normalizePhotoUrl(url) {
+    if (typeof url === 'string') return url.replace('/test/api/marketplace_photos/', '/api/marketplace_photos/');
+    return url;
+  }
+  function normalizeListingPhotos(listing) {
+    if (listing && listing.fotos && Array.isArray(listing.fotos)) {
+      listing.fotos = listing.fotos.map(normalizePhotoUrl);
+    }
+    return listing;
+  }
+
   async function loadListings() {
     var data = await apiCall("?action=list");
-    if (data && data.listings) listings = data.listings;
+    if (data && data.listings) listings = data.listings.map(normalizeListingPhotos);
   }
 
   async function loadMyListings() {
     var data = await apiCall("?action=my_listings");
-    if (data && data.listings) myListings = data.listings;
+    if (data && data.listings) myListings = data.listings.map(normalizeListingPhotos);
   }
 
   async function uploadPhotoFile(file) {
