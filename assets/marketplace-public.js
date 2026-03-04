@@ -392,6 +392,9 @@
         '<div class="mp-card-actions">' +
           '<button class="mp-card-btn mp-card-btn-primary" data-action="details" data-id="' + listing.id + '">Ver Detalles</button>' +
           '<button class="mp-card-btn mp-card-btn-outline" data-action="contact" data-id="' + listing.id + '">' + (isArriendo ? 'Consultar Arriendo' : 'Contactar') + '</button>' +
+          '<button class="mp-card-btn mp-card-btn-share" data-action="share" data-id="' + listing.id + '" title="Compartir">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>' +
+          '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -669,12 +672,20 @@
         window.open('https://wa.me/56920382479?text=' + encodeURIComponent(msg), '_blank');
       }
     } else if (action === 'share') {
-      var url = window.location.origin + '/marketplace/?listing=' + id;
+      var listing = allListings.find(function(l) { return String(l.id) === String(id); });
+      var shareTitle = listing ? listing.nombre + ' | Imporlan Marketplace' : 'Embarcacion en Imporlan';
+      var shareText = listing ? (listing.nombre + (listing.tipo ? ' - ' + listing.tipo : '') + (listing.ano ? ' ' + listing.ano : '')) : '';
+      var isTestEnv = window.location.pathname.indexOf('/test/') !== -1;
+      var shareBase = isTestEnv ? '/test/marketplace/embarcacion/' : '/marketplace/embarcacion/';
+      var url = window.location.origin + shareBase + id;
       if (navigator.share) {
-        navigator.share({ title: 'Embarcacion en Imporlan', url: url });
+        navigator.share({ title: shareTitle, text: shareText, url: url }).catch(function() {});
       } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(url);
-        alert('Enlace copiado al portapapeles');
+        navigator.clipboard.writeText(url).then(function() {
+          showShareToast('Enlace copiado al portapapeles');
+        });
+      } else {
+        prompt('Copia este enlace para compartir:', url);
       }
     }
   }
@@ -872,6 +883,20 @@
     }
   }
 
+  function showShareToast(message) {
+    var existing = document.getElementById('mp-share-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'mp-share-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 2500);
+  }
+
   function updateSocialProof() {
     var countEl = document.getElementById('mp-social-count');
     if (countEl && allListings.length > 0) {
@@ -922,8 +947,10 @@
     updateSocialProof();
 
     var listingParam = urlParams.get('listing');
-    if (listingParam) {
-      setTimeout(function() { openDetailModal(listingParam); }, 500);
+    var embarcacionId = window.__MP_LISTING_ID || null;
+    var autoOpenId = embarcacionId || listingParam;
+    if (autoOpenId) {
+      setTimeout(function() { openDetailModal(autoOpenId); }, 500);
     }
   }
 
