@@ -92,3 +92,64 @@ function requireAdminAuthShared() {
 
     return $payload;
 }
+
+/**
+ * Authenticate a regular user via JWT token + X-User-Email header.
+ * Returns the user payload with 'email' field, or exits with 401.
+ * Follows the same pattern as chat_api.php requireUserAuth().
+ */
+function requireUserAuthShared() {
+    $headers = getallheaders();
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+
+    if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'No autorizado']);
+        exit();
+    }
+
+    $token = $matches[1];
+    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
+    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
+
+    // Try to verify JWT with our secret
+    $payload = verifyJWTToken($token);
+
+    // If JWT verification fails but we have email from header, decode without verifying
+    // (handles case where user panel uses a different JWT secret)
+    if (!$payload && $userEmail) {
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $tokenPayload = json_decode(authBase64UrlDecode($parts[1]), true);
+            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
+                $payload = [
+                    'sub' => $tokenPayload['sub'] ?? '0',
+                    'email' => $userEmail,
+                    'name' => $userName,
+                    'exp' => $tokenPayload['exp']
+                ];
+            }
+        }
+    }
+
+    if (!$payload) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token invalido o expirado']);
+        exit();
+    }
+
+    // If email not in payload, use header
+    if (!isset($payload['email']) || empty($payload['email'])) {
+        if ($userEmail) {
+            $payload['email'] = $userEmail;
+        }
+    }
+
+    if (!isset($payload['name']) || empty($payload['name'])) {
+        if ($userName) {
+            $payload['name'] = $userName;
+        }
+    }
+
+    return $payload;
+}
