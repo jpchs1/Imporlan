@@ -420,8 +420,13 @@
     if (existingSection) existingSection.remove();
     
     try {
-      const response = await fetch('/test/assets/seo/seo-pages.json');
-      if (!response.ok) throw new Error('Failed to load seo-pages.json');
+      // Try test path first, fallback to production path if not found
+      var response = await fetch('/test/assets/seo/seo-pages.json');
+      if (!response.ok) {
+        console.warn('[SEO Pages Section] Test JSON not found (status ' + response.status + '), trying production path...');
+        response = await fetch('/assets/seo/seo-pages.json');
+        if (!response.ok) throw new Error('Failed to load seo-pages.json from both test and production paths');
+      }
       
       const data = await response.json();
       if (!data.pages || data.pages.length === 0) {

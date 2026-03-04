@@ -875,32 +875,42 @@
       if (procesoSection && beneficiosSection) {
         clearInterval(checkInterval);
         
-        // Add styles
-        addSEOStyles();
-        addLanchasUsadasStyles();
-        
-        // Insert Guia section after Proceso
-        const guiaSection = createGuiaSection();
-        procesoSection.parentNode.insertBefore(guiaSection, procesoSection.nextSibling);
-        
-        // Insert Servicios section after Beneficios
-        const serviciosSection = createServiciosSection();
-        beneficiosSection.parentNode.insertBefore(serviciosSection, beneficiosSection.nextSibling);
-        
-        // Insert Lanchas Usadas SEO section at the end of main content (before footer)
-        const lanchasSection = createLanchasUsadasSection();
-        const footer = document.querySelector('footer');
-        if (footer) {
-          footer.parentNode.insertBefore(lanchasSection, footer);
-        } else {
-          // If no footer found, append to root or last section
-          const root = document.getElementById('root');
-          if (root) {
-            root.appendChild(lanchasSection);
+        try {
+          // Add styles
+          addSEOStyles();
+          addLanchasUsadasStyles();
+          
+          // Insert Guia section after Proceso
+          const guiaSection = createGuiaSection();
+          procesoSection.parentNode.insertBefore(guiaSection, procesoSection.nextSibling);
+          console.log('[SEO Sections v2] Inserted Guia section');
+          
+          // Insert Servicios section after Beneficios
+          const serviciosSection = createServiciosSection();
+          beneficiosSection.parentNode.insertBefore(serviciosSection, beneficiosSection.nextSibling);
+          console.log('[SEO Sections v2] Inserted Servicios section');
+          
+          // Insert Lanchas Usadas SEO section at the end of main content (before footer)
+          const lanchasSection = createLanchasUsadasSection();
+          const footer = document.querySelector('footer');
+          if (footer && footer.parentNode) {
+            footer.parentNode.insertBefore(lanchasSection, footer);
+            console.log('[SEO Sections v2] Inserted Lanchas Usadas section before footer');
+          } else {
+            // If no footer found, append to root or last section
+            const root = document.getElementById('root');
+            if (root) {
+              root.appendChild(lanchasSection);
+              console.log('[SEO Sections v2] Inserted Lanchas Usadas section in root (no footer found)');
+            } else {
+              console.warn('[SEO Sections v2] Could not find footer or root to insert Lanchas Usadas section');
+            }
           }
+          
+          console.log('[SEO Sections v2] Successfully inserted Guia, Servicios and Lanchas Usadas sections');
+        } catch (err) {
+          console.error('[SEO Sections v2] Error inserting sections:', err);
         }
-        
-        console.log('[SEO Sections v2] Successfully inserted Guia, Servicios and Lanchas Usadas sections');
       }
     }, 500);
     
