@@ -22,6 +22,19 @@
     return '$' + Number(val).toLocaleString('es-CL') + ' CLP';
   }
 
+  function getArriendoPriceText(listing) {
+    if (listing.tipo_publicacion !== 'arriendo' || !listing.arriendo_periodos) return null;
+    var periodos = listing.arriendo_periodos;
+    var labels = { 'hora': 'Hora', 'medio_dia': '1/2 Dia', 'dia': 'Dia', 'semana': 'Semana', 'mes': 'Mes' };
+    var keys = ['hora', 'medio_dia', 'dia', 'semana', 'mes'];
+    for (var i = 0; i < keys.length; i++) {
+      if (periodos[keys[i]] && parseFloat(periodos[keys[i]]) > 0) {
+        return '$' + Number(periodos[keys[i]]).toLocaleString('es-CL') + ' CLP/' + labels[keys[i]];
+      }
+    }
+    return null;
+  }
+
   function formatPriceDisplay(precio, moneda) {
     if (!precio || precio <= 0) return 'Consultar';
     if (moneda === 'CLP') {
@@ -326,7 +339,7 @@
     Object.keys(periodos).forEach(function(key) {
       if (periodos[key] && parseFloat(periodos[key]) > 0) {
         var label = PERIODO_LABELS[key] || key;
-        items.push('<span class="mp-arriendo-periodo-item">USD $' + Number(periodos[key]).toLocaleString('en-US') + '/' + label.toLowerCase() + '</span>');
+        items.push('<span class="mp-arriendo-periodo-item">$' + Number(periodos[key]).toLocaleString('es-CL') + ' CLP/' + label.toLowerCase() + '</span>');
       }
     });
     return items.length > 0 ? '<div class="mp-arriendo-periodos">' + items.join('') + '</div>' : '';
@@ -336,7 +349,8 @@
     var fotos = listing.fotos || [];
     var mainPhoto = fotos.length > 0 ? fotos[0] : '';
     var isArriendo = listing.tipo_publicacion === 'arriendo';
-    var priceInfo = formatPriceDisplay(listing.precio, listing.moneda);
+    var arriendoPrice = getArriendoPriceText(listing);
+    var priceInfo = arriendoPrice ? arriendoPrice : formatPriceDisplay(listing.precio, listing.moneda);
     var priceMain = typeof priceInfo === 'string' ? priceInfo : priceInfo.main;
     var priceSec = typeof priceInfo === 'string' ? '' : priceInfo.secondary;
 
@@ -355,7 +369,7 @@
       : '';
 
     var arriendoHtml = '';
-    if (isArriendo && listing.arriendo_periodos) {
+    if (isArriendo && listing.arriendo_periodos && !arriendoPrice) {
       arriendoHtml = formatArriendoPeriodos(listing.arriendo_periodos);
     }
 
@@ -378,6 +392,9 @@
         '<div class="mp-card-actions">' +
           '<button class="mp-card-btn mp-card-btn-primary" data-action="details" data-id="' + listing.id + '">Ver Detalles</button>' +
           '<button class="mp-card-btn mp-card-btn-outline" data-action="contact" data-id="' + listing.id + '">' + (isArriendo ? 'Consultar Arriendo' : 'Contactar') + '</button>' +
+          '<button class="mp-card-btn mp-card-btn-share" data-action="share" data-id="' + listing.id + '" title="Compartir">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>' +
+          '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -547,7 +564,8 @@
 
     var fotos = listing.fotos || [];
     var currentPhoto = 0;
-    var priceInfo = formatPriceDisplay(listing.precio, listing.moneda);
+    var arriendoPrice = getArriendoPriceText(listing);
+    var priceInfo = arriendoPrice ? arriendoPrice : formatPriceDisplay(listing.precio, listing.moneda);
     var priceMain = typeof priceInfo === 'string' ? priceInfo : priceInfo.main;
     var priceSec = typeof priceInfo === 'string' ? '' : priceInfo.secondary;
 
@@ -590,7 +608,7 @@
         '<div class="mp-modal-price">' + priceMain + '</div>' +
         (priceSec ? '<div class="mp-modal-price-clp">' + priceSec + '</div>' : '') +
         specsHtml +
-        (isArriendo && listing.arriendo_periodos ? '<div class="mp-modal-arriendo-section"><h4>Tarifas de Arriendo</h4>' + formatArriendoPeriodos(listing.arriendo_periodos) + '</div>' : '') +
+        (isArriendo && listing.arriendo_periodos && !arriendoPrice ? '<div class="mp-modal-arriendo-section"><h4>Tarifas de Arriendo</h4>' + formatArriendoPeriodos(listing.arriendo_periodos) + '</div>' : '') +
         (listing.descripcion ? '<div class="mp-modal-description"><h4>Descripcion</h4><p>' + escapeHtml(listing.descripcion) + '</p></div>' : '') +
         '<div class="mp-modal-seller">' +
           '<div class="mp-modal-seller-name">Publicado por: ' + escapeHtml(listing.user_name || 'Usuario') + '</div>' +
@@ -654,12 +672,20 @@
         window.open('https://wa.me/56920382479?text=' + encodeURIComponent(msg), '_blank');
       }
     } else if (action === 'share') {
-      var url = window.location.origin + '/marketplace/?listing=' + id;
+      var listing = allListings.find(function(l) { return String(l.id) === String(id); });
+      var shareTitle = listing ? listing.nombre + ' | Imporlan Marketplace' : 'Embarcacion en Imporlan';
+      var shareText = listing ? (listing.nombre + (listing.tipo ? ' - ' + listing.tipo : '') + (listing.ano ? ' ' + listing.ano : '')) : '';
+      var isTestEnv = window.location.pathname.indexOf('/test/') !== -1;
+      var shareBase = isTestEnv ? '/test/marketplace/embarcacion/' : '/marketplace/embarcacion/';
+      var url = window.location.origin + shareBase + id;
       if (navigator.share) {
-        navigator.share({ title: 'Embarcacion en Imporlan', url: url });
+        navigator.share({ title: shareTitle, text: shareText, url: url }).catch(function() {});
       } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(url);
-        alert('Enlace copiado al portapapeles');
+        navigator.clipboard.writeText(url).then(function() {
+          showShareToast('Enlace copiado al portapapeles');
+        });
+      } else {
+        prompt('Copia este enlace para compartir:', url);
       }
     }
   }
@@ -857,6 +883,20 @@
     }
   }
 
+  function showShareToast(message) {
+    var existing = document.getElementById('mp-share-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'mp-share-toast';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      setTimeout(function() { toast.remove(); }, 300);
+    }, 2500);
+  }
+
   function updateSocialProof() {
     var countEl = document.getElementById('mp-social-count');
     if (countEl && allListings.length > 0) {
@@ -907,8 +947,10 @@
     updateSocialProof();
 
     var listingParam = urlParams.get('listing');
-    if (listingParam) {
-      setTimeout(function() { openDetailModal(listingParam); }, 500);
+    var embarcacionId = window.__MP_LISTING_ID || null;
+    var autoOpenId = embarcacionId || listingParam;
+    if (autoOpenId) {
+      setTimeout(function() { openDetailModal(autoOpenId); }, 500);
     }
   }
 
