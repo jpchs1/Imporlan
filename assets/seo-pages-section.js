@@ -327,7 +327,7 @@
     if (existingSection) existingSection.remove();
     
     try {
-      const response = await fetch('/assets/seo/seo-pages.json');
+      const response = await fetch('/assets/seo/seo-pages.json?v=20260304');
       if (!response.ok) throw new Error('Failed to load seo-pages.json');
       
       const data = await response.json();
