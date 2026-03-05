@@ -162,7 +162,7 @@ function addPurchase() {
         'amount' => floatval($input['amount']),
         'amount_clp' => intval($input['amount_clp'] ?? $input['amount']),
         'currency' => $input['currency'] ?? 'CLP',
-        'payment_method' => $input['payment_method'], // 'paypal', 'mercadopago'
+        'payment_method' => $input['payment_method'], // 'paypal', 'mercadopago', 'webpay', 'transferencia_bancaria'
         'payment_id' => $input['payment_id'] ?? null,
         'order_id' => $input['order_id'] ?? null,
         'status' => $input['status'] ?? 'pending',

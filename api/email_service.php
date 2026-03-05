@@ -2766,6 +2766,9 @@ BASE64;
                                 <td align="center" style="padding: 8px 16px;">
                                     <span style="display: inline-block; padding: 6px 16px; background: #003087; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">PayPal</span>
                                 </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #16a34a; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">Transferencia Bancaria</span>
+                                </td>
                             </tr>
                         </table>
                     </td>
@@ -2787,7 +2790,7 @@ BASE64;
         $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
         $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
         
-        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual'];
+        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual', 'transferencia_bancaria' => 'Transferencia Bancaria', 'transferencia' => 'Transferencia Bancaria'];
         $method = $paymentData['payment_method'] ?? 'N/A';
         $methodLabel = $methodLabels[$method] ?? ucfirst($method);
         

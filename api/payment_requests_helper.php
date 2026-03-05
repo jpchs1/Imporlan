@@ -141,12 +141,13 @@ if (!function_exists('handlePaymentRequestPaid')) {
                 if (!empty($description)) {
                     $message .= "Descripcion: {$description}\n";
                 }
-                $message .= "\nPuedes pagar desde la seccion 'Pagos Pendientes' de tu panel usando:\n" .
-                    "- Tarjeta de Credito/Debito\n" .
-                    "- WebPay\n" .
-                    "- MercadoPago\n" .
-                    "- PayPal\n\n" .
-                    "Ingresa a tu panel para ver los detalles.";
+                    $message .= "\nPuedes pagar desde la seccion 'Pagos Pendientes' de tu panel usando:\n" .
+                        "- Tarjeta de Credito/Debito\n" .
+                        "- WebPay\n" .
+                        "- MercadoPago\n" .
+                        "- PayPal\n" .
+                        "- Transferencia Bancaria\n\n" .
+                        "Ingresa a tu panel para ver los detalles.";
             } elseif ($type === 'paid') {
                 $paymentMethod = $request['payment_method'] ?? 'N/A';
                 $paidAt = $request['paid_at'] ?? date('d/m/Y H:i');

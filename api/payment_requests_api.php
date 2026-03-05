@@ -618,7 +618,8 @@ function createPaymentRequestChatMessage($request, $type = 'created') {
             $message .= "\nPuedes pagar desde la seccion 'Pagos Pendientes' de tu panel usando:\n" .
                 "- MercadoPago\n" .
                 "- WebPay\n" .
-                "- PayPal\n\n" .
+                "- PayPal\n" .
+                "- Transferencia Bancaria\n\n" .
                 "Ingresa a tu panel para ver los detalles.";
         } elseif ($type === 'paid') {
             $paymentMethod = $request['payment_method'] ?? 'N/A';
