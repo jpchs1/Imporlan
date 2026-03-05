@@ -6,8 +6,6 @@ Disallow: /wp-includes/
 Disallow: /prueba2/
 Disallow: /t003/
 Disallow: /api/
-Disallow: /servicios/
-
 Allow: /wp-includes/*.css
 Allow: /wp-includes/*.js
 Allow: /assets/*.css

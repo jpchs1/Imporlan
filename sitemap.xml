@@ -233,6 +233,49 @@
         <priority>0.7</priority>
     </url>
 
+    <url>
+        <loc>https://www.imporlan.cl/cotizar-importacion/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Importaciones (Nuevas Lineas) -->
+    <url>
+        <loc>https://www.imporlan.cl/importaciones/importacion-autos-chile/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/importaciones/importacion-maquinaria-chile/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/importaciones/importacion-ambulancias-chile/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/importaciones/importacion-motorhomes-chile/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/importaciones/importacion-motos-agua-chile/</loc>
+        <lastmod>2026-03-05</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
     <!-- English pages -->
     <url>
         <loc>https://www.imporlan.cl/en/</loc>

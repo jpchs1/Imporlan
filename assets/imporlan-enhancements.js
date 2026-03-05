@@ -517,6 +517,148 @@
   }
 
   // ============================================
+  // 5.1 SEO: FIX DUPLICATE H1 TAGS
+  // Change nav and footer H1 to <span> so only
+  // the hero H1 remains as the single H1 per page
+  // ============================================
+
+  function fixDuplicateH1Tags() {
+    if (window.location.pathname.includes('/panel')) return;
+
+    var checkInterval = setInterval(function() {
+      var nav = document.querySelector('nav');
+      var footer = document.querySelector('footer');
+      if (!nav) return;
+
+      clearInterval(checkInterval);
+
+      // Fix nav H1 -> span
+      var navH1s = nav.querySelectorAll('h1');
+      navH1s.forEach(function(h1) {
+        var span = document.createElement('span');
+        span.className = h1.className;
+        span.innerHTML = h1.innerHTML;
+        span.style.cssText = h1.style.cssText || '';
+        // Copy computed styles that matter
+        var cs = window.getComputedStyle(h1);
+        span.style.fontSize = cs.fontSize;
+        span.style.fontWeight = cs.fontWeight;
+        span.style.color = cs.color;
+        span.style.display = 'inline';
+        h1.parentNode.replaceChild(span, h1);
+      });
+
+      // Fix footer H1 -> span
+      if (footer) {
+        var footerH1s = footer.querySelectorAll('h1');
+        footerH1s.forEach(function(h1) {
+          var span = document.createElement('span');
+          span.className = h1.className;
+          span.innerHTML = h1.innerHTML;
+          span.style.cssText = h1.style.cssText || '';
+          var cs = window.getComputedStyle(h1);
+          span.style.fontSize = cs.fontSize;
+          span.style.fontWeight = cs.fontWeight;
+          span.style.color = cs.color;
+          span.style.display = 'block';
+          h1.parentNode.replaceChild(span, h1);
+        });
+      }
+
+      console.log('[SEO] Fixed duplicate H1 tags in nav/footer');
+    }, 500);
+
+    setTimeout(function() { clearInterval(checkInterval); }, 10000);
+  }
+
+  // ============================================
+  // 5.2 SEO: ADD MISSING ALT ATTRIBUTES TO IMAGES
+  // Google needs alt text on all images for indexing
+  // ============================================
+
+  function addMissingAltAttributes() {
+    if (window.location.pathname.includes('/panel')) return;
+
+    // Map of known image filenames to descriptive alt text
+    var altMappings = {
+      'BOATIMPORLAN': 'Lancha importada por Imporlan desde USA a Chile',
+      'bandera-chile-usa': 'Bandera de Chile y Estados Unidos - Importacion de lanchas',
+      'imporlan-og': 'Imporlan - Importacion de lanchas y embarcaciones desde USA a Chile',
+      'imporlan-favicon': 'Imporlan logo',
+      'lancha-towing': 'Transporte terrestre de lancha importada',
+      'loader': 'Cargando Imporlan',
+      'logo': 'Logo Imporlan',
+      'logo-imporlan-azul': 'Logo Imporlan azul'
+    };
+
+    function processImages() {
+      var images = document.querySelectorAll('img');
+      images.forEach(function(img) {
+        if (img.hasAttribute('alt') && img.getAttribute('alt') !== '') return;
+
+        var src = img.src || img.dataset.src || '';
+        var altText = '';
+
+        // Check known mappings
+        for (var key in altMappings) {
+          if (src.indexOf(key) !== -1) {
+            altText = altMappings[key];
+            break;
+          }
+        }
+
+        // YouTube thumbnails
+        if (!altText && src.indexOf('ytimg.com') !== -1) {
+          var parent = img.closest('div');
+          var sibling = parent ? parent.parentElement : null;
+          var titleEl = sibling ? sibling.querySelector('div:last-child') : null;
+          if (titleEl && titleEl.textContent) {
+            altText = 'Video Imporlan: ' + titleEl.textContent.trim();
+          } else {
+            altText = 'Video de embarcacion Imporlan';
+          }
+        }
+
+        // Marketplace boat images
+        if (!altText && (src.indexOf('brunswick') !== -1 || src.indexOf('cobalt') !== -1 || src.indexOf('mastercraft') !== -1 || src.indexOf('chaparral') !== -1)) {
+          var card = img.closest('[class*="card"], div');
+          if (card) {
+            var nameEl = card.querySelector('div:last-child');
+            if (nameEl && nameEl.firstChild && nameEl.firstChild.textContent) {
+              altText = 'Lancha ' + nameEl.firstChild.textContent.trim() + ' disponible para importar';
+            }
+          }
+        }
+
+        // Fallback
+        if (!altText) {
+          altText = 'Imagen de embarcacion Imporlan';
+        }
+
+        img.setAttribute('alt', altText);
+      });
+    }
+
+    // Run after React renders
+    setTimeout(processImages, 2000);
+    setTimeout(processImages, 5000);
+
+    // Also observe for dynamically added images
+    if (window.MutationObserver) {
+      var debounceTimer = null;
+      var observer = new MutationObserver(function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(processImages, 300);
+      });
+      if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    }
+
+    console.log('[SEO] Alt attribute handler initialized');
+  }
+
+  // ============================================
   // INITIALIZATION
   // ============================================
   
@@ -532,6 +674,8 @@
         improveProcesoUI();
         fixRegistrarseButton();
         updateCotizarImportacionForm();
+        fixDuplicateH1Tags();
+        addMissingAltAttributes();
         
         // Set up link saving on form interactions
         document.addEventListener('input', function(e) {
