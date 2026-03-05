@@ -907,6 +907,53 @@
             }
           }
           
+          // Inject FAQPage JSON-LD structured data for rich results
+          if (!document.getElementById('faq-schema-jsonld')) {
+            var faqSchema = document.createElement('script');
+            faqSchema.type = 'application/ld+json';
+            faqSchema.id = 'faq-schema-jsonld';
+            faqSchema.textContent = JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": [
+                {
+                  "@type": "Question",
+                  "name": "¿Cuanto cuesta una lancha usada en Chile?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Las lanchas usadas en Chile tienen precios desde $3.000.000 CLP para modelos basicos de pesca, hasta $80.000.000+ para lanchas cabinadas premium. El precio depende del tamano, marca, motor y estado general."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "¿Cuanto cuesta importar una lancha desde USA?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "La importacion de lanchas desde USA tiene costos que incluyen: precio de compra, transporte maritimo ($2.000-$5.000 USD), internacion aduanera (6% arancel + 19% IVA) y logistica local. Cotiza gratis con Imporlan."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "¿Conviene importar una lancha usada o comprar en Chile?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Importar lanchas usadas desde USA suele ser mas conveniente, con ahorros de 10% a 20% respecto al mercado local chileno en compras sobre USD $25.000, ademas de mayor variedad de modelos y marcas disponibles."
+                  }
+                },
+                {
+                  "@type": "Question",
+                  "name": "¿Que documentos necesito para importar una lancha?",
+                  "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Para la importacion de lanchas necesitas: Bill of Sale, titulo de propiedad, factura comercial, Bill of Lading y documentos aduaneros. Imporlan gestiona todos los tramites por ti."
+                  }
+                }
+              ]
+            });
+            document.head.appendChild(faqSchema);
+            console.log('[SEO Sections v2] Injected FAQPage JSON-LD schema');
+          }
+
           console.log('[SEO Sections v2] Successfully inserted Guia, Servicios and Lanchas Usadas sections');
         } catch (err) {
           console.error('[SEO Sections v2] Error inserting sections:', err);
