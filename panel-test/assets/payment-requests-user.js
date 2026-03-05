@@ -592,11 +592,12 @@
       '<div style="padding:20px 28px">' +
       '<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:14px;padding:20px;margin-bottom:16px">' +
       '<div style="display:grid;gap:12px">' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Banco</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Banco Estado</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Tipo de Cuenta</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Cuenta Vista / Cuenta RUT</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Numero de Cuenta</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">19.450.963-1</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">RUT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">19.450.963-1</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Nombre</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Juan Pablo Chaparro Soumastre</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Banco</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Banco Santander</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Empresa</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Imporlan SpA</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">RUT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">76.914.409-9</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Cuenta Corriente (CLP)</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">74233813</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Cuenta Corriente (USD)</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">5100369305</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Codigo SWIFT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">BSCHCLRM</p></div>' +
       '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Email</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">contacto@imporlan.cl</p></div>' +
       '</div></div>' +
       '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px">' +
