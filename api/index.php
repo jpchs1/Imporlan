@@ -34,7 +34,7 @@ $plansData = [
             '1 Requerimiento especifico',
             '5 propuestas/cotizaciones',
             'Analisis ofertas y recomendacion',
-            'Reporte IA disponible por $15.000 CLP adicional'
+            '✗ Reporte IA'
         ]
     ],
     'capitan' => [
@@ -48,7 +48,7 @@ $plansData = [
             '1 Requerimiento especifico',
             '9 propuestas/cotizaciones',
             'Analisis ofertas y recomendacion',
-            'Reporte IA disponible por $15.000 CLP adicional'
+            '✗ Reporte IA'
         ]
     ],
     'almirante' => [
@@ -62,7 +62,7 @@ $plansData = [
             '1 Requerimiento especifico',
             '15 propuestas/cotizaciones',
             'Analisis ofertas y recomendacion',
-            'Reporte IA incluido'
+            '✓ Reporte IA incluido'
         ]
     ]
 ];
