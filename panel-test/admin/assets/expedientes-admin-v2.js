@@ -372,15 +372,16 @@
 
   function showToast(msg, type) {
     var toast = document.createElement("div");
-    var bgColor = type === "error" ? "#ef4444" : "#10b981";
-    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);background:" + bgColor;
+    var bgColor = type === "error" ? "#ef4444" : (type === "warning" ? "#f59e0b" : "#10b981");
+    var duration = type === "warning" ? 5000 : 3000;
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:400px;background:" + bgColor;
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(function () {
       toast.style.opacity = "0";
       toast.style.transition = "opacity .3s";
       setTimeout(function () { toast.remove(); }, 300);
-    }, 3000);
+    }, duration);
   }
 
   function inputStyle() {
@@ -493,6 +494,10 @@
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button>' +
       '<button id="ea-send-client-update" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(59,130,246,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente</button>' +
+      '<button id="ea-preview-report" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(139,92,246,.25)"' + (currentLinks.length === 0 ? ' disabled title="Agrega links primero"' : '') + '>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Generar Reporte (Preview)</button>' +
+      '<button id="ea-send-report" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.25)"' + (currentLinks.length === 0 ? ' disabled title="Agrega links primero"' : '') + '>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Reporte</button>' +
       '<button id="ea-delete-order" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(239,68,68,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente</button></div></div>' +
 
@@ -509,7 +514,11 @@
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
-      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '">' +
+      ((order.plan_name || '').toLowerCase().indexOf('almirante') !== -1
+        ? '<span style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">Reporte IA incluido</span>'
+        : '<span style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e">Reporte IA: +$15.000 CLP</span>') +
+      '</div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"><span style="font-size:10px;color:#64748b;margin-top:4px;display:flex;align-items:center;gap:4px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ubicacion geografica del primer link</span></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
@@ -546,7 +555,15 @@
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
       '</tr></thead><tbody id="ea-links-tbody">' +
       linksRows +
-      "</tbody></table></div></div>"
+      "</tbody></table></div></div>" +
+
+      '<div id="ea-reports-section" style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-top:20px">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#faf5ff,#f3e8ff);border-bottom:1px solid #e9d5ff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Reportes Generados</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Historial de reportes enviados al cliente</p></div></div></div>' +
+      '<div id="ea-reports-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando reportes...</div></div></div>'
     );
   }
 
@@ -771,10 +788,19 @@
         if (!data.success) data = null;
       }
       if (data) {
-        applyScrapedData(row, data);
-        showToast("Datos extraidos del link", "success");
+        var filled = applyScrapedData(row, data);
+        var hasImage = !!(data.image_url);
+        if (filled && hasImage) {
+          showToast("Datos extraidos del link", "success");
+        } else if (filled && !hasImage) {
+          showToast("Datos parciales extraidos. Sube la imagen manualmente.", "warning");
+        } else if (!filled && isBoatTraderUrl(url)) {
+          showToast("No se pudo extraer datos. BoatTrader tiene proteccion anti-bot. Sube la imagen manualmente.", "warning");
+        }
         hasUnsavedChanges = true;
         showUnsavedBadge();
+      } else if (isBoatTraderUrl(url)) {
+        showToast("No se pudo acceder a BoatTrader. Ingresa los datos e imagen manualmente.", "warning");
       }
     } catch (e) {
       console.warn("Auto-fetch failed:", e);
@@ -1255,6 +1281,267 @@
     });
 
     initDragDrop();
+
+    var previewReportBtn = document.getElementById("ea-preview-report");
+    if (previewReportBtn && currentOrderData) {
+      previewReportBtn.addEventListener("click", async function () {
+        if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
+        previewReportBtn.disabled = true;
+        previewReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generando...';
+        try {
+          var resp = await fetch(API_BASE + "/reports_api.php?action=preview", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ order_id: currentOrderData.id }),
+          });
+          var data = await resp.json();
+          if (data.success && data.html) {
+            var w = window.open("", "_blank");
+            if (w) { w.document.write(data.html); w.document.close(); }
+            else { showToast("Permite popups para ver el preview", "error"); }
+          } else {
+            showToast(data.error || "Error al generar preview", "error");
+          }
+        } catch (e) {
+          console.error("Preview report error:", e);
+          showToast("Error de conexion", "error");
+        }
+        previewReportBtn.disabled = false;
+        previewReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Generar Reporte (Preview)';
+      });
+    }
+
+    var sendReportBtn = document.getElementById("ea-send-report");
+    if (sendReportBtn && currentOrderData) {
+      sendReportBtn.addEventListener("click", async function () {
+        if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
+        if (!currentOrderData.customer_email) { showToast("El expediente no tiene email de cliente", "error"); return; }
+        if (!confirm("Enviar reporte profesional a " + currentOrderData.customer_email + "?\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.")) return;
+        sendReportBtn.disabled = true;
+        sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
+        try {
+          var resp = await fetch(API_BASE + "/reports_api.php?action=send", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ order_id: currentOrderData.id }),
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast("Reporte enviado correctamente al cliente.", "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("report_sent", "expediente", currentOrderData.id, null, { version: data.version, report_id: data.report_id }, "Reporte v" + data.version + " enviado para expediente #" + currentOrderData.order_number);
+            }
+            loadReportsList(currentOrderData.id);
+          } else {
+            showToast(data.error || "Error al enviar reporte", "error");
+          }
+        } catch (e) {
+          console.error("Send report error:", e);
+          showToast("Error de conexion al enviar reporte", "error");
+        }
+        sendReportBtn.disabled = false;
+        sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Reporte';
+      });
+    }
+
+    if (currentOrderData) {
+      loadReportsList(currentOrderData.id);
+    }
+  }
+
+  function showEditReportModal(report, orderId) {
+    var existing = document.getElementById("ea-edit-report-modal");
+    if (existing) existing.remove();
+
+    var modal = document.createElement("div");
+    modal.id = "ea-edit-report-modal";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center";
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:16px;width:90%;max-width:900px;height:80vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25)">' +
+        '<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">' +
+          '<h3 style="margin:0;font-size:16px;color:#1e293b">Editar Reporte v' + report.version + '</h3>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button id="ea-save-report-btn" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>' +
+            '<button id="ea-close-edit-modal" style="padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer">Cerrar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow:hidden;padding:0">' +
+          '<iframe id="ea-edit-report-iframe" style="width:100%;height:100%;border:none"></iframe>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var iframe = document.getElementById("ea-edit-report-iframe");
+    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(report.html_content);
+    iframeDoc.close();
+    iframeDoc.designMode = "on";
+
+    document.getElementById("ea-close-edit-modal").addEventListener("click", function () {
+      modal.remove();
+    });
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) modal.remove();
+    });
+
+    document.getElementById("ea-save-report-btn").addEventListener("click", async function () {
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Guardando...";
+      var editedHtml = iframe.contentDocument.documentElement.outerHTML;
+      try {
+        var resp = await fetch(API_BASE + "/reports_api.php?action=save", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ report_id: report.id, html_content: editedHtml }),
+        });
+        var d = await resp.json();
+        if (d.success) {
+          showToast(d.message || "Reporte guardado", "success");
+          modal.remove();
+          loadReportsList(orderId);
+        } else {
+          showToast(d.error || "Error al guardar", "error");
+        }
+      } catch (e) {
+        showToast("Error de conexion", "error");
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Guardar";
+    });
+  }
+
+  async function loadReportsList(orderId) {
+    var listDiv = document.getElementById("ea-reports-list");
+    if (!listDiv) return;
+    try {
+      var resp = await fetch(API_BASE + "/reports_api.php?action=list&order_id=" + orderId, {
+        headers: authHeaders(),
+      });
+      var data = await resp.json();
+      if (data.success && data.reports && data.reports.length > 0) {
+        var html = '<table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:#f8fafc">' +
+          '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Fecha</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Version</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Plan</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Acciones</th>' +
+          '</tr></thead><tbody>';
+        data.reports.forEach(function (r) {
+          html += '<tr style="border-bottom:1px solid #f1f5f9">' +
+            '<td style="padding:10px 12px;font-size:13px;color:#475569">' + formatDate(r.created_at) + '</td>' +
+            '<td style="padding:10px 12px;text-align:center"><span style="background:#ede9fe;color:#7c3aed;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">v' + r.version + '</span></td>' +
+            '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#64748b">' + escapeHtml(r.plan_type || '-') + '</td>' +
+            '<td style="padding:10px 12px;text-align:center;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">' +
+            '<button class="ea-view-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #8b5cf6;background:transparent;color:#8b5cf6;font-size:11px;font-weight:600;cursor:pointer">Ver</button>' +
+            '<button class="ea-download-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:11px;font-weight:600;cursor:pointer">PDF</button>' +
+            '<button class="ea-resend-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #f59e0b;background:transparent;color:#f59e0b;font-size:11px;font-weight:600;cursor:pointer">Reenviar</button>' +
+            '<button class="ea-edit-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #10b981;background:transparent;color:#10b981;font-size:11px;font-weight:600;cursor:pointer">Editar</button>' +
+            '<button class="ea-delete-report" data-report-id="' + r.id + '" data-version="' + r.version + '" style="padding:5px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">Eliminar</button>' +
+            '</td></tr>';
+        });
+        html += '</tbody></table>';
+        listDiv.innerHTML = html;
+
+        listDiv.querySelectorAll(".ea-view-report").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
+            var token = this.getAttribute("data-token");
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=view&report_id=" + reportId + "&token=" + token, "_blank"); }
+          });
+        });
+        listDiv.querySelectorAll(".ea-download-report").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
+            var token = this.getAttribute("data-token");
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=download&report_id=" + reportId + "&token=" + token, "_blank"); }
+          });
+        });
+        listDiv.querySelectorAll(".ea-resend-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            if (!confirm("Reenviar este reporte al cliente?")) return;
+            this.disabled = true;
+            this.textContent = "Enviando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=resend", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success) {
+                showToast("Reporte reenviado exitosamente", "success");
+                loadReportsList(orderId);
+              } else {
+                showToast(d.error || "Error al reenviar", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Reenviar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-edit-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            this.disabled = true;
+            this.textContent = "Cargando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=edit", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success && d.report) {
+                showEditReportModal(d.report, orderId);
+              } else {
+                showToast(d.error || "Error al cargar reporte", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Editar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-delete-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            var version = this.getAttribute("data-version");
+            if (!confirm("¿Eliminar el reporte v" + version + "? Esta accion no se puede deshacer.")) return;
+            this.disabled = true;
+            this.textContent = "Eliminando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=delete", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success) {
+                showToast(d.message || "Reporte eliminado", "success");
+                loadReportsList(orderId);
+              } else {
+                showToast(d.error || "Error al eliminar", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Eliminar";
+          });
+        });
+      } else {
+        listDiv.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>No hay reportes generados aun.<br>Usa el boton "Enviar Reporte" para crear uno.</div>';
+      }
+    } catch (e) {
+      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:13px">Error al cargar reportes</div>';
+    }
   }
 
   function renumberRows() {
