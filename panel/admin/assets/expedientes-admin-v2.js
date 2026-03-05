@@ -1335,6 +1335,70 @@
     }
   }
 
+  function showEditReportModal(report, orderId) {
+    var existing = document.getElementById("ea-edit-report-modal");
+    if (existing) existing.remove();
+
+    var modal = document.createElement("div");
+    modal.id = "ea-edit-report-modal";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center";
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:16px;width:90%;max-width:900px;height:80vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25)">' +
+        '<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">' +
+          '<h3 style="margin:0;font-size:16px;color:#1e293b">Editar Reporte v' + report.version + '</h3>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button id="ea-save-report-btn" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>' +
+            '<button id="ea-close-edit-modal" style="padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer">Cerrar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow:hidden;padding:0">' +
+          '<iframe id="ea-edit-report-iframe" style="width:100%;height:100%;border:none"></iframe>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var iframe = document.getElementById("ea-edit-report-iframe");
+    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(report.html_content);
+    iframeDoc.close();
+    iframeDoc.designMode = "on";
+
+    document.getElementById("ea-close-edit-modal").addEventListener("click", function () {
+      modal.remove();
+    });
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) modal.remove();
+    });
+
+    document.getElementById("ea-save-report-btn").addEventListener("click", async function () {
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Guardando...";
+      var editedHtml = iframe.contentDocument.documentElement.outerHTML;
+      try {
+        var resp = await fetch(API_BASE + "/reports_api.php?action=save", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ report_id: report.id, html_content: editedHtml }),
+        });
+        var d = await resp.json();
+        if (d.success) {
+          showToast(d.message || "Reporte guardado", "success");
+          modal.remove();
+          loadReportsList(orderId);
+        } else {
+          showToast(d.error || "Error al guardar", "error");
+        }
+      } catch (e) {
+        showToast("Error de conexion", "error");
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Guardar";
+    });
+  }
+
   async function loadReportsList(orderId) {
     var listDiv = document.getElementById("ea-reports-list");
     if (!listDiv) return;
@@ -1360,6 +1424,8 @@
             '<button class="ea-view-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #8b5cf6;background:transparent;color:#8b5cf6;font-size:11px;font-weight:600;cursor:pointer">Ver</button>' +
             '<button class="ea-download-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:11px;font-weight:600;cursor:pointer">PDF</button>' +
             '<button class="ea-resend-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #f59e0b;background:transparent;color:#f59e0b;font-size:11px;font-weight:600;cursor:pointer">Reenviar</button>' +
+            '<button class="ea-edit-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #10b981;background:transparent;color:#10b981;font-size:11px;font-weight:600;cursor:pointer">Editar</button>' +
+            '<button class="ea-delete-report" data-report-id="' + r.id + '" data-version="' + r.version + '" style="padding:5px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">Eliminar</button>' +
             '</td></tr>';
         });
         html += '</tbody></table>';
@@ -1403,6 +1469,57 @@
             }
             this.disabled = false;
             this.textContent = "Reenviar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-edit-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            this.disabled = true;
+            this.textContent = "Cargando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=edit", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success && d.report) {
+                showEditReportModal(d.report, orderId);
+              } else {
+                showToast(d.error || "Error al cargar reporte", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Editar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-delete-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            var version = this.getAttribute("data-version");
+            if (!confirm("¿Eliminar el reporte v" + version + "? Esta accion no se puede deshacer.")) return;
+            this.disabled = true;
+            this.textContent = "Eliminando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=delete", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success) {
+                showToast(d.message || "Reporte eliminado", "success");
+                loadReportsList(orderId);
+              } else {
+                showToast(d.error || "Error al eliminar", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Eliminar";
           });
         });
       } else {
