@@ -888,9 +888,12 @@ function generateReportHtml($order, $links, $analysisResults, $reportVersion, $a
 // ============================================================
 
 function sendReport() {
+    // Read php://input once and store for later use (stream can only be read once)
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode($rawInput, true) ?: [];
+
     $orderId = intval($_GET['id'] ?? $_GET['order_id'] ?? 0);
     if (!$orderId) {
-        $input = json_decode(file_get_contents('php://input'), true);
         $orderId = intval($input['id'] ?? $input['order_id'] ?? 0);
     }
 
@@ -971,8 +974,7 @@ function sendReport() {
         // 6. Generate HTML report
         $htmlContent = generateReportHtml($order, $validLinks, $analysisResults, $version, $accessToken);
 
-        // 7. Save report record
-        $input = json_decode(file_get_contents('php://input'), true);
+        // 7. Save report record (reuse $input from top of function - php://input already consumed)
         $adminUser = $input['admin_user'] ?? 'admin';
         
         $insertStmt = $pdo->prepare("
