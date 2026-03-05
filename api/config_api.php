@@ -135,9 +135,9 @@ function configMigrate() {
         $countPlans = $pdo->query("SELECT COUNT(*) FROM search_plans")->fetchColumn();
         if ($countPlans == 0) {
             $stmt = $pdo->prepare("INSERT INTO search_plans (name, description, price_clp, price_usd, max_links, duration_days, features, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute(['Plan Fragata', 'Monitoreo por 7 dias', 67600, 69.99, 5, 7, '1 Requerimiento especifico,5 propuestas/cotizaciones,Analisis ofertas y recomendacion,Reporte IA disponible por $15.000 CLP adicional', 1]);
-            $stmt->execute(['Plan Capitan de Navio', 'Monitoreo por 14 dias', 119600, 124.99, 9, 14, '1 Requerimiento especifico,9 propuestas/cotizaciones,Analisis ofertas y recomendacion,Reporte IA disponible por $15.000 CLP adicional', 2]);
-            $stmt->execute(['Plan Almirante', 'Monitoreo por 21 dias', 189600, 199.99, 15, 21, '1 Requerimiento especifico,15 propuestas/cotizaciones,Analisis ofertas y recomendacion,Reporte IA incluido', 3]);
+            $stmt->execute(['Plan Fragata', 'Monitoreo por 7 dias', 67600, 69.99, 5, 7, '1 Requerimiento especifico,5 propuestas/cotizaciones,Analisis ofertas y recomendacion,✗ Reporte IA', 1]);
+            $stmt->execute(['Plan Capitan de Navio', 'Monitoreo por 14 dias', 119600, 124.99, 9, 14, '1 Requerimiento especifico,9 propuestas/cotizaciones,Analisis ofertas y recomendacion,✗ Reporte IA', 2]);
+            $stmt->execute(['Plan Almirante', 'Monitoreo por 21 dias', 189600, 199.99, 15, 21, '1 Requerimiento especifico,15 propuestas/cotizaciones,Analisis ofertas y recomendacion,✓ Reporte IA incluido', 3]);
         }
 
         $countAgents = $pdo->query("SELECT COUNT(*) FROM agents")->fetchColumn();
