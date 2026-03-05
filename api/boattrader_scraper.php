@@ -414,9 +414,50 @@ function parseBoatTraderHtml($html) {
     return $boats;
 }
 
+function extractBoatFromUrl($url) {
+    $path = parse_url($url, PHP_URL_PATH) ?? '';
+    // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
+    if (preg_match('/\/boat\/(\d{4})-([a-z][\w-]*?)-([\w-]+?)-(\d{5,})\/?$/i', $path, $m)) {
+        $year = intval($m[1]);
+        $makeRaw = $m[2];
+        $modelRaw = $m[3];
+
+        // Convert kebab-case to Title Case
+        $make = ucwords(str_replace('-', ' ', $makeRaw));
+        // Format model: keep original structure with spaces, uppercase parts with digits
+        $modelParts = explode('-', $modelRaw);
+        $model = implode(' ', array_map(function($p) {
+            // If it's all letters, capitalize first; if mixed or has digits, uppercase all
+            return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
+        }, $modelParts));
+
+        $title = "$year $make $model";
+        return [
+            'title' => $title,
+            'year' => $year,
+            'price' => null,
+            'location' => '',
+            'hours' => null,
+            'image_url' => '',
+            'url' => $url,
+            'make' => $make,
+            'model' => $model,
+            'length' => '',
+            'condition' => 'Used',
+            '_partial' => true,
+        ];
+    }
+    return null;
+}
+
 function scrapeBoatDetail($url) {
     $html = btDirectFetch($url);
-    if (!$html) return null;
+
+    // If direct fetch fails (e.g. Cloudflare 403), extract what we can from the URL
+    if (!$html) {
+        error_log('[BoatTrader Scraper] Direct fetch failed for ' . $url . ', extracting data from URL pattern');
+        return extractBoatFromUrl($url);
+    }
 
     $boat = [
         'title' => '',

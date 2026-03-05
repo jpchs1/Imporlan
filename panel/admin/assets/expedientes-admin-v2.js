@@ -372,15 +372,16 @@
 
   function showToast(msg, type) {
     var toast = document.createElement("div");
-    var bgColor = type === "error" ? "#ef4444" : "#10b981";
-    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);background:" + bgColor;
+    var bgColor = type === "error" ? "#ef4444" : (type === "warning" ? "#f59e0b" : "#10b981");
+    var duration = type === "warning" ? 5000 : 3000;
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:400px;background:" + bgColor;
     toast.textContent = msg;
     document.body.appendChild(toast);
     setTimeout(function () {
       toast.style.opacity = "0";
       toast.style.transition = "opacity .3s";
       setTimeout(function () { toast.remove(); }, 300);
-    }, 3000);
+    }, duration);
   }
 
   function inputStyle() {
@@ -787,10 +788,21 @@
         if (!data.success) data = null;
       }
       if (data) {
-        applyScrapedData(row, data);
-        showToast("Datos extraidos del link", "success");
-        hasUnsavedChanges = true;
-        showUnsavedBadge();
+        var filled = applyScrapedData(row, data);
+        var hasImage = !!(data.image_url);
+        if (filled && hasImage) {
+          showToast("Datos extraidos del link", "success");
+        } else if (filled && !hasImage) {
+          showToast("Datos parciales extraidos. Sube la imagen manualmente.", "warning");
+        } else if (!filled && isBoatTraderUrl(url)) {
+          showToast("No se pudo extraer datos. BoatTrader tiene proteccion anti-bot. Sube la imagen manualmente.", "warning");
+        }
+        if (filled) {
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+        }
+      } else if (isBoatTraderUrl(url)) {
+        showToast("No se pudo acceder a BoatTrader. Ingresa los datos e imagen manualmente.", "warning");
       }
     } catch (e) {
       console.warn("Auto-fetch failed:", e);

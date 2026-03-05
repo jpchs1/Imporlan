@@ -73,8 +73,14 @@ function fetchLinkMetadata() {
         fetchFacebookMobile($url, $result);
     }
 
+    // For BoatTrader/boats.com URLs, skip Microlink fallback since Cloudflare
+    // redirects Microlink to a search page, returning wrong title/price data.
+    // Instead, rely on URL pattern parsing which extracts year/make/model reliably.
+    $host = strtolower($parsedUrl['host'] ?? '');
+    $isBoatTraderUrl = (strpos($host, 'boattrader.com') !== false || strpos($host, 'boats.com') !== false);
+
     $hasUsefulData = $result['image_url'] || $result['location'] || $result['hours'] || $result['value_usa_usd'];
-    if (!$hasUsefulData) {
+    if (!$hasUsefulData && !$isBoatTraderUrl) {
         fetchViaMicrolink($url, $result);
     }
 
@@ -507,8 +513,11 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
         $year = $m[1];
         $make = ucfirst(str_replace('-', ' ', $m[2]));
         $model = ucfirst(str_replace('-', ' ', $m[3]));
-        if (!$result['title']) {
-            $result['title'] = "$year $make $model";
+        $urlTitle = "$year $make $model";
+        // Always prefer URL-extracted title for boat sites: Microlink may return
+        // wrong titles from redirected search pages when Cloudflare blocks access.
+        if (!$result['title'] || preg_match('/boats?\s+for\s+sale/i', $result['title'])) {
+            $result['title'] = $urlTitle;
         }
     }
 
