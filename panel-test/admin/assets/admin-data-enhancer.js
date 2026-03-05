@@ -382,9 +382,9 @@
           var servicioLabel = isQR ? "Cotizacion por Links" : (type === "plan" ? "Plan de Busqueda" : "Cotizacion por Links");
           var servicioColor = isQR ? "#0891b2" : (type === "plan" ? "#7c3aed" : "#0891b2");
           var servicioBg = isQR ? "#0891b215" : (type === "plan" ? "#7c3aed15" : "#0891b215");
-          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", pendiente: "Sin Pago" };
+          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", pendiente: "Sin Pago", transferencia_bancaria: "Transferencia Bancaria", transferencia: "Transferencia Bancaria" };
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
-          var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : "#64748b";
+          var methodColor = (p.payment_method || p.method) === "webpay" ? "#dc2626" : (p.payment_method || p.method) === "mercadopago" ? "#0070ba" : (p.payment_method || p.method) === "paypal" ? "#003087" : (p.payment_method || p.method) === "pendiente" ? "#94a3b8" : (p.payment_method || p.method) === "transferencia_bancaria" || (p.payment_method || p.method) === "transferencia" ? "#16a34a" : "#64748b";
           var email = p.user_email || p.email || "";
           var userName = isQR ? (p._name || (email ? email.split("@")[0] : "Sin nombre")) : (p.payer_name || p.user_name || (email ? email.split("@")[0] : "N/A"));
           var desc = p.description || p.desc || p.plan_name || (isQR ? "Solicitud de cotizacion" : "");
@@ -785,7 +785,7 @@
           var status = p.status || "pending";
           var stMap = { pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Pagado", c: "#10b981" }, completed: { l: "Pagado", c: "#10b981" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelado", c: "#ef4444" } };
           var st = stMap[status] || stMap.pending;
-          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual" };
+          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", transferencia_bancaria: "Transferencia Bancaria", transferencia: "Transferencia Bancaria" };
           var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
           var email = p.user_email || p.email || "";
           var userName = email.split("@")[0];

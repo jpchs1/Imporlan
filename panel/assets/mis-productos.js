@@ -29,7 +29,8 @@
         'PayPal': 'paypal',
         'MercadoPago': 'mercadopago',
         'WebPay': 'webpay',
-        'Transferencia': 'bank'
+        'Transferencia': 'bank',
+        'Transferencia Bancaria': 'bank'
     };
 
     class MisProductosModule {

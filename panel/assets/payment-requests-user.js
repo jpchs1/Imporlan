@@ -397,6 +397,12 @@
       '<div style="width:48px;height:36px;background:#003087;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-weight:700;font-size:10px">PayPal</span></div>' +
       '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">PayPal</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">Pago internacional en USD</p></div></div>' +
 
+      // Transferencia Bancaria
+      '<div onclick="window.__prProcessPayment(\'' + escapeHtml(requestId) + '\',\'transferencia_bancaria\')" style="padding:16px 20px;border:2px solid #bbf7d0;background:#f0fdf4;border-radius:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px" onmouseover="this.style.borderColor=\'#4ade80\';this.style.boxShadow=\'0 4px 12px rgba(74,222,128,0.15)\'" onmouseout="this.style.borderColor=\'#bbf7d0\';this.style.boxShadow=\'none\'">' +
+      '<div style="width:48px;height:36px;background:#16a34a;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/><path d="M6 16h4"/></svg></div>' +
+      '<div><h4 style="margin:0;font-size:15px;font-weight:600;color:#0f172a">Transferencia Bancaria</h4><p style="margin:2px 0 0;font-size:12px;color:#64748b">Transferencia directa a cuenta Imporlan</p>' +
+      '</div></div>' +
+
       '</div>' +
       '<button onclick="document.getElementById(\'pr-pay-modal\').remove()" style="width:100%;margin-top:16px;padding:12px;background:#f1f5f9;color:#475569;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
       '</div></div>';
@@ -423,6 +429,8 @@
       await processMercadoPagoPayment(req, userEmail, userName, userInfo);
     } else if (method === "paypal") {
       await processPayPalPayment(req, userEmail, userName, userInfo);
+    } else if (method === "transferencia_bancaria") {
+      showTransferenciaBancariaInfo(req);
     }
   };
 
@@ -564,6 +572,41 @@
       console.error("[PaymentRequests] PayPal error:", error);
       alert("Error al conectar con PayPal. Por favor intente nuevamente.");
     }
+  }
+
+  // ── Transferencia Bancaria info modal ──
+  function showTransferenciaBancariaInfo(req) {
+    var overlay = document.createElement("div");
+    overlay.id = "pr-transfer-modal";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:prFadeIn .2s ease";
+    overlay.onclick = function (e) { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = '<div style="background:#fff;border-radius:20px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;animation:prSlideUp .3s ease">' +
+      '<div style="padding:24px 28px;border-bottom:1px solid #e2e8f0">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+      '<h2 style="margin:0;font-size:20px;font-weight:700;color:#0f172a">Transferencia Bancaria</h2>' +
+      '<button onclick="document.getElementById(\'pr-transfer-modal\').remove()" style="background:none;border:none;font-size:24px;color:#94a3b8;cursor:pointer;padding:4px">&times;</button>' +
+      '</div>' +
+      '<p style="margin:8px 0 0;font-size:14px;color:#64748b">Realiza una transferencia con los siguientes datos</p>' +
+      '</div>' +
+      '<div style="padding:20px 28px">' +
+      '<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:14px;padding:20px;margin-bottom:16px">' +
+      '<div style="display:grid;gap:12px">' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Banco</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Banco Estado</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Tipo de Cuenta</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Cuenta Vista / Cuenta RUT</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Numero de Cuenta</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">19.450.963-1</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">RUT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">19.450.963-1</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Nombre</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Juan Pablo Chaparro Soumastre</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Email</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">contacto@imporlan.cl</p></div>' +
+      '</div></div>' +
+      '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px">' +
+      '<p style="margin:0;font-size:14px;color:#1e40af"><strong>Monto a transferir:</strong> ' + formatCLP(req.amount_clp) + ' CLP</p>' +
+      '<p style="margin:6px 0 0;font-size:13px;color:#3b82f6">Envia el comprobante a contacto@imporlan.cl para confirmar tu pago.</p>' +
+      '</div>' +
+      '<button onclick="document.getElementById(\'pr-transfer-modal\').remove()" style="width:100%;padding:12px;background:#f1f5f9;color:#475569;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer">Cerrar</button>' +
+      '</div></div>';
+
+    document.body.appendChild(overlay);
   }
 
   // ── Add CSS animations ──
