@@ -797,8 +797,10 @@
         } else if (!filled && isBoatTraderUrl(url)) {
           showToast("No se pudo extraer datos. BoatTrader tiene proteccion anti-bot. Sube la imagen manualmente.", "warning");
         }
-        hasUnsavedChanges = true;
-        showUnsavedBadge();
+        if (filled) {
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+        }
       } else if (isBoatTraderUrl(url)) {
         showToast("No se pudo acceder a BoatTrader. Ingresa los datos e imagen manualmente.", "warning");
       }

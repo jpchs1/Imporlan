@@ -424,12 +424,7 @@ function extractBoatFromUrl($url) {
 
         // Convert kebab-case to Title Case
         $make = ucwords(str_replace('-', ' ', $makeRaw));
-        $model = strtoupper(str_replace('-', '', $modelRaw));
-        // If model looks like letters+digits (e.g., 252sd), format nicely
-        if (preg_match('/^([a-z]+)(\d+[a-z]*)$/i', str_replace('-', '', $modelRaw), $mm)) {
-            $model = strtoupper($mm[1]) . $mm[2];
-        }
-        // Try better model formatting: keep original structure with spaces
+        // Format model: keep original structure with spaces, uppercase parts with digits
         $modelParts = explode('-', $modelRaw);
         $model = implode(' ', array_map(function($p) {
             // If it's all letters, capitalize first; if mixed or has digits, uppercase all
