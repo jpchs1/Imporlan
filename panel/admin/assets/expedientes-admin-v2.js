@@ -1367,14 +1367,16 @@
 
         listDiv.querySelectorAll(".ea-view-report").forEach(function (btn) {
           btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
             var token = this.getAttribute("data-token");
-            if (token) { window.open(API_BASE + "/reports_api.php?action=view&token=" + token, "_blank"); }
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=view&report_id=" + reportId + "&token=" + token, "_blank"); }
           });
         });
         listDiv.querySelectorAll(".ea-download-report").forEach(function (btn) {
           btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
             var token = this.getAttribute("data-token");
-            if (token) { window.open(API_BASE + "/reports_api.php?action=download&token=" + token, "_blank"); }
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=download&report_id=" + reportId + "&token=" + token, "_blank"); }
           });
         });
         listDiv.querySelectorAll(".ea-resend-report").forEach(function (btn) {
