@@ -2080,8 +2080,35 @@ BASE64;
             
             <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
                 Esta priorizacion nos ayuda a enfocar el analisis, negociacion y estimaciones de importacion con mayor precision &#9875;&#128200;
-            </p>
-            
+            </p>';
+        
+        // Add AI report info based on plan type
+        $planLower = strtolower($planName);
+        if (strpos($planLower, 'almirante') !== false) {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#129302;</p>
+                        <p style="margin: 0 0 4px 0; color: #166534; font-size: 14px; font-weight: 700;">Reporte IA incluido en tu Plan Almirante</p>
+                        <p style="margin: 0; color: #15803d; font-size: 13px;">Tu plan incluye un reporte profesional con analisis de Inteligencia Artificial de las embarcaciones encontradas, sin costo adicional.</p>
+                    </td>
+                </tr>
+            </table>';
+        } else {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; border: 1px solid #93c5fd;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#129302;</p>
+                        <p style="margin: 0 0 4px 0; color: #1e40af; font-size: 14px; font-weight: 700;">Reporte IA disponible</p>
+                        <p style="margin: 0; color: #1e3a8a; font-size: 13px;">Puedes solicitar un reporte profesional con analisis de Inteligencia Artificial por solo $15.000 CLP. Este servicio esta incluido sin costo en el Plan Almirante.</p>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $content .= '
             <div style="margin: 30px 0;">
                 ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
             </div>

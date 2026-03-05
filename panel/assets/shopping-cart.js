@@ -20,7 +20,7 @@
       {
         id: 'fragata',
         name: 'Plan Fragata',
-        description: 'Monitoreo por 7 dias - 5 propuestas',
+        description: 'Monitoreo por 7 dias - 5 propuestas (Reporte IA no incluido)',
         price: 67600,
         priceUSD: 67.60,
         currency: 'CLP',
@@ -29,7 +29,7 @@
       {
         id: 'capitan',
         name: 'Plan Capitan de Navio',
-        description: 'Monitoreo por 14 dias - 9 propuestas',
+        description: 'Monitoreo por 14 dias - 9 propuestas (Reporte IA no incluido)',
         price: 119600,
         priceUSD: 119.60,
         currency: 'CLP',
@@ -38,7 +38,7 @@
       {
         id: 'almirante',
         name: 'Plan Almirante',
-        description: 'Monitoreo por 21 dias - 15 propuestas',
+        description: 'Monitoreo por 21 dias - 15 propuestas + Reporte IA incluido',
         price: 189600,
         priceUSD: 189.60,
         currency: 'CLP',
@@ -46,6 +46,15 @@
       }
     ],
     services: [
+      {
+        id: 'reporte_ia',
+        name: 'Reporte IA',
+        description: 'Reporte profesional con analisis IA de embarcaciones (incluido en Plan Almirante)',
+        price: 15000,
+        priceUSD: 15.00,
+        currency: 'CLP',
+        type: 'service'
+      },
       {
         id: 'inspeccion',
         name: 'Inspeccion Adicional',
