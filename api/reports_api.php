@@ -62,6 +62,21 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             resendReport();
             break;
+        case 'delete':
+        case 'delete_report':
+            requireAdminAuth();
+            deleteReport();
+            break;
+        case 'edit':
+        case 'edit_report':
+            requireAdminAuth();
+            editReport();
+            break;
+        case 'save':
+        case 'save_report':
+            requireAdminAuth();
+            saveReport();
+            break;
         case 'view':
         case 'view_report':
             viewReport();
@@ -1148,6 +1163,150 @@ function listReports() {
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al listar reportes: ' . $e->getMessage()]);
+    }
+}
+
+function deleteReport() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $reportId = intval($input['report_id'] ?? $_GET['report_id'] ?? 0);
+
+    if (!$reportId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere report_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Verify the report exists
+        $stmt = $pdo->prepare("SELECT id, order_id, version FROM reports WHERE id = ?");
+        $stmt->execute([$reportId]);
+        $report = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$report) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Reporte no encontrado']);
+            return;
+        }
+
+        // Delete associated notifications
+        $pdo->prepare("DELETE FROM notifications WHERE link LIKE ?")->execute(['%report_id=' . $reportId . '%']);
+
+        // Delete the report
+        $pdo->prepare("DELETE FROM reports WHERE id = ?")->execute([$reportId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Reporte v' . $report['version'] . ' eliminado correctamente.'
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al eliminar: ' . $e->getMessage()]);
+    }
+}
+
+function editReport() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $reportId = intval($input['report_id'] ?? $_GET['report_id'] ?? 0);
+
+    if (!$reportId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere report_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Get the existing report
+        $stmt = $pdo->prepare("SELECT r.*, o.order_number FROM reports r JOIN orders o ON r.order_id = o.id WHERE r.id = ?");
+        $stmt->execute([$reportId]);
+        $report = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$report) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Reporte no encontrado']);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'report' => [
+                'id' => $report['id'],
+                'order_id' => $report['order_id'],
+                'order_number' => $report['order_number'],
+                'version' => $report['version'],
+                'plan_type' => $report['plan_type'],
+                'created_at' => $report['created_at'],
+                'html_content' => $report['html_content']
+            ]
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener reporte: ' . $e->getMessage()]);
+    }
+}
+
+function saveReport() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $reportId = intval($input['report_id'] ?? 0);
+    $htmlContent = $input['html_content'] ?? '';
+
+    if (!$reportId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere report_id']);
+        return;
+    }
+
+    if (empty($htmlContent)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere html_content']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Verify the report exists
+        $stmt = $pdo->prepare("SELECT id, version FROM reports WHERE id = ?");
+        $stmt->execute([$reportId]);
+        $report = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$report) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Reporte no encontrado']);
+            return;
+        }
+
+        // Update the HTML content
+        $pdo->prepare("UPDATE reports SET html_content = ? WHERE id = ?")->execute([$htmlContent, $reportId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Reporte v' . $report['version'] . ' actualizado correctamente.'
+        ]);
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar: ' . $e->getMessage()]);
     }
 }
 
