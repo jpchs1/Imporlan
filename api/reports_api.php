@@ -414,8 +414,9 @@ function generateReportHtml($order, $links, $analysisResults, $reportVersion, $a
     $date = date('d/m/Y');
     $dateTime = date('d/m/Y H:i');
     
-    // Determine plan type label
+    // Determine plan type label and AI report inclusion
     $planTypeLabel = 'Plan de Busqueda';
+    $isAlmirante = false;
     $planLower = strtolower($planName);
     if (strpos($planLower, 'explorador') !== false || strpos($planLower, 'fragata') !== false) {
         $planTypeLabel = 'Plan Explorador - Busqueda Basica';
@@ -423,9 +424,15 @@ function generateReportHtml($order, $links, $analysisResults, $reportVersion, $a
         $planTypeLabel = 'Plan Capitan - Busqueda Asistida';
     } elseif (strpos($planLower, 'almirante') !== false) {
         $planTypeLabel = 'Plan Almirante - Busqueda Avanzada';
+        $isAlmirante = true;
     } elseif (strpos($planLower, 'cotizacion') !== false || strpos($planLower, 'link') !== false) {
         $planTypeLabel = 'Evaluacion de Links del Cliente';
     }
+    
+    // AI report pricing note
+    $aiReportNote = $isAlmirante 
+        ? 'Reporte IA incluido en tu Plan Almirante' 
+        : 'Reporte IA - Valor: $15.000 CLP (incluido sin costo en Plan Almirante)';
     
     // Count valid options
     $validOptions = array_filter($analysisResults, function($r) {
@@ -638,6 +645,7 @@ function generateReportHtml($order, $links, $analysisResults, $reportVersion, $a
     }
     $html .= '
             <p style="margin-top:8px"><strong>Plan contratado:</strong> ' . htmlspecialchars($planTypeLabel) . '</p>
+            <p style="margin-top:8px;padding:8px 14px;background:' . ($isAlmirante ? '#dcfce7' : '#fef3c7') . ';border-radius:8px;font-size:13px;color:' . ($isAlmirante ? '#166534' : '#92400e') . ';font-weight:600">' . $aiReportNote . '</p>
         </div>
     </div>';
 

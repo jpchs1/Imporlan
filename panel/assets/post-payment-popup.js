@@ -68,9 +68,17 @@
       ? 'Tu Plan de Busqueda ya esta activo!'
       : 'Tu Cotizacion por Links ya esta activa!';
 
+    var isAlmirante = params.plan === 'almirante';
+
     var message = isBusqueda
       ? 'Nuestro equipo ya comenzo a trabajar en tu busqueda personalizada. Revisa tu panel para ver el estado de tu plan.'
       : 'Ya puedes gestionar tus embarcaciones desde tu panel. Revisa tus productos contratados para ver los detalles.';
+
+    var aiReportNote = isAlmirante
+      ? '<div style="margin:16px 0 0;padding:10px 16px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px;text-align:center;"><span style="font-size:14px;color:#4ade80;font-weight:600;">Reporte IA incluido en tu plan</span></div>'
+      : (isBusqueda
+        ? '<div style="margin:16px 0 0;padding:10px 16px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);border-radius:10px;text-align:center;"><span style="font-size:13px;color:#93c5fd;">Reporte IA disponible por $15.000 CLP adicional (incluido en Plan Almirante)</span></div>'
+        : '');
 
     var overlay = document.createElement('div');
     overlay.id = 'imporlan-payment-popup-overlay';
@@ -107,11 +115,13 @@
           planName +
         '</p>' : '') +
 
-        '<p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 24px;">' +
+        '<p style="color:#94a3b8;font-size:15px;line-height:1.6;margin:0 0 ' + (aiReportNote ? '8px' : '24px') + ';">' +
           message +
         '</p>' +
 
-        '<div style="display:flex;flex-direction:column;gap:10px;">' +
+        aiReportNote +
+
+        '<div style="display:flex;flex-direction:column;gap:10px;margin-top:' + (aiReportNote ? '16px' : '0') + ';">' +
           '<a href="/panel/#myproducts" style="' +
             'display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);' +
             'color:white;padding:13px 28px;border-radius:12px;font-size:15px;font-weight:600;' +
