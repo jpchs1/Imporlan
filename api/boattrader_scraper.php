@@ -648,6 +648,50 @@ function fetchMetaViaDDG($slug, $listingId) {
     return $result;
 }
 
+/**
+ * Call external scraper API (hosted on Fly.io) that uses curl_cffi to bypass
+ * Cloudflare and extract all listing data directly from the BoatTrader page.
+ *
+ * @param string $url The BoatTrader listing URL
+ * @return array|null Extracted data or null on failure
+ */
+function fetchViaScraperAPI($url) {
+    $apiBase = 'https://boattrader-scraper-jocitetw.fly.dev';
+    $apiUrl = $apiBase . '/scrape?url=' . urlencode($url);
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $apiUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$response) {
+        error_log("[BoatTrader Scraper] Scraper API failed: HTTP $httpCode");
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!$data || empty($data['success'])) {
+        error_log("[BoatTrader Scraper] Scraper API returned error: " . ($data['error'] ?? 'unknown'));
+        return null;
+    }
+
+    error_log("[BoatTrader Scraper] Scraper API success for listing " . ($data['listing_id'] ?? '?')
+        . ": city=" . ($data['city'] ?? '')
+        . ", price=" . ($data['price'] ?? '')
+        . ", hours=" . ($data['hours'] ?? '')
+        . ", image=" . (!empty($data['image_url']) ? 'yes' : 'no'));
+
+    return $data;
+}
+
 function extractBoatFromUrl($url) {
     $path = parse_url($url, PHP_URL_PATH) ?? '';
     // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
@@ -667,20 +711,48 @@ function extractBoatFromUrl($url) {
             return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
         }, $modelParts));
 
-        // Step 1: Get accurate metadata (location, price, hours) via DuckDuckGo
-        // DDG reliably finds the exact listing and returns correct location in title
+        // Step 1 (PRIMARY): Call scraper API that bypasses Cloudflare via curl_cffi
+        // This extracts ALL data directly from the BoatTrader listing page
+        $apiData = fetchViaScraperAPI($url);
+        if ($apiData) {
+            $location = $apiData['location'] ?? '';
+            $price = !empty($apiData['price']) ? floatval($apiData['price']) : null;
+            $hours = !empty($apiData['hours']) ? intval($apiData['hours']) : null;
+            $imageUrl = $apiData['image_url'] ?? '';
+            $apiTitle = $apiData['title'] ?? '';
+
+            // Use API title if available, otherwise build from URL
+            $title = $apiTitle ?: "$year $make $model";
+
+            return [
+                'title' => $title,
+                'year' => $year,
+                'price' => $price,
+                'location' => $location,
+                'hours' => $hours,
+                'image_url' => $imageUrl,
+                'url' => $url,
+                'make' => $make,
+                'model' => $model,
+                'length' => '',
+                'condition' => 'Used',
+                '_partial' => true,
+            ];
+        }
+
+        // Step 2 (FALLBACK): Try DuckDuckGo for metadata
+        error_log("[BoatTrader Scraper] Scraper API failed, falling back to DDG/Bing for $listingId");
         $ddgMeta = fetchMetaViaDDG($slug, $listingId);
         $location = $ddgMeta['location'];
         $price = $ddgMeta['price'];
         $hours = $ddgMeta['hours'];
 
-        // Step 2: Try to find an image via Bing Image Search
-        // Only use exact listing ID matches to avoid showing wrong boat photos
+        // Step 3 (FALLBACK): Try Bing Image Search for image
         $bingResult = fetchImageViaBing($url, $slug, $listingId);
         $imageUrl = $bingResult ? $bingResult['turl'] : '';
         $bingTitle = $bingResult ? ($bingResult['t'] ?? '') : '';
 
-        // Step 3: If DDG didn't find location, fall back to Bing title (less reliable)
+        // If DDG didn't find location, fall back to Bing title
         if (!$location && $bingTitle) {
             if (preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $bingTitle, $locMatch)) {
                 $city = trim($locMatch[2]);
