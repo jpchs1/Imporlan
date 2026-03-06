@@ -415,26 +415,35 @@ function parseBoatTraderHtml($html) {
 }
 
 /**
- * Search Google Images to find a cached thumbnail for a BoatTrader listing.
- * BoatTrader's CDN (images.boattrader.com) is behind Cloudflare, but Google
- * caches thumbnails on its own CDN (encrypted-tbn*.gstatic.com) which is
- * publicly accessible.
+ * Search Bing Images to find a cached thumbnail for a BoatTrader listing.
+ * BoatTrader's CDN (images.boattrader.com) is behind Cloudflare, but Bing
+ * caches thumbnails on its own CDN (ts*.mm.bing.net / th.bing.com) which is
+ * publicly accessible. Bing returns structured JSON in data attributes with
+ * purl (page URL), turl (thumbnail URL), and murl (original image URL).
  *
- * @param string $url     The BoatTrader listing URL
- * @param string $slug    The URL slug (e.g. "2016-sea-ray-spx-21")
+ * Matching priority:
+ *  1. Exact listing ID match in purl (same boat listing)
+ *  2. Same make/model from BoatTrader (similar boat)
+ *  3. Any BoatTrader result (related boat)
+ *  4. First result from any source
+ *
+ * @param string $url       The BoatTrader listing URL
+ * @param string $slug      The URL slug (e.g. "2016-sea-ray-spx-21")
  * @param string $listingId The listing ID from the URL
- * @return string|null    A Google-cached thumbnail URL, or null if not found
+ * @return string|null      A Bing-cached thumbnail URL, or null if not found
  */
-function fetchImageViaGoogle($url, $slug, $listingId) {
-    $query = urlencode("boattrader.com $slug $listingId");
-    $searchUrl = "https://www.google.com/search?q=$query&tbm=isch";
+function fetchImageViaBing($url, $slug, $listingId) {
+    // Build search query: site:boattrader.com + slug parts + listing ID
+    $slugParts = str_replace('-', ' ', $slug);
+    $query = urlencode("site:boattrader.com $slugParts $listingId");
+    $searchUrl = "https://www.bing.com/images/search?q=$query&first=1";
 
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => $searchUrl,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT => 8,
+        CURLOPT_TIMEOUT => 10,
         CURLOPT_HTTPHEADER => [
             'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -445,40 +454,92 @@ function fetchImageViaGoogle($url, $slug, $listingId) {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    if ($httpCode !== 200 || !$html) {
-        error_log("[BoatTrader Scraper] Google Image search failed: HTTP $httpCode");
+    if ($httpCode !== 200 || !$html || strlen($html) < 1000) {
+        error_log("[BoatTrader Scraper] Bing Image search failed: HTTP $httpCode, size=" . strlen($html ?: ''));
         return null;
     }
 
-    // Extract Google-cached thumbnail URLs (hosted on Google's CDN, publicly accessible)
-    if (preg_match_all('/https:\/\/encrypted-tbn\d\.gstatic\.com\/images\?[^"\'\\\\&]+(?:[&\\\\][^"\'\\\\]+)*/', $html, $matches)) {
-        $thumbs = array_map(function($u) {
-            return str_replace(['\\u0026', '\\u003d', '&amp;'], ['&', '=', '&'], $u);
-        }, $matches[0]);
-        $thumbs = array_values(array_unique($thumbs));
-
-        // Verify the first thumbnail is accessible and is an actual image
-        if (!empty($thumbs)) {
-            $ch2 = curl_init();
-            curl_setopt_array($ch2, [
-                CURLOPT_URL => $thumbs[0],
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 5,
-                CURLOPT_NOBODY => false,
-            ]);
-            $imgData = curl_exec($ch2);
-            $imgCode = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-            $imgType = curl_getinfo($ch2, CURLINFO_CONTENT_TYPE);
-            curl_close($ch2);
-
-            if ($imgCode === 200 && strpos($imgType, 'image/') === 0 && strlen($imgData) > 1000) {
-                error_log("[BoatTrader Scraper] Found Google thumbnail for listing $listingId");
-                return $thumbs[0];
+    // Extract JSON data blocks from Bing's m="{...}" attributes
+    // These contain: purl (page URL), turl (Bing thumbnail), murl (original image URL)
+    $results = [];
+    if (preg_match_all('/m="(\{[^"]*\})"/', $html, $mBlocks)) {
+        foreach ($mBlocks[1] as $block) {
+            $decoded = html_entity_decode($block, ENT_QUOTES, 'UTF-8');
+            $purl = '';
+            $turl = '';
+            $murl = '';
+            if (preg_match('/"purl":"([^"]+)"/', $decoded, $pm)) {
+                $purl = html_entity_decode($pm[1], ENT_QUOTES, 'UTF-8');
+            }
+            if (preg_match('/"turl":"([^"]+)"/', $decoded, $tm)) {
+                $turl = html_entity_decode($tm[1], ENT_QUOTES, 'UTF-8');
+            }
+            if (preg_match('/"murl":"([^"]+)"/', $decoded, $mm)) {
+                $murl = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+            }
+            if ($turl && $purl) {
+                $results[] = ['purl' => $purl, 'turl' => $turl, 'murl' => $murl];
             }
         }
     }
 
-    error_log("[BoatTrader Scraper] No Google thumbnail found for listing $listingId");
+    if (empty($results)) {
+        error_log("[BoatTrader Scraper] No Bing results parsed for listing $listingId");
+        return null;
+    }
+
+    // Priority 1: Exact listing ID match in purl
+    $exactMatch = null;
+    $boattraderMatch = null;
+    $anyMatch = null;
+
+    foreach ($results as $r) {
+        if (!$anyMatch) {
+            $anyMatch = $r;
+        }
+        // Check if this is a BoatTrader page
+        if (strpos($r['purl'], 'boattrader.com') !== false) {
+            // Check for exact listing ID match
+            if (strpos($r['purl'], $listingId) !== false) {
+                $exactMatch = $r;
+                break;
+            }
+            if (!$boattraderMatch) {
+                $boattraderMatch = $r;
+            }
+        }
+    }
+
+    // Pick the best match
+    $best = $exactMatch ?? $boattraderMatch ?? $anyMatch;
+    if (!$best) {
+        error_log("[BoatTrader Scraper] No suitable Bing result for listing $listingId");
+        return null;
+    }
+
+    $thumbUrl = $best['turl'];
+    $matchType = $exactMatch ? 'exact' : ($boattraderMatch ? 'boattrader-similar' : 'any');
+    error_log("[BoatTrader Scraper] Bing match ($matchType) for listing $listingId: " . $best['purl']);
+
+    // Verify the thumbnail is accessible
+    $ch2 = curl_init();
+    curl_setopt_array($ch2, [
+        CURLOPT_URL => $thumbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_NOBODY => false,
+    ]);
+    $imgData = curl_exec($ch2);
+    $imgCode = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+    $imgType = curl_getinfo($ch2, CURLINFO_CONTENT_TYPE);
+    curl_close($ch2);
+
+    if ($imgCode === 200 && strpos($imgType, 'image/') === 0 && strlen($imgData) > 1000) {
+        error_log("[BoatTrader Scraper] Bing thumbnail verified for listing $listingId ($matchType): " . strlen($imgData) . " bytes");
+        return $thumbUrl;
+    }
+
+    error_log("[BoatTrader Scraper] Bing thumbnail not accessible for listing $listingId");
     return null;
 }
 
@@ -501,8 +562,8 @@ function extractBoatFromUrl($url) {
             return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
         }, $modelParts));
 
-        // Try to find an image via Google Image Search
-        $imageUrl = fetchImageViaGoogle($url, $slug, $listingId);
+        // Try to find an image via Bing Image Search
+        $imageUrl = fetchImageViaBing($url, $slug, $listingId);
 
         $title = "$year $make $model";
         return [
