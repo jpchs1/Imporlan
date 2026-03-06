@@ -1264,22 +1264,31 @@
 
     container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
       btn.addEventListener("click", async function (e) {
+        e.preventDefault();
         e.stopPropagation();
         var linkId = parseInt(this.getAttribute("data-link-id"));
-        if (!linkId || !currentOrderData) return;
+        if (!linkId || isNaN(linkId) || !currentOrderData) {
+          console.warn("[Expedientes] Delete skipped: linkId=" + linkId + ", hasOrder=" + !!currentOrderData);
+          return;
+        }
         if (!confirm("Eliminar esta fila de link?")) return;
-        var result = await deleteLink(currentOrderData.id, linkId);
-        if (result.success) {
-          if (typeof window.logAuditAction === "function") {
-            window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+        try {
+          var result = await deleteLink(currentOrderData.id, linkId);
+          if (result.success) {
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+            }
+            var row = this.closest("tr");
+            if (row) row.remove();
+            currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
+            renumberRows();
+            showToast("Fila eliminada", "success");
+          } else {
+            showToast(result.error || "Error al eliminar", "error");
           }
-          var row = this.closest("tr");
-          if (row) row.remove();
-          currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
-          renumberRows();
-          showToast("Fila eliminada", "success");
-        } else {
-          showToast(result.error || "Error al eliminar", "error");
+        } catch (err) {
+          console.error("[Expedientes] Delete error:", err);
+          showToast("Error de conexion al eliminar", "error");
         }
       });
     });
