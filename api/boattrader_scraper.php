@@ -781,11 +781,39 @@ function extractBoatFromUrl($url) {
 }
 
 function scrapeBoatDetail($url) {
+    // Primary method: Use the Fly.io scraper API (bypasses Cloudflare via curl_cffi)
+    $apiData = fetchViaScraperAPI($url);
+    if ($apiData) {
+        error_log('[BoatTrader Scraper] Scraper API returned data, building boat result');
+        $boat = [
+            'title' => $apiData['title'] ?? '',
+            'year' => null,
+            'price' => isset($apiData['price']) ? floatval($apiData['price']) : null,
+            'location' => $apiData['location'] ?? '',
+            'hours' => isset($apiData['hours']) ? intval($apiData['hours']) : null,
+            'image_url' => $apiData['image_url'] ?? '',
+            'url' => $url,
+            'make' => '',
+            'model' => '',
+            'length' => '',
+            'condition' => 'Used',
+            'value_usa_usd' => isset($apiData['price']) ? floatval($apiData['price']) : null,
+        ];
+        // Extract year/make/model from title
+        if ($boat['title'] && preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $boat['title'], $m)) {
+            $boat['year'] = intval($m[1]);
+            $boat['make'] = trim($m[2]);
+            $boat['model'] = trim($m[3]);
+        }
+        return $boat;
+    }
+
+    // Fallback: Try direct fetch (may work if Cloudflare is not blocking)
     $html = btDirectFetch($url);
 
-    // If direct fetch fails (e.g. Cloudflare 403), extract what we can from the URL
+    // If direct fetch also fails, extract what we can from the URL
     if (!$html) {
-        error_log('[BoatTrader Scraper] Direct fetch failed for ' . $url . ', extracting data from URL pattern');
+        error_log('[BoatTrader Scraper] Both scraper API and direct fetch failed for ' . $url . ', extracting data from URL pattern');
         return extractBoatFromUrl($url);
     }
 
