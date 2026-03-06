@@ -516,10 +516,11 @@ function fetchImageViaBing($url, $slug, $listingId) {
         }
     }
 
-    // Pick the best match
-    $best = $exactMatch ?? $boattraderMatch ?? $anyMatch;
+    // Pick the best match - ONLY use exact listing ID matches to avoid wrong images
+    // Falling back to a "similar" boat results in showing the wrong boat photo
+    $best = $exactMatch;
     if (!$best) {
-        error_log("[BoatTrader Scraper] No suitable Bing result for listing $listingId");
+        error_log("[BoatTrader Scraper] No exact Bing match for listing $listingId (had " . count($results) . " results, boattrader=" . ($boattraderMatch ? 'yes' : 'no') . ")");
         return null;
     }
 
@@ -549,6 +550,104 @@ function fetchImageViaBing($url, $slug, $listingId) {
     return null;
 }
 
+/**
+ * Search DuckDuckGo to find the correct BoatTrader listing and extract metadata.
+ * DDG reliably returns the exact listing (matched by listing ID in URL) with
+ * title format: "Used 2016 Sea Ray SPX 21, 37416 Chattanooga - Boat Trader"
+ * which contains the correct city and ZIP code.
+ *
+ * Also attempts to extract price and hours from the search snippet, which
+ * sometimes contains the overview text from the BoatTrader page.
+ *
+ * @param string $slug      The URL slug (e.g. "2016-sea-ray-spx-21")
+ * @param string $listingId The listing ID from the URL
+ * @return array  Array with 'location', 'price', 'hours' (any may be empty/null)
+ */
+function fetchMetaViaDDG($slug, $listingId) {
+    $result = ['location' => '', 'price' => null, 'hours' => null];
+
+    $slugParts = str_replace('-', ' ', $slug);
+    $query = urlencode("site:boattrader.com $slugParts $listingId");
+    $searchUrl = "https://html.duckduckgo.com/html/?q=$query";
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $searchUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => [
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+        ],
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$html || strlen($html) < 1000) {
+        error_log("[BoatTrader Scraper] DDG search failed: HTTP $httpCode, size=" . strlen($html ?: ''));
+        return $result;
+    }
+
+    // Parse DDG results - find the one matching our listing ID
+    // DDG result links contain the listing URL encoded in the href
+    if (preg_match_all('/<a[^>]*class="result__a"[^>]*>(.*?)<\/a>/s', $html, $titleMatches)) {
+        // Also get snippets
+        preg_match_all('/<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/s', $html, $snippetMatches);
+
+        foreach ($titleMatches[0] as $idx => $fullTag) {
+            // Check if the href contains our listing ID
+            if (strpos($fullTag, $listingId) === false) {
+                continue;
+            }
+
+            // Extract clean title text
+            $titleText = strip_tags($titleMatches[1][$idx]);
+            $titleText = html_entity_decode($titleText, ENT_QUOTES, 'UTF-8');
+            error_log("[BoatTrader Scraper] DDG exact match for $listingId: $titleText");
+
+            // Extract location from title
+            // Format: "Used 2016 Sea Ray SPX 21, 37416 Chattanooga - Boat Trader"
+            if (preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $titleText, $locMatch)) {
+                $city = trim($locMatch[2]);
+                $result['location'] = "$city, US";
+                error_log("[BoatTrader Scraper] DDG location for $listingId: " . $result['location']);
+            }
+
+            // Try to extract price and hours from snippet
+            if (isset($snippetMatches[1][$idx])) {
+                $snippet = strip_tags($snippetMatches[1][$idx]);
+                $snippet = html_entity_decode($snippet, ENT_QUOTES, 'UTF-8');
+
+                // Price: "available for sale at $33,999" or "$33,999"
+                if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $snippet, $priceMatch)) {
+                    $val = floatval(str_replace(',', '', $priceMatch[1]));
+                    if ($val >= 1000 && $val < 10000000) {
+                        $result['price'] = $val;
+                        error_log("[BoatTrader Scraper] DDG price for $listingId: \$" . $result['price']);
+                    }
+                }
+
+                // Hours: "368 engine hours" or "368 hours"
+                if (preg_match('/(\d[\d,]*)\s*(?:engine\s*)?hours/i', $snippet, $hoursMatch)) {
+                    $result['hours'] = intval(str_replace(',', '', $hoursMatch[1]));
+                    error_log("[BoatTrader Scraper] DDG hours for $listingId: " . $result['hours']);
+                }
+            }
+
+            break; // Found our listing, stop
+        }
+    }
+
+    if (!$result['location']) {
+        error_log("[BoatTrader Scraper] DDG: no exact match found for listing $listingId");
+    }
+
+    return $result;
+}
+
 function extractBoatFromUrl($url) {
     $path = parse_url($url, PHP_URL_PATH) ?? '';
     // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
@@ -568,27 +667,35 @@ function extractBoatFromUrl($url) {
             return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
         }, $modelParts));
 
-        // Try to find an image and metadata via Bing Image Search
+        // Step 1: Get accurate metadata (location, price, hours) via DuckDuckGo
+        // DDG reliably finds the exact listing and returns correct location in title
+        $ddgMeta = fetchMetaViaDDG($slug, $listingId);
+        $location = $ddgMeta['location'];
+        $price = $ddgMeta['price'];
+        $hours = $ddgMeta['hours'];
+
+        // Step 2: Try to find an image via Bing Image Search
+        // Only use exact listing ID matches to avoid showing wrong boat photos
         $bingResult = fetchImageViaBing($url, $slug, $listingId);
         $imageUrl = $bingResult ? $bingResult['turl'] : '';
         $bingTitle = $bingResult ? ($bingResult['t'] ?? '') : '';
 
-        // Extract location from Bing title
-        // Format: "Used 2016 Sea Ray SPX 21, 33707 St Petersburg - Boat Trader"
-        $location = '';
-        if ($bingTitle && preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $bingTitle, $locMatch)) {
-            $zip = $locMatch[1];
-            $city = trim($locMatch[2]);
-            $location = "$city, US";
+        // Step 3: If DDG didn't find location, fall back to Bing title (less reliable)
+        if (!$location && $bingTitle) {
+            if (preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $bingTitle, $locMatch)) {
+                $city = trim($locMatch[2]);
+                $location = "$city, US";
+                error_log("[BoatTrader Scraper] Using Bing fallback location for $listingId: $location");
+            }
         }
 
         $title = "$year $make $model";
         return [
             'title' => $title,
             'year' => $year,
-            'price' => null,
+            'price' => $price,
             'location' => $location,
-            'hours' => null,
+            'hours' => $hours,
             'image_url' => $imageUrl,
             'url' => $url,
             'make' => $make,
