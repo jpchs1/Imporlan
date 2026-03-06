@@ -430,7 +430,7 @@ function parseBoatTraderHtml($html) {
  * @param string $url       The BoatTrader listing URL
  * @param string $slug      The URL slug (e.g. "2016-sea-ray-spx-21")
  * @param string $listingId The listing ID from the URL
- * @return string|null      A Bing-cached thumbnail URL, or null if not found
+ * @return array|null  Array with 'turl' (thumbnail URL) and 't' (title from Bing), or null
  */
 function fetchImageViaBing($url, $slug, $listingId) {
     // Build search query: site:boattrader.com + slug parts + listing ID
@@ -477,8 +477,14 @@ function fetchImageViaBing($url, $slug, $listingId) {
             if (preg_match('/"murl":"([^"]+)"/', $decoded, $mm)) {
                 $murl = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
             }
+            $title = '';
+            if (preg_match('/"t":"([^"]+)"/', $decoded, $titleM)) {
+                $title = html_entity_decode($titleM[1], ENT_QUOTES, 'UTF-8');
+                // Remove Bing's highlight markers
+                $title = preg_replace('/[\x{e000}\x{e001}]/u', '', $title);
+            }
             if ($turl && $purl) {
-                $results[] = ['purl' => $purl, 'turl' => $turl, 'murl' => $murl];
+                $results[] = ['purl' => $purl, 'turl' => $turl, 'murl' => $murl, 't' => $title];
             }
         }
     }
@@ -536,7 +542,7 @@ function fetchImageViaBing($url, $slug, $listingId) {
 
     if ($imgCode === 200 && strpos($imgType, 'image/') === 0 && strlen($imgData) > 1000) {
         error_log("[BoatTrader Scraper] Bing thumbnail verified for listing $listingId ($matchType): " . strlen($imgData) . " bytes");
-        return $thumbUrl;
+        return ['turl' => $thumbUrl, 't' => $best['t'] ?? ''];
     }
 
     error_log("[BoatTrader Scraper] Bing thumbnail not accessible for listing $listingId");
@@ -562,17 +568,28 @@ function extractBoatFromUrl($url) {
             return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
         }, $modelParts));
 
-        // Try to find an image via Bing Image Search
-        $imageUrl = fetchImageViaBing($url, $slug, $listingId);
+        // Try to find an image and metadata via Bing Image Search
+        $bingResult = fetchImageViaBing($url, $slug, $listingId);
+        $imageUrl = $bingResult ? $bingResult['turl'] : '';
+        $bingTitle = $bingResult ? ($bingResult['t'] ?? '') : '';
+
+        // Extract location from Bing title
+        // Format: "Used 2016 Sea Ray SPX 21, 33707 St Petersburg - Boat Trader"
+        $location = '';
+        if ($bingTitle && preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $bingTitle, $locMatch)) {
+            $zip = $locMatch[1];
+            $city = trim($locMatch[2]);
+            $location = "$city, US";
+        }
 
         $title = "$year $make $model";
         return [
             'title' => $title,
             'year' => $year,
             'price' => null,
-            'location' => '',
+            'location' => $location,
             'hours' => null,
-            'image_url' => $imageUrl ?? '',
+            'image_url' => $imageUrl,
             'url' => $url,
             'make' => $make,
             'model' => $model,
