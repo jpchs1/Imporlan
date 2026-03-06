@@ -414,6 +414,74 @@ function parseBoatTraderHtml($html) {
     return $boats;
 }
 
+/**
+ * Search Google Images to find a cached thumbnail for a BoatTrader listing.
+ * BoatTrader's CDN (images.boattrader.com) is behind Cloudflare, but Google
+ * caches thumbnails on its own CDN (encrypted-tbn*.gstatic.com) which is
+ * publicly accessible.
+ *
+ * @param string $url     The BoatTrader listing URL
+ * @param string $slug    The URL slug (e.g. "2016-sea-ray-spx-21")
+ * @param string $listingId The listing ID from the URL
+ * @return string|null    A Google-cached thumbnail URL, or null if not found
+ */
+function fetchImageViaGoogle($url, $slug, $listingId) {
+    $query = urlencode("boattrader.com $slug $listingId");
+    $searchUrl = "https://www.google.com/search?q=$query&tbm=isch";
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $searchUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_HTTPHEADER => [
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+        ],
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$html) {
+        error_log("[BoatTrader Scraper] Google Image search failed: HTTP $httpCode");
+        return null;
+    }
+
+    // Extract Google-cached thumbnail URLs (hosted on Google's CDN, publicly accessible)
+    if (preg_match_all('/https:\/\/encrypted-tbn\d\.gstatic\.com\/images\?[^"\'\\\\&]+(?:[&\\\\][^"\'\\\\]+)*/', $html, $matches)) {
+        $thumbs = array_map(function($u) {
+            return str_replace(['\\u0026', '\\u003d', '&amp;'], ['&', '=', '&'], $u);
+        }, $matches[0]);
+        $thumbs = array_values(array_unique($thumbs));
+
+        // Verify the first thumbnail is accessible and is an actual image
+        if (!empty($thumbs)) {
+            $ch2 = curl_init();
+            curl_setopt_array($ch2, [
+                CURLOPT_URL => $thumbs[0],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 5,
+                CURLOPT_NOBODY => false,
+            ]);
+            $imgData = curl_exec($ch2);
+            $imgCode = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+            $imgType = curl_getinfo($ch2, CURLINFO_CONTENT_TYPE);
+            curl_close($ch2);
+
+            if ($imgCode === 200 && strpos($imgType, 'image/') === 0 && strlen($imgData) > 1000) {
+                error_log("[BoatTrader Scraper] Found Google thumbnail for listing $listingId");
+                return $thumbs[0];
+            }
+        }
+    }
+
+    error_log("[BoatTrader Scraper] No Google thumbnail found for listing $listingId");
+    return null;
+}
+
 function extractBoatFromUrl($url) {
     $path = parse_url($url, PHP_URL_PATH) ?? '';
     // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
@@ -421,6 +489,8 @@ function extractBoatFromUrl($url) {
         $year = intval($m[1]);
         $makeRaw = $m[2];
         $modelRaw = $m[3];
+        $listingId = $m[4];
+        $slug = "$year-$makeRaw-$modelRaw";
 
         // Convert kebab-case to Title Case
         $make = ucwords(str_replace('-', ' ', $makeRaw));
@@ -431,6 +501,9 @@ function extractBoatFromUrl($url) {
             return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
         }, $modelParts));
 
+        // Try to find an image via Google Image Search
+        $imageUrl = fetchImageViaGoogle($url, $slug, $listingId);
+
         $title = "$year $make $model";
         return [
             'title' => $title,
@@ -438,7 +511,7 @@ function extractBoatFromUrl($url) {
             'price' => null,
             'location' => '',
             'hours' => null,
-            'image_url' => '',
+            'image_url' => $imageUrl ?? '',
             'url' => $url,
             'make' => $make,
             'model' => $model,

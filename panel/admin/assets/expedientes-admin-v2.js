@@ -790,7 +790,9 @@
       if (data) {
         var filled = applyScrapedData(row, data);
         var hasImage = !!(data.image_url);
-        if (filled && hasImage) {
+        if (filled && hasImage && data._partial) {
+          showToast("Datos e imagen de referencia extraidos del link.", "success");
+        } else if (filled && hasImage) {
           showToast("Datos extraidos del link", "success");
         } else if (filled && !hasImage) {
           showToast("Datos parciales extraidos. Sube la imagen manualmente.", "warning");
