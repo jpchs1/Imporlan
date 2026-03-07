@@ -7,11 +7,11 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # 301 Redirects: /pages/ -> /importaciones/
 RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
 
-# 301 Redirects: TOUREVO pages moved to tourevo.cl
-RedirectMatch 301 ^/en(/.*)?$ https://tourevo.cl/en$1
-RedirectMatch 301 ^/br(/.*)?$ https://tourevo.cl/br$1
-
 RewriteBase /
+
+# 301 Redirects: TOUREVO pages moved to tourevo.cl
+RewriteRule ^en(/.*)?$ https://tourevo.cl/en$1 [R=301,L]
+RewriteRule ^br(/.*)?$ https://tourevo.cl/br$1 [R=301,L]
 
 # Marketplace clean URLs
 RewriteRule ^marketplace/embarcacion/([0-9]+)/?.*$ /marketplace/embarcacion.php [L]
