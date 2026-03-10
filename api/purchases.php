@@ -285,9 +285,9 @@ function getAllPurchases() {
     
     // Sort by date descending (newest first)
     usort($purchases, function($a, $b) {
-        $dateA = $a['timestamp'] ?? $a['date'] ?? '';
-        $dateB = $b['timestamp'] ?? $b['date'] ?? '';
-        return strcmp($dateB, $dateA);
+        $dateA = strtotime($a['timestamp'] ?? $a['date'] ?? '') ?: 0;
+        $dateB = strtotime($b['timestamp'] ?? $b['date'] ?? '') ?: 0;
+        return $dateB - $dateA;
     });
     
     echo json_encode([
