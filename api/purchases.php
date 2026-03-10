@@ -58,9 +58,12 @@ switch ($action) {
     case 'request_payment':
         requestPayment();
         break;
+    case 'fix_descriptions':
+        fixDescriptions();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment, fix_descriptions']);
 }
 
 /**
@@ -581,5 +584,48 @@ function getQuotationRequests() {
         'success' => true,
         'requests' => $requests,
         'total' => count($requests)
+    ]);
+}
+
+/**
+ * Fix corrupted descriptions directly in purchases.json.
+ * Scans all purchases and normalizes malformed descriptions using sanitizeDescription().
+ * This is a one-time cleanup action (admin only).
+ */
+function fixDescriptions() {
+    global $purchasesFile;
+    
+    $data = json_decode(file_get_contents($purchasesFile), true);
+    $purchases = $data['purchases'] ?? [];
+    
+    $fixed = [];
+    $total = count($purchases);
+    
+    foreach ($purchases as &$purchase) {
+        $original = $purchase['description'] ?? '';
+        $sanitized = sanitizeDescription($original);
+        
+        if ($sanitized !== $original && !empty($original)) {
+            $fixed[] = [
+                'id' => $purchase['id'] ?? 'unknown',
+                'user_email' => $purchase['user_email'] ?? 'unknown',
+                'original' => $original,
+                'fixed' => $sanitized
+            ];
+            $purchase['description'] = $sanitized;
+        }
+    }
+    unset($purchase);
+    
+    if (count($fixed) > 0) {
+        $data['purchases'] = $purchases;
+        file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'total_purchases' => $total,
+        'fixed_count' => count($fixed),
+        'fixed_details' => $fixed
     ]);
 }
