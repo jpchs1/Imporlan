@@ -157,9 +157,9 @@ function usersList() {
         $allUsers = array_merge($adminUsers, $realUsers);
         // Sort all users by date descending (newest first)
         usort($allUsers, function($a, $b) {
-            $dateA = $a['created_at'] ?? '';
-            $dateB = $b['created_at'] ?? '';
-            return strcmp($dateB, $dateA);
+            $dateA = strtotime($a['created_at'] ?? '') ?: 0;
+            $dateB = strtotime($b['created_at'] ?? '') ?: 0;
+            return $dateB - $dateA;
         });
         echo json_encode(['success' => true, 'users' => $allUsers, 'total' => count($allUsers)]);
     } catch (PDOException $e) {
