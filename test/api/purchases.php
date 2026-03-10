@@ -58,6 +58,30 @@ switch ($action) {
 }
 
 /**
+ * Sanitize a purchase description to fix malformed or corrupted values.
+ * 
+ * Handles cases like "1enlacesDiputado" or other non-standard descriptions
+ * that may have been stored due to data corruption or older code versions.
+ * Normalizes them to the standard "Cotizacion Online - N links" format.
+ */
+function sanitizeDescription($description) {
+    if (empty($description)) {
+        return 'Link Cotizado';
+    }
+    
+    // Check for malformed descriptions that contain concatenated text
+    // like "1enlacesDiputado", "2enlacesXYZ", etc.
+    // Pattern: optional prefix + digits + "enlaces" + any trailing text (camelCase or otherwise)
+    if (preg_match('/^(?:Cotizaci[oó]n\s+Online\s*-?\s*)?(\d+)\s*enlaces\w*/iu', $description, $matches)) {
+        $count = intval($matches[1]);
+        $linkWord = $count === 1 ? 'link' : 'links';
+        return "Cotizacion Online - {$count} {$linkWord}";
+    }
+    
+    return $description;
+}
+
+/**
  * Get purchases for a specific user
  */
 function getPurchases() {
@@ -88,7 +112,7 @@ function getPurchases() {
             $links[] = [
                 'id' => $purchase['id'],
                 'url' => $purchase['url'] ?? '',
-                'title' => $purchase['description'] ?? 'Link Cotizado',
+                'title' => sanitizeDescription($purchase['description'] ?? ''),
                 'price' => $purchase['amount_clp'] ?? $purchase['amount'] ?? 0,
                 'status' => $purchase['status'] ?? 'pending',
                 'contractedAt' => $purchase['date'] ?? date('d M Y'),
@@ -98,7 +122,7 @@ function getPurchases() {
         } else if ($purchase['type'] === 'plan') {
             $plans[] = [
                 'id' => $purchase['id'],
-                'planName' => $purchase['plan_name'] ?? $purchase['description'] ?? 'Plan',
+                'planName' => $purchase['plan_name'] ?? sanitizeDescription($purchase['description'] ?? ''),
                 'price' => $purchase['amount_clp'] ?? $purchase['amount'] ?? 0,
                 'days' => $purchase['days'] ?? 7,
                 'status' => $purchase['status'] ?? 'active',

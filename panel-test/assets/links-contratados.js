@@ -40,6 +40,17 @@
   function getUserEmail() { var u = getUserData(); return u ? u.email || u.user_email || "" : ""; }
   function getUserId() { var u = getUserData(); return u ? u.id || u.uid || u.user_id || "" : ""; }
 
+  function sanitizeTitle(title) {
+    if (!title) return "Cotizacion Online";
+    // Fix malformed descriptions like "1enlacesDiputado", "Cotización Online - 2enlacesXYZ", etc.
+    var match = title.match(/^(?:Cotizaci[oó]n\s+Online\s*-?\s*)?(\d+)\s*enlaces\w*/i);
+    if (match) {
+      var count = parseInt(match[1], 10);
+      return "Cotizacion Online - " + count + (count === 1 ? " link" : " links");
+    }
+    return title;
+  }
+
   function escapeHtml(text) {
     if (!text) return "";
     var div = document.createElement("div");
@@ -170,7 +181,7 @@
       '<div style="flex:1;min-width:0">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
-      '<h3 style="margin:0;font-size:14px;font-weight:600;color:#0f172a">' + escapeHtml(link.title || "Cotizacion Online") + '</h3>' +
+      '<h3 style="margin:0;font-size:14px;font-weight:600;color:#0f172a">' + escapeHtml(sanitizeTitle(link.title)) + '</h3>' +
       getStatusBadge(link.status) + '</div>' +
       (link.url ? '<a href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#3b82f6;text-decoration:none;word-break:break-all;padding:6px 10px;background:#eff6ff;border-radius:6px;margin-bottom:10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' + escapeHtml(urlDisplay) + '</a>' : '') +
       '</div></div>' +
