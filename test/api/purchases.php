@@ -225,15 +225,25 @@ function addPurchase() {
     
     file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
 
+    // Auto-create order (expediente) for this purchase
     $orderId = null;
     try {
-        if (function_exists('createOrderFromQuotation')) {
+        $dbConfig = __DIR__ . '/db_config.php';
+        if (file_exists($dbConfig)) {
+            require_once $dbConfig;
+            require_once __DIR__ . '/orders_api.php';
             $purchaseData = array_merge($purchase, [
                 'customer_name' => $input['user_name'] ?? $input['customer_name'] ?? explode('@', $input['user_email'])[0],
                 'customer_phone' => $input['user_phone'] ?? $input['customer_phone'] ?? null,
             ]);
             if ($purchase['type'] === 'link' || $purchase['type'] === 'cotizacion') {
                 $storedLinks = $input['links'] ?? [];
+                // Fallback: get links from quotation_requests.json
+                if (empty($storedLinks)) {
+                    require_once __DIR__ . '/email_service.php';
+                    $emailService = new EmailService();
+                    $storedLinks = $emailService->getStoredQuotationLinks($input['user_email']);
+                }
                 $orderId = createOrderFromQuotation($purchaseData, $storedLinks);
             } else {
                 $orderId = createOrderFromPurchase($purchaseData);

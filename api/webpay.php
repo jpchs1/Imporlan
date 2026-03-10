@@ -326,7 +326,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
         'payment_method' => 'webpay',
         'payment_id' => $transaction['authorization_code'] ?? null,
         'order_id' => $buyOrder,
-        'status' => 'pending',
+        'status' => 'paid',
         'days' => intval($planDays),
         'proposals_total' => 5,
         'proposals_received' => 0,
