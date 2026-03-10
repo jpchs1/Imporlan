@@ -188,6 +188,12 @@
       .then(function(data) {
         if (!data) return;
         var users = data.users || [];
+        // Sort users by date descending (newest first)
+        users.sort(function(a, b) {
+          var dateA = new Date(a.created_at || 0);
+          var dateB = new Date(b.created_at || 0);
+          return dateB - dateA;
+        });
         usersCache = users;
         var tableDiv = container.querySelector("#enhancer-users-table");
         if (!tableDiv) return;
@@ -772,6 +778,12 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var purchases = data.purchases || [];
+        // Sort purchases by date descending (newest first)
+        purchases.sort(function(a, b) {
+          var dateA = new Date(a.timestamp || a.date || 0);
+          var dateB = new Date(b.timestamp || b.date || 0);
+          return dateB - dateA;
+        });
         if (!Array.isArray(purchases) || purchases.length === 0) {
           container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron pagos</div>';
           return;
@@ -907,6 +919,12 @@
       .then(function(data) {
         if (!data) return;
         var reviews = data.reviews || [];
+        // Sort reviews by date descending (newest first)
+        reviews.sort(function(a, b) {
+          var dateA = new Date(a.created_at || 0);
+          var dateB = new Date(b.created_at || 0);
+          return dateB - dateA;
+        });
         reviewsCache = reviews;
         var grid = container.querySelector("#enhancer-reviews-grid");
         if (!grid) return;

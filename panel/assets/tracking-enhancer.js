@@ -206,6 +206,10 @@
       var resp = await fetch(API_BASE + "/tracking_api.php?action=featured");
       var data = await resp.json();
       if (data.success && data.vessels) {
+        // Sort vessels by date descending (newest first)
+        data.vessels.sort(function (a, b) {
+          return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+        });
         renderVesselList(data.vessels);
         updateMapMarkers(data.vessels);
         if (data.vessels.length > 0 && !selectedVesselId) {

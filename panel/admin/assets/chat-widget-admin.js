@@ -398,6 +398,11 @@
             filtered = filtered.filter(c => !c.assigned_to_id);
         }
         
+        // Sort by date descending (newest first)
+        filtered.sort(function (a, b) {
+            return new Date(b.last_message_time || b.updated_at || 0) - new Date(a.last_message_time || a.updated_at || 0);
+        });
+        
         if (filtered.length === 0) {
             listContainer.innerHTML = '<div class="chat-empty-state"><p>No hay conversaciones</p></div>';
             return;
@@ -730,6 +735,10 @@
             return;
         }
 
+        // Sort conversations by date descending (newest first)
+        conversations.sort(function (a, b) {
+            return new Date(b.last_message_time || b.updated_at || 0) - new Date(a.last_message_time || a.updated_at || 0);
+        });
         listContainer.innerHTML = conversations.map(conv => {
             const initials = getInitials(conv.user_name || conv.user_email);
             const isActive = currentConversation && currentConversation.id === conv.id;

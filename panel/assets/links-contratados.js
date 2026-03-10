@@ -148,6 +148,15 @@
         plans = (data.plans || []).filter(function (p) { return p.status === "active"; });
         linksApproved = (data.links || []).filter(function (l) { return l.status === "active"; });
         linksReview = (data.links || []).filter(function (l) { return l.status === "en_revision" || l.status === "pending"; });
+        // Sort by date descending (newest first)
+        function sortByDateDesc(arr, field) {
+          return arr.sort(function (a, b) {
+            return new Date(b[field] || 0) - new Date(a[field] || 0);
+          });
+        }
+        plans = sortByDateDesc(plans, 'startDate');
+        linksApproved = sortByDateDesc(linksApproved, 'contractedAt');
+        linksReview = sortByDateDesc(linksReview, 'contractedAt');
       }
     } catch (e) { console.error("Error fetching purchases:", e); }
   }

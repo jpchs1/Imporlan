@@ -228,6 +228,10 @@
     if (vessels.length === 0) {
       return '<div style="text-align:center;padding:40px"><p style="color:#64748b;font-size:14px">No hay embarcaciones registradas</p></div>';
     }
+    // Sort vessels by date descending (newest first)
+    vessels.sort(function (a, b) {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
     var html = '<div style="display:grid;gap:12px">';
     vessels.forEach(function (v) {
       html += '<div class="ta-vessel-row" data-id="' + v.id + '" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:18px 24px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:16px">' +
