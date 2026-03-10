@@ -368,6 +368,23 @@ function adminListOrders() {
         $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Enrich orders with purchase_date from purchases.json so dates match Pagos/Solicitudes
+        $purchasesFile = __DIR__ . '/purchases.json';
+        if (file_exists($purchasesFile)) {
+            $pData = json_decode(file_get_contents($purchasesFile), true);
+            $purchaseDates = [];
+            foreach (($pData['purchases'] ?? []) as $p) {
+                $pid = $p['id'] ?? '';
+                if ($pid) {
+                    $purchaseDates[$pid] = $p['timestamp'] ?? $p['date'] ?? null;
+                }
+            }
+            for ($i = 0; $i < count($orders); $i++) {
+                $pid = $orders[$i]['purchase_id'] ?? '';
+                $orders[$i]['purchase_date'] = isset($purchaseDates[$pid]) ? $purchaseDates[$pid] : null;
+            }
+        }
+
         $countStmt = $pdo->query("SELECT COUNT(*) as total FROM orders");
         $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 

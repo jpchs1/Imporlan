@@ -18,7 +18,20 @@
 
   function esc(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
   function fmtCLP(n) { return "$" + parseInt(n).toLocaleString("es-CL"); }
-  function fmtDate(s) { if (!s) return "N/A"; var d = new Date(s); return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+  function fmtDate(s) {
+    if (!s) return "N/A";
+    // Parse YYYY-MM-DD directly to avoid timezone shift
+    var m = String(s).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[3] + "-" + m[2] + "-" + m[1];
+    // Fallback for other formats (e.g. "09 Mar 2026")
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      return dd + "-" + mm + "-" + d.getFullYear();
+    }
+    return s;
+  }
 
   function addSkeletonStyles() {
     if (document.getElementById("enhancer-skeleton-styles")) return;
