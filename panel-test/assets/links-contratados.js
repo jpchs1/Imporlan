@@ -256,6 +256,12 @@
       '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Tus planes, links y expedientes de busqueda</p></div></div></div>' +
       '<div style="padding:24px 28px">' +
 
+      '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px">' +
+      '<div style="flex-shrink:0;width:36px;height:36px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:10px;display:flex;align-items:center;justify-content:center">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>' +
+      '<div><p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#1e40af">Tiempo de Respuesta (SLA)</p>' +
+      '<p style="margin:0;font-size:12px;color:#3b82f6;line-height:1.5">El tiempo de respuesta y trabajo para tu requerimiento es de <strong>hasta 48 horas</strong> por lo general. En algunos periodos puede llegar a ser de <strong>hasta 72 hrs</strong> segun la cantidad de requerimientos en curso. De todas maneras, por email o WhatsApp estaremos activos ante cualquier duda o pregunta.</p></div></div>' +
+
       '<div style="margin-bottom:28px">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">' +
       '<div style="width:32px;height:32px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:8px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +

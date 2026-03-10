@@ -1038,6 +1038,34 @@ BASE64;
                         </td>
                     </tr>
                     
+                    <!-- SLA Info -->
+                    <tr>
+                        <td style="padding: 24px 0 0 0;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: rgba(30, 58, 95, 0.6); border-radius: 12px; border: 1px solid rgba(96, 165, 250, 0.2);">
+                                <tr>
+                                    <td style="padding: 18px 24px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td valign="top" style="padding-right: 12px;">
+                                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['primary'] . ', ' . $c['accent'] . '); border-radius: 8px; text-align: center; line-height: 32px; font-size: 16px;">&#9200;</div>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0 0 4px 0; color: ' . $c['accent'] . '; font-size: 13px; font-weight: 600;">Tiempo de Respuesta (SLA)</p>
+                                                    <p style="margin: 0; color: ' . $c['text_light'] . '; font-size: 12px; line-height: 1.6;">
+                                                        El tiempo de respuesta y trabajo para tu requerimiento es de <strong style="color: ' . $c['text_white'] . ';">hasta 48 horas</strong> por lo general. En algunos periodos de alta demanda, puede llegar a ser de <strong style="color: ' . $c['text_white'] . ';">hasta 72 horas</strong> segun la cantidad de requerimientos en curso.
+                                                    </p>
+                                                    <p style="margin: 6px 0 0 0; color: ' . $c['accent'] . '; font-size: 12px;">
+                                                        De todas maneras, por <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['accent'] . '; text-decoration: underline;">email</a> o <a href="https://wa.me/56940211459" style="color: ' . $c['accent'] . '; text-decoration: underline;">WhatsApp</a> estaremos activos ante cualquier duda o pregunta.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
                     <!-- Footer -->
                     <tr>
                         <td align="center" style="padding: 30px 0 0 0;">

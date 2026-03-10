@@ -59,7 +59,7 @@
       </div>
       <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px">Email</h3>
       <a href="mailto:contacto@imporlan.cl" style="color:#3b82f6;font-size:14px;text-decoration:none;font-weight:500">contacto@imporlan.cl</a>
-      <p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Respuesta en menos de 24 hrs</p>
+      <p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Respuesta en hasta 48 hrs</p>
     </div>
 
     <div style="background:#fff;border-radius:16px;padding:24px;border:1px solid #e2e8f0;transition:all .2s;cursor:default" onmouseover="this.style.boxShadow='0 8px 25px rgba(59,130,246,.12)';this.style.borderColor='#3b82f6'" onmouseout="this.style.boxShadow='none';this.style.borderColor='#e2e8f0'">
@@ -78,6 +78,17 @@
       <h3 style="font-size:16px;font-weight:600;color:#1e293b;margin:0 0 6px">Horario</h3>
       <p style="color:#334155;font-size:14px;font-weight:500;margin:0">Lun - Vie: 09:00 - 18:00</p>
       <p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Sab - Dom: 10:00 - 14:00</p>
+    </div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:16px;padding:20px 24px;margin-bottom:28px;display:flex;align-items:flex-start;gap:14px">
+    <div style="flex-shrink:0;width:44px;height:44px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:12px;display:flex;align-items:center;justify-content:center">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div>
+      <h3 style="font-size:15px;font-weight:700;color:#1e40af;margin:0 0 6px">Tiempo de Respuesta (SLA)</h3>
+      <p style="color:#334155;font-size:13px;line-height:1.6;margin:0">El tiempo de respuesta y trabajo para tu requerimiento es de <strong>hasta 48 horas</strong> por lo general. En algunos periodos de alta demanda, puede llegar a ser de <strong>hasta 72 hrs</strong> segun la cantidad de requerimientos en curso.</p>
+      <p style="color:#3b82f6;font-size:13px;font-weight:500;margin:8px 0 0">De todas maneras, por <a href="mailto:contacto@imporlan.cl" style="color:#2563eb;text-decoration:underline">email</a> o <a href="https://wa.me/56940211459" style="color:#2563eb;text-decoration:underline">WhatsApp</a> estaremos activos ante cualquier duda o pregunta.</p>
     </div>
   </div>
 
