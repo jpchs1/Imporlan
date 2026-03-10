@@ -81,8 +81,19 @@
 
   function formatDate(dateStr) {
     if (!dateStr) return "N/A";
+    // Parse date without timezone conversion to avoid +1 day shift
+    var m = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      return m[3] + "-" + m[2] + "-" + m[1];
+    }
+    // Fallback: try "dd Mon YYYY" format (e.g. "09 Mar 2026")
     var d = new Date(dateStr);
-    return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" });
+    if (!isNaN(d.getTime())) {
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      return dd + "-" + mm + "-" + d.getFullYear();
+    }
+    return dateStr;
   }
 
   function formatCurrency(amount, currency) {
@@ -417,8 +428,8 @@
 
   function sortOrders(orders, direction) {
     orders.sort(function (a, b) {
-      var dateA = new Date(a.created_at || 0).getTime();
-      var dateB = new Date(b.created_at || 0).getTime();
+      var dateA = new Date(a.purchase_date || a.created_at || 0).getTime();
+      var dateB = new Date(b.purchase_date || b.created_at || 0).getTime();
       var diff = dateB - dateA; // default desc
       if (diff === 0) diff = (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
       return direction === "asc" ? -diff : diff;
@@ -440,7 +451,7 @@
           '<td style="padding:14px 16px"><div style="font-size:14px;color:#1e293b;font-weight:500">' + escapeHtml(o.customer_name) + '</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">' + escapeHtml(o.customer_email) + "</div></td>" +
           '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.plan_name || "-") + "</td>" +
           '<td style="padding:14px 16px">' + getStatusBadge(o.status) + "</td>" +
-          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.created_at) + "</td>" +
+          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.purchase_date || o.created_at) + "</td>" +
           '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.agent_name || "-") + "</td>" +
           '<td style="padding:14px 16px"><button class="ea-btn-edit" data-id="' + o.id + '" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.2)">Editar</button></td>' +
           "</tr>";
