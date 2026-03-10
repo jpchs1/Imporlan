@@ -107,7 +107,7 @@ function usersList() {
         return;
     }
     try {
-        $stmt = $pdo->query("SELECT id, name, email, role, status, phone, last_login, created_at, updated_at FROM admin_users ORDER BY id ASC");
+        $stmt = $pdo->query("SELECT id, name, email, role, status, phone, last_login, created_at, updated_at FROM admin_users ORDER BY created_at DESC");
         $adminUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($adminUsers as &$u) {
             $u['source'] = 'admin';
@@ -155,6 +155,12 @@ function usersList() {
         }
 
         $allUsers = array_merge($adminUsers, $realUsers);
+        // Sort all users by date descending (newest first)
+        usort($allUsers, function($a, $b) {
+            $dateA = $a['created_at'] ?? '';
+            $dateB = $b['created_at'] ?? '';
+            return strcmp($dateB, $dateA);
+        });
         echo json_encode(['success' => true, 'users' => $allUsers, 'total' => count($allUsers)]);
     } catch (PDOException $e) {
         http_response_code(500);

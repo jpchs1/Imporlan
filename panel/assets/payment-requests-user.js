@@ -177,6 +177,9 @@
 
     var pendingRequests = requests.filter(function (r) { return r.status === "pending"; });
     var otherRequests = requests.filter(function (r) { return r.status !== "pending"; });
+    // Sort by date descending (newest first)
+    pendingRequests.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
+    otherRequests.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
 
     var html = '<div id="pr-user-section" style="margin-bottom:24px">';
 

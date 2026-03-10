@@ -145,7 +145,13 @@
 
   async function loadMyListings() {
     var data = await apiCall("?action=my_listings");
-    if (data && data.listings) myListings = data.listings.map(normalizeListingPhotos);
+    if (data && data.listings) {
+      myListings = data.listings.map(normalizeListingPhotos);
+      // Sort by date descending (newest first)
+      myListings.sort(function (a, b) {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+    }
   }
 
   async function uploadPhotoFile(file) {

@@ -482,6 +482,10 @@
             return;
         }
 
+        // Sort conversations by date descending (newest first)
+        conversations.sort(function (a, b) {
+            return new Date(b.last_message_time || b.updated_at || 0) - new Date(a.last_message_time || a.updated_at || 0);
+        });
         listContainer.innerHTML = conversations.map(conv => {
             const initials = getInitials(conv.user_name || conv.user_email);
             const isActive = currentConversation && currentConversation.id === conv.id;

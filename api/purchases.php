@@ -160,6 +160,20 @@ function getPurchases() {
         }
     }
     
+    // Sort links by date descending (newest first)
+    usort($links, function($a, $b) {
+        $dateA = strtotime($a['contractedAt'] ?? '') ?: 0;
+        $dateB = strtotime($b['contractedAt'] ?? '') ?: 0;
+        return $dateB - $dateA;
+    });
+    
+    // Sort plans by date descending (newest first)
+    usort($plans, function($a, $b) {
+        $dateA = strtotime($a['startDate'] ?? '') ?: 0;
+        $dateB = strtotime($b['startDate'] ?? '') ?: 0;
+        return $dateB - $dateA;
+    });
+    
     echo json_encode([
         'success' => true,
         'links' => array_values($links),
@@ -267,11 +281,19 @@ function getAllPurchases() {
     global $purchasesFile;
     
     $data = json_decode(file_get_contents($purchasesFile), true);
+    $purchases = $data['purchases'] ?? [];
+    
+    // Sort by date descending (newest first)
+    usort($purchases, function($a, $b) {
+        $dateA = $a['timestamp'] ?? $a['date'] ?? '';
+        $dateB = $b['timestamp'] ?? $b['date'] ?? '';
+        return strcmp($dateB, $dateA);
+    });
     
     echo json_encode([
         'success' => true,
-        'purchases' => $data['purchases'] ?? [],
-        'total' => count($data['purchases'] ?? [])
+        'purchases' => $purchases,
+        'total' => count($purchases)
     ]);
 }
 
