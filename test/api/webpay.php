@@ -15,10 +15,10 @@ require_once 'config.php';
 require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/db_config.php';
 
-// WebPay Plus Production Credentials
-define('WEBPAY_COMMERCE_CODE', '597034812373');
-define('WEBPAY_API_KEY_SECRET', '464a2bf8092ad625b634ccf4bb506440');
-define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl');
+// WebPay Plus Integration/Test Credentials
+define('WEBPAY_COMMERCE_CODE', '597055555532');
+define('WEBPAY_API_KEY_SECRET', '579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C');
+define('WEBPAY_API_URL', 'https://webpay3gint.transbank.cl');
 
 // Detect callback BEFORE setting CORS/JSON headers.
 // The callback is a browser redirect flow (not an API call), so it must NOT
@@ -93,8 +93,7 @@ function createTransaction($data) {
         'type' => $data['type'] ?? 'link',
         'days' => $data['days'] ?? 7,
         'amount' => $amount,
-        'boat_links' => $data['boat_links'] ?? [],
-        'payment_request_id' => $data['payment_request_id'] ?? null
+        'boat_links' => $data['boat_links'] ?? []
     ];
     
     // Save purchase info to a temporary file for retrieval in callback
@@ -105,7 +104,7 @@ function createTransaction($data) {
     file_put_contents($tempFile, json_encode($purchaseInfo));
     
     // Use the callback URL for WebPay to return to
-    $returnUrl = 'https://www.imporlan.cl/api/webpay.php?action=callback';
+    $returnUrl = 'https://www.imporlan.cl/test/api/webpay.php?action=callback';
     
     $requestData = [
         'buy_order' => $buyOrder,
@@ -188,7 +187,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=cancelled');
         exit();
     }
     
@@ -196,7 +195,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=no_token');
         exit();
     }
     
@@ -224,7 +223,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=error&message=commit_failed');
         exit();
     }
     
@@ -240,15 +239,14 @@ function handleCallback() {
         
         // Discard any output that may have been generated during processing
         if (ob_get_level()) ob_end_clean();
-        // Clear any previously set headers and redirect
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=success&order=' . urlencode($buyOrder));
     } else {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        header('Location: https://www.imporlan.cl/panel-test/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
 }
@@ -351,13 +349,6 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     // Log the saved purchase
     logWebpay('PURCHASE_SAVED', $purchase);
     
-    // Check if this is a payment request
-    $paymentRequestId = $purchaseInfo['payment_request_id'] ?? null;
-    if ($paymentRequestId) {
-        require_once __DIR__ . '/payment_requests_helper.php';
-        handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null);
-    }
-    
     // Send confirmation email if we have the user's email
     if ($userEmail) {
         sendPurchaseConfirmationEmail($purchase);
@@ -366,8 +357,8 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
         try {
             $dbConfig = __DIR__ . '/db_config.php';
             if (file_exists($dbConfig)) {
-                require_once $dbConfig;
-                require_once __DIR__ . '/orders_api.php';
+                // db_config.php already loaded at top of file, no need to re-require
+                require_once __DIR__ . '/../../api/orders_api.php';
                 $purchase['customer_name'] = $purchaseInfo['payer_name'] ?? explode('@', $userEmail)[0];
                 if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
@@ -403,9 +394,9 @@ function sendPurchaseConfirmationEmail($purchase) {
         $purchaseType = $purchase['type'] ?? 'link';
         
         $plansConfig = [
-            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
-            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
-            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✓ Reporte IA incluido']]
+            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
+            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']]
         ];
         
         $planName = $purchase['plan_name'] ?: $productName;
@@ -482,6 +473,63 @@ function sendPurchaseConfirmationEmail($purchase) {
         logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
     } catch (\Throwable $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+    }
+}
+
+/**
+ * Create automated system message in panel chat after payment via WebPay
+ */
+function createWebpayPaymentNotificationMessage($purchase) {
+    try {
+        $pdo = getDbConnection();
+        if (!$pdo) return;
+
+        $userEmail = $purchase['user_email'];
+        if (empty($userEmail)) return;
+        $userName = $userEmail;
+
+        $stmt = $pdo->prepare("SELECT id FROM chat_conversations WHERE user_email = ? AND status = 'open' ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$conv) {
+            $stmt = $pdo->prepare("INSERT INTO chat_conversations (user_email, user_name, status, auto_messages_sent) VALUES (?, ?, 'open', '{}')");
+            $stmt->execute([$userEmail, $userName]);
+            $conversationId = intval($pdo->lastInsertId());
+        } else {
+            $conversationId = intval($conv['id']);
+        }
+
+        $amount = number_format($purchase['amount_clp'] ?? $purchase['amount'] ?? 0, 0, ',', '.');
+        $description = $purchase['description'] ?? 'Servicio Imporlan';
+        $isPlan = ($purchase['type'] ?? '') === 'plan';
+
+        if ($isPlan) {
+            $planName = $purchase['plan_name'] ?: $description;
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$planName} ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Tu plan ya esta activo. Nuestro equipo comenzara a trabajar en tu requerimiento de inmediato.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        } else {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por Cotizacion por Links ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Nuestro equipo revisara tu solicitud y te enviaremos la cotizacion a la brevedad.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message) VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)");
+        $stmt->execute([$conversationId, $message]);
+
+        $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$conversationId]);
+
+        logWebpay('CHAT_MSG_SENT', ['conv' => $conversationId, 'user' => $userEmail]);
+    } catch (\Throwable $e) {
+        logWebpay('CHAT_MSG_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
     }
 }
 
