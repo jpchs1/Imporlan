@@ -67,9 +67,12 @@ switch ($action) {
     case 'cleanup_test_solicitudes':
         cleanupTestSolicitudes();
         break;
+    case 'create_missing_orders':
+        createMissingOrders();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment, fix_descriptions, fix_webpay_status, cleanup_test_solicitudes']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment, fix_descriptions, fix_webpay_status, cleanup_test_solicitudes, create_missing_orders']);
 }
 
 /**
@@ -88,6 +91,13 @@ function sanitizeDescription($description) {
     // like "1enlacesDiputado", "2enlacesXYZ", etc.
     // Pattern: optional prefix + digits + "enlaces" + any trailing text (camelCase or otherwise)
     if (preg_match('/^(?:Cotizaci[oó]n\s+Online\s*-?\s*)?(\d+)\s*enlaces\w*/iu', $description, $matches)) {
+        $count = intval($matches[1]);
+        $linkWord = $count === 1 ? 'link' : 'links';
+        return "Cotizacion Online - {$count} {$linkWord}";
+    }
+    
+    // Also catch "N linksXYZ" pattern (e.g. "1 linksMP", "2 linksFoo")
+    if (preg_match('/^(?:Cotizaci[oó]n\s+Online\s*-?\s*)?(\d+)\s*links[A-Z]\w*/u', $description, $matches)) {
         $count = intval($matches[1]);
         $linkWord = $count === 1 ? 'link' : 'links';
         return "Cotizacion Online - {$count} {$linkWord}";
@@ -608,17 +618,30 @@ function fixDescriptions() {
     $total = count($purchases);
     
     foreach ($purchases as &$purchase) {
+        $changes = [];
+        
+        // Fix description field
         $original = $purchase['description'] ?? '';
         $sanitized = sanitizeDescription($original);
-        
         if ($sanitized !== $original && !empty($original)) {
+            $purchase['description'] = $sanitized;
+            $changes['description'] = ['from' => $original, 'to' => $sanitized];
+        }
+        
+        // Fix plan_name field too (can also contain corrupted data)
+        $originalPlan = $purchase['plan_name'] ?? '';
+        $sanitizedPlan = sanitizeDescription($originalPlan);
+        if ($sanitizedPlan !== $originalPlan && !empty($originalPlan)) {
+            $purchase['plan_name'] = $sanitizedPlan;
+            $changes['plan_name'] = ['from' => $originalPlan, 'to' => $sanitizedPlan];
+        }
+        
+        if (!empty($changes)) {
             $fixed[] = [
                 'id' => $purchase['id'] ?? 'unknown',
                 'user_email' => $purchase['user_email'] ?? 'unknown',
-                'original' => $original,
-                'fixed' => $sanitized
+                'changes' => $changes
             ];
-            $purchase['description'] = $sanitized;
         }
     }
     unset($purchase);
@@ -731,5 +754,132 @@ function cleanupTestSolicitudes() {
         'cleaned_count' => count($cleaned),
         'remaining_count' => count($kept),
         'cleaned_details' => $cleaned
+    ]);
+}
+
+/**
+ * Create missing orders (expedientes) for purchases that don't have one.
+ * Scans all purchases, checks if an order exists in the database for each,
+ * and creates orders for those that are missing.
+ * Links are pulled from quotation_requests.json when available.
+ * This ensures all purchases are reflected in Expedientes.
+ */
+function createMissingOrders() {
+    global $purchasesFile;
+
+    try {
+        require_once __DIR__ . '/db_config.php';
+        require_once __DIR__ . '/orders_api.php';
+        $pdo = getDbConnection();
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo conectar a la base de datos: ' . $e->getMessage()]);
+        return;
+    }
+
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo conectar a la base de datos']);
+        return;
+    }
+
+    $data = json_decode(file_get_contents($purchasesFile), true);
+    $purchases = $data['purchases'] ?? [];
+
+    // Load quotation requests for link lookup
+    $qrFile = __DIR__ . '/quotation_requests.json';
+    $quotationRequests = [];
+    if (file_exists($qrFile)) {
+        $qrData = json_decode(file_get_contents($qrFile), true);
+        foreach (($qrData['requests'] ?? []) as $qr) {
+            $email = strtolower($qr['email'] ?? '');
+            if (!isset($quotationRequests[$email])) {
+                $quotationRequests[$email] = $qr;
+            }
+        }
+    }
+
+    // Get all existing purchase_ids from orders table
+    $existingPurchaseIds = [];
+    $stmt = $pdo->query("SELECT purchase_id FROM orders WHERE purchase_id IS NOT NULL AND purchase_id != ''");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $existingPurchaseIds[$row['purchase_id']] = true;
+    }
+
+    $created = [];
+    $skipped = [];
+    $errors = [];
+
+    foreach ($purchases as $purchase) {
+        $purchaseId = $purchase['id'] ?? '';
+        $userEmail = $purchase['user_email'] ?? '';
+
+        // Skip test purchases
+        $emailLower = strtolower($userEmail);
+        if (strpos($emailLower, 'devin') !== false || strpos($emailLower, 'test') !== false) {
+            $skipped[] = ['id' => $purchaseId, 'reason' => 'test_email', 'email' => $userEmail];
+            continue;
+        }
+
+        // Skip if order already exists for this purchase
+        if (isset($existingPurchaseIds[$purchaseId])) {
+            $skipped[] = ['id' => $purchaseId, 'reason' => 'order_exists', 'email' => $userEmail];
+            continue;
+        }
+
+        // Get boat links from quotation requests
+        $storedLinks = [];
+        $qr = $quotationRequests[$emailLower] ?? null;
+        if ($qr && !empty($qr['boat_links'])) {
+            $storedLinks = $qr['boat_links'];
+        }
+
+        // Prepare purchase data for order creation
+        $purchaseData = array_merge($purchase, [
+            'customer_name' => $qr['name'] ?? explode('@', $userEmail)[0],
+            'customer_phone' => $qr['phone'] ?? null,
+        ]);
+
+        try {
+            $type = $purchase['type'] ?? 'link';
+            if ($type === 'plan') {
+                $orderId = createOrderFromPurchase($purchaseData);
+            } else {
+                $orderId = createOrderFromQuotation($purchaseData, $storedLinks);
+            }
+
+            if ($orderId) {
+                $created[] = [
+                    'purchase_id' => $purchaseId,
+                    'order_id' => $orderId,
+                    'email' => $userEmail,
+                    'type' => $type,
+                    'links_loaded' => count($storedLinks)
+                ];
+            } else {
+                $errors[] = [
+                    'purchase_id' => $purchaseId,
+                    'email' => $userEmail,
+                    'error' => 'createOrder returned null'
+                ];
+            }
+        } catch (Exception $e) {
+            $errors[] = [
+                'purchase_id' => $purchaseId,
+                'email' => $userEmail,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'total_purchases' => count($purchases),
+        'orders_created' => count($created),
+        'skipped' => count($skipped),
+        'errors_count' => count($errors),
+        'created_details' => $created,
+        'skipped_details' => $skipped,
+        'error_details' => $errors
     ]);
 }
