@@ -61,9 +61,15 @@ switch ($action) {
     case 'fix_descriptions':
         fixDescriptions();
         break;
+    case 'fix_webpay_status':
+        fixWebpayStatus();
+        break;
+    case 'cleanup_test_solicitudes':
+        cleanupTestSolicitudes();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment, fix_descriptions']);
+        echo json_encode(['error' => 'Accion no valida. Use: get, add, all, quotation_requests, send_payment_reminders, delete_solicitud, request_payment, fix_descriptions, fix_webpay_status, cleanup_test_solicitudes']);
 }
 
 /**
@@ -627,5 +633,103 @@ function fixDescriptions() {
         'total_purchases' => $total,
         'fixed_count' => count($fixed),
         'fixed_details' => $fixed
+    ]);
+}
+
+/**
+ * Fix WebPay purchase statuses from 'pending' to 'paid'.
+ * WebPay only completes the callback on successful payment, so all WebPay
+ * purchases recorded should have status 'paid' not 'pending'.
+ * This is a one-time cleanup action.
+ */
+function fixWebpayStatus() {
+    global $purchasesFile;
+    
+    $data = json_decode(file_get_contents($purchasesFile), true);
+    $purchases = $data['purchases'] ?? [];
+    
+    $fixed = [];
+    $total = count($purchases);
+    
+    foreach ($purchases as &$purchase) {
+        $method = $purchase['payment_method'] ?? '';
+        $status = $purchase['status'] ?? '';
+        
+        if ($method === 'webpay' && $status === 'pending') {
+            $purchase['status'] = 'paid';
+            $fixed[] = [
+                'id' => $purchase['id'] ?? 'unknown',
+                'user_email' => $purchase['user_email'] ?? 'unknown',
+                'old_status' => 'pending',
+                'new_status' => 'paid',
+                'amount' => $purchase['amount_clp'] ?? $purchase['amount'] ?? 0,
+                'date' => $purchase['date'] ?? ''
+            ];
+        }
+    }
+    unset($purchase);
+    
+    if (count($fixed) > 0) {
+        $data['purchases'] = $purchases;
+        file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'total_purchases' => $total,
+        'fixed_count' => count($fixed),
+        'fixed_details' => $fixed
+    ]);
+}
+
+/**
+ * Remove test solicitudes from quotation_requests.json.
+ * Cleans up entries from test emails (containing 'devin' or 'test' in email).
+ * This is a one-time cleanup action.
+ */
+function cleanupTestSolicitudes() {
+    $file = __DIR__ . '/quotation_requests.json';
+    
+    if (!file_exists($file)) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'No quotation_requests.json found',
+            'cleaned_count' => 0
+        ]);
+        return;
+    }
+    
+    $data = json_decode(file_get_contents($file), true);
+    $requests = $data['requests'] ?? [];
+    $originalCount = count($requests);
+    
+    $cleaned = [];
+    $kept = [];
+    
+    foreach ($requests as $req) {
+        $email = strtolower($req['email'] ?? '');
+        if (strpos($email, 'devin') !== false || strpos($email, 'test') !== false) {
+            $cleaned[] = [
+                'id' => $req['id'] ?? 'unknown',
+                'email' => $req['email'] ?? 'unknown',
+                'name' => $req['name'] ?? 'unknown',
+                'date' => $req['date'] ?? ''
+            ];
+        } else {
+            $kept[] = $req;
+        }
+    }
+    
+    if (count($cleaned) > 0) {
+        $data['requests'] = $kept;
+        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'original_count' => $originalCount,
+        'cleaned_count' => count($cleaned),
+        'remaining_count' => count($kept),
+        'cleaned_details' => $cleaned
     ]);
 }

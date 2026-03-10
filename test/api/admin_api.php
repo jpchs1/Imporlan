@@ -49,6 +49,10 @@ switch ($action) {
         requireAuth();
         getUserDetail();
         break;
+    case 'update_purchase_status':
+        requireAuth();
+        updatePurchaseStatus();
+        break;
     default:
         http_response_code(400);
         echo json_encode(['error' => 'Accion no valida']);
@@ -379,4 +383,105 @@ function getUserDetail() {
     ];
     
     echo json_encode($user);
+}
+
+/**
+ * Update purchase status manually (admin only).
+ * POST with JSON body: { "purchase_id": "xxx", "status": "paid|pending|active|expired|canceled" }
+ * Valid statuses: pending, paid, active, expired, canceled
+ * 
+ * This endpoint syncs the status across:
+ * 1. purchases.json (admin Dashboard, Usuarios, Compras)
+ * 2. orders table in MySQL (Expedientes, user panel)
+ */
+function updatePurchaseStatus() {
+    global $purchasesFile;
+    
+    $input = json_decode(file_get_contents('php://input'), true);
+    $purchaseId = $input['purchase_id'] ?? '';
+    $newStatus = $input['status'] ?? '';
+    
+    if (empty($purchaseId) || empty($newStatus)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere purchase_id y status']);
+        return;
+    }
+    
+    $validStatuses = ['pending', 'paid', 'active', 'expired', 'canceled'];
+    if (!in_array($newStatus, $validStatuses)) {
+        http_response_code(400);
+        echo json_encode([
+            'error' => 'Status no valido. Use: ' . implode(', ', $validStatuses)
+        ]);
+        return;
+    }
+    
+    // === 1. Update purchases.json ===
+    $data = json_decode(file_get_contents($purchasesFile), true);
+    $purchases = $data['purchases'] ?? [];
+    
+    $found = false;
+    $oldStatus = '';
+    $purchaseInfo = null;
+    
+    foreach ($purchases as &$purchase) {
+        if (($purchase['id'] ?? '') === $purchaseId) {
+            $oldStatus = $purchase['status'] ?? 'unknown';
+            $purchase['status'] = $newStatus;
+            $found = true;
+            $purchaseInfo = [
+                'id' => $purchase['id'],
+                'user_email' => $purchase['user_email'] ?? '',
+                'description' => $purchase['description'] ?? '',
+                'amount' => $purchase['amount_clp'] ?? $purchase['amount'] ?? 0,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus
+            ];
+            break;
+        }
+    }
+    unset($purchase);
+    
+    if (!$found) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Compra no encontrada con id: ' . $purchaseId]);
+        return;
+    }
+    
+    $data['purchases'] = $purchases;
+    file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    
+    // === 2. Sync order status in MySQL (Expedientes) ===
+    $orderSynced = false;
+    $orderStatusMap = [
+        'pending' => 'pending_admin_fill',
+        'paid' => 'in_progress',
+        'active' => 'in_progress',
+        'expired' => 'expired',
+        'canceled' => 'canceled'
+    ];
+    $orderStatus = $orderStatusMap[$newStatus] ?? null;
+    
+    if ($orderStatus) {
+        try {
+            require_once __DIR__ . '/db_config.php';
+            $pdo = getDbConnection();
+            if ($pdo) {
+                $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE purchase_id = ?");
+                $stmt->execute([$orderStatus, $purchaseId]);
+                $orderSynced = $stmt->rowCount() > 0;
+            }
+        } catch (Exception $e) {
+            error_log("Error syncing order status for purchase $purchaseId: " . $e->getMessage());
+        }
+    }
+    
+    $purchaseInfo['order_synced'] = $orderSynced;
+    $purchaseInfo['order_status'] = $orderStatus;
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Status actualizado correctamente' . ($orderSynced ? ' (expediente sincronizado)' : ''),
+        'purchase' => $purchaseInfo
+    ]);
 }
