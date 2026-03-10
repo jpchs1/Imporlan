@@ -9,6 +9,8 @@
     ? "/test/api"
     : "/api";
 
+  var eaSortDirection = "desc"; // Track current sort direction for Fecha column
+
   const STATUS_COLORS = {
     new: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
     pending: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
@@ -413,11 +415,19 @@
     );
   }
 
-  function renderListView(orders) {
-    // Sort orders by date descending (newest first)
+  function sortOrders(orders, direction) {
     orders.sort(function (a, b) {
-      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      var dateA = new Date(a.created_at || 0).getTime();
+      var dateB = new Date(b.created_at || 0).getTime();
+      var diff = dateB - dateA; // default desc
+      if (diff === 0) diff = (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
+      return direction === "asc" ? -diff : diff;
     });
+    return orders;
+  }
+
+  function renderListView(orders) {
+    sortOrders(orders, eaSortDirection);
     var rows = "";
     if (orders.length === 0) {
       rows = '<tr><td colspan="7" style="text-align:center;padding:50px;color:#94a3b8"><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size:15px">No se encontraron expedientes</span></div></td></tr>';
@@ -455,7 +465,8 @@
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Cliente</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Plan</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Estado</th>' +
-      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Fecha</th>' +
+      '<th id="ea-sort-fecha" style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;user-select:none;transition:color .2s" title="Click para ordenar por fecha">' +
+      'Fecha <span id="ea-sort-arrow" style="margin-left:4px;font-size:13px">' + (eaSortDirection === "desc" ? "\u25BC" : "\u25B2") + '</span></th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Agente</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Acciones</th>' +
       "</tr></thead><tbody>" +
@@ -1063,6 +1074,34 @@
         }
       });
     });
+
+    var sortFechaBtn = document.getElementById("ea-sort-fecha");
+    if (sortFechaBtn) {
+      sortFechaBtn.addEventListener("click", async function () {
+        eaSortDirection = eaSortDirection === "desc" ? "asc" : "desc";
+        var arrow = document.getElementById("ea-sort-arrow");
+        if (arrow) arrow.textContent = eaSortDirection === "desc" ? "\u25BC" : "\u25B2";
+        var filters = {
+          status: document.getElementById("ea-filter-status") ? document.getElementById("ea-filter-status").value : "",
+          service_type: document.getElementById("ea-filter-service-type") ? document.getElementById("ea-filter-service-type").value : "",
+          agent: document.getElementById("ea-filter-agent") ? document.getElementById("ea-filter-agent").value : "",
+          from_date: document.getElementById("ea-filter-from") ? document.getElementById("ea-filter-from").value : "",
+          to_date: document.getElementById("ea-filter-to") ? document.getElementById("ea-filter-to").value : "",
+          search: document.getElementById("ea-filter-search") ? document.getElementById("ea-filter-search").value : "",
+        };
+        var orders = await fetchOrders(filters);
+        var tableBody = container.querySelector("tbody");
+        if (tableBody) {
+          var tempDiv = document.createElement("div");
+          tempDiv.innerHTML = renderListView(orders);
+          var newBody = tempDiv.querySelector("tbody");
+          if (newBody) tableBody.innerHTML = newBody.innerHTML;
+          attachListeners(container);
+        }
+      });
+      sortFechaBtn.addEventListener("mouseover", function () { this.style.color = "#0891b2"; });
+      sortFechaBtn.addEventListener("mouseout", function () { this.style.color = "#64748b"; });
+    }
 
     var filterBtn = document.getElementById("ea-filter-btn");
     if (filterBtn) {
