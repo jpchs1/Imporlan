@@ -76,22 +76,65 @@
     return null;
   }
 
+  /* ── Helper: check if element is a protected layout container ── */
+  function isProtectedElement(el) {
+    if (!el) return false;
+    var tag = el.tagName;
+    if (tag === "MAIN" || tag === "ASIDE" || tag === "BODY" || tag === "HTML" || tag === "NAV") return true;
+    var cls = el.className || "";
+    if (cls.indexOf("max-w-7xl") !== -1 || cls.indexOf("max-w-6xl") !== -1 || cls.indexOf("max-w-5xl") !== -1) return true;
+    if (cls.indexOf("transition-all") !== -1 && cls.indexOf("duration-") !== -1 && tag === "MAIN") return true;
+    // Direct children of MAIN that are layout wrappers
+    if (el.parentElement && el.parentElement.tagName === "MAIN") return true;
+    return false;
+  }
+
   /* ── Helper: find the closest card/container parent ── */
   function findCardParent(el) {
     var parent = el;
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 8; i++) {
       if (!parent || !parent.parentElement) break;
       parent = parent.parentElement;
-      if (parent.tagName === "MAIN") break;
+      if (isProtectedElement(parent)) return null;
       var cls = parent.className || "";
-      if (cls.indexOf("rounded") !== -1 && cls.indexOf("shadow") !== -1) {
-        return parent;
-      }
-      if (cls.indexOf("rounded-2xl") !== -1 || cls.indexOf("rounded-xl") !== -1) {
+      // A valid card: has rounded corners AND (border or shadow)
+      var isCard = (cls.indexOf("rounded-xl") !== -1 || cls.indexOf("rounded-2xl") !== -1 || cls.indexOf("rounded-lg") !== -1);
+      var hasVisualBoundary = cls.indexOf("border") !== -1 || cls.indexOf("shadow") !== -1;
+      if (isCard && hasVisualBoundary) {
+        // Safety: don't return if parent is also protected
+        if (isProtectedElement(parent.parentElement)) {
+          // This card is a direct child of a layout container - OK to hide
+          return parent;
+        }
         return parent;
       }
     }
     return null;
+  }
+
+  /* ── Safety: ensure layout elements are never hidden ── */
+  function protectLayoutElements() {
+    var main = document.querySelector("main");
+    if (main && main.style.display === "none") {
+      main.style.display = "";
+      main.removeAttribute("data-demo-hidden");
+    }
+    // Protect max-w-7xl wrappers
+    var wrappers = document.querySelectorAll("[class*='max-w-']");
+    for (var i = 0; i < wrappers.length; i++) {
+      if (wrappers[i].style.display === "none") {
+        wrappers[i].style.display = "";
+        wrappers[i].removeAttribute("data-demo-hidden");
+      }
+    }
+    // Protect grid layout containers
+    var grids = document.querySelectorAll("[class*='grid-cols']");
+    for (var j = 0; j < grids.length; j++) {
+      if (grids[j].style.display === "none") {
+        grids[j].style.display = "";
+        grids[j].removeAttribute("data-demo-hidden");
+      }
+    }
   }
 
   /* ── 1. Hide the "Estado de tu Requerimiento" progress tracker ── */
@@ -115,22 +158,27 @@
   function cleanSummaryCards(main) {
     var demoLabels = [
       "en tr\u00e1nsito", "en transito",
-      "en la aduana",
+      "en aduana",
       "entregadas",
       "alertas nuevas"
     ];
 
     var cards = main.querySelectorAll("[class*='rounded']");
     for (var i = 0; i < cards.length; i++) {
+      if (cards[i].getAttribute("data-demo-cleaned")) continue;
       var cardText = (cards[i].textContent || "").trim().toLowerCase();
       for (var k = 0; k < demoLabels.length; k++) {
         if (cardText.indexOf(demoLabels[k]) !== -1) {
-          // Check if this is one of the colored summary cards
           var cls = cards[i].className || "";
-          if (cls.indexOf("bg-orange") !== -1 || cls.indexOf("bg-green") !== -1 ||
+          // Match gradient cards (bg-gradient-to-br from-blue-500, from-amber-500, etc.)
+          // Also match simple bg-color cards for backwards compatibility
+          var isColoredCard = cls.indexOf("bg-gradient") !== -1 ||
+              cls.indexOf("bg-orange") !== -1 || cls.indexOf("bg-green") !== -1 ||
               cls.indexOf("bg-cyan") !== -1 || cls.indexOf("bg-red") !== -1 ||
               cls.indexOf("bg-blue") !== -1 || cls.indexOf("bg-amber") !== -1 ||
-              cls.indexOf("bg-teal") !== -1 || cls.indexOf("bg-emerald") !== -1) {
+              cls.indexOf("bg-teal") !== -1 || cls.indexOf("bg-emerald") !== -1 ||
+              cls.indexOf("bg-purple") !== -1;
+          if (isColoredCard) {
             // Zero the number and grey out
             var numbers = cards[i].querySelectorAll("p, span, div");
             for (var n = 0; n < numbers.length; n++) {
@@ -139,7 +187,7 @@
                 numbers[n].textContent = "0";
               }
             }
-            cards[i].style.opacity = "0.5";
+            cards[i].style.opacity = "0.4";
             cards[i].setAttribute("data-demo-cleaned", "1");
           }
           break;
@@ -150,44 +198,45 @@
 
   /* ── 3. Hide the "Importaciones activas" demo section ── */
   function hideImportacionesDemo(main) {
-    var allEls = main.querySelectorAll("h2, h3, h4, p, span, div");
+    // Target specific demo importation items (IMP-2026-001, IMP-2026-002)
+    var allEls = main.querySelectorAll("[class*='rounded-xl']");
     for (var i = 0; i < allEls.length; i++) {
       var txt = (allEls[i].textContent || "").trim();
-      if (txt.indexOf("IMP-2026") !== -1) {
-        // Find the card containing the demo importacion
-        var card = findCardParent(allEls[i]);
-        if (card) {
-          card.style.display = "none";
-          card.setAttribute("data-demo-hidden", "1");
+      if (txt.indexOf("IMP-2026") !== -1 && txt.length < 300) {
+        var cls = allEls[i].className || "";
+        // Only hide leaf-level cards (bg-gradient-to-r from-slate-50, p-5 hover cards)
+        if (cls.indexOf("from-slate-50") !== -1 || cls.indexOf("hover:") !== -1 || cls.indexOf("p-5") !== -1) {
+          allEls[i].style.display = "none";
+          allEls[i].setAttribute("data-demo-hidden", "1");
         }
       }
     }
 
-    // Also look for the "Importaciones activas" heading and its section
+    // Find the "Importaciones activas" container and add empty state if all items hidden
     var heading = findSectionByHeading(main, ["importaciones activas"]);
     if (heading) {
-      var section = heading.closest("[class*='space-y']") || heading.closest("[class*='col-span']") || heading.parentElement;
-      if (section) {
-        // Check if section has demo data (IMP-2026)
-        var sectionText = (section.textContent || "");
+      var container = heading.closest("[class*='shadow-lg']") || heading.closest("[class*='rounded-xl'][class*='border']");
+      if (container && !container.querySelector("[data-demo-empty-imports]")) {
+        var sectionText = (container.textContent || "");
         if (sectionText.indexOf("IMP-2026") !== -1) {
-          // Replace with empty state
-          var container = heading.parentElement;
-          if (container) {
-            var children = container.children;
-            for (var c = 0; c < children.length; c++) {
-              if (children[c] !== heading && (children[c].textContent || "").indexOf("IMP-2026") !== -1) {
-                children[c].innerHTML =
-                  '<div style="text-align:center;padding:30px 20px">' +
-                  '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 12px;display:block">' +
-                  '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>' +
-                  '<path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/>' +
-                  '<path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg>' +
-                  '<p style="color:#94a3b8;font-size:14px;margin:0">Aun no tienes importaciones activas</p>' +
-                  '<p style="color:#cbd5e1;font-size:12px;margin:4px 0 0">Cuando inicies una importacion, aparecera aqui</p></div>';
-                children[c].setAttribute("data-demo-replaced", "1");
-              }
-            }
+          // Check if there are any visible import items left
+          var items = container.querySelectorAll("[class*='from-slate-50'], [class*='p-5'][class*='hover']");
+          var allHidden = true;
+          for (var j = 0; j < items.length; j++) {
+            if (items[j].style.display !== "none") { allHidden = false; break; }
+          }
+          if (allHidden || items.length === 0) {
+            var emptyDiv = document.createElement("div");
+            emptyDiv.setAttribute("data-demo-empty-imports", "1");
+            emptyDiv.style.cssText = "text-align:center;padding:30px 20px";
+            emptyDiv.innerHTML =
+              '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 12px;display:block">' +
+              '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>' +
+              '<path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/>' +
+              '<path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg>' +
+              '<p style="color:#94a3b8;font-size:14px;margin:0">Aun no tienes importaciones activas</p>' +
+              '<p style="color:#cbd5e1;font-size:12px;margin:4px 0 0">Cuando inicies una importacion, aparecera aqui</p>';
+            container.appendChild(emptyDiv);
           }
         }
       }
@@ -199,33 +248,31 @@
     var heading = findSectionByHeading(main, ["alertas"]);
     if (!heading) return;
 
-    var section = heading.closest("[class*='space-y']") || heading.closest("[class*='col-span']") || heading.parentElement;
-    if (!section) return;
+    var container = heading.closest("[class*='shadow-lg']") || heading.closest("[class*='rounded-xl'][class*='border']") || heading.parentElement;
+    if (!container) return;
 
-    var sectionText = (section.textContent || "");
-    if (sectionText.indexOf("IMP-2026") !== -1 || sectionText.indexOf("Documento aprobado") !== -1 ||
-        sectionText.indexOf("conocimiento de embarque") !== -1 || sectionText.indexOf("Bill of Lading") !== -1) {
-      // Replace demo alerts with empty state
-      var alertCards = section.querySelectorAll("[class*='rounded']");
+    var sectionText = (container.textContent || "");
+    var hasDemoAlerts = sectionText.indexOf("IMP-2026") !== -1 || sectionText.indexOf("Documento Aprobado") !== -1 ||
+        sectionText.indexOf("Documento aprobado") !== -1 || sectionText.indexOf("conocimiento de embarque") !== -1 ||
+        sectionText.indexOf("Bill of Lading") !== -1 || sectionText.indexOf("Accion Requerida") !== -1 ||
+        sectionText.indexOf("Actualizacion de Ubicacion") !== -1;
+
+    if (hasDemoAlerts) {
+      // Hide individual demo alert cards (p-3 rounded-xl border items)
+      var alertCards = container.querySelectorAll("[class*='rounded-xl'][class*='border'][class*='p-3']");
       for (var i = 0; i < alertCards.length; i++) {
         var cardTxt = (alertCards[i].textContent || "");
-        if (cardTxt.indexOf("IMP-2026") !== -1 || cardTxt.indexOf("Documento aprobado") !== -1 ||
-            cardTxt.indexOf("Bill of Lading") !== -1 || cardTxt.indexOf("Canal de Panama") !== -1) {
+        if (cardTxt.indexOf("IMP-2026") !== -1 || cardTxt.indexOf("Documento Aprobado") !== -1 ||
+            cardTxt.indexOf("Documento aprobado") !== -1 || cardTxt.indexOf("Bill of Lading") !== -1 ||
+            cardTxt.indexOf("Canal de Panama") !== -1 || cardTxt.indexOf("Accion Requerida") !== -1 ||
+            cardTxt.indexOf("firma digital") !== -1 || cardTxt.indexOf("Actualizacion de Ubicacion") !== -1) {
           alertCards[i].style.display = "none";
           alertCards[i].setAttribute("data-demo-hidden", "1");
         }
       }
 
-      // If all alert cards are hidden, show empty state
-      var visibleCards = 0;
-      alertCards = section.querySelectorAll("[class*='rounded']");
-      for (var j = 0; j < alertCards.length; j++) {
-        if (alertCards[j].style.display !== "none" && !alertCards[j].getAttribute("data-demo-hidden")) {
-          visibleCards++;
-        }
-      }
-
-      if (visibleCards === 0 && !section.querySelector("[data-demo-empty-alerts]")) {
+      // Add empty state if not already present
+      if (!container.querySelector("[data-demo-empty-alerts]")) {
         var emptyState = document.createElement("div");
         emptyState.setAttribute("data-demo-empty-alerts", "1");
         emptyState.style.cssText = "text-align:center;padding:20px";
@@ -233,17 +280,17 @@
           '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 8px;display:block">' +
           '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
           '<p style="color:#94a3b8;font-size:13px;margin:0">Sin alertas nuevas</p>';
-        section.appendChild(emptyState);
+        container.appendChild(emptyState);
       }
     }
   }
 
   /* ── 5. Clean "Mensajes" demo data ── */
   function cleanMessagesDemo(main) {
-    var allEls = main.querySelectorAll("p, span, div");
+    var allEls = main.querySelectorAll("p, span, h3, h4");
     for (var i = 0; i < allEls.length; i++) {
       var txt = (allEls[i].textContent || "").trim();
-      if (txt.indexOf("IMP-2026") !== -1 || txt.indexOf("REQ-2026") !== -1) {
+      if ((txt.indexOf("IMP-2026") !== -1 || txt.indexOf("REQ-2026") !== -1) && txt.length < 300) {
         var card = findCardParent(allEls[i]);
         if (card) {
           card.style.display = "none";
@@ -323,21 +370,24 @@
 
   /* ── 9. Generic: hide any remaining IMP-2026/REQ-2026 references ── */
   function hideAllDemoReferences(main) {
-    var allEls = main.querySelectorAll("p, span, div, h2, h3, h4, td, li");
+    // Only target leaf-level elements (not containers) to avoid hiding layout
+    var allEls = main.querySelectorAll("p, span, h2, h3, h4, td, li");
     for (var i = 0; i < allEls.length; i++) {
       if (allEls[i].getAttribute("data-demo-hidden") || allEls[i].getAttribute("data-demo-replaced")) continue;
+      // Only check the element's OWN direct text, not all descendant text
+      var ownText = "";
+      for (var c = 0; c < allEls[i].childNodes.length; c++) {
+        if (allEls[i].childNodes[c].nodeType === 3) ownText += allEls[i].childNodes[c].textContent;
+      }
       var txt = (allEls[i].textContent || "").trim();
-      if (txt.indexOf("IMP-2026") !== -1 || txt.indexOf("REQ-2026") !== -1) {
-        // Only hide if this element is small enough (not the whole page)
-        if (txt.length < 500) {
+      if ((ownText.indexOf("IMP-2026") !== -1 || ownText.indexOf("REQ-2026") !== -1) ||
+          (txt.indexOf("IMP-2026") !== -1 || txt.indexOf("REQ-2026") !== -1)) {
+        // Only hide if this element is a small leaf (not a big section)
+        if (txt.length < 300) {
           var card = findCardParent(allEls[i]);
           if (card && !card.getAttribute("data-demo-hidden")) {
-            // Only hide if it's a card-level element, not the main content
-            var cardText = (card.textContent || "").trim();
-            if (cardText.length < 2000) {
-              card.style.display = "none";
-              card.setAttribute("data-demo-hidden", "1");
-            }
+            card.style.display = "none";
+            card.setAttribute("data-demo-hidden", "1");
           }
         }
       }
@@ -395,6 +445,9 @@
     cleanSidebarBadges();
     hideAllDemoReferences(main);
     cleanSupportDemo(main);
+
+    // CRITICAL: Always ensure layout elements are visible
+    protectLayoutElements();
   }
 
   /* ── Init ── */
