@@ -246,6 +246,9 @@
       '<div><p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#1e40af">Informacion</p>' +
       '<p style="margin:0;font-size:13px;color:#3b82f6;line-height:1.5">' +
       (hasOperations ? 'Aqui puedes ver el estado en tiempo real de tus importaciones activas.' : 'Asi se visualizara tu panel cuando tengas tu primera importacion con Imporlan.') +
+      '</p>' +
+      '<p style="margin:8px 0 0;font-size:12px;color:#1e40af;line-height:1.5;padding-top:8px;border-top:1px solid #93c5fd">' +
+      '<strong>Tiempo de respuesta (SLA):</strong> El tiempo de respuesta y trabajo para tu requerimiento es de hasta 48 horas por lo general. En algunos periodos puede llegar a ser de hasta 72 hrs segun la cantidad de requerimientos en curso. De todas maneras, por email o WhatsApp estaremos activos ante cualquier duda o pregunta.' +
       '</p></div>';
     var lastChild = importSection.lastElementChild;
     if (lastChild) {

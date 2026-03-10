@@ -74,6 +74,12 @@
       ? 'Nuestro equipo ya comenzo a trabajar en tu busqueda personalizada. Revisa tu panel para ver el estado de tu plan.'
       : 'Ya puedes gestionar tus embarcaciones desde tu panel. Revisa tus productos contratados para ver los detalles.';
 
+    var slaNote = '<div style="margin:16px 0 0;padding:12px 16px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:10px;text-align:left;">' +
+      '<p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#60a5fa;">Tiempo de Respuesta</p>' +
+      '<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">El tiempo de respuesta y trabajo para tu requerimiento es de <strong style="color:#fff;">hasta 48 horas</strong>. En periodos de alta demanda, puede ser de <strong style="color:#fff;">hasta 72 hrs</strong>.</p>' +
+      '<p style="margin:4px 0 0;font-size:12px;color:#60a5fa;">Por email o WhatsApp estaremos activos ante cualquier duda.</p>' +
+      '</div>';
+
     var aiReportNote = isAlmirante
       ? '<div style="margin:16px 0 0;padding:10px 16px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px;text-align:center;"><span style="font-size:14px;color:#4ade80;font-weight:600;">Reporte IA incluido en tu plan</span></div>'
       : (isBusqueda
@@ -121,7 +127,9 @@
 
         aiReportNote +
 
-        '<div style="display:flex;flex-direction:column;gap:10px;margin-top:' + (aiReportNote ? '16px' : '0') + ';">' +
+        slaNote +
+
+        '<div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">' +
           '<a href="/panel/#myproducts" style="' +
             'display:inline-block;background:linear-gradient(135deg,#3b82f6,#2563eb);' +
             'color:white;padding:13px 28px;border-radius:12px;font-size:15px;font-weight:600;' +

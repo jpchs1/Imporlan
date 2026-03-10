@@ -187,6 +187,9 @@
         '<div style="width:44px;height:44px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
         '<div><h2 style="margin:0;font-size:18px;font-weight:700;color:#92400e">Solicitudes de Pago Pendientes</h2>' +
         '<p style="margin:2px 0 0;font-size:13px;color:#a16207">Tienes ' + pendingRequests.length + ' solicitud' + (pendingRequests.length > 1 ? 'es' : '') + ' de pago pendiente' + (pendingRequests.length > 1 ? 's' : '') + '</p></div></div>' +
+        '<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a16207" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        '<p style="margin:0;font-size:12px;color:#854d0e;line-height:1.5"><strong>Tiempo de respuesta (SLA):</strong> El tiempo de respuesta y trabajo para tu requerimiento es de hasta 48 horas por lo general. En algunos periodos puede llegar a ser de hasta 72 hrs. Por email o WhatsApp estaremos activos ante cualquier duda.</p></div>' +
         '<div style="display:grid;gap:12px">';
       pendingRequests.forEach(function (req) {
         html += buildRequestCard(req);
