@@ -162,16 +162,16 @@ function getPurchases() {
     
     // Sort links by date descending (newest first)
     usort($links, function($a, $b) {
-        $dateA = $a['contractedAt'] ?? '';
-        $dateB = $b['contractedAt'] ?? '';
-        return strcmp($dateB, $dateA);
+        $dateA = strtotime($a['contractedAt'] ?? '') ?: 0;
+        $dateB = strtotime($b['contractedAt'] ?? '') ?: 0;
+        return $dateB - $dateA;
     });
     
     // Sort plans by date descending (newest first)
     usort($plans, function($a, $b) {
-        $dateA = $a['startDate'] ?? '';
-        $dateB = $b['startDate'] ?? '';
-        return strcmp($dateB, $dateA);
+        $dateA = strtotime($a['startDate'] ?? '') ?: 0;
+        $dateB = strtotime($b['startDate'] ?? '') ?: 0;
+        return $dateB - $dateA;
     });
     
     echo json_encode([
