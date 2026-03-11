@@ -812,13 +812,33 @@ BASE64;
         return $this->sendEmail($to, $subject, $htmlContent, 'custom_report', ['type' => 'report_notification']);
     }
 
+    /**
+     * Look up the secondary email for a given primary email address.
+     * Checks the user_secondary_emails table.
+     */
+    protected function getSecondaryEmail($primaryEmail) {
+        if (!$this->pdo || !$primaryEmail) return null;
+        try {
+            $stmt = $this->pdo->prepare("SELECT secondary_email FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?) LIMIT 1");
+            $stmt->execute([$primaryEmail]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ? ($row['secondary_email'] ?: null) : null;
+        } catch (PDOException $e) {
+            return null;
+        }
+    }
+
     protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
         
+        // Look up secondary email before test override
+        $secondaryEmail = $this->getSecondaryEmail($originalRecipient);
+        
         // TEST ENVIRONMENT OVERRIDE: Redirect all emails to test recipient
         if ($this->isTestEnvironment) {
             $to = $this->testRecipient;
+            $secondaryEmail = null; // Don't send CC in test mode
             // Add original recipient info to subject for clarity
             $subject = '[TEST - Para: ' . $originalRecipient . '] ' . $subject;
         }
@@ -862,7 +882,12 @@ BASE64;
                 'X-Priority: 3'
             ];
             
-            $result = $this->sendViaSMTP($to, $subject, $body, $headers);
+            // Add CC header for secondary email
+            if ($secondaryEmail) {
+                $headers[] = 'CC: ' . $secondaryEmail;
+            }
+            
+            $result = $this->sendViaSMTP($to, $subject, $body, $headers, $secondaryEmail);
             
             if ($result['success']) {
                 $this->updateEmailLog($logId, 'sent');
@@ -883,7 +908,7 @@ BASE64;
     /**
      * Send email via SMTP
      */
-    private function sendViaSMTP($to, $subject, $body, $headers) {
+    private function sendViaSMTP($to, $subject, $body, $headers, $ccEmail = null) {
         try {
             $socket = @fsockopen(
                 ($this->smtpSecure === 'ssl' ? 'ssl://' : '') . $this->smtpHost,
@@ -916,6 +941,11 @@ BASE64;
             $this->smtpGetResponse($socket);
             $this->smtpSendCommand($socket, "RCPT TO:<{$to}>");
             $this->smtpGetResponse($socket);
+            // Add secondary email as additional RCPT TO
+            if ($ccEmail) {
+                $this->smtpSendCommand($socket, "RCPT TO:<{$ccEmail}>");
+                $this->smtpGetResponse($socket);
+            }
             $this->smtpSendCommand($socket, "DATA");
             $this->smtpGetResponse($socket);
             
