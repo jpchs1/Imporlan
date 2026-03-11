@@ -327,31 +327,29 @@
       saveBtn.disabled = true;
       saveBtn.textContent = "Guardando...";
 
-      var promises = [];
-
-      // Update primary email if changed
+      // Sequential: first update primary email if changed, then set secondary email
+      var updatePrimary;
       if (newEmail !== oldEmail) {
-        promises.push(
-          fetch(API_BASE + "/users_api.php?action=update_email", {
-            method: "POST", headers: authHeaders(),
-            body: JSON.stringify({ old_email: oldEmail, new_email: newEmail })
-          }).then(function(r) { return r.json(); })
-        );
+        updatePrimary = fetch(API_BASE + "/users_api.php?action=update_email", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ old_email: oldEmail, new_email: newEmail })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (!data.success) throw new Error(data.error || "Error al actualizar email");
+          return data;
+        });
+      } else {
+        updatePrimary = Promise.resolve(null);
       }
 
-      // Always save secondary email (use the final primary email)
-      var emailForSecondary = newEmail;
-      promises.push(
-        fetch(API_BASE + "/users_api.php?action=set_secondary_email", {
+      updatePrimary.then(function() {
+        // Now save secondary email using the final primary email
+        return fetch(API_BASE + "/users_api.php?action=set_secondary_email", {
           method: "POST", headers: authHeaders(),
-          body: JSON.stringify({ primary_email: emailForSecondary, secondary_email: newSecondaryEmail, source: "real" })
-        }).then(function(r) { return r.json(); })
-      );
-
-      Promise.all(promises).then(function(results) {
-        var hasError = results.find(function(r) { return !r.success; });
-        if (hasError) {
-          alert(hasError.error || "Error");
+          body: JSON.stringify({ primary_email: newEmail, secondary_email: newSecondaryEmail, source: "real" })
+        }).then(function(r) { return r.json(); });
+      }).then(function(data) {
+        if (data && !data.success) {
+          alert(data.error || "Error");
           saveBtn.disabled = false;
           saveBtn.textContent = "Guardar Cambios";
         } else {
@@ -361,7 +359,7 @@
           enhanced = {};
           enhanceUsers();
         }
-      }).catch(function() { alert("Error de conexion"); saveBtn.disabled = false; saveBtn.textContent = "Guardar Cambios"; });
+      }).catch(function(err) { alert(err.message || "Error de conexion"); saveBtn.disabled = false; saveBtn.textContent = "Guardar Cambios"; });
     };
   }
 

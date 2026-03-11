@@ -293,7 +293,7 @@ function usersUpdate() {
     try {
         $sets = [];
         $params = [];
-        $allowed = ['name', 'email', 'secondary_email', 'role', 'status', 'phone'];
+        $allowed = ['name', 'email', 'role', 'status', 'phone'];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $input)) {
                 $sets[] = "$field = ?";
@@ -347,7 +347,9 @@ function usersUpdateEmail() {
                 }
             }
             unset($p);
-            file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            if ($updated > 0) {
+                file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            }
         }
     }
 
