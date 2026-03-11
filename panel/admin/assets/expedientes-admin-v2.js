@@ -537,6 +537,7 @@
       '<div style="padding:24px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email Secundario' + (order.secondary_email ? ' <span style="font-size:10px;color:#10b981;font-weight:500;text-transform:none;letter-spacing:0">(CC en envios)</span>' : '') + '</label><input id="ea-f-secondary_email" value="' + escapeHtml(order.secondary_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled' + (!order.secondary_email ? ' placeholder="Sin email secundario"' : '') + '></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
@@ -1257,7 +1258,10 @@
           showToast("El expediente no tiene email de cliente", "error");
           return;
         }
-        if (!confirm("Enviar actualizacion por email a " + currentOrderData.customer_email + "?\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.")) return;
+        var confirmMsg = "Enviar actualizacion por email a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) confirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        confirmMsg += "\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.";
+        if (!confirm(confirmMsg)) return;
         sendUpdateBtn.disabled = true;
         sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
         try {
@@ -1383,7 +1387,10 @@
       sendReportBtn.addEventListener("click", async function () {
         if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
         if (!currentOrderData.customer_email) { showToast("El expediente no tiene email de cliente", "error"); return; }
-        if (!confirm("Enviar reporte profesional a " + currentOrderData.customer_email + "?\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.")) return;
+        var reportConfirmMsg = "Enviar reporte profesional a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) reportConfirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        reportConfirmMsg += "\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.";
+        if (!confirm(reportConfirmMsg)) return;
         sendReportBtn.disabled = true;
         sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
         try {

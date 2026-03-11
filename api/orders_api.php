@@ -438,6 +438,21 @@ function adminGetOrderDetail() {
         $order['links'] = $links;
         $order['events'] = $events;
 
+        // Lookup secondary email from user_secondary_emails table
+        $order['secondary_email'] = null;
+        if (!empty($order['customer_email'])) {
+            try {
+                $secStmt = $pdo->prepare("SELECT secondary_email FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?) LIMIT 1");
+                $secStmt->execute([$order['customer_email']]);
+                $secRow = $secStmt->fetch(PDO::FETCH_ASSOC);
+                if ($secRow && !empty($secRow['secondary_email'])) {
+                    $order['secondary_email'] = $secRow['secondary_email'];
+                }
+            } catch (PDOException $e2) {
+                // Table may not exist yet, ignore
+            }
+        }
+
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
         error_log("Error getting admin order detail: " . $e->getMessage());
