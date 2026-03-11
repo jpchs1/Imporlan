@@ -9,6 +9,8 @@
     ? "/test/api"
     : "/api";
 
+  var eaSortDirection = "desc"; // Track current sort direction for Fecha column
+
   const STATUS_COLORS = {
     new: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
     pending: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
@@ -79,8 +81,19 @@
 
   function formatDate(dateStr) {
     if (!dateStr) return "N/A";
+    // Parse date without timezone conversion to avoid +1 day shift
+    var m = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      return m[3] + "-" + m[2] + "-" + m[1];
+    }
+    // Fallback: try "dd Mon YYYY" format (e.g. "09 Mar 2026")
     var d = new Date(dateStr);
-    return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" });
+    if (!isNaN(d.getTime())) {
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      return dd + "-" + mm + "-" + d.getFullYear();
+    }
+    return dateStr;
   }
 
   function formatCurrency(amount, currency) {
@@ -413,7 +426,19 @@
     );
   }
 
+  function sortOrders(orders, direction) {
+    orders.sort(function (a, b) {
+      var dateA = new Date(a.purchase_date || a.created_at || 0).getTime();
+      var dateB = new Date(b.purchase_date || b.created_at || 0).getTime();
+      var diff = dateB - dateA; // default desc
+      if (diff === 0) diff = (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
+      return direction === "asc" ? -diff : diff;
+    });
+    return orders;
+  }
+
   function renderListView(orders) {
+    sortOrders(orders, eaSortDirection);
     var rows = "";
     if (orders.length === 0) {
       rows = '<tr><td colspan="7" style="text-align:center;padding:50px;color:#94a3b8"><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size:15px">No se encontraron expedientes</span></div></td></tr>';
@@ -426,7 +451,7 @@
           '<td style="padding:14px 16px"><div style="font-size:14px;color:#1e293b;font-weight:500">' + escapeHtml(o.customer_name) + '</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">' + escapeHtml(o.customer_email) + "</div></td>" +
           '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.plan_name || "-") + "</td>" +
           '<td style="padding:14px 16px">' + getStatusBadge(o.status) + "</td>" +
-          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.created_at) + "</td>" +
+          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.purchase_date || o.created_at) + "</td>" +
           '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.agent_name || "-") + "</td>" +
           '<td style="padding:14px 16px"><button class="ea-btn-edit" data-id="' + o.id + '" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.2)">Editar</button></td>' +
           "</tr>";
@@ -451,7 +476,8 @@
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Cliente</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Plan</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Estado</th>' +
-      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Fecha</th>' +
+      '<th id="ea-sort-fecha" style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;user-select:none;transition:color .2s" title="Click para ordenar por fecha">' +
+      'Fecha <span id="ea-sort-arrow" style="margin-left:4px;font-size:13px">' + (eaSortDirection === "desc" ? "\u25BC" : "\u25B2") + '</span></th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Agente</th>' +
       '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Acciones</th>' +
       "</tr></thead><tbody>" +
@@ -511,6 +537,7 @@
       '<div style="padding:24px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email Secundario' + (order.secondary_email ? ' <span style="font-size:10px;color:#10b981;font-weight:500;text-transform:none;letter-spacing:0">(CC en envios)</span>' : '') + '</label><input id="ea-f-secondary_email" value="' + escapeHtml(order.secondary_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled' + (!order.secondary_email ? ' placeholder="Sin email secundario"' : '') + '></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
@@ -1060,6 +1087,34 @@
       });
     });
 
+    var sortFechaBtn = document.getElementById("ea-sort-fecha");
+    if (sortFechaBtn) {
+      sortFechaBtn.addEventListener("click", async function () {
+        eaSortDirection = eaSortDirection === "desc" ? "asc" : "desc";
+        var arrow = document.getElementById("ea-sort-arrow");
+        if (arrow) arrow.textContent = eaSortDirection === "desc" ? "\u25BC" : "\u25B2";
+        var filters = {
+          status: document.getElementById("ea-filter-status") ? document.getElementById("ea-filter-status").value : "",
+          service_type: document.getElementById("ea-filter-service-type") ? document.getElementById("ea-filter-service-type").value : "",
+          agent: document.getElementById("ea-filter-agent") ? document.getElementById("ea-filter-agent").value : "",
+          from_date: document.getElementById("ea-filter-from") ? document.getElementById("ea-filter-from").value : "",
+          to_date: document.getElementById("ea-filter-to") ? document.getElementById("ea-filter-to").value : "",
+          search: document.getElementById("ea-filter-search") ? document.getElementById("ea-filter-search").value : "",
+        };
+        var orders = await fetchOrders(filters);
+        var tableBody = container.querySelector("tbody");
+        if (tableBody) {
+          var tempDiv = document.createElement("div");
+          tempDiv.innerHTML = renderListView(orders);
+          var newBody = tempDiv.querySelector("tbody");
+          if (newBody) tableBody.innerHTML = newBody.innerHTML;
+          attachListeners(container);
+        }
+      });
+      sortFechaBtn.addEventListener("mouseover", function () { this.style.color = "#0891b2"; });
+      sortFechaBtn.addEventListener("mouseout", function () { this.style.color = "#64748b"; });
+    }
+
     var filterBtn = document.getElementById("ea-filter-btn");
     if (filterBtn) {
       filterBtn.addEventListener("click", async function () {
@@ -1203,7 +1258,10 @@
           showToast("El expediente no tiene email de cliente", "error");
           return;
         }
-        if (!confirm("Enviar actualizacion por email a " + currentOrderData.customer_email + "?\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.")) return;
+        var confirmMsg = "Enviar actualizacion por email a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) confirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        confirmMsg += "\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.";
+        if (!confirm(confirmMsg)) return;
         sendUpdateBtn.disabled = true;
         sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
         try {
@@ -1264,22 +1322,31 @@
 
     container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
       btn.addEventListener("click", async function (e) {
+        e.preventDefault();
         e.stopPropagation();
         var linkId = parseInt(this.getAttribute("data-link-id"));
-        if (!linkId || !currentOrderData) return;
+        if (!linkId || isNaN(linkId) || !currentOrderData) {
+          console.warn("[Expedientes] Delete skipped: linkId=" + linkId + ", hasOrder=" + !!currentOrderData);
+          return;
+        }
         if (!confirm("Eliminar esta fila de link?")) return;
-        var result = await deleteLink(currentOrderData.id, linkId);
-        if (result.success) {
-          if (typeof window.logAuditAction === "function") {
-            window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+        try {
+          var result = await deleteLink(currentOrderData.id, linkId);
+          if (result.success) {
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+            }
+            var row = this.closest("tr");
+            if (row) row.remove();
+            currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
+            renumberRows();
+            showToast("Fila eliminada", "success");
+          } else {
+            showToast(result.error || "Error al eliminar", "error");
           }
-          var row = this.closest("tr");
-          if (row) row.remove();
-          currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
-          renumberRows();
-          showToast("Fila eliminada", "success");
-        } else {
-          showToast(result.error || "Error al eliminar", "error");
+        } catch (err) {
+          console.error("[Expedientes] Delete error:", err);
+          showToast("Error de conexion al eliminar", "error");
         }
       });
     });
@@ -1320,7 +1387,10 @@
       sendReportBtn.addEventListener("click", async function () {
         if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
         if (!currentOrderData.customer_email) { showToast("El expediente no tiene email de cliente", "error"); return; }
-        if (!confirm("Enviar reporte profesional a " + currentOrderData.customer_email + "?\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.")) return;
+        var reportConfirmMsg = "Enviar reporte profesional a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) reportConfirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        reportConfirmMsg += "\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.";
+        if (!confirm(reportConfirmMsg)) return;
         sendReportBtn.disabled = true;
         sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
         try {
