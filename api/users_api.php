@@ -10,6 +10,9 @@
  * - POST ?action=update            - Actualizar usuario admin
  * - POST ?action=delete            - Eliminar usuario admin
  * - GET  ?action=migrate           - Crear tabla admin_users
+ * - POST ?action=update_email      - Actualizar email de usuario real (purchases/quotations)
+ * - POST ?action=set_secondary_email - Asignar email secundario a usuario
+ * - GET  ?action=get_secondary_email - Obtener email secundario de usuario
  */
 
 require_once __DIR__ . '/db_config.php';
@@ -48,9 +51,21 @@ switch ($action) {
         requireAdminAuthShared();
         usersDelete();
         break;
+    case 'update_email':
+        requireAdminAuthShared();
+        usersUpdateEmail();
+        break;
+    case 'set_secondary_email':
+        requireAdminAuthShared();
+        usersSetSecondaryEmail();
+        break;
+    case 'get_secondary_email':
+        requireAdminAuthShared();
+        usersGetSecondaryEmail();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: migrate, list, create, update, delete']);
+        echo json_encode(['error' => 'Accion no valida. Use: migrate, list, create, update, delete, update_email, set_secondary_email, get_secondary_email']);
 }
 
 function usersMigrate() {
@@ -78,6 +93,25 @@ function usersMigrate() {
                 INDEX idx_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+
+        // Create user_secondary_emails table for storing secondary emails
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS user_secondary_emails (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                primary_email VARCHAR(255) NOT NULL,
+                secondary_email VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY idx_primary (primary_email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        // Add secondary_email column to admin_users if it doesn't exist
+        try {
+            $pdo->exec("ALTER TABLE admin_users ADD COLUMN secondary_email VARCHAR(255) DEFAULT NULL AFTER email");
+        } catch (PDOException $e) {
+            // Column already exists, ignore
+        }
 
         $count = $pdo->query("SELECT COUNT(*) FROM admin_users")->fetchColumn();
         if ($count == 0) {
@@ -107,12 +141,28 @@ function usersList() {
         return;
     }
     try {
-        $stmt = $pdo->query("SELECT id, name, email, role, status, phone, last_login, created_at, updated_at FROM admin_users ORDER BY created_at DESC");
+        // Check if secondary_email column exists
+        $hasSecondaryCol = false;
+        try {
+            $pdo->query("SELECT secondary_email FROM admin_users LIMIT 1");
+            $hasSecondaryCol = true;
+        } catch (PDOException $e) {
+            // Column doesn't exist yet
+        }
+
+        $cols = 'id, name, email, role, status, phone, last_login, created_at, updated_at';
+        if ($hasSecondaryCol) {
+            $cols = 'id, name, email, secondary_email, role, status, phone, last_login, created_at, updated_at';
+        }
+        $stmt = $pdo->query("SELECT $cols FROM admin_users ORDER BY created_at DESC");
         $adminUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($adminUsers as &$u) {
             $u['source'] = 'admin';
             $u['total_purchases'] = 0;
             $u['total_spent'] = 0;
+            if (!$hasSecondaryCol) {
+                $u['secondary_email'] = null;
+            }
         }
         unset($u);
 
@@ -133,6 +183,7 @@ function usersList() {
                         'id' => 'real_' . (count($usersMap) + 1),
                         'name' => explode('@', $p['user_email'])[0],
                         'email' => $p['user_email'],
+                        'secondary_email' => null,
                         'role' => 'user',
                         'status' => 'active',
                         'phone' => null,
@@ -152,6 +203,25 @@ function usersList() {
                 }
             }
             $realUsers = array_values($usersMap);
+        }
+
+        // Load secondary emails for real users from user_secondary_emails table
+        try {
+            $secStmt = $pdo->query("SELECT primary_email, secondary_email FROM user_secondary_emails");
+            $secEmails = $secStmt->fetchAll(PDO::FETCH_ASSOC);
+            $secMap = [];
+            foreach ($secEmails as $se) {
+                $secMap[strtolower($se['primary_email'])] = $se['secondary_email'];
+            }
+            foreach ($realUsers as &$ru) {
+                $key = strtolower($ru['email']);
+                if (isset($secMap[$key])) {
+                    $ru['secondary_email'] = $secMap[$key];
+                }
+            }
+            unset($ru);
+        } catch (PDOException $e) {
+            // Table may not exist yet, ignore
         }
 
         $allUsers = array_merge($adminUsers, $realUsers);
@@ -223,7 +293,7 @@ function usersUpdate() {
     try {
         $sets = [];
         $params = [];
-        $allowed = ['name', 'email', 'role', 'status', 'phone'];
+        $allowed = ['name', 'email', 'secondary_email', 'role', 'status', 'phone'];
         foreach ($allowed as $field) {
             if (array_key_exists($field, $input)) {
                 $sets[] = "$field = ?";
@@ -246,6 +316,184 @@ function usersUpdate() {
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al actualizar: ' . $e->getMessage()]);
+    }
+}
+
+function usersUpdateEmail() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $oldEmail = trim($input['old_email'] ?? '');
+    $newEmail = trim($input['new_email'] ?? '');
+    if (!$oldEmail || !$newEmail) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere old_email y new_email']);
+        return;
+    }
+    if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'El nuevo email no es valido']);
+        return;
+    }
+    $updated = 0;
+
+    // Update in purchases.json
+    $purchasesFile = __DIR__ . '/purchases.json';
+    if (file_exists($purchasesFile)) {
+        $data = json_decode(file_get_contents($purchasesFile), true);
+        if ($data && isset($data['purchases'])) {
+            foreach ($data['purchases'] as &$p) {
+                if (strtolower($p['user_email'] ?? '') === strtolower($oldEmail)) {
+                    $p['user_email'] = $newEmail;
+                    $updated++;
+                }
+            }
+            unset($p);
+            file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
+    }
+
+    // Update in quotation_requests.json
+    $quotationFile = __DIR__ . '/quotation_requests.json';
+    if (file_exists($quotationFile)) {
+        $data = json_decode(file_get_contents($quotationFile), true);
+        if ($data) {
+            $changed = false;
+            foreach ($data as &$q) {
+                if (strtolower($q['user_email'] ?? '') === strtolower($oldEmail)) {
+                    $q['user_email'] = $newEmail;
+                    $changed = true;
+                    $updated++;
+                }
+                if (strtolower($q['email'] ?? '') === strtolower($oldEmail)) {
+                    $q['email'] = $newEmail;
+                    $changed = true;
+                }
+            }
+            unset($q);
+            if ($changed) {
+                file_put_contents($quotationFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            }
+        }
+    }
+
+    // Update in orders table (expedientes)
+    $pdo = getDbConnection();
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("UPDATE orders SET client_email = ? WHERE LOWER(client_email) = LOWER(?)");
+            $stmt->execute([$newEmail, $oldEmail]);
+            $updated += $stmt->rowCount();
+        } catch (PDOException $e) {
+            // Non-critical, continue
+        }
+    }
+
+    // Also update in user_secondary_emails table if the primary email changed
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("UPDATE user_secondary_emails SET primary_email = ? WHERE LOWER(primary_email) = LOWER(?)");
+            $stmt->execute([$newEmail, $oldEmail]);
+        } catch (PDOException $e) {
+            // Table may not exist yet, ignore
+        }
+    }
+
+    echo json_encode(['success' => true, 'message' => 'Email actualizado en ' . $updated . ' registros', 'records_updated' => $updated]);
+}
+
+function usersSetSecondaryEmail() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $primaryEmail = trim($input['primary_email'] ?? '');
+    $secondaryEmail = trim($input['secondary_email'] ?? '');
+    $source = $input['source'] ?? 'real';
+    $userId = intval($input['user_id'] ?? 0);
+
+    if (!$primaryEmail) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere primary_email']);
+        return;
+    }
+    if ($secondaryEmail && !filter_var($secondaryEmail, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'El email secundario no es valido']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // For admin users, update the secondary_email column directly
+        if ($source === 'admin' && $userId) {
+            try {
+                $stmt = $pdo->prepare("UPDATE admin_users SET secondary_email = ? WHERE id = ?");
+                $stmt->execute([$secondaryEmail ?: null, $userId]);
+            } catch (PDOException $e) {
+                // Column may not exist, try migration first
+                try {
+                    $pdo->exec("ALTER TABLE admin_users ADD COLUMN secondary_email VARCHAR(255) DEFAULT NULL AFTER email");
+                    $stmt = $pdo->prepare("UPDATE admin_users SET secondary_email = ? WHERE id = ?");
+                    $stmt->execute([$secondaryEmail ?: null, $userId]);
+                } catch (PDOException $e2) {
+                    // ignore
+                }
+            }
+        }
+
+        // For all users (including admin), also store in user_secondary_emails table
+        // This table is used by the email service to look up secondary emails
+        // Ensure table exists
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS user_secondary_emails (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                primary_email VARCHAR(255) NOT NULL,
+                secondary_email VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY idx_primary (primary_email)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        if ($secondaryEmail) {
+            // Upsert: insert or update
+            $stmt = $pdo->prepare("INSERT INTO user_secondary_emails (primary_email, secondary_email) VALUES (?, ?) ON DUPLICATE KEY UPDATE secondary_email = ?, updated_at = NOW()");
+            $stmt->execute([$primaryEmail, $secondaryEmail, $secondaryEmail]);
+        } else {
+            // Remove secondary email
+            $stmt = $pdo->prepare("DELETE FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?)");
+            $stmt->execute([$primaryEmail]);
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Email secundario actualizado']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar email secundario: ' . $e->getMessage()]);
+    }
+}
+
+function usersGetSecondaryEmail() {
+    $email = trim($_GET['email'] ?? '');
+    if (!$email) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere email']);
+        return;
+    }
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT secondary_email FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?)");
+        $stmt->execute([$email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'secondary_email' => $row ? $row['secondary_email'] : null]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => true, 'secondary_email' => null]);
     }
 }
 

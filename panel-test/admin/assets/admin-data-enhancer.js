@@ -18,7 +18,20 @@
 
   function esc(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
   function fmtCLP(n) { return "$" + parseInt(n).toLocaleString("es-CL"); }
-  function fmtDate(s) { if (!s) return "N/A"; var d = new Date(s); return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+  function fmtDate(s) {
+    if (!s) return "N/A";
+    // Parse YYYY-MM-DD directly to avoid timezone shift
+    var m = String(s).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[3] + "-" + m[2] + "-" + m[1];
+    // Fallback for other formats (e.g. "09 Mar 2026")
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      return dd + "-" + mm + "-" + d.getFullYear();
+    }
+    return s;
+  }
 
   function addSkeletonStyles() {
     if (document.getElementById("enhancer-skeleton-styles")) return;
@@ -83,15 +96,19 @@
     var purchasesInfo = (u.total_purchases || 0) > 0 ? '<span style="font-weight:600;color:#1e293b">' + u.total_purchases + '</span><span style="color:#94a3b8;font-size:11px;display:block">$' + Number(u.total_spent || 0).toLocaleString() + ' CLP</span>' : '<span style="color:#cbd5e1;font-size:12px">-</span>';
     var isReal = u.source === "real";
     var chatBtn = '<button class="enhancer-chat-user" data-email="' + esc(u.email) + '" data-name="' + esc(u.name) + '" style="padding:6px 12px;border-radius:8px;border:1px solid #8b5cf6;background:transparent;color:#8b5cf6;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Chat</button>';
+    var editBtn = isReal
+      ? '<button class="enhancer-edit-real-user" data-email="' + esc(u.email) + '" data-name="' + esc(u.name) + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>'
+      : '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>';
     var actions = isReal
-      ? '<div style="display:flex;gap:6px">' + chatBtn + '</div>'
+      ? '<div style="display:flex;gap:6px">' + editBtn + chatBtn + '</div>'
       : '<div style="display:flex;gap:6px">' +
-        '<button class="enhancer-edit-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
+        editBtn +
         chatBtn +
         '<button class="enhancer-delete-user" data-id="' + u.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button>' +
         '</div>';
+    var secEmailHtml = u.secondary_email ? '<p style="margin:1px 0 0;color:#64748b;font-size:11px" title="Email secundario">CC: ' + esc(u.secondary_email) + '</p>' : '';
     return '<tr style="border-bottom:1px solid #f1f5f9" data-user-id="' + u.id + '">' +
-      '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:' + avatarBg + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p></div></div></td>' +
+      '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:50%;background:' + avatarBg + ';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">' + ini + '</div><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(u.name) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(u.email) + '</p>' + secEmailHtml + '</div></div></td>' +
       '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + roleBg + ';color:#fff">' + roleLabel + '</span></td>' +
       '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + stColor + '20;color:' + stColor + '">' + stLabel + '</span></td>' +
       '<td style="padding:14px 16px;text-align:center">' + purchasesInfo + '</td>' +
@@ -104,11 +121,12 @@
     var title = isEdit ? "Editar Usuario" : "Nuevo Usuario";
     var name = isEdit ? user.name || "" : "";
     var email = isEdit ? user.email || "" : "";
+    var secondaryEmail = isEdit ? user.secondary_email || "" : "";
     var phone = isEdit ? user.phone || "" : "";
     var role = isEdit ? user.role || "user" : "user";
     var status = isEdit ? user.status || "active" : "active";
     return '<div id="enhancer-user-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:enhancerFadeIn .2s">' +
-      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:90vh;overflow-y:auto">' +
       '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
       '<h3 style="margin:0;font-size:18px;font-weight:700">' + title + '</h3>' +
       '<button id="enhancer-close-user-modal" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px">&times;</button></div>' +
@@ -117,6 +135,8 @@
       '<input id="enhancer-usr-name" value="' + esc(name) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="Nombre completo"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email *</label>' +
       '<input id="enhancer-usr-email" type="email" value="' + esc(email) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="email@ejemplo.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email Secundario <span style="font-weight:400;text-transform:none;font-size:11px">(recibira copia de todos los correos)</span></label>' +
+      '<input id="enhancer-usr-secondary-email" type="email" value="' + esc(secondaryEmail) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="segundo@email.com (opcional)"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Contrasena ' + (isEdit ? '(dejar vacio para no cambiar)' : '*') + '</label>' +
       '<input id="enhancer-usr-pass" type="password" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="********"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Telefono</label>' +
@@ -188,6 +208,12 @@
       .then(function(data) {
         if (!data) return;
         var users = data.users || [];
+        // Sort users by date descending (newest first)
+        users.sort(function(a, b) {
+          var dateA = new Date(a.created_at || 0);
+          var dateB = new Date(b.created_at || 0);
+          return dateB - dateA;
+        });
         usersCache = users;
         var tableDiv = container.querySelector("#enhancer-users-table");
         if (!tableDiv) return;
@@ -218,6 +244,13 @@
         var id = parseInt(this.getAttribute("data-id"));
         var user = usersCache ? usersCache.find(function(u) { return u.id == id; }) : null;
         if (user) openUserModal(user, container);
+      };
+    });
+    container.querySelectorAll(".enhancer-edit-real-user").forEach(function(btn) {
+      btn.onclick = function() {
+        var email = this.getAttribute("data-email");
+        var name = this.getAttribute("data-name");
+        openRealUserEmailModal(email, name, container);
       };
     });
     container.querySelectorAll(".enhancer-chat-user").forEach(function(btn) {
@@ -252,6 +285,86 @@
     });
   }
 
+  function renderRealUserEmailModal(oldEmail, userName, secondaryEmail) {
+    return '<div id="enhancer-real-user-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:enhancerFadeIn .2s">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">' +
+      '<div style="padding:20px 24px;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:18px;font-weight:700">Editar Usuario</h3>' +
+      '<button id="enhancer-close-real-user-modal" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px">&times;</button></div>' +
+      '<div style="padding:24px;display:flex;flex-direction:column;gap:16px">' +
+      '<div style="padding:12px 16px;background:#f0f9ff;border-radius:10px;border:1px solid #bae6fd">' +
+      '<p style="margin:0;font-size:13px;color:#0369a1"><strong>Usuario:</strong> ' + esc(userName) + '</p>' +
+      '<p style="margin:4px 0 0;font-size:13px;color:#0369a1"><strong>Email actual:</strong> ' + esc(oldEmail) + '</p></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email Principal</label>' +
+      '<input id="enhancer-real-usr-new-email" type="email" value="' + esc(oldEmail) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="email@ejemplo.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email Secundario <span style="font-weight:400;text-transform:none;font-size:11px">(recibira copia de todos los correos)</span></label>' +
+      '<input id="enhancer-real-usr-secondary-email" type="email" value="' + esc(secondaryEmail || '') + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="segundo@email.com (opcional)"></div>' +
+      '<p style="margin:0;font-size:12px;color:#94a3b8">Cambiar el email principal actualizara todas las compras, cotizaciones y expedientes asociados.</p>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px">' +
+      '<button id="enhancer-cancel-real-user" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+      '<button id="enhancer-save-real-user" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Guardar Cambios</button>' +
+      '</div></div></div></div>';
+  }
+
+  function openRealUserEmailModal(oldEmail, userName, container) {
+    var existing = document.getElementById("enhancer-real-user-modal");
+    if (existing) existing.remove();
+    // Find secondary email from cache
+    var currentSecondary = '';
+    if (usersCache) {
+      var cachedUser = usersCache.find(function(u) { return u.email === oldEmail && u.source === 'real'; });
+      if (cachedUser) currentSecondary = cachedUser.secondary_email || '';
+    }
+    document.body.insertAdjacentHTML("beforeend", renderRealUserEmailModal(oldEmail, userName, currentSecondary));
+    var modal = document.getElementById("enhancer-real-user-modal");
+    document.getElementById("enhancer-close-real-user-modal").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-cancel-real-user").onclick = function() { modal.remove(); };
+    document.getElementById("enhancer-save-real-user").onclick = function() {
+      var newEmail = document.getElementById("enhancer-real-usr-new-email").value.trim();
+      var newSecondaryEmail = document.getElementById("enhancer-real-usr-secondary-email").value.trim();
+      if (!newEmail) { alert("El email es requerido"); return; }
+      var saveBtn = document.getElementById("enhancer-save-real-user");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Guardando...";
+
+      var promises = [];
+
+      // Update primary email if changed
+      if (newEmail !== oldEmail) {
+        promises.push(
+          fetch(API_BASE + "/users_api.php?action=update_email", {
+            method: "POST", headers: authHeaders(),
+            body: JSON.stringify({ old_email: oldEmail, new_email: newEmail })
+          }).then(function(r) { return r.json(); })
+        );
+      }
+
+      // Always save secondary email (use the final primary email)
+      var emailForSecondary = newEmail;
+      promises.push(
+        fetch(API_BASE + "/users_api.php?action=set_secondary_email", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ primary_email: emailForSecondary, secondary_email: newSecondaryEmail, source: "real" })
+        }).then(function(r) { return r.json(); })
+      );
+
+      Promise.all(promises).then(function(results) {
+        var hasError = results.find(function(r) { return !r.success; });
+        if (hasError) {
+          alert(hasError.error || "Error");
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Guardar Cambios";
+        } else {
+          modal.remove();
+          var cont = document.querySelector("[data-enhancer-added='users']");
+          if (cont) cont.remove();
+          enhanced = {};
+          enhanceUsers();
+        }
+      }).catch(function() { alert("Error de conexion"); saveBtn.disabled = false; saveBtn.textContent = "Guardar Cambios"; });
+    };
+  }
+
   function openUserModal(user, container) {
     var existing = document.getElementById("enhancer-user-modal");
     if (existing) existing.remove();
@@ -265,9 +378,11 @@
       var pass = document.getElementById("enhancer-usr-pass").value;
       if (!name || !email) { alert("Nombre y email son requeridos"); return; }
       if (!user && !pass) { alert("Contrasena es requerida para nuevos usuarios"); return; }
+      var secondaryEmail = document.getElementById("enhancer-usr-secondary-email").value.trim();
       var payload = {
         name: name,
         email: email,
+        secondary_email: secondaryEmail,
         phone: document.getElementById("enhancer-usr-phone").value.trim(),
         role: document.getElementById("enhancer-usr-role").value,
         status: document.getElementById("enhancer-usr-status").value
@@ -280,11 +395,17 @@
         body: JSON.stringify(payload)
       }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
-          modal.remove();
-          var cont = document.querySelector("[data-enhancer-added='users']");
-          if (cont) cont.remove();
-          enhanced = {};
-          enhanceUsers();
+          // Also save secondary email to the lookup table
+          fetch(API_BASE + "/users_api.php?action=set_secondary_email", {
+            method: "POST", headers: authHeaders(),
+            body: JSON.stringify({ primary_email: email, secondary_email: secondaryEmail, source: "admin", user_id: user ? user.id : data.id })
+          }).then(function() {
+            modal.remove();
+            var cont = document.querySelector("[data-enhancer-added='users']");
+            if (cont) cont.remove();
+            enhanced = {};
+            enhanceUsers();
+          });
         } else { alert(data.error || "Error"); }
       });
     };
@@ -772,6 +893,12 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var purchases = data.purchases || [];
+        // Sort purchases by date descending (newest first)
+        purchases.sort(function(a, b) {
+          var dateA = new Date(a.timestamp || a.date || 0);
+          var dateB = new Date(b.timestamp || b.date || 0);
+          return dateB - dateA;
+        });
         if (!Array.isArray(purchases) || purchases.length === 0) {
           container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron pagos</div>';
           return;
@@ -907,6 +1034,12 @@
       .then(function(data) {
         if (!data) return;
         var reviews = data.reviews || [];
+        // Sort reviews by date descending (newest first)
+        reviews.sort(function(a, b) {
+          var dateA = new Date(a.created_at || 0);
+          var dateB = new Date(b.created_at || 0);
+          return dateB - dateA;
+        });
         reviewsCache = reviews;
         var grid = container.querySelector("#enhancer-reviews-grid");
         if (!grid) return;
