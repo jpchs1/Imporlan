@@ -83,8 +83,8 @@
         '<div><div style="font-size:14px;font-weight:600;color:#1e293b">' + planLabel + ' <span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;margin-left:6px">v' + r.version + '</span></div>' +
         '<div style="font-size:12px;color:#94a3b8;margin-top:2px">' + formatDate(r.created_at) + '</div></div></div>' +
         '<div style="display:flex;gap:8px">' +
-        '<button class="rv-view-btn" data-token="' + (r.access_token || '') + '" style="padding:8px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(139,92,246,.25)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Ver Reporte</button>' +
-        '<button class="rv-download-btn" data-token="' + (r.access_token || '') + '" style="padding:8px 16px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PDF</button>' +
+        '<button class="rv-view-btn" data-report-id="' + (r.id || '') + '" data-token="' + (r.access_token || '') + '" style="padding:8px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(139,92,246,.25)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Ver Reporte</button>' +
+        '<button class="rv-download-btn" data-report-id="' + (r.id || '') + '" data-token="' + (r.access_token || '') + '" style="padding:8px 16px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PDF</button>' +
         '</div></div>';
     });
 
@@ -98,18 +98,20 @@
 
     widget.querySelectorAll(".rv-view-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
+        var reportId = this.getAttribute("data-report-id");
         var token = this.getAttribute("data-token");
-        if (token) {
-          window.open(API_BASE + "/reports_api.php?action=view&token=" + token, "_blank");
+        if (reportId && token) {
+          window.open(API_BASE + "/reports_api.php?action=view_report&report_id=" + reportId + "&token=" + token, "_blank");
         }
       });
     });
 
     widget.querySelectorAll(".rv-download-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
+        var reportId = this.getAttribute("data-report-id");
         var token = this.getAttribute("data-token");
-        if (token) {
-          window.open(API_BASE + "/reports_api.php?action=download&token=" + token, "_blank");
+        if (reportId && token) {
+          window.open(API_BASE + "/reports_api.php?action=download_pdf&report_id=" + reportId + "&token=" + token, "_blank");
         }
       });
     });
