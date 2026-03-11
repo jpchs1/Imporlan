@@ -1322,7 +1322,7 @@ function viewReport() {
     $reportId = intval($_GET['report_id'] ?? 0);
     $token = $_GET['token'] ?? '';
 
-    if (!$reportId || empty($token)) {
+    if (empty($token) && !$reportId) {
         header('Content-Type: text/html; charset=utf-8');
         echo '<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Enlace invalido</h2><p>El enlace del reporte es invalido o ha expirado.</p><a href="https://www.imporlan.cl/panel/">Ir al Panel</a></body></html>';
         return;
@@ -1336,8 +1336,14 @@ function viewReport() {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT * FROM reports WHERE id = ? AND access_token = ?");
-        $stmt->execute([$reportId, $token]);
+        // Support lookup by report_id+token or by token alone (fallback)
+        if ($reportId && !empty($token)) {
+            $stmt = $pdo->prepare("SELECT * FROM reports WHERE id = ? AND access_token = ?");
+            $stmt->execute([$reportId, $token]);
+        } else {
+            $stmt = $pdo->prepare("SELECT * FROM reports WHERE access_token = ?");
+            $stmt->execute([$token]);
+        }
         $report = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$report) {
@@ -1372,7 +1378,7 @@ function downloadPdf() {
     $reportId = intval($_GET['report_id'] ?? 0);
     $token = $_GET['token'] ?? '';
 
-    if (!$reportId || empty($token)) {
+    if (empty($token) && !$reportId) {
         header('Content-Type: application/json');
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere report_id y token']);
@@ -1388,8 +1394,14 @@ function downloadPdf() {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT r.*, o.order_number, o.customer_name FROM reports r JOIN orders o ON r.order_id = o.id WHERE r.id = ? AND r.access_token = ?");
-        $stmt->execute([$reportId, $token]);
+        // Support lookup by report_id+token or by token alone (fallback)
+        if ($reportId && !empty($token)) {
+            $stmt = $pdo->prepare("SELECT r.*, o.order_number, o.customer_name FROM reports r JOIN orders o ON r.order_id = o.id WHERE r.id = ? AND r.access_token = ?");
+            $stmt->execute([$reportId, $token]);
+        } else {
+            $stmt = $pdo->prepare("SELECT r.*, o.order_number, o.customer_name FROM reports r JOIN orders o ON r.order_id = o.id WHERE r.access_token = ?");
+            $stmt->execute([$token]);
+        }
         $report = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$report) {
