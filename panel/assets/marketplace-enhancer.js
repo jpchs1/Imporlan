@@ -346,9 +346,9 @@
       buildSpecRow("Moneda", item.moneda) +
       "</div></div>" +
       (item.descripcion
-        ? '<div style="margin-bottom:20px"><h3 style="font-size:15px;font-weight:600;color:#1e293b;margin:0 0 8px">Descripcion</h3><p style="color:#475569;font-size:14px;line-height:1.7;margin:0;white-space:pre-wrap">' +
+        ? '<div style="margin-bottom:20px"><h3 style="font-size:15px;font-weight:600;color:#1e293b;margin:0 0 10px">Descripcion</h3><div style="background:#f8fafc;border-radius:12px;padding:16px 18px;border:1px solid #e2e8f0"><p style="color:#475569;font-size:14px;line-height:1.8;margin:0;white-space:pre-wrap;word-break:break-word">' +
           item.descripcion +
-          "</p></div>"
+          "</p></div></div>"
         : "") +
       '<div style="display:flex;gap:12px;margin-bottom:12px">' +
       '<button onclick="window.__mktShareListing(' + item.id + ')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;padding:14px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Compartir</button>' +
@@ -358,7 +358,10 @@
       encodeURIComponent(
         "Hola, me interesa la embarcacion: " +
           (item.nombre || "") +
-          " publicada en Imporlan Marketplace"
+          " publicada en Imporlan Marketplace por " +
+          (item.user_name || "Usuario") +
+          (item.user_phone ? " (Tel: " + item.user_phone + ")" : "") +
+          ". Por favor crear grupo de WhatsApp para coordinar."
       ) +
       '" target="_blank" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;text-decoration:none;padding:14px;border-radius:12px;font-weight:600;font-size:14px;transition:opacity .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 01-4.286-1.238l-.308-.184-2.87.852.852-2.87-.184-.308A8 8 0 1112 20z"/></svg>Contactar por WhatsApp</a>' +
       '<button onclick="window.__mktOpenChatAbout(\'' + (item.nombre || '').replace(/'/g, "\\'") + '\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:14px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chatear en la Web</button>' +

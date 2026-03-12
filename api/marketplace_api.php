@@ -176,9 +176,11 @@ function initMarketplaceDb() {
 function listListings() {
     $pdo = getDbConnection();
     $stmt = $pdo->prepare("
-        SELECT * FROM marketplace_listings
-        WHERE status = 'active'
-        ORDER BY created_at DESC
+        SELECT ml.*, au.phone AS user_phone
+        FROM marketplace_listings ml
+        LEFT JOIN admin_users au ON au.email = ml.user_email
+        WHERE ml.status = 'active'
+        ORDER BY ml.created_at DESC
     ");
     $stmt->execute();
     $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -219,7 +221,12 @@ function getListing() {
         return;
     }
     $pdo = getDbConnection();
-    $stmt = $pdo->prepare("SELECT * FROM marketplace_listings WHERE id = ? AND status = 'active'");
+    $stmt = $pdo->prepare("
+        SELECT ml.*, au.phone AS user_phone
+        FROM marketplace_listings ml
+        LEFT JOIN admin_users au ON au.email = ml.user_email
+        WHERE ml.id = ? AND ml.status = 'active'
+    ");
     $stmt->execute([$id]);
     $listing = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$listing) {
