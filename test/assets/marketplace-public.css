@@ -1471,6 +1471,21 @@ body.marketplace-page {
   .mp-modal-body {
     padding: 20px;
   }
+
+  .mp-card-actions {
+    flex-wrap: wrap;
+  }
+
+  .mp-card-btn {
+    min-width: 0;
+    padding: 8px 8px;
+    font-size: 0.75rem;
+  }
+
+  .mp-card-btn-share {
+    min-width: 36px;
+    max-width: 36px;
+  }
 }
 
 @media (min-width: 769px) and (max-width: 1024px) {
