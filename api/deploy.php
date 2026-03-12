@@ -101,6 +101,7 @@ if ($action === 'sync_files') {
         'panel-test/admin/assets/admin-data-enhancer.js',
         'api/users_api.php',
         'api/email_service.php',
+        'api/marketplace_api.php',
     ];
     
     $ghRawBase = 'https://raw.githubusercontent.com/jpchs1/Imporlan/main/';
