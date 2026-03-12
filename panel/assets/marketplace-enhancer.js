@@ -188,7 +188,7 @@
         : "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=400&h=300&fit=crop";
     var initials = userInitials(item.user_name);
     return (
-      '<div class="mkt-card" style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;transition:all .3s;cursor:default" onmouseover="this.style.boxShadow=\'0 12px 30px rgba(0,0,0,.12)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'none\';this.style.transform=\'none\'">' +
+      '<div class="mkt-card" style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;transition:all .3s;cursor:default;max-width:100%" onmouseover="this.style.boxShadow=\'0 12px 30px rgba(0,0,0,.12)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'none\';this.style.transform=\'none\'">' +
       '<div style="position:relative;height:200px;overflow:hidden;background:#f1f5f9">' +
       '<img src="' +
       img +
@@ -205,10 +205,10 @@
       (item.fotos ? item.fotos.length : 0) +
       " fotos</span>" +
       "</div>" +
-      '<div style="padding:16px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
+      '<div style="padding:16px;overflow:hidden">' +
+      '<div class="mkt-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;flex-wrap:wrap">' +
       '<div style="flex:1;min-width:0">' +
-      '<h3 style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      '<h3 style="font-weight:700;color:#1e293b;font-size:16px;margin:0 0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
       (item.nombre || "Sin nombre") +
       "</h3>" +
       '<p style="color:#64748b;font-size:13px;margin:0">' +
@@ -216,7 +216,7 @@
       (item.ano ? " - " + item.ano : "") +
       "</p>" +
       "</div>" +
-      '<div style="text-align:right;flex-shrink:0;margin-left:8px">' +
+      '<div style="text-align:right;flex-shrink:0">' +
       '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
       '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
       '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
@@ -248,15 +248,15 @@
           "</span>"
         : "") +
       "</div>" +
-      '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px">' +
-      '<div style="display:flex;align-items:center;gap:8px">' +
-      '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700">' +
+      '<div class="mkt-card-footer" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px;gap:8px;flex-wrap:wrap">' +
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
+      '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0">' +
       initials +
       "</div>" +
-      '<span style="font-size:13px;color:#475569;font-weight:500">' +
+      '<span style="font-size:13px;color:#475569;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
       (item.user_name || "Usuario") +
       "</span></div>" +
-      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
       '<button onclick="window.__mktShareListing(' + item.id + ')" style="background:#f1f5f9;border:1px solid #e2e8f0;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'" title="Compartir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>' +
       '<button onclick="window.__mktShowDetail(' +
       item.id +
@@ -810,7 +810,7 @@
       buyCards =
         '<div style="text-align:center;padding:60px 20px;color:#94a3b8"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block"><path d="M2 20L7 4l5 16 5-16 5 16"/></svg><p style="font-size:16px;margin:0">No hay embarcaciones publicadas aun</p></div>';
     } else {
-      buyCards = '<div id="mkt-panel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">';
+      buyCards = '<div id="mkt-panel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:20px">';
       filteredListings.forEach(function (item) {
         buyCards += buildListingCard(item);
       });
@@ -1583,7 +1583,11 @@
       "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
       "#mkt-tab-content-buy>div:first-child>div:first-child{flex-direction:column!important}" +
       "#mkt-tab-content-buy select,#mkt-tab-content-buy button{width:100%!important;box-sizing:border-box}" +
-      ".mkt-adv-grid{grid-template-columns:1fr 1fr!important}}";
+      ".mkt-adv-grid{grid-template-columns:1fr 1fr!important}" +
+      ".mkt-card{max-width:100%!important}" +
+      ".mkt-card-header{flex-wrap:wrap!important}" +
+      ".mkt-card-footer{flex-wrap:wrap!important}" +
+      "#mkt-panel-grid{grid-template-columns:1fr!important}}";
     document.head.appendChild(style);
   }
 
