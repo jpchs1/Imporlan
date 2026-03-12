@@ -46,7 +46,7 @@
 
   var bellInjected = false;
   var dropdownOpen = false;
-  var lastKnownCount = 0;
+  var lastKnownCount = -1;
 
   function injectBellIcon() {
     if (bellInjected) return;
@@ -132,10 +132,14 @@
       var data = await resp.json();
       if (data.success) {
         var newCount = data.count;
-        if (newCount > lastKnownCount && lastKnownCount >= 0) {
+        if (lastKnownCount < 0) {
+          lastKnownCount = newCount;
+        } else if (newCount > lastKnownCount) {
           playNotifSound();
+          lastKnownCount = newCount;
+        } else {
+          lastKnownCount = newCount;
         }
-        lastKnownCount = newCount;
         updateBadge(newCount);
       }
     } catch (e) {}
