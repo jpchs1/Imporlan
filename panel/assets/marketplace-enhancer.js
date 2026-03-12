@@ -248,15 +248,15 @@
           "</span>"
         : "") +
       "</div>" +
-      '<div class="mkt-card-footer" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px;gap:8px;flex-wrap:wrap">' +
-      '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
+            '<div class="mkt-card-footer" style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f1f5f9;padding-top:12px;gap:8px;flex-wrap:wrap">' +
+            '<div class="mkt-card-seller" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">' +
       '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#06b6d4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0">' +
       initials +
       "</div>" +
       '<span style="font-size:13px;color:#475569;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
       (item.user_name || "Usuario") +
       "</span></div>" +
-      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+      '<div class="mkt-card-actions" style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
       '<button onclick="window.__mktShareListing(' + item.id + ')" style="background:#f1f5f9;border:1px solid #e2e8f0;width:36px;height:36px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'" title="Compartir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>' +
       '<button onclick="window.__mktShowDetail(' +
       item.id +
@@ -1580,14 +1580,17 @@
       ".mkt-card img{transition:transform .4s ease}" +
       "#mkt-detail-overlay::-webkit-scrollbar,#mkt-publish-overlay::-webkit-scrollbar{width:6px}" +
       "#mkt-detail-overlay::-webkit-scrollbar-thumb,#mkt-publish-overlay::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}" +
-      "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
-      "#mkt-tab-content-buy>div:first-child>div:first-child{flex-direction:column!important}" +
-      "#mkt-tab-content-buy select,#mkt-tab-content-buy button{width:100%!important;box-sizing:border-box}" +
-      ".mkt-adv-grid{grid-template-columns:1fr 1fr!important}" +
-      ".mkt-card{max-width:100%!important}" +
-      ".mkt-card-header{flex-wrap:wrap!important}" +
-      ".mkt-card-footer{flex-wrap:wrap!important}" +
-      "#mkt-panel-grid{grid-template-columns:1fr!important}}";
+            "@media(max-width:768px){.mkt-enhanced [style*='grid-template-columns:repeat']{grid-template-columns:1fr!important}" +
+            "#mkt-tab-content-buy>div:first-child>div:first-child{flex-direction:column!important}" +
+            "#mkt-tab-content-buy select,#mkt-tab-content-buy button{width:100%!important;box-sizing:border-box}" +
+            ".mkt-adv-grid{grid-template-columns:1fr 1fr!important}" +
+            ".mkt-card{max-width:100%!important;overflow:hidden!important}" +
+            ".mkt-card-header{flex-wrap:wrap!important}" +
+            ".mkt-card-footer{flex-direction:column!important;align-items:stretch!important;gap:10px!important}" +
+            ".mkt-card-seller{width:100%!important}" +
+            ".mkt-card-actions{width:100%!important;justify-content:stretch!important;flex-shrink:1!important}" +
+            ".mkt-card-actions button{flex:1!important}" +
+            "#mkt-panel-grid{grid-template-columns:1fr!important}}";
     document.head.appendChild(style);
   }
 
