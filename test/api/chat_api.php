@@ -681,6 +681,9 @@ function adminSendMessage($admin) {
         // Send email notification to user
         sendUserChatNotification($conversation['user_email'], $conversation['user_name'], $adminName, $message, $conversationId);
         
+        // Create in-panel notification record for the bell icon
+        createChatNotificationRecord($pdo, $conversation['user_email'], $adminName, $message, $conversationId);
+        
         echo json_encode([
             'success' => true,
             'message_id' => $messageId
@@ -1037,5 +1040,19 @@ function sendUserChatNotification($userEmail, $userName, $senderName, $message, 
         $emailService->sendChatReplyNotification($userEmail, $userName, $senderName, $message, $conversationId);
     } catch (Exception $e) {
         error_log('User chat notification email failed: ' . $e->getMessage());
+    }
+}
+
+// Create a record in the notifications table so it appears in the bell icon dropdown
+function createChatNotificationRecord($pdo, $userEmail, $senderName, $message, $conversationId) {
+    try {
+        $truncated = mb_substr($message, 0, 200);
+        if (mb_strlen($message) > 200) $truncated .= '...';
+        $title = 'Nuevo mensaje de ' . $senderName;
+        $link = '/panel/#chat';
+        $stmt = $pdo->prepare("INSERT INTO notifications (user_email, type, title, message, link) VALUES (?, 'chat', ?, ?, ?)");
+        $stmt->execute([$userEmail, $title, $truncated, $link]);
+    } catch (Exception $e) {
+        error_log('Chat notification record failed: ' . $e->getMessage());
     }
 }
