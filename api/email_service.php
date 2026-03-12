@@ -394,6 +394,47 @@ BASE64;
         return ['success' => true, 'results' => $results];
     }
     
+    /**
+     * Send email notification to user when they receive a chat reply
+     */
+    public function sendChatReplyNotification($userEmail, $userName, $senderName, $message, $conversationId) {
+        $c = $this->colors;
+        $truncatedMessage = substr($message, 0, 300) . (strlen($message) > 300 ? '...' : '');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Nuevo mensaje') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Tienes un nuevo mensaje
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($userName ?: 'Usuario') . ', <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($senderName) . '</strong> te ha enviado un mensaje en el chat de Imporlan.
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Mensaje</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br(htmlspecialchars($truncatedMessage)) . '</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver y Responder', 'https://www.imporlan.cl/panel/') . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Ingresa a tu panel de Imporlan para ver el mensaje completo y responder.
+            </p>';
+        
+        $subject = 'Nuevo mensaje de ' . $senderName . ' - Imporlan';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, 'Nuevo mensaje de chat'), 'chat_reply_notification');
+    }
+    
     public function sendSupportRequestNotification($requestData) {
         return $this->sendInternalNotification('support_request', [
             'name' => $requestData['name'],

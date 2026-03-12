@@ -394,6 +394,47 @@ BASE64;
         return ['success' => true, 'results' => $results];
     }
     
+    /**
+     * Send email notification to user when they receive a chat reply
+     */
+    public function sendChatReplyNotification($userEmail, $userName, $senderName, $message, $conversationId) {
+        $c = $this->colors;
+        $truncatedMessage = substr($message, 0, 300) . (strlen($message) > 300 ? '...' : '');
+        
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Nuevo mensaje') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Tienes un nuevo mensaje
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($userName ?: 'Usuario') . ', <strong style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($senderName) . '</strong> te ha enviado un mensaje en el chat de Imporlan.
+            </p>
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Mensaje</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br(htmlspecialchars($truncatedMessage)) . '</p>
+                    </td>
+                </tr>
+            </table>
+            
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Ver y Responder', 'https://www.imporlan.cl/panel/') . '
+            </div>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Ingresa a tu panel de Imporlan para ver el mensaje completo y responder.
+            </p>';
+        
+        $subject = 'Nuevo mensaje de ' . $senderName . ' - Imporlan';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, 'Nuevo mensaje de chat'), 'chat_reply_notification');
+    }
+    
     public function sendSupportRequestNotification($requestData) {
         return $this->sendInternalNotification('support_request', [
             'name' => $requestData['name'],
@@ -804,13 +845,41 @@ BASE64;
      * TEST MODE: When isTestEnvironment is true, all emails are redirected to testRecipient
      * The original recipient is logged but not used for actual delivery
      */
+    /**
+     * Public method to send a custom email with arbitrary HTML content.
+     * Used by the report generation system to send report notification emails.
+     */
+    public function sendCustomEmail($to, $subject, $htmlContent) {
+        return $this->sendEmail($to, $subject, $htmlContent, 'custom_report', ['type' => 'report_notification']);
+    }
+
+    /**
+     * Look up the secondary email for a given primary email address.
+     * Checks the user_secondary_emails table.
+     */
+    protected function getSecondaryEmail($primaryEmail) {
+        if (!$this->pdo || !$primaryEmail) return null;
+        try {
+            $stmt = $this->pdo->prepare("SELECT secondary_email FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?) LIMIT 1");
+            $stmt->execute([$primaryEmail]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ? ($row['secondary_email'] ?: null) : null;
+        } catch (PDOException $e) {
+            return null;
+        }
+    }
+
     protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
         // Store original recipient for logging
         $originalRecipient = $to;
         
+        // Look up secondary email before test override
+        $secondaryEmail = $this->getSecondaryEmail($originalRecipient);
+        
         // TEST ENVIRONMENT OVERRIDE: Redirect all emails to test recipient
         if ($this->isTestEnvironment) {
             $to = $this->testRecipient;
+            $secondaryEmail = null; // Don't send CC in test mode
             // Add original recipient info to subject for clarity
             $subject = '[TEST - Para: ' . $originalRecipient . '] ' . $subject;
         }
@@ -854,7 +923,12 @@ BASE64;
                 'X-Priority: 3'
             ];
             
-            $result = $this->sendViaSMTP($to, $subject, $body, $headers);
+            // Add CC header for secondary email
+            if ($secondaryEmail) {
+                $headers[] = 'CC: ' . $secondaryEmail;
+            }
+            
+            $result = $this->sendViaSMTP($to, $subject, $body, $headers, $secondaryEmail);
             
             if ($result['success']) {
                 $this->updateEmailLog($logId, 'sent');
@@ -875,7 +949,7 @@ BASE64;
     /**
      * Send email via SMTP
      */
-    private function sendViaSMTP($to, $subject, $body, $headers) {
+    private function sendViaSMTP($to, $subject, $body, $headers, $ccEmail = null) {
         try {
             $socket = @fsockopen(
                 ($this->smtpSecure === 'ssl' ? 'ssl://' : '') . $this->smtpHost,
@@ -908,6 +982,11 @@ BASE64;
             $this->smtpGetResponse($socket);
             $this->smtpSendCommand($socket, "RCPT TO:<{$to}>");
             $this->smtpGetResponse($socket);
+            // Add secondary email as additional RCPT TO
+            if ($ccEmail) {
+                $this->smtpSendCommand($socket, "RCPT TO:<{$ccEmail}>");
+                $this->smtpGetResponse($socket);
+            }
             $this->smtpSendCommand($socket, "DATA");
             $this->smtpGetResponse($socket);
             
@@ -1030,6 +1109,34 @@ BASE64;
                         </td>
                     </tr>
                     
+                    <!-- SLA Info -->
+                    <tr>
+                        <td style="padding: 24px 0 0 0;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: rgba(30, 58, 95, 0.6); border-radius: 12px; border: 1px solid rgba(96, 165, 250, 0.2);">
+                                <tr>
+                                    <td style="padding: 18px 24px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td valign="top" style="padding-right: 12px;">
+                                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, ' . $c['primary'] . ', ' . $c['accent'] . '); border-radius: 8px; text-align: center; line-height: 32px; font-size: 16px;">&#9200;</div>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0 0 4px 0; color: ' . $c['accent'] . '; font-size: 13px; font-weight: 600;">Tiempo de Respuesta (SLA)</p>
+                                                    <p style="margin: 0; color: ' . $c['text_light'] . '; font-size: 12px; line-height: 1.6;">
+                                                        El tiempo de respuesta y trabajo para tu requerimiento es de <strong style="color: ' . $c['text_white'] . ';">hasta 48 horas</strong> por lo general. En algunos periodos de alta demanda, puede llegar a ser de <strong style="color: ' . $c['text_white'] . ';">hasta 72 horas</strong> segun la cantidad de requerimientos en curso.
+                                                    </p>
+                                                    <p style="margin: 6px 0 0 0; color: ' . $c['accent'] . '; font-size: 12px;">
+                                                        De todas maneras, por <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['accent'] . '; text-decoration: underline;">email</a> o <a href="https://wa.me/56940211459" style="color: ' . $c['accent'] . '; text-decoration: underline;">WhatsApp</a> estaremos activos ante cualquier duda o pregunta.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
                     <!-- Footer -->
                     <tr>
                         <td align="center" style="padding: 30px 0 0 0;">
@@ -2072,8 +2179,35 @@ BASE64;
             
             <p style="margin: 0 0 24px 0; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.7;">
                 Esta priorizacion nos ayuda a enfocar el analisis, negociacion y estimaciones de importacion con mayor precision &#9875;&#128200;
-            </p>
-            
+            </p>';
+        
+        // Add AI report info based on plan type
+        $planLower = strtolower($planName);
+        if (strpos($planLower, 'almirante') !== false) {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#129302;</p>
+                        <p style="margin: 0 0 4px 0; color: #166534; font-size: 14px; font-weight: 700;">Reporte IA incluido en tu Plan Almirante</p>
+                        <p style="margin: 0; color: #15803d; font-size: 13px;">Tu plan incluye un reporte profesional con analisis de Inteligencia Artificial de las embarcaciones encontradas, sin costo adicional.</p>
+                    </td>
+                </tr>
+            </table>';
+        } else {
+            $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; border: 1px solid #93c5fd;">
+                <tr>
+                    <td style="padding: 18px; text-align: center;">
+                        <p style="margin: 0 0 6px 0; font-size: 20px;">&#129302;</p>
+                        <p style="margin: 0 0 4px 0; color: #1e40af; font-size: 14px; font-weight: 700;">Reporte IA disponible</p>
+                        <p style="margin: 0; color: #1e3a8a; font-size: 13px;">Puedes solicitar un reporte profesional con analisis de Inteligencia Artificial por solo $15.000 CLP. Este servicio esta incluido sin costo en el Plan Almirante.</p>
+                    </td>
+                </tr>
+            </table>';
+        }
+        
+        $content .= '
             <div style="margin: 30px 0;">
                 ' . $this->getButton('Ir a mi Panel', $this->panelUrl) . '
             </div>
@@ -2731,6 +2865,9 @@ BASE64;
                                 <td align="center" style="padding: 8px 16px;">
                                     <span style="display: inline-block; padding: 6px 16px; background: #003087; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">PayPal</span>
                                 </td>
+                                <td align="center" style="padding: 8px 16px;">
+                                    <span style="display: inline-block; padding: 6px 16px; background: #16a34a; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">Transferencia Bancaria</span>
+                                </td>
                             </tr>
                         </table>
                     </td>
@@ -2752,7 +2889,7 @@ BASE64;
         $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
         $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
         
-        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual'];
+        $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual', 'transferencia_bancaria' => 'Transferencia Bancaria', 'transferencia' => 'Transferencia Bancaria'];
         $method = $paymentData['payment_method'] ?? 'N/A';
         $methodLabel = $methodLabels[$method] ?? ucfirst($method);
         
@@ -3080,6 +3217,233 @@ BASE64;
         } catch (PDOException $e) {
             return ['error' => 'Failed to fetch stats: ' . $e->getMessage()];
         }
+    }
+    
+    /**
+     * =====================================================
+     * INSPECTION PRE-PURCHASE EMAILS
+     * =====================================================
+     */
+    
+    /**
+     * Send confirmation email to the user who submitted the inspection form
+     */
+    public function sendInspectionConfirmation($data) {
+        $c = $this->colors;
+        $countryLabel = $data['country'] === 'usa' ? 'Estados Unidos' : 'Chile';
+        $name = htmlspecialchars($data['full_name']);
+        
+        // Build location string
+        if ($data['country'] === 'usa') {
+            $location = $data['city'] . ', ' . $data['state_usa'];
+        } else {
+            $location = $data['city'] . ', ' . $data['region_chile'];
+        }
+        
+        // Build inspection types list
+        $inspectionTypes = $data['inspection_types'] ?? [];
+        $inspectionListHtml = '';
+        if (!empty($inspectionTypes)) {
+            foreach ($inspectionTypes as $type) {
+                $inspectionListHtml .= '<li style="color: ' . $c['text_dark'] . '; font-size: 14px; padding: 3px 0;">' . htmlspecialchars($type) . '</li>';
+            }
+        }
+        if (!empty($data['wants_recommendation'])) {
+            $inspectionListHtml .= '<li style="color: ' . $c['primary'] . '; font-size: 14px; padding: 3px 0; font-style: italic;">Solicita recomendacion del tipo de inspeccion</li>';
+        }
+        
+        // Build summary items (includes optional fields)
+        $summaryItems = [
+            'Embarcacion' => $data['vessel_type'] . ' ' . $data['brand'] . ' ' . $data['model'] . ' (' . $data['vessel_year'] . ') - ' . $data['length_value'] . ' ' . $data['length_unit'],
+            'Ubicacion' => $location,
+            'Plazo' => $data['inspection_timeline']
+        ];
+
+        if ($data['country'] === 'usa' && !empty($data['import_to_chile'])) {
+            $summaryItems['Importar a Chile'] = $data['import_to_chile'];
+        }
+
+        if (!empty($data['listing_url'])) {
+            $summaryItems['Link del aviso'] = $data['listing_url'];
+        }
+        
+        // Comments
+        $commentsHtml = '';
+        if (!empty($data['comments'])) {
+            $commentsHtml = '
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px;">
+                <strong style="color: ' . $c['text_dark'] . ';">Tus comentarios:</strong><br>
+                ' . nl2br(htmlspecialchars($data['comments'])) . '
+            </p>';
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Solicitud Recibida') . '
+            </div>
+            
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Hemos recibido tu solicitud
+            </h2>
+            
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . $name . ', gracias por tu solicitud. Ya recibimos tu requerimiento para inspeccion pre-compra en <strong style="color: ' . $c['text_dark'] . ';">' . $countryLabel . '</strong>.
+            </p>
+            
+            ' . $this->getInfoCard('Resumen de tu solicitud', $summaryItems) . '
+            
+            ' . (!empty($inspectionListHtml) ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; margin: 15px 0; border-left: 4px solid ' . $c['primary'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Tipos de inspeccion solicitados</h3>
+                        <ul style="margin: 0; padding-left: 20px;">' . $inspectionListHtml . '</ul>
+                    </td>
+                </tr>
+            </table>' : '') . '
+            
+            ' . $commentsHtml . '
+            
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f0f9ff; border-radius: 12px; margin: 25px 0;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Proximos pasos</h3>
+                        <ol style="margin: 0; padding-left: 20px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.8;">
+                            <li>Revisaremos la informacion y validaremos disponibilidad.</li>
+                            <li>Te enviaremos la cotizacion y el plan de accion.</li>
+                        </ol>
+                    </td>
+                </tr>
+            </table>
+            
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Si quieres acelerar el proceso, responde este email o contactanos por WhatsApp.
+            </p>
+            
+            <div style="margin: 25px 0 10px 0; text-align: center;">
+                ' . $this->getButton('Contactar por WhatsApp', 'https://wa.me/56940211459?text=Hola,%20envie%20una%20solicitud%20de%20inspeccion%20pre-compra') . '
+            </div>';
+
+        $subject = 'Imporlan | Solicitud recibida - Inspeccion pre-compra de embarcacion';
+        $htmlContent = $this->getBaseTemplate($content, $subject);
+        return $this->sendEmail($data['email'], $subject, $htmlContent, 'inspection_confirmation', $data);
+    }
+    
+    /**
+     * Send notification email to admin about new inspection lead
+     */
+    public function sendInspectionAdminNotification($data, $leadId = null) {
+        $c = $this->colors;
+        $countryLabel = $data['country'] === 'usa' ? 'USA' : 'Chile';
+        
+        // Build location
+        if ($data['country'] === 'usa') {
+            $location = ($data['city'] ?? '') . ', ' . ($data['state_usa'] ?? '');
+        } else {
+            $location = ($data['city'] ?? '') . ', ' . ($data['region_chile'] ?? '');
+        }
+        
+        // Inspection types
+        $inspectionTypes = $data['inspection_types'] ?? [];
+        $inspectionList = !empty($inspectionTypes) ? implode(', ', array_map('htmlspecialchars', $inspectionTypes)) : 'No especificado';
+        
+        // Build mailto and whatsapp links
+        $mailtoLink = 'mailto:' . rawurlencode($data['email']) . '?subject=' . rawurlencode('Re: Inspeccion pre-compra - ' . $data['brand'] . ' ' . $data['model']);
+        $phoneClean = preg_replace('/[^0-9+]/', '', $data['phone']);
+        $whatsappLink = 'https://wa.me/' . ltrim($phoneClean, '+');
+        
+        // Build inspection/location items (includes country-specific extras)
+        $inspectionLocationItems = [
+            'Pais' => $countryLabel,
+            'Ubicacion' => $location,
+            'Marina' => $data['marina'] ?: 'No indicada',
+            'En agua/seco' => $data['water_status'] ?: 'No indicado',
+            'Inspeccion' => $inspectionList,
+            'Plazo' => $data['inspection_timeline']
+        ];
+
+        if ($data['country'] === 'usa') {
+            $inspectionLocationItems['Importar a Chile'] = $data['import_to_chile'] ?? 'No especificado';
+
+            if (!empty($data['has_broker']) && $data['has_broker'] === 'si') {
+                $brokerValue = trim(($data['broker_name'] ?? '') . ' - ' . ($data['broker_contact'] ?? ''));
+                $inspectionLocationItems['Broker'] = $brokerValue !== '-' ? $brokerValue : 'Sí (sin datos)';
+            }
+        } else {
+            if (!empty($data['lake_or_sea'])) {
+                $inspectionLocationItems['Lago/Mar'] = $data['lake_or_sea'];
+            }
+            if (!empty($data['engine_type_chile'])) {
+                $inspectionLocationItems['Tipo de motor'] = $data['engine_type_chile'];
+            }
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                ' . $this->getStatusBadge('info', 'Nuevo Lead') . '
+            </div>
+            
+            <h2 style="margin: 0 0 5px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 700; text-align: center;">
+                Inspeccion Pre-Compra (' . $countryLabel . ')
+            </h2>
+            <p style="margin: 0 0 20px 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Nuevo lead desde /inspeccion-precompra-embarcaciones/' . ($leadId ? ' | ID: #' . $leadId : '') . '
+            </p>
+            
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Nombre' => $data['full_name'],
+                'Email' => $data['email'],
+                'WhatsApp/Tel' => $data['phone'],
+                'Origen' => $data['how_found'] ?: 'No especificado'
+            ]) . '
+            
+            ' . $this->getInfoCard('Embarcacion', [
+                'Tipo' => $data['vessel_type'],
+                'Marca / Modelo' => $data['brand'] . ' ' . $data['model'],
+                'Ano' => $data['vessel_year'],
+                'Eslora' => $data['length_value'] . ' ' . $data['length_unit'],
+                'Material casco' => $data['hull_material'],
+                'Precio publicado' => !empty($data['published_price']) ? $data['published_price'] . ' ' . ($data['price_currency'] ?? '') : 'No indicado',
+                'Link aviso' => !empty($data['listing_url']) ? $data['listing_url'] : 'No indicado'
+            ]) . '
+            
+            ' . $this->getInfoCard('Motores y Sistemas', [
+                'N motores' => $data['num_engines'],
+                'Marca/modelo motor' => $data['engine_brand_model'] ?: 'No indicado',
+                'Horas motor' => $data['engine_hours'] ?: 'No indicado',
+                'Generador' => $data['has_generator'] ?: 'No indicado',
+                'Electronica' => $data['electronics'] ?: 'No indicado'
+            ]) . '
+            
+            ' . $this->getInfoCard('Inspeccion y Ubicacion', $inspectionLocationItems) . '
+            
+            ' . (!empty($data['comments']) ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fffbeb; border-radius: 12px; margin: 15px 0; border-left: 4px solid #f59e0b;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">Comentarios del cliente</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">' . nl2br(htmlspecialchars($data['comments'])) . '</p>
+                    </td>
+                </tr>
+            </table>' : '') . '
+            
+            <div style="margin: 25px 0 10px 0; text-align: center;">
+                ' . $this->getButton('Responder al Cliente', $mailtoLink) . '
+            </div>
+            <div style="margin: 10px 0; text-align: center;">
+                ' . $this->getSecondaryButton('WhatsApp', $whatsappLink) . '
+            </div>';
+
+        $subject = '[LEAD] Inspeccion pre-compra (' . $countryLabel . ') - ' . $data['brand'] . ' ' . $data['model'] . ' ' . $data['vessel_year'];
+        $htmlContent = $this->getBaseTemplate($content, $subject);
+        
+        // Send to all admin emails
+        $results = [];
+        foreach ($this->adminEmails as $adminEmail) {
+            $results[] = $this->sendEmail($adminEmail, $subject, $htmlContent, 'inspection_admin_notification', $data);
+        }
+        
+        return ['success' => true, 'results' => $results];
     }
 }
 

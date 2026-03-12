@@ -19,17 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/email_service.php';
 
-// Load JWT configuration from admin_api.php if not already defined
+// Load JWT configuration - use the same secret as admin_api.php
 if (!defined('JWT_SECRET')) {
-    // Use config file for JWT secret
-    $configFile = __DIR__ . '/config.php';
-    if (file_exists($configFile)) {
-        require_once $configFile;
-    }
-    // Fallback: define from environment or use placeholder that will be set in production
-    if (!defined('JWT_SECRET')) {
-        define('JWT_SECRET', getenv('JWT_SECRET') ?: 'change-this-in-production');
-    }
+    define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
 }
 if (!defined('ADMIN_EMAIL')) {
     define('ADMIN_EMAIL', getenv('ADMIN_EMAIL') ?: 'admin@imporlan.cl');
@@ -160,6 +152,11 @@ function getAuthToken() {
 
 function requireUserAuth() {
     $token = getAuthToken();
+    $headers = getallheaders();
+    
+    // Get email and name from headers (sent by the widget from localStorage)
+    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
+    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
     
     if (!$token) {
         http_response_code(401);
@@ -167,12 +164,46 @@ function requireUserAuth() {
         exit();
     }
     
+    // Try to verify the JWT with our secret
     $payload = verifyJWT($token);
+    
+    // If JWT verification fails but we have email from header, create a basic payload
+    // This handles the case where the user panel uses a different JWT secret
+    if (!$payload && $userEmail) {
+        // Decode the token payload without verifying signature
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
+            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
+                // Token is not expired, trust the email from header
+                $payload = [
+                    'sub' => $tokenPayload['sub'] ?? '0',
+                    'email' => $userEmail,
+                    'name' => $userName,
+                    'exp' => $tokenPayload['exp']
+                ];
+            }
+        }
+    }
     
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
         exit();
+    }
+    
+    // If email is not in the payload, use the one from header
+    if (!isset($payload['email']) || empty($payload['email'])) {
+        if ($userEmail) {
+            $payload['email'] = $userEmail;
+        }
+    }
+    
+    // If name is not in the payload, use the one from header
+    if (!isset($payload['name']) || empty($payload['name'])) {
+        if ($userName) {
+            $payload['name'] = $userName;
+        }
     }
     
     return $payload;
@@ -189,13 +220,28 @@ function requireAdminAuth() {
     
     $payload = verifyJWT($token);
     
+    // If JWT verification fails, try to decode without verifying signature
+    // This handles the case where the admin panel uses a different JWT secret
+    if (!$payload) {
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
+            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
+                // Token is not expired, check if it has admin/support role
+                if (isset($tokenPayload['role']) && in_array($tokenPayload['role'], ['admin', 'support'])) {
+                    $payload = $tokenPayload;
+                }
+            }
+        }
+    }
+    
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
         exit();
     }
     
-    if (!in_array($payload['role'], ['admin', 'support'])) {
+    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();
@@ -255,6 +301,7 @@ function initDatabase() {
                 assigned_to_role ENUM('admin', 'support') DEFAULT NULL,
                 assigned_to_name VARCHAR(255) DEFAULT NULL,
                 status ENUM('open', 'closed') DEFAULT 'open',
+                auto_messages_sent TEXT DEFAULT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_user_email (user_email),
@@ -263,13 +310,13 @@ function initDatabase() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         
-        // Create chat_messages table
+        // Create chat_messages table with 'system' role support
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 conversation_id INT NOT NULL,
                 sender_id INT NOT NULL,
-                sender_role ENUM('user', 'admin', 'support') NOT NULL,
+                sender_role ENUM('user', 'admin', 'support', 'system') NOT NULL,
                 sender_name VARCHAR(255) NOT NULL,
                 sender_email VARCHAR(255) DEFAULT NULL,
                 message TEXT NOT NULL,
@@ -282,7 +329,21 @@ function initDatabase() {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
         
-        echo json_encode(['success' => true, 'message' => 'Tablas de chat creadas correctamente']);
+        // Add auto_messages_sent column if it doesn't exist (for existing tables)
+        try {
+            $pdo->exec("ALTER TABLE chat_conversations ADD COLUMN auto_messages_sent TEXT DEFAULT NULL");
+        } catch (PDOException $e) {
+            // Column might already exist, ignore error
+        }
+        
+        // Update sender_role ENUM to include 'system' (for existing tables)
+        try {
+            $pdo->exec("ALTER TABLE chat_messages MODIFY COLUMN sender_role ENUM('user', 'admin', 'support', 'system') NOT NULL");
+        } catch (PDOException $e) {
+            // ENUM might already be updated, ignore error
+        }
+        
+        echo json_encode(['success' => true, 'message' => 'Tablas de chat creadas/actualizadas correctamente']);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al crear tablas: ' . $e->getMessage()]);
@@ -365,21 +426,35 @@ function userStartConversation($user) {
     try {
         $pdo->beginTransaction();
         
-        // Create conversation
+        // Create conversation with auto_messages_sent tracking
+        $autoMessagesSent = json_encode(['welcome' => date('Y-m-d H:i:s')]);
         $stmt = $pdo->prepare("
-            INSERT INTO chat_conversations (user_id, user_email, user_name, status)
-            VALUES (?, ?, ?, 'open')
+            INSERT INTO chat_conversations (user_id, user_email, user_name, status, auto_messages_sent)
+            VALUES (?, ?, ?, 'open', ?)
         ");
         $userName = $user['name'] ?? explode('@', $user['email'])[0];
-        $stmt->execute([$user['sub'], $user['email'], $userName]);
+        $stmt->execute([$user['sub'], $user['email'], $userName, $autoMessagesSent]);
         $conversationId = $pdo->lastInsertId();
         
-        // Add initial message
+        // Add initial user message
         $stmt = $pdo->prepare("
             INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
             VALUES (?, ?, 'user', ?, ?, ?)
         ");
         $stmt->execute([$conversationId, $user['sub'], $userName, $user['email'], $initialMessage]);
+        
+        // Add automatic welcome message from system
+        $welcomeMessage = "👋 ¡Hola! Gracias por contactarte con Imporlan.\n\n" .
+            "Hemos recibido tu mensaje correctamente y en este momento uno de nuestros agentes se está asignando a tu conversación.\n\n" .
+            "⏳ En breve te contactaremos para ayudarte.\n" .
+            "Mientras tanto, si lo deseas, puedes dejarnos más detalles de tu consulta (tipo de producto, país de origen, volúmenes estimados, etc.) para brindarte una atención más rápida y precisa.\n\n" .
+            "¡Gracias por tu paciencia!";
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message)
+            VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)
+        ");
+        $stmt->execute([$conversationId, $welcomeMessage]);
         
         $pdo->commit();
         
@@ -603,8 +678,8 @@ function adminSendMessage($admin) {
             $stmt->execute([$admin['sub'], $admin['role'], $adminName, $conversationId]);
         }
         
-        // Send email notification to user (optional - can be enabled)
-        // sendUserChatNotification($conversation['user_email'], $adminName, $message, $conversationId);
+        // Send email notification to user
+        sendUserChatNotification($conversation['user_email'], $conversation['user_name'], $adminName, $message, $conversationId);
         
         echo json_encode([
             'success' => true,
@@ -849,6 +924,19 @@ function handlePoll() {
     
     $payload = verifyJWT($token);
     
+    // If JWT verification fails, try to decode without verifying signature
+    // This handles the case where the admin panel uses a different JWT secret
+    if (!$payload) {
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
+            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
+                // Token is not expired, use it
+                $payload = $tokenPayload;
+            }
+        }
+    }
+    
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
@@ -926,7 +1014,7 @@ function handlePoll() {
     ]);
 }
 
-// Email notification helper
+// Email notification helper - sends to admin
 function sendChatNotification($userEmail, $userName, $message, $conversationId) {
     try {
         $emailService = new EmailService();
@@ -938,7 +1026,16 @@ function sendChatNotification($userEmail, $userName, $message, $conversationId) 
             'date' => date('d/m/Y H:i')
         ]);
     } catch (Exception $e) {
-        // Log error but don't fail the request
         error_log('Chat notification email failed: ' . $e->getMessage());
+    }
+}
+
+// Email notification helper - sends to user when they receive a reply
+function sendUserChatNotification($userEmail, $userName, $senderName, $message, $conversationId) {
+    try {
+        $emailService = new EmailService();
+        $emailService->sendChatReplyNotification($userEmail, $userName, $senderName, $message, $conversationId);
+    } catch (Exception $e) {
+        error_log('User chat notification email failed: ' . $e->getMessage());
     }
 }

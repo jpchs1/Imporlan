@@ -678,8 +678,8 @@ function adminSendMessage($admin) {
             $stmt->execute([$admin['sub'], $admin['role'], $adminName, $conversationId]);
         }
         
-        // Send email notification to user (optional - can be enabled)
-        // sendUserChatNotification($conversation['user_email'], $adminName, $message, $conversationId);
+        // Send email notification to user
+        sendUserChatNotification($conversation['user_email'], $conversation['user_name'], $adminName, $message, $conversationId);
         
         echo json_encode([
             'success' => true,
@@ -1014,7 +1014,7 @@ function handlePoll() {
     ]);
 }
 
-// Email notification helper
+// Email notification helper - sends to admin
 function sendChatNotification($userEmail, $userName, $message, $conversationId) {
     try {
         $emailService = new EmailService();
@@ -1026,7 +1026,16 @@ function sendChatNotification($userEmail, $userName, $message, $conversationId) 
             'date' => date('d/m/Y H:i')
         ]);
     } catch (Exception $e) {
-        // Log error but don't fail the request
         error_log('Chat notification email failed: ' . $e->getMessage());
+    }
+}
+
+// Email notification helper - sends to user when they receive a reply
+function sendUserChatNotification($userEmail, $userName, $senderName, $message, $conversationId) {
+    try {
+        $emailService = new EmailService();
+        $emailService->sendChatReplyNotification($userEmail, $userName, $senderName, $message, $conversationId);
+    } catch (Exception $e) {
+        error_log('User chat notification email failed: ' . $e->getMessage());
     }
 }

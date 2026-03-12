@@ -24,6 +24,7 @@
     let lastPollTime = null;
     let unreadCount = 0;
     let notificationSoundEnabled = localStorage.getItem(NOTIFICATION_SOUND_ENABLED_KEY) !== 'false';
+    let browserNotificationsEnabled = false;
 
     // DOM Elements
     let chatModal = null;
@@ -92,9 +93,12 @@
         createChatModal();
         console.log('Chat: Modal created');
         
+        // Request browser notification permission
+        requestBrowserNotificationPermission();
+
         // Get initial unread count
         fetchUnreadCount();
-        
+
         // Start polling for unread count
         setInterval(fetchUnreadCount, 30000);
 
@@ -709,8 +713,11 @@
             const result = await apiCall('user_unread_count');
             const newCount = result.unread_count || 0;
             
-            if (newCount > unreadCount && notificationSoundEnabled) {
-                playNotificationSound();
+            if (newCount > unreadCount) {
+                if (notificationSoundEnabled) {
+                    playNotificationSound();
+                }
+                showBrowserNotification('Imporlan', 'Tienes ' + newCount + ' mensaje' + (newCount > 1 ? 's' : '') + ' sin leer');
             }
             
             unreadCount = newCount;
@@ -749,6 +756,10 @@
                     if (notificationSoundEnabled) {
                         playNotificationSound();
                     }
+                    var lastMsg = result.new_messages[result.new_messages.length - 1];
+                    if (lastMsg && lastMsg.sender_role !== 'user') {
+                        showBrowserNotification(lastMsg.sender_name || 'Imporlan', lastMsg.message || 'Nuevo mensaje');
+                    }
                 }
 
                 // Refresh conversations list
@@ -764,6 +775,41 @@
         if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
+        }
+    }
+
+    // Request browser notification permission
+    function requestBrowserNotificationPermission() {
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                browserNotificationsEnabled = true;
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(function(permission) {
+                    browserNotificationsEnabled = permission === 'granted';
+                });
+            }
+        }
+    }
+
+    // Show browser notification
+    function showBrowserNotification(senderName, messageText) {
+        if (!browserNotificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            var truncated = messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText;
+            var notification = new Notification('Nuevo mensaje de ' + (senderName || 'Imporlan'), {
+                body: truncated,
+                icon: 'https://www.imporlan.cl/assets/logo.png',
+                tag: 'imporlan-chat-' + Date.now(),
+                requireInteraction: false
+            });
+            notification.onclick = function() {
+                window.focus();
+                openChat();
+                notification.close();
+            };
+            setTimeout(function() { notification.close(); }, 8000);
+        } catch (e) {
+            console.error('Browser notification error:', e);
         }
     }
 
