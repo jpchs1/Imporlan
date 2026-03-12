@@ -1567,6 +1567,26 @@
       main.style.setProperty('overflow-x', 'hidden', 'important');
       main.style.setProperty('height', 'auto', 'important');
     }
+    // Fix card footers: stack vertically on mobile
+    var footers = document.querySelectorAll('.mkt-card-footer');
+    footers.forEach(function(footer) {
+      footer.style.setProperty('flex-direction', 'column', 'important');
+      footer.style.setProperty('align-items', 'stretch', 'important');
+      footer.style.setProperty('gap', '10px', 'important');
+    });
+    var sellers = document.querySelectorAll('.mkt-card-seller');
+    sellers.forEach(function(seller) {
+      seller.style.setProperty('width', '100%', 'important');
+    });
+    var actions = document.querySelectorAll('.mkt-card-actions');
+    actions.forEach(function(action) {
+      action.style.setProperty('width', '100%', 'important');
+      action.style.setProperty('flex-shrink', '1', 'important');
+    });
+    var actionBtns = document.querySelectorAll('.mkt-card-actions button');
+    actionBtns.forEach(function(btn) {
+      btn.style.setProperty('flex', '1', 'important');
+    });
   }
 
   function addStyles() {
