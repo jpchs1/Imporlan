@@ -97,11 +97,13 @@ if ($action === 'sync_files') {
     $filesToSync = [
         'assets/marketplace-public.js',
         'panel/assets/marketplace-enhancer.js',
+        'panel/assets/chat-widget-user.js',
         'panel/admin/assets/admin-data-enhancer.js',
         'panel-test/admin/assets/admin-data-enhancer.js',
         'api/users_api.php',
         'api/email_service.php',
         'api/marketplace_api.php',
+        'api/chat_api.php',
     ];
     
     $ghRawBase = 'https://raw.githubusercontent.com/jpchs1/Imporlan/main/';
