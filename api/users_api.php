@@ -63,9 +63,13 @@ switch ($action) {
         requireAdminAuthShared();
         usersGetSecondaryEmail();
         break;
+    case 'send_password_reset':
+        requireAdminAuthShared();
+        usersSendPasswordReset();
+        break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida. Use: migrate, list, create, update, delete, update_email, set_secondary_email, get_secondary_email']);
+        echo json_encode(['error' => 'Accion no valida. Use: migrate, list, create, update, delete, update_email, set_secondary_email, get_secondary_email, send_password_reset']);
 }
 
 function usersMigrate() {
@@ -496,6 +500,69 @@ function usersGetSecondaryEmail() {
         echo json_encode(['success' => true, 'secondary_email' => $row ? $row['secondary_email'] : null]);
     } catch (PDOException $e) {
         echo json_encode(['success' => true, 'secondary_email' => null]);
+    }
+}
+
+function usersSendPasswordReset() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    $email = trim($input['email'] ?? '');
+
+    if (!$id && !$email) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id o email del usuario']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Find user
+        if ($id) {
+            $stmt = $pdo->prepare("SELECT id, name, email FROM admin_users WHERE id = ?");
+            $stmt->execute([$id]);
+        } else {
+            $stmt = $pdo->prepare("SELECT id, name, email FROM admin_users WHERE LOWER(email) = LOWER(?)");
+            $stmt->execute([$email]);
+        }
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Usuario no encontrado en admin_users']);
+            return;
+        }
+
+        // Generate temporary password (12 chars, alphanumeric + special)
+        $chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+        $tempPassword = '';
+        for ($i = 0; $i < 12; $i++) {
+            $tempPassword .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+
+        // Update password in database
+        $stmtUpdate = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
+        $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
+
+        // Send email with temporary password
+        require_once __DIR__ . '/email_service.php';
+        $emailService = new EmailService();
+        $result = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $tempPassword);
+
+        if ($result['success']) {
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email']]);
+        } else {
+            // Password was updated but email failed - still report success with warning
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido'), 'email_error' => true]);
+        }
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al resetear contrasena: ' . $e->getMessage()]);
     }
 }
 

@@ -854,6 +854,52 @@ BASE64;
     }
 
     /**
+     * Send password reset email with temporary password
+     */
+    public function sendPasswordResetEmail($userEmail, $userName, $temporaryPassword) {
+        $c = $this->colors;
+
+        $loginUrl = $this->websiteUrl . '/admin/';
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('warning', 'Reseteo de contrasena') . '
+            </div>
+
+            <h2 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 700; text-align: center;">
+                Tu contrasena ha sido restablecida
+            </h2>
+
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($userName ?: 'Usuario') . ', un administrador ha restablecido tu contrasena de acceso al panel de Imporlan.
+            </p>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fef3c7; border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['warning'] . ';">
+                <tr>
+                    <td style="padding: 20px;">
+                        <h3 style="margin: 0 0 10px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Tu nueva contrasena temporal</h3>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 700; font-family: monospace; letter-spacing: 2px; background: #fff; padding: 12px 16px; border-radius: 8px; text-align: center;">' . htmlspecialchars($temporaryPassword) . '</p>
+                    </td>
+                </tr>
+            </table>
+
+            <p style="margin: 0 0 15px 0; color: ' . $c['error'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Por seguridad, te recomendamos cambiar esta contrasena despues de iniciar sesion.
+            </p>
+
+            <div style="margin: 30px 0; text-align: center;">
+                ' . $this->getButton('Iniciar Sesion', $loginUrl) . '
+            </div>
+
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si no solicitaste este cambio, contacta al administrador de inmediato.
+            </p>';
+
+        $subject = 'Tu contrasena ha sido restablecida - Imporlan';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, 'Reseteo de contrasena'), 'password_reset', ['user_email' => $userEmail]);
+    }
+
+    /**
      * Look up the secondary email for a given primary email address.
      * Checks the user_secondary_emails table.
      */

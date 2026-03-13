@@ -138,7 +138,9 @@
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Email Secundario <span style="font-weight:400;text-transform:none;font-size:11px">(recibira copia de todos los correos)</span></label>' +
       '<input id="enhancer-usr-secondary-email" type="email" value="' + esc(secondaryEmail) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="segundo@email.com (opcional)"></div>' +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Contrasena ' + (isEdit ? '(dejar vacio para no cambiar)' : '*') + '</label>' +
-      '<input id="enhancer-usr-pass" type="password" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="********"></div>' +
+      '<div style="display:flex;gap:8px;align-items:center"><input id="enhancer-usr-pass" type="password" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="********">' +
+      (isEdit ? '<button id="enhancer-toggle-pass" type="button" style="padding:10px 12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:18px;cursor:pointer;flex-shrink:0" title="Mostrar/ocultar contrasena">&#128065;</button>' : '') + '</div></div>' +
+      (isEdit ? '<div style="margin-top:-8px"><button id="enhancer-send-reset" type="button" style="padding:8px 16px;border-radius:8px;border:1px solid #f97316;background:transparent;color:#f97316;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Enviar Reseteo de Contrasena</button></div>' : '') +
       '<div><label style="display:block;font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;text-transform:uppercase">Telefono</label>' +
       '<input id="enhancer-usr-phone" value="' + esc(phone) + '" style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box" placeholder="+56 9 1234 5678"></div>' +
       '<div style="display:flex;gap:16px">' +
@@ -370,6 +372,40 @@
     var modal = document.getElementById("enhancer-user-modal");
     document.getElementById("enhancer-close-user-modal").onclick = function() { modal.remove(); };
     document.getElementById("enhancer-cancel-user").onclick = function() { modal.remove(); };
+    var toggleBtn = document.getElementById("enhancer-toggle-pass");
+    if (toggleBtn) {
+      toggleBtn.onclick = function() {
+        var passInput = document.getElementById("enhancer-usr-pass");
+        if (passInput.type === "password") { passInput.type = "text"; } else { passInput.type = "password"; }
+      };
+    }
+    var resetBtn = document.getElementById("enhancer-send-reset");
+    if (resetBtn && user) {
+      resetBtn.onclick = function() {
+        if (!confirm("¿Enviar email de reseteo de contrasena a " + user.email + "?\n\nSe generara una contrasena temporal y se enviara por email.")) return;
+        resetBtn.disabled = true;
+        resetBtn.innerHTML = "Enviando...";
+        fetch(API_BASE + "/users_api.php?action=send_password_reset", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ id: user.id, email: user.email })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.success) {
+            alert(data.message);
+            resetBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Enviado';
+            resetBtn.style.borderColor = "#10b981";
+            resetBtn.style.color = "#10b981";
+          } else {
+            alert(data.error || "Error al enviar reseteo");
+            resetBtn.disabled = false;
+            resetBtn.innerHTML = 'Enviar Reseteo de Contrasena';
+          }
+        }).catch(function(err) {
+          alert("Error de conexion: " + err.message);
+          resetBtn.disabled = false;
+          resetBtn.innerHTML = 'Enviar Reseteo de Contrasena';
+        });
+      };
+    }
     document.getElementById("enhancer-save-user").onclick = function() {
       var name = document.getElementById("enhancer-usr-name").value.trim();
       var email = document.getElementById("enhancer-usr-email").value.trim();
