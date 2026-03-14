@@ -760,6 +760,32 @@ BASE64;
         
         return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_update', $orderData);
     }
+
+    public function sendStatusChangeEmail($userEmail, $firstName, $orderData, $oldStatus, $newStatus) {
+        $orderNumber = $orderData['order_number'] ?? 'N/A';
+        $statusLabels = [
+            'new' => 'Nuevo',
+            'pending_admin_fill' => 'Pendiente',
+            'in_progress' => 'En Proceso',
+            'completed' => 'Completado',
+            'expired' => 'Vencido',
+            'canceled' => 'Cancelado'
+        ];
+        $newLabel = $statusLabels[$newStatus] ?? $newStatus;
+        $subject = 'Tu Expediente ' . $orderNumber . ' ahora esta ' . $newLabel . ' - Imporlan';
+        $htmlContent = $this->getStatusChangeTemplate($firstName, $orderData, $oldStatus, $newStatus);
+
+        $this->sendInternalNotification('status_change', [
+            'order_number' => $orderNumber,
+            'customer_email' => $userEmail,
+            'customer_name' => $firstName,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'date' => date('d/m/Y H:i')
+        ]);
+
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'status_change', $orderData);
+    }
     
     public function sendCriticalErrorNotification($errorData) {
         return $this->sendInternalNotification('critical_error', [
@@ -2430,6 +2456,113 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - Imporlan');
+    }
+
+    private function getStatusChangeTemplate($firstName, $orderData, $oldStatus, $newStatus) {
+        $c = $this->colors;
+        $orderNumber = htmlspecialchars($orderData['order_number'] ?? 'N/A');
+
+        $statusConfig = [
+            'new' => [
+                'label' => 'Nuevo',
+                'badge' => 'info',
+                'color' => '#3b82f6',
+                'icon' => 'info',
+                'message' => 'Tu expediente ha sido creado y esta siendo revisado por nuestro equipo. Pronto comenzaremos a trabajar en tu busqueda.'
+            ],
+            'pending_admin_fill' => [
+                'label' => 'Pendiente',
+                'badge' => 'warning',
+                'color' => '#f59e0b',
+                'icon' => 'warning',
+                'message' => 'Tu expediente esta pendiente de revision. Nuestro equipo esta preparando tu busqueda personalizada.'
+            ],
+            'in_progress' => [
+                'label' => 'En Proceso - Monitoreo Continuo',
+                'badge' => 'success',
+                'color' => '#10b981',
+                'icon' => 'success',
+                'message' => 'Tu expediente esta en proceso con monitoreo continuo. Nuestro equipo esta buscando activamente las mejores opciones para ti y se iran agregando nuevas alternativas a medida que las encontremos.'
+            ],
+            'completed' => [
+                'label' => 'Completado',
+                'badge' => 'success',
+                'color' => '#6366f1',
+                'icon' => 'success',
+                'message' => 'Tu expediente ha sido completado exitosamente. Todas las opciones han sido revisadas y entregadas. Si necesitas algo mas, no dudes en contactarnos.'
+            ],
+            'expired' => [
+                'label' => 'Vencido',
+                'badge' => 'error',
+                'color' => '#ef4444',
+                'icon' => 'error',
+                'message' => 'Tu expediente ha vencido. Si deseas reactivar tu busqueda, contactanos y con gusto te ayudaremos.'
+            ],
+            'canceled' => [
+                'label' => 'Cancelado',
+                'badge' => 'error',
+                'color' => '#64748b',
+                'icon' => 'error',
+                'message' => 'Tu expediente ha sido cancelado. Si tienes alguna consulta o deseas iniciar una nueva busqueda, estamos a tu disposicion.'
+            ]
+        ];
+
+        $config = $statusConfig[$newStatus] ?? $statusConfig['new'];
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge($config['badge'], 'Cambio de Estado') . '
+            </div>
+
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 600; text-align: center;">
+                Expediente ' . $orderNumber . '
+            </h2>
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">
+                Hola ' . htmlspecialchars($firstName) . ', el estado de tu expediente ha sido actualizado.
+            </p>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                <tr>
+                    <td style="padding: 20px; background: linear-gradient(135deg, ' . $config['color'] . '10, ' . $config['color'] . '20); border-radius: 16px; border: 1px solid ' . $config['color'] . '30;">
+                        <div style="text-align: center; margin-bottom: 12px;">
+                            <span style="display: inline-block; padding: 8px 24px; border-radius: 9999px; font-size: 16px; font-weight: 700; background: ' . $config['color'] . '; color: #ffffff; letter-spacing: .02em;">
+                                ' . htmlspecialchars($config['label']) . '
+                            </span>
+                        </div>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                            ' . $config['message'] . '
+                        </p>
+                    </td>
+                </tr>
+            </table>';
+
+        $infoItems = ['N de Expediente' => $orderNumber, 'Nuevo Estado' => $config['label']];
+        if (!empty($orderData['plan_name'])) {
+            $infoItems['Plan'] = $orderData['plan_name'];
+        }
+        if (!empty($orderData['asset_name'])) {
+            $infoItems['Embarcacion/Objetivo'] = $orderData['asset_name'];
+        }
+        if (!empty($orderData['agent_name'])) {
+            $agentInfo = $orderData['agent_name'];
+            if (!empty($orderData['agent_phone'])) {
+                $agentInfo .= ' (' . $orderData['agent_phone'] . ')';
+            }
+            $infoItems['Agente Asignado'] = $agentInfo;
+        }
+
+        $content .= $this->getInfoCard('Datos del Expediente', $infoItems);
+
+        $content .= '
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver mi Expediente en el Panel', $this->panelUrl) . '
+            </div>
+
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna pregunta sobre tu expediente, puedes contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+
+        return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - ' . $config['label']);
     }
     
     private function getPaymentStatusTemplate($firstName, $statusData) {
