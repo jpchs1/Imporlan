@@ -292,19 +292,41 @@
       '</div></div>';
   }
 
+  /* ── Fallback placeholder for broken images ── */
+  var BOAT_PLACEHOLDER_SVG = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>';
+
+  window._lcImgFallback = function(imgEl) {
+    if (imgEl.dataset.retried) {
+      var parent = imgEl.parentElement;
+      if (parent && parent.classList.contains('lc-img-preview')) {
+        imgEl.style.display = 'none';
+        var fb = parent.querySelector('.lc-img-fallback');
+        if (fb) fb.style.display = 'flex';
+      }
+      return;
+    }
+    imgEl.dataset.retried = '1';
+    var origSrc = imgEl.getAttribute('data-original-src') || imgEl.src;
+    imgEl.removeAttribute('crossorigin');
+    setTimeout(function() { imgEl.src = ''; imgEl.src = origSrc; }, 800);
+  };
+
   /* ── Vessel card (for detail view) ── */
   function renderVesselCard(lk, idx) {
     var hasData = lk.url || lk.image_url || lk.value_usa_usd || lk.value_chile_clp;
     if (!hasData) return "";
 
     var imgHtml = '';
+    var fallbackDiv = '<div class="lc-img-fallback" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);flex-direction:column;align-items:center;justify-content:center;gap:4px">' + BOAT_PLACEHOLDER_SVG + '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span></div>';
     if (lk.image_url) {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
-        '<img src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="this.style.display=\'none\'">' +
+        '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
+        fallbackDiv +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     } else {
-      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;position:relative">' +
-        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative">' +
+        BOAT_PLACEHOLDER_SVG +
+        '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span>' +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
 
@@ -328,9 +350,15 @@
       valuesHtml += '</div>';
     }
 
+    var sourceName = '';
+    if (lk.url) {
+      try { var urlHost = new URL(lk.url).hostname; if (urlHost.indexOf('facebook') !== -1 || urlHost.indexOf('fbcdn') !== -1 || urlHost.indexOf('fb.com') !== -1) sourceName = 'Facebook'; else if (urlHost.indexOf('boattrader') !== -1) sourceName = 'BoatTrader'; else if (urlHost.indexOf('boats.com') !== -1) sourceName = 'Boats.com'; else sourceName = urlHost.replace('www.','').split('.')[0]; } catch(e) {}
+    }
+
     var urlHtml = '';
     if (lk.url) {
       urlHtml = '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+        (sourceName ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#64748b;font-weight:500"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' + escapeHtml(sourceName) + '</span>' : '') +
         '<a href="' + escapeHtml(lk.url) + '" target="_blank" rel="noopener" style="color:#0891b2;text-decoration:none;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0f9ff;border-radius:6px;border:1px solid #bae6fd;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(lk.url) + '">' +
         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
         escapeHtml(truncateUrl(lk.url)) + '</a>' +
@@ -373,9 +401,18 @@
     var cardsHtml = "";
     var links = order.links || [];
     var hasAnyLink = false;
+    var totalLinks = 0;
+    var linksWithImages = 0;
+    var linksWithPrices = 0;
     links.forEach(function (lk, idx) {
       var card = renderVesselCard(lk, idx);
-      if (card) { hasAnyLink = true; cardsHtml += card; }
+      if (card) {
+        hasAnyLink = true;
+        totalLinks++;
+        if (lk.image_url) linksWithImages++;
+        if (lk.value_usa_usd || lk.value_chile_clp) linksWithPrices++;
+        cardsHtml += card;
+      }
     });
     if (!hasAnyLink) {
       cardsHtml = '<div style="text-align:center;padding:40px 20px;color:#94a3b8;font-size:14px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 12px;display:block"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Tu agente esta buscando las mejores opciones para ti.</div>';
@@ -385,8 +422,9 @@
     var agentPhone = order.agent_phone || "+56 9 40211459";
     var agentHtml = '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:12px;border:1px solid #bae6fd">' +
       '<div style="width:40px;height:40px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>' +
-      '<div><p style="margin:0;font-size:14px;color:#0c4a6e;font-weight:600">' + escapeHtml(agentName) + '</p>' +
-      '<p style="margin:2px 0 0;font-size:13px;color:#0891b2">' + escapeHtml(agentPhone) + '</p></div></div>';
+      '<div style="flex:1"><p style="margin:0;font-size:14px;color:#0c4a6e;font-weight:600">' + escapeHtml(agentName) + '</p>' +
+      '<p style="margin:2px 0 0;font-size:13px;color:#0891b2">' + escapeHtml(agentPhone) + '</p></div>' +
+      '<a href="https://wa.me/' + agentPhone.replace(/[^0-9]/g,'') + '" target="_blank" rel="noopener" style="flex-shrink:0;padding:8px 14px;border-radius:8px;background:#25d366;color:#fff;font-size:12px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>Escribir</a></div>';
 
     var infoGrid = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">';
     var infoItems = [
@@ -407,6 +445,16 @@
 
     var whatsappUrl = "https://wa.me/56940211459?text=" + encodeURIComponent("Hola, necesito ayuda con mi expediente " + (order.order_number || ""));
 
+    /* Summary stats bar */
+    var statsHtml = '';
+    if (totalLinks > 0) {
+      statsHtml = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 28px;border-top:1px solid #f1f5f9">' +
+        '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:8px;border:1px solid #a7f3d0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span style="font-size:13px;color:#047857;font-weight:600">' + totalLinks + ' embarcaciones encontradas</span></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:8px;border:1px solid #bae6fd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:13px;color:#0c4a6e;font-weight:600">' + linksWithImages + ' con fotos</span></div>' +
+        (linksWithPrices > 0 ? '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:8px;border:1px solid #fcd34d"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span style="font-size:13px;color:#92400e;font-weight:600">' + linksWithPrices + ' con precios</span></div>' : '') +
+        '</div>';
+    }
+
     return '<div style="margin-bottom:16px"><button class="lc-btn-back" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Volver</button></div>' +
       '<div style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
       '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;position:relative;overflow:hidden">' +
@@ -417,13 +465,15 @@
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + getStatusBadge(order.status) +
       '<a href="' + whatsappUrl + '" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25d366;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contactar Soporte</a></div></div></div>' +
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
-            (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
-            '<div class="lc-detail-wrapper" style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      statsHtml +
+      (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
+      '<div class="lc-detail-wrapper" style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
       '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
       '<div style="display:flex;align-items:center;gap:12px">' +
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
-      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Embarcaciones Disponibles</h3>' +
-      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las tarjetas para ordenar por prioridad</p></div></div></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Embarcaciones Encontradas</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las tarjetas para ordenar por prioridad</p></div></div>' +
+      '<span style="font-size:13px;color:#64748b;font-weight:500">' + totalLinks + ' resultados</span></div>' +
       '<div id="lc-cards-container" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">' + cardsHtml + '</div></div>';
   }
 
@@ -447,7 +497,7 @@
       el.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); var url = this.getAttribute("data-url"); if (!url) return;
         var overlay = document.createElement("div");
         overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:lcFadeIn .2s;backdrop-filter:blur(8px)";
-        overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
+        overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" referrerpolicy="no-referrer" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)" onerror="this.style.display=\'none\';this.parentElement.insertAdjacentHTML(\'beforeend\',\'<div style=\\\'padding:60px 40px;text-align:center;color:#94a3b8\\\'><p style=\\\'font-size:16px;margin:0\\\'>Imagen no disponible</p><p style=\\\'font-size:13px;margin:8px 0 0\\\'>El sitio externo no permite cargar esta imagen directamente</p></div>\')"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
         overlay.addEventListener("click", function () { overlay.remove(); });
         document.body.appendChild(overlay); });
     });
