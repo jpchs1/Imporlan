@@ -1114,6 +1114,23 @@ function createOrderFromPurchase($purchase) {
     }
 }
 
+function ensureRankingColumns($pdo) {
+    try {
+        $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('ranking_author_name', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_name VARCHAR(255) AFTER admin_notes");
+        }
+        if (!in_array('ranking_author_role', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_role ENUM('user','admin') AFTER ranking_author_name");
+        }
+        if (!in_array('ranking_updated_at', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_updated_at TIMESTAMP NULL AFTER ranking_author_role");
+        }
+    } catch (PDOException $e) {
+        error_log("ensureRankingColumns: " . $e->getMessage());
+    }
+}
+
 function saveRanking() {
     $input = json_decode(file_get_contents('php://input'), true);
     $orderId = intval($input['order_id'] ?? 0);
@@ -1141,6 +1158,9 @@ function saveRanking() {
         echo json_encode(['error' => 'Database connection failed']);
         return;
     }
+
+    // Auto-migrate ranking columns if needed
+    ensureRankingColumns($pdo);
 
     try {
         // Verify access: if user role, check email matches order
@@ -1294,20 +1314,19 @@ function notifyRanking() {
             </div>
         </div>';
 
-        $emailResult = sendImporlanEmail(
+        $emailService = new EmailService();
+        $emailResult = $emailService->sendCustomEmail(
             $recipientEmail,
             'Ranking Actualizado - ' . $order['order_number'],
-            $emailHtml,
-            'contacto@imporlan.cl'
+            $emailHtml
         );
 
         // Also send internal copy
         if ($recipientEmail !== 'contacto@imporlan.cl') {
-            sendImporlanEmail(
+            $emailService->sendCustomEmail(
                 'contacto@imporlan.cl',
                 '[Copia] Ranking Actualizado - ' . $order['order_number'],
-                $emailHtml,
-                'contacto@imporlan.cl'
+                $emailHtml
             );
         }
 
@@ -1320,7 +1339,7 @@ function notifyRanking() {
         echo json_encode([
             'success' => true,
             'message' => 'Notificacion enviada a ' . $recipientEmail,
-            'email_sent' => $emailResult ? true : false
+            'email_sent' => !empty($emailResult['success'])
         ]);
     } catch (Exception $e) {
         error_log("Error notifying ranking: " . $e->getMessage());

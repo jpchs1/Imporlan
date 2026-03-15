@@ -8,6 +8,9 @@
 
   const API_BASE = "/api";
 
+  var rankingPollingTimer = null;
+  var lastRankingUpdatedAt = null;
+
   const STATUS_COLORS = {
     new: { bg: "#3b82f6", text: "#ffffff", label: "Nuevo" },
     pending_admin_fill: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
@@ -710,6 +713,42 @@
     }
   }
 
+  /* ── Ranking Polling (30s) ── */
+  function startRankingPolling(orderId) {
+    stopRankingPolling();
+    rankingPollingTimer = setInterval(function() {
+      if (!document.getElementById('lc-cards-container')) { stopRankingPolling(); return; }
+      pollRankingUpdate(orderId);
+    }, 30000);
+  }
+
+  function stopRankingPolling() {
+    if (rankingPollingTimer) { clearInterval(rankingPollingTimer); rankingPollingTimer = null; }
+  }
+
+  function pollRankingUpdate(orderId) {
+    fetchOrderDetail(orderId).then(function(order) {
+      if (!order) return;
+      var newTs = order.ranking_updated_at || null;
+      if (lastRankingUpdatedAt && newTs && newTs !== lastRankingUpdatedAt) {
+        var authorName = order.ranking_author_name || 'Alguien';
+        var authorRole = order.ranking_author_role || '';
+        var roleLabel = authorRole === 'admin' ? 'Agente' : 'Usuario';
+        showToast('Ranking actualizado por ' + authorName + ' (' + roleLabel + ')', 'info');
+        lastRankingUpdatedAt = newTs;
+        currentOrderDetail = order;
+        var inject = document.getElementById('lc-expedientes-inject');
+        if (inject) {
+          inject.innerHTML = renderDetailView(order);
+          attachListeners(inject);
+          fixMobileLayout();
+        }
+      } else if (newTs) {
+        lastRankingUpdatedAt = newTs;
+      }
+    }).catch(function() { /* silent */ });
+  }
+
   function notifyRankingChange(orderId) {
     var userData = getUserData();
     var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
@@ -942,13 +981,17 @@
     inject.innerHTML = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;padding:24px"><div style="height:200px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:12px"></div></div>';
     var order = await fetchOrderDetail(orderId);
     currentOrderDetail = order;
+    lastRankingUpdatedAt = order ? (order.ranking_updated_at || null) : null;
     inject.innerHTML = renderDetailView(order);
     attachListeners(inject);
     fixMobileLayout();
     inject.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (order && order.id) startRankingPolling(order.id);
   }
 
   function hideDetailInline() {
+    stopRankingPolling();
+    lastRankingUpdatedAt = null;
     var inject = document.getElementById("lc-expedientes-inject");
     if (!inject) return;
     isRendering = false;
