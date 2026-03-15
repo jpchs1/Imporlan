@@ -90,6 +90,12 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminChangeStatus();
             break;
+        case 'save_ranking':
+            saveRanking();
+            break;
+        case 'notify_ranking':
+            notifyRanking();
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Accion no valida']);
@@ -200,6 +206,17 @@ function runMigration() {
         }
         if (!in_array('link_status', $linkCols)) {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN link_status ENUM('active','sold','unavailable') DEFAULT 'active' AFTER hours");
+        }
+
+        // Ranking metadata columns
+        if (!in_array('ranking_author_name', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_name VARCHAR(255) AFTER admin_notes");
+        }
+        if (!in_array('ranking_author_role', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_role ENUM('user','admin') AFTER ranking_author_name");
+        }
+        if (!in_array('ranking_updated_at', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_updated_at TIMESTAMP NULL AFTER ranking_author_role");
         }
 
         echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
@@ -709,6 +726,8 @@ function adminReorderLinks() {
     $input = json_decode(file_get_contents('php://input'), true);
     $orderId = intval($input['order_id'] ?? 0);
     $linkIds = $input['link_ids'] ?? [];
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? 'admin';
 
     if (!$orderId || empty($linkIds)) {
         http_response_code(400);
@@ -729,9 +748,20 @@ function adminReorderLinks() {
             $stmt = $pdo->prepare("UPDATE order_links SET row_index = ? WHERE id = ? AND order_id = ?");
             $stmt->execute([$index + 1, intval($linkId), $orderId]);
         }
+
+        // Update ranking metadata if author info provided
+        if ($authorName) {
+            $stmt = $pdo->prepare("UPDATE orders SET ranking_author_name = ?, ranking_author_role = ?, ranking_updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$authorName, $authorRole, $orderId]);
+        }
+
         $pdo->commit();
 
-        logOrderEvent($pdo, $orderId, 'reordered_links', ['new_order' => $linkIds]);
+        logOrderEvent($pdo, $orderId, 'reordered_links', [
+            'new_order' => $linkIds,
+            'author_name' => $authorName,
+            'author_role' => $authorRole
+        ]);
 
         echo json_encode(['success' => true, 'message' => 'Orden actualizado']);
     } catch (PDOException $e) {
@@ -1081,6 +1111,221 @@ function createOrderFromPurchase($purchase) {
     } catch (PDOException $e) {
         error_log("Error creating order from purchase: " . $e->getMessage());
         return null;
+    }
+}
+
+function saveRanking() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkIds = $input['link_ids'] ?? [];
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? ''; // 'user' or 'admin'
+    $userEmail = $input['user_email'] ?? '';
+
+    if (!$orderId || empty($linkIds) || !$authorName || !$authorRole) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id, link_ids, author_name y author_role']);
+        return;
+    }
+
+    // Validate author_role
+    if (!in_array($authorRole, ['user', 'admin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'author_role debe ser user o admin']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Verify access: if user role, check email matches order
+        if ($authorRole === 'user') {
+            $checkStmt = $pdo->prepare("SELECT id FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+            $checkStmt->execute([$orderId, $userEmail]);
+            if (!$checkStmt->fetch()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes acceso a este expediente']);
+                return;
+            }
+        } else {
+            // Admin: require auth
+            requireAdminAuth();
+        }
+
+        $pdo->beginTransaction();
+
+        // Update link order
+        foreach ($linkIds as $index => $linkId) {
+            $stmt = $pdo->prepare("UPDATE order_links SET row_index = ? WHERE id = ? AND order_id = ?");
+            $stmt->execute([$index + 1, intval($linkId), $orderId]);
+        }
+
+        // Update ranking metadata on order
+        $stmt = $pdo->prepare("UPDATE orders SET ranking_author_name = ?, ranking_author_role = ?, ranking_updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$authorName, $authorRole, $orderId]);
+
+        $pdo->commit();
+
+        logOrderEvent($pdo, $orderId, 'ranking_updated', [
+            'author_name' => $authorName,
+            'author_role' => $authorRole,
+            'new_order' => $linkIds
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Ranking actualizado',
+            'ranking_author_name' => $authorName,
+            'ranking_author_role' => $authorRole
+        ]);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error saving ranking: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar ranking']);
+    }
+}
+
+function notifyRanking() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? '';
+    $userEmail = $input['user_email'] ?? '';
+
+    if (!$orderId || !$authorName || !$authorRole) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id, author_name y author_role']);
+        return;
+    }
+
+    // Validate author_role
+    if (!in_array($authorRole, ['user', 'admin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'author_role debe ser user o admin']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Authenticate based on role
+        if ($authorRole === 'user') {
+            // Verify user email matches order
+            $checkStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+            $checkStmt->execute([$orderId, $userEmail]);
+            $order = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$order) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes acceso a este expediente']);
+                return;
+            }
+        } else {
+            // Admin: require auth token
+            requireAdminAuth();
+            $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        // Get links for ranking preview
+        $linkStmt = $pdo->prepare("SELECT url, title, image_url, value_usa_usd, location FROM order_links WHERE order_id = ? ORDER BY row_index ASC LIMIT 5");
+        $linkStmt->execute([$orderId]);
+        $topLinks = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build ranking preview HTML
+        $rankingHtml = '';
+        foreach ($topLinks as $i => $link) {
+            $rankingHtml .= '<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0891b2;text-align:center">#' . ($i + 1) . '</td>';
+            $rankingHtml .= '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b">' . htmlspecialchars($link['title'] ?: ($link['url'] ? substr($link['url'], 0, 50) . '...' : 'Sin datos')) . '</td></tr>';
+        }
+
+        $roleLabel = $authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+
+        // Determine who to notify
+        if ($authorRole === 'user') {
+            // User changed ranking -> notify admin/agent
+            $recipientEmail = 'contacto@imporlan.cl';
+            $recipientName = $order['agent_name'] ?: 'Equipo Imporlan';
+        } else {
+            // Admin changed ranking -> notify user
+            $recipientEmail = $order['customer_email'];
+            $recipientName = $order['customer_name'] ?: 'Cliente';
+        }
+
+        // Send email
+        require_once __DIR__ . '/email_service.php';
+        $emailHtml = '
+        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto">
+            <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px;text-align:center;border-radius:16px 16px 0 0">
+                <h1 style="color:#fff;font-size:24px;margin:0">Ranking Actualizado</h1>
+                <p style="color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0">Expediente ' . htmlspecialchars($order['order_number']) . '</p>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none">
+                <p style="font-size:16px;color:#1e293b;margin:0 0 8px">Hola ' . htmlspecialchars($recipientName) . ',</p>
+                <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 20px"><strong>' . htmlspecialchars($authorName) . '</strong> (' . $roleLabel . ') ha modificado el ranking de embarcaciones del expediente <strong>' . htmlspecialchars($order['order_number']) . '</strong>.</p>
+                <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0">
+                    <p style="font-size:13px;font-weight:700;color:#0891b2;margin:0 0 10px">Top 5 del nuevo ranking:</p>
+                    <table style="width:100%;border-collapse:collapse">' . $rankingHtml . '</table>
+                </div>
+                <p style="font-size:14px;color:#475569;margin:0 0 20px">Puedes revisar el ranking completo en el panel.</p>
+                <div style="text-align:center">
+                    <a href="https://www.imporlan.cl/panel/" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px">Ver Expediente</a>
+                </div>
+            </div>
+            <div style="background:#f8fafc;padding:20px;text-align:center;border-radius:0 0 16px 16px;border:1px solid #e2e8f0;border-top:none">
+                <p style="font-size:12px;color:#94a3b8;margin:0">Imporlan - Importacion de Embarcaciones</p>
+            </div>
+        </div>';
+
+        $emailResult = sendImporlanEmail(
+            $recipientEmail,
+            'Ranking Actualizado - ' . $order['order_number'],
+            $emailHtml,
+            'contacto@imporlan.cl'
+        );
+
+        // Also send internal copy
+        if ($recipientEmail !== 'contacto@imporlan.cl') {
+            sendImporlanEmail(
+                'contacto@imporlan.cl',
+                '[Copia] Ranking Actualizado - ' . $order['order_number'],
+                $emailHtml,
+                'contacto@imporlan.cl'
+            );
+        }
+
+        logOrderEvent($pdo, $orderId, 'ranking_notification_sent', [
+            'author_name' => $authorName,
+            'author_role' => $authorRole,
+            'recipient' => $recipientEmail
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Notificacion enviada a ' . $recipientEmail,
+            'email_sent' => $emailResult ? true : false
+        ]);
+    } catch (Exception $e) {
+        error_log("Error notifying ranking: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al enviar notificacion']);
     }
 }
 

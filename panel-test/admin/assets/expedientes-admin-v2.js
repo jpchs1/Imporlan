@@ -343,10 +343,12 @@
 
   async function reorderLinks(orderId, linkIds) {
     try {
+      var adminUser = getAdminUser();
+      var authorName = adminUser ? (adminUser.name || adminUser.full_name || adminUser.email || 'Admin') : 'Admin';
       var resp = await fetch(API_BASE + "/orders_api.php?action=admin_reorder_links", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ order_id: orderId, link_ids: linkIds }),
+        body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: authorName, author_role: 'admin' }),
       });
       return await resp.json();
     } catch (e) {
@@ -574,10 +576,14 @@
       '<div style="padding:20px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
       '<div style="display:flex;align-items:center;gap:12px">' +
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
-      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Links Opciones en USA</h3>' +
-      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las filas para reordenar por prioridad</p></div></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Ranking de Opciones en USA</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las filas para reordenar (de mas gustada a menos gustada)</p></div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button id="ea-notify-ranking-btn" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(245,158,11,.25)" data-order-id="' + order.id + '">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking</button>' +
       '<button id="ea-add-link" style="padding:8px 18px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div></div>' +
+      buildAdminRankingInfoBar(order) +
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
       '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
@@ -605,6 +611,48 @@
       '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Historial de reportes enviados al cliente</p></div></div></div>' +
       '<div id="ea-reports-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando reportes...</div></div></div>'
     );
+  }
+
+  function buildAdminRankingInfoBar(order) {
+    var authorName = order.ranking_author_name;
+    var authorRole = order.ranking_author_role;
+    var rankingDate = order.ranking_updated_at;
+    if (!authorName) {
+      return '<div style="padding:12px 28px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;display:flex;align-items:center;gap:10px">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+        '<span style="font-size:13px;color:#92400e;font-weight:500">Aun no se ha armado un ranking. El usuario o agente puede arrastrar para ordenar las opciones.</span></div>';
+    }
+    var roleLabel = authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+    var dateStr = rankingDate ? formatDate(rankingDate) : '';
+    return '<div id="ea-ranking-info" style="padding:12px 28px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+      '<span style="font-size:13px;color:#065f46;font-weight:500">Ranking armado por <strong>' + escapeHtml(authorName) + '</strong> (' + roleLabel + ')' + (dateStr ? ' - ' + dateStr : '') + '</span></div>';
+  }
+
+  function notifyAdminRankingChange(orderId) {
+    var adminUser = getAdminUser();
+    var authorName = adminUser ? (adminUser.name || adminUser.full_name || adminUser.email || 'Admin') : 'Admin';
+    var btn = document.getElementById('ea-notify-ranking-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...'; }
+    fetch(API_BASE + '/orders_api.php?action=notify_ranking', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        order_id: parseInt(orderId),
+        author_name: authorName,
+        author_role: 'admin'
+      })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.success) {
+        showToast('Notificacion enviada al usuario', 'success');
+      } else {
+        showToast(data.error || 'Error al notificar', 'error');
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking'; }
+    }).catch(function() {
+      showToast('Error de conexion', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking'; }
+    });
   }
 
   function renderLinkRow(lk, idx) {
@@ -1190,6 +1238,14 @@
             showToast(result.error || "Error al crear", "error");
           }
         });
+      });
+    }
+
+    var notifyRankBtn = document.getElementById("ea-notify-ranking-btn");
+    if (notifyRankBtn) {
+      notifyRankBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        notifyAdminRankingChange(this.getAttribute("data-order-id"));
       });
     }
 
