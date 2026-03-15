@@ -86,6 +86,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminSendClientUpdate();
             break;
+        case 'admin_change_status':
+            requireAdminAuth();
+            adminChangeStatus();
+            break;
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Accion no valida']);
@@ -567,7 +571,7 @@ function adminUpdateLinks() {
                         url = ?, title = ?, image_url = ?, location = ?, hours = ?,
                         value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
-                        selection_order = ?, comments = ?, row_index = ?
+                        selection_order = ?, comments = ?, row_index = ?, link_status = ?
                     WHERE id = ? AND order_id = ?
                 ");
                 $stmt->execute([
@@ -583,6 +587,7 @@ function adminUpdateLinks() {
                     $link['selection_order'] ?? null,
                     $link['comments'] ?? null,
                     $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
+                    $link['link_status'] ?? ($oldLink['link_status'] ?? 'active'),
                     $linkId,
                     $orderId
                 ]);
@@ -930,6 +935,105 @@ function adminSendClientUpdate() {
         error_log("Error sending client update: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al enviar actualizacion: ' . $e->getMessage()]);
+    }
+}
+
+function adminChangeStatus() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+    $newStatus = $input['status'] ?? '';
+    $adminUserId = $input['admin_user_id'] ?? null;
+
+    $validStatuses = ['new', 'pending_admin_fill', 'in_progress', 'completed', 'expired', 'canceled'];
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id del expediente']);
+        return;
+    }
+
+    if (!in_array($newStatus, $validStatuses)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Estado no valido: ' . $newStatus]);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $oldStatus = $order['status'];
+
+        if ($oldStatus === $newStatus) {
+            echo json_encode(['success' => true, 'message' => 'El estado ya es ' . $newStatus, 'email_sent' => false]);
+            return;
+        }
+
+        // Update the status
+        $updateStmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
+        $updateStmt->execute([$newStatus, $orderId]);
+
+        // Log the event
+        logOrderEvent($pdo, $orderId, 'status_changed', ['from' => $oldStatus, 'to' => $newStatus], $adminUserId);
+
+        // Send email notification to client
+        $emailSent = false;
+        $emailError = null;
+        if (!empty($order['customer_email'])) {
+            try {
+                require_once __DIR__ . '/email_service.php';
+                $emailService = new EmailService();
+
+                $firstName = explode(' ', $order['customer_name'] ?? '')[0];
+                if (empty($firstName)) {
+                    $firstName = explode('@', $order['customer_email'])[0];
+                }
+
+                $order['status'] = $newStatus;
+                $result = $emailService->sendStatusChangeEmail(
+                    $order['customer_email'],
+                    $firstName,
+                    $order,
+                    $oldStatus,
+                    $newStatus
+                );
+
+                $emailSent = $result['success'] ?? false;
+                if (!$emailSent) {
+                    $emailError = $result['error'] ?? 'Error desconocido';
+                }
+            } catch (Exception $e) {
+                $emailError = $e->getMessage();
+                error_log("Error sending status change email: " . $e->getMessage());
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Estado actualizado de ' . $oldStatus . ' a ' . $newStatus,
+            'email_sent' => $emailSent,
+            'email_error' => $emailError,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus
+        ]);
+    } catch (PDOException $e) {
+        error_log("Error changing order status: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al cambiar estado: ' . $e->getMessage()]);
     }
 }
 

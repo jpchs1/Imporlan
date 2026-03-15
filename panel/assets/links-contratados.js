@@ -20,6 +20,15 @@
     pending: { bg: "#6366f1", text: "#ffffff", label: "Pendiente" },
   };
 
+  const STATUS_BANNERS = {
+    new: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe", title: "Expediente Nuevo", message: "Tu expediente ha sido creado y esta siendo revisado por nuestro equipo. Pronto comenzaremos a trabajar en tu busqueda." },
+    pending_admin_fill: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', color: "#f59e0b", bg: "#fffbeb", border: "#fde68a", title: "Pendiente de Revision", message: "Tu expediente esta pendiente de revision. Nuestro equipo esta preparando tu busqueda personalizada." },
+    in_progress: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>', color: "#10b981", bg: "#ecfdf5", border: "#a7f3d0", title: "En Proceso - Monitoreo Continuo", message: "Tu expediente esta en proceso con monitoreo continuo. Nuestro equipo esta buscando activamente las mejores opciones para ti y se iran agregando nuevas alternativas a medida que las encontremos." },
+    completed: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', color: "#6366f1", bg: "#eef2ff", border: "#c7d2fe", title: "Expediente Completado", message: "Tu expediente ha sido completado exitosamente. Todas las opciones han sido revisadas y entregadas. Si necesitas algo mas, no dudes en contactarnos." },
+    expired: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', color: "#ef4444", bg: "#fef2f2", border: "#fecaca", title: "Expediente Vencido", message: "Tu expediente ha vencido. Si deseas reactivar tu busqueda, contactanos y con gusto te ayudaremos." },
+    canceled: { icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>', color: "#64748b", bg: "#f8fafc", border: "#cbd5e1", title: "Expediente Cancelado", message: "Tu expediente ha sido cancelado. Si tienes alguna consulta o deseas iniciar una nueva busqueda, estamos a tu disposicion." }
+  };
+
   var isRendering = false;
   var moduleHidden = false;
   var dragSrcEl = null;
@@ -311,6 +320,50 @@
     setTimeout(function() { imgEl.src = ''; imgEl.src = origSrc; }, 800);
   };
 
+  /* ── Parse boat info from URL ── */
+  function parseBoatInfo(url) {
+    var info = {};
+    if (!url) return info;
+    try {
+      var u = new URL(url);
+      var host = u.hostname.toLowerCase();
+      if (host.indexOf('boattrader') !== -1) {
+        // BoatTrader: /boat/2020-chaparral-19-ssi-9930944/
+        var match = u.pathname.match(/\/boat\/(\d{4})-([a-z0-9]+)-(.+?)-(\d+)\/?$/i);
+        if (match) {
+          info.year = match[1];
+          info.brand = match[2].charAt(0).toUpperCase() + match[2].slice(1);
+          var modelParts = match[3].replace(/-/g, ' ');
+          info.model = modelParts.toUpperCase();
+        }
+        info.source = 'BoatTrader';
+      } else if (host.indexOf('facebook') !== -1 || host.indexOf('fb.com') !== -1) {
+        info.source = 'Facebook Marketplace';
+      } else if (host.indexOf('boats.com') !== -1) {
+        info.source = 'Boats.com';
+      }
+    } catch (e) {}
+    return info;
+  }
+
+  function buildHoverOverlay(lk, idx) {
+    var info = parseBoatInfo(lk.url);
+    var lines = [];
+    // Title line: brand + model + year
+    var titleParts = [];
+    if (info.brand) titleParts.push(info.brand);
+    if (info.model) titleParts.push(info.model);
+    if (titleParts.length > 0) lines.push('<div style="font-size:12px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.5)">' + escapeHtml(titleParts.join(' ')) + '</div>');
+    if (info.year) lines.push('<div style="font-size:10px;color:#e2e8f0;font-weight:600">Ano ' + escapeHtml(info.year) + '</div>');
+    if (lk.location) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + escapeHtml(lk.location) + '</div>');
+    if (lk.hours) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escapeHtml(lk.hours) + ' hrs</div>');
+    var vU = formatCurrency(lk.value_usa_usd, 'USD');
+    if (vU) lines.push('<div style="font-size:11px;color:#4ade80;font-weight:700">' + vU + '</div>');
+    if (info.source) lines.push('<div style="font-size:9px;color:#94a3b8;font-weight:500;margin-top:1px">' + escapeHtml(info.source) + '</div>');
+    if (lines.length === 0) return '';
+    return '<div class="lc-hover-overlay" style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.45) 60%,transparent 100%);padding:28px 8px 6px;display:flex;flex-direction:column;gap:2px;opacity:0;transition:opacity .25s ease;pointer-events:none">' + lines.join('') + '</div>';
+  }
+
   /* ── Vessel card (for detail view) ── */
   function renderVesselCard(lk, idx) {
     var hasData = lk.url || lk.image_url || lk.value_usa_usd || lk.value_chile_clp;
@@ -318,17 +371,20 @@
 
     var isSold = lk.link_status === 'sold' || lk.link_status === 'unavailable';
     var imgHtml = '';
-    var soldOverlay = isSold ? '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;z-index:2"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Vendida</span></div>' : '';
+    var statusLabel = lk.link_status === 'sold' ? 'Vendida' : 'No disponible';
+    var soldOverlay = isSold ? '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;z-index:2"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + statusLabel + '</span></div>' : '';
     var fallbackContent = isSold
-      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Vendida</span>'
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + statusLabel + '</span>'
       : BOAT_PLACEHOLDER_SVG + '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span>';
     var fallbackBg = isSold ? 'background:linear-gradient(135deg,#1e1b4b,#312e81)' : 'background:linear-gradient(135deg,#f0f9ff,#e0f2fe)';
     var fallbackDiv = '<div class="lc-img-fallback" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;' + fallbackBg + ';flex-direction:column;align-items:center;justify-content:center;gap:4px">' + fallbackContent + '</div>';
+    var hoverOverlay = buildHoverOverlay(lk, idx);
     if (lk.image_url && !isSold) {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
         '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
         fallbackDiv +
-        '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
+        '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div>' +
+        hoverOverlay + '</div>';
     } else if (lk.image_url && isSold) {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative">' +
         '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;filter:grayscale(1) brightness(.7)" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
@@ -474,6 +530,7 @@
       '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">' + escapeHtml(order.customer_name) + ' - ' + formatDate(order.created_at) + '</p></div>' +
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + getStatusBadge(order.status) +
       '<a href="' + whatsappUrl + '" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25d366;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contactar Soporte</a></div></div></div>' +
+      (function () { var b = STATUS_BANNERS[order.status]; if (!b) return ''; return '<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 28px;background:' + b.bg + ';border-bottom:1px solid ' + b.border + '">' + '<div style="flex-shrink:0;margin-top:2px">' + b.icon + '</div>' + '<div style="flex:1"><p style="margin:0 0 2px;font-size:15px;font-weight:700;color:' + b.color + '">' + b.title + '</p>' + '<p style="margin:0;font-size:13px;color:#475569;line-height:1.5">' + b.message + '</p></div></div>'; })() +
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
       statsHtml +
       (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
@@ -799,6 +856,7 @@
       ".lc-vessel-card .lc-drag-handle:active{cursor:grabbing}" +
       ".lc-drop-indicator{animation:lcFadeIn .15s}" +
       ".lc-img-preview:hover img{transform:scale(1.05)}" +
+      ".lc-img-preview:hover .lc-hover-overlay{opacity:1!important}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
             "@media(max-width:768px){" +

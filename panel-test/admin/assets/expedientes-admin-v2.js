@@ -22,10 +22,21 @@
   };
 
   const STATUS_OPTIONS = [
-    { value: "pending", label: "Pendiente" },
+    { value: "pending_admin_fill", label: "Pendiente" },
     { value: "in_progress", label: "En Proceso" },
     { value: "completed", label: "Completado" },
+    { value: "expired", label: "Vencido" },
+    { value: "canceled", label: "Cancelado" },
   ];
+
+  const STATUS_MESSAGES = {
+    new: "Expediente creado, pendiente de revision.",
+    pending_admin_fill: "Pendiente de revision por el equipo.",
+    in_progress: "En Proceso - Monitoreo Continuo. Se iran agregando nuevas y mejores opciones.",
+    completed: "Expediente completado exitosamente.",
+    expired: "Expediente vencido.",
+    canceled: "Expediente cancelado."
+  };
 
   let currentOrderData = null;
   let currentLinks = [];
@@ -518,6 +529,8 @@
       '<span id="ea-unsaved-badge" style="display:none;padding:8px 16px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:500;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Cambios sin guardar</span>' +
       '<button id="ea-save-all" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button>' +
+      '<button id="ea-change-status-btn" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Cambiar Estado</button>' +
       '<button id="ea-send-client-update" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(59,130,246,.25)">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente</button>' +
       '<button id="ea-preview-report" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(139,92,246,.25)"' + (currentLinks.length === 0 ? ' disabled title="Agrega links primero"' : '') + '>' +
@@ -1226,6 +1239,78 @@
 
         saveAllBtn.disabled = false;
         saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo';
+      });
+    }
+
+    var changeStatusBtn = document.getElementById("ea-change-status-btn");
+    if (changeStatusBtn && currentOrderData) {
+      changeStatusBtn.addEventListener("click", function () {
+        var currentStatus = currentOrderData.status || "new";
+        var statusLabels = { new: "Nuevo", pending_admin_fill: "Pendiente", in_progress: "En Proceso - Monitoreo Continuo", completed: "Completado", expired: "Vencido", canceled: "Cancelado" };
+        var statusColors = { new: "#3b82f6", pending_admin_fill: "#f59e0b", in_progress: "#10b981", completed: "#6366f1", expired: "#ef4444", canceled: "#64748b" };
+        var opts = "";
+        Object.keys(statusLabels).forEach(function (key) {
+          opts += '<label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid ' + (key === currentStatus ? statusColors[key] + '60' : '#e2e8f0') + ';background:' + (key === currentStatus ? statusColors[key] + '08' : '#fff') + ';cursor:pointer;transition:all .2s">' +
+            '<input type="radio" name="ea-new-status" value="' + key + '"' + (key === currentStatus ? " checked" : "") + ' style="accent-color:' + statusColors[key] + ';width:18px;height:18px">' +
+            '<div style="flex:1"><span style="display:inline-block;padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:700;background:' + statusColors[key] + ';color:#fff">' + statusLabels[key] + '</span>' +
+            '<p style="margin:4px 0 0;font-size:12px;color:#64748b">' + (STATUS_MESSAGES[key] || "") + '</p></div></label>';
+        });
+        var overlay = document.createElement("div");
+        overlay.id = "ea-status-modal-overlay";
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s;backdrop-filter:blur(4px)";
+        overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:32px;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 48px rgba(0,0,0,.2)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+          '<h3 style="margin:0;font-size:20px;font-weight:700;color:#1e293b">Cambiar Estado del Expediente</h3>' +
+          '<button id="ea-status-modal-close" style="width:32px;height:32px;border-radius:8px;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px">&times;</button></div>' +
+          '<p style="margin:0 0 4px;font-size:13px;color:#64748b">Expediente <strong>' + escapeHtml(currentOrderData.order_number) + '</strong> - ' + escapeHtml(currentOrderData.customer_name || "") + '</p>' +
+          '<p style="margin:0 0 16px;font-size:13px;color:#94a3b8">Estado actual: <strong style="color:' + (statusColors[currentStatus] || '#64748b') + '">' + (statusLabels[currentStatus] || currentStatus) + '</strong></p>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">' + opts + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fef3c7;border-radius:10px;border:1px solid #fde68a;margin-bottom:20px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' +
+          '<span style="font-size:13px;color:#92400e">Se enviara un email automatico al cliente notificando el cambio de estado.</span></div>' +
+          '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+          '<button id="ea-status-modal-cancel" style="padding:10px 24px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+          '<button id="ea-status-modal-confirm" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio</button></div></div>';
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", function (ev) { if (ev.target === overlay) overlay.remove(); });
+        document.getElementById("ea-status-modal-close").addEventListener("click", function () { overlay.remove(); });
+        document.getElementById("ea-status-modal-cancel").addEventListener("click", function () { overlay.remove(); });
+
+        document.getElementById("ea-status-modal-confirm").addEventListener("click", async function () {
+          var selected = overlay.querySelector('input[name="ea-new-status"]:checked');
+          if (!selected) { showToast("Selecciona un estado", "error"); return; }
+          var newStatus = selected.value;
+          if (newStatus === currentStatus) { showToast("El estado ya es " + (statusLabels[newStatus] || newStatus), "info"); overlay.remove(); return; }
+          var confirmBtn = this;
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Cambiando...';
+          try {
+            var adminUser = getAdminUser();
+            var resp = await fetch(API_BASE + "?action=admin_change_status", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: currentOrderData.id, status: newStatus, admin_user_id: adminUser ? adminUser.id : null }) });
+            var result = await resp.json();
+            if (result.success) {
+              currentOrderData.status = newStatus;
+              var selectEl = document.getElementById("ea-status-select");
+              if (selectEl) selectEl.value = newStatus;
+              var emailMsg = result.email_sent ? " Email enviado al cliente." : (result.email_error ? " Email no enviado: " + result.email_error : "");
+              showToast("Estado cambiado a " + (statusLabels[newStatus] || newStatus) + "." + emailMsg, "success");
+              if (typeof window.logAuditAction === "function") {
+                window.logAuditAction("status_change", "expediente", currentOrderData.id, { status: currentStatus }, { status: newStatus }, "Estado cambiado de " + (statusLabels[currentStatus] || currentStatus) + " a " + (statusLabels[newStatus] || newStatus));
+              }
+              overlay.remove();
+            } else {
+              showToast(result.error || "Error al cambiar estado", "error");
+              confirmBtn.disabled = false;
+              confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio';
+            }
+          } catch (err) {
+            showToast("Error de conexion: " + err.message, "error");
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio';
+          }
+        });
       });
     }
 
