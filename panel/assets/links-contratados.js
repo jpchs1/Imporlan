@@ -35,6 +35,7 @@
   var plans = [];
   var linksApproved = [];
   var linksReview = [];
+  var currentOrderDetail = null; // Store current order detail for ranking
 
   function getUserData() {
     try {
@@ -337,10 +338,49 @@
           info.model = modelParts.toUpperCase();
         }
         info.source = 'BoatTrader';
+      } else if (host.indexOf('yachtworld') !== -1) {
+        // YachtWorld: /yacht/2019-boston-whaler-280-outrage-8038498/
+        // Also: /boats-for-sale/type/make/model/ patterns
+        var ywMatch = u.pathname.match(/\/yacht\/(\d{4})-([a-z0-9]+)-(.+?)-(\d+)\/?$/i);
+        if (ywMatch) {
+          info.year = ywMatch[1];
+          info.brand = ywMatch[2].charAt(0).toUpperCase() + ywMatch[2].slice(1);
+          var ywModel = ywMatch[3].replace(/-/g, ' ');
+          info.model = ywModel.toUpperCase();
+        } else {
+          // Try alternate pattern: /yacht/YEAR-brand-model-model-ID/
+          var ywAlt = u.pathname.match(/\/(?:yacht|boat)[s]?[-\/].*?(\d{4})-([a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*)/i);
+          if (ywAlt) {
+            info.year = ywAlt[1];
+            var parts = ywAlt[2].split('-');
+            if (parts.length > 0) {
+              info.brand = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+              if (parts.length > 1) info.model = parts.slice(1).join(' ').toUpperCase();
+            }
+          }
+        }
+        info.source = 'YachtWorld';
+      } else if (host.indexOf('boats.com') !== -1) {
+        // Boats.com: /power-boats/2000-pathfinder-1810-v-9582195/
+        // Also: /sailing-boats/YEAR-brand-model-ID/
+        var bcMatch = u.pathname.match(/\/(?:power|sailing|motor|sail)[-]?boats?\/(\d{4})-([a-z0-9]+)-(.+?)-(\d+)\/?$/i);
+        if (bcMatch) {
+          info.year = bcMatch[1];
+          info.brand = bcMatch[2].charAt(0).toUpperCase() + bcMatch[2].slice(1);
+          var bcModel = bcMatch[3].replace(/-/g, ' ');
+          info.model = bcModel.toUpperCase();
+        } else {
+          // Alternate pattern with path segments
+          var bcAlt = u.pathname.match(/\/(\d{4})-([a-z][a-z0-9]*)-(.+?)-(\d+)\/?$/i);
+          if (bcAlt) {
+            info.year = bcAlt[1];
+            info.brand = bcAlt[2].charAt(0).toUpperCase() + bcAlt[2].slice(1);
+            info.model = bcAlt[3].replace(/-/g, ' ').toUpperCase();
+          }
+        }
+        info.source = 'Boats.com';
       } else if (host.indexOf('facebook') !== -1 || host.indexOf('fb.com') !== -1) {
         info.source = 'Facebook Marketplace';
-      } else if (host.indexOf('boats.com') !== -1) {
-        info.source = 'Boats.com';
       }
     } catch (e) {}
     return info;
@@ -538,9 +578,15 @@
       '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
       '<div style="display:flex;align-items:center;gap:12px">' +
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
-      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Embarcaciones Encontradas</h3>' +
-      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las tarjetas para ordenar por prioridad</p></div></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Ranking de Embarcaciones</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Ordena de la que mas te gusta a la que menos te gusta</p></div></div>' +
       '<span style="font-size:13px;color:#64748b;font-weight:500">' + totalLinks + ' resultados</span></div>' +
+      buildRankingInfoBar(order) +
+      '<div style="padding:12px 28px;background:#eff6ff;border-bottom:1px solid #bfdbfe;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+      '<span style="font-size:13px;color:#1e40af;font-weight:500;flex:1">Arrastra las tarjetas para armar tu ranking. Al terminar, presiona "Notificar" para avisar al agente.</span>' +
+      '<button id="lc-notify-ranking-btn" style="padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap" data-order-id="' + order.id + '">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notificar Cambio</button></div>' +
       '<div id="lc-cards-container" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">' + cardsHtml + '</div></div>';
   }
 
@@ -571,6 +617,10 @@
     container.querySelectorAll(".lc-inspect-btn").forEach(function (btn) {
       btn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); showInspectionModal(this.getAttribute("data-url"), this.getAttribute("data-idx")); });
     });
+    var notifyBtn = container.querySelector("#lc-notify-ranking-btn");
+    if (notifyBtn) {
+      notifyBtn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); notifyRankingChange(this.getAttribute("data-order-id")); });
+    }
     initDragDrop(container);
   }
 
@@ -599,20 +649,93 @@
   }
 
   function saveClientOrder(container) {
-    var order = [];
-    container.querySelectorAll(".lc-vessel-card").forEach(function (card) { var id = card.getAttribute("data-link-id"); if (id) order.push(id); });
-    try { var oid = getDetailId(); if (oid) { localStorage.setItem("lc_order_" + oid, JSON.stringify(order)); showToast("Orden actualizado", "success"); } } catch (e) {}
+    var linkIds = [];
+    container.querySelectorAll(".lc-vessel-card").forEach(function (card) { var id = card.getAttribute("data-link-id"); if (id) linkIds.push(id); });
+    var oid = getDetailId(); if (!oid || linkIds.length === 0) return;
+    var userData = getUserData();
+    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
+    var userEmail = getUserEmail();
+    fetch(API_BASE + '/orders_api.php?action=save_ranking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order_id: parseInt(oid),
+        link_ids: linkIds,
+        author_name: authorName,
+        author_role: 'user',
+        user_email: userEmail
+      })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.success) {
+        showToast('Ranking guardado', 'success');
+        updateRankingInfoAfterSave(authorName, 'user');
+      } else {
+        showToast(data.error || 'Error al guardar', 'error');
+      }
+    }).catch(function() { showToast('Error de conexion', 'error'); });
   }
 
   function applyClientOrder(container) {
-    var oid = getDetailId(); if (!oid) return;
-    try {
-      var saved = localStorage.getItem("lc_order_" + oid); if (!saved) return;
-      var order = JSON.parse(saved);
-      var cc = container.querySelector("#lc-cards-container"); if (!cc) return;
-      order.forEach(function (linkId) { var card = cc.querySelector('[data-link-id="' + linkId + '"]'); if (card) cc.appendChild(card); });
-      updateCardNumbers(cc);
-    } catch (e) {}
+    // Cards are already ordered by row_index from the DB
+    // No need to apply localStorage order anymore
+    var cc = container.querySelector("#lc-cards-container"); if (!cc) return;
+    updateCardNumbers(cc);
+  }
+
+  function buildRankingInfoBar(order) {
+    var authorName = order.ranking_author_name;
+    var authorRole = order.ranking_author_role;
+    var rankingDate = order.ranking_updated_at;
+    if (!authorName) {
+      return '<div style="padding:12px 28px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;display:flex;align-items:center;gap:10px">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+        '<span style="font-size:13px;color:#92400e;font-weight:500">Aun no se ha armado un ranking. Arrastra las embarcaciones para ordenarlas de la que mas te gusta a la que menos.</span></div>';
+    }
+    var roleLabel = authorRole === 'admin' ? 'Agente' : 'Usuario';
+    var dateStr = rankingDate ? new Date(rankingDate).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return '<div id="lc-ranking-info" style="padding:12px 28px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+      '<span style="font-size:13px;color:#065f46;font-weight:500">Ranking armado por <strong>' + escapeHtml(authorName) + '</strong> (' + roleLabel + ')' + (dateStr ? ' - ' + dateStr : '') + '</span></div>';
+  }
+
+  function updateRankingInfoAfterSave(authorName, authorRole) {
+    var infoBar = document.getElementById('lc-ranking-info');
+    var roleLabel = authorRole === 'admin' ? 'Agente' : 'Usuario';
+    var dateStr = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    var html = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+      '<span style="font-size:13px;color:#065f46;font-weight:500">Ranking armado por <strong>' + escapeHtml(authorName) + '</strong> (' + roleLabel + ') - ' + dateStr + '</span>';
+    if (infoBar) {
+      infoBar.innerHTML = html;
+      infoBar.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)';
+    }
+  }
+
+  function notifyRankingChange(orderId) {
+    var userData = getUserData();
+    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
+    var userEmail = getUserEmail();
+    var btn = document.getElementById('lc-notify-ranking-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lc-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...'; }
+    fetch(API_BASE + '/orders_api.php?action=notify_ranking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order_id: parseInt(orderId),
+        author_name: authorName,
+        author_role: 'user',
+        user_email: userEmail
+      })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.success) {
+        showToast('Notificacion enviada al agente', 'success');
+      } else {
+        showToast(data.error || 'Error al notificar', 'error');
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notificar Cambio'; }
+    }).catch(function() {
+      showToast('Error de conexion', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notificar Cambio'; }
+    });
   }
 
   function showInspectionModal(linkUrl, linkIdx) {
@@ -857,6 +980,8 @@
       ".lc-drop-indicator{animation:lcFadeIn .15s}" +
       ".lc-img-preview:hover img{transform:scale(1.05)}" +
       ".lc-img-preview:hover .lc-hover-overlay{opacity:1!important}" +
+      "@keyframes lcSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}" +
+      ".lc-spin{animation:lcSpin 1s linear infinite}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
             "@media(max-width:768px){" +
