@@ -320,6 +320,50 @@
     setTimeout(function() { imgEl.src = ''; imgEl.src = origSrc; }, 800);
   };
 
+  /* ── Parse boat info from URL ── */
+  function parseBoatInfo(url) {
+    var info = {};
+    if (!url) return info;
+    try {
+      var u = new URL(url);
+      var host = u.hostname.toLowerCase();
+      if (host.indexOf('boattrader') !== -1) {
+        // BoatTrader: /boat/2020-chaparral-19-ssi-9930944/
+        var match = u.pathname.match(/\/boat\/(\d{4})-([a-z0-9]+)-(.+?)-(\d+)\/?$/i);
+        if (match) {
+          info.year = match[1];
+          info.brand = match[2].charAt(0).toUpperCase() + match[2].slice(1);
+          var modelParts = match[3].replace(/-/g, ' ');
+          info.model = modelParts.toUpperCase();
+        }
+        info.source = 'BoatTrader';
+      } else if (host.indexOf('facebook') !== -1 || host.indexOf('fb.com') !== -1) {
+        info.source = 'Facebook Marketplace';
+      } else if (host.indexOf('boats.com') !== -1) {
+        info.source = 'Boats.com';
+      }
+    } catch (e) {}
+    return info;
+  }
+
+  function buildHoverOverlay(lk, idx) {
+    var info = parseBoatInfo(lk.url);
+    var lines = [];
+    // Title line: brand + model + year
+    var titleParts = [];
+    if (info.brand) titleParts.push(info.brand);
+    if (info.model) titleParts.push(info.model);
+    if (titleParts.length > 0) lines.push('<div style="font-size:12px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 3px rgba(0,0,0,.5)">' + escapeHtml(titleParts.join(' ')) + '</div>');
+    if (info.year) lines.push('<div style="font-size:10px;color:#e2e8f0;font-weight:600">Ano ' + escapeHtml(info.year) + '</div>');
+    if (lk.location) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + escapeHtml(lk.location) + '</div>');
+    if (lk.hours) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escapeHtml(lk.hours) + ' hrs</div>');
+    var vU = formatCurrency(lk.value_usa_usd, 'USD');
+    if (vU) lines.push('<div style="font-size:11px;color:#4ade80;font-weight:700">' + vU + '</div>');
+    if (info.source) lines.push('<div style="font-size:9px;color:#94a3b8;font-weight:500;margin-top:1px">' + escapeHtml(info.source) + '</div>');
+    if (lines.length === 0) return '';
+    return '<div class="lc-hover-overlay" style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.45) 60%,transparent 100%);padding:28px 8px 6px;display:flex;flex-direction:column;gap:2px;opacity:0;transition:opacity .25s ease;pointer-events:none">' + lines.join('') + '</div>';
+  }
+
   /* ── Vessel card (for detail view) ── */
   function renderVesselCard(lk, idx) {
     var hasData = lk.url || lk.image_url || lk.value_usa_usd || lk.value_chile_clp;
@@ -327,11 +371,13 @@
 
     var imgHtml = '';
     var fallbackDiv = '<div class="lc-img-fallback" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);flex-direction:column;align-items:center;justify-content:center;gap:4px">' + BOAT_PLACEHOLDER_SVG + '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span></div>';
+    var hoverOverlay = buildHoverOverlay(lk, idx);
     if (lk.image_url) {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
         '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
         fallbackDiv +
-        '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
+        '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div>' +
+        hoverOverlay + '</div>';
     } else {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative">' +
         BOAT_PLACEHOLDER_SVG +
@@ -799,6 +845,7 @@
       ".lc-vessel-card .lc-drag-handle:active{cursor:grabbing}" +
       ".lc-drop-indicator{animation:lcFadeIn .15s}" +
       ".lc-img-preview:hover img{transform:scale(1.05)}" +
+      ".lc-img-preview:hover .lc-hover-overlay{opacity:1!important}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
             "@media(max-width:768px){" +
