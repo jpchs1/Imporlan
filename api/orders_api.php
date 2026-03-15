@@ -198,6 +198,9 @@ function runMigration() {
         if (!in_array('hours', $linkCols)) {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN hours VARCHAR(100) AFTER location");
         }
+        if (!in_array('link_status', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN link_status ENUM('active','sold','unavailable') DEFAULT 'active' AFTER hours");
+        }
 
         echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
     } catch (PDOException $e) {
@@ -568,7 +571,7 @@ function adminUpdateLinks() {
                         url = ?, title = ?, image_url = ?, location = ?, hours = ?,
                         value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
-                        selection_order = ?, comments = ?, row_index = ?
+                        selection_order = ?, comments = ?, row_index = ?, link_status = ?
                     WHERE id = ? AND order_id = ?
                 ");
                 $stmt->execute([
@@ -584,6 +587,7 @@ function adminUpdateLinks() {
                     $link['selection_order'] ?? null,
                     $link['comments'] ?? null,
                     $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
+                    $link['link_status'] ?? ($oldLink['link_status'] ?? 'active'),
                     $linkId,
                     $orderId
                 ]);

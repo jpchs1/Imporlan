@@ -369,19 +369,30 @@
     var hasData = lk.url || lk.image_url || lk.value_usa_usd || lk.value_chile_clp;
     if (!hasData) return "";
 
+    var isSold = lk.link_status === 'sold' || lk.link_status === 'unavailable';
     var imgHtml = '';
-    var fallbackDiv = '<div class="lc-img-fallback" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);flex-direction:column;align-items:center;justify-content:center;gap:4px">' + BOAT_PLACEHOLDER_SVG + '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span></div>';
+    var statusLabel = lk.link_status === 'sold' ? 'Vendida' : 'No disponible';
+    var soldOverlay = isSold ? '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;z-index:2"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + statusLabel + '</span></div>' : '';
+    var fallbackContent = isSold
+      ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span style="font-size:11px;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.05em">' + statusLabel + '</span>'
+      : BOAT_PLACEHOLDER_SVG + '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span>';
+    var fallbackBg = isSold ? 'background:linear-gradient(135deg,#1e1b4b,#312e81)' : 'background:linear-gradient(135deg,#f0f9ff,#e0f2fe)';
+    var fallbackDiv = '<div class="lc-img-fallback" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;' + fallbackBg + ';flex-direction:column;align-items:center;justify-content:center;gap:4px">' + fallbackContent + '</div>';
     var hoverOverlay = buildHoverOverlay(lk, idx);
-    if (lk.image_url) {
+    if (lk.image_url && !isSold) {
       imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative;cursor:pointer" data-url="' + escapeHtml(lk.image_url) + '">' +
         '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
         fallbackDiv +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div>' +
         hoverOverlay + '</div>';
+    } else if (lk.image_url && isSold) {
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;overflow:hidden;position:relative">' +
+        '<img src="' + escapeHtml(lk.image_url) + '" data-original-src="' + escapeHtml(lk.image_url) + '" style="width:100%;height:100%;object-fit:cover;filter:grayscale(1) brightness(.7)" onerror="window._lcImgFallback(this)" referrerpolicy="no-referrer" loading="lazy">' +
+        soldOverlay + fallbackDiv +
+        '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600;z-index:3">#' + (idx + 1) + '</div></div>';
     } else {
-      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative">' +
-        BOAT_PLACEHOLDER_SVG +
-        '<span style="font-size:10px;color:#94a3b8;font-weight:500">Sin imagen</span>' +
+      imgHtml = '<div class="lc-img-preview" style="flex-shrink:0;width:160px;height:120px;border-radius:12px;' + fallbackBg + ';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative">' +
+        fallbackContent +
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
 
