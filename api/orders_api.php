@@ -1314,20 +1314,19 @@ function notifyRanking() {
             </div>
         </div>';
 
-        $emailResult = sendImporlanEmail(
+        $emailService = new EmailService();
+        $emailResult = $emailService->sendCustomEmail(
             $recipientEmail,
             'Ranking Actualizado - ' . $order['order_number'],
-            $emailHtml,
-            'contacto@imporlan.cl'
+            $emailHtml
         );
 
         // Also send internal copy
         if ($recipientEmail !== 'contacto@imporlan.cl') {
-            sendImporlanEmail(
+            $emailService->sendCustomEmail(
                 'contacto@imporlan.cl',
                 '[Copia] Ranking Actualizado - ' . $order['order_number'],
-                $emailHtml,
-                'contacto@imporlan.cl'
+                $emailHtml
             );
         }
 
@@ -1340,7 +1339,7 @@ function notifyRanking() {
         echo json_encode([
             'success' => true,
             'message' => 'Notificacion enviada a ' . $recipientEmail,
-            'email_sent' => $emailResult ? true : false
+            'email_sent' => !empty($emailResult['success'])
         ]);
     } catch (Exception $e) {
         error_log("Error notifying ranking: " . $e->getMessage());
