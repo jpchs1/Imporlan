@@ -121,7 +121,7 @@
     return false;
   }
   function getDetailId() {
-    return null;
+    return currentOrderDetail ? (currentOrderDetail.id || currentOrderDetail) : null;
   }
 
   /* ── Data fetching ── */
@@ -941,8 +941,8 @@
     inject.setAttribute("data-prev", inject.innerHTML);
     inject.innerHTML = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;padding:24px"><div style="height:200px;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:lcPulse 1.5s infinite;border-radius:12px"></div></div>';
     var order = await fetchOrderDetail(orderId);
+    currentOrderDetail = order;
     inject.innerHTML = renderDetailView(order);
-    applyClientOrder(inject);
     attachListeners(inject);
     fixMobileLayout();
     inject.scrollIntoView({ behavior: "smooth", block: "start" });

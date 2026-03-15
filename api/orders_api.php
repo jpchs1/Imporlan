@@ -1204,6 +1204,13 @@ function notifyRanking() {
         return;
     }
 
+    // Validate author_role
+    if (!in_array($authorRole, ['user', 'admin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'author_role debe ser user o admin']);
+        return;
+    }
+
     $pdo = getDbConnection();
     if (!$pdo) {
         http_response_code(500);
@@ -1212,9 +1219,24 @@ function notifyRanking() {
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
-        $stmt->execute([$orderId]);
-        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Authenticate based on role
+        if ($authorRole === 'user') {
+            // Verify user email matches order
+            $checkStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+            $checkStmt->execute([$orderId, $userEmail]);
+            $order = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$order) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes acceso a este expediente']);
+                return;
+            }
+        } else {
+            // Admin: require auth token
+            requireAdminAuth();
+            $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         if (!$order) {
             http_response_code(404);
