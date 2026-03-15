@@ -43,6 +43,8 @@
   let hasUnsavedChanges = false;
   var moduleHidden = false;
   var dragSrcRow = null;
+  var adminRankingPollingTimer = null;
+  var adminLastRankingUpdatedAt = null;
 
   function getAdminToken() {
     return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
@@ -627,6 +629,55 @@
     return '<div id="ea-ranking-info" style="padding:12px 28px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
       '<span style="font-size:13px;color:#065f46;font-weight:500">Ranking armado por <strong>' + escapeHtml(authorName) + '</strong> (' + roleLabel + ')' + (dateStr ? ' - ' + dateStr : '') + '</span></div>';
+  }
+
+  /* ── Ranking Polling (30s) ── */
+  function startAdminRankingPolling(orderId) {
+    stopAdminRankingPolling();
+    adminRankingPollingTimer = setInterval(function() {
+      if (!getOrderIdFromHash()) { stopAdminRankingPolling(); return; }
+      if (hasUnsavedChanges) return; // skip if admin has unsaved edits
+      pollAdminRankingUpdate(orderId);
+    }, 30000);
+  }
+
+  function stopAdminRankingPolling() {
+    if (adminRankingPollingTimer) { clearInterval(adminRankingPollingTimer); adminRankingPollingTimer = null; }
+  }
+
+  function pollAdminRankingUpdate(orderId) {
+    fetchOrderDetail(orderId).then(function(order) {
+      if (!order) return;
+      var newTs = order.ranking_updated_at || null;
+      if (adminLastRankingUpdatedAt && newTs && newTs !== adminLastRankingUpdatedAt) {
+        var authorName = order.ranking_author_name || 'Alguien';
+        var authorRole = order.ranking_author_role || '';
+        var roleLabel = authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+        showToast('Ranking actualizado por ' + authorName + ' (' + roleLabel + ')', 'info');
+        adminLastRankingUpdatedAt = newTs;
+        // Update ranking info bar without full re-render to preserve admin edits
+        var infoBar = document.getElementById('ea-ranking-info');
+        var infoParent = infoBar ? infoBar.parentElement : null;
+        if (infoParent) {
+          var newBar = document.createElement('div');
+          newBar.innerHTML = buildAdminRankingInfoBar(order);
+          infoBar.replaceWith(newBar.firstElementChild);
+        }
+        // Re-render the links table with new order
+        var tbody = document.getElementById('ea-links-tbody');
+        if (tbody && order.links) {
+          currentOrderData = order;
+          currentLinks = order.links;
+          var linksHtml = '';
+          order.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
+          tbody.innerHTML = linksHtml;
+          renumberRows();
+          initDragDrop();
+        }
+      } else if (newTs) {
+        adminLastRankingUpdatedAt = newTs;
+      }
+    }).catch(function() { /* silent */ });
   }
 
   function notifyAdminRankingChange(orderId) {
@@ -1808,6 +1859,8 @@
     if (orderId) {
       var order = await fetchOrderDetail(orderId);
       container.innerHTML = renderDetailView(order);
+      adminLastRankingUpdatedAt = order ? (order.ranking_updated_at || null) : null;
+      if (order) startAdminRankingPolling(orderId);
       if (order && order.customer_email) {
         fetchClientPurchases(order.customer_email).then(function(purchaseData) {
           var productsDiv = document.getElementById("ea-client-products");
@@ -1826,6 +1879,8 @@
   }
 
   function hideModule() {
+    stopAdminRankingPolling();
+    adminLastRankingUpdatedAt = null;
     moduleHidden = true;
     var container = document.getElementById("ea-module-container");
     var mainContent = document.querySelector("main");
