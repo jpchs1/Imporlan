@@ -113,6 +113,59 @@ RewriteRule ^ index.html [L]
 # ETags for cache validation (enabled for JS/CSS revalidation)
 FileETag MTime Size
 
+# ======================================================================
+# ANTI-SPAM & SECURITY - IMPORLAN.CL
+# ======================================================================
+
+# --- Security Headers ---
+<IfModule mod_headers.c>
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-XSS-Protection "1; mode=block"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header set Permissions-Policy "geolocation=(self), microphone=(), camera=()"
+</IfModule>
+
+# --- Block access to sensitive files ---
+<FilesMatch "(^#.*#|\.(bak|conf|dist|fla|in[ci]|log|psd|sh|sql|sw[op])|~)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# --- Protect config files ---
+<FilesMatch "(config\.php|db_config\.php|config_api\.php|\.env)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# --- Block malicious bots ---
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_USER_AGENT} (ahrefs|semrush|mj12bot|dotbot|blexbot|rogerbot|megaindex|seopowersuite|baiduspider|yandexbot) [NC]
+  RewriteRule .* - [F,L]
+</IfModule>
+
+# --- Prevent directory browsing ---
+Options -Indexes
+
+# --- Disable server signature ---
+ServerSignature Off
+
+# ======================================================================
+# END ANTI-SPAM & SECURITY
+# ======================================================================
+
 # php -- BEGIN cPanel-generated handler, do not edit
 # Set the "ea-php74" package as the default "PHP" programming language.
 <IfModule mime_module>
