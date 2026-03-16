@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 define('ADMIN_EMAIL', 'admin@imporlan.cl');
-define('ADMIN_PASSWORD', 'admin123');
+define('ADMIN_PASSWORD', 'Adminimporlan2026');
 define('SUPPORT_EMAIL', 'soporte@imporlan.cl');
 define('SUPPORT_PASSWORD', 'soporte123');
 define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
