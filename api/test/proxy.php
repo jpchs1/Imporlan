@@ -28,7 +28,7 @@ if ($path === '/api/auth/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $adminPassword = 'Adminimporlan2026';
     $supportEmail = 'soporte@imporlan.cl';
     $supportPassword = 'soporte123';
-    $jwtSecret = 'imporlan-admin-secret-key-2026';
+    $jwtSecret = 'imporlan-admin-766ee1d06c0ee969-2026';
     
     $user = null;
     if ($email === $adminEmail && $password === $adminPassword) {
@@ -131,7 +131,7 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     $token = $matches[1];
-    $jwtSecret = 'imporlan-admin-secret-key-2026';
+    $jwtSecret = 'imporlan-admin-766ee1d06c0ee969-2026';
     
     // Verify JWT
     $parts = explode('.', $token);
