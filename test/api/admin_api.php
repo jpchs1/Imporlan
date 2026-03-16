@@ -19,7 +19,7 @@ define('ADMIN_EMAIL', 'admin@imporlan.cl');
 define('ADMIN_PASSWORD', 'Adminimporlan2026');
 define('SUPPORT_EMAIL', 'soporte@imporlan.cl');
 define('SUPPORT_PASSWORD', 'soporte123');
-define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
+define('JWT_SECRET', 'imporlan-admin-766ee1d06c0ee969-2026');
 
 $purchasesFile = __DIR__ . '/purchases.json';
 
