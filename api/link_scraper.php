@@ -56,6 +56,7 @@ function fetchLinkMetadata() {
         'hours' => null,
         'value_usa_usd' => null,
         'title' => null,
+        'engine' => null,
     ];
 
     $html = directFetch($url);
@@ -236,6 +237,40 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
             $hText = trim($hoursEls->item(0)->textContent);
             if (preg_match('/(\d[\d,\.]*)/i', $hText, $m2)) {
                 $result['hours'] = preg_replace('/[,\.]/', '', $m2[1]);
+            }
+        }
+    }
+
+    // Extract engine/motor info
+    if (!isset($result['engine']) || !$result['engine']) {
+        // Try structured elements first
+        if ($xpath) {
+            $engineEls = $xpath->query('//*[contains(@class,"engine") or contains(@class,"motor") or contains(@class,"propulsion") or contains(@data-test,"engine")]');
+            if ($engineEls->length > 0) {
+                $eText = trim($engineEls->item(0)->textContent);
+                if (strlen($eText) > 2 && strlen($eText) < 300) {
+                    $result['engine'] = $eText;
+                }
+            }
+        }
+    }
+    if (!isset($result['engine']) || !$result['engine']) {
+        // Common engine patterns: "Mercruiser 4.5L", "Yamaha F150", "Twin Mercury 300hp", etc.
+        $enginePatterns = [
+            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI))[\w\s\.\-\/]*)/i',
+            '/(?:engine|motor|propulsion)[:\s]+([A-Z][\w\s\.\-\/]{3,80})/i',
+            '/((?:twin|single|triple|quad|inboard|outboard|sterndrive|I\/O)\s+[A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L)))/i',
+            '/((?:Mercury|Mercruiser|Yamaha|Honda|Suzuki|Evinrude|Johnson|Volvo\s*Penta|Caterpillar|Cummins|Yanmar|Tohatsu|Verado|Optimax|EFI|HPDI)\s+[\w\s\.\-\/]{2,60})/i',
+        ];
+        foreach ($enginePatterns as $pat) {
+            if (preg_match($pat, $bodyText, $em)) {
+                $engineVal = trim($em[1]);
+                $engineVal = preg_replace('/\s{2,}/', ' ', $engineVal);
+                $engineVal = rtrim($engineVal, ' .,;:-');
+                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 200) {
+                    $result['engine'] = $engineVal;
+                    break;
+                }
             }
         }
     }

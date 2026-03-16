@@ -594,6 +594,7 @@
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Ubicacion</th>' +
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:150px">Motor</th>' +
       '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Valor USA (USD)</th>' +
       '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Negociar (USD)</th>' +
       '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Chile (CLP)</th>' +
@@ -734,6 +735,7 @@
       '</div></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + '"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';width:72px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-engine" value="' + escapeHtml(lk.engine || '') + '" placeholder="Ej: Mercruiser 4.5L" style="' + ci + ';width:140px"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
@@ -792,6 +794,7 @@
         value_chile_negotiated_clp: parseNumOrNull(stripDots(((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value || '').replace(/\$/g,'').trim())),
         selection_order: parseNumOrNull((row.querySelector(".ea-link-selection_order") || {}).value),
         comments: (row.querySelector(".ea-link-comments") || {}).value || null,
+        engine: (row.querySelector(".ea-link-engine") || {}).value || null,
       });
     });
     return links;
@@ -895,6 +898,10 @@
         usdInput.value = formatUsdDisplay(priceVal);
         filled = true;
       }
+    }
+    if (data.engine) {
+      var engInput = row.querySelector(".ea-link-engine");
+      if (engInput && !engInput.value) { engInput.value = data.engine; filled = true; }
     }
     return filled;
   }

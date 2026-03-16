@@ -400,6 +400,7 @@
     if (info.year) lines.push('<div style="font-size:10px;color:#e2e8f0;font-weight:600">Ano ' + escapeHtml(info.year) + '</div>');
     if (lk.location) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' + escapeHtml(lk.location) + '</div>');
     if (lk.hours) lines.push('<div style="font-size:10px;color:#e2e8f0;display:flex;align-items:center;gap:3px"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + escapeHtml(lk.hours) + ' hrs</div>');
+    if (lk.engine) lines.push('<div style="font-size:10px;color:#93c5fd;display:flex;align-items:center;gap:3px;font-weight:600"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4"/><path d="M12 19v4"/><path d="M1 12h4"/><path d="M19 12h4"/></svg>' + escapeHtml(lk.engine) + '</div>');
     var vU = formatCurrency(lk.value_usa_usd, 'USD');
     if (vU) lines.push('<div style="font-size:11px;color:#4ade80;font-weight:700">' + vU + '</div>');
     if (info.source) lines.push('<div style="font-size:9px;color:#94a3b8;font-weight:500;margin-top:1px">' + escapeHtml(info.source) + '</div>');
@@ -440,10 +441,11 @@
     }
 
     var locationHoursHtml = '';
-    if (lk.location || lk.hours) {
+    if (lk.location || lk.hours || lk.engine) {
       locationHoursHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
       if (lk.location) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#15803d;font-weight:500">' + escapeHtml(lk.location) + '</span></div>';
       if (lk.hours) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#a16207;font-weight:500">' + escapeHtml(lk.hours) + ' hrs</span></div>';
+      if (lk.engine) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4"/><path d="M12 19v4"/><path d="M1 12h4"/><path d="M19 12h4"/></svg><span style="font-size:12px;color:#1d4ed8;font-weight:500">' + escapeHtml(lk.engine) + '</span></div>';
       locationHoursHtml += '</div>';
     }
 
