@@ -414,9 +414,409 @@ function parseBoatTraderHtml($html) {
     return $boats;
 }
 
+/**
+ * Search Bing Images to find a cached thumbnail for a BoatTrader listing.
+ * BoatTrader's CDN (images.boattrader.com) is behind Cloudflare, but Bing
+ * caches thumbnails on its own CDN (ts*.mm.bing.net / th.bing.com) which is
+ * publicly accessible. Bing returns structured JSON in data attributes with
+ * purl (page URL), turl (thumbnail URL), and murl (original image URL).
+ *
+ * Matching priority:
+ *  1. Exact listing ID match in purl (same boat listing)
+ *  2. Same make/model from BoatTrader (similar boat)
+ *  3. Any BoatTrader result (related boat)
+ *  4. First result from any source
+ *
+ * @param string $url       The BoatTrader listing URL
+ * @param string $slug      The URL slug (e.g. "2016-sea-ray-spx-21")
+ * @param string $listingId The listing ID from the URL
+ * @return array|null  Array with 'turl' (thumbnail URL) and 't' (title from Bing), or null
+ */
+function fetchImageViaBing($url, $slug, $listingId) {
+    // Build search query: site:boattrader.com + slug parts + listing ID
+    $slugParts = str_replace('-', ' ', $slug);
+    $query = urlencode("site:boattrader.com $slugParts $listingId");
+    $searchUrl = "https://www.bing.com/images/search?q=$query&first=1";
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $searchUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => [
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+        ],
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$html || strlen($html) < 1000) {
+        error_log("[BoatTrader Scraper] Bing Image search failed: HTTP $httpCode, size=" . strlen($html ?: ''));
+        return null;
+    }
+
+    // Extract JSON data blocks from Bing's m="{...}" attributes
+    // These contain: purl (page URL), turl (Bing thumbnail), murl (original image URL)
+    $results = [];
+    if (preg_match_all('/m="(\{[^"]*\})"/', $html, $mBlocks)) {
+        foreach ($mBlocks[1] as $block) {
+            $decoded = html_entity_decode($block, ENT_QUOTES, 'UTF-8');
+            $purl = '';
+            $turl = '';
+            $murl = '';
+            if (preg_match('/"purl":"([^"]+)"/', $decoded, $pm)) {
+                $purl = html_entity_decode($pm[1], ENT_QUOTES, 'UTF-8');
+            }
+            if (preg_match('/"turl":"([^"]+)"/', $decoded, $tm)) {
+                $turl = html_entity_decode($tm[1], ENT_QUOTES, 'UTF-8');
+            }
+            if (preg_match('/"murl":"([^"]+)"/', $decoded, $mm)) {
+                $murl = html_entity_decode($mm[1], ENT_QUOTES, 'UTF-8');
+            }
+            $title = '';
+            if (preg_match('/"t":"([^"]+)"/', $decoded, $titleM)) {
+                $title = html_entity_decode($titleM[1], ENT_QUOTES, 'UTF-8');
+                // Remove Bing's highlight markers
+                $title = preg_replace('/[\x{e000}\x{e001}]/u', '', $title);
+            }
+            if ($turl && $purl) {
+                $results[] = ['purl' => $purl, 'turl' => $turl, 'murl' => $murl, 't' => $title];
+            }
+        }
+    }
+
+    if (empty($results)) {
+        error_log("[BoatTrader Scraper] No Bing results parsed for listing $listingId");
+        return null;
+    }
+
+    // Priority 1: Exact listing ID match in purl
+    $exactMatch = null;
+    $boattraderMatch = null;
+    $anyMatch = null;
+
+    foreach ($results as $r) {
+        if (!$anyMatch) {
+            $anyMatch = $r;
+        }
+        // Check if this is a BoatTrader page
+        if (strpos($r['purl'], 'boattrader.com') !== false) {
+            // Check for exact listing ID match
+            if (strpos($r['purl'], $listingId) !== false) {
+                $exactMatch = $r;
+                break;
+            }
+            if (!$boattraderMatch) {
+                $boattraderMatch = $r;
+            }
+        }
+    }
+
+    // Pick the best match - ONLY use exact listing ID matches to avoid wrong images
+    // Falling back to a "similar" boat results in showing the wrong boat photo
+    $best = $exactMatch;
+    if (!$best) {
+        error_log("[BoatTrader Scraper] No exact Bing match for listing $listingId (had " . count($results) . " results, boattrader=" . ($boattraderMatch ? 'yes' : 'no') . ")");
+        return null;
+    }
+
+    $thumbUrl = $best['turl'];
+    $matchType = $exactMatch ? 'exact' : ($boattraderMatch ? 'boattrader-similar' : 'any');
+    error_log("[BoatTrader Scraper] Bing match ($matchType) for listing $listingId: " . $best['purl']);
+
+    // Verify the thumbnail is accessible
+    $ch2 = curl_init();
+    curl_setopt_array($ch2, [
+        CURLOPT_URL => $thumbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_NOBODY => false,
+    ]);
+    $imgData = curl_exec($ch2);
+    $imgCode = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+    $imgType = curl_getinfo($ch2, CURLINFO_CONTENT_TYPE);
+    curl_close($ch2);
+
+    if ($imgCode === 200 && strpos($imgType, 'image/') === 0 && strlen($imgData) > 1000) {
+        error_log("[BoatTrader Scraper] Bing thumbnail verified for listing $listingId ($matchType): " . strlen($imgData) . " bytes");
+        return ['turl' => $thumbUrl, 't' => $best['t'] ?? ''];
+    }
+
+    error_log("[BoatTrader Scraper] Bing thumbnail not accessible for listing $listingId");
+    return null;
+}
+
+/**
+ * Search DuckDuckGo to find the correct BoatTrader listing and extract metadata.
+ * DDG reliably returns the exact listing (matched by listing ID in URL) with
+ * title format: "Used 2016 Sea Ray SPX 21, 37416 Chattanooga - Boat Trader"
+ * which contains the correct city and ZIP code.
+ *
+ * Also attempts to extract price and hours from the search snippet, which
+ * sometimes contains the overview text from the BoatTrader page.
+ *
+ * @param string $slug      The URL slug (e.g. "2016-sea-ray-spx-21")
+ * @param string $listingId The listing ID from the URL
+ * @return array  Array with 'location', 'price', 'hours' (any may be empty/null)
+ */
+function fetchMetaViaDDG($slug, $listingId) {
+    $result = ['location' => '', 'price' => null, 'hours' => null];
+
+    $slugParts = str_replace('-', ' ', $slug);
+    $query = urlencode("site:boattrader.com $slugParts $listingId");
+    $searchUrl = "https://html.duckduckgo.com/html/?q=$query";
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $searchUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => [
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+        ],
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$html || strlen($html) < 1000) {
+        error_log("[BoatTrader Scraper] DDG search failed: HTTP $httpCode, size=" . strlen($html ?: ''));
+        return $result;
+    }
+
+    // Parse DDG results - find the one matching our listing ID
+    // DDG result links contain the listing URL encoded in the href
+    if (preg_match_all('/<a[^>]*class="result__a"[^>]*>(.*?)<\/a>/s', $html, $titleMatches)) {
+        // Also get snippets
+        preg_match_all('/<a[^>]*class="result__snippet"[^>]*>(.*?)<\/a>/s', $html, $snippetMatches);
+
+        foreach ($titleMatches[0] as $idx => $fullTag) {
+            // Check if the href contains our listing ID
+            if (strpos($fullTag, $listingId) === false) {
+                continue;
+            }
+
+            // Extract clean title text
+            $titleText = strip_tags($titleMatches[1][$idx]);
+            $titleText = html_entity_decode($titleText, ENT_QUOTES, 'UTF-8');
+            error_log("[BoatTrader Scraper] DDG exact match for $listingId: $titleText");
+
+            // Extract location from title
+            // Format: "Used 2016 Sea Ray SPX 21, 37416 Chattanooga - Boat Trader"
+            if (preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $titleText, $locMatch)) {
+                $city = trim($locMatch[2]);
+                $result['location'] = "$city, US";
+                error_log("[BoatTrader Scraper] DDG location for $listingId: " . $result['location']);
+            }
+
+            // Try to extract price and hours from snippet
+            if (isset($snippetMatches[1][$idx])) {
+                $snippet = strip_tags($snippetMatches[1][$idx]);
+                $snippet = html_entity_decode($snippet, ENT_QUOTES, 'UTF-8');
+
+                // Price: "available for sale at $33,999" or "$33,999"
+                if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $snippet, $priceMatch)) {
+                    $val = floatval(str_replace(',', '', $priceMatch[1]));
+                    if ($val >= 1000 && $val < 10000000) {
+                        $result['price'] = $val;
+                        error_log("[BoatTrader Scraper] DDG price for $listingId: \$" . $result['price']);
+                    }
+                }
+
+                // Hours: "368 engine hours" or "368 hours"
+                if (preg_match('/(\d[\d,]*)\s*(?:engine\s*)?hours/i', $snippet, $hoursMatch)) {
+                    $result['hours'] = intval(str_replace(',', '', $hoursMatch[1]));
+                    error_log("[BoatTrader Scraper] DDG hours for $listingId: " . $result['hours']);
+                }
+            }
+
+            break; // Found our listing, stop
+        }
+    }
+
+    if (!$result['location']) {
+        error_log("[BoatTrader Scraper] DDG: no exact match found for listing $listingId");
+    }
+
+    return $result;
+}
+
+/**
+ * Call external scraper API (hosted on Fly.io) that uses curl_cffi to bypass
+ * Cloudflare and extract all listing data directly from the BoatTrader page.
+ *
+ * @param string $url The BoatTrader listing URL
+ * @return array|null Extracted data or null on failure
+ */
+function fetchViaScraperAPI($url) {
+    $apiBase = 'https://boattrader-scraper-jocitetw.fly.dev';
+    $apiUrl = $apiBase . '/scrape?url=' . urlencode($url);
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $apiUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$response) {
+        error_log("[BoatTrader Scraper] Scraper API failed: HTTP $httpCode");
+        return null;
+    }
+
+    $data = json_decode($response, true);
+    if (!$data || empty($data['success'])) {
+        error_log("[BoatTrader Scraper] Scraper API returned error: " . ($data['error'] ?? 'unknown'));
+        return null;
+    }
+
+    error_log("[BoatTrader Scraper] Scraper API success for listing " . ($data['listing_id'] ?? '?')
+        . ": city=" . ($data['city'] ?? '')
+        . ", price=" . ($data['price'] ?? '')
+        . ", hours=" . ($data['hours'] ?? '')
+        . ", image=" . (!empty($data['image_url']) ? 'yes' : 'no'));
+
+    return $data;
+}
+
+function extractBoatFromUrl($url) {
+    $path = parse_url($url, PHP_URL_PATH) ?? '';
+    // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
+    if (preg_match('/\/boat\/(\d{4})-([a-z][\w-]*?)-([\w-]+?)-(\d{5,})\/?$/i', $path, $m)) {
+        $year = intval($m[1]);
+        $makeRaw = $m[2];
+        $modelRaw = $m[3];
+        $listingId = $m[4];
+        $slug = "$year-$makeRaw-$modelRaw";
+
+        // Convert kebab-case to Title Case
+        $make = ucwords(str_replace('-', ' ', $makeRaw));
+        // Format model: keep original structure with spaces, uppercase parts with digits
+        $modelParts = explode('-', $modelRaw);
+        $model = implode(' ', array_map(function($p) {
+            // If it's all letters, capitalize first; if mixed or has digits, uppercase all
+            return preg_match('/\d/', $p) ? strtoupper($p) : ucfirst($p);
+        }, $modelParts));
+
+        // Step 1 (PRIMARY): Call scraper API that bypasses Cloudflare via curl_cffi
+        // This extracts ALL data directly from the BoatTrader listing page
+        $apiData = fetchViaScraperAPI($url);
+        if ($apiData) {
+            $location = $apiData['location'] ?? '';
+            $price = !empty($apiData['price']) ? floatval($apiData['price']) : null;
+            $hours = !empty($apiData['hours']) ? intval($apiData['hours']) : null;
+            $imageUrl = $apiData['image_url'] ?? '';
+            $apiTitle = $apiData['title'] ?? '';
+
+            // Use API title if available, otherwise build from URL
+            $title = $apiTitle ?: "$year $make $model";
+
+            return [
+                'title' => $title,
+                'year' => $year,
+                'price' => $price,
+                'location' => $location,
+                'hours' => $hours,
+                'image_url' => $imageUrl,
+                'url' => $url,
+                'make' => $make,
+                'model' => $model,
+                'length' => '',
+                'condition' => 'Used',
+                '_partial' => true,
+            ];
+        }
+
+        // Step 2 (FALLBACK): Try DuckDuckGo for metadata
+        error_log("[BoatTrader Scraper] Scraper API failed, falling back to DDG/Bing for $listingId");
+        $ddgMeta = fetchMetaViaDDG($slug, $listingId);
+        $location = $ddgMeta['location'];
+        $price = $ddgMeta['price'];
+        $hours = $ddgMeta['hours'];
+
+        // Step 3 (FALLBACK): Try Bing Image Search for image
+        $bingResult = fetchImageViaBing($url, $slug, $listingId);
+        $imageUrl = $bingResult ? $bingResult['turl'] : '';
+        $bingTitle = $bingResult ? ($bingResult['t'] ?? '') : '';
+
+        // If DDG didn't find location, fall back to Bing title
+        if (!$location && $bingTitle) {
+            if (preg_match('/,\s*(\d{5})\s+(.+?)\s*-\s*Boat\s*Trader/i', $bingTitle, $locMatch)) {
+                $city = trim($locMatch[2]);
+                $location = "$city, US";
+                error_log("[BoatTrader Scraper] Using Bing fallback location for $listingId: $location");
+            }
+        }
+
+        $title = "$year $make $model";
+        return [
+            'title' => $title,
+            'year' => $year,
+            'price' => $price,
+            'location' => $location,
+            'hours' => $hours,
+            'image_url' => $imageUrl,
+            'url' => $url,
+            'make' => $make,
+            'model' => $model,
+            'length' => '',
+            'condition' => 'Used',
+            '_partial' => true,
+        ];
+    }
+    return null;
+}
+
 function scrapeBoatDetail($url) {
+    // Primary method: Use the Fly.io scraper API (bypasses Cloudflare via curl_cffi)
+    $apiData = fetchViaScraperAPI($url);
+    if ($apiData) {
+        error_log('[BoatTrader Scraper] Scraper API returned data, building boat result');
+        $boat = [
+            'title' => $apiData['title'] ?? '',
+            'year' => null,
+            'price' => isset($apiData['price']) ? floatval($apiData['price']) : null,
+            'location' => $apiData['location'] ?? '',
+            'hours' => isset($apiData['hours']) ? intval($apiData['hours']) : null,
+            'engine' => $apiData['engine'] ?? '',
+            'image_url' => $apiData['image_url'] ?? '',
+            'url' => $url,
+            'make' => '',
+            'model' => '',
+            'length' => '',
+            'condition' => 'Used',
+            'value_usa_usd' => isset($apiData['price']) ? floatval($apiData['price']) : null,
+        ];
+        // Extract year/make/model from title
+        if ($boat['title'] && preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $boat['title'], $m)) {
+            $boat['year'] = intval($m[1]);
+            $boat['make'] = trim($m[2]);
+            $boat['model'] = trim($m[3]);
+        }
+        return $boat;
+    }
+
+    // Fallback: Try direct fetch (may work if Cloudflare is not blocking)
     $html = btDirectFetch($url);
-    if (!$html) return null;
+
+    // If direct fetch also fails, extract what we can from the URL
+    if (!$html) {
+        error_log('[BoatTrader Scraper] Both scraper API and direct fetch failed for ' . $url . ', extracting data from URL pattern');
+        return extractBoatFromUrl($url);
+    }
 
     $boat = [
         'title' => '',
@@ -424,6 +824,7 @@ function scrapeBoatDetail($url) {
         'price' => null,
         'location' => '',
         'hours' => null,
+        'engine' => '',
         'image_url' => '',
         'url' => $url,
         'make' => '',
@@ -466,19 +867,49 @@ function scrapeBoatDetail($url) {
         }
     }
 
+    $bodyText = $doc->textContent;
+
     if (!$boat['hours']) {
-        $bodyText = $doc->textContent;
         if (preg_match('/(\d[\d,]*)\s*(?:hours?|hrs?|engine\s*hours?)/i', $bodyText, $hm)) {
             $boat['hours'] = intval(str_replace(',', '', $hm[1]));
         }
     }
 
     if (!$boat['price']) {
-        $bodyText = $doc->textContent;
         if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $pm)) {
             $val = floatval(str_replace(',', '', $pm[1]));
             if ($val >= 5000 && $val < 500000) {
                 $boat['price'] = $val;
+            }
+        }
+    }
+
+    // Extract engine info
+    if (empty($boat['engine'])) {
+        $engineEls = $xpath->query('//*[contains(@class,"engine") or contains(@class,"motor") or contains(@class,"propulsion") or contains(@data-test,"engine")]');
+        if ($engineEls->length > 0) {
+            $eText = trim($engineEls->item(0)->textContent);
+            if (strlen($eText) > 2 && strlen($eText) < 300) {
+                $boat['engine'] = $eText;
+            }
+        }
+    }
+    if (empty($boat['engine'])) {
+        $enginePatterns = [
+            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI))[\w\s\.\-\/]*)/i',
+            '/(?:engine|motor|propulsion)[:\s]+([A-Z][\w\s\.\-\/]{3,80})/i',
+            '/((?:twin|single|triple|quad|inboard|outboard|sterndrive|I\/O)\s+[A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L)))/i',
+            '/((?:Mercury|Mercruiser|Yamaha|Honda|Suzuki|Evinrude|Johnson|Volvo\s*Penta|Caterpillar|Cummins|Yanmar|Tohatsu|Verado|Optimax|EFI|HPDI)\s+[\w\s\.\-\/]{2,60})/i',
+        ];
+        foreach ($enginePatterns as $pat) {
+            if (preg_match($pat, $bodyText, $em)) {
+                $engineVal = trim($em[1]);
+                $engineVal = preg_replace('/\s{2,}/', ' ', $engineVal);
+                $engineVal = rtrim($engineVal, ' .,;:-');
+                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 200) {
+                    $boat['engine'] = $engineVal;
+                    break;
+                }
             }
         }
     }

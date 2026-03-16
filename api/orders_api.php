@@ -207,6 +207,9 @@ function runMigration() {
         if (!in_array('link_status', $linkCols)) {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN link_status ENUM('active','sold','unavailable') DEFAULT 'active' AFTER hours");
         }
+        if (!in_array('engine', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN engine VARCHAR(500) AFTER link_status");
+        }
 
         // Ranking metadata columns
         if (!in_array('ranking_author_name', $columns)) {
@@ -588,7 +591,7 @@ function adminUpdateLinks() {
                         url = ?, title = ?, image_url = ?, location = ?, hours = ?,
                         value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
-                        selection_order = ?, comments = ?, row_index = ?, link_status = ?
+                        selection_order = ?, comments = ?, row_index = ?, link_status = ?, engine = ?
                     WHERE id = ? AND order_id = ?
                 ");
                 $stmt->execute([
@@ -605,6 +608,7 @@ function adminUpdateLinks() {
                     $link['comments'] ?? null,
                     $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
                     $link['link_status'] ?? ($oldLink['link_status'] ?? 'active'),
+                    $link['engine'] ?? ($oldLink['engine'] ?? null),
                     $linkId,
                     $orderId
                 ]);
@@ -660,8 +664,8 @@ function adminAddLink() {
         $nextIndex = $maxStmt->fetch(PDO::FETCH_ASSOC)['next_index'];
 
         $stmt = $pdo->prepare("
-            INSERT INTO order_links (order_id, row_index, url, title, image_url, location, hours, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO order_links (order_id, row_index, url, title, image_url, location, hours, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments, engine)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $orderId,
@@ -676,7 +680,8 @@ function adminAddLink() {
             $input['value_chile_clp'] ?? null,
             $input['value_chile_negotiated_clp'] ?? null,
             $input['selection_order'] ?? null,
-            $input['comments'] ?? null
+            $input['comments'] ?? null,
+            $input['engine'] ?? null
         ]);
 
         $linkId = $pdo->lastInsertId();

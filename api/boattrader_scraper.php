@@ -791,6 +791,7 @@ function scrapeBoatDetail($url) {
             'price' => isset($apiData['price']) ? floatval($apiData['price']) : null,
             'location' => $apiData['location'] ?? '',
             'hours' => isset($apiData['hours']) ? intval($apiData['hours']) : null,
+            'engine' => $apiData['engine'] ?? '',
             'image_url' => $apiData['image_url'] ?? '',
             'url' => $url,
             'make' => '',
@@ -823,6 +824,7 @@ function scrapeBoatDetail($url) {
         'price' => null,
         'location' => '',
         'hours' => null,
+        'engine' => '',
         'image_url' => '',
         'url' => $url,
         'make' => '',
@@ -865,19 +867,49 @@ function scrapeBoatDetail($url) {
         }
     }
 
+    $bodyText = $doc->textContent;
+
     if (!$boat['hours']) {
-        $bodyText = $doc->textContent;
         if (preg_match('/(\d[\d,]*)\s*(?:hours?|hrs?|engine\s*hours?)/i', $bodyText, $hm)) {
             $boat['hours'] = intval(str_replace(',', '', $hm[1]));
         }
     }
 
     if (!$boat['price']) {
-        $bodyText = $doc->textContent;
         if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $pm)) {
             $val = floatval(str_replace(',', '', $pm[1]));
             if ($val >= 5000 && $val < 500000) {
                 $boat['price'] = $val;
+            }
+        }
+    }
+
+    // Extract engine info
+    if (empty($boat['engine'])) {
+        $engineEls = $xpath->query('//*[contains(@class,"engine") or contains(@class,"motor") or contains(@class,"propulsion") or contains(@data-test,"engine")]');
+        if ($engineEls->length > 0) {
+            $eText = trim($engineEls->item(0)->textContent);
+            if (strlen($eText) > 2 && strlen($eText) < 300) {
+                $boat['engine'] = $eText;
+            }
+        }
+    }
+    if (empty($boat['engine'])) {
+        $enginePatterns = [
+            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI))[\w\s\.\-\/]*)/i',
+            '/(?:engine|motor|propulsion)[:\s]+([A-Z][\w\s\.\-\/]{3,80})/i',
+            '/((?:twin|single|triple|quad|inboard|outboard|sterndrive|I\/O)\s+[A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L)))/i',
+            '/((?:Mercury|Mercruiser|Yamaha|Honda|Suzuki|Evinrude|Johnson|Volvo\s*Penta|Caterpillar|Cummins|Yanmar|Tohatsu|Verado|Optimax|EFI|HPDI)\s+[\w\s\.\-\/]{2,60})/i',
+        ];
+        foreach ($enginePatterns as $pat) {
+            if (preg_match($pat, $bodyText, $em)) {
+                $engineVal = trim($em[1]);
+                $engineVal = preg_replace('/\s{2,}/', ' ', $engineVal);
+                $engineVal = rtrim($engineVal, ' .,;:-');
+                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 200) {
+                    $boat['engine'] = $engineVal;
+                    break;
+                }
             }
         }
     }
