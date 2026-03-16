@@ -25,7 +25,7 @@ if ($path === '/api/auth/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $input['password'] ?? '';
     
     $adminEmail = 'admin@imporlan.cl';
-    $adminPassword = 'admin123';
+    $adminPassword = 'Adminimporlan2026';
     $supportEmail = 'soporte@imporlan.cl';
     $supportPassword = 'soporte123';
     $jwtSecret = 'imporlan-admin-secret-key-2026';

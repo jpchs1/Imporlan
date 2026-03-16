@@ -33,7 +33,7 @@ if (strlen($newPassword) < 6) {
 
 define('FLY_API', 'https://app-bxlfgnkv.fly.dev');
 define('ADMIN_EMAIL', 'admin@imporlan.cl');
-define('ADMIN_PASS', 'admin123');
+define('ADMIN_PASS', 'Adminimporlan2026');
 
 function flyRequest($method, $path, $body = null, $token = null) {
     $ch = curl_init(FLY_API . $path);
