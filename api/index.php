@@ -7,9 +7,13 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/antispam.php';
 
 // Set CORS headers
 setCorsHeaders();
+
+// Apply anti-spam protection (bot detection + rate limiting)
+imporlan_antispam_protect();
 
 // Get the request URI
 $requestUri = $_SERVER['REQUEST_URI'];
