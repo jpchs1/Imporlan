@@ -1058,30 +1058,37 @@
     }
   }
 
+  function bindOnce(el, event, handler, key) {
+    var attr = "data-ea-bound" + (key ? "-" + key : "");
+    if (el.getAttribute(attr)) return;
+    el.setAttribute(attr, "1");
+    el.addEventListener(event, handler);
+  }
+
   function attachListeners(container) {
     container.querySelectorAll(".ea-btn-edit").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+      bindOnce(btn, "click", function (e) {
         e.stopPropagation();
         window.location.hash = "#expedientes/" + this.getAttribute("data-id");
       });
     });
 
     container.querySelectorAll(".ea-list-row").forEach(function (row) {
-      row.addEventListener("click", function () {
+      bindOnce(row, "click", function () {
         window.location.hash = "#expedientes/" + this.getAttribute("data-id");
       });
-      row.addEventListener("mouseover", function () { this.style.background = "#f8fafc"; });
-      row.addEventListener("mouseout", function () { this.style.background = "transparent"; });
+      bindOnce(row, "mouseover", function () { this.style.background = "#f8fafc"; }, "hover");
+      bindOnce(row, "mouseout", function () { this.style.background = "transparent"; }, "hout");
     });
 
     container.querySelectorAll(".ea-btn-back").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      bindOnce(btn, "click", function () {
         window.location.hash = "#expedientes";
       });
     });
 
     container.querySelectorAll(".ea-open-url").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+      bindOnce(btn, "click", function (e) {
         e.stopPropagation();
         var url = this.getAttribute("data-url");
         if (url) window.open(url, "_blank");
@@ -1089,7 +1096,7 @@
     });
 
     container.querySelectorAll(".ea-copy-url").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+      bindOnce(btn, "click", function (e) {
         e.stopPropagation();
         var url = this.getAttribute("data-url");
         if (url) { navigator.clipboard.writeText(url); showToast("Link copiado", "success"); }
@@ -1097,7 +1104,7 @@
     });
 
     container.querySelectorAll(".ea-link-url").forEach(function (inp) {
-      inp.addEventListener("blur", function () {
+      bindOnce(inp, "blur", function () {
         var val = this.value.trim();
         if (val && val.match(/^https?:\/\//i)) {
           autoFetchLinkData(this);
@@ -1106,12 +1113,12 @@
     });
 
     container.querySelectorAll('.ea-fmt-clp').forEach(function (inp) {
-      inp.addEventListener('focus', function () {
+      bindOnce(inp, 'focus', function () {
         var raw = this.getAttribute('data-raw') || '';
         this.value = raw;
         this.select();
       });
-      inp.addEventListener('blur', function () {
+      bindOnce(inp, 'blur', function () {
         var val = stripDots(this.value.replace(/\$/g,'').trim());
         var n = parseFloat(val);
         if (!isNaN(n)) { this.setAttribute('data-raw', Math.round(n)); this.value = '$ ' + formatDotNumber(n); }
@@ -1120,12 +1127,12 @@
     });
 
     container.querySelectorAll('.ea-fmt-usd').forEach(function (inp) {
-      inp.addEventListener('focus', function () {
+      bindOnce(inp, 'focus', function () {
         var raw = this.getAttribute('data-raw') || '';
         this.value = raw;
         this.select();
       });
-      inp.addEventListener('blur', function () {
+      bindOnce(inp, 'blur', function () {
         var val = this.value.replace(/,/g,'').trim();
         var n = parseFloat(val);
         if (!isNaN(n)) { this.setAttribute('data-raw', n); this.value = formatUsdDisplay(n); }
@@ -1134,7 +1141,7 @@
     });
 
     container.querySelectorAll(".ea-img-preview").forEach(function (img) {
-      img.addEventListener("error", function () {
+      bindOnce(img, "error", function () {
         this.style.display = "none";
         var placeholder = document.createElement("div");
         placeholder.className = "ea-img-placeholder";
@@ -1145,7 +1152,7 @@
       });
     });
     container.querySelectorAll(".ea-img-preview").forEach(function (img) {
-      img.addEventListener("click", function (e) {
+      bindOnce(img, "click", function (e) {
         e.stopPropagation();
         var url = this.getAttribute("data-url");
         var overlay = document.createElement("div");
@@ -1157,7 +1164,7 @@
     });
 
     container.querySelectorAll(".ea-upload-img-btn").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+      bindOnce(btn, "click", function (e) {
         e.stopPropagation();
         var row = this.closest("tr");
         if (row) {
@@ -1168,7 +1175,7 @@
     });
 
     container.querySelectorAll(".ea-img-placeholder").forEach(function (ph) {
-      ph.addEventListener("click", function (e) {
+      bindOnce(ph, "click", function (e) {
         e.stopPropagation();
         var row = this.closest("tr");
         if (row) {
@@ -1179,7 +1186,7 @@
     });
 
     container.querySelectorAll(".ea-img-file-input").forEach(function (inp) {
-      inp.addEventListener("change", function () {
+      bindOnce(inp, "change", function () {
         if (!this.files || !this.files[0]) return;
         var file = this.files[0];
         var row = this.closest("tr");
@@ -1189,7 +1196,7 @@
     });
 
     container.querySelectorAll(".ea-edit-imgurl-btn").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+      bindOnce(btn, "click", function (e) {
         e.stopPropagation();
         var row = this.closest("tr");
         if (!row) return;
@@ -1208,7 +1215,7 @@
 
     var sortFechaBtn = document.getElementById("ea-sort-fecha");
     if (sortFechaBtn) {
-      sortFechaBtn.addEventListener("click", async function () {
+      bindOnce(sortFechaBtn, "click", async function () {
         eaSortDirection = eaSortDirection === "desc" ? "asc" : "desc";
         var arrow = document.getElementById("ea-sort-arrow");
         if (arrow) arrow.textContent = eaSortDirection === "desc" ? "\u25BC" : "\u25B2";
@@ -1230,13 +1237,13 @@
           attachListeners(container);
         }
       });
-      sortFechaBtn.addEventListener("mouseover", function () { this.style.color = "#0891b2"; });
-      sortFechaBtn.addEventListener("mouseout", function () { this.style.color = "#64748b"; });
+      bindOnce(sortFechaBtn, "mouseover", function () { this.style.color = "#0891b2"; }, "hover");
+      bindOnce(sortFechaBtn, "mouseout", function () { this.style.color = "#64748b"; }, "hout");
     }
 
     var filterBtn = document.getElementById("ea-filter-btn");
     if (filterBtn) {
-      filterBtn.addEventListener("click", async function () {
+      bindOnce(filterBtn, "click", async function () {
         var filters = {
           status: document.getElementById("ea-filter-status").value,
           service_type: document.getElementById("ea-filter-service-type").value,
@@ -1259,7 +1266,7 @@
 
     var createBtn = document.getElementById("ea-btn-create");
     if (createBtn) {
-      createBtn.addEventListener("click", function () {
+      bindOnce(createBtn, "click", function () {
         document.body.insertAdjacentHTML("beforeend", renderCreateModal());
         var modal = document.getElementById("ea-create-modal");
 
@@ -1301,7 +1308,7 @@
 
     var notifyRankBtn = document.getElementById("ea-notify-ranking-btn");
     if (notifyRankBtn) {
-      notifyRankBtn.addEventListener("click", function (e) {
+      bindOnce(notifyRankBtn, "click", function (e) {
         e.stopPropagation();
         notifyAdminRankingChange(this.getAttribute("data-order-id"));
       });
@@ -1309,7 +1316,7 @@
 
     var saveAllBtn = document.getElementById("ea-save-all");
     if (saveAllBtn && currentOrderData) {
-      saveAllBtn.addEventListener("click", async function () {
+      bindOnce(saveAllBtn, "click", async function () {
         saveAllBtn.disabled = true;
         saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Guardando...';
 
@@ -1358,7 +1365,7 @@
 
     var changeStatusBtn = document.getElementById("ea-change-status-btn");
     if (changeStatusBtn && currentOrderData) {
-      changeStatusBtn.addEventListener("click", function () {
+      bindOnce(changeStatusBtn, "click", function () {
         var currentStatus = currentOrderData.status || "new";
         var statusLabels = { new: "Nuevo", pending_admin_fill: "Pendiente", in_progress: "En Proceso - Monitoreo Continuo", completed: "Completado", expired: "Vencido", canceled: "Cancelado" };
         var statusColors = { new: "#3b82f6", pending_admin_fill: "#f59e0b", in_progress: "#10b981", completed: "#6366f1", expired: "#ef4444", canceled: "#64748b" };
@@ -1430,7 +1437,7 @@
 
     var deleteOrderBtn = document.getElementById("ea-delete-order");
     if (deleteOrderBtn && currentOrderData) {
-      deleteOrderBtn.addEventListener("click", async function () {
+      bindOnce(deleteOrderBtn, "click", async function () {
         if (!confirm("¿Estas seguro de eliminar el expediente " + currentOrderData.order_number + "?\n\nEsta accion eliminara el expediente y todos sus links asociados. No se puede deshacer.")) return;
         if (!confirm("Confirmar eliminacion definitiva de " + currentOrderData.order_number + "?")) return;
         deleteOrderBtn.disabled = true;
@@ -1452,7 +1459,7 @@
 
     var sendUpdateBtn = document.getElementById("ea-send-client-update");
     if (sendUpdateBtn && currentOrderData) {
-      sendUpdateBtn.addEventListener("click", async function () {
+      bindOnce(sendUpdateBtn, "click", async function () {
         if (!currentOrderData.customer_email) {
           showToast("El expediente no tiene email de cliente", "error");
           return;
@@ -1489,7 +1496,7 @@
 
     var addLinkBtn = document.getElementById("ea-add-link");
     if (addLinkBtn && currentOrderData) {
-      addLinkBtn.addEventListener("click", async function () {
+      bindOnce(addLinkBtn, "click", async function () {
         var result = await addNewLink(currentOrderData.id);
         if (result.success) {
           var newLink = {
@@ -1520,7 +1527,7 @@
     }
 
     container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
-      btn.addEventListener("click", async function (e) {
+      bindOnce(btn, "click", async function (e) {
         e.preventDefault();
         e.stopPropagation();
         var linkId = parseInt(this.getAttribute("data-link-id"));
@@ -1554,7 +1561,7 @@
 
     var previewReportBtn = document.getElementById("ea-preview-report");
     if (previewReportBtn && currentOrderData) {
-      previewReportBtn.addEventListener("click", async function () {
+      bindOnce(previewReportBtn, "click", async function () {
         if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
         previewReportBtn.disabled = true;
         previewReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generando...';
@@ -1583,7 +1590,7 @@
 
     var sendReportBtn = document.getElementById("ea-send-report");
     if (sendReportBtn && currentOrderData) {
-      sendReportBtn.addEventListener("click", async function () {
+      bindOnce(sendReportBtn, "click", async function () {
         if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
         if (!currentOrderData.customer_email) { showToast("El expediente no tiene email de cliente", "error"); return; }
         var reportConfirmMsg = "Enviar reporte profesional a " + currentOrderData.customer_email + "?";
