@@ -522,7 +522,7 @@
     });
 
     if (currentLinks.length === 0) {
-      linksRows = '<tr><td colspan="11" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>No hay links. Agrega uno con el boton de abajo.</td></tr>';
+      linksRows = '<tr><td colspan="17" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>No hay links. Agrega uno con el boton de abajo.</td></tr>';
     }
 
     return (
@@ -590,8 +590,11 @@
       '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Imagen</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Imagen</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Marca</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Modelo</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:65px">A\u00f1o</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Ubicacion</th>' +
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
       '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:150px">Motor</th>' +
@@ -727,8 +730,11 @@
       '<button class="ea-edit-imgurl-btn" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:4px 6px;border-radius:6px;display:flex;align-items:center;font-size:10px;transition:all .15s" title="Editar URL de imagen"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
       '</div>' +
       '<input type="file" class="ea-img-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">' +
-      '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8;display:none" title="URL de la imagen"></div></td>' +
-      '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
+            '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8;display:none" title="URL de la imagen"></div></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-make" value="' + escapeHtml(lk.make || '') + '" placeholder="Ej: Sea Ray" style="' + ci + ';width:100px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-model" value="' + escapeHtml(lk.model || '') + '" placeholder="Ej: SLX 280" style="' + ci + ';width:100px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-year" type="number" value="' + numOrEmpty(lk.year) + '" placeholder="Ej: 2023" style="' + ci + ';width:65px;text-align:center"></td>' +
+            '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
       '<div style="display:flex;gap:2px;flex-shrink:0">' +
       '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
       '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
@@ -795,6 +801,9 @@
         selection_order: parseNumOrNull((row.querySelector(".ea-link-selection_order") || {}).value),
         comments: (row.querySelector(".ea-link-comments") || {}).value || null,
         engine: (row.querySelector(".ea-link-engine") || {}).value || null,
+        make: (row.querySelector(".ea-link-make") || {}).value || null,
+        model: (row.querySelector(".ea-link-model") || {}).value || null,
+        year: parseNumOrNull((row.querySelector(".ea-link-year") || {}).value),
       });
     });
     return links;
@@ -837,7 +846,7 @@
 
         var indicator = document.createElement("tr");
         indicator.className = "ea-drop-indicator-row";
-        indicator.innerHTML = '<td colspan="11" style="padding:0;border:none"><div style="height:3px;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:2px;margin:0 8px"></div></td>';
+        indicator.innerHTML = '<td colspan="17" style="padding:0;border:none"><div style="height:3px;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:2px;margin:0 8px"></div></td>';
 
         if (e.clientY < midY) {
           this.parentNode.insertBefore(indicator, this);
@@ -902,6 +911,18 @@
     if (data.engine) {
       var engInput = row.querySelector(".ea-link-engine");
       if (engInput && !engInput.value) { engInput.value = data.engine; filled = true; }
+    }
+    if (data.make) {
+      var makeInput = row.querySelector(".ea-link-make");
+      if (makeInput && !makeInput.value) { makeInput.value = data.make; filled = true; }
+    }
+    if (data.model) {
+      var modelInput = row.querySelector(".ea-link-model");
+      if (modelInput && !modelInput.value) { modelInput.value = data.model; filled = true; }
+    }
+    if (data.year) {
+      var yearInput = row.querySelector(".ea-link-year");
+      if (yearInput && !yearInput.value) { yearInput.value = data.year; filled = true; }
     }
     return filled;
   }
