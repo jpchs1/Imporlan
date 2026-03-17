@@ -211,6 +211,11 @@ function runMigration() {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN engine VARCHAR(500) AFTER link_status");
         }
 
+        // Timeline step column
+        if (!in_array('timeline_step', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN timeline_step TINYINT UNSIGNED DEFAULT 1 AFTER status");
+        }
+
         // Ranking metadata columns
         if (!in_array('ranking_author_name', $columns)) {
             $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_name VARCHAR(255) AFTER admin_notes");
@@ -272,7 +277,7 @@ function userListOrders() {
         $stmt = $pdo->prepare("
             SELECT id, order_number, customer_email, customer_name, customer_phone,
                    plan_name, requirement_name, asset_name, type_zone, service_type,
-                   agent_name, agent_phone, status, created_at, updated_at
+                   agent_name, agent_phone, status, timeline_step, created_at, updated_at
             FROM orders
             $where
             ORDER BY created_at DESC
@@ -386,7 +391,7 @@ function adminListOrders() {
         $stmt = $pdo->prepare("
             SELECT id, order_number, customer_email, customer_name, customer_phone,
                    plan_name, requirement_name, asset_name, type_zone, service_type,
-                   agent_name, agent_phone, status, origin, admin_notes,
+                   agent_name, agent_phone, status, timeline_step, origin, admin_notes,
                    visible_to_client, purchase_id, created_at, updated_at
             FROM orders
             $whereClause
@@ -512,7 +517,7 @@ function adminUpdateOrder() {
     $allowedFields = [
         'plan_name', 'requirement_name', 'asset_name', 'type_zone',
         'service_type', 'agent_user_id', 'agent_name', 'agent_phone',
-        'status', 'customer_name', 'customer_email', 'customer_phone',
+        'status', 'timeline_step', 'customer_name', 'customer_email', 'customer_phone',
         'origin', 'admin_notes', 'visible_to_client'
     ];
 

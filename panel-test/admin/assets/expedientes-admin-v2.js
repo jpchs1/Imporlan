@@ -570,6 +570,14 @@
       '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
       '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
       '<div><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#0891b2;cursor:pointer">Visible para cliente</label></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Paso Timeline Importacion</label>' +
+      '<select id="ea-f-timeline_step" style="' + inputStyle() + '">' +
+      '<option value="1"' + (parseInt(order.timeline_step) === 1 || !order.timeline_step ? ' selected' : '') + '>1 - Cotizacion (Links/Plan Busqueda)</option>' +
+      '<option value="2"' + (parseInt(order.timeline_step) === 2 ? ' selected' : '') + '>2 - Inspeccion</option>' +
+      '<option value="3"' + (parseInt(order.timeline_step) === 3 ? ' selected' : '') + '>3 - Compra</option>' +
+      '<option value="4"' + (parseInt(order.timeline_step) === 4 ? ' selected' : '') + '>4 - Inland USA</option>' +
+      '<option value="5"' + (parseInt(order.timeline_step) === 5 ? ' selected' : '') + '>5 - Importacion & Entrega</option>' +
+      '</select></div>' +
       "</div></div></div>" +
 
       '<div id="ea-client-products"></div>' +
@@ -1327,6 +1335,7 @@
           agent_phone: document.getElementById("ea-f-agent_phone").value,
           admin_notes: document.getElementById("ea-f-admin_notes").value,
           visible_to_client: document.getElementById("ea-f-visible_to_client").checked ? 1 : 0,
+          timeline_step: parseInt(document.getElementById("ea-f-timeline_step").value) || 1,
         };
 
         var r1 = await saveOrder(orderUpdate);
