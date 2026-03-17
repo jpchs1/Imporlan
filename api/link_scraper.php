@@ -56,7 +56,11 @@ function fetchLinkMetadata() {
         'hours' => null,
         'value_usa_usd' => null,
         'title' => null,
+        'description' => null,
         'engine' => null,
+        'make' => null,
+        'model' => null,
+        'year' => null,
     ];
 
     $html = directFetch($url);
@@ -197,6 +201,22 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
         $titleTag = $xpath->query('//title');
         if ($titleTag->length > 0) {
             $result['title'] = trim($titleTag->item(0)->textContent);
+        }
+    }
+
+    if (!$result['description']) {
+        $ogDesc = $xpath->query('//meta[@property="og:description"]/@content');
+        if ($ogDesc->length > 0) {
+            $desc = html_entity_decode($ogDesc->item(0)->nodeValue);
+            if ($desc && stripos($desc, 'log in') === false) {
+                $result['description'] = $desc;
+            }
+        }
+    }
+    if (!$result['description']) {
+        $metaDesc = $xpath->query('//meta[@name="description"]/@content');
+        if ($metaDesc->length > 0) {
+            $result['description'] = trim($metaDesc->item(0)->nodeValue);
         }
     }
 
@@ -401,6 +421,9 @@ function fetchFacebookMobile($url, &$result) {
     if ($ogDesc->length > 0) {
         $desc = html_entity_decode($ogDesc->item(0)->nodeValue);
         if ($desc && stripos($desc, 'log in') === false) {
+            if (!$result['description']) {
+                $result['description'] = $desc;
+            }
             if (!$result['value_usa_usd']) {
                 if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $desc, $pm)) {
                     $val = floatval(str_replace(',', '', $pm[1]));
@@ -476,6 +499,9 @@ function fetchViaMicrolink($url, &$result) {
     }
 
     $desc = $d['description'] ?? '';
+    if ($desc && !$result['description']) {
+        $result['description'] = $desc;
+    }
     if (!$result['value_usa_usd'] && $desc) {
         if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $desc, $pm)) {
             $val = floatval(str_replace(',', '', $pm[1]));
@@ -534,6 +560,129 @@ function isScreenshotUrl($url) {
     return (bool)preg_match('/microlink\.io\//i', $url);
 }
 
+/**
+ * Extract make, model, year from title and description text.
+ * Works for any source: Facebook Marketplace, Craigslist, generic listings, etc.
+ * Uses known boat brand names to identify make, then extracts model and year.
+ */
+function extractBoatIdentity(&$result) {
+    // Skip if all three are already set
+    if ($result['make'] && $result['model'] && $result['year']) return;
+
+    // Combine available text sources
+    $text = trim(($result['title'] ?? '') . ' ' . ($result['description'] ?? ''));
+    if (!$text || strlen($text) < 5) return;
+
+    // Known boat brands for matching
+    $brands = [
+        'Sea Ray', 'Chaparral', 'Cobalt', 'Monterey', 'Yamaha', 'MasterCraft',
+        'Malibu', 'Bayliner', 'Boston Whaler', 'Grady-White', 'Grady White',
+        'Robalo', 'Wellcraft', 'Four Winns', 'Regal', 'Stingray', 'Tracker',
+        'Ranger', 'Bennington', 'Pontoon', 'Crestliner', 'Lund', 'Skeeter',
+        'Nitro', 'Triton', 'Scout', 'Sailfish', 'Sportsman', 'Key West',
+        'Carolina Skiff', 'Tidewater', 'Nautic Star', 'NauticStar', 'Cobia',
+        'Everglades', 'Pursuit', 'Regulator', 'Yellowfin', 'Hydra-Sports',
+        'Hurricane', 'Starcraft', 'Glastron', 'Larson', 'Rinker', 'Crownline',
+        'Tahoe', 'Sun Tracker', 'Bass Tracker', 'Centurion', 'Tige', 'Axis',
+        'Scarab', 'Heyday', 'Supra', 'Moomba', 'Nautique', 'Correct Craft',
+        'Chris-Craft', 'Chris Craft', 'Lowe', 'Alumacraft', 'G3', 'Vexus',
+        'Phoenix', 'Xpress', 'War Eagle', 'Blazer', 'Excel', 'Pathfinder',
+        'Maverick', 'Hewes', 'Blue Wave', 'Sea Fox', 'Sea Hunt', 'Sea Pro',
+        'Sweetwater', 'Godfrey', 'Sylvan', 'Berkshire', 'South Bay',
+        'Manitou', 'Harris', 'Princecraft', 'Lowe', 'Sun Catcher',
+        'Misty Harbor', 'Avalon', 'Lexington', 'Crest', 'Veranda',
+        'Caymas', 'Vexus', 'Seavee', 'Contender', 'Blackfin', 'Century',
+        'Parker', 'Bertram', 'Viking', 'Hatteras', 'Cabo', 'Riviera',
+        'Prestige', 'Jeanneau', 'Beneteau', 'Catalina', 'Hunter',
+        'Leopard', 'Lagoon', 'Fountaine Pajot', 'Bavaria', 'Dufour',
+    ];
+
+    // Pattern 1: "YEAR MAKE MODEL" (e.g. "2019 Chaparral 23 H2O Sport")
+    if (!$result['year'] || !$result['make']) {
+        $brandsPattern = implode('|', array_map(function($b) {
+            return preg_quote($b, '/');
+        }, $brands));
+
+        if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\s+(.+?)(?:\s*[-–|,\.]|$)/i', $text, $m)) {
+            if (!$result['year']) $result['year'] = intval($m[1]);
+            if (!$result['make']) $result['make'] = trim($m[2]);
+            if (!$result['model']) {
+                $model = trim($m[3]);
+                // Clean up model: remove trailing noise like prices, locations
+                $model = preg_replace('/\s*\$[\d,]+.*$/', '', $model);
+                $model = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]).*$/i', '', $model);
+                $model = trim($model, ' .,;:-');
+                if (strlen($model) >= 1 && strlen($model) <= 80) {
+                    $result['model'] = $model;
+                }
+            }
+        }
+    }
+
+    // Pattern 2: "MAKE MODEL YEAR" (e.g. "Chaparral 23 H2O 2019")
+    if (!$result['year'] || !$result['make']) {
+        $brandsPattern = implode('|', array_map(function($b) {
+            return preg_quote($b, '/');
+        }, $brands));
+
+        if (preg_match('/\b(' . $brandsPattern . ')\s+(.+?)\s+((?:19|20)\d{2})\b/i', $text, $m)) {
+            if (!$result['make']) $result['make'] = trim($m[1]);
+            if (!$result['model']) {
+                $model = trim($m[2]);
+                $model = trim($model, ' .,;:-');
+                if (strlen($model) >= 1 && strlen($model) <= 80) {
+                    $result['model'] = $model;
+                }
+            }
+            if (!$result['year']) $result['year'] = intval($m[3]);
+        }
+    }
+
+    // Pattern 3: Just "YEAR MAKE" without model (e.g. "2015 Cobalt")
+    if (!$result['year'] || !$result['make']) {
+        $brandsPattern = implode('|', array_map(function($b) {
+            return preg_quote($b, '/');
+        }, $brands));
+
+        if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\b/i', $text, $m)) {
+            if (!$result['year']) $result['year'] = intval($m[1]);
+            if (!$result['make']) $result['make'] = trim($m[2]);
+        }
+    }
+
+    // Pattern 4: Extract year from text if still missing (standalone 4-digit year near boat context)
+    if (!$result['year']) {
+        if (preg_match('/\b((?:19|20)\d{2})\s+(?:boat|lancha|embarcacion|bowrider|cruiser|pontoon|deck\s*boat|center\s*console|ski\s*boat|wake\s*boat|fishing\s*boat)/i', $text, $m)) {
+            $result['year'] = intval($m[1]);
+        }
+    }
+
+    // Also try to extract hours from description if not already found
+    // This helps with Facebook Marketplace listings where hours are in the description
+    if (!$result['hours']) {
+        $hoursPatterns = [
+            '/(\d[\d,]*)\s*(?:(?:engine|motor)\s+)?hours?\b/i',
+            '/hours?\s*:?\s*(\d[\d,]*)/i',
+            '/(\d[\d,]*)\s*hrs?\b/i',
+            '/(\d[\d,]*)\s*horas?\b/i',
+            '/(?:engine|motor)\s*hours?\s*:?\s*(\d[\d,]*)/i',
+            '/(?:hours?|hrs?)\s*(?:on\s+(?:engine|motor))?\s*:?\s*(\d[\d,]*)/i',
+            '/(\d[\d,]*)\s*(?:original\s+)?hours?\s+(?:on|of\s+use)/i',
+        ];
+        foreach ($hoursPatterns as $pat) {
+            if (preg_match($pat, $text, $hm)) {
+                $hours = preg_replace('/,/', '', $hm[1]);
+                $hoursInt = intval($hours);
+                // Sanity check: hours should be between 1 and 30000
+                if ($hoursInt >= 1 && $hoursInt <= 30000) {
+                    $result['hours'] = $hours;
+                    break;
+                }
+            }
+        }
+    }
+}
+
 function parseUrlPatterns($url, $parsedUrl, &$result) {
     $host = strtolower($parsedUrl['host'] ?? '');
     $path = $parsedUrl['path'] ?? '';
@@ -554,7 +703,13 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
         if (!$result['title'] || preg_match('/boats?\s+for\s+sale/i', $result['title'])) {
             $result['title'] = $urlTitle;
         }
+        if (!$result['make']) $result['make'] = $make;
+        if (!$result['model']) $result['model'] = $model;
+        if (!$result['year']) $result['year'] = intval($year);
     }
+
+    // Extract make, model, year from title/description for any source (Facebook, etc.)
+    extractBoatIdentity($result);
 
     if (!$result['location'] && $result['title']) {
         $text = $result['title'] . ' ' . ($result['description'] ?? '');
