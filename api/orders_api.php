@@ -210,6 +210,15 @@ function runMigration() {
         if (!in_array('engine', $linkCols)) {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN engine VARCHAR(500) AFTER link_status");
         }
+        if (!in_array('make', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN make VARCHAR(255) AFTER engine");
+        }
+        if (!in_array('model', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN model VARCHAR(255) AFTER make");
+        }
+        if (!in_array('year', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN year INT AFTER model");
+        }
 
         // Timeline step column
         if (!in_array('timeline_step', $columns)) {
@@ -596,7 +605,8 @@ function adminUpdateLinks() {
                         url = ?, title = ?, image_url = ?, location = ?, hours = ?,
                         value_usa_usd = ?, value_to_negotiate_usd = ?,
                         value_chile_clp = ?, value_chile_negotiated_clp = ?,
-                        selection_order = ?, comments = ?, row_index = ?, link_status = ?, engine = ?
+                        selection_order = ?, comments = ?, row_index = ?, link_status = ?, engine = ?,
+                        make = ?, model = ?, year = ?
                     WHERE id = ? AND order_id = ?
                 ");
                 $stmt->execute([
@@ -614,6 +624,9 @@ function adminUpdateLinks() {
                     $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
                     $link['link_status'] ?? ($oldLink['link_status'] ?? 'active'),
                     $link['engine'] ?? ($oldLink['engine'] ?? null),
+                    $link['make'] ?? ($oldLink['make'] ?? null),
+                    $link['model'] ?? ($oldLink['model'] ?? null),
+                    $link['year'] ?? ($oldLink['year'] ?? null),
                     $linkId,
                     $orderId
                 ]);
@@ -669,8 +682,8 @@ function adminAddLink() {
         $nextIndex = $maxStmt->fetch(PDO::FETCH_ASSOC)['next_index'];
 
         $stmt = $pdo->prepare("
-            INSERT INTO order_links (order_id, row_index, url, title, image_url, location, hours, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments, engine)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO order_links (order_id, row_index, url, title, image_url, location, hours, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments, engine, make, model, year)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $orderId,
@@ -686,7 +699,10 @@ function adminAddLink() {
             $input['value_chile_negotiated_clp'] ?? null,
             $input['selection_order'] ?? null,
             $input['comments'] ?? null,
-            $input['engine'] ?? null
+            $input['engine'] ?? null,
+            $input['make'] ?? null,
+            $input['model'] ?? null,
+            $input['year'] ?? null
         ]);
 
         $linkId = $pdo->lastInsertId();
