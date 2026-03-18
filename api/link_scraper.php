@@ -417,18 +417,29 @@ function isUsefulImage($imgUrl) {
     if (isVideoUrl($imgUrl)) return false;
     if (preg_match('/static\.xx\.fbcdn\.net\/rsrc/', $lower)) return false;
     if (preg_match('/fbcdn\.net.*\/rsrc\.php/', $lower)) return false;
+    // Reject BoatTrader/boats.com placeholder/generic images
+    if (preg_match('/static\/legacy\/img\/tol-design/', $lower)) return false;
+    if (preg_match('/placeholder|no-image|default-boat/i', $lower)) return false;
     return true;
 }
 
 /**
- * Check if an image URL is from a CDN that uses expiring tokens (Facebook, etc.)
+ * Check if an image URL is from an external CDN that may expire or block hotlinking.
+ * These images should be cached locally to prevent broken images later.
  */
 function isExpiringImageUrl($url) {
     if (!$url) return false;
     $lower = strtolower($url);
+    // Already cached locally
+    if (strpos($lower, 'imporlan.cl/uploads') !== false) return false;
     // Facebook CDN URLs contain tokens that expire after hours/days
     if (strpos($lower, 'fbcdn.net') !== false) return true;
     if (strpos($lower, 'facebook.com') !== false && strpos($lower, '/v/') !== false) return true;
+    // BoatTrader images block hotlinking after a while
+    if (strpos($lower, 'boattrader.com') !== false) return true;
+    if (strpos($lower, 'boats.com') !== false) return true;
+    // Any external image with query string tokens (likely expiring)
+    if (strpos($lower, 'scontent') !== false) return true;
     return false;
 }
 
