@@ -224,7 +224,10 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
     if (!$result['description']) {
         $metaDesc = $xpath->query('//meta[@name="description"]/@content');
         if ($metaDesc->length > 0) {
-            $result['description'] = trim($metaDesc->item(0)->nodeValue);
+            $desc = trim($metaDesc->item(0)->nodeValue);
+            if ($desc && stripos($desc, 'log in') === false) {
+                $result['description'] = $desc;
+            }
         }
     }
 
@@ -884,13 +887,18 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
         if (!$result['title'] || preg_match('/boats?\s+for\s+sale/i', $result['title'])) {
             $result['title'] = $urlTitle;
         }
+    }
+
+    // Extract make, model, year from title/description for any source (Facebook, etc.)
+    // Run brand-list-aware extraction BEFORE URL fallback for better accuracy
+    extractBoatIdentity($result);
+
+    // URL-based extraction as fallback only if extractBoatIdentity didn't fill the fields
+    if ($isBoatSite && isset($make, $model, $year)) {
         if (!$result['make']) $result['make'] = $make;
         if (!$result['model']) $result['model'] = $model;
         if (!$result['year']) $result['year'] = intval($year);
     }
-
-    // Extract make, model, year from title/description for any source (Facebook, etc.)
-    extractBoatIdentity($result);
 
     if (!$result['location'] && $result['title']) {
         $text = $result['title'] . ' ' . ($result['description'] ?? '');
