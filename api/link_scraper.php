@@ -1028,7 +1028,10 @@ function executePlanB($url, &$result, $config) {
             'fields_recovered' => $beforeMissing - $afterMissing,
         ];
         // If we recovered enough data, skip Level 2
-        if ($afterMissing < intval($config['plan_b_threshold'] ?? 3)) {
+        // But for Facebook URLs, also check that image, price and location are present
+        $isFacebookUrl = (bool) preg_match('/facebook\.com/i', $url);
+        $fbStillNeedsPlanB = $isFacebookUrl && (!$result['value_usa_usd'] || !$result['location'] || !$result['image_url']);
+        if ($afterMissing < intval($config['plan_b_threshold'] ?? 3) && !$fbStillNeedsPlanB) {
             return;
         }
     }
@@ -1190,8 +1193,17 @@ function planBScreenshotAI($url, &$result, $config) {
     $aiData = analyzeScreenshotWithAI($screenshotUrl, $openaiKey);
     if (!$aiData || !is_array($aiData)) return;
 
+    // Check if the screenshot shows a login/error page (AI returns is_login_page flag)
+    if (!empty($aiData['is_login_page'])) return;
+
     // Step 3: Merge AI-extracted data into result (only fill empty fields)
     mergeAIResults($aiData, $result);
+
+    // Step 4: If we still have no image, use the screenshot itself as the listing image
+    // This provides at least a visual reference of the listing even if og:image failed
+    if (!$result['image_url'] && $screenshotUrl) {
+        $result['image_url'] = $screenshotUrl;
+    }
 }
 
 /**
@@ -1236,7 +1248,8 @@ function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
     $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
     curl_close($ch);
 
-    if ($httpCode !== 200 || !$imageData || strlen($imageData) < 1000) return null;
+    // Accept image data even with non-200 codes (ScrapingBee sometimes returns 500 with valid screenshots)
+    if (!$imageData || strlen($imageData) < 1000) return null;
 
     // Validate that the response is actually an image (not an error page)
     $isImage = false;
@@ -1317,7 +1330,8 @@ Return ONLY a valid JSON object with these fields (use null for fields you canno
   "price": 25000,
   "currency": "USD",
   "location": "City, State",
-  "description": "Listing description text"
+  "description": "Listing description text",
+  "is_login_page": false
 }
 Rules:
 - For price, return only the numeric value without currency symbols
@@ -1325,6 +1339,7 @@ Rules:
 - For year, return a 4-digit integer
 - For model, extract just the model code (e.g. "H2O" not "Chaparral H2O 21 foot")
 - For engine, include power rating if visible (e.g. "4.3 MPI 220 hp")
+- Set is_login_page to true if the screenshot shows a login form, error page, or CAPTCHA instead of a listing
 - Do NOT guess or fabricate data; use null if not visible in the screenshot
 PROMPT;
 
