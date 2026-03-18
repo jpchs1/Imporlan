@@ -569,13 +569,16 @@ function extractBoatIdentity(&$result) {
     // Skip if all three are already set
     if ($result['make'] && $result['model'] && $result['year']) return;
 
-    // Combine available text sources
-    $text = trim(($result['title'] ?? '') . ' ' . ($result['description'] ?? ''));
-    if (!$text || strlen($text) < 5) return;
+    // Prepare text sources: title alone (clean, structured) and combined (for fallback)
+    $titleText = trim($result['title'] ?? '');
+    $descText = trim($result['description'] ?? '');
+    if (!$titleText && !$descText) return;
 
     // Decode HTML entities (Facebook returns &#039; etc.) and normalize whitespace
-    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    $text = preg_replace('/\s+/', ' ', $text);
+    $titleText = preg_replace('/\s+/', ' ', html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $descText = preg_replace('/\s+/', ' ', html_entity_decode($descText, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $text = trim($titleText . ' ' . $descText);
+    if (strlen($text) < 5) return;
 
     // Known boat brands for matching
     $brands = [
@@ -605,45 +608,78 @@ function extractBoatIdentity(&$result) {
         return preg_quote($b, '/');
     }, $brands));
 
+    // Helper: clean raw model text into just the core model identifier
+    $cleanModel = function($raw, $make) {
+        $m = trim($raw);
+        // Remove parenthetical specs like (260 HP - 21 FT)
+        $m = preg_replace('/\s*\(.*\)\s*/', ' ', $m);
+        // Remove foot/inch marks (21' → 21)
+        $m = preg_replace("/[\x{2019}'\x{2032}\x{2018}]/u", '', $m);
+        // Remove leading bare boat-length numbers (e.g. "21 " at start)
+        $m = preg_replace('/^\d{1,2}\s+/', '', $m);
+        // Remove duplicate brand name AFTER length removal (brand may appear after length)
+        if ($make) {
+            $m = preg_replace('/^' . preg_quote($make, '/') . '\s*/i', '', $m);
+        }
+        // Remove dollar amounts and everything after
+        $m = preg_replace('/\s*\$[\d,]+.*$/', '', $m);
+        // Remove common trailing descriptive phrases
+        $m = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]{2}\b).*$/i', '', $m);
+        $m = trim($m, " .,;:-\t\n\r");
+        // Keep only core model code tokens (tokens with digits, or short uppercase prefixes)
+        // Stop at purely descriptive words like "Fish", "Ski", "Sport", "Bowrider"
+        $words = preg_split('/\s+/', $m);
+        $kept = [];
+        foreach ($words as $w) {
+            if (preg_match('/\d/', $w)) {
+                // Contains a digit - likely model code (H20, GX215, 250, SPX210)
+                $kept[] = $w;
+            } elseif (empty($kept)) {
+                // First word can be alpha prefix (e.g. "SPX", "SLX")
+                $kept[] = $w;
+            } elseif (strlen($w) <= 3 && ctype_upper($w)) {
+                // Short uppercase codes like "SS", "LS"
+                $kept[] = $w;
+            } else {
+                // Descriptive word (Fish, Ski, Sport, Bowrider) - stop
+                break;
+            }
+        }
+        $m = implode(' ', $kept);
+        return (strlen($m) >= 1 && strlen($m) <= 50) ? $m : '';
+    };
+
+    // Try patterns on title first (structured, clean), then combined text as fallback
+    $sources = [$titleText];
+    if ($descText) $sources[] = $text;
+
     // Pattern 1: "YEAR MAKE MODEL" (e.g. "2019 Chaparral 23 H2O Sport", "2018 Sea Ray SPX 210")
     if (!$result['year'] || !$result['make']) {
-        if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\s+(.+)/i', $text, $m)) {
-            if (!$result['year']) $result['year'] = intval($m[1]);
-            if (!$result['make']) $result['make'] = trim($m[2]);
-            if (!$result['model']) {
-                $model = trim($m[3]);
-                // Clean up model: remove trailing noise
-                $model = preg_replace('/\s*\$[\d,]+.*$/', '', $model);
-                $model = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]{2}\b).*$/i', '', $model);
-                // Remove parenthetical specs like (260 HP - 21 FT) but keep model number before it
-                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
-                // Remove duplicate brand name if it appears again in the model text
-                if ($result['make']) {
-                    $model = preg_replace('/^' . preg_quote($result['make'], '/') . '\s*/i', '', $model);
+        foreach ($sources as $src) {
+            if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\s+(.+)/i', $src, $m)) {
+                if (!$result['year']) $result['year'] = intval($m[1]);
+                if (!$result['make']) $result['make'] = trim($m[2]);
+                if (!$result['model']) {
+                    $model = $cleanModel($m[3], $result['make']);
+                    if ($model) $result['model'] = $model;
                 }
-                // Trim foot/inch marks and other noise
-                $model = preg_replace("/\s*[\x{2019}'\x{2032}]\s*/u", ' ', $model);
-                $model = trim($model, " .,;:-\t\n\r");
-                if (strlen($model) >= 1 && strlen($model) <= 80) {
-                    $result['model'] = $model;
-                }
+                break;
             }
         }
     }
 
     // Pattern 2: "MAKE MODEL YEAR" (e.g. "Chaparral 23 H2O 2019")
     if (!$result['year'] || !$result['make']) {
-        if (preg_match('/\b(' . $brandsPattern . ')\s+(.+?)\s+((?:19|20)\d{2})\b/i', $text, $m)) {
-            if (!$result['make']) $result['make'] = trim($m[1]);
-            if (!$result['model']) {
-                $model = trim($m[2]);
-                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
-                $model = trim($model, " .,;:-\t\n\r");
-                if (strlen($model) >= 1 && strlen($model) <= 80) {
-                    $result['model'] = $model;
+        foreach ($sources as $src) {
+            if (preg_match('/\b(' . $brandsPattern . ')\s+(.+?)\s+((?:19|20)\d{2})\b/i', $src, $m)) {
+                if (!$result['make']) $result['make'] = trim($m[1]);
+                if (!$result['model']) {
+                    $model = $cleanModel($m[2], $result['make']);
+                    if ($model) $result['model'] = $model;
                 }
+                if (!$result['year']) $result['year'] = intval($m[3]);
+                break;
             }
-            if (!$result['year']) $result['year'] = intval($m[3]);
         }
     }
 
@@ -657,15 +693,14 @@ function extractBoatIdentity(&$result) {
 
     // Pattern 4: Just "MAKE" + model-like text (e.g. "Glastron GX215" without year nearby)
     if (!$result['make']) {
-        if (preg_match('/\b(' . $brandsPattern . ')\s+([A-Z0-9][\w\s\-\/\.]{0,40})/i', $text, $m)) {
-            $result['make'] = trim($m[1]);
-            if (!$result['model']) {
-                $model = trim($m[2]);
-                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
-                $model = trim($model, " .,;:-\t\n\r");
-                if (strlen($model) >= 1 && strlen($model) <= 80) {
-                    $result['model'] = $model;
+        foreach ($sources as $src) {
+            if (preg_match('/\b(' . $brandsPattern . ')\s+([A-Z0-9][\w\s\-\/\.]{0,30})/i', $src, $m)) {
+                $result['make'] = trim($m[1]);
+                if (!$result['model']) {
+                    $model = $cleanModel($m[2], $result['make']);
+                    if ($model) $result['model'] = $model;
                 }
+                break;
             }
         }
     }
