@@ -1251,6 +1251,30 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
 
     if ($httpCode !== 200 || !$html || strlen($html) < 500) return;
 
+    // For Facebook URLs, extract price/location from embedded JSON BEFORE parseHtml.
+    // This is critical because:
+    // 1) Plan A's directFetch may return a login page (HTTP 200, 400KB+) which
+    //    parseHtml processes first, potentially setting value_usa_usd to a garbage
+    //    value from body text dollar amounts.
+    // 2) When Plan B's parseHtml later calls extractFacebookJsonData, it checks
+    //    if (!$result['value_usa_usd']) and SKIPS if Plan A already set a value.
+    // 3) By extracting directly here first, we ensure ScrapingBee's reliable JSON
+    //    data always takes priority over Plan A's unreliable login-page extraction.
+    if ($isFacebook) {
+        $savedPrice = $result['value_usa_usd'];
+        $savedLocation = $result['location'];
+        $result['value_usa_usd'] = null;
+        $result['location'] = null;
+        extractFacebookJsonData($html, $result);
+        // If JSON extraction failed, restore previous values
+        if (!$result['value_usa_usd'] && $savedPrice) {
+            $result['value_usa_usd'] = $savedPrice;
+        }
+        if (!$result['location'] && $savedLocation) {
+            $result['location'] = $savedLocation;
+        }
+    }
+
     // Preserve ALL existing data before parsing ScrapingBee HTML.
     // parseHtml unconditionally overwrites fields when found in HTML,
     // which could replace good data with generic/blocked page data.
@@ -1281,8 +1305,8 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     if ($existing['description'] && !$result['description']) {
         $result['description'] = $existing['description'];
     }
-    // Never overwrite existing make/model/year/hours/engine with empty values
-    foreach (['make', 'model', 'year', 'hours', 'engine'] as $field) {
+    // Never overwrite existing fields with empty values from Plan B
+    foreach (['make', 'model', 'year', 'hours', 'engine', 'value_usa_usd', 'location'] as $field) {
         if ($existing[$field] && !$result[$field]) {
             $result[$field] = $existing[$field];
         }
