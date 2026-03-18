@@ -489,24 +489,13 @@ function cacheImageLocally($imageUrl) {
 
     // Validate response
     if ($httpCode !== 200 || !$data || strlen($data) < 500) {
-        return null;
+        // Direct download failed (CDN blocked, Cloudflare, etc.) - try ScrapingBee proxy
+        $data = downloadImageViaScrapingBee(html_entity_decode($imageUrl));
+        if (!$data) return null;
     }
 
     // Verify it's actually an image (check content type or magic bytes)
-    $isImage = false;
-    if ($contentType && preg_match('/^image\//i', $contentType)) {
-        $isImage = true;
-    }
-    if (!$isImage) {
-        // Check magic bytes: JPEG (FFD8FF), PNG (89504E47), WEBP (52494646...57454250)
-        $header = substr($data, 0, 12);
-        if (substr($header, 0, 3) === "\xFF\xD8\xFF" ||
-            substr($header, 0, 4) === "\x89PNG" ||
-            (substr($header, 0, 4) === "RIFF" && substr($header, 8, 4) === "WEBP")) {
-            $isImage = true;
-        }
-    }
-    if (!$isImage) {
+    if (!isImageData($data, $contentType ?? '')) {
         return null;
     }
 
@@ -516,6 +505,54 @@ function cacheImageLocally($imageUrl) {
     }
 
     return 'https://www.imporlan.cl/uploads/order_images/' . $filename;
+}
+
+/**
+ * Check if binary data is a valid image using content type and magic bytes.
+ */
+function isImageData($data, $contentType = '') {
+    if (!$data || strlen($data) < 500) return false;
+    if ($contentType && preg_match('/^image\//i', $contentType)) return true;
+    $header = substr($data, 0, 12);
+    if (substr($header, 0, 3) === "\xFF\xD8\xFF") return true; // JPEG
+    if (substr($header, 0, 4) === "\x89PNG") return true; // PNG
+    if (substr($header, 0, 4) === "RIFF" && substr($header, 8, 4) === "WEBP") return true; // WEBP
+    return false;
+}
+
+/**
+ * Download an image through ScrapingBee as a proxy.
+ * Used when direct download fails due to CDN protection (Cloudflare, etc.).
+ * Returns raw image data or null on failure.
+ */
+function downloadImageViaScrapingBee($imageUrl) {
+    $config = loadScraperConfig();
+    $sbKey = trim($config['scrapingbee_api_key'] ?? '');
+    if (!$sbKey) return null;
+
+    $params = [
+        'api_key' => $sbKey,
+        'url' => $imageUrl,
+        'render_js' => 'false',
+    ];
+    $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $sbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $data = curl_exec($ch);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+
+    if ($data && strlen($data) > 1000 && isImageData($data, $contentType)) {
+        return $data;
+    }
+    return null;
 }
 
 function fetchFacebookMobile($url, &$result) {
@@ -1203,11 +1240,9 @@ function planBScreenshotAI($url, &$result, $config) {
     // Step 3: Merge AI-extracted data into result (only fill empty fields)
     mergeAIResults($aiData, $result);
 
-    // Step 4: If we still have no image, use the screenshot itself as the listing image
-    // This provides at least a visual reference of the listing even if og:image failed
-    if (!$result['image_url'] && $screenshotUrl) {
-        $result['image_url'] = $screenshotUrl;
-    }
+    // Note: We intentionally do NOT use the screenshot as the listing image.
+    // Screenshots show the full webpage UI, not the actual boat photo.
+    // The image should only come from og:image or similar metadata.
 }
 
 /**
@@ -1256,19 +1291,7 @@ function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
     if (!$imageData || strlen($imageData) < 1000) return null;
 
     // Validate that the response is actually an image (not an error page)
-    $isImage = false;
-    if ($contentType && preg_match('/^image\//i', $contentType)) {
-        $isImage = true;
-    }
-    if (!$isImage) {
-        $header = substr($imageData, 0, 12);
-        if (substr($header, 0, 3) === "\xFF\xD8\xFF" ||
-            substr($header, 0, 4) === "\x89PNG" ||
-            (substr($header, 0, 4) === "RIFF" && substr($header, 8, 4) === "WEBP")) {
-            $isImage = true;
-        }
-    }
-    if (!$isImage) return null;
+    if (!isImageData($imageData, $contentType)) return null;
 
     // Save image locally and return URL
     $cacheDir = __DIR__ . '/../uploads/order_images';
