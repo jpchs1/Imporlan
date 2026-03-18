@@ -608,8 +608,15 @@ function extractBoatIdentity(&$result) {
         return preg_quote($b, '/');
     }, $brands));
 
+    // Boat type words that are NOT model names
+    $boatTypes = ['bowrider', 'pontoon', 'cruiser', 'runabout', 'skiff', 'cabin',
+        'cuddy', 'trawler', 'sailboat', 'catamaran', 'kayak', 'dinghy', 'yacht',
+        'houseboat', 'airboat', 'jon', 'bass', 'flats', 'bay', 'offshore',
+        'walkaround', 'convertible', 'express', 'sedan', 'flybridge', 'sportfish',
+        'center', 'console', 'dual', 'fish', 'ski', 'wakeboard', 'surf', 'sport'];
+
     // Helper: clean raw model text into just the core model identifier
-    $cleanModel = function($raw, $make) {
+    $cleanModel = function($raw, $make) use ($boatTypes, $text) {
         $m = trim($raw);
         // Remove parenthetical specs like (260 HP - 21 FT)
         $m = preg_replace('/\s*\(.*\)\s*/', ' ', $m);
@@ -625,12 +632,27 @@ function extractBoatIdentity(&$result) {
         $m = preg_replace('/\s*\$[\d,]+.*$/', '', $m);
         // Remove common trailing descriptive phrases
         $m = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]{2}\b).*$/i', '', $m);
-        $m = trim($m, " .,;:-\t\n\r");
+        // Remove tokens that are actually hours (number followed by "hours/hrs" in original text)
+        $m = preg_replace_callback('/\b(\d+)\b/', function($match) use ($text) {
+            $num = $match[1];
+            // If this number is followed by "hours/hrs" in the full text, it's hours not model
+            if (preg_match('/\b' . preg_quote($num, '/') . '\s*(?:hours?|hrs?|horas?)\b/i', $text)) {
+                return '';
+            }
+            return $num;
+        }, $m);
+        $m = preg_replace('/\s+/', ' ', trim($m, " .,;:-\t\n\r"));
         // Keep only core model code tokens (tokens with digits, or short uppercase prefixes)
-        // Stop at purely descriptive words like "Fish", "Ski", "Sport", "Bowrider"
+        // Stop at purely descriptive words
         $words = preg_split('/\s+/', $m);
         $kept = [];
         foreach ($words as $w) {
+            if ($w === '') continue;
+            // Skip boat type words
+            if (in_array(strtolower($w), $boatTypes)) {
+                if (empty($kept)) continue; // skip if at start
+                else break; // stop if after model code
+            }
             if (preg_match('/\d/', $w)) {
                 // Contains a digit - likely model code (H20, GX215, 250, SPX210)
                 $kept[] = $w;
@@ -641,11 +663,14 @@ function extractBoatIdentity(&$result) {
                 // Short uppercase codes like "SS", "LS"
                 $kept[] = $w;
             } else {
-                // Descriptive word (Fish, Ski, Sport, Bowrider) - stop
+                // Descriptive word - stop
                 break;
             }
         }
         $m = implode(' ', $kept);
+        // Validate: a real model code should contain at least one digit (H20, GX215, SPX 210)
+        // Pure-alpha words like "that", "beautiful" are not models
+        if (!preg_match('/\d/', $m)) return '';
         return (strlen($m) >= 1 && strlen($m) <= 50) ? $m : '';
     };
 
