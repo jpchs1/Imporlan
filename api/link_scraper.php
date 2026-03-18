@@ -979,7 +979,7 @@ function loadScraperConfig() {
  * Count how many key fields are missing from the result.
  * Used to decide whether to trigger Plan B.
  */
-function countMissingFields(&$result) {
+function countMissingFields($result) {
     $count = 0;
     if (!$result['image_url']) $count++;
     if (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? '')) $count++;
@@ -1038,11 +1038,14 @@ function executePlanB($url, &$result, $config) {
  * to bypass blocks from sites like Facebook.
  */
 function planBScrapingBee($url, &$result, $apiKey) {
+    // Only use premium proxies for domains that block basic requests (Facebook, etc.)
+    $usePremium = (bool) preg_match('/facebook\.com|instagram\.com|craigslist\.org/i', $url);
+
     $params = [
         'api_key' => $apiKey,
         'url' => $url,
         'render_js' => 'true',
-        'premium_proxy' => 'true',
+        'premium_proxy' => $usePremium ? 'true' : 'false',
         'block_ads' => 'true',
         'block_resources' => 'false',
         'wait' => '3000',
@@ -1112,13 +1115,15 @@ function planBScreenshotAI($url, &$result, $config) {
  * Get a screenshot URL using ScrapingBee's screenshot feature.
  */
 function getScrapingBeeScreenshot($url, $apiKey) {
+    $usePremium = (bool) preg_match('/facebook\.com|instagram\.com|craigslist\.org/i', $url);
+
     $params = [
         'api_key' => $apiKey,
         'url' => $url,
         'screenshot' => 'true',
         'screenshot_full_page' => 'false',
         'render_js' => 'true',
-        'premium_proxy' => 'true',
+        'premium_proxy' => $usePremium ? 'true' : 'false',
         'wait' => '3000',
         'window_width' => '1280',
         'window_height' => '900',
@@ -1141,7 +1146,22 @@ function getScrapingBeeScreenshot($url, $apiKey) {
 
     if ($httpCode !== 200 || !$imageData || strlen($imageData) < 1000) return null;
 
-    // ScrapingBee returns raw image data; save it locally and return URL
+    // Validate that the response is actually an image (not an error page)
+    $isImage = false;
+    if ($contentType && preg_match('/^image\//i', $contentType)) {
+        $isImage = true;
+    }
+    if (!$isImage) {
+        $header = substr($imageData, 0, 12);
+        if (substr($header, 0, 3) === "\xFF\xD8\xFF" ||
+            substr($header, 0, 4) === "\x89PNG" ||
+            (substr($header, 0, 4) === "RIFF" && substr($header, 8, 4) === "WEBP")) {
+            $isImage = true;
+        }
+    }
+    if (!$isImage) return null;
+
+    // Save image locally and return URL
     $cacheDir = __DIR__ . '/../uploads/order_images';
     if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
     if (!is_dir($cacheDir) || !is_writable($cacheDir)) return null;
@@ -1152,7 +1172,10 @@ function getScrapingBeeScreenshot($url, $apiKey) {
 
     if (@file_put_contents($filepath, $imageData) === false) return null;
 
-    return 'https://www.imporlan.cl/uploads/order_images/' . $filename;
+    // Build URL from server context (works in both test and production)
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'www.imporlan.cl';
+    return $protocol . '://' . $host . '/uploads/order_images/' . $filename;
 }
 
 /**
