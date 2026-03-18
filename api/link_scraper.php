@@ -259,8 +259,24 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     }
 
     if (!$result['hours']) {
-        if (preg_match('/(\d[\d,\.]*)\s*(?:hours?|hrs?|engine\s*hours?|horas?)/i', $bodyText, $m)) {
-            $result['hours'] = preg_replace('/[,\.]/', '', $m[1]);
+        // Priority 1: "engine hours" pattern (most specific)
+        if (preg_match('/(\d[\d,\.]*)\s*(?:engine\s*hours?|engine\s*hrs?)/i', $bodyText, $m)) {
+            $val = (int) preg_replace('/[,\.]/', '', $m[1]);
+            if ($val >= 10 && $val <= 30000) $result['hours'] = (string) $val;
+        }
+    }
+    if (!$result['hours']) {
+        // Priority 2: "with X hours" pattern (common in FB descriptions)
+        if (preg_match('/(?:with|has|only|approximately|approx|about)\s+(\d[\d,\.]*)\s*(?:hours?|hrs?|horas?)/i', $bodyText, $m)) {
+            $val = (int) preg_replace('/[,\.]/', '', $m[1]);
+            if ($val >= 10 && $val <= 30000) $result['hours'] = (string) $val;
+        }
+    }
+    if (!$result['hours']) {
+        // Priority 3: general "N hours" but require >= 2 digits to avoid "2 hours ago" timestamps
+        if (preg_match('/\b(\d{2,5}[,\.]?\d*)\s*(?:hours?|hrs?|horas?)\b/i', $bodyText, $m)) {
+            $val = (int) preg_replace('/[,\.]/', '', $m[1]);
+            if ($val >= 10 && $val <= 30000) $result['hours'] = (string) $val;
         }
     }
     if (!$result['hours'] && $xpath) {
@@ -289,17 +305,32 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     if (!isset($result['engine']) || !$result['engine']) {
         // Common engine patterns: "Mercruiser 4.5L", "Yamaha F150", "Twin Mercury 300hp", etc.
         $enginePatterns = [
-            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI))[\w\s\.\-\/]*)/i',
-            '/(?:engine|motor|propulsion)[:\s]+([A-Z][\w\s\.\-\/]{3,80})/i',
+            // "4.3 MPI 220 hp motor" - specs before the word motor/engine (require 2+ digit hp to avoid false matches)
+            '/((?:[\w\.\-]+\s+){0,4}\d{2,}\s*(?:hp|HP|cv|CV|kw|KW))\s+(?:motor|engine|outboard|inboard)\b/i',
+            // "engine: Mercruiser 4.5L 220hp" - labeled with hp/L
+            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI)))/i',
+            // "Twin Mercury 300hp" - configuration + brand + power
             '/((?:twin|single|triple|quad|inboard|outboard|sterndrive|I\/O)\s+[A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L)))/i',
-            '/((?:Mercury|Mercruiser|Yamaha|Honda|Suzuki|Evinrude|Johnson|Volvo\s*Penta|Caterpillar|Cummins|Yanmar|Tohatsu|Verado|Optimax|EFI|HPDI)\s+[\w\s\.\-\/]{2,60})/i',
+            // Known brand names
+            '/((?:Mercury|Mercruiser|Yamaha|Honda|Suzuki|Evinrude|Johnson|Volvo\s*Penta|Caterpillar|Cummins|Yanmar|Tohatsu|Verado|Optimax|EFI|HPDI)\s+[\w\.\-\/]+(?:\s+[\w\.\-\/]+){0,4})/i',
+            // Generic "motor: XYZ" - limited to 6 words
+            '/(?:engine|motor|propulsion)[:\s]+([A-Z][\w\.\-\/]+(?:\s+[\w\.\-\/]+){0,5})/i',
         ];
         foreach ($enginePatterns as $pat) {
             if (preg_match($pat, $bodyText, $em)) {
                 $engineVal = trim($em[1]);
                 $engineVal = preg_replace('/\s{2,}/', ' ', $engineVal);
+                // Strip leading articles/prepositions: "with a 4.3 MPI" -> "4.3 MPI"
+                $engineVal = preg_replace('/^(?:with\s+(?:an?\s+)?|an?\s+)/i', '', $engineVal);
+                // Truncate at sentence boundaries (period+space+uppercase, or ! or ?)
+                // Use lookbehind to avoid matching decimal points like "4.3"
+                $engineVal = preg_replace('/\.\s+(?=[A-Z])|[!\?].*$/', '', $engineVal);
+                // Remove hours references from engine text
+                $engineVal = preg_replace('/\s*(?:with\s+)?\d+\s*(?:hours?|hrs?|horas?).*$/i', '', $engineVal);
+                // Remove trailing descriptive phrases
+                $engineVal = preg_replace('/\s*(?:boat|has been|comes with|garage|kept|trailer|cover|included).*$/i', '', $engineVal);
                 $engineVal = rtrim($engineVal, ' .,;:-');
-                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 200) {
+                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 120) {
                     $result['engine'] = $engineVal;
                     break;
                 }
