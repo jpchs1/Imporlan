@@ -248,9 +248,94 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
         }
     }
 
-    $bodyText = $doc->textContent;
+    // Strip <script> and <style> tags before extracting text.
+    // DOMDocument->textContent includes script contents, which contain
+    // regex patterns like $1, $2 that poison price extraction.
+    $bodyNode = $xpath->query('//body')->item(0);
+    if ($bodyNode) {
+        $bodyClone = $bodyNode->cloneNode(true);
+        // Remove script and style elements from the clone
+        foreach (['script', 'style', 'noscript'] as $tagName) {
+            $tags = $bodyClone->getElementsByTagName($tagName);
+            while ($tags->length > 0) {
+                $tags->item(0)->parentNode->removeChild($tags->item(0));
+            }
+        }
+        $bodyText = $bodyClone->textContent;
+    } else {
+        $bodyText = $doc->textContent;
+    }
+
+    // For Facebook pages, try to extract structured data from embedded JSON
+    extractFacebookJsonData($html, $result);
+
     extractFieldsFromText($bodyText, $xpath, $result);
     libxml_clear_errors();
+}
+
+/**
+ * Extract structured data from Facebook's embedded JSON (listing_price, location, etc.).
+ * Facebook embeds listing data as JSON objects within <script> tags.
+ */
+function extractFacebookJsonData($html, &$result) {
+    // Extract listing_price from Facebook's embedded JSON data.
+    // Facebook pages contain many listing_price objects (for sidebar listings, etc.)
+    // The REAL one for the current listing has "currency":"USD" and full structure.
+    if (!$result['value_usa_usd']) {
+        // Priority 1: listing_price with currency field (most specific - the actual listing)
+        if (preg_match('/"listing_price"\s*:\s*\{[^}]*"amount"\s*:\s*"([\d.]+)"[^}]*"currency"\s*:\s*"(\w+)"/', $html, $m)) {
+            $val = floatval($m[1]);
+            if ($val >= 500 && $val < 50000000) {
+                $result['value_usa_usd'] = $val;
+            }
+        }
+        // Priority 2: formatted_amount with $ sign (also specific to the real listing)
+        if (!$result['value_usa_usd'] && preg_match('/"listing_price"\s*:\s*\{[^}]*"formatted_amount[^"]*"\s*:\s*"\$([\d,]+)"/', $html, $m)) {
+            $val = floatval(str_replace(',', '', $m[1]));
+            if ($val >= 500 && $val < 50000000) {
+                $result['value_usa_usd'] = $val;
+            }
+        }
+        // Priority 3: Iterate all listing_price objects and pick the first valid one >= 500
+        if (!$result['value_usa_usd'] && preg_match_all('/"listing_price"\s*:\s*\{[^}]*"amount"\s*:\s*"([\d.]+)"/', $html, $matches)) {
+            foreach ($matches[1] as $mVal) {
+                $val = floatval($mVal);
+                if ($val >= 500 && $val < 50000000) {
+                    $result['value_usa_usd'] = $val;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Extract location from Facebook's embedded JSON
+    if (!$result['location']) {
+        // Priority 1: "location_text":{"text":"City, ST"} (nested text field, common in FB)
+        if (preg_match('/"location_text"\s*:\s*\{\s*"text"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $loc = trim($m[1]);
+            if (strlen($loc) > 2 && strlen($loc) < 100 && stripos($loc, 'login') === false) {
+                $result['location'] = $loc;
+            }
+        }
+        // Priority 2: "location_text":"City, State" (flat string)
+        if (!$result['location'] && preg_match('/"location_text"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $loc = trim($m[1]);
+            if (strlen($loc) > 2 && strlen($loc) < 100 && stripos($loc, 'login') === false) {
+                $result['location'] = $loc;
+            }
+        }
+        // Priority 3: "custom_sub_titles_with_rendering_flags":[{"subtitle":"City, ST"}]
+        if (!$result['location'] && preg_match('/"custom_sub_titles_with_rendering_flags"\s*:\s*\[\s*\{\s*"subtitle"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $loc = trim($m[1]);
+            if (strlen($loc) > 2 && strlen($loc) < 100 && preg_match('/[A-Z][a-z]+/', $loc)) {
+                $result['location'] = $loc;
+            }
+        }
+        // Priority 4: reverse_geocode with city + state
+        if (!$result['location'] && preg_match('/"reverse_geocode"\s*:\s*\{[^}]*"city"\s*:\s*"([^"]+)"[^}]*"state"\s*:\s*"([^"]+)"/', $html, $m)) {
+            $result['location'] = trim($m[1]) . ', ' . trim($m[2]);
+        }
+    }
 }
 
 function extractFieldsFromText($bodyText, $xpath, &$result) {
@@ -359,15 +444,19 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     }
 
     if (!$result['value_usa_usd']) {
-        if (preg_match('/(?:price|asking|sale|USD|\$)\s*:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $m)) {
-            $val = floatval(str_replace(',', '', $m[1]));
-            if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
+        if (preg_match_all('/(?:price|asking|sale|USD|\$)\s*:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $matches)) {
+            foreach ($matches[1] as $mVal) {
+                $val = floatval(str_replace(',', '', $mVal));
+                if ($val >= 500 && $val < 50000000) { $result['value_usa_usd'] = $val; break; }
+            }
         }
     }
     if (!$result['value_usa_usd']) {
-        if (preg_match('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $m)) {
-            $val = floatval(str_replace(',', '', $m[1]));
-            if ($val >= 500 && $val < 50000000) $result['value_usa_usd'] = $val;
+        if (preg_match_all('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $matches)) {
+            foreach ($matches[1] as $mVal) {
+                $val = floatval(str_replace(',', '', $mVal));
+                if ($val >= 500 && $val < 50000000) { $result['value_usa_usd'] = $val; break; }
+            }
         }
     }
     if (!$result['value_usa_usd'] && $xpath) {
