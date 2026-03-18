@@ -344,9 +344,13 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
                 // Remove hours references from engine text
                 $engineVal = preg_replace('/\s*(?:with\s+)?\d+\s*(?:hours?|hrs?|horas?).*$/i', '', $engineVal);
                 // Remove trailing descriptive phrases
-                $engineVal = preg_replace('/\s*(?:boat|has been|comes with|garage|kept|trailer|cover|included).*$/i', '', $engineVal);
+                $engineVal = preg_replace('/\s*(?:boat|has been|comes with|garage|kept|trailer|cover|included|very|good|great|excellent|pristine|original|stored|runs|well|maintained|serviced|low|freshwater|saltwater|fresh water|salt water|new|recently|just|only|always|never|no issues|perfect|clean|nice|beautiful|sharp|turn key|turnkey).*$/i', '', $engineVal);
+                // Truncate after HP/power spec (the most important part of engine info)
+                $engineVal = preg_replace('/(\d+\s*(?:hp|HP|cv|CV|kw|KW))\s+(?!\w*[Oo]ut|\w*[Ii]n|EFI|MPI|DTS).*/i', '$1', $engineVal);
+                // Truncate at sentence boundaries more aggressively
+                $engineVal = preg_replace('/\.\s+.*$/', '', $engineVal);
                 $engineVal = rtrim($engineVal, ' .,;:-');
-                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 120) {
+                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 60) {
                     $result['engine'] = $engineVal;
                     break;
                 }
@@ -1440,6 +1444,14 @@ function mergeAIResults($aiData, &$result) {
                 $val = trim((string)$val);
                 // Don't set generic titles
                 if (preg_match('/^\s*(Facebook|Marketplace|Log\s+in)\s*$/i', $val)) continue 2;
+                break;
+            case 'engine':
+                $val = trim((string)$val);
+                // Truncate engine text at description boundaries
+                $val = preg_replace('/\.\s+(?=[A-Z]).*$/', '', $val);
+                $val = preg_replace('/\s*(?:boat|has been|comes with|garage|kept|trailer|cover|included|very|good|great|excellent|pristine|original|stored|runs|maintained|serviced|freshwater|saltwater|turn key|turnkey).*$/i', '', $val);
+                $val = rtrim($val, ' .,;:-');
+                if (strlen($val) < 2 || strlen($val) > 60) continue 2;
                 break;
             default:
                 $val = trim((string)$val);
