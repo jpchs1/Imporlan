@@ -748,8 +748,9 @@
       '<td style="padding:8px 6px"><input class="ea-link-value_chile_negotiated_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" value="' + (clpNegVal ? '$ ' + clpNegVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
       '<td style="padding:8px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center;font-weight:700"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="Agregar comentario..." style="' + ci + '"></td>' +
-      '<td style="padding:8px 4px;text-align:center">' +
-      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>' +
+      '<td style="padding:8px 4px;text-align:center"><div style="display:flex;flex-direction:column;gap:3px;align-items:center">' +
+      '<button class="ea-rescrape-link" style="border:none;background:#f0fdf4;cursor:pointer;color:#16a34a;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Re-scrapear datos del link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>' +
       '</tr>'
     );
   }
@@ -871,15 +872,19 @@
     return /boattrader\.com|boats\.com/i.test(url);
   }
 
-  function applyScrapedData(row, data) {
+  function applyScrapedData(row, data, force) {
     var filled = false;
     if (data.image_url) {
       var imgInput = row.querySelector(".ea-link-image_url");
-      if (imgInput && !imgInput.value) {
+      if (imgInput && (force || !imgInput.value)) {
         imgInput.value = data.image_url;
         var imgContainer = imgInput.closest("div");
         var placeholder = imgContainer ? imgContainer.querySelector(".ea-img-placeholder") : null;
-        if (placeholder) {
+        var existingImg = imgContainer ? imgContainer.querySelector(".ea-img-preview") : null;
+        if (existingImg && force) {
+          existingImg.src = data.image_url;
+          existingImg.setAttribute("data-url", data.image_url);
+        } else if (placeholder) {
           var newImg = document.createElement("img");
           newImg.src = data.image_url;
           newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
@@ -893,16 +898,16 @@
     }
     if (data.location) {
       var locInput = row.querySelector(".ea-link-location");
-      if (locInput && !locInput.value) { locInput.value = data.location; filled = true; }
+      if (locInput && (force || !locInput.value)) { locInput.value = data.location; filled = true; }
     }
     if (data.hours) {
       var hrsInput = row.querySelector(".ea-link-hours");
-      if (hrsInput && !hrsInput.value) { hrsInput.value = data.hours; filled = true; }
+      if (hrsInput && (force || !hrsInput.value)) { hrsInput.value = data.hours; filled = true; }
     }
     var priceVal = data.value_usa_usd || data.price;
     if (priceVal) {
       var usdInput = row.querySelector(".ea-link-value_usa_usd");
-      if (usdInput && !usdInput.value && !usdInput.getAttribute("data-raw")) {
+      if (usdInput && (force || (!usdInput.value && !usdInput.getAttribute("data-raw")))) {
         usdInput.setAttribute("data-raw", priceVal);
         usdInput.value = formatUsdDisplay(priceVal);
         filled = true;
@@ -910,19 +915,19 @@
     }
     if (data.engine) {
       var engInput = row.querySelector(".ea-link-engine");
-      if (engInput && !engInput.value) { engInput.value = data.engine; filled = true; }
+      if (engInput && (force || !engInput.value)) { engInput.value = data.engine; filled = true; }
     }
     if (data.make) {
       var makeInput = row.querySelector(".ea-link-make");
-      if (makeInput && !makeInput.value) { makeInput.value = data.make; filled = true; }
+      if (makeInput && (force || !makeInput.value)) { makeInput.value = data.make; filled = true; }
     }
     if (data.model) {
       var modelInput = row.querySelector(".ea-link-model");
-      if (modelInput && !modelInput.value) { modelInput.value = data.model; filled = true; }
+      if (modelInput && (force || !modelInput.value)) { modelInput.value = data.model; filled = true; }
     }
     if (data.year) {
       var yearInput = row.querySelector(".ea-link-year");
-      if (yearInput && !yearInput.value) { yearInput.value = data.year; filled = true; }
+      if (yearInput && (force || !yearInput.value)) { yearInput.value = data.year; filled = true; }
     }
     return filled;
   }
@@ -977,6 +982,51 @@
       console.warn("Auto-fetch failed:", e);
     } finally {
       if (loadingEl.parentNode) loadingEl.remove();
+    }
+  }
+
+  async function rescrapeLink(row) {
+    var urlInput = row.querySelector(".ea-link-url");
+    var url = urlInput ? urlInput.value.trim() : "";
+    if (!url || !url.match(/^https?:\/\//i)) {
+      showToast("No hay URL valida para re-scrapear", "warning");
+      return;
+    }
+    var btn = row.querySelector(".ea-rescrape-link");
+    var origHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+    }
+    try {
+      var data = null;
+      if (isBoatTraderUrl(url)) {
+        var btResp = await fetch(API_BASE + "/boattrader_scraper.php?action=scrape&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        var btData = await btResp.json();
+        if (btData.success && btData.boat) data = btData.boat;
+      }
+      if (!data) {
+        var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        data = await resp.json();
+        if (!data.success) data = null;
+      }
+      if (data) {
+        var filled = applyScrapedData(row, data, true);
+        if (filled) {
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+          showToast("Datos actualizados desde el link", "success");
+        } else {
+          showToast("No se encontraron datos nuevos", "warning");
+        }
+      } else {
+        showToast("No se pudo extraer datos del link", "error");
+      }
+    } catch (e) {
+      console.warn("Rescrape failed:", e);
+      showToast("Error al re-scrapear", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
     }
   }
 
@@ -1547,6 +1597,15 @@
       });
     }
 
+    container.querySelectorAll(".ea-rescrape-link").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) rescrapeLink(row);
+      });
+    });
+
     container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
       bindOnce(btn, "click", async function (e) {
         e.preventDefault();
@@ -1960,6 +2019,7 @@
       ".ea-link-row.ea-dragging{opacity:.4;box-shadow:0 8px 24px rgba(0,0,0,.12)}" +
       ".ea-drag-handle:active{cursor:grabbing!important}" +
       ".ea-open-url:hover,.ea-copy-url:hover{background:#e2e8f0!important;color:#1e293b!important}" +
+      ".ea-rescrape-link:hover{background:#dcfce7!important}" +
       ".ea-delete-link:hover{background:#fee2e2!important}" +
       "#ea-add-link:hover{background:#0891b2!important;color:#fff!important}" +
       "@media(max-width:768px){#ea-module-container table{font-size:12px}#ea-module-container th,#ea-module-container td{padding:4px 3px!important}#ea-filters{grid-template-columns:1fr 1fr!important}}";
