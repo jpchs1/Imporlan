@@ -100,7 +100,11 @@ function fetchLinkMetadata() {
     $missingCount = countMissingFields($result);
     $config = loadScraperConfig();
     $threshold = intval($config['plan_b_threshold'] ?? 3);
-    if ($missingCount >= $threshold) {
+    // For Facebook URLs, always trigger Plan B if price or location is missing
+    // because Facebook og:tags never include price/location data
+    $isFacebookUrl = (bool) preg_match('/facebook\.com/i', $url);
+    $fbNeedsPlanB = $isFacebookUrl && (!$result['value_usa_usd'] || !$result['location']);
+    if ($missingCount >= $threshold || $fbNeedsPlanB) {
         executePlanB($url, $result, $config);
         // Re-run identity extraction with any new data from Plan B
         if (!$result['make'] || !$result['model'] || !$result['year']) {
@@ -1103,26 +1107,41 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
 
     if ($httpCode !== 200 || !$html || strlen($html) < 500) return;
 
-    // Preserve existing data: save fields before parsing ScrapingBee HTML
-    // parseHtml unconditionally overwrites image_url and title when found,
-    // which could replace good data with generic/blocked page data
-    $existingTitle = $result['title'];
-    $existingImage = $result['image_url'];
-    $existingDescription = $result['description'];
+    // Preserve ALL existing data before parsing ScrapingBee HTML.
+    // parseHtml unconditionally overwrites fields when found in HTML,
+    // which could replace good data with generic/blocked page data.
+    $existing = [
+        'title' => $result['title'],
+        'image_url' => $result['image_url'],
+        'description' => $result['description'],
+        'make' => $result['make'],
+        'model' => $result['model'],
+        'year' => $result['year'],
+        'hours' => $result['hours'],
+        'engine' => $result['engine'] ?? null,
+        'value_usa_usd' => $result['value_usa_usd'],
+        'location' => $result['location'],
+    ];
 
     // Parse the rendered HTML with existing extraction functions
     $parsedUrl = parse_url($url);
     parseHtml($html, $url, $parsedUrl, $result);
 
-    // Restore existing data if it was good and new data is generic/empty
-    if ($existingTitle && (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? ''))) {
-        $result['title'] = $existingTitle;
+    // Restore existing data if it was good and new data is generic/empty/worse
+    if ($existing['title'] && (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? ''))) {
+        $result['title'] = $existing['title'];
     }
-    if ($existingImage && !isUsefulImage($result['image_url'] ?? '')) {
-        $result['image_url'] = $existingImage;
+    if ($existing['image_url'] && !isUsefulImage($result['image_url'] ?? '')) {
+        $result['image_url'] = $existing['image_url'];
     }
-    if ($existingDescription && !$result['description']) {
-        $result['description'] = $existingDescription;
+    if ($existing['description'] && !$result['description']) {
+        $result['description'] = $existing['description'];
+    }
+    // Never overwrite existing make/model/year/hours/engine with empty values
+    foreach (['make', 'model', 'year', 'hours', 'engine'] as $field) {
+        if ($existing[$field] && !$result[$field]) {
+            $result[$field] = $existing[$field];
+        }
     }
 
     // Also try to extract from og:description if available
