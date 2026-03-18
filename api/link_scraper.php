@@ -96,6 +96,18 @@ function fetchLinkMetadata() {
         $result['image_url'] = null;
     }
 
+    // Plan B: When normal scraping fails to get enough data, try fallback methods
+    $missingCount = countMissingFields($result);
+    $config = loadScraperConfig();
+    $threshold = intval($config['plan_b_threshold'] ?? 3);
+    if ($missingCount >= $threshold) {
+        executePlanB($url, $result, $config);
+        // Re-run identity extraction with any new data from Plan B
+        if (!$result['make'] || !$result['model'] || !$result['year']) {
+            extractBoatIdentity($result);
+        }
+    }
+
     // Cache external images (Facebook CDN URLs expire) to permanent local copies
     if ($result['image_url'] && isExpiringImageUrl($result['image_url'])) {
         $cachedUrl = cacheImageLocally($result['image_url']);
@@ -938,6 +950,381 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
         $text = $result['title'] . ' ' . ($result['description'] ?? '');
         if (preg_match('/(?:for\s+sale\s+in|located?\s+in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})/i', $text, $m)) {
             $result['location'] = trim($m[1]) . ', ' . strtoupper($m[2]);
+        }
+    }
+}
+
+// ============================================================================
+// PLAN B: Fallback scraping when normal methods fail
+// ============================================================================
+
+/**
+ * Load scraper configuration (API keys for Plan B services).
+ * Returns cached config array or empty array if no config file exists.
+ */
+function loadScraperConfig() {
+    static $config = null;
+    if ($config !== null) return $config;
+    $configFile = __DIR__ . '/scraper_config.php';
+    if (file_exists($configFile)) {
+        $config = require $configFile;
+        if (!is_array($config)) $config = [];
+    } else {
+        $config = [];
+    }
+    return $config;
+}
+
+/**
+ * Count how many key fields are missing from the result.
+ * Used to decide whether to trigger Plan B.
+ */
+function countMissingFields(&$result) {
+    $count = 0;
+    if (!$result['image_url']) $count++;
+    if (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? '')) $count++;
+    if (!$result['make']) $count++;
+    if (!$result['model']) $count++;
+    if (!$result['year']) $count++;
+    if (!$result['hours']) $count++;
+    if (!isset($result['engine']) || !$result['engine']) $count++;
+    if (!$result['value_usa_usd']) $count++;
+    if (!$result['location']) $count++;
+    return $count;
+}
+
+/**
+ * Execute Plan B fallback chain.
+ * Level 1: ScrapingBee headless browser rendering
+ * Level 2: Screenshot + OpenAI Vision AI extraction
+ */
+function executePlanB($url, &$result, $config) {
+    $result['plan_b'] = [];
+
+    // Level 1: ScrapingBee - render the page with a real headless browser
+    $scrapingBeeKey = trim($config['scrapingbee_api_key'] ?? '');
+    if ($scrapingBeeKey) {
+        $beforeMissing = countMissingFields($result);
+        planBScrapingBee($url, $result, $scrapingBeeKey);
+        $afterMissing = countMissingFields($result);
+        $result['plan_b'][] = [
+            'level' => 1,
+            'method' => 'scrapingbee',
+            'fields_recovered' => $beforeMissing - $afterMissing,
+        ];
+        // If we recovered enough data, skip Level 2
+        if ($afterMissing < intval($config['plan_b_threshold'] ?? 3)) {
+            return;
+        }
+    }
+
+    // Level 2: Screenshot + AI Vision
+    $openaiKey = trim($config['openai_api_key'] ?? '');
+    if ($openaiKey) {
+        $beforeMissing = countMissingFields($result);
+        planBScreenshotAI($url, $result, $config);
+        $afterMissing = countMissingFields($result);
+        $result['plan_b'][] = [
+            'level' => 2,
+            'method' => 'screenshot_ai',
+            'fields_recovered' => $beforeMissing - $afterMissing,
+        ];
+    }
+}
+
+/**
+ * Plan B Level 1: Use ScrapingBee to render the page with a real headless browser.
+ * ScrapingBee handles JavaScript rendering, cookies, and can use premium proxies
+ * to bypass blocks from sites like Facebook.
+ */
+function planBScrapingBee($url, &$result, $apiKey) {
+    $params = [
+        'api_key' => $apiKey,
+        'url' => $url,
+        'render_js' => 'true',
+        'premium_proxy' => 'true',
+        'block_ads' => 'true',
+        'block_resources' => 'false',
+        'wait' => '3000',
+    ];
+
+    $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $sbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_ENCODING => '',
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$html || strlen($html) < 500) return;
+
+    // Parse the rendered HTML with existing extraction functions
+    $parsedUrl = parse_url($url);
+    parseHtml($html, $url, $parsedUrl, $result);
+
+    // Also try to extract from og:description if available
+    if ($result['description']) {
+        extractFieldsFromText($result['description'], null, $result);
+    }
+}
+
+/**
+ * Plan B Level 2: Take a screenshot of the page and use OpenAI Vision to extract data.
+ * Uses ScrapingBee screenshot (if key available) or Microlink screenshot (free).
+ * Then sends the screenshot to GPT-4o Vision for structured data extraction.
+ */
+function planBScreenshotAI($url, &$result, $config) {
+    $openaiKey = trim($config['openai_api_key'] ?? '');
+    if (!$openaiKey) return;
+
+    // Step 1: Get a screenshot of the page
+    $screenshotUrl = null;
+
+    // Try ScrapingBee screenshot first (better for JS-heavy pages)
+    $sbKey = trim($config['scrapingbee_api_key'] ?? '');
+    if ($sbKey) {
+        $screenshotUrl = getScrapingBeeScreenshot($url, $sbKey);
+    }
+
+    // Fallback to Microlink screenshot (free, no API key needed)
+    if (!$screenshotUrl) {
+        $screenshotUrl = getMicrolinkScreenshot($url);
+    }
+
+    if (!$screenshotUrl) return;
+
+    // Step 2: Send screenshot to OpenAI Vision API for analysis
+    $aiData = analyzeScreenshotWithAI($screenshotUrl, $openaiKey);
+    if (!$aiData || !is_array($aiData)) return;
+
+    // Step 3: Merge AI-extracted data into result (only fill empty fields)
+    mergeAIResults($aiData, $result);
+}
+
+/**
+ * Get a screenshot URL using ScrapingBee's screenshot feature.
+ */
+function getScrapingBeeScreenshot($url, $apiKey) {
+    $params = [
+        'api_key' => $apiKey,
+        'url' => $url,
+        'screenshot' => 'true',
+        'screenshot_full_page' => 'false',
+        'render_js' => 'true',
+        'premium_proxy' => 'true',
+        'wait' => '3000',
+        'window_width' => '1280',
+        'window_height' => '900',
+    ];
+
+    $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $sbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $imageData = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$imageData || strlen($imageData) < 1000) return null;
+
+    // ScrapingBee returns raw image data; save it locally and return URL
+    $cacheDir = __DIR__ . '/../uploads/order_images';
+    if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
+    if (!is_dir($cacheDir) || !is_writable($cacheDir)) return null;
+
+    $hash = md5($url . '_planb_screenshot');
+    $filename = 'screenshot_' . $hash . '.png';
+    $filepath = $cacheDir . '/' . $filename;
+
+    if (@file_put_contents($filepath, $imageData) === false) return null;
+
+    return 'https://www.imporlan.cl/uploads/order_images/' . $filename;
+}
+
+/**
+ * Get a screenshot URL using Microlink API (free, no API key needed).
+ */
+function getMicrolinkScreenshot($url) {
+    $mlUrl = 'https://api.microlink.io/?url=' . urlencode($url)
+        . '&screenshot=true&meta=false&embed=screenshot.url'
+        . '&viewport.width=1280&viewport.height=900&waitForTimeout=3000';
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $mlUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_ENCODING => '',
+    ]);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$resp) return null;
+    $data = @json_decode($resp, true);
+    if (!$data || ($data['status'] ?? '') !== 'success') return null;
+
+    return $data['data']['screenshot']['url'] ?? null;
+}
+
+/**
+ * Send a screenshot to OpenAI GPT-4o Vision API and extract structured boat listing data.
+ * Returns an associative array with extracted fields or null on failure.
+ */
+function analyzeScreenshotWithAI($screenshotUrl, $apiKey) {
+    $systemPrompt = <<<'PROMPT'
+You are a data extraction assistant specialized in boat/marine vessel listings.
+Extract all available information from the screenshot of a boat listing page.
+Return ONLY a valid JSON object with these fields (use null for fields you cannot determine):
+{
+  "title": "Full listing title",
+  "make": "Boat manufacturer/brand name",
+  "model": "Model name/number (alphanumeric code like H2O, GX215, SPX 210)",
+  "year": 2020,
+  "hours": 290,
+  "engine": "Engine/motor specs (e.g. 4.3 MPI 220 hp, Yamaha F150)",
+  "price": 25000,
+  "currency": "USD",
+  "location": "City, State",
+  "description": "Listing description text"
+}
+Rules:
+- For price, return only the numeric value without currency symbols
+- For hours, return only the numeric value
+- For year, return a 4-digit integer
+- For model, extract just the model code (e.g. "H2O" not "Chaparral H2O 21 foot")
+- For engine, include power rating if visible (e.g. "4.3 MPI 220 hp")
+- Do NOT guess or fabricate data; use null if not visible in the screenshot
+PROMPT;
+
+    $payload = [
+        'model' => 'gpt-4o',
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => $systemPrompt,
+            ],
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'Extract all boat listing data from this screenshot:'],
+                    ['type' => 'image_url', 'image_url' => ['url' => $screenshotUrl, 'detail' => 'high']],
+                ],
+            ],
+        ],
+        'max_tokens' => 600,
+        'temperature' => 0.1,
+    ];
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => 'https://api.openai.com/v1/chat/completions',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$resp) return null;
+    $data = @json_decode($resp, true);
+    $content = $data['choices'][0]['message']['content'] ?? '';
+    if (!$content) return null;
+
+    // Extract JSON from response (may be wrapped in markdown code blocks)
+    if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $m)) {
+        return @json_decode($m[1], true);
+    }
+    if (preg_match('/\{[\s\S]*\}/', $content, $m)) {
+        return @json_decode($m[0], true);
+    }
+    return @json_decode($content, true);
+}
+
+/**
+ * Merge AI-extracted data into the scraper result.
+ * Only fills fields that are currently empty (never overwrites existing data).
+ */
+function mergeAIResults($aiData, &$result) {
+    if (!is_array($aiData)) return;
+
+    // Map AI field names to result field names
+    $fieldMap = [
+        'title' => 'title',
+        'make' => 'make',
+        'model' => 'model',
+        'year' => 'year',
+        'hours' => 'hours',
+        'engine' => 'engine',
+        'price' => 'value_usa_usd',
+        'location' => 'location',
+        'description' => 'description',
+    ];
+
+    foreach ($fieldMap as $aiField => $resultField) {
+        // Only fill empty fields
+        if (!empty($result[$resultField])) continue;
+        if (empty($aiData[$aiField]) || $aiData[$aiField] === null) continue;
+
+        $val = $aiData[$aiField];
+
+        // Type-specific processing
+        switch ($resultField) {
+            case 'year':
+                $val = intval($val);
+                if ($val < 1950 || $val > intval(date('Y')) + 2) continue 2;
+                break;
+            case 'value_usa_usd':
+                $val = floatval(str_replace(',', '', (string)$val));
+                if ($val < 500 || $val >= 50000000) continue 2;
+                break;
+            case 'hours':
+                $val = (string) intval(str_replace(',', '', (string)$val));
+                if (intval($val) < 1 || intval($val) > 30000) continue 2;
+                break;
+            case 'title':
+                $val = trim((string)$val);
+                // Don't set generic titles
+                if (preg_match('/^\s*(Facebook|Marketplace|Log\s+in)\s*$/i', $val)) continue 2;
+                break;
+            default:
+                $val = trim((string)$val);
+                if (strlen($val) < 2 || strlen($val) > 300) continue 2;
+                break;
+        }
+
+        $result[$resultField] = $val;
+    }
+
+    // If AI found an image URL and we don't have one
+    if (!$result['image_url'] && !empty($aiData['image_url'])) {
+        $imgUrl = trim($aiData['image_url']);
+        if (filter_var($imgUrl, FILTER_VALIDATE_URL) && isUsefulImage($imgUrl)) {
+            $result['image_url'] = $imgUrl;
         }
     }
 }
