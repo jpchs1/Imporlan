@@ -24,4 +24,13 @@ return [
     // Minimum number of missing fields to trigger Plan B (default: 3)
     // Key fields: image, title, make, model, year, hours, engine, price, location
     'plan_b_threshold' => 3,
+
+    // Facebook session cookies for authenticated Marketplace scraping
+    // Extract from your browser: DevTools > Application > Cookies > facebook.com
+    // These cookies expire every 30-90 days and need periodic renewal
+    'facebook_cookies' => [
+        'c_user' => '',  // Your Facebook user ID (numeric)
+        'xs' => '',      // Session token
+        'datr' => '',    // Device token
+    ],
 ];

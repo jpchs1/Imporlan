@@ -1005,7 +1005,7 @@ function executePlanB($url, &$result, $config) {
     $scrapingBeeKey = trim($config['scrapingbee_api_key'] ?? '');
     if ($scrapingBeeKey) {
         $beforeMissing = countMissingFields($result);
-        planBScrapingBee($url, $result, $scrapingBeeKey);
+        planBScrapingBee($url, $result, $scrapingBeeKey, $config);
         $afterMissing = countMissingFields($result);
         $result['plan_b'][] = [
             'level' => 1,
@@ -1033,13 +1033,40 @@ function executePlanB($url, &$result, $config) {
 }
 
 /**
+ * Build a cookie string for Facebook session authentication.
+ * ScrapingBee accepts cookies as a semicolon-separated string: "name1=value1;name2=value2"
+ * Returns null if no Facebook cookies are configured.
+ */
+function buildFacebookCookieString($config) {
+    $fbCookies = $config['facebook_cookies'] ?? [];
+    if (!is_array($fbCookies) || empty($fbCookies)) return null;
+
+    $cUser = trim($fbCookies['c_user'] ?? '');
+    $xs = trim($fbCookies['xs'] ?? '');
+    $datr = trim($fbCookies['datr'] ?? '');
+
+    // At minimum we need c_user and xs for a valid session
+    if (!$cUser || !$xs) return null;
+
+    $parts = [];
+    $parts[] = 'c_user=' . $cUser;
+    $parts[] = 'xs=' . $xs;
+    if ($datr) {
+        $parts[] = 'datr=' . $datr;
+    }
+
+    return implode(';', $parts);
+}
+
+/**
  * Plan B Level 1: Use ScrapingBee to render the page with a real headless browser.
  * ScrapingBee handles JavaScript rendering, cookies, and can use premium proxies
  * to bypass blocks from sites like Facebook.
  */
-function planBScrapingBee($url, &$result, $apiKey) {
+function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     // Only use premium proxies for domains that block basic requests (Facebook, etc.)
-    $usePremium = (bool) preg_match('/facebook\.com|instagram\.com|craigslist\.org/i', $url);
+    $isFacebook = (bool) preg_match('/facebook\.com/i', $url);
+    $usePremium = $isFacebook || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
 
     $params = [
         'api_key' => $apiKey,
@@ -1050,6 +1077,14 @@ function planBScrapingBee($url, &$result, $apiKey) {
         'block_resources' => 'false',
         'wait' => '3000',
     ];
+
+    // Pass Facebook session cookies for authenticated access to Marketplace
+    if ($isFacebook) {
+        $fbCookies = buildFacebookCookieString($config);
+        if ($fbCookies) {
+            $params['cookies'] = $fbCookies;
+        }
+    }
 
     $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
 
@@ -1068,9 +1103,27 @@ function planBScrapingBee($url, &$result, $apiKey) {
 
     if ($httpCode !== 200 || !$html || strlen($html) < 500) return;
 
+    // Preserve existing data: save fields before parsing ScrapingBee HTML
+    // parseHtml unconditionally overwrites image_url and title when found,
+    // which could replace good data with generic/blocked page data
+    $existingTitle = $result['title'];
+    $existingImage = $result['image_url'];
+    $existingDescription = $result['description'];
+
     // Parse the rendered HTML with existing extraction functions
     $parsedUrl = parse_url($url);
     parseHtml($html, $url, $parsedUrl, $result);
+
+    // Restore existing data if it was good and new data is generic/empty
+    if ($existingTitle && (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? ''))) {
+        $result['title'] = $existingTitle;
+    }
+    if ($existingImage && !isUsefulImage($result['image_url'] ?? '')) {
+        $result['image_url'] = $existingImage;
+    }
+    if ($existingDescription && !$result['description']) {
+        $result['description'] = $existingDescription;
+    }
 
     // Also try to extract from og:description if available
     if ($result['description']) {
@@ -1093,7 +1146,7 @@ function planBScreenshotAI($url, &$result, $config) {
     // Try ScrapingBee screenshot first (better for JS-heavy pages)
     $sbKey = trim($config['scrapingbee_api_key'] ?? '');
     if ($sbKey) {
-        $screenshotUrl = getScrapingBeeScreenshot($url, $sbKey);
+        $screenshotUrl = getScrapingBeeScreenshot($url, $sbKey, $config);
     }
 
     // Fallback to Microlink screenshot (free, no API key needed)
@@ -1114,8 +1167,9 @@ function planBScreenshotAI($url, &$result, $config) {
 /**
  * Get a screenshot URL using ScrapingBee's screenshot feature.
  */
-function getScrapingBeeScreenshot($url, $apiKey) {
-    $usePremium = (bool) preg_match('/facebook\.com|instagram\.com|craigslist\.org/i', $url);
+function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
+    $isFacebook = (bool) preg_match('/facebook\.com/i', $url);
+    $usePremium = $isFacebook || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
 
     $params = [
         'api_key' => $apiKey,
@@ -1128,6 +1182,14 @@ function getScrapingBeeScreenshot($url, $apiKey) {
         'window_width' => '1280',
         'window_height' => '900',
     ];
+
+    // Pass Facebook session cookies for authenticated screenshots
+    if ($isFacebook) {
+        $fbCookies = buildFacebookCookieString($config);
+        if ($fbCookies) {
+            $params['cookies'] = $fbCookies;
+        }
+    }
 
     $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
 
