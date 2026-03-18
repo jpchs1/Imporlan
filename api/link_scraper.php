@@ -74,7 +74,8 @@ function fetchLinkMetadata() {
     }
 
     $isFacebookMarketplace = preg_match('/facebook\.com\/marketplace\/item\//', $url);
-    if ($isFacebookMarketplace && !$result['image_url']) {
+    $hasGenericTitle = !$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? '');
+    if ($isFacebookMarketplace && (!$result['image_url'] || $hasGenericTitle)) {
         fetchFacebookMobile($url, $result);
     }
 
@@ -492,19 +493,21 @@ function fetchFacebookMobile($url, &$result) {
         }
     }
 
-    if (!$result['title']) {
+    // Replace generic titles ("Facebook", "Marketplace") with actual listing title
+    $currentTitleIsGeneric = !$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? '');
+    if ($currentTitleIsGeneric) {
         $ogTitle = $xpath->query('//meta[@property="og:title"]/@content');
         if ($ogTitle->length > 0) {
             $title = trim($ogTitle->item(0)->nodeValue);
-            if ($title && stripos($title, 'log in') === false && stripos($title, 'facebook') === false) {
+            if ($title && stripos($title, 'log in') === false && !preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace)\s*$/i', $title)) {
                 $result['title'] = $title;
             }
         }
-        if (!$result['title']) {
+        if (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace)\s*$/i', $result['title'] ?? '')) {
             $titleTag = $xpath->query('//title');
             if ($titleTag->length > 0) {
                 $title = trim($titleTag->item(0)->textContent);
-                if ($title && stripos($title, 'log in') === false && stripos($title, 'facebook') === false) {
+                if ($title && stripos($title, 'log in') === false && !preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace)\s*$/i', $title)) {
                     $result['title'] = $title;
                 }
             }
