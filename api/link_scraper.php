@@ -1137,8 +1137,8 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     if ($existing['description'] && !$result['description']) {
         $result['description'] = $existing['description'];
     }
-    // Never overwrite existing make/model/year/hours/engine with empty values
-    foreach (['make', 'model', 'year', 'hours', 'engine'] as $field) {
+    // Never overwrite existing field values with empty values from Plan B
+    foreach (['make', 'model', 'year', 'hours', 'engine', 'value_usa_usd', 'location'] as $field) {
         if ($existing[$field] && !$result[$field]) {
             $result[$field] = $existing[$field];
         }
