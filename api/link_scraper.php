@@ -573,6 +573,10 @@ function extractBoatIdentity(&$result) {
     $text = trim(($result['title'] ?? '') . ' ' . ($result['description'] ?? ''));
     if (!$text || strlen($text) < 5) return;
 
+    // Decode HTML entities (Facebook returns &#039; etc.) and normalize whitespace
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace('/\s+/', ' ', $text);
+
     // Known boat brands for matching
     $brands = [
         'Sea Ray', 'Chaparral', 'Cobalt', 'Monterey', 'Yamaha', 'MasterCraft',
@@ -589,29 +593,37 @@ function extractBoatIdentity(&$result) {
         'Phoenix', 'Xpress', 'War Eagle', 'Blazer', 'Excel', 'Pathfinder',
         'Maverick', 'Hewes', 'Blue Wave', 'Sea Fox', 'Sea Hunt', 'Sea Pro',
         'Sweetwater', 'Godfrey', 'Sylvan', 'Berkshire', 'South Bay',
-        'Manitou', 'Harris', 'Princecraft', 'Lowe', 'Sun Catcher',
+        'Manitou', 'Harris', 'Princecraft', 'Sun Catcher',
         'Misty Harbor', 'Avalon', 'Lexington', 'Crest', 'Veranda',
-        'Caymas', 'Vexus', 'Seavee', 'Contender', 'Blackfin', 'Century',
+        'Caymas', 'Seavee', 'Contender', 'Blackfin', 'Century',
         'Parker', 'Bertram', 'Viking', 'Hatteras', 'Cabo', 'Riviera',
         'Prestige', 'Jeanneau', 'Beneteau', 'Catalina', 'Hunter',
         'Leopard', 'Lagoon', 'Fountaine Pajot', 'Bavaria', 'Dufour',
     ];
 
-    // Pattern 1: "YEAR MAKE MODEL" (e.g. "2019 Chaparral 23 H2O Sport")
-    if (!$result['year'] || !$result['make']) {
-        $brandsPattern = implode('|', array_map(function($b) {
-            return preg_quote($b, '/');
-        }, $brands));
+    $brandsPattern = implode('|', array_map(function($b) {
+        return preg_quote($b, '/');
+    }, $brands));
 
-        if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\s+(.+?)(?:\s*[-–|,\.]|$)/i', $text, $m)) {
+    // Pattern 1: "YEAR MAKE MODEL" (e.g. "2019 Chaparral 23 H2O Sport", "2018 Sea Ray SPX 210")
+    if (!$result['year'] || !$result['make']) {
+        if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\s+(.+)/i', $text, $m)) {
             if (!$result['year']) $result['year'] = intval($m[1]);
             if (!$result['make']) $result['make'] = trim($m[2]);
             if (!$result['model']) {
                 $model = trim($m[3]);
-                // Clean up model: remove trailing noise like prices, locations
+                // Clean up model: remove trailing noise
                 $model = preg_replace('/\s*\$[\d,]+.*$/', '', $model);
-                $model = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]).*$/i', '', $model);
-                $model = trim($model, ' .,;:-');
+                $model = preg_replace('/\s+(?:for\s+sale|located?\s+in|in\s+[A-Z]{2}\b).*$/i', '', $model);
+                // Remove parenthetical specs like (260 HP - 21 FT) but keep model number before it
+                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
+                // Remove duplicate brand name if it appears again in the model text
+                if ($result['make']) {
+                    $model = preg_replace('/^' . preg_quote($result['make'], '/') . '\s*/i', '', $model);
+                }
+                // Trim foot/inch marks and other noise
+                $model = preg_replace("/\s*[\x{2019}'\x{2032}]\s*/u", ' ', $model);
+                $model = trim($model, " .,;:-\t\n\r");
                 if (strlen($model) >= 1 && strlen($model) <= 80) {
                     $result['model'] = $model;
                 }
@@ -621,15 +633,12 @@ function extractBoatIdentity(&$result) {
 
     // Pattern 2: "MAKE MODEL YEAR" (e.g. "Chaparral 23 H2O 2019")
     if (!$result['year'] || !$result['make']) {
-        $brandsPattern = implode('|', array_map(function($b) {
-            return preg_quote($b, '/');
-        }, $brands));
-
         if (preg_match('/\b(' . $brandsPattern . ')\s+(.+?)\s+((?:19|20)\d{2})\b/i', $text, $m)) {
             if (!$result['make']) $result['make'] = trim($m[1]);
             if (!$result['model']) {
                 $model = trim($m[2]);
-                $model = trim($model, ' .,;:-');
+                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
+                $model = trim($model, " .,;:-\t\n\r");
                 if (strlen($model) >= 1 && strlen($model) <= 80) {
                     $result['model'] = $model;
                 }
@@ -640,20 +649,41 @@ function extractBoatIdentity(&$result) {
 
     // Pattern 3: Just "YEAR MAKE" without model (e.g. "2015 Cobalt")
     if (!$result['year'] || !$result['make']) {
-        $brandsPattern = implode('|', array_map(function($b) {
-            return preg_quote($b, '/');
-        }, $brands));
-
         if (preg_match('/\b((?:19|20)\d{2})\s+(' . $brandsPattern . ')\b/i', $text, $m)) {
             if (!$result['year']) $result['year'] = intval($m[1]);
             if (!$result['make']) $result['make'] = trim($m[2]);
         }
     }
 
-    // Pattern 4: Extract year from text if still missing (standalone 4-digit year near boat context)
+    // Pattern 4: Just "MAKE" + model-like text (e.g. "Glastron GX215" without year nearby)
+    if (!$result['make']) {
+        if (preg_match('/\b(' . $brandsPattern . ')\s+([A-Z0-9][\w\s\-\/\.]{0,40})/i', $text, $m)) {
+            $result['make'] = trim($m[1]);
+            if (!$result['model']) {
+                $model = trim($m[2]);
+                $model = preg_replace('/\s*\(.*\)\s*/', ' ', $model);
+                $model = trim($model, " .,;:-\t\n\r");
+                if (strlen($model) >= 1 && strlen($model) <= 80) {
+                    $result['model'] = $model;
+                }
+            }
+        }
+    }
+
+    // Pattern 5: Extract year from text if still missing (standalone 4-digit year near boat context)
     if (!$result['year']) {
         if (preg_match('/\b((?:19|20)\d{2})\s+(?:boat|lancha|embarcacion|bowrider|cruiser|pontoon|deck\s*boat|center\s*console|ski\s*boat|wake\s*boat|fishing\s*boat)/i', $text, $m)) {
             $result['year'] = intval($m[1]);
+        }
+    }
+
+    // Pattern 6: Any standalone year (1990-2029) if we found a make but still no year
+    if (!$result['year'] && $result['make']) {
+        if (preg_match('/\b((?:19|20)\d{2})\b/', $text, $m)) {
+            $yr = intval($m[1]);
+            if ($yr >= 1990 && $yr <= intval(date('Y')) + 2) {
+                $result['year'] = $yr;
+            }
         }
     }
 

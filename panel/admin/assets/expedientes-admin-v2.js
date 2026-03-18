@@ -590,21 +590,21 @@
       '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
       '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
-            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Imagen</th>' +
-            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Marca</th>' +
-            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:110px">Modelo</th>' +
-            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:65px">A\u00f1o</th>' +
-            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Link Opcion (USA)</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Ubicacion</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:80px">Horas</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:150px">Motor</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Valor USA (USD)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:120px">Negociar (USD)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Chile (CLP)</th>' +
-      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:130px">Negociado (CLP)</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:55px">N\u00b0 Sel</th>' +
-      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:140px">Comentarios</th>' +
-      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:50px">Acc.</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:100px">Imagen</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Marca</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:140px">Modelo</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:70px">A\u00f1o</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:150px">Ubicacion</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:80px">Horas</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Motor</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Valor USA (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Negociar (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:130px">Chile (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:130px">Negociado (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:55px">N\u00b0 Sel</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Comentarios</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:50px">Acc.</th>' +
       '</tr></thead><tbody id="ea-links-tbody">' +
       linksRows +
       "</tbody></table></div></div>" +
@@ -731,17 +731,17 @@
       '</div>' +
       '<input type="file" class="ea-img-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">' +
             '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8;display:none" title="URL de la imagen"></div></td>' +
-            '<td style="padding:8px 6px"><input class="ea-link-make" value="' + escapeHtml(lk.make || '') + '" placeholder="Ej: Sea Ray" style="' + ci + ';width:100px"></td>' +
-            '<td style="padding:8px 6px"><input class="ea-link-model" value="' + escapeHtml(lk.model || '') + '" placeholder="Ej: SLX 280" style="' + ci + ';width:100px"></td>' +
-            '<td style="padding:8px 6px"><input class="ea-link-year" type="number" value="' + numOrEmpty(lk.year) + '" placeholder="Ej: 2023" style="' + ci + ';width:65px;text-align:center"></td>' +
-            '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1">' +
+            '<td style="padding:8px 6px"><input class="ea-link-make" value="' + escapeHtml(lk.make || '') + '" placeholder="Ej: Sea Ray" style="' + ci + ';min-width:110px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-model" value="' + escapeHtml(lk.model || '') + '" placeholder="Ej: SLX 280" style="' + ci + ';min-width:130px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-year" type="number" value="' + numOrEmpty(lk.year) + '" placeholder="Ej: 2023" style="' + ci + ';min-width:65px;text-align:center"></td>' +
+            '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1;min-width:160px">' +
       '<div style="display:flex;gap:2px;flex-shrink:0">' +
       '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
       '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
       '</div></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + '"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';width:72px"></td>' +
-      '<td style="padding:8px 6px"><input class="ea-link-engine" value="' + escapeHtml(lk.engine || '') + '" placeholder="Ej: Mercruiser 4.5L" style="' + ci + ';width:140px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + ';min-width:140px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';min-width:72px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-engine" value="' + escapeHtml(lk.engine || '') + '" placeholder="Ej: Mercruiser 4.5L" style="' + ci + ';min-width:190px"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
       '<td style="padding:8px 6px"><input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
