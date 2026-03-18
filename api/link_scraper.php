@@ -95,6 +95,14 @@ function fetchLinkMetadata() {
         $result['image_url'] = null;
     }
 
+    // Cache external images (Facebook CDN URLs expire) to permanent local copies
+    if ($result['image_url'] && isExpiringImageUrl($result['image_url'])) {
+        $cachedUrl = cacheImageLocally($result['image_url']);
+        if ($cachedUrl) {
+            $result['image_url'] = $cachedUrl;
+        }
+    }
+
     echo json_encode($result);
 }
 
@@ -359,6 +367,89 @@ function isUsefulImage($imgUrl) {
     if (preg_match('/static\.xx\.fbcdn\.net\/rsrc/', $lower)) return false;
     if (preg_match('/fbcdn\.net.*\/rsrc\.php/', $lower)) return false;
     return true;
+}
+
+/**
+ * Check if an image URL is from a CDN that uses expiring tokens (Facebook, etc.)
+ */
+function isExpiringImageUrl($url) {
+    if (!$url) return false;
+    $lower = strtolower($url);
+    // Facebook CDN URLs contain tokens that expire after hours/days
+    if (strpos($lower, 'fbcdn.net') !== false) return true;
+    if (strpos($lower, 'facebook.com') !== false && strpos($lower, '/v/') !== false) return true;
+    return false;
+}
+
+/**
+ * Download an external image and save it locally to prevent CDN expiration.
+ * Returns the permanent local URL or null on failure.
+ */
+function cacheImageLocally($imageUrl) {
+    $cacheDir = __DIR__ . '/../uploads/order_images';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0755, true);
+    }
+    if (!is_dir($cacheDir) || !is_writable($cacheDir)) {
+        return null;
+    }
+
+    // Use URL hash as filename to avoid duplicates
+    $hash = md5($imageUrl);
+    $filename = 'cache_' . $hash . '.jpg';
+    $filepath = $cacheDir . '/' . $filename;
+
+    // If already cached, return the local URL
+    if (file_exists($filepath) && filesize($filepath) > 500) {
+        return 'https://www.imporlan.cl/uploads/order_images/' . $filename;
+    }
+
+    // Download the image via curl (supports redirects, FB CDN tokens)
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => html_entity_decode($imageUrl),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    ]);
+    $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+
+    // Validate response
+    if ($httpCode !== 200 || !$data || strlen($data) < 500) {
+        return null;
+    }
+
+    // Verify it's actually an image (check content type or magic bytes)
+    $isImage = false;
+    if ($contentType && preg_match('/^image\//i', $contentType)) {
+        $isImage = true;
+    }
+    if (!$isImage) {
+        // Check magic bytes: JPEG (FFD8FF), PNG (89504E47), WEBP (52494646...57454250)
+        $header = substr($data, 0, 12);
+        if (substr($header, 0, 3) === "\xFF\xD8\xFF" ||
+            substr($header, 0, 4) === "\x89PNG" ||
+            (substr($header, 0, 4) === "RIFF" && substr($header, 8, 4) === "WEBP")) {
+            $isImage = true;
+        }
+    }
+    if (!$isImage) {
+        return null;
+    }
+
+    // Save to disk
+    if (@file_put_contents($filepath, $data) === false) {
+        return null;
+    }
+
+    return 'https://www.imporlan.cl/uploads/order_images/' . $filename;
 }
 
 function fetchFacebookMobile($url, &$result) {
