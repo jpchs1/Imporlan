@@ -640,7 +640,6 @@
     stopAdminRankingPolling();
     adminRankingPollingTimer = setInterval(function() {
       if (!getOrderIdFromHash()) { stopAdminRankingPolling(); return; }
-      if (hasUnsavedChanges) return; // skip if admin has unsaved edits
       pollAdminRankingUpdate(orderId);
     }, 30000);
   }
@@ -659,7 +658,7 @@
         var roleLabel = authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
         showToast('Ranking actualizado por ' + authorName + ' (' + roleLabel + ')', 'info');
         adminLastRankingUpdatedAt = newTs;
-        // Update ranking info bar without full re-render to preserve admin edits
+        // Update ranking info bar
         var infoBar = document.getElementById('ea-ranking-info');
         var infoParent = infoBar ? infoBar.parentElement : null;
         if (infoParent) {
@@ -667,16 +666,53 @@
           newBar.innerHTML = buildAdminRankingInfoBar(order);
           infoBar.replaceWith(newBar.firstElementChild);
         }
-        // Re-render the links table with new order
-        var tbody = document.getElementById('ea-links-tbody');
-        if (tbody && order.links) {
-          currentOrderData = order;
-          currentLinks = order.links;
-          var linksHtml = '';
-          order.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
-          tbody.innerHTML = linksHtml;
-          renumberRows();
-          initDragDrop();
+        if (hasUnsavedChanges) {
+          // Show a reload banner instead of overwriting unsaved edits
+          var existing = document.getElementById('ea-ranking-reload-banner');
+          if (!existing) {
+            var banner = document.createElement('div');
+            banner.id = 'ea-ranking-reload-banner';
+            banner.style.cssText = 'padding:12px 28px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap';
+            banner.innerHTML = '<span style="font-size:13px;color:#92400e;font-weight:500">' +
+              '<strong>' + escapeHtml(authorName) + '</strong> ha reordenado el ranking. Tienes cambios sin guardar.' +
+              '</span><button id="ea-ranking-reload-btn" style="padding:6px 16px;border-radius:8px;border:none;background:#0891b2;color:#fff;font-size:12px;font-weight:600;cursor:pointer">Recargar ranking</button>';
+            var infoBarNew = document.getElementById('ea-ranking-info');
+            if (infoBarNew && infoBarNew.parentElement) {
+              infoBarNew.parentElement.insertBefore(banner, infoBarNew.nextSibling);
+            }
+            var reloadBtn = document.getElementById('ea-ranking-reload-btn');
+            if (reloadBtn) {
+              reloadBtn.addEventListener('click', function() {
+                fetchOrderDetail(orderId).then(function(freshOrder) {
+                  if (!freshOrder) return;
+                  var tbody = document.getElementById('ea-links-tbody');
+                  if (tbody && freshOrder.links) {
+                    currentOrderData = freshOrder;
+                    currentLinks = freshOrder.links;
+                    var linksHtml = '';
+                    freshOrder.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
+                    tbody.innerHTML = linksHtml;
+                    renumberRows();
+                    initDragDrop();
+                  }
+                  var b = document.getElementById('ea-ranking-reload-banner');
+                  if (b) b.remove();
+                });
+              });
+            }
+          }
+        } else {
+          // No unsaved changes: auto-refresh the table
+          var tbody = document.getElementById('ea-links-tbody');
+          if (tbody && order.links) {
+            currentOrderData = order;
+            currentLinks = order.links;
+            var linksHtml = '';
+            order.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
+            tbody.innerHTML = linksHtml;
+            renumberRows();
+            initDragDrop();
+          }
         }
       } else if (newTs) {
         adminLastRankingUpdatedAt = newTs;

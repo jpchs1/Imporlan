@@ -751,12 +751,7 @@
     }).catch(function() { /* silent */ });
   }
 
-  function notifyRankingChange(orderId) {
-    var userData = getUserData();
-    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
-    var userEmail = getUserEmail();
-    var btn = document.getElementById('lc-notify-ranking-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lc-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...'; }
+  function sendRankingNotification(orderId, authorName, userEmail, btn) {
     fetch(API_BASE + '/orders_api.php?action=notify_ranking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -777,6 +772,42 @@
       showToast('Error de conexion', 'error');
       if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notificar Cambio'; }
     });
+  }
+
+  function notifyRankingChange(orderId) {
+    var userData = getUserData();
+    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
+    var userEmail = getUserEmail();
+    var btn = document.getElementById('lc-notify-ranking-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lc-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Guardando y enviando...'; }
+
+    // Save the current card order FIRST, then send notification.
+    // This prevents a race condition where the email could show a stale order
+    // if the user clicks "Notificar" before the last drag-save completes.
+    var cc = document.getElementById('lc-cards-container');
+    if (cc) {
+      var linkIds = [];
+      cc.querySelectorAll(".lc-vessel-card").forEach(function (card) { var id = card.getAttribute("data-link-id"); if (id) linkIds.push(id); });
+      if (linkIds.length > 0) {
+        fetch(API_BASE + '/orders_api.php?action=save_ranking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: parseInt(orderId),
+            link_ids: linkIds,
+            author_name: authorName,
+            author_role: 'user',
+            user_email: userEmail
+          })
+        }).then(function() {
+          sendRankingNotification(orderId, authorName, userEmail, btn);
+        }).catch(function() {
+          sendRankingNotification(orderId, authorName, userEmail, btn);
+        });
+        return;
+      }
+    }
+    sendRankingNotification(orderId, authorName, userEmail, btn);
   }
 
   function showInspectionModal(linkUrl, linkIdx) {
