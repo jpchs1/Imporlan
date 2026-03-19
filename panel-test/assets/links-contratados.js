@@ -502,131 +502,6 @@
       '</div></div></div></div>';
   }
 
-  /* ── Timeline de Proceso de Importacion ── */
-  var TIMELINE_STEPS = [
-    {
-      num: 1,
-      title: "Cotizacion",
-      subtitle: "Por Links o Plan de Busqueda",
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
-      description: "Seleccion de embarcaciones candidatas mediante links o plan de busqueda personalizado. Nuestro equipo busca las mejores opciones para ti."
-    },
-    {
-      num: 2,
-      title: "Inspeccion",
-      subtitle: "Evaluacion Tecnica",
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>',
-      description: "Inspeccion tecnica profesional de la embarcacion seleccionada. Se verifica el estado del motor, casco, sistemas electricos y mas."
-    },
-    {
-      num: 3,
-      title: "Compra",
-      subtitle: "Adquisicion en USA",
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-      description: "Gestion de compra de la embarcacion en Estados Unidos. Negociacion, documentacion y transferencia de titulos."
-    },
-    {
-      num: 4,
-      title: "Inland USA",
-      subtitle: "Transporte Interno",
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
-      description: "Transporte terrestre de la embarcacion dentro de USA hasta el puerto de embarque. Coordinacion logistica completa."
-    },
-    {
-      num: 5,
-      title: "Importacion & Entrega",
-      subtitle: "Chile - Destino Final",
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/></svg>',
-      description: "Embarque maritimo, internacion aduanera en Chile y entrega en destino final. Tramites de importacion y registro."
-    }
-  ];
-
-  function renderTimeline(currentStep) {
-    var step = parseInt(currentStep) || 1;
-    if (step < 1) step = 1;
-    if (step > 5) step = 5;
-
-    var stepsHtml = '';
-    TIMELINE_STEPS.forEach(function (s, idx) {
-      var stepNum = s.num;
-      var isCompleted = stepNum < step;
-      var isCurrent = stepNum === step;
-      var isPending = stepNum > step;
-
-      var circleColor, circleBorder, iconColor, titleColor, subtitleColor, descColor, lineColor;
-      if (isCompleted) {
-        circleColor = '#10b981'; circleBorder = '#10b981'; iconColor = '#fff';
-        titleColor = '#059669'; subtitleColor = '#10b981'; descColor = '#6b7280'; lineColor = '#10b981';
-      } else if (isCurrent) {
-        circleColor = 'linear-gradient(135deg,#0891b2,#06b6d4)'; circleBorder = '#0891b2'; iconColor = '#fff';
-        titleColor = '#0891b2'; subtitleColor = '#0891b2'; descColor = '#475569'; lineColor = '#e2e8f0';
-      } else {
-        circleColor = '#f1f5f9'; circleBorder = '#cbd5e1'; iconColor = '#94a3b8';
-        titleColor = '#94a3b8'; subtitleColor = '#cbd5e1'; descColor = '#cbd5e1'; lineColor = '#e2e8f0';
-      }
-
-      var checkIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
-      var pulseAnim = isCurrent ? 'animation:lcTimelinePulse 2s infinite;' : '';
-
-      stepsHtml += '<div class="lc-timeline-step" style="display:flex;flex-direction:column;align-items:center;flex:1;position:relative;min-width:0">';
-
-      // Connector line (not on first step)
-      if (idx > 0) {
-        var prevCompleted = stepNum <= step;
-        stepsHtml += '<div class="lc-timeline-line" style="position:absolute;top:22px;right:50%;width:100%;height:3px;background:' + (prevCompleted ? '#10b981' : '#e2e8f0') + ';z-index:0;border-radius:2px"></div>';
-      }
-
-      // Circle
-      stepsHtml += '<div style="position:relative;z-index:1;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid ' + circleBorder + ';background:' + circleColor + ';color:' + iconColor + ';flex-shrink:0;' + pulseAnim + 'transition:all .3s">';
-      if (isCompleted) {
-        stepsHtml += checkIcon;
-      } else {
-        stepsHtml += '<span style="color:' + iconColor + '">' + s.icon + '</span>';
-      }
-      stepsHtml += '</div>';
-
-      // Title & subtitle
-      stepsHtml += '<div style="text-align:center;margin-top:10px;padding:0 4px;width:100%">';
-      stepsHtml += '<p style="margin:0;font-size:13px;font-weight:700;color:' + titleColor + ';line-height:1.2">' + s.title + '</p>';
-      stepsHtml += '<p style="margin:2px 0 0;font-size:10px;color:' + subtitleColor + ';font-weight:500;line-height:1.3">' + s.subtitle + '</p>';
-
-      // Description (only for current step on desktop, expandable on mobile)
-      if (isCurrent) {
-        stepsHtml += '<div class="lc-timeline-desc-current" style="margin-top:8px;padding:10px 12px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:10px;text-align:left">';
-        stepsHtml += '<p style="margin:0;font-size:11px;color:' + descColor + ';line-height:1.5">' + s.description + '</p></div>';
-      }
-
-      stepsHtml += '</div></div>';
-    });
-
-    // Find next step info
-    var nextStepHtml = '';
-    if (step < 5) {
-      var next = TIMELINE_STEPS[step]; // step is 1-indexed, array is 0-indexed, so TIMELINE_STEPS[step] = next step
-      nextStepHtml = '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;margin-top:16px">' +
-        '<div style="flex-shrink:0;width:32px;height:32px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:8px;display:flex;align-items:center;justify-content:center">' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
-        '<div style="flex:1;min-width:0"><p style="margin:0;font-size:12px;font-weight:600;color:#1e40af">Siguiente paso: ' + escapeHtml(next.title) + '</p>' +
-        '<p style="margin:2px 0 0;font-size:11px;color:#3b82f6;line-height:1.4">' + escapeHtml(next.description) + '</p></div></div>';
-    } else {
-      nextStepHtml = '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;border-radius:10px;margin-top:16px">' +
-        '<div style="flex-shrink:0;width:32px;height:32px;background:linear-gradient(135deg,#10b981,#059669);border-radius:8px;display:flex;align-items:center;justify-content:center">' +
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>' +
-        '<div style="flex:1;min-width:0"><p style="margin:0;font-size:12px;font-weight:600;color:#065f46">Proceso Completado</p>' +
-        '<p style="margin:2px 0 0;font-size:11px;color:#10b981;line-height:1.4">Tu embarcacion ha sido importada y entregada exitosamente. Felicidades!</p></div></div>';
-    }
-
-    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
-      '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px">' +
-      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>' +
-      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Progreso de tu Importacion</h3>' +
-      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Paso ' + step + ' de 5 - ' + escapeHtml(TIMELINE_STEPS[step - 1].title) + '</p></div></div>' +
-      '<div style="padding:24px 20px 16px">' +
-      '<div class="lc-timeline-container" style="display:flex;align-items:flex-start;gap:0;position:relative;padding:0 8px">' + stepsHtml + '</div>' +
-      nextStepHtml +
-      '</div></div>';
-  }
-
   /* ── Detail view ── */
   function renderDetailView(order) {
     if (!order) {
@@ -701,7 +576,6 @@
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + getStatusBadge(order.status) +
       '<a href="' + whatsappUrl + '" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25d366;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contactar Soporte</a></div></div></div>' +
       (function () { var b = STATUS_BANNERS[order.status]; if (!b) return ''; return '<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 28px;background:' + b.bg + ';border-bottom:1px solid ' + b.border + '">' + '<div style="flex-shrink:0;margin-top:2px">' + b.icon + '</div>' + '<div style="flex:1"><p style="margin:0 0 2px;font-size:15px;font-weight:700;color:' + b.color + '">' + b.title + '</p>' + '<p style="margin:0;font-size:13px;color:#475569;line-height:1.5">' + b.message + '</p></div></div>'; })() +
-      '<div style="padding:20px 28px">' + renderTimeline(order.timeline_step) + '</div>' +
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
       statsHtml +
       (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
@@ -877,12 +751,7 @@
     }).catch(function() { /* silent */ });
   }
 
-  function notifyRankingChange(orderId) {
-    var userData = getUserData();
-    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
-    var userEmail = getUserEmail();
-    var btn = document.getElementById('lc-notify-ranking-btn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lc-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...'; }
+  function sendRankingNotification(orderId, authorName, userEmail, btn) {
     fetch(API_BASE + '/orders_api.php?action=notify_ranking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -903,6 +772,42 @@
       showToast('Error de conexion', 'error');
       if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notificar Cambio'; }
     });
+  }
+
+  function notifyRankingChange(orderId) {
+    var userData = getUserData();
+    var authorName = userData ? (userData.name || userData.full_name || userData.email || 'Usuario') : 'Usuario';
+    var userEmail = getUserEmail();
+    var btn = document.getElementById('lc-notify-ranking-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lc-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Guardando y enviando...'; }
+
+    // Save the current card order FIRST, then send notification.
+    // This prevents a race condition where the email could show a stale order
+    // if the user clicks "Notificar" before the last drag-save completes.
+    var cc = document.getElementById('lc-cards-container');
+    if (cc) {
+      var linkIds = [];
+      cc.querySelectorAll(".lc-vessel-card").forEach(function (card) { var id = card.getAttribute("data-link-id"); if (id) linkIds.push(id); });
+      if (linkIds.length > 0) {
+        fetch(API_BASE + '/orders_api.php?action=save_ranking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: parseInt(orderId),
+            link_ids: linkIds,
+            author_name: authorName,
+            author_role: 'user',
+            user_email: userEmail
+          })
+        }).then(function() {
+          sendRankingNotification(orderId, authorName, userEmail, btn);
+        }).catch(function() {
+          sendRankingNotification(orderId, authorName, userEmail, btn);
+        });
+        return;
+      }
+    }
+    sendRankingNotification(orderId, authorName, userEmail, btn);
   }
 
   function showInspectionModal(linkUrl, linkIdx) {
@@ -1155,12 +1060,7 @@
       ".lc-spin{animation:lcSpin 1s linear infinite}" +
       "button.lc-open-link:hover,button.lc-copy-link:hover{background:#e2e8f0!important;color:#1e293b!important}" +
       "button.lc-whatsapp-share:hover{background:#bbf7d0!important}" +
-      "@keyframes lcTimelinePulse{0%,100%{box-shadow:0 0 0 0 rgba(8,145,178,.4)}50%{box-shadow:0 0 0 8px rgba(8,145,178,0)}}" +
             "@media(max-width:768px){" +
-            ".lc-timeline-container{flex-direction:column!important;align-items:stretch!important;gap:0!important;padding:0!important}" +
-            ".lc-timeline-step{flex-direction:row!important;align-items:flex-start!important;gap:14px!important;padding:8px 0!important}" +
-            ".lc-timeline-line{display:none!important}" +
-            ".lc-timeline-step>div:last-child{text-align:left!important}" +
             "#lc-expedientes-inject{width:100%!important;max-width:100%!important;padding:0 8px!important}" +
             "#lc-expedientes-inject>div{display:block!important;width:100%!important;max-width:100%!important;grid-template-columns:1fr!important}" +
             ".lc-detail-wrapper{display:block!important;width:100%!important}" +
