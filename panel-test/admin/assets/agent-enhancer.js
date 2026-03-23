@@ -565,20 +565,27 @@
     var agentDashStyle = document.getElementById("agent-dashboard-hide-style");
     var agentDashDiv = document.getElementById("agent-dashboard-custom");
 
+    // Ensure the persistent style tag always exists
+    if (!agentDashStyle) {
+      agentDashStyle = document.createElement("style");
+      agentDashStyle.id = "agent-dashboard-hide-style";
+      document.head.appendChild(agentDashStyle);
+    }
+
     if (!isDashboard) {
-      // Not on dashboard - remove hiding CSS so other pages render normally
-      if (agentDashStyle) agentDashStyle.remove();
+      // Not on dashboard - hide default dashboard content that React renders on every page
+      // Use class-based hiding so page-specific content remains visible
+      agentDashStyle.textContent =
+        ".agent-default-dash-hidden { display: none !important; }" +
+        " #agent-dashboard-custom { display: none !important; }";
       if (agentDashDiv) agentDashDiv.style.display = "none";
+      // Mark default dashboard elements for hiding
+      hideDefaultDashboardContent();
       return;
     }
 
-    // On dashboard - inject CSS with !important to override React re-renders
-    if (!agentDashStyle) {
-      var style = document.createElement("style");
-      style.id = "agent-dashboard-hide-style";
-      style.textContent = "main > *:not(#agent-dashboard-custom) { display: none !important; }";
-      document.head.appendChild(style);
-    }
+    // On dashboard - blanket CSS hides everything except agent dashboard
+    agentDashStyle.textContent = "main > *:not(#agent-dashboard-custom) { display: none !important; }";
 
     // Show existing agent dashboard if it was hidden
     if (agentDashDiv) {
@@ -635,6 +642,45 @@
 
     // Load dashboard data
     loadAgentDashboardData(isEn);
+  }
+
+  /**
+   * On non-dashboard pages, React still renders default Dashboard widgets
+   * (Total Users, Revenue, etc.) as direct children of <main>.
+   * Scan <main> children and mark default dashboard elements with a CSS class
+   * so .agent-default-dash-hidden { display:none!important } hides them.
+   * Page-specific content (Inspections, Tracking, etc.) starts at the first
+   * <h2>, [data-enhancer-added], or tracking-related element.
+   */
+  function hideDefaultDashboardContent() {
+    var main = document.querySelector("main");
+    if (!main) return;
+
+    var children = main.children;
+    var foundPageContent = false;
+
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      // Never touch the agent custom dashboard
+      if (child.id === "agent-dashboard-custom") continue;
+
+      if (!foundPageContent) {
+        var tag = (child.tagName || "").toLowerCase();
+        // Detect start of page-specific content
+        if (tag === "h2" ||
+            (child.hasAttribute && child.hasAttribute("data-enhancer-added")) ||
+            (child.id && child.id.indexOf("tracking") !== -1)) {
+          foundPageContent = true;
+          child.classList.remove("agent-default-dash-hidden");
+          continue;
+        }
+        // Still in default dashboard area - hide it
+        child.classList.add("agent-default-dash-hidden");
+      } else {
+        // Past the boundary - ensure page content is visible
+        child.classList.remove("agent-default-dash-hidden");
+      }
+    }
   }
 
   function escapeHtml(text) {
