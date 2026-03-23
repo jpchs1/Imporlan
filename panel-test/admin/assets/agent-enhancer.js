@@ -89,6 +89,13 @@
     "Solicitudes Pendientes": "Pending Requests",
     "Ingresos Totales": "Total Revenue",
     "Planes Activos": "Active Plans",
+    "Resumen general del sistema": "General system overview",
+    "Actividad Reciente": "Recent Activity",
+    "Pagos por Proveedor": "Payments by Provider",
+    "Usuarios por Rol": "Users by Role",
+    "Solicitudes por Estado": "Requests by Status",
+    "Resumen de Pagos": "Payment Summary",
+    "Cerrar Sesion": "Logout",
 
     // Table headers
     "Usuario": "User",
@@ -371,6 +378,8 @@
 
   function restrictSidebar() {
     var allowedSections = ["expedientes", "inspecciones", "tracking", "dossiers", "inspections"];
+    var hiddenSections = ["dashboard", "usuarios", "solicitudes", "planes", "pagos", "contenido", "auditoria", "configuracion",
+      "users", "requests", "plans", "payments", "content", "audit", "settings"];
     var nav = document.querySelector("aside nav");
     if (!nav) return;
 
@@ -378,27 +387,29 @@
     var buttons = nav.querySelectorAll("ul > li > button, ul > li > a");
     buttons.forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
-      // Map Spanish sidebar labels to section keys
-      var sectionMap = {
-        "dashboard": "dashboard",
-        "usuarios": "usuarios",
-        "solicitudes": "solicitudes",
-        "planes": "planes",
-        "pagos": "pagos",
-        "contenido": "contenido",
-        "auditoria": "auditoria"
-      };
-      var section = sectionMap[text] || text;
-      if (allowedSections.indexOf(section) === -1) {
+      // Check if section should be hidden
+      if (hiddenSections.indexOf(text) !== -1) {
         var li = btn.closest("li");
         if (li) li.style.display = "none";
         else btn.style.display = "none";
       }
     });
 
+    // Also hide any standalone buttons outside <li> (e.g. Configuracion)
+    nav.querySelectorAll("button").forEach(function (btn) {
+      var text = (btn.textContent || "").trim().toLowerCase();
+      if (hiddenSections.indexOf(text) !== -1 && !btn.closest("li")) {
+        btn.style.display = "none";
+      }
+    });
+
     // Hide the Configuracion button injected by admin-data-enhancer
     var configBtn = document.getElementById("sidebar-config-admin");
-    if (configBtn) configBtn.style.display = "none";
+    if (configBtn) {
+      configBtn.style.display = "none";
+      var configLi = configBtn.closest("li");
+      if (configLi) configLi.style.display = "none";
+    }
 
     sidebarRestricted = true;
   }
@@ -505,19 +516,156 @@
   }
 
   /* ---------------------------------------------------------------
-   * 9. Force redirect to Expedientes on login (agent default view)
+   * 9. Customize dashboard for agent - show only Expedientes/Inspecciones/Tracking info
    * ------------------------------------------------------------- */
-  function redirectToExpedientes() {
+  function customizeAgentDashboard() {
     var hash = window.location.hash;
-    if (!hash || hash === "" || hash === "#" || hash === "#/") {
-      // Click the expedientes sidebar button to navigate there
-      var expBtn = document.getElementById("sidebar-expedientes-admin");
-      if (expBtn) {
-        expBtn.click();
-        return true;
+    // Only run on dashboard or empty hash
+    if (hash && hash !== "" && hash !== "#" && hash !== "#/" && hash !== "#dashboard") return;
+
+    var main = document.querySelector("main");
+    if (!main) return;
+
+    // Check if dashboard is rendered (look for h1 with Dashboard text)
+    var h1 = main.querySelector("h1");
+    if (!h1) return;
+    var h1Text = h1.textContent.trim();
+    if (h1Text !== "Dashboard" && h1Text !== "dashboard") return;
+
+    // Already customized?
+    if (document.getElementById("agent-dashboard-custom")) return;
+
+    var locale = getUserLocale();
+    var isEn = locale === "en";
+
+    // Hide the default dashboard content
+    Array.from(main.children).forEach(function (child) {
+      if (child.id !== "agent-dashboard-custom") {
+        child.style.display = "none";
       }
-    }
-    return false;
+    });
+
+    // Build agent-specific dashboard
+    var container = document.createElement("div");
+    container.id = "agent-dashboard-custom";
+    container.innerHTML =
+      '<h1 style="margin:0 0 4px;font-size:24px;font-weight:700;color:#0f172a">' + (isEn ? 'Agent Dashboard' : 'Panel del Agente') + '</h1>' +
+      '<p style="margin:0 0 24px;font-size:14px;color:#64748b">' + (isEn ? 'Overview of dossiers, inspections and tracking' : 'Resumen de expedientes, inspecciones y tracking') + '</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">' +
+        '<div id="agent-dash-card-exp" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px;cursor:pointer;transition:all .2s" onclick="window.location.hash=\'#expedientes\'">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+            '<span style="font-size:13px;color:#64748b;font-weight:500">' + (isEn ? 'Dossiers' : 'Expedientes') + '</span>' +
+            '<div style="width:36px;height:36px;background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div></div>' +
+          '<div style="font-size:28px;font-weight:700;color:#0f172a" id="agent-dash-exp-count">...</div>' +
+          '<p style="margin:4px 0 0;font-size:12px;color:#64748b">' + (isEn ? 'Active dossiers' : 'Expedientes activos') + '</p></div>' +
+        '<div id="agent-dash-card-insp" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px;cursor:pointer;transition:all .2s" onclick="window.location.hash=\'#inspecciones\'">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+            '<span style="font-size:13px;color:#64748b;font-weight:500">' + (isEn ? 'Inspections' : 'Inspecciones') + '</span>' +
+            '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#34d399);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div></div>' +
+          '<div style="font-size:28px;font-weight:700;color:#0f172a" id="agent-dash-insp-count">...</div>' +
+          '<p style="margin:4px 0 0;font-size:12px;color:#64748b">' + (isEn ? 'Total inspections' : 'Inspecciones totales') + '</p></div>' +
+        '<div id="agent-dash-card-track" style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px;cursor:pointer;transition:all .2s" onclick="window.location.hash=\'#tracking\'">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+            '<span style="font-size:13px;color:#64748b;font-weight:500">Tracking</span>' +
+            '<div style="width:36px;height:36px;background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div></div>' +
+          '<div style="font-size:28px;font-weight:700;color:#0f172a" id="agent-dash-track-count">...</div>' +
+          '<p style="margin:4px 0 0;font-size:12px;color:#64748b">' + (isEn ? 'Vessels being tracked' : 'Embarcaciones en seguimiento') + '</p></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+        '<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px">' +
+          '<h3 style="margin:0 0 16px;font-size:16px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+            (isEn ? 'Recent Dossier Activity' : 'Actividad Reciente de Expedientes') + '</h3>' +
+          '<div id="agent-dash-recent-exp" style="color:#64748b;font-size:13px">' + (isEn ? 'Loading...' : 'Cargando...') + '</div></div>' +
+        '<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:20px">' +
+          '<h3 style="margin:0 0 16px;font-size:16px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/></svg>' +
+            (isEn ? 'Active Vessels' : 'Embarcaciones Activas') + '</h3>' +
+          '<div id="agent-dash-active-vessels" style="color:#64748b;font-size:13px">' + (isEn ? 'Loading...' : 'Cargando...') + '</div></div>' +
+      '</div>';
+
+    main.appendChild(container);
+
+    // Load dashboard data
+    loadAgentDashboardData(isEn);
+  }
+
+  function loadAgentDashboardData(isEn) {
+    var API_BASE = (window.location.pathname.includes("/test/") || window.location.pathname.includes("/panel-test"))
+      ? "/test/api" : "/api";
+    var token = localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
+    var headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+
+    // Fetch expedientes count
+    fetch(API_BASE + "/admin_api.php?action=expedientes", { headers: headers })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var exps = data.expedientes || data.data || [];
+        var countEl = document.getElementById("agent-dash-exp-count");
+        if (countEl) countEl.textContent = exps.length || "0";
+        // Show recent activity
+        var recentEl = document.getElementById("agent-dash-recent-exp");
+        if (recentEl && exps.length > 0) {
+          var recent = exps.slice(0, 5);
+          var html = '<ul style="list-style:none;margin:0;padding:0">';
+          recent.forEach(function (exp) {
+            html += '<li style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
+              '<div style="width:8px;height:8px;border-radius:50%;background:' + (exp.status === 'active' || exp.status === 'en_proceso' ? '#10b981' : '#f59e0b') + ';flex-shrink:0"></div>' +
+              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">#' + (exp.tracking_number || exp.id) + ' - ' + (exp.client_name || exp.user_name || 'N/A') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8">' + (exp.service_type || '') + '</div></div></li>';
+          });
+          html += '</ul>';
+          recentEl.innerHTML = html;
+        } else if (recentEl) {
+          recentEl.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px 0">' + (isEn ? 'No dossiers found' : 'No se encontraron expedientes') + '</p>';
+        }
+      })
+      .catch(function () {
+        var countEl = document.getElementById("agent-dash-exp-count");
+        if (countEl) countEl.textContent = "-";
+      });
+
+    // Fetch tracking vessels count
+    fetch(API_BASE + "/tracking_api.php?action=admin_list_vessels", { headers: headers })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var vessels = data.vessels || [];
+        var trackEl = document.getElementById("agent-dash-track-count");
+        if (trackEl) trackEl.textContent = vessels.length || "0";
+        // Show active vessels
+        var activeEl = document.getElementById("agent-dash-active-vessels");
+        if (activeEl && vessels.length > 0) {
+          var html = '<ul style="list-style:none;margin:0;padding:0">';
+          vessels.slice(0, 5).forEach(function (v) {
+            var statusColor = v.status === 'active' ? '#10b981' : v.status === 'arrived' ? '#3b82f6' : '#f59e0b';
+            html += '<li style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
+              '<div style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0"></div>' +
+              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">' + (v.display_name || 'N/A') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8">' + (v.origin_label || 'USA') + ' → ' + (v.destination_label || 'Chile') + '</div></div></li>';
+          });
+          html += '</ul>';
+          activeEl.innerHTML = html;
+        } else if (activeEl) {
+          activeEl.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px 0">' + (isEn ? 'No vessels tracked' : 'Sin embarcaciones') + '</p>';
+        }
+      })
+      .catch(function () {
+        var trackEl = document.getElementById("agent-dash-track-count");
+        if (trackEl) trackEl.textContent = "-";
+      });
+
+    // Fetch inspections count
+    fetch(API_BASE + "/inspection_reports_api.php?action=list", { headers: headers })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var reports = data.reports || data.data || [];
+        var inspEl = document.getElementById("agent-dash-insp-count");
+        if (inspEl) inspEl.textContent = reports.length || "0";
+      })
+      .catch(function () {
+        var inspEl = document.getElementById("agent-dash-insp-count");
+        if (inspEl) inspEl.textContent = "-";
+      });
   }
 
   /* ---------------------------------------------------------------
@@ -534,6 +682,9 @@
     // Restrict sidebar
     restrictSidebar();
 
+    // Customize dashboard for agent
+    customizeAgentDashboard();
+
     // Translate to English if locale is 'en'
     if (locale === "en") {
       translateElement(document.body);
@@ -549,9 +700,6 @@
     if (locale === "en") {
       injectCompetitiveBanner();
     }
-
-    // Redirect to expedientes as default view
-    redirectToExpedientes();
   }
 
   function debouncedApply() {

@@ -24,9 +24,11 @@
 
   var moduleHidden = false;
   var mapInstance = null;
+  var mapMarkers = {};
   var leafletLoaded = false;
   var isRendering = false;
   var currentHash = '';
+  var lastVesselsForMap = [];
 
   function getAdminToken() {
     return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
@@ -213,6 +215,84 @@
       var resp = await fetch(API_BASE + "/tracking_api.php?action=admin_fetch_vessel_position&vessel_id=" + vesselId, { headers: authHeaders() });
       return await resp.json();
     } catch (e) { return { error: "Error de conexion" }; }
+  }
+
+  /* ---------------------------------------------------------------
+   * Leaflet map functions for tracking view
+   * ------------------------------------------------------------- */
+  function loadLeaflet(cb) {
+    if (leafletLoaded) { cb(); return; }
+    if (window.L) { leafletLoaded = true; cb(); return; }
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+    var script = document.createElement("script");
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload = function () { leafletLoaded = true; cb(); };
+    document.head.appendChild(script);
+  }
+
+  function initAdminMap() {
+    if (!window.L) return;
+    var container = document.getElementById("ta-map-container");
+    if (!container) return;
+    if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+    mapInstance = L.map(container, { zoomControl: true, attributionControl: false }).setView([-15, -100], 3);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(mapInstance);
+    setTimeout(function () { mapInstance.invalidateSize(); }, 200);
+    if (lastVesselsForMap.length > 0) {
+      updateAdminMapMarkers(lastVesselsForMap);
+    }
+  }
+
+  function updateAdminMapMarkers(vessels) {
+    if (!mapInstance || !window.L) return;
+    lastVesselsForMap = vessels;
+    Object.keys(mapMarkers).forEach(function (k) {
+      mapInstance.removeLayer(mapMarkers[k]);
+      delete mapMarkers[k];
+    });
+
+    var bounds = [];
+    vessels.forEach(function (v) {
+      if (!v.lat || !v.lon) return;
+      var lat = parseFloat(v.lat);
+      var lon = parseFloat(v.lon);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      var labelName = v.client_name || v.display_name;
+      var shipIcon = L.divIcon({
+        className: "tracking-ship-icon",
+        html: '<div style="display:flex;flex-direction:column;align-items:center">' +
+          '<div style="background:#0f172a;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,.3);max-width:120px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(labelName) + '</div>' +
+          '<div style="width:32px;height:32px;background:#0f172a;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div></div>',
+        iconSize: [120, 52],
+        iconAnchor: [60, 52]
+      });
+
+      var marker = L.marker([lat, lon], { icon: shipIcon })
+        .bindPopup('<strong>' + escapeHtml(v.display_name) + '</strong><br>' +
+          (v.shipping_line ? escapeHtml(v.shipping_line) + '<br>' : '') +
+          'Lat: ' + lat.toFixed(4) + ', Lon: ' + lon.toFixed(4) +
+          (v.speed ? '<br>Velocidad: ' + v.speed + ' kn' : ''))
+        .addTo(mapInstance);
+
+      marker.on("click", function () {
+        window.location.hash = "#tracking/" + v.id;
+      });
+
+      mapMarkers[v.id] = marker;
+      bounds.push([lat, lon]);
+    });
+
+    if (bounds.length > 0) {
+      mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+    }
   }
 
   function renderFilters() {
@@ -792,11 +872,19 @@
       if (currentWrapper) {
         wrapper = currentWrapper;
       }
+      lastVesselsForMap = vessels;
       wrapper.innerHTML = '<div style="padding:0">' +
-        '<div style="margin-bottom:20px"><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Tracking Maritimo</h1>' +
+        '<div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between"><div><h1 style="margin:0;font-size:24px;font-weight:700;color:#0f172a">Tracking Maritimo</h1>' +
         '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Gestion de embarcaciones y seguimiento</p></div>' +
+        '<div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:#10b981;animation:taPulse 2s infinite"></span><span style="font-size:12px;color:#64748b">En vivo</span></div></div>' +
+        '<div id="ta-map-section" style="margin-bottom:20px;background:#f1f5f9;border-radius:14px;position:relative;overflow:hidden;border:1px solid #e2e8f0;height:400px">' +
+        '<div id="ta-map-container" style="width:100%;height:100%;border-radius:14px"></div></div>' +
         renderFilters() + renderListView(vessels) + renderAISConfigSection() + '</div>';
       loadAISConfig();
+      loadLeaflet(function () {
+        initAdminMap();
+        updateAdminMapMarkers(vessels);
+      });
     }
 
     addStyles();
@@ -825,7 +913,9 @@
     var style = document.createElement("style");
     style.id = "tracking-admin-styles";
     style.textContent = "@keyframes spin { to { transform: rotate(360deg) } }" +
+      "@keyframes taPulse { 0%,100% { opacity:1 } 50% { opacity:.5 } }" +
       ".ta-vessel-row:hover { border-color:#3b82f6 !important; box-shadow:0 2px 8px rgba(59,130,246,.1) }" +
+      ".leaflet-container { font-family:system-ui,-apple-system,sans-serif !important }" +
       "main.tracking-active > * { display: none !important; }" +
       "main.tracking-active > #tracking-admin-wrapper { display: block !important; }";
     document.head.appendChild(style);
