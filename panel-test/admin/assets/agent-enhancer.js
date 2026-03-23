@@ -382,14 +382,19 @@
     if (!nav) return;
 
     // Hide default React sidebar items that are not in allowed list (allowlist approach)
+    // Use a CSS class + !important to survive React re-renders
     var buttons = nav.querySelectorAll("ul > li > button, ul > li > a");
     buttons.forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
+      var li = btn.closest("li");
       // Allowlist: hide anything not explicitly allowed
       if (allowedSections.indexOf(text) === -1) {
-        var li = btn.closest("li");
-        if (li) li.style.display = "none";
-        else btn.style.display = "none";
+        if (li) li.classList.add("agent-sidebar-hidden");
+        else btn.classList.add("agent-sidebar-hidden");
+      } else {
+        // Make sure allowed items are visible (in case previously hidden)
+        if (li) li.classList.remove("agent-sidebar-hidden");
+        else btn.classList.remove("agent-sidebar-hidden");
       }
     });
 
@@ -397,16 +402,16 @@
     nav.querySelectorAll("button").forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
       if (allowedSections.indexOf(text) === -1 && !btn.closest("li")) {
-        btn.style.display = "none";
+        btn.classList.add("agent-sidebar-hidden");
       }
     });
 
     // Hide the Configuracion button injected by admin-data-enhancer
     var configBtn = document.getElementById("sidebar-config-admin");
     if (configBtn) {
-      configBtn.style.display = "none";
+      configBtn.classList.add("agent-sidebar-hidden");
       var configLi = configBtn.closest("li");
-      if (configLi) configLi.style.display = "none";
+      if (configLi) configLi.classList.add("agent-sidebar-hidden");
     }
 
     sidebarRestricted = true;
@@ -518,30 +523,37 @@
    * ------------------------------------------------------------- */
   function customizeAgentDashboard() {
     var hash = window.location.hash;
-    // Only run on dashboard or empty hash
-    if (hash && hash !== "" && hash !== "#" && hash !== "#/" && hash !== "#dashboard") return;
+    var isDashboard = !hash || hash === "" || hash === "#" || hash === "#/" || hash === "#dashboard";
+
+    var agentDashStyle = document.getElementById("agent-dashboard-hide-style");
+    var agentDashDiv = document.getElementById("agent-dashboard-custom");
+
+    if (!isDashboard) {
+      // Not on dashboard - remove hiding CSS so other pages render normally
+      if (agentDashStyle) agentDashStyle.remove();
+      if (agentDashDiv) agentDashDiv.style.display = "none";
+      return;
+    }
+
+    // On dashboard - inject CSS with !important to override React re-renders
+    if (!agentDashStyle) {
+      var style = document.createElement("style");
+      style.id = "agent-dashboard-hide-style";
+      style.textContent = "main > *:not(#agent-dashboard-custom) { display: none !important; }";
+      document.head.appendChild(style);
+    }
+
+    // Show existing agent dashboard if it was hidden
+    if (agentDashDiv) {
+      agentDashDiv.style.display = "";
+      return;
+    }
 
     var main = document.querySelector("main");
     if (!main) return;
 
-    // Check if dashboard is rendered (look for h1 with Dashboard text)
-    var h1 = main.querySelector("h1");
-    if (!h1) return;
-    var h1Text = h1.textContent.trim();
-    if (h1Text !== "Dashboard" && h1Text !== "dashboard") return;
-
-    // Already customized?
-    if (document.getElementById("agent-dashboard-custom")) return;
-
     var locale = getUserLocale();
     var isEn = locale === "en";
-
-    // Hide the default dashboard content
-    Array.from(main.children).forEach(function (child) {
-      if (child.id !== "agent-dashboard-custom") {
-        child.style.display = "none";
-      }
-    });
 
     // Build agent-specific dashboard
     var container = document.createElement("div");
@@ -727,7 +739,8 @@
     style.textContent =
       "#agent-competitive-banner { animation: agentBannerFade 0.3s ease-in; }" +
       "@keyframes agentBannerFade { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }" +
-      ".agent-price-hidden { visibility: hidden !important; }";
+      ".agent-price-hidden { visibility: hidden !important; }" +
+      ".agent-sidebar-hidden { display: none !important; }";
     document.head.appendChild(style);
 
     // Apply immediately and on every DOM change
