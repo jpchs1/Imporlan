@@ -54,26 +54,22 @@ if ($path === '/api/auth/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $dbConfigPath = __DIR__ . '/../db_config.php';
         if (file_exists($dbConfigPath)) {
             try {
-                $dbConfig = include $dbConfigPath;
-                if (is_array($dbConfig)) {
-                    $pdo = new PDO(
-                        "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8mb4",
-                        $dbConfig['user'],
-                        $dbConfig['password']
-                    );
-                    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                    
+                require_once $dbConfigPath;
+                $pdo = getDbConnection();
+                if ($pdo) {
                     $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
                     $stmt->execute([$email]);
                     $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
                     
-                    if ($dbUser && password_verify($password, $dbUser['password'])) {
+                    if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
                         $user = [
                             'id' => (int)$dbUser['id'],
                             'email' => $dbUser['email'],
                             'name' => $dbUser['name'],
                             'role' => $dbUser['role'],
-                            'status' => $dbUser['status']
+                            'status' => $dbUser['status'],
+                            'locale' => $dbUser['locale'] ?? 'es',
+                            'permissions' => $dbUser['permissions'] ?? null
                         ];
                     }
                 }
@@ -95,6 +91,8 @@ if ($path === '/api/auth/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'sub' => (string)$user['id'],
         'email' => $user['email'],
         'role' => $user['role'],
+        'locale' => $user['locale'] ?? 'es',
+        'permissions' => $user['permissions'] ?? null,
         'exp' => time() + (7 * 24 * 60 * 60),
         'iat' => time()
     ];
@@ -159,13 +157,37 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
         exit();
     }
     
+    // Resolve user name: hardcoded users or DB lookup
+    $userName = explode('@', $payload['email'] ?? '')[0];
+    if (($payload['email'] ?? '') === 'admin@imporlan.cl') {
+        $userName = 'Administrador Imporlan';
+    } else if (($payload['email'] ?? '') === 'soporte@imporlan.cl') {
+        $userName = 'Soporte Imporlan';
+    } else {
+        // Try DB for agent/custom users
+        $dbConfigPath = __DIR__ . '/../db_config.php';
+        if (file_exists($dbConfigPath)) {
+            try {
+                require_once $dbConfigPath;
+                $pdo = getDbConnection();
+                if ($pdo) {
+                    $stmt = $pdo->prepare("SELECT name FROM admin_users WHERE email = ?");
+                    $stmt->execute([$payload['email'] ?? '']);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($row) $userName = $row['name'];
+                }
+            } catch (Exception $e) {}
+        }
+    }
+
     // Return user data from token
     $userData = [
         'id' => (int)($payload['sub'] ?? 0),
         'email' => $payload['email'] ?? '',
-        'name' => $payload['email'] === 'admin@imporlan.cl' ? 'Administrador Imporlan' : 
-                  ($payload['email'] === 'soporte@imporlan.cl' ? 'Soporte Imporlan' : explode('@', $payload['email'])[0]),
+        'name' => $userName,
         'role' => $payload['role'] ?? 'user',
+        'locale' => $payload['locale'] ?? 'es',
+        'permissions' => $payload['permissions'] ?? null,
         'status' => 'active',
         'provider' => 'email',
         'avatar_url' => null,
