@@ -69,10 +69,12 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             uploadInspectionMedia();
             break;
         case 'user_list':
-            userListInspections();
+            $userPayload = requireUserAuthShared();
+            userListInspections($userPayload);
             break;
         case 'user_detail':
-            userDetailInspection();
+            $userPayload = requireUserAuthShared();
+            userDetailInspection($userPayload);
             break;
         default:
             http_response_code(400);
@@ -380,6 +382,12 @@ function adminSendInspection() {
         $stmt = $pdo->prepare("UPDATE wp_inspection_reports SET status = 'sent', sent_at = NOW() WHERE id = :id");
         $stmt->execute([':id' => $id]);
 
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Inspeccion no encontrada']);
+            return;
+        }
+
         // Get inspection data for notification
         $stmt2 = $pdo->prepare("SELECT user_email, user_name, brand, model, vessel_year, report_type FROM wp_inspection_reports WHERE id = :id");
         $stmt2->execute([':id' => $id]);
@@ -487,7 +495,8 @@ function uploadInspectionMedia() {
         mkdir($uploadDir, 0755, true);
     }
 
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: ($isVideo ? 'mp4' : 'jpg'));
+    $mimeToExt = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif', 'video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/mpeg' => 'mpeg'];
+    $ext = $mimeToExt[$realMime] ?? ($isVideo ? 'mp4' : 'jpg');
     $prefix = $isVideo ? 'vid_' : 'img_';
     $filename = $prefix . 'insp_' . uniqid() . '_' . time() . '.' . $ext;
     $destPath = $uploadDir . $filename;
@@ -515,12 +524,20 @@ function uploadInspectionMedia() {
 // USER ENDPOINTS
 // ============================================================
 
-function userListInspections() {
+function userListInspections($userPayload) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
+    $authenticatedEmail = $userPayload['email'] ?? '';
     $email = trim($_GET['user_email'] ?? '');
     if (empty($email)) { http_response_code(400); echo json_encode(['error' => 'Email requerido']); return; }
+
+    // Verify the authenticated user can only access their own inspections
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($email)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado para ver inspecciones de otro usuario']);
+        return;
+    }
 
     try {
         runSilentMigration($pdo);
@@ -537,13 +554,21 @@ function userListInspections() {
     }
 }
 
-function userDetailInspection() {
+function userDetailInspection($userPayload) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
+    $authenticatedEmail = $userPayload['email'] ?? '';
     $id = intval($_GET['id'] ?? 0);
     $email = trim($_GET['user_email'] ?? '');
     if ($id <= 0 || empty($email)) { http_response_code(400); echo json_encode(['error' => 'ID y email requeridos']); return; }
+
+    // Verify the authenticated user can only access their own inspections
+    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($email)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'No autorizado para ver inspecciones de otro usuario']);
+        return;
+    }
 
     try {
         runSilentMigration($pdo);

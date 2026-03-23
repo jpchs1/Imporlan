@@ -54,6 +54,13 @@
     return null;
   }
   function getUserEmail() { var u = getUserData(); return u ? u.email || u.user_email || "" : ""; }
+  function getUserToken() { return localStorage.getItem("imporlan_token") || localStorage.getItem("token") || ""; }
+  function userAuthHeaders() {
+    var h = { "Authorization": "Bearer " + getUserToken(), "X-User-Email": getUserEmail() };
+    var u = getUserData();
+    if (u && (u.name || u.user_name)) h["X-User-Name"] = u.name || u.user_name;
+    return h;
+  }
   function esc(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
   function fmtDate(s) {
     if (!s) return "N/A";
@@ -132,7 +139,7 @@
     var email = getUserEmail();
     if (!email) return [];
     try {
-      var resp = await fetch(API_BASE + "/inspection_reports_api.php?action=user_list&user_email=" + encodeURIComponent(email));
+      var resp = await fetch(API_BASE + "/inspection_reports_api.php?action=user_list&user_email=" + encodeURIComponent(email), { headers: userAuthHeaders() });
       var data = await resp.json();
       return data.success ? data.inspections || [] : [];
     } catch (e) { console.error("Error fetching inspections:", e); return []; }
@@ -142,7 +149,7 @@
     var email = getUserEmail();
     if (!email) return null;
     try {
-      var resp = await fetch(API_BASE + "/inspection_reports_api.php?action=user_detail&id=" + id + "&user_email=" + encodeURIComponent(email));
+      var resp = await fetch(API_BASE + "/inspection_reports_api.php?action=user_detail&id=" + id + "&user_email=" + encodeURIComponent(email), { headers: userAuthHeaders() });
       var data = await resp.json();
       return data.success ? data.inspection : null;
     } catch (e) { console.error("Error fetching inspection detail:", e); return null; }
