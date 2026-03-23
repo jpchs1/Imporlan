@@ -731,8 +731,9 @@
     if (sendBtn) {
       sendBtn.addEventListener("click", async function () {
         if (!confirm("Esto enviara la inspeccion al cliente. Continuar?")) return;
-        // Save first
-        await doSave();
+        // Save first — abort send if save fails
+        var saveOk = await doSave();
+        if (!saveOk) { showToast("No se pudo guardar. Corrige los errores antes de enviar.", "error"); return; }
         var res = await sendInspection(currentInspection.id);
         if (res.success) {
           showToast("Inspeccion enviada al cliente");
@@ -961,7 +962,7 @@
   }
 
   async function doSave() {
-    if (isSaving) return;
+    if (isSaving) return false;
     isSaving = true;
     var statusEl = document.getElementById("insp-save-status");
     if (statusEl) statusEl.textContent = "Guardando...";
@@ -969,7 +970,7 @@
     if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = "0.6"; }
 
     var payload = collectFormData();
-    if (!payload) { isSaving = false; return; }
+    if (!payload) { isSaving = false; return false; }
 
     // Auto-set status to in_progress if still draft
     if (currentInspection.status === "draft") {
@@ -985,9 +986,11 @@
       if (statusEl) statusEl.textContent = "Guardado a las " + new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
       // Update current inspection data
       Object.assign(currentInspection, payload);
+      return true;
     } else {
       showToast(res.error || "Error al guardar", "error");
       if (statusEl) statusEl.textContent = "Error al guardar";
+      return false;
     }
   }
 
