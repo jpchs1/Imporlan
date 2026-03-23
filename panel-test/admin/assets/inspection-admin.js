@@ -910,9 +910,17 @@
   }
 
   function refreshMediaGrids() {
-    // Re-render the detail view with updated photo/video data
+    // Collect current form data into currentInspection before re-rendering
+    // to avoid losing unsaved field changes when photos are uploaded/removed
     var id = getInspectionIdFromHash();
     if (id && currentInspection) {
+      var formData = collectFormData();
+      if (formData) {
+        // Merge form field values back into currentInspection so re-render preserves them
+        Object.keys(formData).forEach(function (key) {
+          if (key !== "id") currentInspection[key] = formData[key];
+        });
+      }
       renderDetailModule(currentInspection);
     }
   }

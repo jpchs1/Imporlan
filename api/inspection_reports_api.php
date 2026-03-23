@@ -463,13 +463,16 @@ function uploadInspectionMedia() {
     $allowedVideos = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mpeg'];
     $allowed = array_merge($allowedImages, $allowedVideos);
 
-    if (!in_array($file['type'], $allowed)) {
+    // Server-side MIME validation using finfo (not relying on client-supplied type)
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $realMime = $finfo->file($file['tmp_name']);
+    if (!in_array($realMime, $allowed)) {
         http_response_code(400);
         echo json_encode(['error' => 'Tipo de archivo no permitido. Use JPG, PNG, WEBP, GIF, MP4, MOV o WEBM']);
         return;
     }
 
-    $isVideo = in_array($file['type'], $allowedVideos);
+    $isVideo = in_array($realMime, $allowedVideos);
     $maxSize = $isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024; // 100MB video, 10MB images
 
     if ($file['size'] > $maxSize) {
