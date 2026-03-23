@@ -155,7 +155,12 @@ function handleLogin() {
     // If not a hardcoded user, try database (admin_users table)
     if (!$user) {
         try {
-            require_once __DIR__ . '/db_config.php';
+            // Try local db_config first, fall back to shared api/db_config
+            $dbConfigPath = __DIR__ . '/db_config.php';
+            if (!file_exists($dbConfigPath)) {
+                $dbConfigPath = dirname(__DIR__, 2) . '/api/db_config.php';
+            }
+            require_once $dbConfigPath;
             $pdo = getDbConnection();
             if ($pdo) {
                 $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
@@ -494,7 +499,11 @@ function updatePurchaseStatus() {
     
     if ($orderStatus) {
         try {
-            require_once __DIR__ . '/db_config.php';
+            $dbConfigPath = __DIR__ . '/db_config.php';
+            if (!file_exists($dbConfigPath)) {
+                $dbConfigPath = dirname(__DIR__, 2) . '/api/db_config.php';
+            }
+            require_once $dbConfigPath;
             $pdo = getDbConnection();
             if ($pdo) {
                 $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE purchase_id = ?");
