@@ -377,7 +377,8 @@
   var sidebarRestricted = false;
 
   function restrictSidebar() {
-    var allowedSections = ["expedientes", "inspecciones", "tracking", "dossiers", "inspections"];
+    // Allowed sidebar labels in both Spanish and English (lowercase)
+    var allowedSections = ["expedientes", "inspecciones", "tracking", "dossiers", "inspections", "dashboard"];
     var nav = document.querySelector("aside nav");
     if (!nav) return;
 
@@ -390,21 +391,56 @@
       // Allowlist: hide anything not explicitly allowed
       if (allowedSections.indexOf(text) === -1) {
         if (li) li.classList.add("agent-sidebar-hidden");
-        else btn.classList.add("agent-sidebar-hidden");
+        btn.classList.add("agent-sidebar-hidden");
       } else {
-        // Make sure allowed items are visible (in case previously hidden)
+        // Make sure allowed items are visible - remove class from BOTH li and btn
         if (li) li.classList.remove("agent-sidebar-hidden");
-        else btn.classList.remove("agent-sidebar-hidden");
+        btn.classList.remove("agent-sidebar-hidden");
       }
     });
 
     // Also hide any standalone buttons outside <li> not in allowed list
     nav.querySelectorAll("button").forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
-      if (allowedSections.indexOf(text) === -1 && !btn.closest("li")) {
-        btn.classList.add("agent-sidebar-hidden");
+      if (!btn.closest("li")) {
+        if (allowedSections.indexOf(text) === -1) {
+          btn.classList.add("agent-sidebar-hidden");
+        } else {
+          btn.classList.remove("agent-sidebar-hidden");
+        }
       }
     });
+
+    // Inject a Tracking nav item if it doesn't exist in the sidebar
+    if (!document.getElementById("agent-tracking-nav")) {
+      var ul = nav.querySelector("ul");
+      if (ul) {
+        var trackingLi = document.createElement("li");
+        var trackingBtn = document.createElement("button");
+        trackingBtn.id = "agent-tracking-nav";
+        trackingBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-50";
+        trackingBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map w-5 h-5"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"></path><path d="M15 5.764v15"></path><path d="M9 3.236v15"></path></svg><span class="font-medium">Tracking</span>';
+        trackingBtn.addEventListener("click", function () {
+          window.location.hash = "#tracking";
+        });
+        // Highlight if currently on tracking page
+        var hash = window.location.hash;
+        if (hash === "#tracking") {
+          trackingBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-blue-50 text-blue-600";
+        }
+        trackingLi.appendChild(trackingBtn);
+        ul.appendChild(trackingLi);
+      }
+    } else {
+      // Update tracking nav highlight state
+      var trackBtn = document.getElementById("agent-tracking-nav");
+      var hash = window.location.hash;
+      if (hash === "#tracking") {
+        trackBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-blue-50 text-blue-600";
+      } else {
+        trackBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-50";
+      }
+    }
 
     // Hide the Configuracion button injected by admin-data-enhancer
     var configBtn = document.getElementById("sidebar-config-admin");
