@@ -6,10 +6,8 @@
 (function () {
   "use strict";
 
-  var injected = false;
-
   function injectEyeIcon() {
-    if (injected) return;
+    if (document.getElementById("pwd-eye-toggle")) return;
     var pwdInput = document.querySelector('input[type="password"]');
     if (!pwdInput) return;
 
@@ -20,6 +18,7 @@
 
     // Create toggle button
     var btn = document.createElement("button");
+    btn.id = "pwd-eye-toggle";
     btn.type = "button";
     btn.tabIndex = -1;
     btn.setAttribute("aria-label", "Toggle password visibility");
@@ -51,11 +50,10 @@
     pwdInput.style.paddingRight = "40px";
 
     wrapper.appendChild(btn);
-    injected = true;
   }
 
   function check() {
-    if (!injected) injectEyeIcon();
+    injectEyeIcon();
   }
 
   if (document.readyState === "loading") {
@@ -64,8 +62,8 @@
     check();
   }
 
-  // Also observe for late-rendering React forms
+  // Also observe for late-rendering React forms (re-injects after logout/re-render)
   new MutationObserver(function () {
-    if (!injected) injectEyeIcon();
+    injectEyeIcon();
   }).observe(document.documentElement, { childList: true, subtree: true });
 })();
