@@ -647,37 +647,60 @@
   /**
    * On non-dashboard pages, React still renders default Dashboard widgets
    * (Total Users, Revenue, etc.) as direct children of <main>.
-   * Scan <main> children and mark default dashboard elements with a CSS class
-   * so .agent-default-dash-hidden { display:none!important } hides them.
-   * Page-specific content (Inspections, Tracking, etc.) starts at the first
-   * <h2>, [data-enhancer-added], or tracking-related element.
+   * Instead of boundary-based hiding (which breaks pages like Dossiers that
+   * lack a clear boundary marker), we use CONTENT-BASED detection:
+   * only elements whose text matches known dashboard patterns get hidden.
+   * Everything else (page-specific content) stays visible.
    */
   function hideDefaultDashboardContent() {
     var main = document.querySelector("main");
     if (!main) return;
 
     var children = main.children;
-    var foundPageContent = false;
+    // Text patterns unique to the default React dashboard
+    var dashPatterns = [
+      "Total Users", "Total Revenue", "Pending Requests", "Active Plans",
+      "Usuarios Totales", "Ingresos Totales", "Solicitudes Pendientes", "Planes Activos",
+      "General system overview", "Panorama general del sistema"
+    ];
 
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
       // Never touch the agent custom dashboard
       if (child.id === "agent-dashboard-custom") continue;
+      // Never touch enhancer-injected elements
+      if (child.hasAttribute && child.hasAttribute("data-enhancer-added")) {
+        child.classList.remove("agent-default-dash-hidden");
+        continue;
+      }
+      // Never touch tracking elements
+      if (child.id && child.id.indexOf("tracking") !== -1) {
+        child.classList.remove("agent-default-dash-hidden");
+        continue;
+      }
 
-      if (!foundPageContent) {
-        var tag = (child.tagName || "").toLowerCase();
-        // Detect start of page-specific content
-        if (tag === "h2" ||
-            (child.hasAttribute && child.hasAttribute("data-enhancer-added")) ||
-            (child.id && child.id.indexOf("tracking") !== -1)) {
-          foundPageContent = true;
-          child.classList.remove("agent-default-dash-hidden");
-          continue;
+      var tag = (child.tagName || "").toLowerCase();
+      var text = child.textContent || "";
+
+      // The default dashboard <h1> that says "Dashboard"
+      if (tag === "h1" && /^\s*Dashboard\s*$/i.test(text.trim())) {
+        child.classList.add("agent-default-dash-hidden");
+        continue;
+      }
+
+      // Check if element contains dashboard-specific text
+      var isDashContent = false;
+      for (var j = 0; j < dashPatterns.length; j++) {
+        if (text.indexOf(dashPatterns[j]) !== -1) {
+          isDashContent = true;
+          break;
         }
-        // Still in default dashboard area - hide it
+      }
+
+      if (isDashContent) {
         child.classList.add("agent-default-dash-hidden");
       } else {
-        // Past the boundary - ensure page content is visible
+        // Not dashboard content - leave visible (page-specific content)
         child.classList.remove("agent-default-dash-hidden");
       }
     }
