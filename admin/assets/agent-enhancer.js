@@ -378,27 +378,25 @@
 
   function restrictSidebar() {
     var allowedSections = ["expedientes", "inspecciones", "tracking", "dossiers", "inspections"];
-    var hiddenSections = ["dashboard", "usuarios", "solicitudes", "planes", "pagos", "contenido", "auditoria", "configuracion",
-      "users", "requests", "plans", "payments", "content", "audit", "settings"];
     var nav = document.querySelector("aside nav");
     if (!nav) return;
 
-    // Hide default React sidebar items that are not in allowed list
+    // Hide default React sidebar items that are not in allowed list (allowlist approach)
     var buttons = nav.querySelectorAll("ul > li > button, ul > li > a");
     buttons.forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
-      // Check if section should be hidden
-      if (hiddenSections.indexOf(text) !== -1) {
+      // Allowlist: hide anything not explicitly allowed
+      if (allowedSections.indexOf(text) === -1) {
         var li = btn.closest("li");
         if (li) li.style.display = "none";
         else btn.style.display = "none";
       }
     });
 
-    // Also hide any standalone buttons outside <li> (e.g. Configuracion)
+    // Also hide any standalone buttons outside <li> not in allowed list
     nav.querySelectorAll("button").forEach(function (btn) {
       var text = (btn.textContent || "").trim().toLowerCase();
-      if (hiddenSections.indexOf(text) !== -1 && !btn.closest("li")) {
+      if (allowedSections.indexOf(text) === -1 && !btn.closest("li")) {
         btn.style.display = "none";
       }
     });
@@ -590,6 +588,13 @@
     loadAgentDashboardData(isEn);
   }
 
+  function escapeHtml(text) {
+    if (!text) return "";
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   function loadAgentDashboardData(isEn) {
     var API_BASE = (window.location.pathname.includes("/test/") || window.location.pathname.includes("/panel-test"))
       ? "/test/api" : "/api";
@@ -611,8 +616,8 @@
           recent.forEach(function (exp) {
             html += '<li style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
               '<div style="width:8px;height:8px;border-radius:50%;background:' + (exp.status === 'active' || exp.status === 'en_proceso' ? '#10b981' : '#f59e0b') + ';flex-shrink:0"></div>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">#' + (exp.tracking_number || exp.id) + ' - ' + (exp.client_name || exp.user_name || 'N/A') + '</div>' +
-              '<div style="font-size:11px;color:#94a3b8">' + (exp.service_type || '') + '</div></div></li>';
+              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">#' + escapeHtml(String(exp.tracking_number || exp.id)) + ' - ' + escapeHtml(exp.client_name || exp.user_name || 'N/A') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8">' + escapeHtml(exp.service_type || '') + '</div></div></li>';
           });
           html += '</ul>';
           recentEl.innerHTML = html;
@@ -640,8 +645,8 @@
             var statusColor = v.status === 'active' ? '#10b981' : v.status === 'arrived' ? '#3b82f6' : '#f59e0b';
             html += '<li style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
               '<div style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0"></div>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">' + (v.display_name || 'N/A') + '</div>' +
-              '<div style="font-size:11px;color:#94a3b8">' + (v.origin_label || 'USA') + ' → ' + (v.destination_label || 'Chile') + '</div></div></li>';
+              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">' + escapeHtml(v.display_name || 'N/A') + '</div>' +
+              '<div style="font-size:11px;color:#94a3b8">' + escapeHtml(v.origin_label || 'USA') + ' \u2192 ' + escapeHtml(v.destination_label || 'Chile') + '</div></div></li>';
           });
           html += '</ul>';
           activeEl.innerHTML = html;
