@@ -370,7 +370,7 @@
   var sidebarRestricted = false;
 
   function restrictSidebar() {
-    var allowedSections = ["expedientes", "inspecciones", "tracking"];
+    var allowedSections = ["expedientes", "inspecciones", "tracking", "dossiers", "inspections"];
     var nav = document.querySelector("aside nav");
     if (!nav) return;
 

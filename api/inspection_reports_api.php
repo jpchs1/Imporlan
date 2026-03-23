@@ -35,17 +35,20 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 
     $action = $_GET['action'] ?? '';
 
+    // Agent role can view inspections (list, detail) but not create/update/delete
+    $agentAllowed = ['admin', 'support', 'agent'];
+
     switch ($action) {
         case 'migrate':
             requireAdminAuthShared();
             runInspectionMigration();
             break;
         case 'admin_list':
-            requireAdminAuthShared();
+            requireAdminAuthShared($agentAllowed);
             adminListInspections();
             break;
         case 'admin_detail':
-            requireAdminAuthShared();
+            requireAdminAuthShared($agentAllowed);
             adminDetailInspection();
             break;
         case 'admin_create':
