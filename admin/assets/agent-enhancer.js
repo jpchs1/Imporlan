@@ -382,6 +382,10 @@
     var nav = document.querySelector("aside nav");
     if (!nav) return;
 
+    var hash = window.location.hash;
+    var activeClass = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-blue-50 text-blue-600";
+    var inactiveClass = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-50";
+
     // Hide default React sidebar items that are not in allowed list (allowlist approach)
     // Use a CSS class + !important to survive React re-renders
     var buttons = nav.querySelectorAll("ul > li > button, ul > li > a");
@@ -396,50 +400,47 @@
         // Make sure allowed items are visible - remove class from BOTH li and btn
         if (li) li.classList.remove("agent-sidebar-hidden");
         btn.classList.remove("agent-sidebar-hidden");
-      }
-    });
-
-    // Also hide any standalone buttons outside <li> not in allowed list
-    nav.querySelectorAll("button").forEach(function (btn) {
-      var text = (btn.textContent || "").trim().toLowerCase();
-      if (!btn.closest("li")) {
-        if (allowedSections.indexOf(text) === -1) {
-          btn.classList.add("agent-sidebar-hidden");
-        } else {
-          btn.classList.remove("agent-sidebar-hidden");
+        // Re-apply Tailwind styling if React stripped the classes
+        if (!btn.className || btn.className.indexOf("flex") === -1) {
+          btn.className = inactiveClass;
         }
       }
     });
 
-    // Inject a Tracking nav item if it doesn't exist in the sidebar
-    if (!document.getElementById("agent-tracking-nav")) {
+    // Hide ALL standalone buttons outside <li> (from admin-data-enhancer etc.)
+    nav.querySelectorAll("button").forEach(function (btn) {
+      if (!btn.closest("li")) {
+        btn.classList.add("agent-sidebar-hidden");
+      }
+    });
+
+    // Inject a Tracking nav item if no Tracking item exists in the <ul> already
+    var hasTrackingInUl = false;
+    buttons.forEach(function (btn) {
+      if ((btn.textContent || "").trim().toLowerCase() === "tracking" && btn.closest("ul")) {
+        hasTrackingInUl = true;
+      }
+    });
+    if (!hasTrackingInUl && !document.getElementById("agent-tracking-nav")) {
       var ul = nav.querySelector("ul");
       if (ul) {
         var trackingLi = document.createElement("li");
         var trackingBtn = document.createElement("button");
         trackingBtn.id = "agent-tracking-nav";
-        trackingBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-50";
+        trackingBtn.className = inactiveClass;
         trackingBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map w-5 h-5"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"></path><path d="M15 5.764v15"></path><path d="M9 3.236v15"></path></svg><span class="font-medium">Tracking</span>';
         trackingBtn.addEventListener("click", function () {
           window.location.hash = "#tracking";
         });
-        // Highlight if currently on tracking page
-        var hash = window.location.hash;
-        if (hash === "#tracking") {
-          trackingBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-blue-50 text-blue-600";
-        }
         trackingLi.appendChild(trackingBtn);
         ul.appendChild(trackingLi);
       }
-    } else {
-      // Update tracking nav highlight state
-      var trackBtn = document.getElementById("agent-tracking-nav");
-      var hash = window.location.hash;
-      if (hash === "#tracking") {
-        trackBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-blue-50 text-blue-600";
-      } else {
-        trackBtn.className = "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-50";
-      }
+    }
+
+    // Update highlight state for the Tracking nav item
+    var trackBtn = document.getElementById("agent-tracking-nav");
+    if (trackBtn) {
+      trackBtn.className = (hash === "#tracking") ? activeClass : inactiveClass;
     }
 
     // Hide the Configuracion button injected by admin-data-enhancer
