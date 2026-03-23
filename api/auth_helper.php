@@ -84,7 +84,7 @@ function requireAdminAuthShared() {
         exit();
     }
 
-    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
+    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support', 'agent'])) {
         http_response_code(403);
         echo json_encode(['error' => 'Acceso denegado']);
         exit();
