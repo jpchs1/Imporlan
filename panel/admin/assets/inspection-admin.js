@@ -954,7 +954,10 @@
     });
 
     // Photos & videos from currentInspection (managed via upload/remove)
-    ["photos_hull", "photos_engine", "photos_electrical", "photos_interior", "photos_trailer", "photos_general", "photos_test_drive", "videos_test_drive"].forEach(function (key) {
+    var mediaKeys = ["photos_general", "videos_test_drive"];
+    var secs = SECTIONS[currentInspection.report_type] || SECTIONS.basica;
+    secs.forEach(function (sec) { mediaKeys.push("photos_" + sec.key); });
+    mediaKeys.forEach(function (key) {
       if (currentInspection[key]) payload[key] = currentInspection[key];
     });
 
