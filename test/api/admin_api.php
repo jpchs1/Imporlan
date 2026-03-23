@@ -117,7 +117,7 @@ function requireAuth() {
         exit();
     }
     
-    if (!in_array($payload['role'], ['admin', 'support'])) {
+    if (!in_array($payload['role'], ['admin', 'support', 'agent'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();
@@ -152,6 +152,34 @@ function handleLogin() {
         ];
     }
     
+    // If not a hardcoded user, try database (admin_users table)
+    if (!$user) {
+        try {
+            require_once __DIR__ . '/db_config.php';
+            $pdo = getDbConnection();
+            if ($pdo) {
+                $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
+                $stmt->execute([$email]);
+                $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
+                    $user = [
+                        'id' => (int)$dbUser['id'],
+                        'email' => $dbUser['email'],
+                        'name' => $dbUser['name'],
+                        'role' => $dbUser['role'],
+                        'status' => $dbUser['status'],
+                        'locale' => $dbUser['locale'] ?? 'es',
+                        'permissions' => $dbUser['permissions'] ?? null
+                    ];
+                    // Update last_login
+                    $pdo->prepare("UPDATE admin_users SET last_login = NOW() WHERE id = ?")->execute([$dbUser['id']]);
+                }
+            }
+        } catch (Exception $e) {
+            // DB not available, fall through
+        }
+    }
+    
     if (!$user) {
         http_response_code(401);
         echo json_encode(['detail' => 'Invalid credentials']);
@@ -161,7 +189,9 @@ function handleLogin() {
     $token = createJWT([
         'sub' => (string)$user['id'],
         'email' => $user['email'],
-        'role' => $user['role']
+        'role' => $user['role'],
+        'locale' => $user['locale'] ?? 'es',
+        'permissions' => $user['permissions'] ?? null
     ]);
     
     echo json_encode([
@@ -171,7 +201,7 @@ function handleLogin() {
             'provider' => 'email',
             'avatar_url' => null,
             'last_login' => date('c'),
-            'created_at' => '2026-01-01T00:00:00',
+            'created_at' => $user['created_at'] ?? '2026-01-01T00:00:00',
             'updated_at' => date('c')
         ])
     ]);

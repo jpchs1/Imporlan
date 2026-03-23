@@ -53,7 +53,12 @@ function verifyJWTToken($token) {
     return $payload;
 }
 
-function requireAdminAuthShared() {
+/**
+ * Require admin authentication.
+ * @param array $allowedRoles Roles allowed for this endpoint. Defaults to ['admin', 'support'].
+ *        Pass ['admin', 'support', 'agent'] to also allow agent access on specific endpoints.
+ */
+function requireAdminAuthShared($allowedRoles = ['admin', 'support']) {
     $headers = getallheaders();
     $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 
@@ -84,7 +89,7 @@ function requireAdminAuthShared() {
         exit();
     }
 
-    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
+    if (!isset($payload['role']) || !in_array($payload['role'], $allowedRoles)) {
         http_response_code(403);
         echo json_encode(['error' => 'Acceso denegado']);
         exit();

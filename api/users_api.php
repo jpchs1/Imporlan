@@ -86,9 +86,11 @@ function usersMigrate() {
                 name VARCHAR(255) NOT NULL,
                 email VARCHAR(255) NOT NULL UNIQUE,
                 password_hash VARCHAR(255) NOT NULL,
-                role ENUM('admin','support','user') DEFAULT 'user',
+                role ENUM('admin','support','user','agent') DEFAULT 'user',
                 status ENUM('active','suspended') DEFAULT 'active',
                 phone VARCHAR(50),
+                locale VARCHAR(10) DEFAULT 'es',
+                permissions TEXT DEFAULT NULL,
                 last_login TIMESTAMP NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -117,6 +119,27 @@ function usersMigrate() {
             // Column already exists, ignore
         }
 
+        // Add locale column if it doesn't exist
+        try {
+            $pdo->exec("ALTER TABLE admin_users ADD COLUMN locale VARCHAR(10) DEFAULT 'es' AFTER phone");
+        } catch (PDOException $e) {
+            // Column already exists, ignore
+        }
+
+        // Add permissions column if it doesn't exist
+        try {
+            $pdo->exec("ALTER TABLE admin_users ADD COLUMN permissions TEXT DEFAULT NULL AFTER locale");
+        } catch (PDOException $e) {
+            // Column already exists, ignore
+        }
+
+        // Expand role ENUM to include 'agent' if not already present
+        try {
+            $pdo->exec("ALTER TABLE admin_users MODIFY COLUMN role ENUM('admin','support','user','agent') DEFAULT 'user'");
+        } catch (PDOException $e) {
+            // May already have the correct enum, ignore
+        }
+
         $count = $pdo->query("SELECT COUNT(*) FROM admin_users")->fetchColumn();
         if ($count == 0) {
             $adminApi = __DIR__ . '/admin_api.php';
@@ -128,6 +151,13 @@ function usersMigrate() {
             $stmt = $pdo->prepare("INSERT INTO admin_users (name, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)");
             if ($adminPass) $stmt->execute(['Administrador Imporlan', 'admin@imporlan.cl', password_hash($adminPass, PASSWORD_DEFAULT), 'admin', 'active']);
             if ($supportPass) $stmt->execute(['Soporte Imporlan', 'soporte@imporlan.cl', password_hash($supportPass, PASSWORD_DEFAULT), 'support', 'active']);
+        }
+
+        // Seed agent users from seed_agents migration
+        $agentSeed = __DIR__ . '/migrations/seed_agent_users.php';
+        if (file_exists($agentSeed)) {
+            require_once $agentSeed;
+            seedAgentUsers($pdo);
         }
 
         echo json_encode(['success' => true, 'message' => 'admin_users table created/updated']);

@@ -103,7 +103,7 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 }
 
 function requireAdminAuth() {
-    return requireAdminAuthShared();
+    return requireAdminAuthShared(['admin', 'support', 'agent']);
 }
 
 function runMigration() {
