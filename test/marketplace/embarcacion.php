@@ -151,7 +151,7 @@ $jsVersion = '183';
     },
     "offers": {
       "@type": "Offer",
-      "price": <?php echo json_encode(floatval($listing['precio'])); ?>,
+      "price": <?php echo json_encode(strval(floatval($listing['precio']))); ?>,
       "priceCurrency": <?php echo json_encode($listing['moneda'] ?: 'USD'); ?>,
       "availability": "https://schema.org/InStock",
       "itemCondition": <?php echo json_encode($listing['estado'] === 'Nueva' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'); ?>
