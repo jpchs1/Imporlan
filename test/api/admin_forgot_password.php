@@ -1,9 +1,8 @@
 <?php
 /**
- * Admin Forgot Password - Imporlan Admin Panel
- * Resets the admin password via Fly auth and sends the temporary password
- * to the real admin contact email (contacto@imporlan.cl), regardless of
- * the admin login email (admin@imporlan.cl).
+ * Admin Forgot Password - Imporlan Admin Panel (TEST)
+ * Sends a password recovery notification email to contacto@imporlan.cl
+ * when the admin requests a password reset from the login page.
  */
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -22,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$email = isset($input['email']) ? trim($input['email']) : '';
+$email = isset($input['email']) ? trim(strtolower($input['email'])) : '';
 
 if (!$email || strpos($email, '@') === false) {
     http_response_code(400);
@@ -30,118 +29,85 @@ if (!$email || strpos($email, '@') === false) {
     exit();
 }
 
-// The real contact email where password recovery is sent
-$ADMIN_CONTACT_EMAIL = 'contacto@imporlan.cl';
-
-require_once __DIR__ . '/fly_config.php';
-
-function flyRequest($method, $path, $body = null, $token = null) {
-    $ch = curl_init(FLY_API . $path);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    $headers = ['Content-Type: application/json'];
-    if ($token) $headers[] = 'Authorization: Bearer ' . $token;
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    if ($body) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    $resp = curl_exec($ch);
-    $err = curl_error($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($err) error_log("flyRequest error: $method $path - $err");
-    return ['code' => $code, 'body' => json_decode($resp, true), 'raw' => $resp];
+// Only allow admin email
+if ($email !== 'admin@imporlan.cl') {
+    http_response_code(400);
+    echo json_encode(['error' => 'Este formulario es solo para el administrador.']);
+    exit();
 }
 
-function findFlyUser($adminToken, $email) {
-    $listResp = flyRequest('GET', '/api/admin/users', null, $adminToken);
-    if ($listResp['code'] === 200 && isset($listResp['body']['users'])) {
-        foreach ($listResp['body']['users'] as $u) {
-            if (isset($u['email']) && strtolower($u['email']) === strtolower($email)) {
-                return $u;
-            }
-        }
-    }
-    for ($id = 1; $id <= 200; $id++) {
-        $r = flyRequest('GET', '/api/admin/users/' . $id, null, $adminToken);
-        if ($r['code'] === 200 && isset($r['body']['user']['email'])) {
-            if (strtolower($r['body']['user']['email']) === strtolower($email)) {
-                return $r['body']['user'];
-            }
-        }
-        if ($r['code'] === 404) continue;
-    }
-    return null;
-}
+// SMTP configuration
+$smtpHost = 'mail.imporlan.cl';
+$smtpPort = 465;
+$smtpUser = 'contacto@imporlan.cl';
+$smtpPass = '^IBn?P-Z5@#_';
+
+// Send notification to admin contact email
+$to = 'contacto@imporlan.cl';
+$date = date('d/m/Y H:i:s');
+$ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'desconocida';
+
+$subject = '[TEST] Solicitud de recuperacion de contrasena - Admin Panel';
+
+$htmlBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:20px">';
+$htmlBody .= '<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.1)">';
+$htmlBody .= '<div style="text-align:center;margin-bottom:24px"><h2 style="color:#1e293b;margin:0">[TEST] Recuperacion de Contrasena</h2></div>';
+$htmlBody .= '<p style="color:#475569;font-size:15px;line-height:1.6">Se ha solicitado una recuperacion de contrasena desde el <strong>Admin Panel (TEST)</strong> de Imporlan.</p>';
+$htmlBody .= '<div style="background:#f8fafc;border-radius:8px;padding:16px;margin:16px 0">';
+$htmlBody .= '<p style="margin:4px 0;color:#334155"><strong>Email ingresado:</strong> ' . htmlspecialchars($email) . '</p>';
+$htmlBody .= '<p style="margin:4px 0;color:#334155"><strong>Fecha:</strong> ' . $date . '</p>';
+$htmlBody .= '<p style="margin:4px 0;color:#334155"><strong>IP:</strong> ' . htmlspecialchars($ip) . '</p>';
+$htmlBody .= '</div>';
+$htmlBody .= '<p style="color:#475569;font-size:15px;line-height:1.6">Para restablecer la contrasena del administrador, ingresa al servidor Fly y actualiza las credenciales, o contacta al equipo de desarrollo.</p>';
+$htmlBody .= '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">';
+$htmlBody .= '<p style="color:#94a3b8;font-size:12px;text-align:center">Notificacion automatica del sistema Imporlan (TEST)</p>';
+$htmlBody .= '</div></body></html>';
 
 try {
-    // Authenticate as admin to Fly API
-    $adminLogin = flyRequest('POST', '/api/auth/login-json', [
-        'email' => FLY_ADMIN_EMAIL, 'password' => FLY_ADMIN_PASS
+    $errno = 0;
+    $errstr = '';
+    $context = stream_context_create([
+        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]
     ]);
-    if ($adminLogin['code'] !== 200 || !isset($adminLogin['body']['access_token'])) {
-        throw new Exception('Cannot connect to auth service');
-    }
-    $adminToken = $adminLogin['body']['access_token'];
-
-    // Find the user by the email they entered
-    $flyUser = findFlyUser($adminToken, $email);
-    if (!$flyUser) {
-        http_response_code(404);
-        echo json_encode(['error' => 'No se encontro una cuenta con ese email.']);
-        exit();
+    $smtp = @stream_socket_client("ssl://$smtpHost:$smtpPort", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context);
+    if (!$smtp) {
+        throw new Exception("SMTP connect failed: $errstr ($errno)");
     }
 
-    $flyUserId = $flyUser['id'];
+    fgets($smtp, 515);
+    fwrite($smtp, "EHLO imporlan.cl\r\n"); fgets($smtp, 515);
+    while ($line = fgets($smtp, 515)) { if ($line[3] === ' ') break; }
+    fwrite($smtp, "AUTH LOGIN\r\n"); fgets($smtp, 515);
+    fwrite($smtp, base64_encode($smtpUser) . "\r\n"); fgets($smtp, 515);
+    fwrite($smtp, base64_encode($smtpPass) . "\r\n"); fgets($smtp, 515);
+    fwrite($smtp, "MAIL FROM:<$smtpUser>\r\n"); fgets($smtp, 515);
+    fwrite($smtp, "RCPT TO:<$to>\r\n"); fgets($smtp, 515);
+    fwrite($smtp, "DATA\r\n"); fgets($smtp, 515);
 
-    // Reset the password
-    $resetResp = flyRequest('PUT', '/api/admin/users/' . $flyUserId . '/action', [
-        'action' => 'reset_password',
-        'reason' => 'Admin requested password reset'
-    ], $adminToken);
+    $headers = "From: Imporlan <$smtpUser>\r\n";
+    $headers .= "To: $to\r\n";
+    $headers .= "Subject: $subject\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "Date: " . date('r') . "\r\n";
+    $headers .= "Message-ID: <" . uniqid('imporlan_admin_reset_test_', true) . "@imporlan.cl>\r\n";
+    $headers .= "\r\n";
 
-    if ($resetResp['code'] !== 200) {
-        $unblockResp = flyRequest('PUT', '/api/admin/users/' . $flyUserId . '/action', [
-            'action' => 'unblock'
-        ], $adminToken);
-        $resetResp = flyRequest('PUT', '/api/admin/users/' . $flyUserId . '/action', [
-            'action' => 'reset_password',
-            'reason' => 'Admin requested password reset'
-        ], $adminToken);
-        if ($resetResp['code'] !== 200) {
-            throw new Exception('Failed to reset password');
-        }
-    }
+    fwrite($smtp, $headers . $htmlBody . "\r\n.\r\n");
+    $dataResp = fgets($smtp, 515);
+    fwrite($smtp, "QUIT\r\n");
+    fclose($smtp);
 
-    // Verify the temp password works
-    $verifyLogin = flyRequest('POST', '/api/auth/login-json', [
-        'email' => $email, 'password' => FLY_TEMP_PASSWORD
-    ]);
-    if ($verifyLogin['code'] !== 200) {
-        throw new Exception('Password reset did not apply correctly');
-    }
-
-    // Send the temporary password to the REAL admin contact email
-    require_once __DIR__ . '/email_service.php';
-    $emailService = getEmailService();
-    $userName = isset($flyUser['name']) ? $flyUser['name'] : 'Administrador';
-    $emailResult = $emailService->sendPasswordResetEmail($ADMIN_CONTACT_EMAIL, $userName, FLY_TEMP_PASSWORD);
-
-    if ($emailResult && isset($emailResult['success']) && $emailResult['success']) {
+    if (strpos($dataResp, '250') !== false) {
         echo json_encode([
             'success' => true,
-            'message' => 'Se ha enviado una contrasena temporal al correo de contacto registrado.'
+            'message' => 'Se ha enviado una notificacion de recuperacion a contacto@imporlan.cl. Revisa tu bandeja de entrada.'
         ]);
     } else {
-        echo json_encode([
-            'success' => true,
-            'message' => 'Tu contrasena ha sido restablecida. Se envio al correo de contacto registrado.',
-            'show_temp' => true
-        ]);
+        throw new Exception("SMTP DATA response: $dataResp");
     }
 } catch (Exception $e) {
-    error_log("Error in admin_forgot_password: " . $e->getMessage());
+    error_log("Error in admin_forgot_password (test): " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Error al procesar la solicitud. Intenta nuevamente.']);
+    echo json_encode(['error' => 'Error al enviar el correo. Intenta nuevamente.']);
 }
