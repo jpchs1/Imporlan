@@ -836,8 +836,11 @@
   /* ---------------------------------------------------------------
    * 11. Initialize
    * ------------------------------------------------------------- */
-  function init() {
-    if (!isAgentUser()) return;
+  var agentActivated = false;
+
+  function activate() {
+    if (agentActivated) return;
+    agentActivated = true;
 
     // Add agent-specific CSS
     var style = document.createElement("style");
@@ -858,6 +861,25 @@
     window.addEventListener("hashchange", function () {
       setTimeout(applyAgentEnhancements, 200);
     });
+  }
+
+  function init() {
+    if (isAgentUser()) {
+      activate();
+    } else {
+      // Poll for agent login (React SPA sets token after DOMContentLoaded)
+      var pollCount = 0;
+      var pollInterval = setInterval(function () {
+        pollCount++;
+        if (isAgentUser()) {
+          clearInterval(pollInterval);
+          activate();
+        } else if (pollCount > 60) {
+          // Stop polling after ~30 seconds
+          clearInterval(pollInterval);
+        }
+      }, 500);
+    }
   }
 
   if (document.readyState === "loading") {
