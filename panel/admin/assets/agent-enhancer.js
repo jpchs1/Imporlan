@@ -740,6 +740,23 @@
         if (p) p.classList.add("agent-sidebar-hidden");
       }
     });
+    // Hide AIS API key labels and inputs on tracking page
+    document.querySelectorAll("label").forEach(function (label) {
+      var text = (label.textContent || "").trim();
+      if (/AISstream\s+API|VesselFinder\s+API|Cron\s+Token/i.test(text)) {
+        var container = label.closest("div");
+        if (container && !container.querySelector("nav") && !container.querySelector("table")) {
+          container.classList.add("agent-sidebar-hidden");
+        } else {
+          label.classList.add("agent-sidebar-hidden");
+          var nextEl = label.nextElementSibling;
+          while (nextEl && (nextEl.tagName === "INPUT" || nextEl.tagName === "BUTTON" || nextEl.tagName === "DIV")) {
+            nextEl.classList.add("agent-sidebar-hidden");
+            nextEl = nextEl.nextElementSibling;
+          }
+        }
+      }
+    });
   }
 
   /* ---------------------------------------------------------------
