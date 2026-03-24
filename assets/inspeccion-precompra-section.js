@@ -394,7 +394,7 @@
       <div class="inspeccion-precompra-container">\
         <h2><span class="kw-highlight">Inspeccion Pre-Compra</span> de Embarcacion en Chile</h2>\
         <p class="section-subtitle">Servicio profesional de inspeccion nautica antes de comprar. Protege tu inversion con un informe detallado.</p>\
-        <p class="section-intro">Antes de cerrar la compra de una embarcacion, nuestros <strong>inspectores nauticos certificados</strong> revisan cada detalle: casco, motor, sistemas electricos, documentacion y mas. Recibe un <strong>informe completo con fotos y recomendaciones</strong> para tomar la mejor decision.</p>\
+        <p class="section-intro">Antes de cerrar la compra de una embarcacion, nuestros <strong>inspectores nauticos</strong> revisan cada detalle: casco, motor, sistemas electricos, documentacion y mas. Recibe un <strong>informe completo con fotos y recomendaciones</strong> para tomar la mejor decision.</p>\
         \
         <div class="inspeccion-pricing-grid">\
           <!-- Categoria 1 -->\
