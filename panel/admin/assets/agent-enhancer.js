@@ -931,7 +931,7 @@
     agentActivated = true;
     var style = document.createElement("style");
     style.id = "agent-enhancer-styles";
-    style.textContent = "#agent-competitive-banner { animation: agentBannerFade 0.3s ease-in; } @keyframes agentBannerFade { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } } .agent-price-hidden { visibility: hidden !important; } .agent-sidebar-hidden { display: none !important; } #agent-lang-switcher:hover { background: #e2e8f0 !important; color: #1e293b !important; }";
+    style.textContent = "#agent-competitive-banner { animation: agentBannerFade 0.3s ease-in; } @keyframes agentBannerFade { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } } .agent-price-hidden { visibility: hidden !important; } .agent-sidebar-hidden { display: none !important; } #agent-lang-switcher:hover { background: #e2e8f0 !important; color: #1e293b !important; } aside { position: fixed !important; top: 0 !important; left: 0 !important; height: 100vh !important; z-index: 50 !important; overflow-y: auto !important; } aside + main, aside ~ main { margin-left: 16rem !important; }";
     document.head.appendChild(style);
     applyAgentEnhancements();
     new MutationObserver(debouncedApply).observe(document.body, { childList: true, subtree: true });
