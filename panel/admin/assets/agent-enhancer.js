@@ -546,10 +546,15 @@
     });
     var hasTrackingInUl = false;
     buttons.forEach(function (btn) {
-      if ((btn.textContent || "").trim().toLowerCase() === "tracking" && btn.closest("ul")) {
+      if ((btn.textContent || "").trim().toLowerCase() === "tracking" && btn.closest("ul") && btn.id !== "agent-tracking-nav") {
         hasTrackingInUl = true;
       }
     });
+    /* Hide injected tracking if React now provides one natively */
+    if (hasTrackingInUl) {
+      var injected = document.getElementById("agent-tracking-nav");
+      if (injected) { var injLi = injected.closest("li"); if (injLi) injLi.remove(); else injected.remove(); }
+    }
     if (!hasTrackingInUl && !document.getElementById("agent-tracking-nav")) {
       var ul = nav.querySelector("ul");
       if (ul) {
@@ -934,17 +939,49 @@
     window.addEventListener("hashchange", function () { setTimeout(applyAgentEnhancements, 200); });
   }
 
+  function tryActivate() {
+    if (!agentActivated && isAgentUser()) { activate(); return true; }
+    return false;
+  }
+
   function init() {
-    if (isAgentUser()) {
-      activate();
+    if (tryActivate()) return;
+
+    /* --- Intercept localStorage.setItem to detect login instantly --- */
+    var origSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      origSetItem.call(this, key, value);
+      if ((key === "token" || key === "imporlan_admin_token" || key === "imporlan_admin_user") && !agentActivated) {
+        setTimeout(tryActivate, 50);
+      }
+    };
+
+    /* --- Polling fallback: 120 seconds (240 × 500ms) --- */
+    var pollCount = 0;
+    var pollInterval = setInterval(function () {
+      pollCount++;
+      if (tryActivate()) { clearInterval(pollInterval); }
+      else if (pollCount > 240) { clearInterval(pollInterval); }
+    }, 500);
+
+    /* --- Also watch for DOM changes that indicate the user is logged in --- */
+    var bodyObserver = new MutationObserver(function () {
+      if (!agentActivated) tryActivate();
+    });
+    if (document.body) {
+      bodyObserver.observe(document.body, { childList: true, subtree: true });
     } else {
-      var pollCount = 0;
-      var pollInterval = setInterval(function () {
-        pollCount++;
-        if (isAgentUser()) { clearInterval(pollInterval); activate(); }
-        else if (pollCount > 60) { clearInterval(pollInterval); }
-      }, 500);
+      document.addEventListener("DOMContentLoaded", function () {
+        if (document.body) bodyObserver.observe(document.body, { childList: true, subtree: true });
+      });
     }
+
+    /* --- Cross-tab storage events --- */
+    window.addEventListener("storage", function (e) {
+      if ((e.key === "token" || e.key === "imporlan_admin_token" || e.key === "imporlan_admin_user") && !agentActivated) {
+        setTimeout(tryActivate, 50);
+      }
+    });
   }
 
   if (document.readyState === "loading") {
