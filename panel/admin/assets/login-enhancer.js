@@ -131,7 +131,7 @@
         '</div>' +
         '<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.5">' +
           'Ingresa tu email de inicio de sesion (<strong>admin@imporlan.cl</strong>).<br>' +
-          'La contrasena temporal sera enviada a <strong>contacto@imporlan.cl</strong>.' +
+          'Se enviara un enlace de recuperacion a <strong>contacto@imporlan.cl</strong>.' +
         '</p>' +
         '<label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:#475569">Email de inicio de sesion</label>' +
         '<input id="admin-forgot-email" type="email" value="admin@imporlan.cl" ' +
@@ -139,7 +139,7 @@
         '<div id="admin-forgot-msg" style="margin-top:12px;font-size:13px;display:none"></div>' +
         '<button id="admin-forgot-send" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:none;' +
           'background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s">' +
-          'Enviar Contrasena Temporal</button>' +
+          'Enviar Enlace de Recuperacion</button>' +
       '</div>';
     document.body.appendChild(overlay);
 
@@ -182,14 +182,14 @@
         msgEl.style.display = "block";
         if (data.success) {
           msgEl.style.color = "#10b981";
-          msgEl.textContent = data.message || "Se ha enviado una contrasena temporal al correo de contacto.";
-          sendBtn.textContent = "Enviado";
+          msgEl.textContent = data.message || "Se ha enviado un enlace de recuperacion a contacto@imporlan.cl.";
+          sendBtn.textContent = "Enlace Enviado";
           sendBtn.style.background = "#10b981";
         } else {
           msgEl.style.color = "#ef4444";
           msgEl.textContent = data.error || "No se pudo procesar la solicitud.";
           sendBtn.disabled = false;
-          sendBtn.textContent = "Enviar Contrasena Temporal";
+          sendBtn.textContent = "Enviar Enlace de Recuperacion";
           sendBtn.style.opacity = "1";
         }
       })
@@ -198,7 +198,7 @@
         msgEl.style.color = "#ef4444";
         msgEl.textContent = "Error de conexion. Intenta nuevamente.";
         sendBtn.disabled = false;
-        sendBtn.textContent = "Enviar Contrasena Temporal";
+        sendBtn.textContent = "Enviar Enlace de Recuperacion";
         sendBtn.style.opacity = "1";
       });
     });
