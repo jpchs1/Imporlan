@@ -371,7 +371,9 @@
     [/^P[a\u00e1]gina\s+(\d+)\s+de\s+(\d+)$/i, "Page $1 of $2"],
     [/^Mostrando\s+(\d+)\s+de\s+(\d+)$/i, "Showing $1 of $2"],
     [/^Mostrando\s+(\d+)\s*-\s*(\d+)\s+de\s+(\d+)$/i, "Showing $1-$2 of $3"],
-    [/^Cliente:\s*(.+)$/i, "Client: $1"]
+    [/^Cliente:\s*(.+)$/i, "Client: $1"],
+    [/^(\d+)\s+ordenes?$/i, "$1 orders"],
+    [/^(\d+)\s+\u00f3rdenes?$/i, "$1 orders"]
   ];
 
   function t(text) {
