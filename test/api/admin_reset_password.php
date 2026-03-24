@@ -1,16 +1,20 @@
 <?php
 /**
- * Admin Reset Password Page - Imporlan Admin Panel
+ * Admin Reset Password Page - Imporlan Admin Panel (TEST)
  * Validates the reset token and allows the admin to set a new password.
- * Updates the password via the Fly Admin API.
+ * Updates the hardcoded admin password in the PHP auth files (proxy.php, admin_api.php).
  */
-
-// Fly Admin API configuration
-$FLY_ADMIN_API = 'https://app-hbgmmbqj.fly.dev';
-$ADMIN_USER_ID = 1;
 
 $tokenDir = __DIR__ . '/../.admin_reset_tokens';
 $tokenFile = $tokenDir . '/token.json';
+
+// Files that contain the hardcoded admin password and need updating
+// From test/api/ we need to reach ../api/test/proxy.php and ../api/admin_api.php
+$rootDir = dirname(dirname(__DIR__)); // public_html root
+$authFiles = [
+    $rootDir . '/api/test/proxy.php',
+    $rootDir . '/api/admin_api.php',
+];
 
 // Handle POST (password update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -59,126 +63,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Token is valid - update password via Fly Admin API
+    // Token is valid - update the hardcoded admin password in the PHP auth files
     try {
-        // First login as admin to get a token (using current password)
-        // Try the reset-password endpoint directly with the admin's own session
-        // We need to find the current admin password - try common ones or use the API
-        $adminEmail = $tokenData['email'];
+        $updatedCount = 0;
+        $errors = [];
 
-        // Try to reset via the Fly API reset-password endpoint
-        // This requires an admin bearer token, so we first try to login
-        $passwords = ['admin123', 'changeme', 'admin', 'Admin123'];
-        $adminToken = null;
+        foreach ($authFiles as $filePath) {
+            if (!file_exists($filePath)) {
+                continue;
+            }
 
-        foreach ($passwords as $tryPass) {
-            $ch = curl_init($FLY_ADMIN_API . '/api/test/auth/login');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                'email' => $adminEmail,
-                'password' => $tryPass
-            ]));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            $resp = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            $content = file_get_contents($filePath);
+            if ($content === false) {
+                $errors[] = basename($filePath) . ': no se pudo leer';
+                continue;
+            }
 
-            if ($code === 200) {
-                $loginData = json_decode($resp, true);
-                if (isset($loginData['access_token'])) {
-                    $adminToken = $loginData['access_token'];
-                    break;
+            // Match the line: $adminPassword = 'xxx'; (in proxy.php)
+            // or: define('ADMIN_PASSWORD', 'xxx'); (in admin_api.php)
+            $escapedPassword = addcslashes($newPassword, "'\\");
+            $changed = false;
+
+            // Pattern for proxy.php style: $adminPassword = 'xxx';
+            $newContent = preg_replace(
+                "/\\\$adminPassword\s*=\s*'[^']*'/",
+                "\$adminPassword = '" . $escapedPassword . "'",
+                $content,
+                -1,
+                $count
+            );
+            if ($count > 0) $changed = true;
+
+            // Pattern for admin_api.php style: define('ADMIN_PASSWORD', 'xxx');
+            $newContent = preg_replace(
+                "/define\\s*\\(\\s*'ADMIN_PASSWORD'\\s*,\\s*'[^']*'\\s*\\)/",
+                "define('ADMIN_PASSWORD', '" . $escapedPassword . "')",
+                $newContent,
+                -1,
+                $count
+            );
+            if ($count > 0) $changed = true;
+
+            if ($changed) {
+                if (file_put_contents($filePath, $newContent) !== false) {
+                    $updatedCount++;
+                } else {
+                    $errors[] = basename($filePath) . ': no se pudo escribir';
                 }
             }
         }
 
-        // Also try using the reset-service account
-        if (!$adminToken) {
-            $ch = curl_init($FLY_ADMIN_API . '/api/test/auth/login');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                'email' => 'reset-service@imporlan.cl',
-                'password' => 'ImporlanReset2026!'
-            ]));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            $resp = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($code === 200) {
-                $loginData = json_decode($resp, true);
-                if (isset($loginData['access_token'])) {
-                    $adminToken = $loginData['access_token'];
-                }
-            }
+        if ($updatedCount === 0 && !empty($errors)) {
+            throw new Exception('No se pudo actualizar la contrasena: ' . implode(', ', $errors));
         }
 
-        if (!$adminToken) {
-            throw new Exception('No se pudo autenticar con el servicio de autenticacion.');
-        }
+        // Invalidate the token
+        @unlink($tokenFile);
 
-        // Call reset-password endpoint
-        $ch = curl_init($FLY_ADMIN_API . '/api/test/admin/users/' . $ADMIN_USER_ID . '/reset-password');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-            'new_password' => $newPassword
-        ]));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $adminToken
+        echo json_encode([
+            'success' => true,
+            'message' => 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
         ]);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        $resp = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
-        if ($code >= 200 && $code < 300) {
-            // Verify the new password works
-            $ch = curl_init($FLY_ADMIN_API . '/api/test/auth/login');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                'email' => $adminEmail,
-                'password' => $newPassword
-            ]));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-            $verifyResp = curl_exec($ch);
-            $verifyCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            // Invalidate the token
-            @unlink($tokenFile);
-
-            if ($verifyCode === 200) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'La contrasena fue enviada al servidor. Intenta iniciar sesion con tu nueva contrasena.'
-                ]);
-            }
-        } else {
-            error_log("Reset password API error: code=$code resp=$resp err=$err");
-            throw new Exception('Error al actualizar la contrasena en el servidor.');
-        }
     } catch (Exception $e) {
         error_log("admin_reset_password error: " . $e->getMessage());
         http_response_code(500);
