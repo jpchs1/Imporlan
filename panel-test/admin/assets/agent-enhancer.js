@@ -720,10 +720,10 @@
     var headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
 
     // Fetch expedientes count
-    fetch(API_BASE + "/admin_api.php?action=expedientes", { headers: headers })
+    fetch(API_BASE + "/orders_api.php?action=admin_list", { headers: headers })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var exps = data.expedientes || data.data || [];
+        var exps = data.orders || data.expedientes || data.data || [];
         var countEl = document.getElementById("agent-dash-exp-count");
         if (countEl) countEl.textContent = exps.length || "0";
         // Show recent activity
@@ -733,8 +733,8 @@
           var html = '<ul style="list-style:none;margin:0;padding:0">';
           recent.forEach(function (exp) {
             html += '<li style="padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
-              '<div style="width:8px;height:8px;border-radius:50%;background:' + (exp.status === 'active' || exp.status === 'en_proceso' ? '#10b981' : '#f59e0b') + ';flex-shrink:0"></div>' +
-              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">#' + escapeHtml(String(exp.tracking_number || exp.id)) + ' - ' + escapeHtml(exp.client_name || exp.user_name || 'N/A') + '</div>' +
+              '<div style="width:8px;height:8px;border-radius:50%;background:' + (exp.status === 'active' || exp.status === 'in_progress' || exp.status === 'en_proceso' ? '#10b981' : '#f59e0b') + ';flex-shrink:0"></div>' +
+              '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;color:#0f172a">#' + escapeHtml(String(exp.order_number || exp.tracking_number || exp.id)) + ' - ' + escapeHtml(exp.customer_name || exp.client_name || exp.user_name || 'N/A') + '</div>' +
               '<div style="font-size:11px;color:#94a3b8">' + escapeHtml(exp.service_type || '') + '</div></div></li>';
           });
           html += '</ul>';
