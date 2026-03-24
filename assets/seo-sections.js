@@ -782,7 +782,7 @@
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
               <h4 itemprop="name">¿Cuanto cuesta importar una lancha desde USA? <span class="faq-toggle">${chevronDown}</span></h4>
               <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                <p itemprop="text">La <strong>importacion de lanchas</strong> desde USA tiene costos que incluyen: precio de compra, transporte maritimo ($2.000-$5.000 USD), internacion aduanera (6% arancel + 19% IVA) y logistica local. Cotiza gratis con Imporlan.</p>
+                <p itemprop="text">La <strong>importación de lanchas</strong> desde USA tiene costos que incluyen: precio de compra, transporte marítimo ($4.000-$8.000 USD), internación aduanera (6% arancel | No se paga gracias al TLC ) solo se paga el 19% IVA sobre el valor CIF) y logística local. Normalmente una importación puede llegar a costar sumando todos los costos entre $14.000.000 a $20.000.000 app. Cotiza vía Cotizador Online y Planes de Búsqueda con Imporlan.</p>
               </div>
             </div>
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
