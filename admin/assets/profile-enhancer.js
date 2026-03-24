@@ -516,11 +516,52 @@
     });
   }
 
+  /* ── Fix sidebar layout: pin user section at bottom ── */
+  function fixSidebarLayout() {
+    var aside = document.querySelector("aside");
+    if (!aside) return;
+    if (aside.getAttribute("data-sidebar-fixed")) return;
+    aside.setAttribute("data-sidebar-fixed", "true");
+
+    // Constrain aside to viewport height
+    aside.style.height = "100vh";
+    aside.style.maxHeight = "100vh";
+    aside.style.overflow = "hidden";
+    aside.style.position = "sticky";
+    aside.style.top = "0";
+
+    // Make nav scrollable so menu items don't push user section out
+    var nav = aside.querySelector("nav");
+    if (nav) {
+      nav.style.overflowY = "auto";
+      nav.style.minHeight = "0";
+      // Hide scrollbar but keep functionality
+      nav.style.scrollbarWidth = "thin";
+      nav.style.scrollbarColor = "transparent transparent";
+    }
+
+    // Pin user section at bottom (border-t div + logout button)
+    var borderT = aside.querySelector("div.border-t, div[class*='border-t']");
+    if (borderT) {
+      borderT.style.flexShrink = "0";
+    }
+
+    // Also pin logout button
+    var logoutBtns = aside.querySelectorAll("button");
+    for (var i = 0; i < logoutBtns.length; i++) {
+      if (logoutBtns[i].textContent.trim().indexOf("Cerrar") !== -1) {
+        logoutBtns[i].style.flexShrink = "0";
+        break;
+      }
+    }
+  }
+
   /* ── Main check ── */
   function check() {
     var token = getAdminToken();
     if (!token) return; // Not logged in
 
+    fixSidebarLayout();
     injectProfileClickable();
 
     // Load profile data and update sidebar
