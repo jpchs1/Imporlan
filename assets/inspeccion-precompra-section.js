@@ -543,7 +543,7 @@
         parentNode = footer.parentNode;
       }
 
-      if (parentNode && insertPoint) {
+      if (parentNode) {
         clearInterval(checkInterval);
 
         addInspeccionStyles();
