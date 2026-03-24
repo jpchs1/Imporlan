@@ -130,10 +130,11 @@
           '<button id="admin-forgot-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:24px;line-height:1;padding:4px">&times;</button>' +
         '</div>' +
         '<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.5">' +
-          'Ingresa tu email de administrador. Se enviara una contrasena temporal al correo de contacto registrado.' +
+          'Ingresa tu email de inicio de sesion (<strong>admin@imporlan.cl</strong>).<br>' +
+          'La contrasena temporal sera enviada a <strong>contacto@imporlan.cl</strong>.' +
         '</p>' +
-        '<label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:#475569">Email del Admin</label>' +
-        '<input id="admin-forgot-email" type="email" placeholder="admin@imporlan.cl" ' +
+        '<label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:#475569">Email de inicio de sesion</label>' +
+        '<input id="admin-forgot-email" type="email" value="admin@imporlan.cl" ' +
           'style="width:100%;padding:12px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;outline:none;transition:border .2s" />' +
         '<div id="admin-forgot-msg" style="margin-top:12px;font-size:13px;display:none"></div>' +
         '<button id="admin-forgot-send" style="margin-top:16px;width:100%;padding:12px;border-radius:10px;border:none;' +
