@@ -79,13 +79,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Match the line: $adminPassword = 'xxx'; (in proxy.php)
             // or: define('ADMIN_PASSWORD', 'xxx'); (in admin_api.php)
+            // Use preg_replace_callback to avoid $ backreference issues in passwords
             $escapedPassword = addcslashes($newPassword, "'\\");
             $changed = false;
 
             // Pattern for proxy.php style: $adminPassword = 'xxx';
-            $newContent = preg_replace(
+            $newContent = preg_replace_callback(
                 "/\\\$adminPassword\s*=\s*'[^']*'/",
-                "\$adminPassword = '" . $escapedPassword . "'",
+                function() use ($escapedPassword) {
+                    return "\$adminPassword = '" . $escapedPassword . "'";
+                },
                 $content,
                 -1,
                 $count
@@ -93,9 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($count > 0) $changed = true;
 
             // Pattern for admin_api.php style: define('ADMIN_PASSWORD', 'xxx');
-            $newContent = preg_replace(
+            $newContent = preg_replace_callback(
                 "/define\\s*\\(\\s*'ADMIN_PASSWORD'\\s*,\\s*'[^']*'\\s*\\)/",
-                "define('ADMIN_PASSWORD', '" . $escapedPassword . "')",
+                function() use ($escapedPassword) {
+                    return "define('ADMIN_PASSWORD', '" . $escapedPassword . "')";
+                },
                 $newContent,
                 -1,
                 $count
@@ -111,8 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if ($updatedCount === 0 && !empty($errors)) {
-            throw new Exception('No se pudo actualizar la contrasena: ' . implode(', ', $errors));
+        if ($updatedCount === 0) {
+            if (!empty($errors)) {
+                throw new Exception('No se pudo actualizar la contrasena: ' . implode(', ', $errors));
+            } else {
+                throw new Exception('No se encontraron los archivos de autenticacion para actualizar.');
+            }
         }
 
         // Invalidate the token
