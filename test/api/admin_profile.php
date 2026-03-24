@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Save avatar
-            $avatarDir = __DIR__ . '/../.admin_profiles/avatars';
+            $avatarDir = $rootDir . '/.admin_profiles/avatars';
             if (!is_dir($avatarDir)) {
                 mkdir($avatarDir, 0755, true);
             }
@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'remove_photo') {
             $profiles = loadProfiles($profileFile);
-            $avatarDir = __DIR__ . '/../.admin_profiles/avatars';
+            $avatarDir = $rootDir . '/.admin_profiles/avatars';
             $oldAvatar = $profiles[$userEmail]['avatar_file'] ?? null;
             if ($oldAvatar && file_exists($avatarDir . '/' . $oldAvatar)) {
                 @unlink($avatarDir . '/' . $oldAvatar);
@@ -340,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Remove photo via JSON
     if ($action === 'remove_photo') {
         $profiles = loadProfiles($profileFile);
-        $avatarDir = __DIR__ . '/../.admin_profiles/avatars';
+        $avatarDir = $rootDir . '/.admin_profiles/avatars';
         $oldAvatar = $profiles[$userEmail]['avatar_file'] ?? null;
         if ($oldAvatar && file_exists($avatarDir . '/' . $oldAvatar)) {
             @unlink($avatarDir . '/' . $oldAvatar);
