@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (file_exists($dompdfAutoload) && $pdf_html) {
         try {
             require_once $dompdfAutoload;
-            $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
+            $dompdf = new \Dompdf\Dompdf(['isRemoteEnabled' => false, 'isHtml5ParserEnabled' => true]);
             $dompdf->loadHtml($pdf_html);
             $dompdf->setPaper('A4', 'portrait');
             $dompdf->render();
