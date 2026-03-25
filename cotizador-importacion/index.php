@@ -162,11 +162,12 @@ function buildEmailHTML($nombre, $email, $telefono, $empresa, $pais_origen,
                 </table>
             </div>
             <div style="background:linear-gradient(135deg,rgba(59,130,246,0.05),rgba(34,211,238,0.05));border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:16px 20px;margin-bottom:20px;">
-                <div style="font-size:12px;font-weight:700;color:#1a365d;margin-bottom:8px;">&#9989; Servicio All-Inclusive incluye:</div>
-                <div style="font-size:12px;color:#475569;line-height:1.8;">
-                    Naviera (flete maritimo) &bull; Transporte terrestre USA &bull; Puerto de origen &bull;
-                    Seguro de carga &bull; Agencia de Aduanas &bull; Puerto de destino Chile &bull;
-                    Tramites y documentacion &bull; Coordinacion integral puerta a puerta
+                <div style="font-size:12px;font-weight:700;color:#1a365d;margin-bottom:10px;">&#9989; Servicio All-Inclusive incluye:</div>
+                <div style="font-size:11px;color:#475569;line-height:1.7;">
+                    <div style="margin-bottom:8px;"><strong style="color:#1a365d;">Gestiones en USA:</strong><br>Trailer (solo si no trae) &bull; Transferencia bancaria (FEE Wire) &bull; Revision e Inspeccion Tecnica USA &bull; Inland USA - Bodegaje & Entrega en Puerto</div>
+                    <div style="margin-bottom:8px;"><strong style="color:#1a365d;">Naviera (Transporte Maritimo):</strong><br>Transporte Maritimo (RORO) &bull; Certificado de Fumigacion &bull; Seguro / Insurance &bull; Gastos Locales Naviera &bull; Congestion Surcharge &bull; THC / BAF / WHARFAGE &bull; Handling Chile &bull; Miami Admin FEE &bull; Escorte (Port Pass)</div>
+                    <div style="margin-bottom:8px;"><strong style="color:#1a365d;">Servicios en Chile:</strong><br>Inland Puerto - Santiago &bull; Chequeo Mecanico &bull; Pulido y Tratamiento &bull; Entrega / Traslado</div>
+                    <div><strong style="color:#1a365d;">Agencia de Aduanas & Desembolsos:</strong><br>Autorizaciones &bull; Gastos de Puerto &bull; Agencia de Aduana &bull; IVA Servicios &bull; Gastos de Despachos &bull; Honorarios Agencia</div>
                 </div>
             </div>
         </td></tr>
@@ -628,8 +629,30 @@ $year = date('Y');
     .ic-allinclusive-list {
         font-size:12px;
         color:#94a3b8;
-        line-height:2;
+        line-height:1.6;
+    }
+    .ic-allinc-cat {
+        margin-bottom:10px;
+    }
+    .ic-allinc-cat:last-child {
+        margin-bottom:0;
+    }
+    .ic-allinc-cat-title {
+        font-size:11px;
+        font-weight:700;
+        color:#60a5fa;
+        margin-bottom:4px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+    }
+    .ic-allinc-cat-items {
+        font-size:11px;
+        color:#94a3b8;
+        line-height:1.7;
+        padding-left:4px;
         columns:2;
+        column-gap:16px;
     }
 
     /* Summary */
@@ -936,6 +959,7 @@ $year = date('Y');
         .ic-steps { max-width:100%; }
         .ic-step-label { font-size:9px; }
         .ic-allinclusive-list { columns:1; }
+        .ic-allinc-cat-items { columns:1; }
         .ic-qdoc-header { flex-direction:column; gap:16px; text-align:center; }
         .ic-qdoc-header-right { text-align:center; }
         .ic-qdoc-footer-contact { flex-direction:column; gap:6px; }
@@ -1157,14 +1181,49 @@ $year = date('Y');
                             El Servicio All-Inclusive incluye:
                         </div>
                         <div class="ic-allinclusive-list">
-                            Naviera (flete maritimo)<br>
-                            Transporte terrestre USA<br>
-                            Puerto de origen<br>
-                            Seguro de carga<br>
-                            Agencia de Aduanas<br>
-                            Puerto de destino Chile<br>
-                            Tramites y documentacion<br>
-                            Coordinacion integral puerta a puerta
+                            <div class="ic-allinc-cat">
+                                <div class="ic-allinc-cat-title">&#128674; Gestiones en USA</div>
+                                <div class="ic-allinc-cat-items">
+                                    Trailer (solo si no trae trailer)<br>
+                                    Transferencia bancaria (FEE Wire)<br>
+                                    Revision e Inspeccion Tecnica USA<br>
+                                    Inland USA - Bodegaje & Entrega en Puerto
+                                </div>
+                            </div>
+                            <div class="ic-allinc-cat">
+                                <div class="ic-allinc-cat-title">&#9875; Naviera (Transporte Maritimo)</div>
+                                <div class="ic-allinc-cat-items">
+                                    Transporte Maritimo (RORO)<br>
+                                    Certificado de Fumigacion<br>
+                                    Seguro / Insurance<br>
+                                    Gastos Locales Naviera<br>
+                                    Congestion Surcharge<br>
+                                    THC / BAF / WHARFAGE<br>
+                                    Handling Chile<br>
+                                    Miami Admin FEE<br>
+                                    Escorte (Port Pass)
+                                </div>
+                            </div>
+                            <div class="ic-allinc-cat">
+                                <div class="ic-allinc-cat-title">&#127464;&#127473; Servicios en Chile</div>
+                                <div class="ic-allinc-cat-items">
+                                    Inland Puerto - Santiago<br>
+                                    Chequeo Mecanico Chile<br>
+                                    Pulido y Tratamiento Chile<br>
+                                    Entrega / Traslado
+                                </div>
+                            </div>
+                            <div class="ic-allinc-cat">
+                                <div class="ic-allinc-cat-title">&#128203; Agencia de Aduanas & Desembolsos</div>
+                                <div class="ic-allinc-cat-items">
+                                    Autorizaciones<br>
+                                    Gastos de Puerto<br>
+                                    Agencia de Aduana<br>
+                                    IVA Servicios<br>
+                                    Gastos de Despachos<br>
+                                    Honorarios Agencia
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1514,7 +1573,12 @@ $year = date('Y');
 
             // All-inclusive note
             h += '<div class="ic-qdoc-allinclusive"><div class="ic-qdoc-allinclusive-title">&#9989; El Servicio All-Inclusive incluye:</div>';
-            h += '<div class="ic-qdoc-allinclusive-list">Naviera (flete maritimo) &bull; Transporte terrestre USA &bull; Puerto de origen &bull; Seguro de carga &bull; Agencia de Aduanas &bull; Puerto de destino Chile &bull; Tramites y documentacion &bull; Coordinacion integral puerta a puerta</div></div>';
+            h += '<div class="ic-qdoc-allinclusive-list">';
+            h += '<div style="margin-bottom:8px;"><strong style="color:#1a365d;font-size:11px;">&#128674; Gestiones en USA:</strong><br>Trailer (solo si no trae) &bull; Transferencia bancaria (FEE Wire) &bull; Revision e Inspeccion Tecnica USA &bull; Inland USA - Bodegaje & Entrega en Puerto</div>';
+            h += '<div style="margin-bottom:8px;"><strong style="color:#1a365d;font-size:11px;">&#9875; Naviera (Transporte Maritimo):</strong><br>Transporte Maritimo (RORO) &bull; Certificado de Fumigacion &bull; Seguro / Insurance &bull; Gastos Locales Naviera &bull; Congestion Surcharge &bull; THC / BAF / WHARFAGE &bull; Handling Chile &bull; Miami Admin FEE &bull; Escorte (Port Pass)</div>';
+            h += '<div style="margin-bottom:8px;"><strong style="color:#1a365d;font-size:11px;">&#127464;&#127473; Servicios en Chile:</strong><br>Inland Puerto - Santiago &bull; Chequeo Mecanico &bull; Pulido y Tratamiento &bull; Entrega / Traslado</div>';
+            h += '<div><strong style="color:#1a365d;font-size:11px;">&#128203; Agencia de Aduanas & Desembolsos:</strong><br>Autorizaciones &bull; Gastos de Puerto &bull; Agencia de Aduana &bull; IVA Servicios &bull; Gastos de Despachos &bull; Honorarios Agencia</div>';
+            h += '</div></div>';
 
             // Footer
             h += '<div class="ic-qdoc-footer">';
@@ -1603,7 +1667,12 @@ $year = date('Y');
             html += '<div class="total-row"><span class="total-label">TOTAL</span><span class="total-amount">$' + d.total + '</span></div></div>';
 
             html += '<div class="allinc"><div class="allinc-title">&#9989; El Servicio All-Inclusive incluye:</div>';
-            html += '<div class="allinc-list">Naviera (flete maritimo) &bull; Transporte terrestre USA &bull; Puerto de origen &bull; Seguro de carga &bull; Agencia de Aduanas &bull; Puerto de destino Chile &bull; Tramites y documentacion &bull; Coordinacion integral puerta a puerta</div></div>';
+            html += '<div class="allinc-list">';
+            html += '<div style="margin-bottom:6px;"><strong style="color:#1a365d;font-size:10px;">Gestiones en USA:</strong><br>Trailer (solo si no trae) &bull; Transferencia bancaria (FEE Wire) &bull; Revision e Inspeccion Tecnica USA &bull; Inland USA - Bodegaje & Entrega en Puerto</div>';
+            html += '<div style="margin-bottom:6px;"><strong style="color:#1a365d;font-size:10px;">Naviera (Transporte Maritimo):</strong><br>Transporte Maritimo (RORO) &bull; Certificado de Fumigacion &bull; Seguro / Insurance &bull; Gastos Locales Naviera &bull; Congestion Surcharge &bull; THC / BAF / WHARFAGE &bull; Handling Chile &bull; Miami Admin FEE &bull; Escorte (Port Pass)</div>';
+            html += '<div style="margin-bottom:6px;"><strong style="color:#1a365d;font-size:10px;">Servicios en Chile:</strong><br>Inland Puerto - Santiago &bull; Chequeo Mecanico &bull; Pulido y Tratamiento &bull; Entrega / Traslado</div>';
+            html += '<div><strong style="color:#1a365d;font-size:10px;">Agencia de Aduanas & Desembolsos:</strong><br>Autorizaciones &bull; Gastos de Puerto &bull; Agencia de Aduana &bull; IVA Servicios &bull; Gastos de Despachos &bull; Honorarios Agencia</div>';
+            html += '</div></div>';
 
             html += '<div class="footer"><div class="footer-text">Gracias por su interes en IMPORLAN. Nuestro equipo le contactara a la brevedad.</div>';
             html += '<div class="footer-contact">+56 9 4021 1459 &bull; contacto@imporlan.cl &bull; imporlan.cl</div>';
