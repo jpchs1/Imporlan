@@ -57,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $tmpPath = sys_get_temp_dir() . '/' . $pdfFilename;
             file_put_contents($tmpPath, $pdfContent);
             $pdfAttachmentPath = $tmpPath;
-        } catch (Exception $e) {
-            // Continue without PDF if DOMPDF fails
+        } catch (\Throwable $e) {
+            // Continue without PDF if DOMPDF fails (catch Error + Exception)
             error_log('DOMPDF error: ' . $e->getMessage());
         }
     }
