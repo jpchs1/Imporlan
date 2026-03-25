@@ -72,17 +72,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $headers .= "Bcc: jpchs1@gmail.com\r\n";
     $headers .= "MIME-Version: 1.0\r\n";
 
-    if ($pdfAttachmentPath && file_exists($pdfAttachmentPath)) {
+    // ── Collect user-uploaded attachments ──
+    $userAttachments = [];
+    if (!empty($_FILES['attachments'])) {
+        $maxFileSize = 10 * 1024 * 1024; // 10MB per file
+        $allowedExts = ['pdf','doc','docx','xls','xlsx','jpg','jpeg','png','gif','mp4','mov','avi','webm','mp3','wav'];
+        $fileCount = is_array($_FILES['attachments']['name']) ? count($_FILES['attachments']['name']) : 0;
+        for ($i = 0; $i < $fileCount; $i++) {
+            if ($_FILES['attachments']['error'][$i] !== UPLOAD_ERR_OK) continue;
+            if ($_FILES['attachments']['size'][$i] > $maxFileSize) continue;
+            $origName = basename($_FILES['attachments']['name'][$i]);
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedExts)) continue;
+            $tmpPath = $_FILES['attachments']['tmp_name'][$i];
+            $mimeType = mime_content_type($tmpPath) ?: 'application/octet-stream';
+            $userAttachments[] = ['path' => $tmpPath, 'name' => $origName, 'mime' => $mimeType];
+        }
+    }
+
+    $hasAttachments = ($pdfAttachmentPath && file_exists($pdfAttachmentPath)) || !empty($userAttachments);
+
+    if ($hasAttachments) {
         $headers .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
         $body  = "--$boundary\r\n";
         $body .= "Content-Type: text/html; charset=UTF-8\r\n";
         $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
         $body .= $emailHtml . "\r\n\r\n";
-        $body .= "--$boundary\r\n";
-        $body .= "Content-Type: application/pdf; name=\"" . basename($pdfAttachmentPath) . "\"\r\n";
-        $body .= "Content-Transfer-Encoding: base64\r\n";
-        $body .= "Content-Disposition: attachment; filename=\"" . basename($pdfAttachmentPath) . "\"\r\n\r\n";
-        $body .= chunk_split(base64_encode(file_get_contents($pdfAttachmentPath))) . "\r\n";
+
+        // Attach PDF
+        if ($pdfAttachmentPath && file_exists($pdfAttachmentPath)) {
+            $body .= "--$boundary\r\n";
+            $body .= "Content-Type: application/pdf; name=\"" . basename($pdfAttachmentPath) . "\"\r\n";
+            $body .= "Content-Transfer-Encoding: base64\r\n";
+            $body .= "Content-Disposition: attachment; filename=\"" . basename($pdfAttachmentPath) . "\"\r\n\r\n";
+            $body .= chunk_split(base64_encode(file_get_contents($pdfAttachmentPath))) . "\r\n";
+        }
+
+        // Attach user files
+        foreach ($userAttachments as $ua) {
+            $body .= "--$boundary\r\n";
+            $body .= "Content-Type: " . $ua['mime'] . "; name=\"" . $ua['name'] . "\"\r\n";
+            $body .= "Content-Transfer-Encoding: base64\r\n";
+            $body .= "Content-Disposition: attachment; filename=\"" . $ua['name'] . "\"\r\n\r\n";
+            $body .= chunk_split(base64_encode(file_get_contents($ua['path']))) . "\r\n";
+        }
+
         $body .= "--$boundary--\r\n";
     } else {
         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
@@ -1026,6 +1060,87 @@ $year = date('Y');
     }
     .ic-qdoc-disclaimer { font-size:9px; color:#94a3b8; margin-top:10px; font-style:italic; line-height:1.4; text-align:center; padding:0 40px 16px; }
 
+    /* ── Timeline in document ── */
+    .ic-qdoc-timeline { margin-top:24px; padding:20px 24px; background:linear-gradient(135deg,#f0f9ff,#eef2ff); border:1px solid #bae6fd; border-radius:12px; }
+    .ic-qdoc-timeline-title {
+        font-size:11px; font-weight:700; color:#0369a1; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:16px; text-align:center;
+    }
+    .ic-qdoc-timeline-steps {
+        display:flex; justify-content:space-between; align-items:flex-start; gap:4px; position:relative;
+    }
+    .ic-qdoc-timeline-step {
+        flex:1; text-align:center; position:relative; z-index:1;
+    }
+    .ic-qdoc-timeline-num {
+        width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+        font-size:13px; font-weight:800; color:#fff; margin:0 auto 8px;
+        background:linear-gradient(135deg,#0ea5e9,#6366f1); box-shadow:0 3px 10px rgba(14,165,233,0.3);
+    }
+    .ic-qdoc-timeline-step.highlight .ic-qdoc-timeline-num {
+        background:linear-gradient(135deg,#f59e0b,#ef4444); box-shadow:0 3px 12px rgba(245,158,11,0.4);
+        transform:scale(1.1);
+    }
+    .ic-qdoc-timeline-name { font-size:10px; font-weight:700; color:#0c1e3d; text-transform:uppercase; letter-spacing:0.5px; }
+    .ic-qdoc-timeline-desc { font-size:9px; color:#64748b; margin-top:2px; line-height:1.3; }
+    .ic-qdoc-timeline-pay { font-size:8px; font-weight:700; color:#f59e0b; margin-top:2px; }
+    .ic-qdoc-timeline-connector {
+        position:absolute; top:18px; left:10%; right:10%; height:2px; z-index:0;
+        background:linear-gradient(90deg,#0ea5e9,#6366f1,#f59e0b,#10b981);
+        border-radius:2px;
+    }
+    .ic-qdoc-timeline-stats {
+        display:flex; justify-content:center; gap:24px; margin-top:16px; padding-top:12px; border-top:1px solid rgba(14,165,233,0.15);
+    }
+    .ic-qdoc-timeline-stat { text-align:center; }
+    .ic-qdoc-timeline-stat-val { font-size:14px; font-weight:800; color:#0ea5e9; }
+    .ic-qdoc-timeline-stat-label { font-size:8px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; }
+
+    /* ── Next Steps / CTA in document ── */
+    .ic-qdoc-nextstep {
+        margin-top:20px; padding:20px 24px; background:linear-gradient(135deg,#0c1e3d,#1a3a6e); border-radius:12px; text-align:center;
+    }
+    .ic-qdoc-nextstep-title { font-size:12px; font-weight:700; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; }
+    .ic-qdoc-nextstep-text { font-size:14px; color:#e2e8f0; line-height:1.6; margin-bottom:14px; }
+    .ic-qdoc-nextstep-text strong { color:#38bdf8; }
+    .ic-qdoc-approve-btn {
+        display:inline-block; padding:14px 40px; background:linear-gradient(135deg,#10b981,#059669); color:#fff;
+        font-size:14px; font-weight:700; border-radius:12px; text-decoration:none; letter-spacing:0.5px;
+        box-shadow:0 4px 16px rgba(16,185,129,0.3); transition:all 0.3s; cursor:pointer; border:none;
+    }
+    .ic-qdoc-approve-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,185,129,0.4); filter:brightness(1.08); }
+    .ic-qdoc-approve-hint { font-size:9px; color:rgba(255,255,255,0.35); margin-top:10px; }
+
+    /* ── File Upload Area ── */
+    .ic-file-upload {
+        margin-top:20px; padding:20px; border:2px dashed rgba(14,165,233,0.25); border-radius:16px;
+        background:rgba(14,165,233,0.03); transition:all 0.3s;
+    }
+    .ic-file-upload:hover, .ic-file-upload.dragover { border-color:rgba(14,165,233,0.5); background:rgba(14,165,233,0.06); }
+    .ic-file-upload-label {
+        display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; text-align:center;
+    }
+    .ic-file-upload-icon { width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,#0ea5e9,#6366f1); display:flex; align-items:center; justify-content:center; }
+    .ic-file-upload-icon svg { width:20px; height:20px; fill:#fff; }
+    .ic-file-upload-text { font-size:13px; font-weight:600; color:#94a3b8; }
+    .ic-file-upload-hint { font-size:11px; color:#475569; }
+    .ic-file-upload input[type="file"] { display:none; }
+    .ic-file-list { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+    .ic-file-item {
+        display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
+        background:rgba(14,165,233,0.06); border:1px solid rgba(14,165,233,0.12); border-radius:10px;
+    }
+    .ic-file-item-info { display:flex; align-items:center; gap:10px; min-width:0; }
+    .ic-file-item-icon { width:32px; height:32px; border-radius:8px; background:rgba(14,165,233,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .ic-file-item-icon svg { width:16px; height:16px; fill:#0ea5e9; }
+    .ic-file-item-name { font-size:12px; font-weight:600; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ic-file-item-size { font-size:10px; color:#64748b; }
+    .ic-file-item-remove {
+        width:28px; height:28px; border-radius:8px; border:none; background:rgba(239,68,68,0.1);
+        color:#f87171; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0;
+    }
+    .ic-file-item-remove:hover { background:rgba(239,68,68,0.2); }
+    .ic-file-item-remove svg { width:14px; height:14px; fill:currentColor; }
+
     /* ── Toast ── */
     .ic-toast {
         position:fixed;
@@ -1120,6 +1235,10 @@ $year = date('Y');
         .ic-qdoc-footer { flex-direction:column; gap:10px; text-align:center; padding:16px 20px; }
         .ic-qdoc-footer-contact { justify-content:center; }
         .ic-qdoc-total { flex-direction:column; gap:6px; text-align:center; }
+        .ic-qdoc-timeline-steps { flex-wrap:wrap; gap:8px; }
+        .ic-qdoc-timeline-step { min-width:60px; }
+        .ic-qdoc-timeline-connector { display:none; }
+        .ic-qdoc-timeline-stats { flex-wrap:wrap; gap:12px; }
     }
     </style>
 </head>
@@ -1408,6 +1527,19 @@ $year = date('Y');
                         <div id="icSummaryContent"></div>
                     </div>
 
+                    <!-- File Upload Area -->
+                    <div class="ic-file-upload" id="icFileUploadArea">
+                        <label class="ic-file-upload-label" for="icFileInput">
+                            <div class="ic-file-upload-icon">
+                                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.01l1.41 1.41L11 14.84V19h2v-4.16l1.59 1.59L16 15.01 12.01 11 8 15.01z"/></svg>
+                            </div>
+                            <div class="ic-file-upload-text">Adjuntar archivos a la cotizacion</div>
+                            <div class="ic-file-upload-hint">Videos, PDF, documentos, imagenes (max 10MB c/u)</div>
+                        </label>
+                        <input type="file" id="icFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov,.avi,.webm,.mp3,.wav" onchange="icHandleFiles(this)">
+                        <div class="ic-file-list" id="icFileList"></div>
+                    </div>
+
                     <div class="ic-actions">
                         <button type="button" class="ic-action-btn" onclick="icShowPreview()">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
@@ -1563,6 +1695,69 @@ $year = date('Y');
             document.getElementById('icHero').scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
 
+        /* ── File Upload Handling ── */
+        var uploadedFiles = [];
+
+        window.icHandleFiles = function(input) {
+            var files = input.files;
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                if (file.size > 10 * 1024 * 1024) {
+                    showToast('Archivo "' + file.name + '" excede 10MB.', 'error');
+                    continue;
+                }
+                uploadedFiles.push(file);
+            }
+            input.value = '';
+            renderFileList();
+        };
+
+        window.icRemoveFile = function(idx) {
+            uploadedFiles.splice(idx, 1);
+            renderFileList();
+        };
+
+        function renderFileList() {
+            var container = document.getElementById('icFileList');
+            if (!uploadedFiles.length) { container.innerHTML = ''; return; }
+            var html = '';
+            uploadedFiles.forEach(function(f, idx) {
+                var size = f.size < 1024 ? f.size + ' B' : f.size < 1048576 ? (f.size / 1024).toFixed(1) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
+                var isVideo = f.type.startsWith('video/');
+                var isImage = f.type.startsWith('image/');
+                var iconPath = isVideo ? 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z' : isImage ? 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z' : 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z';
+                html += '<div class="ic-file-item">';
+                html += '<div class="ic-file-item-info">';
+                html += '<div class="ic-file-item-icon"><svg viewBox="0 0 24 24"><path d="' + iconPath + '"/></svg></div>';
+                html += '<div><div class="ic-file-item-name">' + escapeHtml(f.name) + '</div><div class="ic-file-item-size">' + size + '</div></div>';
+                html += '</div>';
+                html += '<button type="button" class="ic-file-item-remove" onclick="icRemoveFile(' + idx + ')"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>';
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+        // Drag & drop
+        (function() {
+            var area = document.getElementById('icFileUploadArea');
+            if (!area) return;
+            ['dragenter','dragover'].forEach(function(ev) {
+                area.addEventListener(ev, function(e) { e.preventDefault(); area.classList.add('dragover'); });
+            });
+            ['dragleave','drop'].forEach(function(ev) {
+                area.addEventListener(ev, function(e) { e.preventDefault(); area.classList.remove('dragover'); });
+            });
+            area.addEventListener('drop', function(e) {
+                var dt = e.dataTransfer;
+                if (dt && dt.files.length) {
+                    for (var i = 0; i < dt.files.length; i++) {
+                        if (dt.files[i].size <= 10 * 1024 * 1024) uploadedFiles.push(dt.files[i]);
+                    }
+                    renderFileList();
+                }
+            });
+        })();
+
         /* ── Validation ── */
         function validateStep(step) {
             if (step === 1) {
@@ -1674,6 +1869,16 @@ $year = date('Y');
                 html += '<span class="ic-summary-value" style="' + (isTotal ? 'color:#38bdf8;font-weight:800;font-size:20px;' : '') + '">' + escapeHtml(row[1]) + '</span>';
                 html += '</div>';
             });
+            // Show attached files in summary
+            if (uploadedFiles.length) {
+                html += '<div class="ic-summary-row" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);flex-direction:column;align-items:flex-start;gap:6px;">';
+                html += '<span class="ic-summary-label" style="color:#0ea5e9;">Archivos adjuntos (' + uploadedFiles.length + ')</span>';
+                uploadedFiles.forEach(function(f) {
+                    var size = f.size < 1048576 ? (f.size / 1024).toFixed(0) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
+                    html += '<span class="ic-summary-value" style="font-size:12px;color:#94a3b8;">' + escapeHtml(f.name) + ' (' + size + ')</span>';
+                });
+                html += '</div>';
+            }
             document.getElementById('icSummaryContent').innerHTML = html;
         }
 
@@ -1737,6 +1942,42 @@ $year = date('Y');
             h += '<div style="margin-bottom:8px;"><strong style="color:#0369a1;font-size:11px;">Servicios en Chile:</strong><br>Inland Puerto - Santiago &bull; Chequeo Mecanico &bull; Pulido y Tratamiento &bull; Entrega / Traslado</div>';
             h += '<div><strong style="color:#0369a1;font-size:11px;">Agencia de Aduanas & Desembolsos:</strong><br>Autorizaciones &bull; Gastos de Puerto &bull; Agencia de Aduana &bull; IVA Servicios &bull; Gastos de Despachos &bull; Honorarios Agencia</div>';
             h += '</div></div>';
+
+            // Timeline
+            h += '<div class="ic-qdoc-timeline">';
+            h += '<div class="ic-qdoc-timeline-title">Proceso de Compra USA</div>';
+            h += '<div class="ic-qdoc-timeline-steps" style="position:relative;">';
+            h += '<div class="ic-qdoc-timeline-connector"></div>';
+            var steps = [
+                {num:'1', name:'Busqueda', desc:'Encuentra tu lancha ideal en portales de USA', pay:''},
+                {num:'2', name:'Inspeccion', desc:'Nuestros expertos verifican la embarcacion', pay:'1er Pago - 10%', hl:true},
+                {num:'3', name:'Comprar', desc:'Gestionamos la compra de forma segura', pay:'2do Pago - 90%'},
+                {num:'4', name:'En Camino', desc:'Tu lancha viaja desde USA a Chile (~25 dias)', pay:''},
+                {num:'5', name:'Entrega', desc:'Recibe la embarcacion donde quieras', pay:''}
+            ];
+            steps.forEach(function(s) {
+                h += '<div class="ic-qdoc-timeline-step' + (s.hl ? ' highlight' : '') + '">';
+                h += '<div class="ic-qdoc-timeline-num">' + s.num + '</div>';
+                h += '<div class="ic-qdoc-timeline-name">' + s.name + '</div>';
+                h += '<div class="ic-qdoc-timeline-desc">' + s.desc + '</div>';
+                if (s.pay) h += '<div class="ic-qdoc-timeline-pay">' + s.pay + '</div>';
+                h += '</div>';
+            });
+            h += '</div>';
+            h += '<div class="ic-qdoc-timeline-stats">';
+            h += '<div class="ic-qdoc-timeline-stat"><div class="ic-qdoc-timeline-stat-val">~58</div><div class="ic-qdoc-timeline-stat-label">Dias Totales</div></div>';
+            h += '<div class="ic-qdoc-timeline-stat"><div class="ic-qdoc-timeline-stat-val">~25</div><div class="ic-qdoc-timeline-stat-label">Dias en Mar</div></div>';
+            h += '<div class="ic-qdoc-timeline-stat"><div class="ic-qdoc-timeline-stat-val">8,000+</div><div class="ic-qdoc-timeline-stat-label">Millas Nauticas</div></div>';
+            h += '<div class="ic-qdoc-timeline-stat"><div class="ic-qdoc-timeline-stat-val">100%</div><div class="ic-qdoc-timeline-stat-label">Seguimiento</div></div>';
+            h += '</div></div>';
+
+            // Next step / Approve
+            h += '<div class="ic-qdoc-nextstep">';
+            h += '<div class="ic-qdoc-nextstep-title">Siguiente Paso</div>';
+            h += '<div class="ic-qdoc-nextstep-text">Al aprobar esta cotizacion, pasamos a la etapa de <strong>Inspeccion & Compra</strong>. Nuestro equipo coordinara la revision tecnica de la embarcacion y gestionara todo el proceso de adquisicion de forma segura y transparente.</div>';
+            h += '<button class="ic-qdoc-approve-btn" onclick="icApproveCotizacion()">Aprobar Cotizacion</button>';
+            h += '<div class="ic-qdoc-approve-hint">Al aprobar, un asesor le contactara para coordinar la inspeccion.</div>';
+            h += '</div>';
 
             h += '</div>'; // close ic-qdoc-body
 
@@ -1841,6 +2082,40 @@ $year = date('Y');
             html += '<div style="margin-bottom:6px;"><strong>Servicios en Chile:</strong><br>Inland Puerto - Santiago &bull; Chequeo Mecanico &bull; Pulido y Tratamiento &bull; Entrega / Traslado</div>';
             html += '<div><strong>Agencia de Aduanas & Desembolsos:</strong><br>Autorizaciones &bull; Gastos de Puerto &bull; Agencia de Aduana &bull; IVA Servicios &bull; Gastos de Despachos &bull; Honorarios Agencia</div>';
             html += '</div></div>';
+
+            // Timeline in PDF
+            html += '<div style="margin-top:20px;padding:16px 20px;background:linear-gradient(135deg,#f0f9ff,#eef2ff);border:1px solid #bae6fd;border-radius:10px;">';
+            html += '<div style="font-size:10px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;text-align:center;">Proceso de Compra USA</div>';
+            html += '<div style="display:flex;justify-content:space-between;gap:4px;">';
+            var pdfSteps = [
+                {n:'1',t:'Busqueda',p:''},
+                {n:'2',t:'Inspeccion',p:'1er Pago 10%'},
+                {n:'3',t:'Comprar',p:'2do Pago 90%'},
+                {n:'4',t:'En Camino',p:''},
+                {n:'5',t:'Entrega',p:''}
+            ];
+            pdfSteps.forEach(function(s) {
+                var bg = s.p ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'linear-gradient(135deg,#0ea5e9,#6366f1)';
+                html += '<div style="flex:1;text-align:center;">';
+                html += '<div style="width:30px;height:30px;border-radius:50%;background:' + bg + ';color:#fff;font-size:12px;font-weight:800;line-height:30px;margin:0 auto 4px;">'+s.n+'</div>';
+                html += '<div style="font-size:9px;font-weight:700;color:#0c1e3d;text-transform:uppercase;">'+s.t+'</div>';
+                if (s.p) html += '<div style="font-size:7px;font-weight:700;color:#f59e0b;margin-top:1px;">'+s.p+'</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            html += '<div style="display:flex;justify-content:center;gap:20px;margin-top:10px;padding-top:8px;border-top:1px solid rgba(14,165,233,0.15);">';
+            html += '<div style="text-align:center;"><div style="font-size:12px;font-weight:800;color:#0ea5e9;">~58</div><div style="font-size:7px;color:#64748b;text-transform:uppercase;">Dias Totales</div></div>';
+            html += '<div style="text-align:center;"><div style="font-size:12px;font-weight:800;color:#0ea5e9;">~25</div><div style="font-size:7px;color:#64748b;text-transform:uppercase;">Dias en Mar</div></div>';
+            html += '<div style="text-align:center;"><div style="font-size:12px;font-weight:800;color:#0ea5e9;">8,000+</div><div style="font-size:7px;color:#64748b;text-transform:uppercase;">Millas Nauticas</div></div>';
+            html += '</div></div>';
+
+            // Next step in PDF
+            html += '<div style="margin-top:16px;padding:16px 20px;background:linear-gradient(135deg,#0c1e3d,#1a3a6e);border-radius:10px;text-align:center;">';
+            html += '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Siguiente Paso</div>';
+            html += '<div style="font-size:12px;color:#e2e8f0;line-height:1.6;margin-bottom:10px;">Al aprobar esta cotizacion, pasamos a la etapa de <strong style="color:#38bdf8;">Inspeccion & Compra</strong>.</div>';
+            html += '<div style="display:inline-block;padding:10px 32px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:12px;font-weight:700;border-radius:10px;">APROBAR COTIZACION</div>';
+            html += '</div>';
+
             html += '</div>'; // close content
 
             html += '<div class="footer-bar"><div class="footer-text">Gracias por su interes en IMPORLAN.<br>Nuestro equipo le contactara a la brevedad.</div>';
@@ -1927,6 +2202,11 @@ $year = date('Y');
             formData.append('fecha', date);
             formData.append('pdf_html', pdfHtml);
 
+            // Append user-uploaded files
+            for (var i = 0; i < uploadedFiles.length; i++) {
+                formData.append('attachments[]', uploadedFiles[i]);
+            }
+
             fetch(window.location.pathname, {
                 method: 'POST',
                 body: formData
@@ -1942,6 +2222,16 @@ $year = date('Y');
                 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Enviar por Email';
                 showToast('Error de conexion. Intente nuevamente.', 'error');
             });
+        };
+
+        /* ── Approve Cotizacion ── */
+        window.icApproveCotizacion = function() {
+            var d = collectData();
+            var qNum = generateQuoteNumber();
+            var msg = 'Estimado equipo Imporlan,%0A%0AEl cliente ' + encodeURIComponent(d.nombre) + ' desea APROBAR la cotizacion ' + qNum + ' para la embarcacion ' + encodeURIComponent(d.tipo + ' ' + d.marca + ' ' + d.modelo + ' ' + d.anio) + '.%0A%0ASolicito coordinar la etapa de Inspeccion & Compra.%0A%0ADatos de contacto:%0ANombre: ' + encodeURIComponent(d.nombre) + '%0AEmail: ' + encodeURIComponent(d.email) + '%0ATelefono: ' + encodeURIComponent(d.telefono) + '%0A%0ATotal cotizado: $' + encodeURIComponent(d.total) + ' CLP';
+            var subject = encodeURIComponent('Aprobacion Cotizacion ' + qNum + ' - ' + d.nombre);
+            window.open('mailto:contacto@imporlan.cl?subject=' + subject + '&body=' + msg, '_self');
+            showToast('Redirigiendo a su correo para confirmar la aprobacion...', 'success');
         };
 
         /* ── Toast ── */
