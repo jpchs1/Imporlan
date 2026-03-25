@@ -45,6 +45,11 @@ backup_temp/
 # Build artifacts
 *.zip
 
+# Payment data files
+api/free_payments.json
+api/fp_webpay_pending/
+api/fp_paypal_pending/
+
 # Test scripts
 send_*.php
 test_*.php
