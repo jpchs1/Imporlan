@@ -86,7 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!in_array($ext, $allowedExts)) continue;
             $tmpPath = $_FILES['attachments']['tmp_name'][$i];
             $mimeType = mime_content_type($tmpPath) ?: 'application/octet-stream';
-            $userAttachments[] = ['path' => $tmpPath, 'name' => $origName, 'mime' => $mimeType];
+            // Sanitize filename for MIME headers: remove quotes, control chars
+            $safeName = preg_replace('/["\r\n\x00-\x1f]/', '_', $origName);
+            $userAttachments[] = ['path' => $tmpPath, 'name' => $safeName, 'mime' => $mimeType];
         }
     }
 
@@ -2228,9 +2230,16 @@ $year = date('Y');
         window.icApproveCotizacion = function() {
             var d = collectData();
             var qNum = generateQuoteNumber();
-            var msg = 'Estimado equipo Imporlan,%0A%0AEl cliente ' + encodeURIComponent(d.nombre) + ' desea APROBAR la cotizacion ' + qNum + ' para la embarcacion ' + encodeURIComponent(d.tipo + ' ' + d.marca + ' ' + d.modelo + ' ' + d.anio) + '.%0A%0ASolicito coordinar la etapa de Inspeccion & Compra.%0A%0ADatos de contacto:%0ANombre: ' + encodeURIComponent(d.nombre) + '%0AEmail: ' + encodeURIComponent(d.email) + '%0ATelefono: ' + encodeURIComponent(d.telefono) + '%0A%0ATotal cotizado: $' + encodeURIComponent(d.total) + ' CLP';
-            var subject = encodeURIComponent('Aprobacion Cotizacion ' + qNum + ' - ' + d.nombre);
-            window.open('mailto:contacto@imporlan.cl?subject=' + subject + '&body=' + msg, '_self');
+            var body = 'Estimado equipo Imporlan,\n\n';
+            body += 'El cliente ' + d.nombre + ' desea APROBAR la cotizacion ' + qNum + ' para la embarcacion ' + d.tipo + ' ' + d.marca + ' ' + d.modelo + ' ' + d.anio + '.\n\n';
+            body += 'Solicito coordinar la etapa de Inspeccion y Compra.\n\n';
+            body += 'Datos de contacto:\n';
+            body += 'Nombre: ' + d.nombre + '\n';
+            body += 'Email: ' + d.email + '\n';
+            body += 'Telefono: ' + d.telefono + '\n\n';
+            body += 'Total cotizado: $' + d.total + ' CLP';
+            var subject = 'Aprobacion Cotizacion ' + qNum + ' - ' + d.nombre;
+            window.location.href = 'mailto:contacto@imporlan.cl?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
             showToast('Redirigiendo a su correo para confirmar la aprobacion...', 'success');
         };
 
