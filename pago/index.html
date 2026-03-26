@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago Seguro | Imporlan - Importacion de Lanchas y Embarcaciones</title>
+    <meta name="description" content="Realiza tu pago de forma segura para servicios de importacion de lanchas y embarcaciones de lujo. WebPay, MercadoPago, PayPal y transferencia bancaria.">
+    <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg">
+    <link rel="icon" type="image/png" sizes="48x48" href="/images/imporlan-favicon-48.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy-dark: #0a1628;
+            --navy: #0f2140;
+            --navy-mid: #162d50;
+            --navy-light: #1e3a5f;
+            --gold: #c9a84c;
+            --gold-light: #e0c76a;
+            --gold-dark: #a8893d;
+            --silver: #c0c8d4;
+            --white: #f4f6f8;
+            --blue-accent: #4a90d9;
+            --success: #2ecc71;
+            --error: #e74c3c;
+            --shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--navy-dark);
+            color: var(--white);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated ocean background */
+        .ocean-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .ocean-bg::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(74,144,217,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(201,168,76,0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(74,144,217,0.06) 0%, transparent 50%),
+                linear-gradient(180deg, var(--navy-dark) 0%, #0c1e38 50%, var(--navy-dark) 100%);
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            width: 200%;
+            height: 200px;
+            opacity: 0.03;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 40px,
+                rgba(74,144,217,0.3) 40px,
+                rgba(74,144,217,0.3) 42px
+            );
+            animation: wave 20s linear infinite;
+        }
+
+        .wave:nth-child(2) {
+            height: 150px;
+            opacity: 0.02;
+            animation-duration: 15s;
+            animation-direction: reverse;
+        }
+
+        @keyframes wave {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 580px;
+            margin: 0 auto;
+            padding: 30px 20px 60px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Header / Logo */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+
+        .logo-container img {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(201,168,76,0.2);
+        }
+
+        .logo-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .logo-text .impor { color: var(--silver); }
+        .logo-text .lan { color: var(--white); }
+
+        .header-tagline {
+            font-size: 0.85rem;
+            color: var(--silver);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+
+        .header-divider {
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+            margin: 16px auto 0;
+        }
+
+        /* Payment Card */
+        .payment-card {
+            width: 100%;
+            background: linear-gradient(145deg, rgba(22,45,80,0.9), rgba(15,33,64,0.95));
+            border: 1px solid rgba(201,168,76,0.15);
+            border-radius: 20px;
+            padding: 36px 32px;
+            backdrop-filter: blur(20px);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .payment-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light), var(--gold));
+        }
+
+        .card-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 6px;
+            color: var(--white);
+        }
+
+        .card-subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--silver);
+            margin-bottom: 28px;
+            opacity: 0.7;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--gold-light);
+            margin-bottom: 7px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(10,22,40,0.6);
+            border: 1px solid rgba(201,168,76,0.2);
+            border-radius: 10px;
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+            background: rgba(10,22,40,0.8);
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(192,200,212,0.4);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .form-group select option {
+            background: var(--navy);
+            color: var(--white);
+        }
+
+        /* Amount input special styling */
+        .amount-wrapper {
+            position: relative;
+        }
+
+        .amount-wrapper .currency-symbol {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gold);
+        }
+
+        .amount-wrapper input {
+            padding-left: 32px;
+            font-size: 1.4rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .amount-hint {
+            font-size: 0.75rem;
+            color: var(--silver);
+            opacity: 0.5;
+            margin-top: 5px;
+        }
+
+        /* Two columns */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        /* Separator */
+        .separator {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 28px 0;
+        }
+
+        .separator::before,
+        .separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent);
+        }
+
+        .separator span {
+            font-size: 0.75rem;
+            color: var(--gold);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* Payment methods */
+        .payment-methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .payment-method {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 18px 12px;
+            border: 1px solid rgba(201,168,76,0.15);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(10,22,40,0.4);
+            position: relative;
+        }
+
+        .payment-method:hover {
+            border-color: rgba(201,168,76,0.4);
+            background: rgba(10,22,40,0.6);
+            transform: translateY(-2px);
+        }
+
+        .payment-method.selected {
+            border-color: var(--gold);
+            background: rgba(201,168,76,0.08);
+            box-shadow: 0 0 20px rgba(201,168,76,0.1);
+        }
+
+        .payment-method.selected::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--gold);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--gold);
+        }
+
+        .payment-method-icon {
+            font-size: 1.8rem;
+            line-height: 1;
+        }
+
+        .payment-method-name {
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--silver);
+            text-align: center;
+        }
+
+        .payment-method.selected .payment-method-name {
+            color: var(--gold-light);
+        }
+
+        /* Pay button */
+        .pay-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--gold-dark), var(--gold), var(--gold-light));
+            color: var(--navy-dark);
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pay-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(201,168,76,0.3);
+        }
+
+        .pay-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .pay-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .pay-btn .btn-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .pay-btn .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(10,22,40,0.3);
+            border-top-color: var(--navy-dark);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .pay-btn.loading .spinner { display: inline-block; }
+        .pay-btn.loading .btn-text { display: none; }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Security badge */
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 16px;
+            font-size: 0.75rem;
+            color: var(--silver);
+            opacity: 0.5;
+        }
+
+        .security-badge svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        /* Bank transfer info */
+        .bank-info {
+            display: none;
+            background: rgba(10,22,40,0.5);
+            border: 1px solid rgba(201,168,76,0.15);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .bank-info.visible { display: block; }
+
+        .bank-info h4 {
+            font-family: 'Playfair Display', serif;
+            color: var(--gold-light);
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .bank-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(201,168,76,0.08);
+            font-size: 0.85rem;
+        }
+
+        .bank-info-row:last-child { border: none; }
+        .bank-info-label { color: var(--silver); opacity: 0.7; }
+        .bank-info-value { color: var(--white); font-weight: 500; }
+
+        .bank-info-note {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: rgba(201,168,76,0.06);
+            border-left: 3px solid var(--gold);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.8rem;
+            color: var(--silver);
+            line-height: 1.5;
+        }
+
+        /* Status messages */
+        .status-message {
+            display: none;
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .status-message.success {
+            display: block;
+            background: rgba(46,204,113,0.1);
+            border: 1px solid rgba(46,204,113,0.3);
+            color: #7dffb5;
+        }
+
+        .status-message.error {
+            display: block;
+            background: rgba(231,76,60,0.1);
+            border: 1px solid rgba(231,76,60,0.3);
+            color: #ff9090;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--silver);
+            opacity: 0.4;
+            line-height: 1.6;
+        }
+
+        .footer a {
+            color: var(--gold);
+            text-decoration: none;
+            opacity: 0.8;
+        }
+
+        .footer a:hover { opacity: 1; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 20px 16px 40px; }
+            .payment-card { padding: 28px 20px; border-radius: 16px; }
+            .logo-text { font-size: 1.7rem; }
+            .logo-container img { width: 46px; height: 46px; }
+            .card-title { font-size: 1.3rem; }
+            .form-row { grid-template-columns: 1fr; }
+            .payment-methods { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .amount-wrapper input { font-size: 1.2rem; }
+        }
+
+        /* Anchor icon for yacht feel */
+        .yacht-icon {
+            display: block;
+            margin: 0 auto 8px;
+            opacity: 0.12;
+            width: 40px;
+            height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ocean-bg">
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo-container">
+                <img src="/images/imporlan-logo-square.png" alt="Imporlan" onerror="this.style.display='none'">
+                <div class="logo-text">
+                    <span class="impor">IMPOR</span><span class="lan">LAN</span>
+                </div>
+            </div>
+            <div class="header-tagline">Embarcaciones de Lujo</div>
+            <div class="header-divider"></div>
+        </header>
+
+        <div class="payment-card">
+            <svg class="yacht-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 18h18v2H3v-2zm18.51-3.52l-6.35-6.36C14.79 7.75 14.3 7.5 13.77 7.5h-3.54c-.53 0-1.02.25-1.39.62L2.49 14.48c-.56.56-.56 1.47 0 2.03l.01.01c.28.28.65.43 1.02.43h17.97c.37 0 .73-.15 1.01-.43l.01-.01c.56-.56.56-1.47 0-2.03zM12 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+            </svg>
+            <h2 class="card-title">Pago Seguro</h2>
+            <p class="card-subtitle">Complete los datos para procesar su pago</p>
+
+            <div id="statusMessage" class="status-message"></div>
+
+            <form id="paymentForm" onsubmit="return false;">
+                <!-- Amount -->
+                <div class="form-group">
+                    <label>Monto a Pagar (CLP)</label>
+                    <div class="amount-wrapper">
+                        <span class="currency-symbol">$</span>
+                        <input type="text" id="amount" inputmode="numeric" placeholder="0" required autocomplete="off">
+                    </div>
+                    <div class="amount-hint">Ingrese el monto en pesos chilenos</div>
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label>Concepto / Descripcion</label>
+                    <textarea id="description" placeholder="Ej: Cotizacion importacion lancha, Pago plan de busqueda..." required></textarea>
+                </div>
+
+                <!-- Customer info -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="payerName" placeholder="Su nombre completo" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="payerEmail" placeholder="correo@email.com" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Telefono (opcional)</label>
+                    <input type="tel" id="payerPhone" placeholder="+56 9 XXXX XXXX">
+                </div>
+
+                <div class="separator">
+                    <span>Metodo de Pago</span>
+                </div>
+
+                <!-- Payment method selection -->
+                <div class="payment-methods">
+                    <div class="payment-method selected" data-method="webpay" onclick="selectMethod(this)">
+                        <div class="payment-method-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="4" y="8" width="28" height="20" rx="3" stroke="#c9a84c" stroke-width="1.5"/><rect x="4" y="13" width="28" height="4" fill="rgba(201,168,76,0.3)"/><rect x="8" y="21" width="8" height="2" rx="1" fill="rgba(201,168,76,0.5)"/></svg>
+                        </div>
+                        <div class="payment-method-name">WebPay<br><small style="opacity:0.6">Debito / Credito</small></div>
+                    </div>
+                    <div class="payment-method" data-method="mercadopago" onclick="selectMethod(this)">
+                        <div class="payment-method-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="12" stroke="#4a90d9" stroke-width="1.5"/><path d="M12 18c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="#4a90d9" stroke-width="1.5" stroke-linecap="round"/><circle cx="18" cy="20" r="2" fill="rgba(74,144,217,0.5)"/></svg>
+                        </div>
+                        <div class="payment-method-name">MercadoPago<br><small style="opacity:0.6">Multiples medios</small></div>
+                    </div>
+                    <div class="payment-method" data-method="paypal" onclick="selectMethod(this)">
+                        <div class="payment-method-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M13 28l2-12h5c4 0 7 2 6.5 6S22 28 18 28h-5z" stroke="#4a90d9" stroke-width="1.5" fill="rgba(74,144,217,0.1)"/><path d="M15 24l1.5-8h4c3 0 5 1.5 4.5 4.5S21.5 24 18.5 24H15z" stroke="#c9a84c" stroke-width="1.5" fill="rgba(201,168,76,0.1)"/></svg>
+                        </div>
+                        <div class="payment-method-name">PayPal<br><small style="opacity:0.6">Internacional</small></div>
+                    </div>
+                    <div class="payment-method" data-method="transfer" onclick="selectMethod(this)">
+                        <div class="payment-method-icon">
+                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="6" y="10" width="24" height="16" rx="2" stroke="#c9a84c" stroke-width="1.5"/><path d="M6 15h24M11 20h6M11 23h4" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg>
+                        </div>
+                        <div class="payment-method-name">Transferencia<br><small style="opacity:0.6">Bancaria</small></div>
+                    </div>
+                </div>
+
+                <!-- Bank transfer info panel -->
+                <div id="bankInfo" class="bank-info">
+                    <h4>Datos para Transferencia</h4>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">Banco</span>
+                        <span class="bank-info-value">Banco Estado</span>
+                    </div>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">Tipo Cuenta</span>
+                        <span class="bank-info-value">Cuenta Corriente</span>
+                    </div>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">Numero</span>
+                        <span class="bank-info-value">Por confirmar</span>
+                    </div>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">RUT</span>
+                        <span class="bank-info-value">Por confirmar</span>
+                    </div>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">Nombre</span>
+                        <span class="bank-info-value">Imporlan SpA</span>
+                    </div>
+                    <div class="bank-info-row">
+                        <span class="bank-info-label">Email</span>
+                        <span class="bank-info-value">pagos@imporlan.cl</span>
+                    </div>
+                    <div class="bank-info-note">
+                        Envia el comprobante de transferencia a <strong>pagos@imporlan.cl</strong> indicando tu nombre y el concepto del pago para activar tu servicio.
+                    </div>
+                </div>
+
+                <button type="submit" class="pay-btn" id="payBtn" onclick="processPayment()">
+                    <span class="btn-content">
+                        <span class="spinner"></span>
+                        <span class="btn-text">Pagar con WebPay</span>
+                    </span>
+                </button>
+
+                <div class="security-badge">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                    <span>Pago 100% seguro con encriptacion SSL</span>
+                </div>
+            </form>
+        </div>
+
+        <footer class="footer">
+            <p>Imporlan &copy; 2026 - Importacion de Lanchas y Embarcaciones de Lujo</p>
+            <p><a href="https://www.imporlan.cl">www.imporlan.cl</a> &middot; <a href="mailto:contacto@imporlan.cl">contacto@imporlan.cl</a></p>
+        </footer>
+    </div>
+
+    <script>
+    // ==============================
+    // Imporlan Payment Page
+    // ==============================
+    const API_BASE = '/api';
+    let selectedMethod = 'webpay';
+
+    // Format amount with thousands separator
+    const amountInput = document.getElementById('amount');
+    amountInput.addEventListener('input', function() {
+        let val = this.value.replace(/\D/g, '');
+        if (val) {
+            val = parseInt(val, 10).toLocaleString('es-CL');
+        }
+        this.value = val;
+    });
+
+    function getRawAmount() {
+        return parseInt(amountInput.value.replace(/\D/g, ''), 10) || 0;
+    }
+
+    function selectMethod(el) {
+        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedMethod = el.dataset.method;
+
+        const bankInfo = document.getElementById('bankInfo');
+        const payBtn = document.getElementById('payBtn');
+        const btnText = payBtn.querySelector('.btn-text');
+
+        if (selectedMethod === 'transfer') {
+            bankInfo.classList.add('visible');
+            btnText.textContent = 'Confirmar Transferencia';
+        } else {
+            bankInfo.classList.remove('visible');
+            const names = {
+                webpay: 'Pagar con WebPay',
+                mercadopago: 'Pagar con MercadoPago',
+                paypal: 'Pagar con PayPal'
+            };
+            btnText.textContent = names[selectedMethod] || 'Pagar';
+        }
+
+        hideStatus();
+    }
+
+    function showStatus(msg, type) {
+        const el = document.getElementById('statusMessage');
+        el.textContent = msg;
+        el.className = 'status-message ' + type;
+    }
+
+    function hideStatus() {
+        const el = document.getElementById('statusMessage');
+        el.className = 'status-message';
+    }
+
+    function setLoading(loading) {
+        const btn = document.getElementById('payBtn');
+        if (loading) {
+            btn.classList.add('loading');
+            btn.disabled = true;
+        } else {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    }
+
+    function validateForm() {
+        const amount = getRawAmount();
+        const description = document.getElementById('description').value.trim();
+        const name = document.getElementById('payerName').value.trim();
+        const email = document.getElementById('payerEmail').value.trim();
+
+        if (!amount || amount < 100) {
+            showStatus('Ingrese un monto valido (minimo $100 CLP)', 'error');
+            return false;
+        }
+        if (!description) {
+            showStatus('Ingrese el concepto o descripcion del pago', 'error');
+            return false;
+        }
+        if (!name) {
+            showStatus('Ingrese su nombre', 'error');
+            return false;
+        }
+        if (!email || !email.includes('@')) {
+            showStatus('Ingrese un email valido', 'error');
+            return false;
+        }
+        return { amount, description, name, email };
+    }
+
+    async function processPayment() {
+        hideStatus();
+        const data = validateForm();
+        if (!data) return;
+
+        setLoading(true);
+
+        try {
+            if (selectedMethod === 'webpay') {
+                await payWithWebpay(data);
+            } else if (selectedMethod === 'mercadopago') {
+                await payWithMercadoPago(data);
+            } else if (selectedMethod === 'paypal') {
+                await payWithPayPal(data);
+            } else if (selectedMethod === 'transfer') {
+                handleTransfer(data);
+            }
+        } catch (err) {
+            showStatus('Error al procesar el pago: ' + (err.message || 'Intente nuevamente'), 'error');
+            setLoading(false);
+        }
+    }
+
+    // ---- WebPay ----
+    async function payWithWebpay(data) {
+        const buyOrder = 'PAGO_' + Date.now();
+        const phone = document.getElementById('payerPhone').value.trim();
+
+        const res = await fetch(API_BASE + '/webpay.php?action=create_transaction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: data.amount,
+                buy_order: buyOrder,
+                session_id: 'pago_' + Date.now(),
+                user_email: data.email,
+                payer_name: data.name,
+                payer_phone: phone,
+                plan_name: data.description,
+                description: data.description,
+                type: 'link'
+            })
+        });
+
+        const result = await res.json();
+        if (result.success && result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            throw new Error(result.error || 'Error al crear transaccion WebPay');
+        }
+    }
+
+    // ---- MercadoPago ----
+    async function payWithMercadoPago(data) {
+        const phone = document.getElementById('payerPhone').value.trim();
+
+        const res = await fetch(API_BASE + '/mercadopago.php?action=create_preference', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: data.amount,
+                description: data.description,
+                plan_name: data.description,
+                payer_email: data.email,
+                payer_name: data.name,
+                payer_phone: phone,
+                quantity: 1
+            })
+        });
+
+        const result = await res.json();
+        if (result.success && result.init_point) {
+            window.location.href = result.init_point;
+        } else {
+            throw new Error(result.error || 'Error al crear preferencia MercadoPago');
+        }
+    }
+
+    // ---- PayPal ----
+    async function payWithPayPal(data) {
+        // Convert CLP to USD (approximate)
+        const usdAmount = Math.max(1, Math.round(data.amount / 950 * 100) / 100);
+        const phone = document.getElementById('payerPhone').value.trim();
+
+        const res = await fetch(API_BASE + '/paypal.php?action=create_order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: usdAmount,
+                description: data.description,
+                currency: 'USD',
+                plan_name: data.description,
+                payer_email: data.email,
+                payer_name: data.name,
+                payer_phone: phone,
+                type: 'link'
+            })
+        });
+
+        const result = await res.json();
+        if (result.success && result.order_id) {
+            // Redirect to PayPal approval
+            const config = await fetch(API_BASE + '/paypal.php?action=get_client_id');
+            const cfgData = await config.json();
+            const env = cfgData.environment === 'production' ? 'www' : 'www.sandbox';
+            window.location.href = 'https://' + env + '.paypal.com/checkoutnow?token=' + result.order_id;
+        } else {
+            throw new Error(result.error || 'Error al crear orden PayPal');
+        }
+    }
+
+    // ---- Bank Transfer ----
+    function handleTransfer(data) {
+        const amount = getRawAmount().toLocaleString('es-CL');
+        showStatus(
+            'Realice la transferencia por $' + amount + ' CLP a los datos indicados arriba. ' +
+            'Envia el comprobante a pagos@imporlan.cl indicando: ' + data.name + ' - ' + data.description,
+            'success'
+        );
+        setLoading(false);
+    }
+
+    // Check for payment result from URL params
+    (function checkPaymentResult() {
+        const params = new URLSearchParams(window.location.search);
+        const payment = params.get('payment');
+        if (payment === 'success') {
+            showStatus('Pago procesado exitosamente. Recibiras un email de confirmacion en breve.', 'success');
+        } else if (payment === 'cancelled') {
+            showStatus('El pago fue cancelado. Puedes intentar nuevamente.', 'error');
+        } else if (payment === 'rejected' || payment === 'error') {
+            showStatus('El pago no pudo ser procesado. Por favor intenta con otro metodo de pago.', 'error');
+        }
+
+        // Pre-fill from URL params
+        const amt = params.get('monto') || params.get('amount');
+        if (amt) {
+            const val = parseInt(amt, 10);
+            if (val > 0) amountInput.value = val.toLocaleString('es-CL');
+        }
+        const desc = params.get('concepto') || params.get('desc');
+        if (desc) document.getElementById('description').value = decodeURIComponent(desc);
+        const name = params.get('nombre') || params.get('name');
+        if (name) document.getElementById('payerName').value = decodeURIComponent(name);
+        const email = params.get('email');
+        if (email) document.getElementById('payerEmail').value = decodeURIComponent(email);
+    })();
+    </script>
+</body>
+</html>
