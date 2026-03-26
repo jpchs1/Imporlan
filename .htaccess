@@ -16,6 +16,9 @@ RewriteRule ^br(/.*)?$ https://tourevo.cl/br$1 [R=301,L]
 # Cotizador Importacion - serve PHP
 RewriteRule ^cotizador-importacion/?$ /cotizador-importacion/index.php [L]
 
+# Simulacion Cotizacion - serve PHP
+RewriteRule ^simulacion-cotizacion/?$ /simulacion-cotizacion/index.php [L]
+
 # Marketplace clean URLs
 RewriteRule ^marketplace/embarcacion/([0-9]+)/?.*$ /marketplace/embarcacion.php [L]
 RewriteRule ^marketplace/publicar/?$ /marketplace.html [L]

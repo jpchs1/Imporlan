@@ -95,6 +95,14 @@ echo "  -> Panel deployed."
 rsync -a "$STAGING_REPO/pago/" "$PUBLIC_HTML/pago/"
 echo "  -> Pago page deployed."
 
+# Deploy cotizador-importacion
+rsync -a "$STAGING_REPO/cotizador-importacion/" "$PUBLIC_HTML/cotizador-importacion/"
+echo "  -> Cotizador importacion deployed."
+
+# Deploy simulacion-cotizacion
+rsync -a "$STAGING_REPO/simulacion-cotizacion/" "$PUBLIC_HTML/simulacion-cotizacion/"
+echo "  -> Simulacion cotizacion deployed."
+
 # Deploy .htaccess
 if [ -f "$STAGING_REPO/.htaccess" ]; then
   cp "$STAGING_REPO/.htaccess" "$PUBLIC_HTML/.htaccess"
