@@ -94,6 +94,9 @@ if ($action === 'sync_files') {
     $env = $_GET['env'] ?? 'prod';
     $targetPath = ($env === 'test') ? PATH_TEST : PATH_PROD;
     
+    // Allow custom files via &files= parameter (comma-separated)
+    $customFiles = isset($_GET['files']) ? explode(',', $_GET['files']) : [];
+
     $filesToSync = [
         'assets/marketplace-public.js',
         'panel/assets/marketplace-enhancer.js',
@@ -106,7 +109,13 @@ if ($action === 'sync_files') {
         'api/marketplace_api.php',
         'api/chat_api.php',
         'api/notifications_api.php',
+        'pago/index.html',
+        '.htaccess',
     ];
+
+    if (!empty($customFiles)) {
+        $filesToSync = array_unique(array_merge($filesToSync, $customFiles));
+    }
     
     $ghRawBase = 'https://raw.githubusercontent.com/jpchs1/Imporlan/main/';
     $results = [];
