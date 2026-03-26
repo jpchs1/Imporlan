@@ -91,6 +91,17 @@ echo "  -> marketplace/ directory deployed."
 rsync -a "$STAGING_REPO/panel/" "$PUBLIC_HTML/panel/"
 echo "  -> Panel deployed."
 
+# Deploy pago (payment page)
+rsync -a "$STAGING_REPO/pago/" "$PUBLIC_HTML/pago/"
+echo "  -> Pago page deployed."
+
+# Deploy .htaccess
+if [ -f "$STAGING_REPO/.htaccess" ]; then
+  cp "$STAGING_REPO/.htaccess" "$PUBLIC_HTML/.htaccess"
+  chmod 644 "$PUBLIC_HTML/.htaccess"
+  echo "  -> .htaccess deployed."
+fi
+
 echo ""
 echo "[7/9] Setting permissions..."
 find "$PUBLIC_HTML/assets" -type d -exec chmod 755 {} \;
@@ -102,6 +113,8 @@ find "$PUBLIC_HTML/panel" -type f -exec chmod 644 {} \;
 find "$PUBLIC_HTML/marketplace" -type d -exec chmod 755 {} \;
 find "$PUBLIC_HTML/marketplace" -type f -exec chmod 644 {} \;
 chmod 644 "$PUBLIC_HTML/marketplace.html"
+find "$PUBLIC_HTML/pago" -type d -exec chmod 755 {} \;
+find "$PUBLIC_HTML/pago" -type f -exec chmod 644 {} \;
 echo "  -> Permissions set (dirs: 755, files: 644)."
 
 echo ""
