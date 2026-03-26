@@ -638,30 +638,37 @@
                     <h4>Datos para Transferencia</h4>
                     <div class="bank-info-row">
                         <span class="bank-info-label">Banco</span>
-                        <span class="bank-info-value">Banco Estado</span>
+                        <span class="bank-info-value">Banco Santander</span>
                     </div>
                     <div class="bank-info-row">
-                        <span class="bank-info-label">Tipo Cuenta</span>
-                        <span class="bank-info-value">Cuenta Corriente</span>
+                        <span class="bank-info-label">Cuenta Corriente (CLP)</span>
+                        <span class="bank-info-value">74233813</span>
                     </div>
                     <div class="bank-info-row">
-                        <span class="bank-info-label">Numero</span>
-                        <span class="bank-info-value">Por confirmar</span>
+                        <span class="bank-info-label">Cuenta Corriente (USD)</span>
+                        <span class="bank-info-value">5100369305</span>
                     </div>
                     <div class="bank-info-row">
-                        <span class="bank-info-label">RUT</span>
-                        <span class="bank-info-value">Por confirmar</span>
+                        <span class="bank-info-label">Codigo SWIFT</span>
+                        <span class="bank-info-value">BSCHCLRM</span>
                     </div>
                     <div class="bank-info-row">
-                        <span class="bank-info-label">Nombre</span>
+                        <span class="bank-info-label">Razon Social</span>
                         <span class="bank-info-value">Imporlan SpA</span>
                     </div>
                     <div class="bank-info-row">
+                        <span class="bank-info-label">RUT</span>
+                        <span class="bank-info-value">76.914.409-9</span>
+                    </div>
+                    <div class="bank-info-row">
                         <span class="bank-info-label">Email</span>
-                        <span class="bank-info-value">pagos@imporlan.cl</span>
+                        <span class="bank-info-value">contacto@imporlan.cl</span>
                     </div>
                     <div class="bank-info-note">
-                        Envia el comprobante de transferencia a <strong>pagos@imporlan.cl</strong> indicando tu nombre y el concepto del pago para activar tu servicio.
+                        Envia el comprobante de transferencia a <strong>contacto@imporlan.cl</strong> indicando tu nombre y el concepto del pago para activar tu servicio.
+                    </div>
+                    <div style="margin-top:14px; padding:10px 14px; background:rgba(74,144,217,0.06); border-left:3px solid #4a90d9; border-radius:0 8px 8px 0; font-size:0.8rem; color:var(--silver); line-height:1.5;">
+                        <strong style="color:#4a90d9;">PayPal:</strong> contacto@imporlan.cl
                     </div>
                 </div>
 
@@ -894,7 +901,7 @@
         const amount = getRawAmount().toLocaleString('es-CL');
         showStatus(
             'Realice la transferencia por $' + amount + ' CLP a los datos indicados arriba. ' +
-            'Envia el comprobante a pagos@imporlan.cl indicando: ' + data.name + ' - ' + data.description,
+            'Envia el comprobante a contacto@imporlan.cl indicando: ' + data.name + ' - ' + data.description,
             'success'
         );
         setLoading(false);
