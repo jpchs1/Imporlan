@@ -23,6 +23,7 @@ RewriteRule ^marketplace/?$ /marketplace.html [L]
 
 RewriteCond %{REQUEST_URI} ^/panel [OR]
 RewriteCond %{REQUEST_URI} ^/api [OR]
+RewriteCond %{REQUEST_URI} ^/pago [OR]
 RewriteCond %{REQUEST_URI} ^/test
 RewriteRule ^ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
