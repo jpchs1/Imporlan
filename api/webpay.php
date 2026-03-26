@@ -448,38 +448,49 @@ function sendPurchaseConfirmationEmail($purchase) {
             'plan_end_date' => $planEndDate
         ];
         
-        $emailService->sendQuotationLinksPaidEmail(
-            $purchase['user_email'],
-            $payerName,
-            $commonData
-        );
-        
-        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
-        $formData = array_merge($commonData, [
-            'boat_links' => $storedLinks,
-            'name' => $payerName
-        ]);
-        $emailService->sendQuotationFormEmail(
-            $purchase['user_email'],
-            $payerName,
-            $formData
-        );
-        
-        if ($purchaseType === 'plan') {
-            $emailService->sendPlanBusquedaEmail(
+        if ($purchaseType === 'pago_directo') {
+            // Pago Directo from /pago/ page - single confirmation email
+            $commonData['payer_phone'] = $purchaseInfo['payer_phone'] ?? '';
+            $emailService->sendPagoDirectoEmail(
                 $purchase['user_email'],
-                $payerName,
+                $purchaseInfo['payer_name'] ?? $payerName,
                 $commonData
             );
+            logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'pago_directo']);
         } else {
-            $emailService->sendCotizacionPorLinksEmail(
+            $emailService->sendQuotationLinksPaidEmail(
                 $purchase['user_email'],
                 $payerName,
                 $commonData
             );
+
+            $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+            $formData = array_merge($commonData, [
+                'boat_links' => $storedLinks,
+                'name' => $payerName
+            ]);
+            $emailService->sendQuotationFormEmail(
+                $purchase['user_email'],
+                $payerName,
+                $formData
+            );
+
+            if ($purchaseType === 'plan') {
+                $emailService->sendPlanBusquedaEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            } else {
+                $emailService->sendCotizacionPorLinksEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            }
+
+            logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
         }
-        
-        logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'payment+form+activation']);
     } catch (\Throwable $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
     }

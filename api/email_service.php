@@ -508,6 +508,28 @@ BASE64;
     }
     
     /**
+     * Send "Pago Directo" confirmation email (from /pago/ page)
+     */
+    public function sendPagoDirectoEmail($userEmail, $firstName, $purchaseData) {
+        $description = $purchaseData['description'] ?? 'Pago Imporlan';
+        $subject = 'Confirmacion de Pago - ' . $description . ' - Imporlan';
+        $htmlContent = $this->getPagoDirectoTemplate($firstName, $purchaseData);
+
+        $this->sendInternalNotification('pago_directo', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'description' => $description,
+            'amount' => number_format($purchaseData['price'] ?? $purchaseData['amount'] ?? 0, 0, ',', '.'),
+            'currency' => $purchaseData['currency'] ?? 'CLP',
+            'payment_method' => $purchaseData['payment_method'] ?? '',
+            'payment_reference' => $purchaseData['payment_reference'] ?? 'N/A',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'pago_directo', $purchaseData);
+    }
+
+    /**
      * Send "Cotizacion por Links" activation email
      */
     public function sendCotizacionPorLinksEmail($userEmail, $firstName, $purchaseData) {
@@ -2116,7 +2138,111 @@ BASE64;
         
         return $this->getBaseTemplate($content, 'Cotizacion por Links Activa - Imporlan');
     }
-    
+
+    /**
+     * Template for Pago Directo (from /pago/ page)
+     * Clean, modern payment confirmation email
+     */
+    private function getPagoDirectoTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        $description = htmlspecialchars($purchaseData['description'] ?? 'Pago Imporlan');
+        $amount = $purchaseData['price'] ?? $purchaseData['amount'] ?? 0;
+        $currency = $purchaseData['currency'] ?? 'CLP';
+        $paymentMethod = $purchaseData['payment_method'] ?? '';
+        $paymentRef = $purchaseData['payment_reference'] ?? '';
+        $purchaseDate = $purchaseData['purchase_date'] ?? date('d/m/Y');
+        $userEmail = $purchaseData['user_email'] ?? '';
+        $phone = $purchaseData['payer_phone'] ?? '';
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 14px 26px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 24px; line-height: 1;">&#10003;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Pago Confirmado
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['success'] . '; font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1.5px;">
+                Transaccion Exitosa
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', hemos recibido tu pago correctamente.
+            </p>
+
+            <!-- Amount Card -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); border-radius: 14px; width: 100%;">
+                            <tr>
+                                <td align="center" style="padding: 28px 20px;">
+                                    <p style="margin: 0 0 4px 0; color: ' . $c['text_light'] . '; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500;">Total Pagado</p>
+                                    <p style="margin: 0; color: ' . $c['text_white'] . '; font-size: 38px; font-weight: 700; letter-spacing: -1px;">$' . number_format($amount, 0, ',', '.') . '</p>
+                                    <p style="margin: 4px 0 0 0; color: ' . $c['accent'] . '; font-size: 14px; font-weight: 500;">' . htmlspecialchars($currency) . '</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Concepto -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0 0 6px 0; color: ' . $c['primary'] . '; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Concepto del Pago</p>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 16px; font-weight: 600; line-height: 1.5;">' . $description . '</p>
+                    </td>
+                </tr>
+            </table>
+
+            ' . $this->getInfoCard('Detalles de la Transaccion', array_filter([
+                'Nombre' => $firstName,
+                'Email' => $userEmail,
+                'Telefono' => (!empty($phone) && $phone !== 'No proporcionado') ? $phone : null,
+                'Metodo de pago' => $paymentMethod,
+                'Referencia' => !empty($paymentRef) ? $paymentRef : null,
+                'Fecha' => $purchaseDate
+            ])) . '
+
+            <!-- Next Steps -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 25px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td width="40" align="center" valign="top" style="padding-top: 2px;">
+                                    <span style="color: ' . $c['success'] . '; font-size: 22px;">&#9993;</span>
+                                </td>
+                                <td style="padding-left: 12px;">
+                                    <p style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Proximos Pasos</p>
+                                    <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px; line-height: 1.6;">
+                                        Nuestro equipo ha registrado tu pago y procedera con el servicio solicitado. Te contactaremos si necesitamos informacion adicional.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <p style="margin: 20px 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 15px; text-align: center; line-height: 1.7;">
+                Gracias por confiar en Imporlan.
+            </p>
+            <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
+            </p>';
+
+        return $this->getBaseTemplate($content, 'Confirmacion de Pago - Imporlan');
+    }
+
+
     private function getPlanBusquedaTemplate($firstName, $purchaseData) {
         $c = $this->colors;
         $planName = $purchaseData['plan_name'] ?? 'Plan de Busqueda';

@@ -385,40 +385,50 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
             'plan_end_date' => $planEndDate
         ];
         
-        $emailService->sendQuotationLinksPaidEmail(
-            $userEmail,
-            $payerName,
-            $commonData
-        );
-        
-        $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
-        $formData = array_merge($commonData, [
-            'boat_links' => $storedLinks,
-            'name' => $payerName
-        ]);
-        $emailService->sendQuotationFormEmail(
-            $userEmail,
-            $payerName,
-            $formData
-        );
-        
-        if ($purchaseType === 'plan') {
-            $emailService->sendPlanBusquedaEmail(
+        if ($purchaseType === 'pago_directo') {
+            $emailService->sendPagoDirectoEmail(
                 $userEmail,
                 $payerName,
                 $commonData
             );
+            $logFile = __DIR__ . '/paypal.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=pago_directo\n", FILE_APPEND);
         } else {
-            $emailService->sendCotizacionPorLinksEmail(
+            $emailService->sendQuotationLinksPaidEmail(
                 $userEmail,
                 $payerName,
                 $commonData
             );
+
+            $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+            $formData = array_merge($commonData, [
+                'boat_links' => $storedLinks,
+                'name' => $payerName
+            ]);
+            $emailService->sendQuotationFormEmail(
+                $userEmail,
+                $payerName,
+                $formData
+            );
+
+            if ($purchaseType === 'plan') {
+                $emailService->sendPlanBusquedaEmail(
+                    $userEmail,
+                    $payerName,
+                    $commonData
+                );
+            } else {
+                $emailService->sendCotizacionPorLinksEmail(
+                    $userEmail,
+                    $payerName,
+                    $commonData
+                );
+            }
+
+            $logFile = __DIR__ . '/paypal.log';
+            $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form+activation\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
         }
-        
-        $logFile = __DIR__ . '/paypal.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form+activation\n";
-        file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/paypal.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";

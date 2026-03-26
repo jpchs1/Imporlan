@@ -825,7 +825,8 @@
                 payer_phone: phone,
                 plan_name: data.description,
                 description: data.description,
-                type: 'link'
+                type: 'pago_directo',
+                source: 'pago_page'
             })
         });
 
@@ -851,7 +852,9 @@
                 payer_email: data.email,
                 payer_name: data.name,
                 payer_phone: phone,
-                quantity: 1
+                quantity: 1,
+                type: 'pago_directo',
+                source: 'pago_page'
             })
         });
 
@@ -880,7 +883,8 @@
                 payer_email: data.email,
                 payer_name: data.name,
                 payer_phone: phone,
-                type: 'link'
+                type: 'pago_directo',
+                source: 'pago_page'
             })
         });
 

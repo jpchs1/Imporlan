@@ -400,40 +400,50 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
             'plan_end_date' => $planEndDate
         ];
         
-        $emailService->sendQuotationLinksPaidEmail(
-            $purchase['user_email'],
-            $payerName,
-            $commonData
-        );
-        
-        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
-        $formData = array_merge($commonData, [
-            'boat_links' => $storedLinks,
-            'name' => $payerName
-        ]);
-        $emailService->sendQuotationFormEmail(
-            $purchase['user_email'],
-            $payerName,
-            $formData
-        );
-        
-        if ($purchaseType === 'plan') {
-            $emailService->sendPlanBusquedaEmail(
+        if ($purchaseType === 'pago_directo') {
+            $emailService->sendPagoDirectoEmail(
                 $purchase['user_email'],
                 $payerName,
                 $commonData
             );
+            $logFile = __DIR__ . '/mp_webhooks.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=pago_directo\n", FILE_APPEND);
         } else {
-            $emailService->sendCotizacionPorLinksEmail(
+            $emailService->sendQuotationLinksPaidEmail(
                 $purchase['user_email'],
                 $payerName,
                 $commonData
             );
+
+            $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+            $formData = array_merge($commonData, [
+                'boat_links' => $storedLinks,
+                'name' => $payerName
+            ]);
+            $emailService->sendQuotationFormEmail(
+                $purchase['user_email'],
+                $payerName,
+                $formData
+            );
+
+            if ($purchaseType === 'plan') {
+                $emailService->sendPlanBusquedaEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            } else {
+                $emailService->sendCotizacionPorLinksEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            }
+
+            $logFile = __DIR__ . '/mp_webhooks.log';
+            $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form+activation\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
         }
-        
-        $logFile = __DIR__ . '/mp_webhooks.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form+activation\n";
-        file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/mp_webhooks.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";
