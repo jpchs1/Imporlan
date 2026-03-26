@@ -36,7 +36,10 @@ class EmailService {
     protected $websiteUrl = 'https://www.imporlan.cl';
     
     // Internal notification recipients
-    protected $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
+    protected $adminEmails = ['contacto@imporlan.cl'];
+
+    // BCC on all client-facing emails
+    protected $bccEmails = ['jpchs1@gmail.com'];
     
     // TEST Environment Configuration
     // When isTestEnvironment is true, ALL emails are redirected to testRecipient
@@ -999,8 +1002,14 @@ BASE64;
             if ($secondaryEmail) {
                 $headers[] = 'CC: ' . $secondaryEmail;
             }
-            
-            $result = $this->sendViaSMTP($to, $subject, $body, $headers, $secondaryEmail);
+
+            // BCC recipients (added as RCPT TO in SMTP, not in headers - truly hidden)
+            $bccRecipients = [];
+            if (!$this->isTestEnvironment && !empty($this->bccEmails)) {
+                $bccRecipients = $this->bccEmails;
+            }
+
+            $result = $this->sendViaSMTP($to, $subject, $body, $headers, $secondaryEmail, $bccRecipients);
             
             if ($result['success']) {
                 $this->updateEmailLog($logId, 'sent');
@@ -1021,7 +1030,7 @@ BASE64;
     /**
      * Send email via SMTP
      */
-    private function sendViaSMTP($to, $subject, $body, $headers, $ccEmail = null) {
+    private function sendViaSMTP($to, $subject, $body, $headers, $ccEmail = null, $bccEmails = []) {
         try {
             $socket = @fsockopen(
                 ($this->smtpSecure === 'ssl' ? 'ssl://' : '') . $this->smtpHost,
@@ -1058,6 +1067,13 @@ BASE64;
             if ($ccEmail) {
                 $this->smtpSendCommand($socket, "RCPT TO:<{$ccEmail}>");
                 $this->smtpGetResponse($socket);
+            }
+            // Add BCC recipients as RCPT TO (not in headers, so they're hidden)
+            if (!empty($bccEmails)) {
+                foreach ($bccEmails as $bcc) {
+                    $this->smtpSendCommand($socket, "RCPT TO:<{$bcc}>");
+                    $this->smtpGetResponse($socket);
+                }
             }
             $this->smtpSendCommand($socket, "DATA");
             $this->smtpGetResponse($socket);
