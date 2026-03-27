@@ -530,6 +530,39 @@
             .amount-wrapper input { font-size: 1.2rem; }
         }
 
+        /* --- PayPal Smart Buttons Container --- */
+        #paypal-button-container {
+            display: none;
+            margin-top: 16px;
+            margin-bottom: 8px;
+            min-height: 55px;
+        }
+
+        /* --- PayPal Loading Spinner --- */
+        .paypal-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 0;
+            gap: 12px;
+        }
+
+        .paypal-loading .paypal-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #0070ba;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .paypal-loading .paypal-loading-text {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
         /* Anchor icon for yacht feel */
         .yacht-icon {
             display: block;
@@ -623,7 +656,7 @@
                         <div class="payment-method-icon">
                             <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M13 28l2-12h5c4 0 7 2 6.5 6S22 28 18 28h-5z" stroke="#4a90d9" stroke-width="1.5" fill="rgba(74,144,217,0.1)"/><path d="M15 24l1.5-8h4c3 0 5 1.5 4.5 4.5S21.5 24 18.5 24H15z" stroke="#c9a84c" stroke-width="1.5" fill="rgba(201,168,76,0.1)"/></svg>
                         </div>
-                        <div class="payment-method-name">PayPal<br><small style="opacity:0.6">Internacional</small></div>
+                        <div class="payment-method-name">Tarjeta / PayPal<br><small style="opacity:0.6">Internacional</small></div>
                     </div>
                     <div class="payment-method" data-method="transfer" onclick="selectMethod(this)">
                         <div class="payment-method-icon">
@@ -671,6 +704,8 @@
                         <strong style="color:#4a90d9;">PayPal:</strong> contacto@imporlan.cl
                     </div>
                 </div>
+
+                <div id="paypal-button-container"></div>
 
                 <button type="submit" class="pay-btn" id="payBtn" onclick="processPayment()">
                     <span class="btn-content">
@@ -721,16 +756,25 @@
         const bankInfo = document.getElementById('bankInfo');
         const payBtn = document.getElementById('payBtn');
         const btnText = payBtn.querySelector('.btn-text');
+        const ppContainer = document.getElementById('paypal-button-container');
 
         if (selectedMethod === 'transfer') {
             bankInfo.classList.add('visible');
+            payBtn.style.display = '';
+            ppContainer.style.display = 'none';
             btnText.textContent = 'Confirmar Transferencia';
+        } else if (selectedMethod === 'paypal') {
+            bankInfo.classList.remove('visible');
+            payBtn.style.display = 'none';
+            ppContainer.style.display = 'block';
+            renderPayPalButtons();
         } else {
             bankInfo.classList.remove('visible');
+            payBtn.style.display = '';
+            ppContainer.style.display = 'none';
             const names = {
                 webpay: 'Pagar con WebPay',
-                mercadopago: 'Pagar con MercadoPago',
-                paypal: 'Pagar con PayPal'
+                mercadopago: 'Pagar con MercadoPago'
             };
             btnText.textContent = names[selectedMethod] || 'Pagar';
         }
@@ -798,7 +842,9 @@
             } else if (selectedMethod === 'mercadopago') {
                 await payWithMercadoPago(data);
             } else if (selectedMethod === 'paypal') {
-                await payWithPayPal(data);
+                /* PayPal is handled by Smart Buttons inline, not this flow */
+                setLoading(false);
+                return;
             } else if (selectedMethod === 'transfer') {
                 handleTransfer(data);
             }
@@ -866,38 +912,108 @@
         }
     }
 
-    // ---- PayPal ----
-    async function payWithPayPal(data) {
-        // Convert CLP to USD (approximate)
-        const usdAmount = Math.max(1, Math.round(data.amount / 950 * 100) / 100);
-        const phone = document.getElementById('payerPhone').value.trim();
+    // ---- PayPal Smart Buttons (Guest Checkout with Card) ----
+    var paypalButtonsRendered = false;
 
-        const res = await fetch(API_BASE + '/paypal.php?action=create_order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                amount: usdAmount,
-                description: data.description,
-                currency: 'USD',
-                plan_name: data.description,
-                payer_email: data.email,
-                payer_name: data.name,
-                payer_phone: phone,
-                type: 'pago_directo',
-                source: 'pago_page'
-            })
-        });
+    function showPayPalLoader() {
+        var container = document.getElementById('paypal-button-container');
+        if (!container || container.querySelector('.paypal-loading')) return;
+        container.innerHTML = '<div class="paypal-loading"><div class="paypal-spinner"></div><div class="paypal-loading-text">Cargando opciones de pago...</div></div>';
+    }
 
-        const result = await res.json();
-        if (result.success && result.order_id) {
-            // Redirect to PayPal approval
-            const config = await fetch(API_BASE + '/paypal.php?action=get_client_id');
-            const cfgData = await config.json();
-            const env = cfgData.environment === 'production' ? 'www' : 'www.sandbox';
-            window.location.href = 'https://' + env + '.paypal.com/checkoutnow?token=' + result.order_id;
-        } else {
-            throw new Error(result.error || 'Error al crear orden PayPal');
+    function hidePayPalLoader() {
+        var loader = document.querySelector('#paypal-button-container .paypal-loading');
+        if (loader) loader.remove();
+    }
+
+    function renderPayPalButtons() {
+        if (paypalButtonsRendered) return;
+        if (typeof paypal === 'undefined' || typeof paypal.Buttons !== 'function') {
+            showPayPalLoader();
+            loadPayPalSDKForButtons();
+            return;
         }
+        doRenderPayPalButtons();
+    }
+
+    function loadPayPalSDKForButtons() {
+        if (typeof paypal !== 'undefined' && typeof paypal.Buttons === 'function') {
+            doRenderPayPalButtons();
+            return;
+        }
+        fetch(API_BASE + '/paypal.php?action=get_client_id').then(function(r) { return r.json(); }).then(function(cfg) {
+            if (!cfg.client_id) return;
+            var sdkDomain = (cfg.environment === 'production') ? 'www.paypal.com' : 'www.sandbox.paypal.com';
+            var script = document.createElement('script');
+            script.src = 'https://' + sdkDomain + '/sdk/js?client-id=' + cfg.client_id + '&currency=USD&components=buttons&enable-funding=card';
+            script.onload = function() { doRenderPayPalButtons(); };
+            document.head.appendChild(script);
+        });
+    }
+
+    function doRenderPayPalButtons() {
+        if (paypalButtonsRendered) return;
+        var container = document.getElementById('paypal-button-container');
+        if (!container) return;
+        hidePayPalLoader();
+        container.innerHTML = '';
+        paypalButtonsRendered = true;
+
+        paypal.Buttons({
+            style: {
+                layout: 'vertical',
+                color: 'gold',
+                shape: 'rect',
+                label: 'paypal',
+                tagline: false
+            },
+            createOrder: function(data, actions) {
+                var formData = validateForm();
+                if (!formData) return Promise.reject(new Error('Datos inválidos'));
+                var usdAmount = Math.max(1, Math.round(formData.amount / 950 * 100) / 100).toFixed(2);
+                var phone = document.getElementById('payerPhone').value.trim();
+                return fetch(API_BASE + '/paypal.php?action=create_order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: parseFloat(usdAmount),
+                        description: formData.description,
+                        currency: 'USD',
+                        plan_name: formData.description,
+                        payer_email: formData.email,
+                        payer_name: formData.name,
+                        payer_phone: phone,
+                        type: 'link'
+                    })
+                }).then(function(res) { return res.json(); }).then(function(result) {
+                    if (result.success && result.order_id) {
+                        return result.order_id;
+                    }
+                    throw new Error(result.error || 'Error al crear orden PayPal');
+                });
+            },
+            onApprove: function(data, actions) {
+                showStatus('Procesando pago...', 'info');
+                return fetch(API_BASE + '/paypal.php?action=capture_order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: data.orderID })
+                }).then(function(res) { return res.json(); }).then(function(result) {
+                    if (result.success) {
+                        showStatus('¡Pago procesado exitosamente! Recibirás un email de confirmación en breve.', 'success');
+                    } else {
+                        throw new Error(result.error || 'Error al capturar el pago');
+                    }
+                });
+            },
+            onCancel: function() {
+                showStatus('Pago cancelado. Puedes intentar nuevamente.', 'error');
+            },
+            onError: function(err) {
+                console.error('PayPal Buttons error:', err);
+                showStatus('Error al procesar el pago con PayPal: ' + (err.message || 'Intente nuevamente'), 'error');
+            }
+        }).render('#paypal-button-container');
     }
 
     // ---- Bank Transfer ----
