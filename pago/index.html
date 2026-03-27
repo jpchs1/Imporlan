@@ -843,7 +843,6 @@
                 await payWithMercadoPago(data);
             } else if (selectedMethod === 'paypal') {
                 /* PayPal is handled by Smart Buttons inline, not this flow */
-                setLoading(false);
                 return;
             } else if (selectedMethod === 'transfer') {
                 handleTransfer(data);
