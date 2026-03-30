@@ -767,12 +767,8 @@
 
         var rankingSection = createRankingPreviewSection();
 
-        /* Insert right after Planes de Busqueda */
-        if (planesSection.nextSibling) {
-          planesSection.parentNode.insertBefore(rankingSection, planesSection.nextSibling);
-        } else {
-          planesSection.parentNode.appendChild(rankingSection);
-        }
+        /* Always insert directly after Planes de Busqueda, before any other injected section */
+        planesSection.insertAdjacentElement('afterend', rankingSection);
 
         console.log('[Ranking Preview] Successfully inserted ranking preview section');
       }
@@ -783,10 +779,11 @@
     }, 15000);
   }
 
+  /* Run after other injected sections (nuevas-lineas 1500ms, marketplace etc.) to guarantee position */
   onReady(function() {
     setTimeout(function() {
       insertRankingPreviewSection();
-    }, 1200);
+    }, 2500);
   });
 
 })();
