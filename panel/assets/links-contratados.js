@@ -579,6 +579,14 @@
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
       statsHtml +
       (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +
+      '<div id="lc-files-section" style="display:none;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Documentos del Expediente</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Archivos compartidos por nuestro equipo</p></div></div>' +
+      '<span id="lc-files-count" style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600"></span></div>' +
+      '<div id="lc-files-list" style="padding:20px 28px"></div></div>' +
       '<div class="lc-detail-wrapper" style="display:block!important;background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
       '<div style="padding:20px 28px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
       '<div style="display:flex;align-items:center;gap:12px">' +
@@ -1020,7 +1028,10 @@
     attachListeners(inject);
     fixMobileLayout();
     inject.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (order && order.id) startRankingPolling(order.id);
+    if (order && order.id) {
+      startRankingPolling(order.id);
+      loadUserExpedienteFiles(order.id);
+    }
   }
 
   function hideDetailInline() {
@@ -1039,6 +1050,129 @@
     if (container) container.remove();
     var inject = document.getElementById("lc-expedientes-inject");
     if (inject) inject.remove();
+  }
+
+  /* ── User Expediente Files ── */
+  async function loadUserExpedienteFiles(orderId) {
+    var section = document.getElementById('lc-files-section');
+    var listDiv = document.getElementById('lc-files-list');
+    var countBadge = document.getElementById('lc-files-count');
+    if (!section || !listDiv) return;
+
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=list&order_id=' + orderId);
+      var data = await resp.json();
+      if (data.success && data.files && data.files.length > 0) {
+        section.style.display = 'block';
+        if (countBadge) countBadge.textContent = data.files.length + ' archivo' + (data.files.length > 1 ? 's' : '');
+
+        var catConfig = {
+          image: { bg: 'linear-gradient(135deg,#8b5cf6,#a78bfa)', label: 'Imagen', iconPath: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>' },
+          video: { bg: 'linear-gradient(135deg,#ef4444,#f87171)', label: 'Video', iconPath: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>' },
+          document: { bg: 'linear-gradient(135deg,#3b82f6,#60a5fa)', label: 'Documento', iconPath: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' },
+          other: { bg: 'linear-gradient(135deg,#64748b,#94a3b8)', label: 'Archivo', iconPath: '<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>' }
+        };
+
+        // Group files by category
+        var groups = {};
+        data.files.forEach(function(f) {
+          if (!groups[f.category]) groups[f.category] = [];
+          groups[f.category].push(f);
+        });
+
+        var html = '';
+        var categoryOrder = ['image', 'video', 'document', 'other'];
+        categoryOrder.forEach(function(cat) {
+          if (!groups[cat]) return;
+          var cfg = catConfig[cat] || catConfig.other;
+          var files = groups[cat];
+
+          if (cat === 'image') {
+            // Image gallery grid
+            html += '<div style="margin-bottom:20px">' +
+              '<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#475569;display:flex;align-items:center;gap:6px">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2">' + cfg.iconPath + '</svg>' +
+              cfg.label + 'es <span style="color:#94a3b8;font-weight:400">(' + files.length + ')</span></p>' +
+              '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">';
+            files.forEach(function(f) {
+              html += '<div class="lc-file-thumb" style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;border:1px solid #e2e8f0;transition:all .2s" data-url="' + f.download_url + '">' +
+                '<img src="' + f.download_url + '" alt="' + escapeHtml(f.original_name) + '" style="width:100%;height:100%;object-fit:cover;transition:transform .3s" loading="lazy">' +
+                '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.7),transparent);padding:20px 8px 6px">' +
+                '<p style="margin:0;font-size:11px;color:#fff;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.original_name) + '</p>' +
+                '<p style="margin:1px 0 0;font-size:10px;color:#cbd5e1">' + escapeHtml(f.file_size_formatted) + '</p></div></div>';
+            });
+            html += '</div></div>';
+          } else if (cat === 'video') {
+            // Video cards
+            html += '<div style="margin-bottom:20px">' +
+              '<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#475569;display:flex;align-items:center;gap:6px">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">' + cfg.iconPath + '</svg>' +
+              cfg.label + 's <span style="color:#94a3b8;font-weight:400">(' + files.length + ')</span></p>' +
+              '<div style="display:flex;flex-direction:column;gap:8px">';
+            files.forEach(function(f) {
+              html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(135deg,#fef2f2,#fff1f2);border:1px solid #fecaca;border-radius:12px">' +
+                '<div style="width:48px;height:48px;background:' + cfg.bg + ';border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' + cfg.iconPath + '</svg></div>' +
+                '<div style="flex:1;min-width:0"><p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.original_name) + '</p>' +
+                '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">' + escapeHtml(f.file_size_formatted) + (f.description ? ' · ' + escapeHtml(f.description) : '') + '</p></div>' +
+                '<a href="' + f.download_url + '" target="_blank" style="flex-shrink:0;padding:8px 16px;border-radius:8px;background:linear-gradient(135deg,#ef4444,#f87171);color:#fff;font-size:12px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px">' +
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Ver</a></div>';
+            });
+            html += '</div></div>';
+          } else {
+            // Document / other file list
+            html += '<div style="margin-bottom:20px">' +
+              '<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#475569;display:flex;align-items:center;gap:6px">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + (cat === 'document' ? '#3b82f6' : '#64748b') + '" stroke-width="2">' + cfg.iconPath + '</svg>' +
+              cfg.label + 's <span style="color:#94a3b8;font-weight:400">(' + files.length + ')</span></p>' +
+              '<div style="display:flex;flex-direction:column;gap:8px">';
+            files.forEach(function(f) {
+              var bgGrad = cat === 'document' ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'linear-gradient(135deg,#f8fafc,#f1f5f9)';
+              var borderColor = cat === 'document' ? '#bfdbfe' : '#e2e8f0';
+              html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:' + bgGrad + ';border:1px solid ' + borderColor + ';border-radius:12px">' +
+                '<div style="width:44px;height:44px;background:' + cfg.bg + ';border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' + cfg.iconPath + '</svg></div>' +
+                '<div style="flex:1;min-width:0"><p style="margin:0;font-size:14px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.original_name) + '</p>' +
+                '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">' + escapeHtml(f.file_size_formatted) + (f.description ? ' · ' + escapeHtml(f.description) : '') + '</p></div>' +
+                '<div style="display:flex;gap:6px;flex-shrink:0">' +
+                '<a href="' + f.download_url + '" target="_blank" style="padding:8px 14px;border-radius:8px;border:1px solid ' + borderColor + ';background:#fff;color:#475569;font-size:12px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver</a>' +
+                '<a href="' + f.download_url + '" download style="padding:8px 14px;border-radius:8px;background:' + cfg.bg + ';color:#fff;font-size:12px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a></div></div>';
+            });
+            html += '</div></div>';
+          }
+        });
+
+        // Add description note if any file has one
+        var descriptions = data.files.filter(function(f) { return f.description; }).map(function(f) { return f.description; });
+        var uniqueDescs = descriptions.filter(function(v, i, a) { return a.indexOf(v) === i; });
+        if (uniqueDescs.length > 0) {
+          html = '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+            '<div><p style="margin:0;font-size:13px;color:#065f46;font-weight:600">Nota del equipo</p>' +
+            '<p style="margin:4px 0 0;font-size:13px;color:#047857;line-height:1.5">' + escapeHtml(uniqueDescs[0]) + '</p></div></div>' + html;
+        }
+
+        listDiv.innerHTML = html;
+
+        // Attach image click handlers for lightbox
+        listDiv.querySelectorAll('.lc-file-thumb').forEach(function(el) {
+          el.addEventListener('click', function() {
+            var url = this.getAttribute('data-url');
+            if (!url) return;
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px)';
+            overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
+            overlay.addEventListener('click', function() { overlay.remove(); });
+            document.body.appendChild(overlay);
+          });
+          el.addEventListener('mouseover', function() { this.style.transform = 'scale(1.02)'; this.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)'; });
+          el.addEventListener('mouseout', function() { this.style.transform = ''; this.style.boxShadow = ''; });
+        });
+      } else {
+        section.style.display = 'none';
+      }
+    } catch (e) {
+      console.error('Error loading user files:', e);
+      section.style.display = 'none';
+    }
   }
 
   /* ── Styles ── */
