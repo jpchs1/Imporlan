@@ -520,41 +520,65 @@
     return null;
   }
 
+  /* Hide original section instantly as soon as it appears in the DOM */
+  function hideOriginalSection(section) {
+    if (section && !section.getAttribute('data-pc-hidden')) {
+      section.style.display = 'none';
+      section.setAttribute('data-pc-hidden', '1');
+    }
+  }
+
+  function findOriginalSection() {
+    var sections = document.querySelectorAll('section');
+    for (var i = 0; i < sections.length; i++) {
+      var heading = sections[i].querySelector('h2');
+      if (heading && heading.textContent.toUpperCase().indexOf('PROCESO DE') !== -1) {
+        return sections[i];
+      }
+      if (heading && heading.textContent.toUpperCase().indexOf('COMPRA USA') !== -1) {
+        return sections[i];
+      }
+    }
+    return null;
+  }
+
   function replaceProcesoSection() {
     if (window.location.pathname.indexOf('/panel') !== -1) return;
 
     var existing = document.getElementById('proceso-compra-enhanced');
     if (existing) return;
 
-    var checkInterval = setInterval(function() {
-      var oldSection = findSectionByHeading('PROCESO DE');
-      if (!oldSection) oldSection = findSectionByHeading('COMPRA USA');
-
+    /* Use MutationObserver to catch & hide the old section the instant React renders it */
+    var observer = new MutationObserver(function() {
+      var oldSection = findOriginalSection();
       if (oldSection) {
-        clearInterval(checkInterval);
+        hideOriginalSection(oldSection);
+        observer.disconnect();
 
         addProcesoStyles();
-
         var newSection = createProcesoSection();
-
         oldSection.parentNode.insertBefore(newSection, oldSection);
-        oldSection.style.display = 'none';
 
         console.log('[Proceso Compra] Successfully replaced process section');
       }
-    }, 500);
+    });
 
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    /* Safety timeout: stop observing after 15s */
     setTimeout(function() {
-      clearInterval(checkInterval);
+      observer.disconnect();
     }, 15000);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(replaceProcesoSection, 1500);
-    });
+  /* Start immediately - no delay */
+  if (document.body) {
+    replaceProcesoSection();
   } else {
-    setTimeout(replaceProcesoSection, 1500);
+    document.addEventListener('DOMContentLoaded', replaceProcesoSection);
   }
 
 })();
