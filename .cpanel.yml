@@ -1,0 +1,12 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/wwimpo/public_html/
+    - /bin/cp index.html $DEPLOYPATH
+    - /bin/cp marketplace.html $DEPLOYPATH
+    - /bin/cp .htaccess $DEPLOYPATH
+    - /bin/cp -R assets $DEPLOYPATH
+    - /bin/cp -R marketplace $DEPLOYPATH
+    - /bin/cp -R pago $DEPLOYPATH
+    - /bin/cp -R cotizador-importacion $DEPLOYPATH
+    - /bin/cp -R simulacion-cotizacion $DEPLOYPATH
