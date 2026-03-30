@@ -302,90 +302,43 @@
     if (!planesSection) return false;
 
     // Already processed
-    if (planesSection.querySelector('.tr-collapsible-body')) return true;
+    if (planesSection.querySelector('.tr-planes-grid')) return true;
 
     // Find the grid container (md:grid-cols-3) that holds the plan cards
-    var gridContainer = planesSection.querySelector('.grid.md\\:grid-cols-3, [class*="grid"][class*="md:grid-cols-3"]');
-    if (!gridContainer) {
-      // Fallback: find by structure - a div with 3 direct card children
-      var divs = planesSection.querySelectorAll('div');
-      for (var d = 0; d < divs.length; d++) {
-        var cls = divs[d].className || '';
-        if (cls.indexOf('grid') !== -1 && cls.indexOf('grid-cols-3') !== -1) {
-          gridContainer = divs[d];
-          break;
-        }
+    var gridContainer = null;
+    var divs = planesSection.querySelectorAll('div');
+    for (var d = 0; d < divs.length; d++) {
+      var cls = divs[d].className || '';
+      if (cls.indexOf('grid') !== -1 && cls.indexOf('grid-cols-3') !== -1) {
+        gridContainer = divs[d];
+        break;
       }
     }
 
-    // Apply equal-height grid fix
-    if (gridContainer) {
-      gridContainer.classList.add('tr-planes-grid');
+    if (!gridContainer) return false;
 
-      // Fix each card's internal layout
-      var cards = gridContainer.children;
-      for (var c = 0; c < cards.length; c++) {
-        var card = cards[c];
-        // Find the button (Contratar Ahora) and the UL inside each card
-        var btn = card.querySelector('button');
-        var ul = card.querySelector('ul');
+    // Apply equal-height grid fix only (no collapsing - features always visible)
+    gridContainer.classList.add('tr-planes-grid');
 
-        if (ul) {
-          // Wrap content above button as top section, button area as bottom
-          var wrapper = document.createElement('div');
-          wrapper.className = 'tr-collapsible-body';
-          ul.parentNode.insertBefore(wrapper, ul);
-          wrapper.appendChild(ul);
+    var cards = gridContainer.children;
+    for (var c = 0; c < cards.length; c++) {
+      var card = cards[c];
 
-          // Add "Ver detalles" toggle
-          var detailBtn = document.createElement('button');
-          detailBtn.className = 'tr-toggle-btn';
-          detailBtn.style.cssText = 'margin:10px auto 0;padding:8px 20px;font-size:0.8rem;';
-          detailBtn.setAttribute('aria-expanded', 'false');
-          detailBtn.innerHTML = '<span>Ver detalles</span>' + chevronSvg;
-          detailBtn._labelCollapsed = 'Ver detalles';
-          detailBtn._labelExpanded = 'Ocultar detalles';
-          wrapper.parentNode.insertBefore(detailBtn, wrapper.nextSibling);
-          attachToggle(detailBtn, wrapper, null);
-        }
-
-        // Wrap the "Contratar Ahora" button area to push it to the bottom
-        if (btn && btn.textContent.indexOf('Contratar') !== -1) {
-          var bottomWrap = btn.closest('div');
-          if (bottomWrap && !bottomWrap.classList.contains('tr-planes-card-bottom')) {
-            bottomWrap.classList.add('tr-planes-card-bottom');
-          }
-        }
-
-        // Make the card's inner content flex-column
-        var innerContent = card.querySelector('[class*="p-8"], [class*="p-6"]');
-        if (innerContent) {
-          innerContent.classList.add('tr-planes-card-inner');
-        } else {
-          card.classList.add('tr-planes-card-inner');
+      // Push "Contratar Ahora" button to the bottom
+      var btn = card.querySelector('button');
+      if (btn && btn.textContent.indexOf('Contratar') !== -1) {
+        var bottomWrap = btn.closest('div');
+        if (bottomWrap && !bottomWrap.classList.contains('tr-planes-card-bottom')) {
+          bottomWrap.classList.add('tr-planes-card-bottom');
         }
       }
-    } else {
-      // Fallback: just collapse ULs without grid fix
-      var allUls = planesSection.querySelectorAll('ul');
-      if (allUls.length === 0) return false;
 
-      for (var i = 0; i < allUls.length; i++) {
-        var ulEl = allUls[i];
-        var wrapperEl = document.createElement('div');
-        wrapperEl.className = 'tr-collapsible-body';
-        ulEl.parentNode.insertBefore(wrapperEl, ulEl);
-        wrapperEl.appendChild(ulEl);
-
-        var detailBtnEl = document.createElement('button');
-        detailBtnEl.className = 'tr-toggle-btn';
-        detailBtnEl.style.cssText = 'margin:10px auto 0;padding:8px 20px;font-size:0.8rem;';
-        detailBtnEl.setAttribute('aria-expanded', 'false');
-        detailBtnEl.innerHTML = '<span>Ver detalles</span>' + chevronSvg;
-        detailBtnEl._labelCollapsed = 'Ver detalles';
-        detailBtnEl._labelExpanded = 'Ocultar detalles';
-        wrapperEl.parentNode.insertBefore(detailBtnEl, wrapperEl.nextSibling);
-        attachToggle(detailBtnEl, wrapperEl, null);
+      // Make the card's inner content flex-column
+      var innerContent = card.querySelector('[class*="p-8"], [class*="p-6"]');
+      if (innerContent) {
+        innerContent.classList.add('tr-planes-card-inner');
+      } else {
+        card.classList.add('tr-planes-card-inner');
       }
     }
 
