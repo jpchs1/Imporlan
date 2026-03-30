@@ -275,6 +275,48 @@
         0%, 100% { transform: scale(1); opacity: 0.3; }\
         50% { transform: scale(1.15); opacity: 0.1; }\
       }\
+      /* Animated boat */\
+      .pc-boat-track {\
+        position: absolute;\
+        top: 22px;\
+        left: 40px;\
+        right: 40px;\
+        height: 36px;\
+        z-index: 3;\
+        pointer-events: none;\
+        overflow: hidden;\
+      }\
+      .pc-boat-wrapper {\
+        position: absolute;\
+        top: 0;\
+        left: 0;\
+        animation: pc-boat-move 8s ease-in-out infinite;\
+      }\
+      .pc-boat-wrapper svg {\
+        width: 48px;\
+        height: 36px;\
+        filter: drop-shadow(0 4px 12px rgba(6,182,212,0.4));\
+      }\
+      .pc-boat-wake {\
+        position: absolute;\
+        top: 26px;\
+        left: -60px;\
+        width: 60px;\
+        height: 3px;\
+        background: linear-gradient(90deg, transparent, rgba(6,182,212,0.5));\
+        border-radius: 2px;\
+      }\
+      @keyframes pc-boat-move {\
+        0% { left: 0%; }\
+        20% { left: 22%; }\
+        25% { left: 22%; }\
+        45% { left: 47%; }\
+        50% { left: 47%; }\
+        70% { left: 72%; }\
+        75% { left: 72%; }\
+        95% { left: 95%; }\
+        100% { left: 95%; }\
+      }\
       /* Responsive */\
       @media (max-width: 960px) {\
         .pc-timeline {\
@@ -284,6 +326,9 @@
         }\
         .pc-timeline::before,\
         .pc-timeline::after {\
+          display: none;\
+        }\
+        .pc-boat-track {\
           display: none;\
         }\
         .pc-step {\
@@ -405,6 +450,28 @@
           <p>Un proceso simple y transparente en 5 pasos. Aproximadamente 58 dias desde la busqueda hasta la entrega.</p>\
         </div>\
         <div class="pc-timeline">\
+          <div class="pc-boat-track">\
+            <div class="pc-boat-wrapper">\
+              <div class="pc-boat-wake"></div>\
+              <svg viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">\
+                <path d="M8 28 L16 28 L20 22 L44 22 L52 16 L56 16 L56 28 L8 28 Z" fill="url(#boatHull)" />\
+                <path d="M24 22 L24 12 L28 10 L28 22" fill="#e2e8f0" />\
+                <path d="M28 10 L48 18 L28 18 Z" fill="url(#boatSail)" opacity="0.9" />\
+                <path d="M4 30 Q16 26 32 30 Q48 34 60 30" stroke="#06b6d4" stroke-width="1.5" fill="none" opacity="0.5" />\
+                <path d="M2 33 Q18 29 34 33 Q50 37 62 33" stroke="#06b6d4" stroke-width="1" fill="none" opacity="0.3" />\
+                <defs>\
+                  <linearGradient id="boatHull" x1="0" y1="0" x2="1" y2="1">\
+                    <stop offset="0%" stop-color="#f1f5f9" />\
+                    <stop offset="100%" stop-color="#cbd5e1" />\
+                  </linearGradient>\
+                  <linearGradient id="boatSail" x1="0" y1="0" x2="1" y2="0">\
+                    <stop offset="0%" stop-color="#0891b2" />\
+                    <stop offset="100%" stop-color="#06b6d4" />\
+                  </linearGradient>\
+                </defs>\
+              </svg>\
+            </div>\
+          </div>\
           ' + buildStepsHtml() + '\
         </div>\
         <div class="pc-summary">\
