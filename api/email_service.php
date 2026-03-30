@@ -786,6 +786,14 @@ BASE64;
         return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_update', $orderData);
     }
 
+    public function sendExpedienteFilesEmail($userEmail, $firstName, $fileData) {
+        $orderNumber = $fileData['order_number'] ?? 'N/A';
+        $subject = 'Nuevos documentos en tu Expediente ' . $orderNumber . ' - Imporlan';
+        $htmlContent = $this->getExpedienteFilesTemplate($firstName, $fileData);
+
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_files', $fileData);
+    }
+
     public function sendStatusChangeEmail($userEmail, $firstName, $orderData, $oldStatus, $newStatus) {
         $orderNumber = $orderData['order_number'] ?? 'N/A';
         $statusLabels = [
@@ -2598,6 +2606,101 @@ BASE64;
             </p>';
         
         return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - Imporlan');
+    }
+
+    private function getExpedienteFilesTemplate($firstName, $fileData) {
+        $c = $this->colors;
+        $orderNumber = htmlspecialchars($fileData['order_number'] ?? 'N/A');
+        $fileCount = intval($fileData['file_count'] ?? 0);
+        $description = htmlspecialchars($fileData['description'] ?? '');
+        $files = $fileData['files'] ?? [];
+
+        $categoryIcons = [
+            'image' => 'Imagen',
+            'video' => 'Video',
+            'document' => 'Documento',
+            'other' => 'Archivo',
+        ];
+
+        $categoryColors = [
+            'image' => '#8b5cf6',
+            'video' => '#ef4444',
+            'document' => '#3b82f6',
+            'other' => '#64748b',
+        ];
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('info', 'Documentos Disponibles') . '
+            </div>
+
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 600; text-align: center;">
+                Nuevos documentos en tu Expediente
+            </h2>
+            <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">
+                Hola ' . htmlspecialchars($firstName) . ', se han subido ' . $fileCount . ' ' . ($fileCount === 1 ? 'archivo' : 'archivos') . ' a tu expediente <strong>' . $orderNumber . '</strong>.
+            </p>';
+
+        if ($description) {
+            $content .= '
+            <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;">
+                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em;">Nota del equipo</p>
+                <p style="margin: 0; font-size: 14px; color: #1e3a5f; line-height: 1.5;">' . $description . '</p>
+            </div>';
+        }
+
+        // File list
+        $content .= '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">';
+
+        foreach ($files as $file) {
+            $name = htmlspecialchars($file['original_name'] ?? '');
+            $cat = $file['category'] ?? 'other';
+            $catLabel = $categoryIcons[$cat] ?? 'Archivo';
+            $catColor = $categoryColors[$cat] ?? '#64748b';
+            $size = $this->formatFileSizeEmail($file['file_size'] ?? 0);
+
+            $content .= '
+                <tr>
+                    <td style="padding: 6px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f8fafc; border-radius: 10px; border: 1px solid ' . $c['border'] . ';">
+                            <tr>
+                                <td width="48" style="padding: 12px; vertical-align: middle; text-align: center;">
+                                    <div style="width: 40px; height: 40px; background: ' . $catColor . '; border-radius: 10px; display: inline-block; line-height: 40px; text-align: center;">
+                                        <span style="color: #fff; font-size: 16px; font-weight: 700;">' . strtoupper(substr($catLabel, 0, 1)) . '</span>
+                                    </div>
+                                </td>
+                                <td style="padding: 12px 12px 12px 0; vertical-align: middle;">
+                                    <p style="margin: 0 0 2px; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600;">' . $name . '</p>
+                                    <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 12px;">
+                                        <span style="color: ' . $catColor . '; font-weight: 500;">' . $catLabel . '</span> &middot; ' . $size . '
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>';
+        }
+
+        $content .= '</table>';
+
+        $content .= '
+            <div style="margin: 30px 0;">
+                ' . $this->getButton('Ver Documentos en mi Panel', $this->panelUrl) . '
+            </div>
+
+            <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
+                Ingresa a tu panel para ver, descargar y revisar los documentos. Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+            </p>';
+
+        return $this->getBaseTemplate($content, 'Documentos - Expediente ' . $orderNumber);
+    }
+
+    private function formatFileSizeEmail($bytes) {
+        if ($bytes >= 1073741824) return number_format($bytes / 1073741824, 2) . ' GB';
+        if ($bytes >= 1048576) return number_format($bytes / 1048576, 1) . ' MB';
+        if ($bytes >= 1024) return number_format($bytes / 1024, 0) . ' KB';
+        return $bytes . ' B';
     }
 
     private function getStatusChangeTemplate($firstName, $orderData, $oldStatus, $newStatus) {

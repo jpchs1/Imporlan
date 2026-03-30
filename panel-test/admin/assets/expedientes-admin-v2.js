@@ -615,7 +615,31 @@
       '<div style="width:36px;height:36px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>' +
       '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Reportes Generados</h3>' +
       '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Historial de reportes enviados al cliente</p></div></div></div>' +
-      '<div id="ea-reports-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando reportes...</div></div></div>'
+      '<div id="ea-reports-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando reportes...</div></div></div>' +
+
+      '<div id="ea-files-section" style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-top:20px">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Documentos del Expediente</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Sube archivos, imagenes, videos y documentos para el cliente</p></div></div>' +
+      '<button id="ea-upload-files-btn" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(16,185,129,.25)">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Subir Archivos</button></div>' +
+      '<div id="ea-files-upload-area" style="display:none;padding:20px 28px;border-bottom:1px solid #e2e8f0;background:#fafafa">' +
+      '<form id="ea-files-upload-form" enctype="multipart/form-data">' +
+      '<div id="ea-drop-zone" style="border:2px dashed #cbd5e1;border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fff">' +
+      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      '<p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#475569">Arrastra archivos aqui o haz clic para seleccionar</p>' +
+      '<p style="margin:0;font-size:12px;color:#94a3b8">Imagenes, videos, PDFs, documentos. Max 100MB por archivo.</p>' +
+      '<input type="file" id="ea-files-input" name="files[]" multiple style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar">' +
+      '</div>' +
+      '<div id="ea-files-preview" style="margin-top:12px;display:none"></div>' +
+      '<div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+      '<input type="text" id="ea-files-description" placeholder="Nota o descripcion para el cliente (opcional)" style="flex:1;min-width:200px;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px;outline:none;transition:border-color .2s">' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;cursor:pointer;white-space:nowrap"><input type="checkbox" id="ea-notify-client-check" checked style="width:16px;height:16px;accent-color:#10b981;cursor:pointer">Notificar al cliente</label>' +
+      '<button type="submit" id="ea-files-submit" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s;box-shadow:0 2px 8px rgba(16,185,129,.25)" disabled>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Subir</button></div></form></div>' +
+      '<div id="ea-files-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando archivos...</div></div></div>'
     );
   }
 
@@ -1742,6 +1766,8 @@
 
     if (currentOrderData) {
       loadReportsList(currentOrderData.id);
+      loadExpedienteFiles(currentOrderData.id);
+      initFileUploadUI(currentOrderData.id);
     }
   }
 
@@ -2104,6 +2130,201 @@
         injectSidebarItem();
       }
     }, 3000);
+  }
+
+  /* ── Expediente Files Section ── */
+  var pendingFiles = [];
+
+  function initFileUploadUI(orderId) {
+    var uploadBtn = document.getElementById('ea-upload-files-btn');
+    var uploadArea = document.getElementById('ea-files-upload-area');
+    var dropZone = document.getElementById('ea-drop-zone');
+    var fileInput = document.getElementById('ea-files-input');
+    var submitBtn = document.getElementById('ea-files-submit');
+    var form = document.getElementById('ea-files-upload-form');
+    var previewDiv = document.getElementById('ea-files-preview');
+
+    if (!uploadBtn || !uploadArea) return;
+
+    uploadBtn.addEventListener('click', function() {
+      uploadArea.style.display = uploadArea.style.display === 'none' ? 'block' : 'none';
+    });
+
+    if (dropZone) {
+      dropZone.addEventListener('click', function() { fileInput.click(); });
+      dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#10b981'; dropZone.style.background = '#ecfdf5'; });
+      dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#cbd5e1'; dropZone.style.background = '#fff'; });
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e1';
+        dropZone.style.background = '#fff';
+        if (e.dataTransfer.files.length > 0) {
+          fileInput.files = e.dataTransfer.files;
+          handleFilesSelected(fileInput.files, previewDiv, submitBtn);
+        }
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function() {
+        handleFilesSelected(this.files, previewDiv, submitBtn);
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        uploadExpedienteFiles(orderId);
+      });
+    }
+  }
+
+  function handleFilesSelected(files, previewDiv, submitBtn) {
+    if (!previewDiv || !files || files.length === 0) return;
+    pendingFiles = Array.from(files);
+    previewDiv.style.display = 'block';
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    var catIcons = { image: '#8b5cf6', video: '#ef4444', document: '#3b82f6', other: '#64748b' };
+    var catLabels = { image: 'IMG', video: 'VID', document: 'DOC', other: 'FILE' };
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var cat = f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : (f.type === 'application/pdf' || f.type.includes('word') || f.type.includes('excel') || f.type.includes('sheet') || f.type.includes('presentation') || f.type.includes('text')) ? 'document' : 'other';
+      var color = catIcons[cat];
+      var label = catLabels[cat];
+      var size = f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : (f.size / 1024).toFixed(0) + ' KB';
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px">' +
+        '<div style="width:32px;height:32px;background:' + color + ';border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:10px;font-weight:700">' + label + '</span></div>' +
+        '<div><p style="margin:0;font-size:13px;font-weight:500;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(f.name) + '</p>' +
+        '<p style="margin:0;font-size:11px;color:#94a3b8">' + size + '</p></div></div>';
+    }
+    html += '</div>';
+    previewDiv.innerHTML = html;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  async function uploadExpedienteFiles(orderId) {
+    var fileInput = document.getElementById('ea-files-input');
+    var submitBtn = document.getElementById('ea-files-submit');
+    var description = (document.getElementById('ea-files-description') || {}).value || '';
+    var notifyClient = (document.getElementById('ea-notify-client-check') || {}).checked !== false;
+
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      showToast('Selecciona archivos para subir', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Subiendo...';
+
+    var formData = new FormData();
+    formData.append('order_id', orderId);
+    formData.append('description', description);
+    formData.append('notify_client', notifyClient ? '1' : '0');
+    for (var i = 0; i < fileInput.files.length; i++) {
+      formData.append('files[]', fileInput.files[i]);
+    }
+
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + getAdminToken() },
+        body: formData,
+      });
+      var data = await resp.json();
+      if (data.success) {
+        var msg = data.count + ' archivo' + (data.count > 1 ? 's' : '') + ' subido' + (data.count > 1 ? 's' : '') + ' correctamente';
+        if (notifyClient) msg += '. Cliente notificado.';
+        showToast(msg, 'success');
+        // Reset form
+        fileInput.value = '';
+        var previewDiv = document.getElementById('ea-files-preview');
+        if (previewDiv) { previewDiv.style.display = 'none'; previewDiv.innerHTML = ''; }
+        var descInput = document.getElementById('ea-files-description');
+        if (descInput) descInput.value = '';
+        submitBtn.disabled = true;
+        document.getElementById('ea-files-upload-area').style.display = 'none';
+        pendingFiles = [];
+        // Reload files list
+        loadExpedienteFiles(orderId);
+        if (data.errors && data.errors.length > 0) {
+          showToast('Algunos archivos fallaron: ' + data.errors.join(', '), 'error');
+        }
+      } else {
+        showToast(data.error || 'Error al subir archivos', 'error');
+      }
+    } catch (e) {
+      console.error('Upload error:', e);
+      showToast('Error de conexion al subir archivos', 'error');
+    }
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Subir';
+  }
+
+  async function loadExpedienteFiles(orderId) {
+    var listDiv = document.getElementById('ea-files-list');
+    if (!listDiv) return;
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=list&order_id=' + orderId, {
+        headers: authHeaders(),
+      });
+      var data = await resp.json();
+      if (data.success && data.files && data.files.length > 0) {
+        var catIcons = { image: { bg: '#8b5cf6', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' },
+          video: { bg: '#ef4444', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' },
+          document: { bg: '#3b82f6', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+          other: { bg: '#64748b', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>' } };
+        var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+        data.files.forEach(function(f) {
+          var ci = catIcons[f.category] || catIcons.other;
+          var dateStr = f.created_at ? formatDate(f.created_at) : '';
+          var isPreviewable = f.category === 'image' || f.mime_type === 'application/pdf' || f.category === 'video';
+          html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fafafa;border:1px solid #f1f5f9;border-radius:12px;transition:all .2s" class="ea-file-item">' +
+            '<div style="width:40px;height:40px;background:' + ci.bg + ';border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + ci.icon + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+            '<p style="margin:0;font-size:14px;font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.original_name) + '</p>' +
+            '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">' + escapeHtml(f.file_size_formatted) + ' · ' + dateStr + (f.description ? ' · ' + escapeHtml(f.description) : '') + '</p></div>' +
+            '<div style="display:flex;gap:6px;flex-shrink:0">' +
+            (isPreviewable ? '<a href="' + f.download_url + '" target="_blank" style="padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver</a>' : '') +
+            '<a href="' + f.download_url + '" download style="padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>' +
+            '<button class="ea-delete-file-btn" data-file-id="' + f.id + '" style="padding:6px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#ef4444;font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>';
+        });
+        html += '</div>';
+        listDiv.innerHTML = html;
+        // Bind delete buttons
+        listDiv.querySelectorAll('.ea-delete-file-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var fileId = this.getAttribute('data-file-id');
+            if (confirm('Eliminar este archivo?')) {
+              deleteExpedienteFile(fileId, orderId);
+            }
+          });
+        });
+      } else {
+        listDiv.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>No hay archivos subidos. Usa el boton "Subir Archivos" para agregar documentos.</div>';
+      }
+    } catch (e) {
+      console.error('Error loading files:', e);
+      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:13px">Error al cargar archivos</div>';
+    }
+  }
+
+  async function deleteExpedienteFile(fileId, orderId) {
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=delete', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: parseInt(fileId) }),
+      });
+      var data = await resp.json();
+      if (data.success) {
+        showToast('Archivo eliminado', 'success');
+        loadExpedienteFiles(orderId);
+      } else {
+        showToast(data.error || 'Error al eliminar', 'error');
+      }
+    } catch (e) {
+      showToast('Error de conexion', 'error');
+    }
   }
 
   function startWhenReady() {
