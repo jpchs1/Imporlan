@@ -583,31 +583,31 @@
     document.head.appendChild(style);
   }
 
-  /* Demo boat data with real manufacturer photos */
+  /* Demo boat data with real on-water photos from manufacturer CDNs */
   var demoBoats = [
     {
-      title: 'Chaparral 246 SSi 2019',
+      title: 'Cobalt A29 2022',
       location: 'Florida, USA',
       hours: '120 hrs',
-      priceUsd: '$38,500',
-      priceClp: '$36.190.000',
-      img: 'https://www.chaparralboats.com/images/2022/webHero-Chaparral.jpg'
+      priceUsd: '$185,000',
+      priceClp: '$173.900.000',
+      img: 'https://cobaltboats.com/wp-content/uploads/2022/06/A29_6931.jpg'
     },
     {
-      title: 'MasterCraft NXT22 2020',
+      title: 'MasterCraft X26 2021',
       location: 'Texas, USA',
       hours: '85 hrs',
       priceUsd: '$52,000',
       priceClp: '$48.880.000',
-      img: 'https://www.mastercraft.com/media/wqplusqi/dt-1.webp'
+      img: 'https://www.mastercraft.com/media/1bep1g5l/dt-1-1.webp'
     },
     {
-      title: 'Sea Ray SPX 190 2021',
+      title: 'Cobalt CS23 2020',
       location: 'California, USA',
       hours: '65 hrs',
-      priceUsd: '$41,200',
-      priceClp: '$38.728.000',
-      img: 'https://brunswick.scene7.com/is/image/brunswick/SLX310IB_Profile_Base_model_default?wid=600'
+      priceUsd: '$98,500',
+      priceClp: '$92.590.000',
+      img: 'https://cobaltboats.com/wp-content/uploads/CS23ii_6350-1.jpg'
     }
   ];
 
