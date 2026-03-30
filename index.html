@@ -43,7 +43,10 @@
       "sameAs": [
         "https://www.youtube.com/@imporlan",
         "https://www.instagram.com/imporlan.cl/",
-        "https://www.facebook.com/imporlan"
+        "https://www.facebook.com/imporlan",
+        "https://www.deckeva.cl",
+        "https://www.deckeva.com",
+        "https://www.muelleflotante.cl"
       ]
     }
     </script>
@@ -52,7 +55,7 @@
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
       "name": "Imporlan",
-      "description": "Importaci\u00f3n, venta y arriendo de lanchas, embarcaciones y motos de agua en Chile. Servicio integral puerta a puerta desde USA.",
+      "description": "Importación, venta y arriendo de lanchas, embarcaciones y motos de agua en Chile. Servicio integral puerta a puerta desde USA.",
       "url": "https://www.imporlan.cl",
       "image": "https://www.imporlan.cl/images/imporlan-og.jpg",
       "telephone": "+56940211459",
@@ -198,6 +201,12 @@
             <li><a href="/preguntas-frecuentes-embarcaciones-usadas/">Preguntas frecuentes sobre embarcaciones usadas</a></li>
           </ul>
         </nav>
+        <h2>Nuestras Empresas</h2>
+        <ul>
+          <li><a href="https://www.deckeva.cl/" target="_blank" rel="noopener">Deck EVA para embarcaciones</a></li>
+          <li><a href="https://www.deckeva.com/" target="_blank" rel="noopener">Deckeva Internacional</a></li>
+          <li><a href="https://www.muelleflotante.cl/" target="_blank" rel="noopener">Muelles flotantes en Chile</a></li>
+        </ul>
       </div>
     </noscript>
     <script src="/assets/webpay-override.js?v=20260122"></script>
@@ -213,5 +222,26 @@
     <script src="/assets/proceso-compra-section.js?v=20260330"></script>
     <script src="/assets/mobile-ux-optimizer.js?v=20260228"></script>
     <script src="/assets/text-reducer.js?v=20260304"></script>
+    <script>
+    /* Cross-domain backlinks SEO */
+    (function(){
+      function injectLinks(){
+        var footer=document.querySelector('footer,.footer,[class*=footer]');
+        if(!footer)return;
+        var existing=footer.querySelector('.cross-domain-links');
+        if(existing)return;
+        var div=document.createElement('div');
+        div.className='cross-domain-links';
+        div.style.cssText='padding:20px 0;border-top:1px solid rgba(255,255,255,0.1);margin-top:16px;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:center;';
+        div.innerHTML='<span style="color:#94a3b8;font-size:0.85rem;width:100%;text-align:center;margin-bottom:4px;">Nuestras Empresas</span>'+
+          '<a href="https://www.deckeva.cl/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Deck EVA para embarcaciones</a>'+
+          '<a href="https://www.deckeva.com/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Deckeva Internacional</a>'+
+          '<a href="https://www.muelleflotante.cl/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Muelles flotantes en Chile</a>';
+        footer.appendChild(div);
+      }
+      if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(injectLinks,2000);});}
+      else{setTimeout(injectLinks,2000);}
+    })();
+    </script>
   </body>
 </html>
