@@ -84,19 +84,18 @@
     var main = document.querySelector("main");
     if (!main) return;
 
-    // Hide React content
-    var children = Array.from(main.children);
-    var h1 = main.querySelector("h1");
-    children.forEach(function(ch) {
-      if (ch !== h1 && ch !== (h1 ? h1.nextElementSibling : null)) {
-        ch.style.display = "none";
-      }
+    // Aggressively hide ALL React content
+    Array.from(main.children).forEach(function(ch) {
+      if (ch.id !== "docs-enhancer") ch.style.display = "none";
     });
 
     // Loading state
     var container = document.createElement("div");
     container.id = "docs-enhancer";
-    container.innerHTML = '<div style="padding:40px;text-align:center"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#0891b2;border-radius:50%;margin:0 auto 16px;animation:docsSpin 1s linear infinite"></div><p style="color:#64748b;font-size:14px">Cargando documentos...</p></div>';
+    container.innerHTML =
+      '<div style="margin-bottom:24px"><h1 style="font-size:28px;font-weight:800;color:#0f172a;margin:0">Documentos</h1>' +
+      '<p style="color:#64748b;margin:4px 0 0;font-size:14px">Todos tus archivos, reportes y documentos en un solo lugar</p></div>' +
+      '<div style="padding:60px;text-align:center"><div style="width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#0891b2;border-radius:50%;margin:0 auto 16px;animation:docsSpin 1s linear infinite"></div><p style="color:#64748b;font-size:14px">Cargando documentos...</p></div>';
     main.appendChild(container);
 
     if (!document.getElementById("docs-enhancer-styles")) {
@@ -118,8 +117,12 @@
     // Build HTML
     var html = '';
 
+    // Header
+    html += '<div style="margin-bottom:24px"><h1 style="font-size:28px;font-weight:800;color:#0f172a;margin:0">Documentos</h1>' +
+      '<p style="color:#64748b;margin:4px 0 0;font-size:14px">Todos tus archivos, reportes y documentos en un solo lugar</p></div>';
+
     // Stats cards
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px">';
+    html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">';
     var statsData = [
       { label: "Documentos", value: documents.length, cat: "document" },
       { label: "Imagenes", value: images.length, cat: "image" },
@@ -128,19 +131,26 @@
     ];
     statsData.forEach(function(s) {
       var cfg = catConfig[s.cat];
-      html += '<div style="background:' + cfg.bg + ';border:1px solid ' + cfg.border + ';border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:12px">' +
-        '<div style="width:44px;height:44px;border-radius:12px;background:' + cfg.color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px ' + cfg.color + '30"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' + cfg.icon + '</svg></div>' +
-        '<div><p style="margin:0;font-size:26px;font-weight:800;color:#0f172a">' + s.value + '</p>' +
-        '<p style="margin:1px 0 0;font-size:12px;color:#64748b">' + s.label + '</p></div></div>';
+      html += '<div class="doc-stat-card" data-filter="' + s.cat + '" style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden">' +
+        '<div style="position:absolute;top:-10px;right:-10px;width:50px;height:50px;background:' + cfg.color + '08;border-radius:50%"></div>' +
+        '<div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,' + cfg.color + ',' + cfg.color + 'cc);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px ' + cfg.color + '25"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' + cfg.icon + '</svg></div>' +
+        '<div><p style="margin:0;font-size:28px;font-weight:800;color:#0f172a;line-height:1">' + s.value + '</p>' +
+        '<p style="margin:3px 0 0;font-size:12px;color:#64748b;font-weight:500">' + s.label + '</p></div></div>';
     });
     html += '</div>';
 
     if (allDocs.length === 0) {
-      html += '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;padding:60px 20px;text-align:center">' +
-        '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 16px;display:block"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
-        '<h3 style="font-size:18px;font-weight:700;color:#1e293b;margin:0 0 8px">Sin documentos aun</h3>' +
-        '<p style="color:#64748b;font-size:14px;margin:0 0 20px">Tus documentos, reportes e inspecciones apareceran aqui cuando esten disponibles.</p>' +
-        '<a href="https://wa.me/56940211459?text=Hola, tengo una consulta sobre documentos de mi expediente" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;background:#25d366;color:#fff;font-size:14px;font-weight:600;text-decoration:none">Consultar por WhatsApp</a></div>';
+      html += '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden">' +
+        '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:40px 20px;text-align:center">' +
+        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5" style="margin:0 auto 16px;display:block"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+        '<h3 style="font-size:20px;font-weight:700;color:#fff;margin:0 0 8px">Tus documentos apareceran aqui</h3>' +
+        '<p style="color:#94a3b8;font-size:14px;margin:0;max-width:400px;display:inline-block;line-height:1.6">Cuando tu agente suba archivos a tu expediente, compres un plan, o recibas un reporte de inspeccion, todos los documentos estaran disponibles aqui para que los revises y descargues.</p></div>' +
+        '<div style="padding:24px;display:flex;flex-direction:column;align-items:center;gap:16px">' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:500px">' +
+        '<div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #f1f5f9"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="margin:0 auto 8px;display:block"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p style="margin:0;font-size:12px;font-weight:600;color:#1e293b">PDFs y Docs</p><p style="margin:2px 0 0;font-size:10px;color:#94a3b8">Contratos, reportes</p></div>' +
+        '<div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #f1f5f9"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" style="margin:0 auto 8px;display:block"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><p style="margin:0;font-size:12px;font-weight:600;color:#1e293b">Imagenes</p><p style="margin:2px 0 0;font-size:10px;color:#94a3b8">Fotos, capturas</p></div>' +
+        '<div style="text-align:center;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #f1f5f9"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="margin:0 auto 8px;display:block"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><p style="margin:0;font-size:12px;font-weight:600;color:#1e293b">Videos</p><p style="margin:2px 0 0;font-size:10px;color:#94a3b8">Inspecciones</p></div></div>' +
+        '<a href="https://wa.me/56940211459?text=Hola, tengo una consulta sobre documentos de mi expediente" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;border-radius:12px;background:#25d366;color:#fff;font-size:14px;font-weight:600;text-decoration:none;box-shadow:0 4px 12px rgba(37,211,102,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>Consultar por WhatsApp</a></div></div>';
     } else {
       // Search bar
       html += '<div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">' +
