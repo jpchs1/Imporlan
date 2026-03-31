@@ -1625,6 +1625,93 @@
     }
   }
 
+  // ── Marketplace Listing Renewal Handler ──
+  function checkRenewalRoute() {
+    var hash = window.location.hash || '';
+    var match = hash.match(/#\/?marketplace\/renovar\/(\d+)/);
+    if (!match) return;
+
+    var listingId = match[1];
+    var user = getUserData();
+    if (!user) {
+      alert('Debes iniciar sesion para renovar tu anuncio.');
+      return;
+    }
+
+    var userEmail = user.email || user.user_email || '';
+    var token = localStorage.getItem('imporlan_token') || localStorage.getItem('token') || '';
+
+    // Show confirmation modal
+    var existing = document.getElementById('me-renew-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'me-renew-modal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:400px;box-shadow:0 25px 60px rgba(0,0,0,.25);overflow:hidden;text-align:center">' +
+      '<div style="background:linear-gradient(135deg,#10b981,#059669);padding:24px">' +
+      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="margin:0 auto"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
+      '<h3 style="margin:12px 0 0;font-size:18px;font-weight:700;color:#fff">Renovar Anuncio</h3></div>' +
+      '<div style="padding:24px">' +
+      '<p style="margin:0 0 8px;font-size:15px;color:#1e293b;font-weight:500">Deseas renovar tu anuncio por 30 dias mas?</p>' +
+      '<p style="margin:0 0 20px;font-size:13px;color:#64748b">Tu anuncio volvera a estar activo y visible en el marketplace.</p>' +
+      '<div id="me-renew-status"></div>' +
+      '<div style="display:flex;gap:10px;justify-content:center">' +
+      '<button id="me-renew-cancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;font-weight:600;cursor:pointer">Cancelar</button>' +
+      '<button id="me-renew-confirm" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.3)">Renovar 30 dias</button>' +
+      '</div></div></div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('me-renew-cancel').addEventListener('click', function() {
+      overlay.remove();
+      window.location.hash = '#marketplace';
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) { overlay.remove(); window.location.hash = '#marketplace'; }
+    });
+
+    document.getElementById('me-renew-confirm').addEventListener('click', async function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Renovando...';
+      var statusDiv = document.getElementById('me-renew-status');
+
+      try {
+        var headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        if (userEmail) headers['X-User-Email'] = userEmail;
+        var userName = user.name || user.user_name || '';
+        if (userName) headers['X-User-Name'] = userName;
+
+        var resp = await fetch(API_BASE + '/marketplace_api.php?action=renew', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ id: parseInt(listingId), user_email: userEmail })
+        });
+        var data = await resp.json();
+
+        if (data.success) {
+          statusDiv.innerHTML = '<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px;margin-bottom:16px;display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:13px;color:#065f46;font-weight:500">Anuncio renovado exitosamente por 30 dias!</span></div>';
+          btn.textContent = 'Listo!';
+          btn.style.background = '#10b981';
+          setTimeout(function() {
+            overlay.remove();
+            window.location.hash = '#marketplace';
+          }, 2000);
+        } else {
+          statusDiv.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:16px"><span style="font-size:13px;color:#991b1b">' + (data.error || 'Error al renovar') + '</span></div>';
+          btn.disabled = false;
+          btn.textContent = 'Reintentar';
+        }
+      } catch (e) {
+        statusDiv.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;margin-bottom:16px"><span style="font-size:13px;color:#991b1b">Error de conexion. Intenta nuevamente.</span></div>';
+        btn.disabled = false;
+        btn.textContent = 'Reintentar';
+      }
+    });
+  }
+
   onReady(function () {
     addStyles();
     applyMobileLayout();
@@ -1632,7 +1719,12 @@
     setTimeout(function () {
       applyMobileLayout();
       enhanceMarketplace();
+      checkRenewalRoute();
     }, 500);
+
+    window.addEventListener('hashchange', function() {
+      checkRenewalRoute();
+    });
 
     var observer = new MutationObserver(function () {
       applyMobileLayout();
