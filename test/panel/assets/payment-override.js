@@ -1,240 +1,475 @@
 /**
  * Payment Override for Imporlan Panel
- * This script overrides the demo payment functions with real API calls
- * It intercepts the payment modal and redirects to real payment gateways
+ * Intercepts demo payment functions and redirects to real API calls.
+ * Uses click interception (capturing phase) to DIRECTLY handle WebPay
+ * payments, bypassing React's handler entirely. This avoids all timing
+ * issues with alert overrides and modal closures.
  */
 
 (function() {
   'use strict';
 
-  const API_BASE = 'https://www.imporlan.cl/test/api';
+  var API_BASE = 'https://www.imporlan.cl/api';
+  var _webpayProcessing = false;
 
-  // Override the window.alert function to intercept demo messages
-  const originalAlert = window.alert;
-  window.alert = function(message) {
-    // Check if this is a demo payment message
-    if (message && typeof message === 'string') {
-      if (message.includes('Esta es una demo') || message.includes('En produccion se integrara')) {
-        console.log('Intercepted demo alert, processing real payment...');
-        // Don't show the demo alert, the real payment will be processed
-        return;
+  function extractBoatLinksFromPage() {
+    var links = [];
+    var inputs = document.querySelectorAll('input[type="text"], input[type="url"], input:not([type])');
+    inputs.forEach(function(input) {
+      var val = (input.value || '').trim();
+      var ph = (input.placeholder || '').toLowerCase();
+      if (val && (val.match(/^https?:\/\//i) || ph.includes('boattrader') || ph.includes('yacht') || ph.includes('boats.com'))) {
+        links.push(val);
+      }
+    });
+    if (links.length > 0) {
+      try { sessionStorage.setItem('imporlan_boat_links', JSON.stringify(links)); } catch(e) {}
+    }
+    if (links.length === 0) {
+      try {
+        var stored = sessionStorage.getItem('imporlan_boat_links');
+        if (stored) links = JSON.parse(stored);
+      } catch(e) {}
+    }
+    return links;
+  }
+
+  function extractUserInfo() {
+    var info = { email: '', name: '', phone: '' };
+
+    // Try multiple localStorage keys where user data may be stored
+    var keys = ['imporlan_user', 'user', 'userData', 'imporlan_userData'];
+    for (var i = 0; i < keys.length; i++) {
+      try {
+        var raw = localStorage.getItem(keys[i]);
+        if (raw) {
+          var u = JSON.parse(raw);
+          if (!info.email) info.email = u.email || u.user_email || u.correo || '';
+          if (!info.name) info.name = u.name || u.full_name || u.nombre || u.firstName || '';
+          if (!info.phone) info.phone = u.phone || u.telefono || u.tel || '';
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try to decode JWT token for email/name
+    if (!info.email) {
+      try {
+        var token = localStorage.getItem('token') || localStorage.getItem('imporlan_token') || '';
+        if (token) {
+          var parts = token.split('.');
+          if (parts.length === 3) {
+            var payload = JSON.parse(atob(parts[1]));
+            if (!info.email) info.email = payload.email || payload.sub || '';
+            if (!info.name) info.name = payload.name || payload.user_name || '';
+          }
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try sessionStorage
+    if (!info.email) {
+      try {
+        var sessRaw = sessionStorage.getItem('imporlan_user') || sessionStorage.getItem('user');
+        if (sessRaw) {
+          var su = JSON.parse(sessRaw);
+          if (!info.email) info.email = su.email || su.user_email || '';
+          if (!info.name) info.name = su.name || su.full_name || '';
+          if (!info.phone) info.phone = su.phone || su.telefono || '';
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: try to find email in the DOM (some pages display user email)
+    if (!info.email) {
+      try {
+        var emailEls = document.querySelectorAll('[data-user-email], .user-email, .profile-email');
+        for (var j = 0; j < emailEls.length; j++) {
+          var val = (emailEls[j].getAttribute('data-user-email') || emailEls[j].textContent || '').trim();
+          if (val && val.indexOf('@') !== -1) { info.email = val; break; }
+        }
+      } catch(e) {}
+    }
+
+    return info;
+  }
+
+  var originalAlert = window.alert;
+
+  function isWebPaySelected(modal) {
+    var texts = modal.querySelectorAll('h3, span, div, p, label');
+    for (var i = 0; i < texts.length; i++) {
+      var el = texts[i];
+      var text = (el.textContent || '').trim();
+      if (text === 'WebPay' || text === 'Tarjeta') {
+        var container = el.closest('[class*="border-red"], [class*="bg-red"], [class*="ring-red"], [class*="border-indigo"], [class*="bg-indigo"], [class*="ring-indigo"]');
+        if (container) return true;
+        var parent = el.parentElement;
+        while (parent && parent !== modal) {
+          var cls = parent.className || '';
+          if (typeof cls === 'string' && (
+            cls.indexOf('border-red') !== -1 || cls.indexOf('bg-red') !== -1 || cls.indexOf('ring') !== -1 ||
+            cls.indexOf('border-indigo') !== -1 || cls.indexOf('bg-indigo') !== -1
+          )) {
+            return true;
+          }
+          parent = parent.parentElement;
+        }
       }
     }
-    // For other alerts, show them normally
+    var checked = modal.querySelectorAll('input[type="radio"]:checked, [data-state="checked"], [aria-checked="true"]');
+    for (var j = 0; j < checked.length; j++) {
+      var radio = checked[j];
+      var radioParent = radio.closest('[role="dialog"] > div, [role="dialog"] div');
+      if (radioParent) {
+        var txt = radioParent.textContent || '';
+        if (txt.indexOf('WebPay') !== -1 || txt.indexOf('Tarjeta') !== -1) {
+          return true;
+        }
+      }
+    }
+    var allOptions = modal.querySelectorAll('[class*="cursor-pointer"], [role="option"], [role="radio"]');
+    for (var k = 0; k < allOptions.length; k++) {
+      var opt = allOptions[k];
+      var optText = opt.textContent || '';
+      if (optText.indexOf('WebPay') !== -1 || optText.indexOf('Tarjeta') !== -1) {
+        var cls2 = opt.className || '';
+        if (typeof cls2 === 'string' && (cls2.indexOf('border-red') !== -1 || cls2.indexOf('selected') !== -1 || cls2.indexOf('ring') !== -1 || cls2.indexOf('border-indigo') !== -1)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function extractPaymentData(modal) {
+    var modalText = modal.textContent || '';
+    var amountMatch = modalText.match(/\$\s*([\d.,]+)\s*CLP/i);
+    if (!amountMatch) {
+      amountMatch = modalText.match(/([\d.,]+)\s*CLP/i);
+    }
+    if (!amountMatch) return null;
+    var rawAmount = amountMatch[1].replace(/[^0-9]/g, '');
+    var amount = parseInt(rawAmount, 10);
+    if (isNaN(amount) || amount <= 0) return null;
+    var descMatch = modalText.match(/por\s+(.+?)(?:\s*(?:MercadoPago|PayPal|WebPay|Tarjeta|Selecciona|Cancelar|Pagar))/i);
+    var description = descMatch ? descMatch[1].trim() : 'Pago Imporlan';
+    return { amount: amount, description: description };
+  }
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target && (e.target.closest ? e.target.closest('button') : null);
+    if (!btn) return;
+    var btnText = (btn.textContent || '').trim();
+    if (btnText.indexOf('Pagar Ahora') === -1 && btnText.indexOf('Pagar ahora') === -1 && btnText.indexOf('Continuar con Pago') === -1 && btnText.indexOf('Continuar con pago') === -1) return;
+
+    var modal = (btn.closest ? btn.closest('[role="dialog"]') : null) || document.querySelector('[role="dialog"]');
+    if (!modal) return;
+
+    if (!isWebPaySelected(modal)) {
+      console.log('WebPay override: Not WebPay selected, letting React handle');
+      return;
+    }
+
+    if (_webpayProcessing) {
+      console.log('WebPay: Already processing');
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      return;
+    }
+
+    var paymentData = extractPaymentData(modal);
+    if (!paymentData) {
+      console.error('WebPay: Could not extract payment data from modal');
+      return;
+    }
+
+    console.log('WebPay: Intercepted click, processing real WebPay payment');
+    e.stopImmediatePropagation();
+    e.preventDefault();
+
+    processRealWebPay(paymentData.amount, paymentData.description);
+  }, true);
+
+  window.alert = function(message) {
+    if (!message || typeof message !== 'string') {
+      return originalAlert.apply(this, arguments);
+    }
+    var msgLower = message.toLowerCase();
+
+    if (msgLower.indexOf('configurar la api') !== -1 || msgLower.indexOf('requiere configuracion') !== -1 ||
+        msgLower.indexOf('esta es una demo') !== -1 || msgLower.indexOf('en produccion se integrara') !== -1) {
+      console.log('WebPay: Blocked demo alert (production credentials active)');
+      return;
+    }
+
     return originalAlert.apply(this, arguments);
   };
 
-  // Override window.open to intercept demo payment URLs
-  const originalOpen = window.open;
-  window.open = function(url, target, features) {
-    console.log('window.open intercepted:', url);
-    if (url && typeof url === 'string') {
-      // Intercept MercadoPago demo URLs
-      if (url.includes('mercadopago.cl') && (url.includes('pref_id=demo') || url.includes('redirect'))) {
-        console.log('Intercepted MercadoPago demo URL, redirecting to real payment...');
-        // Extract amount and description from URL
-        const urlParams = new URLSearchParams(url.split('?')[1]);
-        const amount = urlParams.get('amount');
-        const description = urlParams.get('description');
-        
-        console.log('MercadoPago params:', { amount, description });
-        
-        // Call real API
-        processRealMercadoPago(amount, description);
-        return null;
-      }
-      
-      // Intercept PayPal demo URLs
-      if (url.includes('paypal.com') && url.includes('token=demo')) {
-        console.log('Intercepted PayPal demo URL, redirecting to real payment...');
-        // Extract amount from URL
-        const urlParams = new URLSearchParams(url.split('?')[1]);
-        const amount = urlParams.get('amount');
-        const currency = urlParams.get('currency') || 'USD';
-        const description = 'Pago Imporlan';
-        
-        console.log('PayPal params:', { amount, currency, description });
-        
-        // Validate amount
-        if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-          console.error('Invalid PayPal amount:', amount);
-          originalAlert('Error: Monto de pago invalido. Por favor intente nuevamente.');
-          return null;
-        }
-        
-        // Call real API
-        processRealPayPal(amount, description);
-        return null;
-      }
-    }
-    // For other URLs, open them normally
-    return originalOpen.apply(this, arguments);
-  };
+  async function processRealWebPay(amount, description) {
+    if (_webpayProcessing) return;
+    _webpayProcessing = true;
 
-  // Process real MercadoPago payment
-  async function processRealMercadoPago(amount, description) {
     try {
-      console.log('Processing MercadoPago payment:', { amount, description });
-      
-      // Show loading indicator
-      showLoadingOverlay('Procesando pago con MercadoPago...');
-      
-      const response = await fetch(`${API_BASE}/mercadopago.php?action=create_preference`, {
+      showLoadingOverlay('Conectando con WebPay...');
+
+      var userInfo = extractUserInfo();
+      var userEmail = userInfo.email;
+      var userName = userInfo.name;
+      var boatLinks = extractBoatLinksFromPage();
+
+      var buyOrder = 'ORD_' + Date.now();
+      var sessionId = 'panel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+      var purchaseType = 'link';
+      var planName = description;
+      var planDays = 7;
+      if (description.toLowerCase().indexOf('fragata') !== -1 || amount >= 60000) {
+        purchaseType = 'plan';
+        planName = 'Plan Fragata';
+      } else if (description.toLowerCase().indexOf('capitan') !== -1 || amount >= 25000) {
+        purchaseType = 'plan';
+        planName = 'Plan Capitan';
+        planDays = 14;
+      }
+
+      console.log('WebPay: boat_links extracted:', boatLinks);
+
+      sessionStorage.setItem('webpay_order', JSON.stringify({
+        buy_order: buyOrder,
+        user_email: userEmail,
+        purchase_type: purchaseType,
+        purchase_description: description,
+        amount_clp: amount,
+        plan_name: planName,
+        boat_links: boatLinks
+      }));
+
+      console.log('WebPay: Creating transaction...', { amount: amount, buyOrder: buyOrder });
+
+      var response = await fetch(API_BASE + '/webpay.php?action=create_transaction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: parseInt(amount),
-          description: decodeURIComponent(description || 'Pago Imporlan'),
-          plan_name: decodeURIComponent(description || 'Pago Imporlan')
+          amount: amount,
+          session_id: sessionId,
+          buy_order: buyOrder,
+          user_email: userEmail,
+          payer_name: userName,
+          payer_phone: userInfo.phone,
+          country: 'Chile',
+          boat_links: boatLinks,
+          plan_name: planName,
+          description: description,
+          type: purchaseType,
+          days: planDays,
+          return_url: window.location.origin + '/api/webpay.php?action=callback'
         })
       });
 
-      const data = await response.json();
+      var data = await response.json();
+      console.log('WebPay: API response:', data);
       hideLoadingOverlay();
 
+      if (data.success && data.url && data.token) {
+        console.log('WebPay: Redirecting to Transbank...');
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = data.url;
+        form.style.display = 'none';
+        var tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = 'token_ws';
+        tokenInput.value = data.token;
+        form.appendChild(tokenInput);
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        var errorMsg = data.error || data.message || 'Error desconocido';
+        console.error('WebPay: Transaction failed:', errorMsg);
+        _webpayProcessing = false;
+        originalAlert('Error al procesar el pago con WebPay: ' + errorMsg);
+      }
+    } catch (error) {
+      hideLoadingOverlay();
+      _webpayProcessing = false;
+      console.error('WebPay: Connection error:', error);
+      originalAlert('Error al conectar con WebPay. Por favor intente nuevamente.');
+    }
+  }
+
+  var originalOpen = window.open;
+  window.open = function(url, target, features) {
+    if (url && typeof url === 'string') {
+      if (url.indexOf('mercadopago.cl') !== -1 && (url.indexOf('pref_id=demo') !== -1 || url.indexOf('redirect') !== -1)) {
+        console.log('Intercepted MercadoPago demo URL');
+        var urlParams = new URLSearchParams(url.split('?')[1]);
+        processRealMercadoPago(urlParams.get('amount'), urlParams.get('description'));
+        return null;
+      }
+      if (url.indexOf('paypal.com') !== -1 && url.indexOf('token=demo') !== -1) {
+        console.log('Intercepted PayPal demo URL');
+        var urlParams2 = new URLSearchParams(url.split('?')[1]);
+        var paypalAmount = urlParams2.get('amount');
+        if (paypalAmount && !isNaN(parseFloat(paypalAmount)) && parseFloat(paypalAmount) > 0) {
+          processRealPayPal(paypalAmount, 'Pago Imporlan');
+        } else {
+          originalAlert('Error: Monto de pago invalido.');
+        }
+        return null;
+      }
+    }
+    return originalOpen.apply(this, arguments);
+  };
+
+  async function processRealMercadoPago(amount, description) {
+    try {
+      var userInfo = extractUserInfo();
+      var boatLinks = extractBoatLinksFromPage();
+      console.log('Processing MercadoPago payment:', { amount: amount, description: description, boatLinks: boatLinks });
+
+      showLoadingOverlay('Procesando pago con MercadoPago...');
+      var response = await fetch(API_BASE + '/mercadopago.php?action=create_preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseInt(amount),
+          description: decodeURIComponent(description || 'Pago Imporlan'),
+          plan_name: decodeURIComponent(description || 'Pago Imporlan'),
+          payer_email: userInfo.email,
+          payer_name: userInfo.name,
+          payer_phone: userInfo.phone,
+          country: 'Chile',
+          boat_links: boatLinks
+        })
+      });
+      var data = await response.json();
+      hideLoadingOverlay();
       if (data.success && data.init_point) {
-        console.log('MercadoPago preference created, redirecting to:', data.init_point);
         window.location.href = data.init_point;
       } else {
-        console.error('MercadoPago error:', data);
         originalAlert('Error al procesar el pago con MercadoPago. Por favor intente nuevamente.');
       }
     } catch (error) {
       hideLoadingOverlay();
-      console.error('MercadoPago error:', error);
       originalAlert('Error al conectar con MercadoPago. Por favor intente nuevamente.');
     }
   }
 
-  // Process real PayPal payment
   async function processRealPayPal(amountUSD, description) {
-    try {
-      const parsedAmount = parseFloat(amountUSD);
-      console.log('Processing PayPal payment:', { amountUSD, parsedAmount, description });
-      
-      // Validate amount
-      if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        console.error('Invalid amount for PayPal:', amountUSD);
-        originalAlert('Error: Monto de pago invalido.');
-        return;
-      }
-      
-      // Show loading indicator
-      showLoadingOverlay('Procesando pago con PayPal...');
-      
-      const requestBody = {
-        amount: parsedAmount,
-        description: description || 'Pago Imporlan',
-        plan_name: description || 'Pago Imporlan',
-        currency: 'USD'
-      };
-      
-      console.log('PayPal API request:', requestBody);
-      
-      const response = await fetch(`${API_BASE}/paypal.php?action=create_order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+    var parsedAmount = parseFloat(amountUSD);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      originalAlert('Error: Monto de pago invalido.');
+      return;
+    }
+
+    var userInfo = extractUserInfo();
+    var boatLinks = extractBoatLinksFromPage();
+
+    // Show modal with Smart Buttons instead of redirect
+    var existing = document.getElementById('po-paypal-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'po-paypal-modal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:440px;box-shadow:0 25px 60px rgba(0,0,0,.25);overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#003087,#0070ba);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px;font-weight:800;color:#fff;font-style:italic">PayPal</span></div>' +
+      '<button id="po-pp-close" style="width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:18px">&times;</button></div>' +
+      '<div style="padding:20px 24px">' +
+      '<div style="background:#f8fafc;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><p style="margin:0;font-size:12px;color:#64748b">Concepto</p><p style="margin:2px 0 0;font-size:14px;font-weight:600;color:#1e293b">' + (description || 'Pago Imporlan') + '</p></div>' +
+      '<div style="text-align:right"><p style="margin:0;font-size:12px;color:#64748b">Monto</p><p style="margin:2px 0 0;font-size:18px;font-weight:700;color:#003087">$' + parsedAmount.toFixed(2) + ' USD</p></div></div>' +
+      '<div id="po-paypal-buttons" style="min-height:120px"><div style="text-align:center;padding:20px;color:#64748b;font-size:13px">Cargando PayPal...</div></div>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('po-pp-close').addEventListener('click', function() { overlay.remove(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    // Load PayPal SDK and render Smart Buttons
+    function renderButtons() {
+      if (typeof paypal === 'undefined' || typeof paypal.Buttons !== 'function') return;
+      var container = document.getElementById('po-paypal-buttons');
+      if (!container) return;
+      container.innerHTML = '';
+
+      paypal.Buttons({
+        style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
+        createOrder: function() {
+          return fetch(API_BASE + '/paypal.php?action=create_order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: parsedAmount,
+              description: description || 'Pago Imporlan',
+              plan_name: description || 'Pago Imporlan',
+              currency: 'USD',
+              payer_email: userInfo.email,
+              payer_name: userInfo.name,
+              payer_phone: userInfo.phone,
+              country: 'Chile',
+              boat_links: boatLinks
+            })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success && data.order_id) return data.order_id;
+            throw new Error(data.error || 'Error al crear orden PayPal');
+          });
         },
-        body: JSON.stringify(requestBody)
+        onApprove: function(data) {
+          showLoadingOverlay('Procesando pago PayPal...');
+          return fetch(API_BASE + '/paypal.php?action=capture_order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: data.orderID })
+          }).then(function(r) { return r.json(); }).then(function(result) {
+            hideLoadingOverlay();
+            overlay.remove();
+            if (result.success) {
+              originalAlert('Pago procesado exitosamente! Recibiras un email de confirmacion.');
+              window.location.hash = '#myproducts';
+            } else {
+              originalAlert('Error al capturar pago: ' + (result.error || 'Intente nuevamente'));
+            }
+          });
+        },
+        onCancel: function() { /* user cancelled, modal stays open */ },
+        onError: function(err) { console.error('PayPal error:', err); }
+      }).render('#po-paypal-buttons');
+    }
+
+    if (typeof paypal !== 'undefined' && typeof paypal.Buttons === 'function') {
+      renderButtons();
+    } else {
+      fetch(API_BASE + '/paypal.php?action=get_client_id').then(function(r) { return r.json(); }).then(function(cfg) {
+        if (!cfg.client_id) return;
+        var sdkDomain = (cfg.environment === 'production') ? 'www.paypal.com' : 'www.sandbox.paypal.com';
+        var script = document.createElement('script');
+        script.src = 'https://' + sdkDomain + '/sdk/js?client-id=' + cfg.client_id + '&currency=USD&components=buttons&enable-funding=card';
+        script.onload = renderButtons;
+        document.head.appendChild(script);
       });
-
-      console.log('PayPal API response status:', response.status);
-      
-      const data = await response.json();
-      console.log('PayPal API response data:', data);
-      
-      hideLoadingOverlay();
-
-      if (data.success && data.order_id) {
-        // Check for approval URL in different possible locations
-        const approvalUrl = data.approval_url || 
-          (data.links && data.links.find(l => l.rel === 'approve')?.href) ||
-          `https://www.paypal.com/checkoutnow?token=${data.order_id}`;
-        
-        console.log('PayPal order created, redirecting to:', approvalUrl);
-        window.location.href = approvalUrl;
-      } else {
-        console.error('PayPal error response:', data);
-        const errorMsg = data.error || data.message || 'Error desconocido';
-        originalAlert(`Error al procesar el pago con PayPal: ${errorMsg}`);
-      }
-    } catch (error) {
-      hideLoadingOverlay();
-      console.error('PayPal connection error:', error);
-      originalAlert('Error al conectar con PayPal. Por favor intente nuevamente.');
     }
   }
 
-  // Show loading overlay
   function showLoadingOverlay(message) {
-    // Remove existing overlay if any
     hideLoadingOverlay();
-    
-    const overlay = document.createElement('div');
+    var overlay = document.createElement('div');
     overlay.id = 'payment-loading-overlay';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 99999;
-    `;
-    
-    overlay.innerHTML = `
-      <div style="
-        background: white;
-        padding: 30px 50px;
-        border-radius: 16px;
-        text-align: center;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      ">
-        <div style="
-          width: 50px;
-          height: 50px;
-          border: 4px solid #e5e7eb;
-          border-top-color: #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin: 0 auto 20px;
-        "></div>
-        <p style="
-          font-size: 18px;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0;
-        ">${message}</p>
-        <p style="
-          font-size: 14px;
-          color: #64748b;
-          margin-top: 10px;
-        ">Por favor espere...</p>
-      </div>
-      <style>
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      </style>
-    `;
-    
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;';
+    overlay.innerHTML = '<div style="background:white;padding:30px 50px;border-radius:16px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);">' +
+      '<div style="width:50px;height:50px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px;"></div>' +
+      '<p style="font-size:18px;font-weight:600;color:#1e293b;margin:0;">' + message + '</p>' +
+      '<p style="font-size:14px;color:#64748b;margin-top:10px;">Por favor espere...</p>' +
+      '</div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
     document.body.appendChild(overlay);
   }
 
-  // Hide loading overlay
   function hideLoadingOverlay() {
-    const overlay = document.getElementById('payment-loading-overlay');
-    if (overlay) {
-      overlay.remove();
-    }
+    var overlay = document.getElementById('payment-loading-overlay');
+    if (overlay) overlay.remove();
   }
 
-  console.log('Payment override script loaded - demo payments will be redirected to real API');
+  console.log('Payment override loaded - click interception + alert override active');
 })();
