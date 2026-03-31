@@ -503,71 +503,107 @@
   }
 
   /* ── Detail view ── */
-  /* ── Timeline UI (5 steps) ── */
+  /* ── Timeline UI (5 steps) - Premium Design ── */
   function buildTimelineUI(currentStep, isAdmin) {
     var steps = [
-      { num: 1, label: 'Plan o Cotizacion', icon: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>', desc: 'Tu plan o cotizacion esta activo', cta: '' },
-      { num: 2, label: 'Busqueda Activa', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', desc: 'Estamos buscando las mejores opciones', cta: '' },
-      { num: 3, label: 'Inspeccion', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>', desc: 'Inspeccion tecnica pre-compra', cta: 'Solicitar Inspeccion' },
-      { num: 4, label: 'Compra', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', desc: 'Negociacion y compra de la embarcacion', cta: '' },
-      { num: 5, label: 'Logistica', icon: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>', desc: 'Transporte y seguimiento en vivo', cta: '' }
+      { num: 1, label: 'Plan o Cotizacion', icon: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>', desc: 'Tu plan esta activo y en marcha', emoji: '📋' },
+      { num: 2, label: 'Busqueda Activa', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', desc: 'Buscando las mejores opciones para ti', emoji: '🔍' },
+      { num: 3, label: 'Inspeccion', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>', desc: 'Inspeccion tecnica profesional', emoji: '🔧', cta: 'Solicitar Inspeccion' },
+      { num: 4, label: 'Compra', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', desc: 'Negociacion y compra confirmada', emoji: '💰' },
+      { num: 5, label: 'Logistica', icon: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>', desc: 'Tu embarcacion en camino a Chile', emoji: '🚢' }
     ];
-    var activeColor = '#0891b2';
-    var completedColor = '#10b981';
-    var futureColor = '#cbd5e1';
 
-    var html = '<div style="padding:24px 28px;border-bottom:1px solid #f1f5f9">';
-    // Mobile: vertical, Desktop: horizontal
-    html += '<div class="lc-timeline" style="display:flex;align-items:flex-start;justify-content:space-between;gap:0;position:relative;overflow:visible">';
+    // Inject animation styles once
+    if (!document.getElementById('lc-timeline-styles')) {
+      var styleEl = document.createElement('style');
+      styleEl.id = 'lc-timeline-styles';
+      styleEl.textContent =
+        '@keyframes tlPulse{0%,100%{box-shadow:0 0 0 0 rgba(8,145,178,.4)}70%{box-shadow:0 0 0 12px rgba(8,145,178,0)}}' +
+        '@keyframes tlShine{0%{background-position:200% center}100%{background-position:-200% center}}' +
+        '@keyframes tlFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}' +
+        '@keyframes tlGlow{0%,100%{opacity:.6}50%{opacity:1}}' +
+        '.tl-active-circle{animation:tlPulse 2s ease-in-out infinite}' +
+        '.tl-active-label{animation:tlFloat 3s ease-in-out infinite}' +
+        '.tl-shine{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.4) 50%,transparent 100%);background-size:200% 100%;animation:tlShine 3s ease-in-out infinite}' +
+        '.tl-glow{animation:tlGlow 2s ease-in-out infinite}' +
+        '@media(max-width:640px){.tl-step-label{font-size:9px!important}.tl-step-desc{display:none!important}.tl-connector{width:16px!important}.tl-circle{width:36px!important;height:36px!important}.tl-circle-active{width:42px!important;height:42px!important}}';
+      document.head.appendChild(styleEl);
+    }
+
+    var html = '<div style="padding:0;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);position:relative;overflow:hidden">';
+    // Decorative elements
+    html += '<div style="position:absolute;top:-40px;right:20%;width:120px;height:120px;background:radial-gradient(circle,rgba(8,145,178,.15),transparent 70%);border-radius:50%"></div>';
+    html += '<div style="position:absolute;bottom:-30px;left:10%;width:80px;height:80px;background:radial-gradient(circle,rgba(16,185,129,.1),transparent 70%);border-radius:50%"></div>';
+
+    // Header
+    html += '<div style="padding:16px 28px 8px;display:flex;align-items:center;justify-content:space-between;position:relative">';
+    html += '<div style="display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+    html += '<span style="font-size:13px;font-weight:600;color:#e0f2fe;letter-spacing:.02em">Tu Progreso</span></div>';
+    // Progress percentage
+    var pct = Math.round(((currentStep - 1) / 4) * 100);
+    html += '<div style="display:flex;align-items:center;gap:8px"><div style="width:80px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:3px;transition:width .5s"></div></div>';
+    html += '<span style="font-size:12px;color:#06b6d4;font-weight:700">' + pct + '%</span></div></div>';
+
+    // Steps container
+    html += '<div style="padding:12px 20px 24px;display:flex;align-items:flex-start;justify-content:center;gap:0;position:relative">';
 
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
       var isCompleted = s.num < currentStep;
       var isActive = s.num === currentStep;
       var isFuture = s.num > currentStep;
-      var color = isCompleted ? completedColor : isActive ? activeColor : futureColor;
-      var bgColor = isCompleted ? '#ecfdf5' : isActive ? '#f0f9ff' : '#f8fafc';
-      var borderColor = isCompleted ? '#a7f3d0' : isActive ? '#bae6fd' : '#e2e8f0';
-      var textColor = isCompleted ? '#065f46' : isActive ? '#0c4a6e' : '#94a3b8';
-      var labelWeight = isActive ? '700' : isCompleted ? '600' : '400';
-      var circleSize = isActive ? '44px' : '36px';
-      var iconSize = isActive ? '18' : '14';
 
-      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;min-width:0">';
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;max-width:120px">';
+
       // Circle
-      html += '<div style="width:' + circleSize + ';height:' + circleSize + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s;';
+      var cClass = isActive ? ' tl-active-circle' : '';
+      html += '<div class="' + (isActive ? 'tl-circle-active' : 'tl-circle') + cClass + '" style="width:' + (isActive ? '50px' : '38px') + ';height:' + (isActive ? '50px' : '38px') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
       if (isCompleted) {
-        html += 'background:' + completedColor + ';box-shadow:0 0 0 4px #d1fae5';
+        html += 'background:linear-gradient(135deg,#10b981,#34d399);box-shadow:0 4px 15px rgba(16,185,129,.4),0 0 0 3px rgba(16,185,129,.2)';
       } else if (isActive) {
-        html += 'background:linear-gradient(135deg,' + activeColor + ',#06b6d4);box-shadow:0 0 0 4px #e0f2fe,0 4px 12px rgba(8,145,178,.3)';
+        html += 'background:linear-gradient(135deg,#0891b2,#06b6d4,#22d3ee);box-shadow:0 6px 20px rgba(8,145,178,.5),0 0 0 4px rgba(8,145,178,.2)';
       } else {
-        html += 'background:#f1f5f9;border:2px solid #e2e8f0';
+        html += 'background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);backdrop-filter:blur(4px)';
       }
       html += '">';
+      // Shine overlay on active
+      if (isActive) {
+        html += '<div class="tl-shine" style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%"></div>';
+      }
       if (isCompleted) {
-        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+        html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" style="position:relative;z-index:1"><polyline points="20 6 9 17 4 12"/></svg>';
       } else {
-        html += '<svg width="' + iconSize + '" height="' + iconSize + '" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : '#94a3b8') + '" stroke-width="2">' + s.icon + '</svg>';
+        html += '<svg width="' + (isActive ? '22' : '16') + '" height="' + (isActive ? '22' : '16') + '" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : 'rgba(255,255,255,.3)') + '" stroke-width="2" style="position:relative;z-index:1">' + s.icon + '</svg>';
       }
       html += '</div>';
+
       // Label
-      html += '<p style="margin:8px 0 0;font-size:' + (isActive ? '13px' : '11px') + ';font-weight:' + labelWeight + ';color:' + textColor + ';text-align:center;line-height:1.3;max-width:100px">' + s.label + '</p>';
-      // Active description
+      var labelClass = isActive ? ' tl-active-label' : '';
+      html += '<p class="tl-step-label' + labelClass + '" style="margin:10px 0 0;font-size:' + (isActive ? '12px' : '10px') + ';font-weight:' + (isActive ? '700' : isCompleted ? '600' : '400') + ';color:' + (isCompleted ? '#34d399' : isActive ? '#fff' : 'rgba(255,255,255,.35)') + ';text-align:center;line-height:1.3;letter-spacing:.01em">' + s.label + '</p>';
+
+      // Active: description + next step CTA
       if (isActive && !isAdmin) {
-        html += '<p style="margin:4px 0 0;font-size:10px;color:#64748b;text-align:center;max-width:120px;line-height:1.3">' + s.desc + '</p>';
-      }
-      // Next step CTA
-      if (isActive && s.num < 5 && !isAdmin) {
-        var nextStep = steps[s.num];
-        if (nextStep && nextStep.cta) {
-          html += '<a href="https://wa.me/56940211459?text=' + encodeURIComponent('Hola, me interesa avanzar con ' + nextStep.label.toLowerCase() + ' para mi expediente') + '" target="_blank" rel="noopener" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:linear-gradient(135deg,' + activeColor + ',#06b6d4);color:#fff;font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap">' + nextStep.cta + ' &rarr;</a>';
+        html += '<p class="tl-step-desc" style="margin:4px 0 0;font-size:10px;color:rgba(148,213,236,.7);text-align:center;max-width:130px;line-height:1.4">' + s.desc + '</p>';
+        // CTA for next step
+        if (s.num < 5) {
+          var nextStep = steps[s.num];
+          if (nextStep && nextStep.cta) {
+            html += '<a href="https://wa.me/56940211459?text=' + encodeURIComponent('Hola, me interesa avanzar con ' + nextStep.label.toLowerCase() + ' para mi expediente') + '" target="_blank" rel="noopener" style="margin-top:8px;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;box-shadow:0 4px 12px rgba(8,145,178,.35);display:inline-flex;align-items:center;gap:4px">' + nextStep.cta + ' <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg></a>';
+          }
         }
       }
       html += '</div>';
-      // Connector line (between steps)
+
+      // Connector
       if (i < steps.length - 1) {
-        var lineColor = (i + 1) < currentStep ? completedColor : '#e2e8f0';
-        html += '<div style="flex:0 0 auto;width:40px;height:3px;margin-top:' + (isActive ? '20px' : '17px') + ';background:' + lineColor + ';border-radius:2px;flex-shrink:1"></div>';
+        var cTop = isActive ? '24px' : '18px';
+        if (isCompleted) {
+          html += '<div class="tl-connector" style="flex:1;max-width:50px;height:3px;margin-top:' + cTop + ';background:linear-gradient(90deg,#10b981,#34d399);border-radius:2px;box-shadow:0 0 8px rgba(16,185,129,.3)"></div>';
+        } else if (i + 1 === currentStep - 1) {
+          html += '<div class="tl-connector" style="flex:1;max-width:50px;height:3px;margin-top:' + cTop + ';background:linear-gradient(90deg,#10b981,#0891b2);border-radius:2px"></div>';
+        } else {
+          html += '<div class="tl-connector" style="flex:1;max-width:50px;height:3px;margin-top:' + cTop + ';background:rgba(255,255,255,.08);border-radius:2px"></div>';
+        }
       }
     }
 

@@ -501,7 +501,7 @@
     );
   }
 
-  /* ── Admin Timeline UI (5 steps) ── */
+  /* ── Admin Timeline UI (5 steps) - Premium ── */
   function buildAdminTimelineUI(currentStep) {
     var steps = [
       { num: 1, label: 'Plan o Cotizacion', icon: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>' },
@@ -510,43 +510,47 @@
       { num: 4, label: 'Compra', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
       { num: 5, label: 'Logistica', icon: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>' }
     ];
-    var activeColor = '#0891b2';
-    var completedColor = '#10b981';
 
-    var html = '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
-      '<div style="padding:16px 28px;background:linear-gradient(to right,#f0f9ff,#e0f2fe);border-bottom:1px solid #bae6fd;display:flex;align-items:center;gap:10px">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' +
-      '<span style="font-size:14px;font-weight:700;color:#0c4a6e">Progreso del Expediente</span>' +
-      '<span style="font-size:12px;color:#0891b2;font-weight:500;margin-left:auto">Paso ' + currentStep + ' de 5</span></div>' +
-      '<div style="padding:20px 28px">' +
-      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0">';
+    if (!document.getElementById('ea-timeline-styles')) {
+      var st = document.createElement('style'); st.id = 'ea-timeline-styles';
+      st.textContent = '@keyframes eaTlPulse{0%,100%{box-shadow:0 0 0 0 rgba(8,145,178,.35)}70%{box-shadow:0 0 0 10px rgba(8,145,178,0)}}.ea-tl-active{animation:eaTlPulse 2s ease-in-out infinite}';
+      document.head.appendChild(st);
+    }
+
+    var pct = Math.round(((currentStep - 1) / 4) * 100);
+
+    var html = '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f,#0f172a);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px;position:relative">' +
+      '<div style="position:absolute;top:-30px;right:15%;width:100px;height:100px;background:radial-gradient(circle,rgba(8,145,178,.12),transparent 70%);border-radius:50%"></div>' +
+      '<div style="padding:16px 28px 10px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div style="display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' +
+      '<span style="font-size:14px;font-weight:700;color:#e0f2fe">Progreso del Expediente</span></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><div style="width:80px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:3px"></div></div>' +
+      '<span style="font-size:12px;color:#06b6d4;font-weight:700">Paso ' + currentStep + '/5</span></div></div>' +
+      '<div style="padding:10px 20px 22px;display:flex;align-items:flex-start;justify-content:center;gap:0">';
 
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
       var isCompleted = s.num < currentStep;
       var isActive = s.num === currentStep;
-      var color = isCompleted ? completedColor : isActive ? activeColor : '#cbd5e1';
-      var textColor = isCompleted ? '#065f46' : isActive ? '#0c4a6e' : '#94a3b8';
-      var circleSize = isActive ? '40px' : '34px';
 
-      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;min-width:0">';
-      html += '<div style="width:' + circleSize + ';height:' + circleSize + ';border-radius:50%;display:flex;align-items:center;justify-content:center;';
-      if (isCompleted) html += 'background:' + completedColor + ';box-shadow:0 0 0 3px #d1fae5';
-      else if (isActive) html += 'background:linear-gradient(135deg,' + activeColor + ',#06b6d4);box-shadow:0 0 0 3px #e0f2fe,0 4px 12px rgba(8,145,178,.25)';
-      else html += 'background:#f1f5f9;border:2px solid #e2e8f0';
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;max-width:110px">';
+      html += '<div class="' + (isActive ? 'ea-tl-active' : '') + '" style="width:' + (isActive ? '44px' : '36px') + ';height:' + (isActive ? '44px' : '36px') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;';
+      if (isCompleted) html += 'background:linear-gradient(135deg,#10b981,#34d399);box-shadow:0 4px 12px rgba(16,185,129,.35),0 0 0 3px rgba(16,185,129,.15)';
+      else if (isActive) html += 'background:linear-gradient(135deg,#0891b2,#06b6d4,#22d3ee);box-shadow:0 6px 16px rgba(8,145,178,.4),0 0 0 3px rgba(8,145,178,.2)';
+      else html += 'background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.1)';
       html += '">';
-      if (isCompleted) html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
-      else html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : '#94a3b8') + '" stroke-width="2">' + s.icon + '</svg>';
+      if (isCompleted) html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+      else html += '<svg width="' + (isActive ? '18' : '14') + '" height="' + (isActive ? '18' : '14') + '" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : 'rgba(255,255,255,.25)') + '" stroke-width="2">' + s.icon + '</svg>';
       html += '</div>';
-      html += '<p style="margin:6px 0 0;font-size:11px;font-weight:' + (isActive ? '700' : isCompleted ? '600' : '400') + ';color:' + textColor + ';text-align:center">' + s.label + '</p>';
+      html += '<p style="margin:8px 0 0;font-size:' + (isActive ? '11px' : '10px') + ';font-weight:' + (isActive ? '700' : isCompleted ? '600' : '400') + ';color:' + (isCompleted ? '#34d399' : isActive ? '#fff' : 'rgba(255,255,255,.3)') + ';text-align:center">' + s.label + '</p>';
       html += '</div>';
       if (i < steps.length - 1) {
-        var lineColor = (i + 1) < currentStep ? completedColor : '#e2e8f0';
-        html += '<div style="flex:0 0 auto;width:40px;height:3px;margin-top:' + (isActive ? '18px' : '16px') + ';background:' + lineColor + ';border-radius:2px"></div>';
+        var cTop = isActive ? '20px' : '17px';
+        html += '<div style="flex:1;max-width:50px;height:3px;margin-top:' + cTop + ';background:' + (isCompleted ? 'linear-gradient(90deg,#10b981,#34d399)' : (i + 1 === currentStep - 1) ? 'linear-gradient(90deg,#10b981,#0891b2)' : 'rgba(255,255,255,.06)') + ';border-radius:2px;' + (isCompleted ? 'box-shadow:0 0 6px rgba(16,185,129,.25)' : '') + '"></div>';
       }
     }
 
-    html += '</div></div></div>';
+    html += '</div></div>';
     return html;
   }
 
