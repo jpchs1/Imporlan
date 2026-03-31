@@ -550,7 +550,16 @@
       }
     }
 
-    html += '</div></div>';
+    // Admin controls: advance/retrocede buttons
+    html += '</div>' +
+      '<div style="padding:10px 28px 18px;display:flex;align-items:center;justify-content:center;gap:12px">' +
+      '<button id="ea-tl-prev" style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .2s"' + (currentStep <= 1 ? ' disabled style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:rgba(255,255,255,.15);font-size:12px;font-weight:600;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px"' : '') + '>' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Retroceder</button>' +
+      '<span style="font-size:12px;color:rgba(255,255,255,.5);font-weight:500">Paso ' + currentStep + ' de 5</span>' +
+      '<button id="ea-tl-next" style="padding:7px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.3)"' + (currentStep >= 5 ? ' disabled style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:rgba(255,255,255,.15);font-size:12px;font-weight:600;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px"' : '') + '>' +
+      'Avanzar <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div>';
+
+    html += '</div>';
     return html;
   }
 
@@ -1823,6 +1832,44 @@
       loadReportsList(currentOrderData.id);
       loadExpedienteFiles(currentOrderData.id);
       initFileUploadUI(currentOrderData.id);
+      initTimelineControls(currentOrderData);
+    }
+  }
+
+  function initTimelineControls(order) {
+    var prevBtn = document.getElementById('ea-tl-prev');
+    var nextBtn = document.getElementById('ea-tl-next');
+    if (!prevBtn || !nextBtn) return;
+
+    prevBtn.addEventListener('click', function() { changeTimelineStep(order.id, -1); });
+    nextBtn.addEventListener('click', function() { changeTimelineStep(order.id, 1); });
+  }
+
+  async function changeTimelineStep(orderId, direction) {
+    var currentStep = currentOrderData ? (parseInt(currentOrderData.timeline_step) || 1) : 1;
+    var newStep = currentStep + direction;
+    if (newStep < 1 || newStep > 5) return;
+
+    var stepLabels = {1:'Plan Contratado',2:'Busqueda Activa',3:'Inspeccion Tecnica',4:'Compra',5:'Logistica & Envio'};
+    if (!confirm('Mover a Paso ' + newStep + ': ' + stepLabels[newStep] + '?')) return;
+
+    try {
+      var resp = await fetch(API_BASE + '/orders_api.php?action=admin_update', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: orderId, timeline_step: newStep }),
+      });
+      var data = await resp.json();
+      if (data.success) {
+        showToast('Paso actualizado a: ' + stepLabels[newStep], 'success');
+        currentOrderData.timeline_step = newStep;
+        // Re-render entire module to update timeline
+        renderModule();
+      } else {
+        showToast(data.error || 'Error al actualizar paso', 'error');
+      }
+    } catch (e) {
+      showToast('Error de conexion', 'error');
     }
   }
 
