@@ -539,44 +539,98 @@
     }
   }
 
-  // ── PayPal payment ──
+  // ── PayPal payment (Smart Buttons) ──
   async function processPayPalPayment(req, userEmail, userName, userInfo) {
-    try {
-      var amountUSD = req.amount_usd;
-      if (!amountUSD || amountUSD <= 0) {
-        // Convert CLP to USD approximately if not provided
-        amountUSD = Math.ceil(req.amount_clp / 950);
-      }
-      showLoading("Procesando con PayPal...");
-      var response = await fetch(PAYMENT_API_BASE + "/paypal.php?action=create_order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: amountUSD,
-          description: req.title + (req.description ? " - " + req.description : ""),
-          plan_name: req.title,
-          currency: "USD",
-          payer_email: userEmail,
-          payer_name: userName,
-          payer_phone: userInfo.phone || "",
-          country: "Chile",
-          payment_request_id: req.id
-        })
+    var amountUSD = req.amount_usd;
+    if (!amountUSD || amountUSD <= 0) {
+      amountUSD = Math.max(1, Math.round(req.amount_clp / 950 * 100) / 100);
+    }
+    var desc = req.title + (req.description ? " - " + req.description : "");
+
+    // Show modal with Smart Buttons
+    var existing = document.getElementById("pr-paypal-modal");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "pr-paypal-modal";
+    overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:prFadeIn .2s ease";
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:440px;box-shadow:0 25px 60px rgba(0,0,0,.25);overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#003087,#0070ba);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">' +
+      '<span style="font-size:20px;font-weight:800;color:#fff;font-style:italic">PayPal</span>' +
+      '<button id="pr-pp-close" style="width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:18px">&times;</button></div>' +
+      '<div style="padding:20px 24px">' +
+      '<div style="background:#f8fafc;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><p style="margin:0;font-size:12px;color:#64748b">Solicitud</p><p style="margin:2px 0 0;font-size:14px;font-weight:600;color:#1e293b">' + (req.title || "Pago") + '</p></div>' +
+      '<div style="text-align:right"><p style="margin:0;font-size:12px;color:#64748b">Monto</p><p style="margin:2px 0 0;font-size:18px;font-weight:700;color:#003087">$' + parseFloat(amountUSD).toFixed(2) + ' USD</p></div></div>' +
+      '<div id="pr-paypal-buttons" style="min-height:120px"><div style="text-align:center;padding:20px;color:#64748b;font-size:13px">Cargando PayPal...</div></div>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById("pr-pp-close").addEventListener("click", function() { overlay.remove(); });
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) overlay.remove(); });
+
+    function renderButtons() {
+      if (typeof paypal === "undefined" || typeof paypal.Buttons !== "function") return;
+      var container = document.getElementById("pr-paypal-buttons");
+      if (!container) return;
+      container.innerHTML = "";
+
+      paypal.Buttons({
+        style: { layout: "vertical", color: "gold", shape: "rect", label: "paypal", tagline: false },
+        createOrder: function() {
+          return fetch(PAYMENT_API_BASE + "/paypal.php?action=create_order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: parseFloat(amountUSD),
+              description: desc,
+              plan_name: req.title,
+              currency: "USD",
+              payer_email: userEmail,
+              payer_name: userName,
+              payer_phone: userInfo.phone || "",
+              country: "Chile",
+              payment_request_id: req.id
+            })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success && data.order_id) return data.order_id;
+            throw new Error(data.error || "Error al crear orden PayPal");
+          });
+        },
+        onApprove: function(data) {
+          showLoading("Procesando pago PayPal...");
+          return fetch(PAYMENT_API_BASE + "/paypal.php?action=capture_order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: data.orderID })
+          }).then(function(r) { return r.json(); }).then(function(result) {
+            hideLoading();
+            overlay.remove();
+            if (result.success) {
+              alert("Pago procesado exitosamente! Recibiras un email de confirmacion.");
+              loadPaymentRequests();
+            } else {
+              alert("Error al capturar pago: " + (result.error || "Intente nuevamente"));
+            }
+          });
+        },
+        onCancel: function() { /* modal stays open */ },
+        onError: function(err) { console.error("[PaymentRequests] PayPal error:", err); }
+      }).render("#pr-paypal-buttons");
+    }
+
+    if (typeof paypal !== "undefined" && typeof paypal.Buttons === "function") {
+      renderButtons();
+    } else {
+      fetch(PAYMENT_API_BASE + "/paypal.php?action=get_client_id").then(function(r) { return r.json(); }).then(function(cfg) {
+        if (!cfg.client_id) return;
+        var sdkDomain = (cfg.environment === "production") ? "www.paypal.com" : "www.sandbox.paypal.com";
+        var script = document.createElement("script");
+        script.src = "https://" + sdkDomain + "/sdk/js?client-id=" + cfg.client_id + "&currency=USD&components=buttons&enable-funding=card";
+        script.onload = renderButtons;
+        document.head.appendChild(script);
       });
-      var data = await response.json();
-      hideLoading();
-      if (data.success && data.order_id) {
-        var approvalUrl = data.approval_url ||
-          (data.links && data.links.find(function (l) { return l.rel === "approve"; }) || {}).href ||
-          "https://www.paypal.com/checkoutnow?token=" + data.order_id;
-        window.location.href = approvalUrl;
-      } else {
-        alert("Error al procesar con PayPal: " + (data.error || data.message || "Error desconocido"));
-      }
-    } catch (error) {
-      hideLoading();
-      console.error("[PaymentRequests] PayPal error:", error);
-      alert("Error al conectar con PayPal. Por favor intente nuevamente.");
     }
   }
 
