@@ -357,7 +357,7 @@
               // Create container for button and text
               const publicarContainer = document.createElement('div');
               publicarContainer.className = 'publicar-container';
-              publicarContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; margin-left: 40px;';
+              publicarContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; margin-left: 70px;';
               
               const publicarBtn = document.createElement('button');
               publicarBtn.className = 'publicar-btn publicar-btn-modern';
