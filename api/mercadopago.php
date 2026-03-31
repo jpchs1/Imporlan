@@ -166,17 +166,18 @@ function createPreference() {
         'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
     ]);
     
-    // Only send cotización email for regular quotation payments, NOT for payment requests
-    if (!$paymentRequestId) {
+    // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
+    $boatLinksMp = $input['boat_links'] ?? [];
+    $sourceMp = $input['source'] ?? '';
+    if (!$paymentRequestId && !empty($boatLinksMp) && !empty($payerEmail) && $sourceMp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
-            $boatLinks = $input['boat_links'] ?? [];
             $emailService->sendQuotationRequestNotification([
                 'name' => $payerName ?? 'Cliente',
-                'email' => $payerEmail ?? '',
+                'email' => $payerEmail,
                 'phone' => $input['payer_phone'] ?? '',
                 'country' => $input['country'] ?? 'Chile',
-                'boat_links' => $boatLinks
+                'boat_links' => $boatLinksMp
             ]);
         } catch (Exception $e) {
             $logFile = __DIR__ . '/mp_webhooks.log';

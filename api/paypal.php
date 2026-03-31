@@ -169,17 +169,20 @@ function createOrder() {
         'status' => $order['status']
     ]);
     
-    // Only send cotización email for regular quotation payments, NOT for payment requests
+    // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
     $paymentRequestId = $input['payment_request_id'] ?? null;
-    if (!$paymentRequestId) {
+    $boatLinksPp = $input['boat_links'] ?? [];
+    $payerEmailPp = $input['payer_email'] ?? '';
+    $sourcePp = $input['source'] ?? '';
+    if (!$paymentRequestId && !empty($boatLinksPp) && !empty($payerEmailPp) && $sourcePp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
             $emailService->sendQuotationRequestNotification([
                 'name' => $input['payer_name'] ?? 'Cliente',
-                'email' => $input['payer_email'] ?? '',
+                'email' => $payerEmailPp,
                 'phone' => $input['payer_phone'] ?? '',
                 'country' => $input['country'] ?? 'Chile',
-                'boat_links' => $input['boat_links'] ?? []
+                'boat_links' => $boatLinksPp
             ]);
         } catch (Exception $e) {
             $logFile = __DIR__ . '/paypal.log';
