@@ -356,47 +356,100 @@
   }
 
   async function processRealPayPal(amountUSD, description) {
-    try {
-      var parsedAmount = parseFloat(amountUSD);
-      if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        originalAlert('Error: Monto de pago invalido.');
-        return;
-      }
-      showLoadingOverlay('Procesando pago con PayPal...');
+    var parsedAmount = parseFloat(amountUSD);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      originalAlert('Error: Monto de pago invalido.');
+      return;
+    }
 
-      var userInfo = extractUserInfo();
-      var boatLinks = extractBoatLinksFromPage();
-      console.log('PayPal: boat_links extracted:', boatLinks);
+    var userInfo = extractUserInfo();
+    var boatLinks = extractBoatLinksFromPage();
 
-      var response = await fetch(API_BASE + '/paypal.php?action=create_order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: parsedAmount,
-          description: description || 'Pago Imporlan',
-          plan_name: description || 'Pago Imporlan',
-          currency: 'USD',
-          payer_email: userInfo.email,
-          payer_name: userInfo.name,
-          payer_phone: userInfo.phone,
-          country: 'Chile',
-          boat_links: boatLinks
-        })
+    // Show modal with Smart Buttons instead of redirect
+    var existing = document.getElementById('po-paypal-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'po-paypal-modal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:440px;box-shadow:0 25px 60px rgba(0,0,0,.25);overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#003087,#0070ba);padding:20px 24px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:20px;font-weight:800;color:#fff;font-style:italic">PayPal</span></div>' +
+      '<button id="po-pp-close" style="width:32px;height:32px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:18px">&times;</button></div>' +
+      '<div style="padding:20px 24px">' +
+      '<div style="background:#f8fafc;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><p style="margin:0;font-size:12px;color:#64748b">Concepto</p><p style="margin:2px 0 0;font-size:14px;font-weight:600;color:#1e293b">' + (description || 'Pago Imporlan') + '</p></div>' +
+      '<div style="text-align:right"><p style="margin:0;font-size:12px;color:#64748b">Monto</p><p style="margin:2px 0 0;font-size:18px;font-weight:700;color:#003087">$' + parsedAmount.toFixed(2) + ' USD</p></div></div>' +
+      '<div id="po-paypal-buttons" style="min-height:120px"><div style="text-align:center;padding:20px;color:#64748b;font-size:13px">Cargando PayPal...</div></div>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('po-pp-close').addEventListener('click', function() { overlay.remove(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    // Load PayPal SDK and render Smart Buttons
+    function renderButtons() {
+      if (typeof paypal === 'undefined' || typeof paypal.Buttons !== 'function') return;
+      var container = document.getElementById('po-paypal-buttons');
+      if (!container) return;
+      container.innerHTML = '';
+
+      paypal.Buttons({
+        style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
+        createOrder: function() {
+          return fetch(API_BASE + '/paypal.php?action=create_order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: parsedAmount,
+              description: description || 'Pago Imporlan',
+              plan_name: description || 'Pago Imporlan',
+              currency: 'USD',
+              payer_email: userInfo.email,
+              payer_name: userInfo.name,
+              payer_phone: userInfo.phone,
+              country: 'Chile',
+              boat_links: boatLinks
+            })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success && data.order_id) return data.order_id;
+            throw new Error(data.error || 'Error al crear orden PayPal');
+          });
+        },
+        onApprove: function(data) {
+          showLoadingOverlay('Procesando pago PayPal...');
+          return fetch(API_BASE + '/paypal.php?action=capture_order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: data.orderID })
+          }).then(function(r) { return r.json(); }).then(function(result) {
+            hideLoadingOverlay();
+            overlay.remove();
+            if (result.success) {
+              originalAlert('Pago procesado exitosamente! Recibiras un email de confirmacion.');
+              window.location.hash = '#myproducts';
+            } else {
+              originalAlert('Error al capturar pago: ' + (result.error || 'Intente nuevamente'));
+            }
+          });
+        },
+        onCancel: function() { /* user cancelled, modal stays open */ },
+        onError: function(err) { console.error('PayPal error:', err); }
+      }).render('#po-paypal-buttons');
+    }
+
+    if (typeof paypal !== 'undefined' && typeof paypal.Buttons === 'function') {
+      renderButtons();
+    } else {
+      fetch(API_BASE + '/paypal.php?action=get_client_id').then(function(r) { return r.json(); }).then(function(cfg) {
+        if (!cfg.client_id) return;
+        var sdkDomain = (cfg.environment === 'production') ? 'www.paypal.com' : 'www.sandbox.paypal.com';
+        var script = document.createElement('script');
+        script.src = 'https://' + sdkDomain + '/sdk/js?client-id=' + cfg.client_id + '&currency=USD&components=buttons&enable-funding=card';
+        script.onload = renderButtons;
+        document.head.appendChild(script);
       });
-      var data = await response.json();
-      hideLoadingOverlay();
-      if (data.success && data.order_id) {
-        var approvalUrl = data.approval_url ||
-          (data.links && data.links.find(function(l) { return l.rel === 'approve'; }) && data.links.find(function(l) { return l.rel === 'approve'; }).href) ||
-          'https://www.paypal.com/checkoutnow?token=' + data.order_id;
-        window.location.href = approvalUrl;
-      } else {
-        var errorMsg = data.error || data.message || 'Error desconocido';
-        originalAlert('Error al procesar el pago con PayPal: ' + errorMsg);
-      }
-    } catch (error) {
-      hideLoadingOverlay();
-      originalAlert('Error al conectar con PayPal. Por favor intente nuevamente.');
     }
   }
 
