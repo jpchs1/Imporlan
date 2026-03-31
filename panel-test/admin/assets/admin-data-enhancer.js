@@ -830,13 +830,13 @@
   }
 
   function loadPlanes(container) {
-    fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
+    fetch(API_BASE + "/settings_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) {
         if (!r.ok && !planesMigrationAttempted) {
           planesMigrationAttempted = true;
-          return fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+          return fetch(API_BASE + "/settings_api.php?action=migrate", { headers: authHeaders() })
             .then(function() {
-              return fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" });
+              return fetch(API_BASE + "/settings_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" });
             })
             .then(function(r2) { return r2.json(); });
         }
@@ -853,7 +853,7 @@
         console.warn("Error loading planes:", err);
         if (!planesMigrationAttempted) {
           planesMigrationAttempted = true;
-          fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+          fetch(API_BASE + "/settings_api.php?action=migrate", { headers: authHeaders() })
             .then(function() { loadPlanes(container); })
             .catch(function() {
               var grid = container.querySelector("#enhancer-plans-grid");
@@ -919,7 +919,7 @@
       btn.onclick = function() {
         var id = parseInt(this.getAttribute("data-id"));
         if (!confirm("Eliminar este plan?")) return;
-        fetch(API_BASE + "/config_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+        fetch(API_BASE + "/settings_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
           .then(function(r) { return r.json(); })
           .then(function(d) { if (d.success) loadPlanes(container); else alert(d.error || "Error"); });
       };
@@ -971,7 +971,7 @@
       };
       var action = isEdit ? "plans_update" : "plans_create";
       if (isEdit) payload.id = plan.id;
-      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+      fetch(API_BASE + "/settings_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) { modal.remove(); loadPlanes(container); }
@@ -1327,7 +1327,7 @@
   }
 
   function loadPlans(content) {
-    fetch(API_BASE + "/config_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
+    fetch(API_BASE + "/settings_api.php?action=plans_list", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         plansCache = data.plans || [];
@@ -1368,7 +1368,7 @@
           btn.onclick = function() {
             var id = parseInt(this.getAttribute("data-id"));
             if (!confirm("¿Eliminar este plan?")) return;
-            fetch(API_BASE + "/config_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+            fetch(API_BASE + "/settings_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadPlans(content); else alert(d.error || "Error"); });
           };
         });
@@ -1413,7 +1413,7 @@
       };
       var action = isEdit ? "plans_update" : "plans_create";
       if (isEdit) payload.id = plan.id;
-      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+      fetch(API_BASE + "/settings_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
         .then(function(r) { return r.json(); }).then(function(d) {
           if (d.success) { modal.remove(); loadPlans(content); }
           else alert(d.error || "Error");
@@ -1422,7 +1422,7 @@
   }
 
   function loadAgents(content) {
-    fetch(API_BASE + "/config_api.php?action=agents_list", { headers: authHeaders(), cache: "no-store" })
+    fetch(API_BASE + "/settings_api.php?action=agents_list", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         agentsCache = data.agents || [];
@@ -1459,7 +1459,7 @@
           btn.onclick = function() {
             var id = parseInt(this.getAttribute("data-id"));
             if (!confirm("¿Eliminar este agente?")) return;
-            fetch(API_BASE + "/config_api.php?action=agents_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
+            fetch(API_BASE + "/settings_api.php?action=agents_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadAgents(content); else alert(d.error || "Error"); });
           };
         });
@@ -1500,7 +1500,7 @@
       };
       var action = isEdit ? "agents_update" : "agents_create";
       if (isEdit) payload.id = agent.id;
-      fetch(API_BASE + "/config_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
+      fetch(API_BASE + "/settings_api.php?action=" + action, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) })
         .then(function(r) { return r.json(); }).then(function(d) {
           if (d.success) { modal.remove(); loadAgents(content); }
           else alert(d.error || "Error");
@@ -1509,7 +1509,7 @@
   }
 
   function loadPricing(content) {
-    fetch(API_BASE + "/config_api.php?action=pricing_get", { headers: authHeaders(), cache: "no-store" })
+    fetch(API_BASE + "/settings_api.php?action=pricing_get", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var pricing = data.pricing || {};
@@ -1537,7 +1537,7 @@
           content.querySelectorAll(".cfg-pricing-input").forEach(function(inp) {
             configs[inp.getAttribute("data-key")] = inp.value.trim();
           });
-          fetch(API_BASE + "/config_api.php?action=pricing_update", { method: "POST", headers: authHeaders(), body: JSON.stringify({ configs: configs }) })
+          fetch(API_BASE + "/settings_api.php?action=pricing_update", { method: "POST", headers: authHeaders(), body: JSON.stringify({ configs: configs }) })
             .then(function(r) { return r.json(); }).then(function(d) {
               if (d.success) alert("Precios actualizados"); else alert(d.error || "Error");
             });
