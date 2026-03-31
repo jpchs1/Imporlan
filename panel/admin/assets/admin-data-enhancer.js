@@ -1263,7 +1263,11 @@
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadPlans(content); else alert(d.error || "Error"); });
           };
         });
-      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar planes. Ejecute la migracion.</div>'; });
+      }).catch(function() {
+        fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+          .then(function() { loadPlans(content); })
+          .catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar planes. Verifique la conexion a la base de datos.</div>'; });
+      });
   }
 
   function openPlanModal(plan, content) {
@@ -1354,7 +1358,11 @@
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadAgents(content); else alert(d.error || "Error"); });
           };
         });
-      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar agentes. Ejecute la migracion.</div>'; });
+      }).catch(function() {
+        fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+          .then(function() { loadAgents(content); })
+          .catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar agentes. Verifique la conexion a la base de datos.</div>'; });
+      });
   }
 
   function openAgentModal(agent, content) {
@@ -1433,7 +1441,11 @@
               if (d.success) alert("Precios actualizados"); else alert(d.error || "Error");
             });
         };
-      }).catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar precios. Ejecute la migracion.</div>'; });
+      }).catch(function() {
+        fetch(API_BASE + "/config_api.php?action=migrate", { headers: authHeaders() })
+          .then(function() { loadPricing(content); })
+          .catch(function() { content.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;font-size:14px">Error al cargar precios. Verifique la conexion a la base de datos.</div>'; });
+      });
   }
 
   function injectConfigSidebar() {

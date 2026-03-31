@@ -172,6 +172,10 @@ function plansList() {
         $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'plans' => $plans, 'total' => count($plans)]);
     } catch (PDOException $e) {
+        if (strpos($e->getMessage(), "doesn't exist") !== false) {
+            configMigrate();
+            return;
+        }
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
@@ -252,6 +256,10 @@ function agentsList() {
         $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'agents' => $agents, 'total' => count($agents)]);
     } catch (PDOException $e) {
+        if (strpos($e->getMessage(), "doesn't exist") !== false) {
+            configMigrate();
+            return;
+        }
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
@@ -332,6 +340,10 @@ function pricingGet() {
         }
         echo json_encode(['success' => true, 'pricing' => $result]);
     } catch (PDOException $e) {
+        if (strpos($e->getMessage(), "doesn't exist") !== false) {
+            configMigrate();
+            return;
+        }
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
     }
