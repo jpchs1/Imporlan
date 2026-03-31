@@ -80,39 +80,6 @@
         max-height: 3000px;\
         opacity: 1;\
       }\
-      \
-      /* ---- Planes de Busqueda: equal-height cards fix ---- */\
-      .tr-planes-grid {\
-        display: grid !important;\
-        grid-template-columns: repeat(3, 1fr) !important;\
-        gap: 24px !important;\
-        align-items: stretch !important;\
-      }\
-      .tr-planes-grid > div {\
-        display: flex !important;\
-        flex-direction: column !important;\
-      }\
-      .tr-planes-card-inner {\
-        display: flex !important;\
-        flex-direction: column !important;\
-        flex: 1 !important;\
-        justify-content: space-between !important;\
-      }\
-      .tr-planes-card-bottom {\
-        margin-top: auto !important;\
-        padding-top: 16px !important;\
-      }\
-      @media (max-width: 768px) {\
-        .tr-planes-grid {\
-          grid-template-columns: 1fr !important;\
-        }\
-      }\
-      @media (min-width: 769px) and (max-width: 1023px) {\
-        .tr-planes-grid {\
-          grid-template-columns: repeat(3, 1fr) !important;\
-          gap: 16px !important;\
-        }\
-      }\
     ';
     document.head.appendChild(style);
   }
@@ -298,51 +265,9 @@
   // ============================================
 
   function reducePlanesSection() {
-    var planesSection = findSectionByHeading('Planes de Busqueda');
-    if (!planesSection) return false;
-
-    // Already processed
-    if (planesSection.querySelector('.tr-planes-grid')) return true;
-
-    // Find the grid container (md:grid-cols-3) that holds the plan cards
-    var gridContainer = null;
-    var divs = planesSection.querySelectorAll('div');
-    for (var d = 0; d < divs.length; d++) {
-      var cls = divs[d].className || '';
-      if (cls.indexOf('grid') !== -1 && cls.indexOf('grid-cols-3') !== -1) {
-        gridContainer = divs[d];
-        break;
-      }
-    }
-
-    if (!gridContainer) return false;
-
-    // Apply equal-height grid fix only (no collapsing - features always visible)
-    gridContainer.classList.add('tr-planes-grid');
-
-    var cards = gridContainer.children;
-    for (var c = 0; c < cards.length; c++) {
-      var card = cards[c];
-
-      // Push "Contratar Ahora" button to the bottom
-      var btn = card.querySelector('button');
-      if (btn && btn.textContent.indexOf('Contratar') !== -1) {
-        var bottomWrap = btn.closest('div');
-        if (bottomWrap && !bottomWrap.classList.contains('tr-planes-card-bottom')) {
-          bottomWrap.classList.add('tr-planes-card-bottom');
-        }
-      }
-
-      // Make the card's inner content flex-column
-      var innerContent = card.querySelector('[class*="p-8"], [class*="p-6"]');
-      if (innerContent) {
-        innerContent.classList.add('tr-planes-card-inner');
-      } else {
-        card.classList.add('tr-planes-card-inner');
-      }
-    }
-
+    // Disabled: planes de busqueda now show features directly without collapsible toggle
     return true;
+  }
   }
 
   // ============================================

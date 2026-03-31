@@ -265,45 +265,9 @@
   // ============================================
 
   function reducePlanesSection() {
-    var planesSection = findSectionByHeading('Planes de Busqueda');
-    if (!planesSection) return false;
-
-    // Already processed
-    if (planesSection.querySelector('.tr-collapsible-body')) return true;
-
-    // Find all <ul> elements inside pricing cards
-    var allUls = planesSection.querySelectorAll('ul');
-    if (allUls.length === 0) return false;
-
-    var processed = 0;
-    for (var i = 0; i < allUls.length; i++) {
-      var ul = allUls[i];
-      // Wrap each UL in collapsible container
-      var wrapper = document.createElement('div');
-      wrapper.className = 'tr-collapsible-body';
-      ul.parentNode.insertBefore(wrapper, ul);
-      wrapper.appendChild(ul);
-
-      // Find the price or h3 heading before this wrapper to make it toggle
-      var prevEl = wrapper.previousElementSibling;
-      while (prevEl && prevEl.tagName !== 'H3' && !prevEl.textContent.match(/CLP/)) {
-        prevEl = prevEl.previousElementSibling;
-      }
-
-      // Add a small "Ver detalles" link below the wrapper
-      var detailBtn = document.createElement('button');
-      detailBtn.className = 'tr-toggle-btn';
-      detailBtn.style.cssText = 'margin:10px auto 0;padding:8px 20px;font-size:0.8rem;';
-      detailBtn.setAttribute('aria-expanded', 'false');
-      detailBtn.innerHTML = '<span>Ver detalles</span>' + chevronSvg;
-      detailBtn._labelCollapsed = 'Ver detalles';
-      detailBtn._labelExpanded = 'Ocultar detalles';
-      wrapper.parentNode.insertBefore(detailBtn, wrapper.nextSibling);
-      attachToggle(detailBtn, wrapper, null);
-      processed++;
-    }
-
-    return processed > 0;
+    // Disabled: planes de busqueda now show features directly without collapsible toggle
+    return true;
+  }
   }
 
   // ============================================
