@@ -220,8 +220,12 @@ if (preg_match('#^/api/admin(/|$)#', $path)) {
             echo json_encode(['items' => [], 'total' => 0, 'pages' => 0]);
             break;
         case 'plans':
-        case 'content':
-            echo json_encode(['items' => []]);
+            // Return real plans data
+            echo json_encode(['items' => [
+                ['id' => 'fragata', 'name' => 'Plan Fragata', 'description' => 'Monitoreo por 7 dias', 'price' => 67600, 'price_usd' => 67.60, 'currency' => 'CLP', 'status' => 'active', 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion'], 'created_at' => '2026-01-01T00:00:00'],
+                ['id' => 'capitan', 'name' => 'Plan Capitan de Navio', 'description' => 'Monitoreo por 14 dias', 'price' => 119600, 'price_usd' => 119.60, 'currency' => 'CLP', 'status' => 'active', 'popular' => true, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion'], 'created_at' => '2026-01-01T00:00:00'],
+                ['id' => 'almirante', 'name' => 'Plan Almirante', 'description' => 'Monitoreo por 21 dias', 'price' => 189600, 'price_usd' => 189.60, 'currency' => 'CLP', 'status' => 'active', 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', 'Reporte IA incluido'], 'created_at' => '2026-01-01T00:00:00']
+            ]]);
             break;
         default:
             echo json_encode(['items' => [], 'total' => 0, 'pages' => 0]);
