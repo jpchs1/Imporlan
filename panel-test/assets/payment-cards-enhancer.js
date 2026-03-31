@@ -245,6 +245,7 @@
       '<div style="margin-bottom:16px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Metodo de Pago</label>' +
       '<div style="display:flex;flex-direction:column;gap:8px" id="pce-methods">' + methodsHtml + '</div></div>' +
 
+      '<div id="pce-paypal-container" style="display:none;margin-bottom:16px;min-height:120px"></div>' +
       '<button id="pce-pay-btn" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(8,145,178,.35);transition:all .2s">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagar Ahora</button>' +
       '</div></div>';
@@ -270,21 +271,39 @@
     amountInput.focus();
 
     // Method selection
+    var paypalContainer = document.getElementById("pce-paypal-container");
+    var payBtn = document.getElementById("pce-pay-btn");
+
+    function updateMethodUI() {
+      document.querySelectorAll(".pce-method-card").forEach(function (c) {
+        var m = methods.find(function (x) { return x.id === c.getAttribute("data-method"); });
+        var sel = c.getAttribute("data-method") === selectedMethod;
+        c.style.borderColor = sel ? m.color : "#e2e8f0";
+        c.style.background = sel ? m.bg : "#fff";
+        var dot = c.querySelector("div:last-child");
+        dot.style.borderColor = sel ? m.color : "#cbd5e1";
+        dot.innerHTML = sel ? '<div style="width:12px;height:12px;border-radius:50%;background:' + m.color + '"></div>' : "";
+      });
+      // Show/hide PayPal Smart Buttons vs regular Pay button
+      if (selectedMethod === "paypal") {
+        payBtn.style.display = "none";
+        paypalContainer.style.display = "block";
+        loadPayPalSmartButtons(paypalContainer, userEmail, userName);
+      } else {
+        payBtn.style.display = "flex";
+        paypalContainer.style.display = "none";
+      }
+    }
+
     document.querySelectorAll(".pce-method-card").forEach(function (card) {
       card.addEventListener("click", function () {
         selectedMethod = this.getAttribute("data-method");
-        // Update selection UI
-        document.querySelectorAll(".pce-method-card").forEach(function (c) {
-          var m = methods.find(function (x) { return x.id === c.getAttribute("data-method"); });
-          var sel = c.getAttribute("data-method") === selectedMethod;
-          c.style.borderColor = sel ? m.color : "#e2e8f0";
-          c.style.background = sel ? m.bg : "#fff";
-          var dot = c.querySelector("div:last-child");
-          dot.style.borderColor = sel ? m.color : "#cbd5e1";
-          dot.innerHTML = sel ? '<div style="width:12px;height:12px;border-radius:50%;background:' + m.color + '"></div>' : "";
-        });
+        updateMethodUI();
       });
     });
+
+    // If default is paypal, init immediately
+    if (defaultMethod === "paypal") updateMethodUI();
 
     // Close
     document.getElementById("pce-close").addEventListener("click", function () { overlay.remove(); });
@@ -305,6 +324,99 @@
       overlay.remove();
       processDirectPayment(selectedMethod, amount, concept, userName, userEmail);
     });
+  }
+
+  var paypalSmartButtonsLoaded = false;
+
+  function loadPayPalSmartButtons(container, email, name) {
+    if (paypalSmartButtonsLoaded) return;
+
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px">Cargando PayPal...</div>';
+
+    function renderButtons() {
+      if (typeof paypal === "undefined" || typeof paypal.Buttons !== "function") return;
+      container.innerHTML = '';
+      paypalSmartButtonsLoaded = true;
+
+      paypal.Buttons({
+        style: { layout: "vertical", color: "gold", shape: "rect", label: "paypal", tagline: false },
+        createOrder: function () {
+          var amountInput = document.getElementById("pce-amount");
+          var conceptInput = document.getElementById("pce-concept");
+          var rawAmount = ((amountInput ? amountInput.value : "") || "").replace(/\D/g, "");
+          var amount = parseInt(rawAmount);
+          var concept = ((conceptInput ? conceptInput.value : "") || "").trim() || "Pago Imporlan";
+
+          if (!amount || amount < 1000) {
+            if (amountInput) { amountInput.style.borderColor = "#ef4444"; amountInput.focus(); }
+            return Promise.reject(new Error("Monto invalido"));
+          }
+
+          var usdAmount = Math.max(1, Math.round(amount / 950 * 100) / 100).toFixed(2);
+          return fetch("/api/paypal.php?action=create_order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: parseFloat(usdAmount),
+              description: concept,
+              currency: "USD",
+              plan_name: concept,
+              payer_email: email,
+              payer_name: name,
+              type: "pago_directo",
+              source: "panel_pagos"
+            })
+          }).then(function (r) { return r.json(); }).then(function (result) {
+            if (result.success && result.order_id) return result.order_id;
+            throw new Error(result.error || "Error al crear orden PayPal");
+          });
+        },
+        onApprove: function (data) {
+          showPaymentLoading("Procesando pago PayPal...");
+          return fetch("/api/paypal.php?action=capture_order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: data.orderID })
+          }).then(function (r) { return r.json(); }).then(function (result) {
+            hidePaymentLoading();
+            var modal = document.getElementById("pce-quick-pay-modal");
+            if (modal) modal.remove();
+            if (result.success) {
+              alert("Pago procesado exitosamente! Recibiras un email de confirmacion.");
+              window.location.hash = "#myproducts";
+            } else {
+              alert("Error al capturar pago: " + (result.error || "Intente nuevamente"));
+            }
+          });
+        },
+        onCancel: function () {
+          container.innerHTML = '<p style="text-align:center;padding:12px;color:#f59e0b;font-size:13px">Pago cancelado. Intenta nuevamente.</p>';
+          paypalSmartButtonsLoaded = false;
+          setTimeout(function () { loadPayPalSmartButtons(container, email, name); }, 1500);
+        },
+        onError: function (err) {
+          console.error("PayPal error:", err);
+          container.innerHTML = '<p style="text-align:center;padding:12px;color:#ef4444;font-size:13px">Error con PayPal. Intenta nuevamente.</p>';
+          paypalSmartButtonsLoaded = false;
+        }
+      }).render(container);
+    }
+
+    // Load PayPal SDK if not already loaded
+    if (typeof paypal !== "undefined" && typeof paypal.Buttons === "function") {
+      renderButtons();
+    } else {
+      fetch("/api/paypal.php?action=get_client_id").then(function (r) { return r.json(); }).then(function (cfg) {
+        if (!cfg.client_id) { container.innerHTML = '<p style="color:#ef4444;text-align:center">PayPal no configurado</p>'; return; }
+        var sdkDomain = (cfg.environment === "production") ? "www.paypal.com" : "www.sandbox.paypal.com";
+        var script = document.createElement("script");
+        script.src = "https://" + sdkDomain + "/sdk/js?client-id=" + cfg.client_id + "&currency=USD&components=buttons&enable-funding=card";
+        script.onload = renderButtons;
+        document.head.appendChild(script);
+      }).catch(function () {
+        container.innerHTML = '<p style="color:#ef4444;text-align:center;font-size:13px">Error cargando PayPal</p>';
+      });
+    }
   }
 
   function processDirectPayment(method, amount, concept, name, email) {
@@ -369,6 +481,7 @@
       }).catch(function () { hidePaymentLoading(); alert("Error de conexion con MercadoPago"); });
 
     } else if (method === "paypal") {
+      // PayPal uses Smart Buttons embedded in the modal - this path is a fallback
       showPaymentLoading("Conectando con PayPal...");
       var amountUSD = Math.ceil(amount / 950);
       fetch(API_BASE + "/paypal.php?action=create_order", {
