@@ -821,9 +821,17 @@
     hideReactContent(main);
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "plans");
-    container.style.cssText = "padding:20px 0";
-    container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-plan" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button></div>' +
-      '<div id="enhancer-plans-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">' + makeSkeletonTable(3, 3) + '</div>';
+    container.style.cssText = "padding:20px 0;max-width:1200px;margin:0 auto";
+    container.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">' +
+        '<div>' +
+          '<h1 style="margin:0;font-size:26px;font-weight:800;color:#0f172a">Planes de Busqueda</h1>' +
+          '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Gestiona los planes disponibles para tus clientes</p>' +
+        '</div>' +
+        '<button id="enhancer-new-plan" style="padding:12px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(16,185,129,.25);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 20px rgba(16,185,129,.35)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 16px rgba(16,185,129,.25)\'">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button>' +
+      '</div>' +
+      '<div id="enhancer-plans-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px">' + makeSkeletonTable(3, 3) + '</div>';
     main.appendChild(container);
     loadPlanes(container);
     return true;
@@ -867,36 +875,57 @@
   }
 
   function renderPlanCard(p) {
-    var activeBg = p.is_active == 1 ? "#10b981" : "#94a3b8";
-    var activeLabel = p.is_active == 1 ? "Activo" : "Inactivo";
+    var isActive = p.is_active == 1;
+    var activeBg = isActive ? "#10b981" : "#94a3b8";
+    var activeLabel = isActive ? "Activo" : "Inactivo";
     var featuresHtml = "";
     if (p.features) {
-      featuresHtml = '<div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px">';
+      featuresHtml = '<div style="margin:0 0 16px;display:flex;flex-direction:column;gap:6px">';
       p.features.split(",").forEach(function(f) {
-        if (f.trim()) featuresHtml += '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:500">' + esc(f.trim()) + '</span>';
+        var ft = f.trim();
+        if (!ft) return;
+        var isIncluded = ft.indexOf("\u2717") === -1 && ft.indexOf("\u2718") === -1;
+        featuresHtml += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:' + (isIncluded ? '#1e293b' : '#94a3b8') + '">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + (isIncluded ? '#10b981' : '#cbd5e1') + '" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+          '<span>' + esc(ft.replace(/^[\u2713\u2717\u2718\u2714\u2715]\s*/, '')) + '</span></div>';
       });
       featuresHtml += '</div>';
     }
-    return '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:24px;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
-      '<h3 style="margin:0;font-size:18px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>' +
-      '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + activeLabel + '</span></div>' +
-      '<p style="margin:0 0 16px;font-size:13px;color:#64748b;line-height:1.5">' + esc(p.description || '') + '</p>' +
-      '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
-      '<span style="padding:5px 12px;border-radius:8px;background:#f0f9ff;color:#0891b2;font-size:13px;font-weight:700">' + fmtCLP(p.price_clp || 0) + '</span>' +
-      '<span style="padding:5px 12px;border-radius:8px;background:#fef3c7;color:#d97706;font-size:13px;font-weight:700">USD $' + (p.price_usd || 0) + '</span></div>' +
-      '<div style="display:flex;gap:8px;margin-bottom:16px">' +
-      '<span style="padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.max_links || 0) + ' links</span>' +
-      '<span style="padding:4px 10px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.duration_days || 0) + ' dias</span></div>' +
-      featuresHtml +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:16px">' +
-      '<button class="enhancer-edit-plan" data-id="' + p.id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
-      '<button class="enhancer-delete-plan" data-id="' + p.id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></div>';
+    var borderColor = isActive ? '#e2e8f0' : '#fecaca';
+    return '<div style="background:#fff;border-radius:16px;border:1px solid ' + borderColor + ';overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,.1)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.06)\'">' +
+      '<div style="padding:20px 24px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
+          '<h3 style="margin:0;font-size:18px;font-weight:700;color:#0f172a">' + esc(p.name) + '</h3>' +
+          '<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + activeBg + '15;color:' + activeBg + ';white-space:nowrap">' + activeLabel + '</span>' +
+        '</div>' +
+        '<p style="margin:0;font-size:13px;color:#64748b;line-height:1.5">' + esc(p.description || '') + '</p>' +
+      '</div>' +
+      '<div style="padding:20px 24px">' +
+        '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">' +
+          '<span style="font-size:28px;font-weight:800;color:#0891b2">' + fmtCLP(p.price_clp || 0) + '</span>' +
+        '</div>' +
+        '<div style="font-size:13px;color:#64748b;margin-bottom:16px">USD $' + (p.price_usd || 0) + '</div>' +
+        '<div style="display:flex;gap:16px;margin-bottom:16px;padding:12px 16px;background:#f8fafc;border-radius:10px">' +
+          '<div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#1e293b">' + (p.max_links || 0) + '</div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;letter-spacing:.05em">Links</div></div>' +
+          '<div style="width:1px;background:#e2e8f0"></div>' +
+          '<div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#1e293b">' + (p.duration_days || 0) + '</div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;letter-spacing:.05em">Dias</div></div>' +
+        '</div>' +
+        featuresHtml +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:16px">' +
+          '<button class="enhancer-edit-plan" data-id="' + p.id + '" style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'#0891b2\';this.style.color=\'#0891b2\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:4px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar</button>' +
+          '<button class="enhancer-delete-plan" data-id="' + p.id + '" style="padding:8px 16px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'#ef4444\';this.style.color=\'#ef4444\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>' +
+        '</div>' +
+      '</div></div>';
   }
 
   function renderPlanesGrid(plans, grid, container) {
     if (plans.length === 0) {
-      grid.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;grid-column:1/-1">No hay planes. Crea uno nuevo.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;padding:60px 40px;text-align:center;background:#fff;border-radius:16px;border:2px dashed #e2e8f0">' +
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 16px;display:block"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>' +
+        '<p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#475569">No hay planes creados</p>' +
+        '<p style="margin:0;font-size:13px;color:#94a3b8">Crea tu primer plan de busqueda para tus clientes</p></div>';
     } else {
       var html = "";
       plans.forEach(function(p) { html += renderPlanCard(p); });
@@ -1295,20 +1324,25 @@
       var container = document.createElement("div");
       container.setAttribute("data-enhancer-added", "config");
       container.style.cssText = "padding:20px 0;max-width:1200px;margin:0 auto";
-      container.innerHTML = '<h1 style="font-size:24px;font-weight:700;color:#1e293b;margin:0 0 20px">Configuracion</h1>' +
-        '<div style="display:flex;gap:8px;margin-bottom:20px">' +
-        '<button class="cfg-tab" data-tab="plans" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#0891b2;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Planes</button>' +
-        '<button class="cfg-tab" data-tab="agents" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Agentes</button>' +
-        '<button class="cfg-tab" data-tab="pricing" style="padding:10px 20px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:14px;font-weight:600;cursor:pointer">Precios</button></div>' +
+      var svgPlans = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>';
+      var svgAgents = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+      var svgPricing = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+      container.innerHTML = '<div style="margin-bottom:24px">' +
+        '<h1 style="margin:0;font-size:26px;font-weight:800;color:#0f172a">Configuracion</h1>' +
+        '<p style="margin:4px 0 0;font-size:14px;color:#64748b">Administra planes, agentes y precios del sistema</p></div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:24px;padding:4px;background:#f1f5f9;border-radius:12px;width:fit-content">' +
+        '<button class="cfg-tab" data-tab="plans" style="padding:10px 20px;border-radius:9px;border:none;background:#fff;color:#0f172a;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .15s">' + svgPlans + ' Planes</button>' +
+        '<button class="cfg-tab" data-tab="agents" style="padding:10px 20px;border-radius:9px;border:none;background:transparent;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s">' + svgAgents + ' Agentes</button>' +
+        '<button class="cfg-tab" data-tab="pricing" style="padding:10px 20px;border-radius:9px;border:none;background:transparent;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s">' + svgPricing + ' Precios</button></div>' +
         '<div id="cfg-content">' + makeSkeletonTable(3, 3) + '</div>';
       main.appendChild(container);
       container.querySelectorAll(".cfg-tab").forEach(function(btn) {
         btn.onclick = function() {
           configTab = this.getAttribute("data-tab");
           container.querySelectorAll(".cfg-tab").forEach(function(b) {
-            b.style.background = "#fff"; b.style.color = "#64748b";
+            b.style.background = "transparent"; b.style.color = "#64748b"; b.style.boxShadow = "none";
           });
-          this.style.background = "#0891b2"; this.style.color = "#fff";
+          this.style.background = "#fff"; this.style.color = "#0f172a"; this.style.boxShadow = "0 1px 3px rgba(0,0,0,.1)";
           loadConfigTab(container);
         };
       });
@@ -1331,28 +1365,15 @@
       .then(function(r) { return r.json(); })
       .then(function(data) {
         plansCache = data.plans || [];
-        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button id="cfg-new-plan" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button></div>';
+        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="cfg-new-plan" style="padding:10px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(16,185,129,.25);transition:transform .15s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Plan</button></div>';
         if (plansCache.length === 0) {
-          html += '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay planes</div>';
+          html += '<div style="padding:60px 40px;text-align:center;background:#fff;border-radius:16px;border:2px dashed #e2e8f0">' +
+            '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 16px;display:block"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>' +
+            '<p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#475569">No hay planes creados</p>' +
+            '<p style="margin:0;font-size:13px;color:#94a3b8">Crea tu primer plan de busqueda</p></div>';
         } else {
-          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">';
-          plansCache.forEach(function(p) {
-            var activeBg = p.is_active == 1 ? "#10b981" : "#94a3b8";
-            html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
-              '<h3 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">' + esc(p.name) + '</h3>' +
-              '<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + (p.is_active == 1 ? "Activo" : "Inactivo") + '</span></div>' +
-              '<p style="margin:0 0 12px;font-size:13px;color:#64748b">' + esc(p.description || '') + '</p>' +
-              '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
-              '<span style="padding:4px 8px;border-radius:6px;background:#f0f9ff;color:#0891b2;font-size:12px;font-weight:600">' + fmtCLP(p.price_clp || 0) + '</span>' +
-              '<span style="padding:4px 8px;border-radius:6px;background:#fef3c7;color:#d97706;font-size:12px;font-weight:600">USD $' + (p.price_usd || 0) + '</span>' +
-              '<span style="padding:4px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.max_links || 0) + ' links</span>' +
-              '<span style="padding:4px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:600">' + (p.duration_days || 0) + ' dias</span></div>' +
-              (p.features ? '<div style="margin-bottom:12px">' + p.features.split(',').map(function(f) { return '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:500;margin:2px 4px 2px 0">' + esc(f.trim()) + '</span>'; }).join('') + '</div>' : '') +
-              '<div style="display:flex;gap:6px;justify-content:flex-end">' +
-              '<button class="cfg-edit-plan" data-id="' + p.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
-              '<button class="cfg-delete-plan" data-id="' + p.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></div>';
-          });
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">';
+          plansCache.forEach(function(p) { html += renderPlanCard(p).replace(/enhancer-edit-plan/g, 'cfg-edit-plan').replace(/enhancer-delete-plan/g, 'cfg-delete-plan'); });
           html += '</div>';
         }
         content.innerHTML = html;
@@ -1367,7 +1388,7 @@
         content.querySelectorAll(".cfg-delete-plan").forEach(function(btn) {
           btn.onclick = function() {
             var id = parseInt(this.getAttribute("data-id"));
-            if (!confirm("¿Eliminar este plan?")) return;
+            if (!confirm("Eliminar este plan?")) return;
             fetch(API_BASE + "/settings_api.php?action=plans_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadPlans(content); else alert(d.error || "Error"); });
           };
@@ -1426,29 +1447,44 @@
   }
 
   function loadAgents(content) {
+    var agentColors = ['#8b5cf6,#7c3aed','#0891b2,#06b6d4','#f59e0b,#d97706','#ef4444,#dc2626','#10b981,#059669','#6366f1,#4f46e5'];
     fetch(API_BASE + "/settings_api.php?action=agents_list", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         agentsCache = data.agents || [];
-        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button id="cfg-new-agent" style="padding:8px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Agente</button></div>';
+        var html = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="cfg-new-agent" style="padding:10px 22px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(16,185,129,.25);transition:transform .15s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Agente</button></div>';
         if (agentsCache.length === 0) {
-          html += '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay agentes</div>';
+          html += '<div style="padding:60px 40px;text-align:center;background:#fff;border-radius:16px;border:2px dashed #e2e8f0">' +
+            '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 16px;display:block"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+            '<p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#475569">No hay agentes registrados</p>' +
+            '<p style="margin:0;font-size:13px;color:#94a3b8">Agrega agentes para asignarlos a expedientes</p></div>';
         } else {
-          var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
-          html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden"><table style="width:100%;border-collapse:collapse"><thead><tr>' +
-            '<th style="' + thS + '">Agente</th><th style="' + thS + '">Contacto</th><th style="' + thS + '">Especialidad</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Acciones</th></tr></thead><tbody>';
-          agentsCache.forEach(function(a) {
-            var activeBg = a.is_active == 1 ? "#10b981" : "#94a3b8";
-            html += '<tr style="border-bottom:1px solid #f1f5f9">' +
-              '<td style="padding:14px 16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">' + (a.name || "?").charAt(0).toUpperCase() + '</div><span style="font-weight:600;color:#1e293b;font-size:14px">' + esc(a.name) + '</span></div></td>' +
-              '<td style="padding:14px 16px"><div><span style="font-size:12px;color:#64748b">' + esc(a.email || '') + '</span><br><span style="font-size:12px;color:#94a3b8">' + esc(a.phone || '') + '</span></div></td>' +
-              '<td style="padding:14px 16px"><span style="padding:4px 8px;border-radius:6px;background:#f0f9ff;color:#0891b2;font-size:12px;font-weight:600">' + esc(a.specialization || 'General') + '</span></td>' +
-              '<td style="padding:14px 16px"><span style="padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;background:' + activeBg + '20;color:' + activeBg + '">' + (a.is_active == 1 ? "Activo" : "Inactivo") + '</span></td>' +
-              '<td style="padding:14px 16px"><div style="display:flex;gap:6px">' +
-              '<button class="cfg-edit-agent" data-id="' + a.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Editar</button>' +
-              '<button class="cfg-delete-agent" data-id="' + a.id + '" style="padding:6px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer">Eliminar</button></div></td></tr>';
+          html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">';
+          agentsCache.forEach(function(a, idx) {
+            var isActive = a.is_active == 1;
+            var activeBg = isActive ? "#10b981" : "#94a3b8";
+            var grad = agentColors[idx % agentColors.length];
+            html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,.1)\'" onmouseout="this.style.transform=\'none\';this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.06)\'">' +
+              '<div style="padding:20px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #f1f5f9">' +
+                '<div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,' + grad + ');display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;flex-shrink:0">' + (a.name || "?").charAt(0).toUpperCase() + '</div>' +
+                '<div style="flex:1;min-width:0">' +
+                  '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                    '<h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.name) + '</h3>' +
+                    '<span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + activeBg + '15;color:' + activeBg + ';flex-shrink:0;margin-left:8px">' + (isActive ? "Activo" : "Inactivo") + '</span>' +
+                  '</div>' +
+                  '<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#f0f9ff;color:#0891b2;font-size:11px;font-weight:600;margin-top:4px">' + esc(a.specialization || 'General') + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div style="padding:16px 24px">' +
+                (a.email ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span style="font-size:13px;color:#475569">' + esc(a.email) + '</span></div>' : '') +
+                (a.phone ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span style="font-size:13px;color:#475569">' + esc(a.phone) + '</span></div>' : '') +
+                '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f1f5f9;padding-top:12px;margin-top:8px">' +
+                  '<button class="cfg-edit-agent" data-id="' + a.id + '" style="padding:7px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'#0891b2\';this.style.color=\'#0891b2\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">Editar</button>' +
+                  '<button class="cfg-delete-agent" data-id="' + a.id + '" style="padding:7px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'#ef4444\';this.style.color=\'#ef4444\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\'">Eliminar</button>' +
+                '</div>' +
+              '</div></div>';
           });
-          html += '</tbody></table></div>';
+          html += '</div>';
         }
         content.innerHTML = html;
         document.getElementById("cfg-new-agent").onclick = function() { openAgentModal(null, content); };
@@ -1462,7 +1498,7 @@
         content.querySelectorAll(".cfg-delete-agent").forEach(function(btn) {
           btn.onclick = function() {
             var id = parseInt(this.getAttribute("data-id"));
-            if (!confirm("¿Eliminar este agente?")) return;
+            if (!confirm("Eliminar este agente?")) return;
             fetch(API_BASE + "/settings_api.php?action=agents_delete", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: id }) })
               .then(function(r) { return r.json(); }).then(function(d) { if (d.success) loadAgents(content); else alert(d.error || "Error"); });
           };
@@ -1517,37 +1553,70 @@
   }
 
   function loadPricing(content) {
+    var pricingIcons = {
+      default_currency: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+      usd_to_clp_rate: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+      commission_percent: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
+      tax_percent: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      min_order_clp: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>'
+    };
     fetch(API_BASE + "/settings_api.php?action=pricing_get", { headers: authHeaders(), cache: "no-store" })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var pricing = data.pricing || {};
         var keys = Object.keys(pricing);
         if (keys.length === 0) {
-          content.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay configuracion de precios</div>';
+          content.innerHTML = '<div style="padding:60px 40px;text-align:center;background:#fff;border-radius:16px;border:2px dashed #e2e8f0">' +
+            '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin:0 auto 16px;display:block"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' +
+            '<p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#475569">No hay configuracion de precios</p>' +
+            '<p style="margin:0;font-size:13px;color:#94a3b8">Ejecute la migracion para crear la configuracion inicial</p></div>';
           return;
         }
         var labels = { default_currency: "Moneda por Defecto", usd_to_clp_rate: "Tipo de Cambio USD/CLP", commission_percent: "Comision (%)", tax_percent: "IVA (%)", min_order_clp: "Monto Minimo CLP" };
-        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.04)">' +
-          '<h3 style="margin:0 0 20px;font-size:16px;font-weight:700;color:#1e293b">Configuracion de Precios</h3>' +
-          '<div style="display:flex;flex-direction:column;gap:16px">';
-        keys.forEach(function(key) {
+        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+          '<div style="padding:20px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+            '<h3 style="margin:0;font-size:17px;font-weight:700;color:#0f172a">Parametros del Sistema</h3></div>' +
+          '<div style="padding:24px;display:flex;flex-direction:column;gap:0">';
+        keys.forEach(function(key, idx) {
           var label = labels[key] || key;
           var val = pricing[key].value || '';
-          html += '<div style="display:flex;align-items:center;gap:12px"><label style="min-width:180px;font-size:13px;color:#64748b;font-weight:600">' + esc(label) + '</label>' +
-            '<input class="cfg-pricing-input" data-key="' + esc(key) + '" value="' + esc(val) + '" style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box">' +
-            '<span style="font-size:11px;color:#94a3b8;min-width:100px">' + esc(pricing[key].description || '') + '</span></div>';
+          var desc = pricing[key].description || '';
+          var icon = pricingIcons[key] || '';
+          var borderTop = idx > 0 ? 'border-top:1px solid #f1f5f9;' : '';
+          html += '<div style="display:flex;align-items:center;gap:16px;padding:16px 0;' + borderTop + '">' +
+            '<div style="width:40px;height:40px;border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icon + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<label style="display:block;font-size:14px;color:#1e293b;font-weight:600;margin-bottom:2px">' + esc(label) + '</label>' +
+              '<span style="font-size:12px;color:#94a3b8">' + esc(desc) + '</span>' +
+            '</div>' +
+            '<input class="cfg-pricing-input" data-key="' + esc(key) + '" value="' + esc(val) + '" style="width:160px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;text-align:right;font-weight:600;transition:border-color .15s" onfocus="this.style.borderColor=\'#0891b2\'" onblur="this.style.borderColor=\'#e2e8f0\'">' +
+          '</div>';
         });
-        html += '</div><div style="display:flex;justify-content:flex-end;margin-top:20px">' +
-          '<button id="cfg-save-pricing" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Guardar Precios</button></div></div>';
+        html += '</div>' +
+          '<div style="padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;background:#f8fafc">' +
+            '<button id="cfg-save-pricing" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(8,145,178,.25);transition:transform .15s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'none\'">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Cambios</button>' +
+          '</div></div>';
         content.innerHTML = html;
         document.getElementById("cfg-save-pricing").onclick = function() {
+          var btn = this;
           var configs = {};
           content.querySelectorAll(".cfg-pricing-input").forEach(function(inp) {
             configs[inp.getAttribute("data-key")] = inp.value.trim();
           });
+          btn.textContent = "Guardando..."; btn.disabled = true;
           fetch(API_BASE + "/settings_api.php?action=pricing_update", { method: "POST", headers: authHeaders(), body: JSON.stringify({ configs: configs }) })
             .then(function(r) { return r.json(); }).then(function(d) {
-              if (d.success) alert("Precios actualizados"); else alert(d.error || "Error");
+              btn.disabled = false;
+              if (d.success) {
+                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Guardado';
+                btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+                setTimeout(function() {
+                  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Cambios';
+                  btn.style.background = 'linear-gradient(135deg,#0891b2,#06b6d4)';
+                }, 2000);
+              } else alert(d.error || "Error");
             });
         };
       }).catch(function() {
