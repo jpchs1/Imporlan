@@ -37,8 +37,22 @@
     if (document.getElementById("enhancer-skeleton-styles")) return;
     var style = document.createElement("style");
     style.id = "enhancer-skeleton-styles";
-    style.textContent = "@keyframes enhancerPulse{0%{background-position:200% 0}100%{background-position:-200% 0}}" +
-      " main[data-enhancer-section] > *:not([data-enhancer-added]):not([data-enhancer-keep]) { display: none !important; }";
+    style.textContent =
+      "@keyframes enhancerPulse{0%{background-position:200% 0}100%{background-position:-200% 0}}" +
+      "@keyframes enhancerFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}" +
+      " main[data-enhancer-section] > *:not([data-enhancer-added]):not([data-enhancer-keep]) { display: none !important; }" +
+      // Global admin polish
+      " main { animation: enhancerFadeIn .3s ease; }" +
+      " main table tbody tr { transition: background .15s; }" +
+      " main table tbody tr:hover { background: #f8fafc !important; }" +
+      " main input:focus, main select:focus, main textarea:focus { border-color: #0891b2 !important; box-shadow: 0 0 0 3px rgba(8,145,178,.1) !important; }" +
+      " main button { transition: all .15s; }" +
+      " main button:hover:not(:disabled) { filter: brightness(1.05); }" +
+      // Scrollbar polish
+      " main ::-webkit-scrollbar { width: 6px; height: 6px; }" +
+      " main ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }" +
+      " main ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }" +
+      " main ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }";
     document.head.appendChild(style);
   }
 
@@ -169,7 +183,19 @@
     var container = document.createElement("div");
     container.setAttribute("data-enhancer-added", "users");
     container.style.cssText = "padding:20px 0";
-    container.innerHTML = '<div style="display:flex;justify-content:flex-end;margin-bottom:16px"><button id="enhancer-new-user" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Usuario</button></div>' +
+    container.innerHTML =
+      // Search + filters + new user
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1">' +
+      '<div style="position:relative;flex:1;min-width:200px;max-width:350px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<input id="enhancer-user-search" placeholder="Buscar por nombre o email..." style="width:100%;padding:10px 14px 10px 38px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;transition:border-color .2s"></div>' +
+      '<select id="enhancer-user-role-filter" style="padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;color:#475569;cursor:pointer"><option value="">Todos los roles</option><option value="admin">Admin</option><option value="support">Soporte</option><option value="user">Usuario</option><option value="agent">Agente</option></select>' +
+      '</div>' +
+      '<button id="enhancer-new-user" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,.3);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Usuario</button></div>' +
+      // Stats mini cards
+      '<div id="enhancer-user-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px"></div>' +
+      // Users count
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span id="enhancer-user-count" style="font-size:13px;color:#64748b"></span></div>' +
       '<div id="enhancer-users-table">' + makeSkeletonTable(6, 4) + '</div>';
     main.appendChild(container);
     loadUsers(container);
@@ -179,18 +205,61 @@
   var usersMigrationAttempted = false;
 
   function renderUsersTable(users, tableDiv, container) {
+    // Render stats mini cards
+    var statsDiv = container.querySelector('#enhancer-user-stats');
+    if (statsDiv && usersCache) {
+      var all = usersCache;
+      var admins = all.filter(function(u) { return u.role === 'admin'; }).length;
+      var support = all.filter(function(u) { return u.role === 'support'; }).length;
+      var agents = all.filter(function(u) { return u.role === 'agent'; }).length;
+      var regular = all.filter(function(u) { return u.role === 'user' || (!u.role); }).length;
+      var miniStats = [
+        { label: 'Total', value: all.length, color: '#3b82f6' },
+        { label: 'Admins', value: admins, color: '#8b5cf6' },
+        { label: 'Soporte', value: support, color: '#f59e0b' },
+        { label: 'Usuarios', value: regular + agents, color: '#10b981' }
+      ];
+      statsDiv.innerHTML = miniStats.map(function(s) {
+        return '<div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:12px 16px;display:flex;align-items:center;gap:10px">' +
+          '<div style="width:36px;height:36px;border-radius:10px;background:' + s.color + '12;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;font-weight:800;color:' + s.color + '">' + s.value + '</span></div>' +
+          '<span style="font-size:12px;color:#64748b;font-weight:500">' + s.label + '</span></div>';
+      }).join('');
+    }
+
+    // Update count
+    var countEl = container.querySelector('#enhancer-user-count');
+    if (countEl) countEl.textContent = 'Mostrando ' + users.length + ' de ' + (usersCache ? usersCache.length : users.length) + ' usuarios';
+
     if (users.length === 0) {
-      tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hay usuarios. Crea uno nuevo.</div>';
+      tableDiv.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron usuarios con ese filtro.</div>';
     } else {
       var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
       var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
-      html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
+      html += '<table style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc">';
       html += '<th style="' + thS + '">Usuario</th><th style="' + thS + '">Rol</th><th style="' + thS + '">Estado</th><th style="' + thS + ';text-align:center">Compras</th><th style="' + thS + '">Creado</th><th style="' + thS + '">Acciones</th>';
       html += '</tr></thead><tbody>';
       users.forEach(function(u) { html += renderUserRow(u); });
       html += '</tbody></table></div>';
       tableDiv.innerHTML = html;
     }
+
+    // Attach search + filter logic
+    var searchInput = container.querySelector('#enhancer-user-search');
+    var roleFilter = container.querySelector('#enhancer-user-role-filter');
+    function applyFilters() {
+      if (!usersCache) return;
+      var q = (searchInput ? searchInput.value : '').toLowerCase().trim();
+      var role = roleFilter ? roleFilter.value : '';
+      var filtered = usersCache.filter(function(u) {
+        var matchSearch = !q || (u.name || '').toLowerCase().indexOf(q) !== -1 || (u.email || '').toLowerCase().indexOf(q) !== -1;
+        var matchRole = !role || u.role === role;
+        return matchSearch && matchRole;
+      });
+      renderUsersTable(filtered, tableDiv, container);
+    }
+    if (searchInput && !searchInput._bound) { searchInput._bound = true; searchInput.addEventListener('input', applyFilters); }
+    if (roleFilter && !roleFilter._bound) { roleFilter._bound = true; roleFilter.addEventListener('change', applyFilters); }
+
     attachUserListeners(container);
   }
 
@@ -927,42 +996,82 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var purchases = data.purchases || [];
-        // Sort purchases by date descending (newest first)
         purchases.sort(function(a, b) {
-          var dateA = new Date(a.timestamp || a.date || 0);
-          var dateB = new Date(b.timestamp || b.date || 0);
-          return dateB - dateA;
+          return new Date(b.timestamp || b.date || 0) - new Date(a.timestamp || a.date || 0);
         });
-        if (!Array.isArray(purchases) || purchases.length === 0) {
-          container.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron pagos</div>';
-          return;
+
+        // Calculate summary stats
+        var paid = purchases.filter(function(p) { return p.status === 'active' || p.status === 'paid' || p.status === 'completed'; });
+        var pending = purchases.filter(function(p) { return p.status === 'pending' || p.status === 'en_revision'; });
+        var totalRevenue = paid.reduce(function(s, p) { return s + (parseFloat(p.amount_clp || p.amount) || 0); }, 0);
+        var pendingAmount = pending.reduce(function(s, p) { return s + (parseFloat(p.amount_clp || p.amount) || 0); }, 0);
+
+        // Summary cards
+        var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">';
+        var summaryCards = [
+          { label: 'Total Recaudado', value: fmtCLP(totalRevenue), color: '#10b981', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+          { label: 'Pagos Completados', value: paid.length, color: '#3b82f6', icon: '<polyline points="20 6 9 17 4 12"/>' },
+          { label: 'Pendientes', value: pending.length, color: '#f59e0b', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+          { label: 'Monto Pendiente', value: fmtCLP(pendingAmount), color: '#8b5cf6', icon: '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>' }
+        ];
+        summaryCards.forEach(function(c) {
+          html += '<div style="background:#fff;border-radius:14px;border:1px solid #e2e8f0;padding:16px 20px;display:flex;align-items:center;gap:12px">' +
+            '<div style="width:42px;height:42px;border-radius:12px;background:' + c.color + '12;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + c.color + '" stroke-width="2">' + c.icon + '</svg></div>' +
+            '<div><p style="margin:0;font-size:22px;font-weight:800;color:#0f172a">' + c.value + '</p>' +
+            '<p style="margin:1px 0 0;font-size:11px;color:#64748b">' + c.label + '</p></div></div>';
+        });
+        html += '</div>';
+
+        // Search bar
+        html += '<div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">' +
+          '<div style="position:relative;flex:1;max-width:350px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input id="enhancer-pagos-search" placeholder="Buscar por email o descripcion..." style="width:100%;padding:10px 14px 10px 38px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box"></div>' +
+          '<span style="font-size:13px;color:#64748b">' + purchases.length + ' transacciones</span></div>';
+
+        if (purchases.length === 0) {
+          html += '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No se encontraron pagos</div>';
+        } else {
+          var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
+          html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
+          html += '<table id="enhancer-pagos-table" style="width:100%;border-collapse:collapse"><thead><tr style="background:#f8fafc">';
+          html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Proveedor</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Fecha</th><th style="' + thS + '">Detalle</th>';
+          html += '</tr></thead><tbody>';
+          purchases.forEach(function (p, idx) {
+            var status = p.status || "pending";
+            var stMap = { pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Pagado", c: "#10b981" }, completed: { l: "Pagado", c: "#10b981" }, paid: { l: "Pagado", c: "#10b981" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelado", c: "#ef4444" } };
+            var st = stMap[status] || stMap.pending;
+            var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", transferencia_bancaria: "Transferencia", transferencia: "Transferencia" };
+            var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
+            var mColors = { WebPay: '#E31837', MercadoPago: '#00B1EA', PayPal: '#003087', Transferencia: '#059669' };
+            var mColor = mColors[method] || '#64748b';
+            var email = p.user_email || p.email || "";
+            var userName = email.split("@")[0];
+            html += '<tr style="border-bottom:1px solid #f1f5f9" data-search="' + esc((email + ' ' + (p.description || '') + ' ' + (p.plan_name || '')).toLowerCase()) + '">';
+            html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(p.id || idx + 1)) + '</td>';
+            html += '<td style="padding:14px 16px"><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:13px">' + esc(userName) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:11px">' + esc(email) + '</p></div></td>';
+            html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:14px">' + fmtCLP(p.amount_clp || p.amount || 0) + '</td>';
+            html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + mColor + '12;color:' + mColor + ';border:1px solid ' + mColor + '25">' + esc(method) + '</span></td>';
+            html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + st.c + '15;color:' + st.c + '">' + st.l + '</span></td>';
+            html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(p.timestamp || p.date || "") + '</td>';
+            html += '<td style="padding:14px 16px;font-size:12px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(p.description || p.plan_name || '') + '">' + esc(p.description || p.desc || p.plan_name || "") + '</td>';
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
         }
-        var thS = 'padding:14px 16px;text-align:left;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em';
-        var html = '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)">';
-        html += '<table style="width:100%;border-collapse:collapse"><thead><tr>';
-        html += '<th style="' + thS + '">ID</th><th style="' + thS + '">Usuario</th><th style="' + thS + '">Monto</th><th style="' + thS + '">Proveedor</th><th style="' + thS + '">Estado</th><th style="' + thS + '">Fecha</th><th style="' + thS + '">Detalle</th>';
-        html += '</tr></thead><tbody>';
-        purchases.forEach(function (p, idx) {
-          var status = p.status || "pending";
-          var stMap = { pending: { l: "Pendiente", c: "#f59e0b" }, active: { l: "Pagado", c: "#10b981" }, completed: { l: "Pagado", c: "#10b981" }, en_revision: { l: "En Revision", c: "#3b82f6" }, canceled: { l: "Cancelado", c: "#ef4444" } };
-          var st = stMap[status] || stMap.pending;
-          var mLabels = { webpay: "WebPay", mercadopago: "MercadoPago", paypal: "PayPal", manual: "Manual", transferencia_bancaria: "Transferencia Bancaria", transferencia: "Transferencia Bancaria" };
-          var method = mLabels[p.payment_method || p.method] || (p.payment_method || p.method || "N/A");
-          var email = p.user_email || p.email || "";
-          var userName = email.split("@")[0];
-          var displayId = p.id || (idx + 1);
-          html += '<tr style="border-bottom:1px solid #f1f5f9">';
-          html += '<td style="padding:14px 16px;font-weight:600;color:#475569;font-size:13px">#' + esc(String(displayId)) + '</td>';
-          html += '<td style="padding:14px 16px"><div><p style="margin:0;font-weight:600;color:#1e293b;font-size:14px">' + esc(userName) + '</p><p style="margin:2px 0 0;color:#94a3b8;font-size:12px">' + esc(email) + '</p></div></td>';
-          html += '<td style="padding:14px 16px;font-weight:700;color:#1e293b;font-size:13px">' + fmtCLP(p.amount_clp || p.amount || 0) + '</td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:#f1f5f9;color:#475569">' + esc(method) + '</span></td>';
-          html += '<td style="padding:14px 16px"><span style="padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;background:' + st.c + '20;color:' + st.c + '">' + st.l + '</span></td>';
-          html += '<td style="padding:14px 16px;font-size:12px;color:#64748b">' + fmtDate(p.timestamp || p.date || "") + '</td>';
-          html += '<td style="padding:14px 16px;font-size:12px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.description || p.desc || p.plan_name || "") + '</td>';
-          html += '</tr>';
-        });
-        html += '</tbody></table></div>';
         container.innerHTML = html;
+
+        // Search functionality
+        var searchInput = container.querySelector('#enhancer-pagos-search');
+        if (searchInput) {
+          searchInput.addEventListener('input', function() {
+            var q = this.value.toLowerCase().trim();
+            var rows = container.querySelectorAll('#enhancer-pagos-table tbody tr');
+            rows.forEach(function(row) {
+              var searchText = row.getAttribute('data-search') || '';
+              row.style.display = (!q || searchText.indexOf(q) !== -1) ? '' : 'none';
+            });
+          });
+        }
       })
       .catch(function (err) {
         console.warn("Error loading pagos:", err);
