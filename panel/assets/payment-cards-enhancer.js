@@ -91,7 +91,25 @@
     });
 
     enhanceSavedCardSection();
+    enhanceActualizarTarjeta();
     enhanced = true;
+  }
+
+  function enhanceActualizarTarjeta() {
+    // Find "Actualizar Tarjeta" button/link and replace with "Proximamente"
+    var allEls = document.querySelectorAll('button, a, div, span');
+    allEls.forEach(function(el) {
+      var txt = (el.textContent || '').trim();
+      if ((txt === 'Actualizar Tarjeta' || txt === 'Editar Tarjeta') && !el.getAttribute('data-act-enhanced')) {
+        el.setAttribute('data-act-enhanced', '1');
+        el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-size:13px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Guardar datos de tarjeta - <span style="background:linear-gradient(135deg,#f59e0b,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700">Proximamente</span></span>';
+        el.style.pointerEvents = 'none';
+        el.style.cursor = 'default';
+        el.style.opacity = '0.8';
+        // Prevent any click action
+        el.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); }, true);
+      }
+    });
   }
 
   function enhanceSavedCardSection() {
