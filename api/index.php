@@ -523,13 +523,10 @@ switch (true) {
         ]);
         break;
     
-    // Auth endpoints (placeholder - redirect to panel)
+    // Auth endpoints - handled locally (no Fly.dev dependency)
     case preg_match('#^(/api)?/auth/#', $uriPath):
-        echo json_encode([
-            'error' => 'Auth endpoints not implemented in this version',
-            'message' => 'Please use the panel for authentication',
-            'redirect' => 'https://www.imporlan.cl/panel/'
-        ]);
+        require_once __DIR__ . '/auth_local.php';
+        handleAuthEndpoint($uriPath);
         break;
 
     // Proxy: /api/test/* -> forward to bxlfgnkv Fly.dev backend at /api/*
