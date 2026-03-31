@@ -90,7 +90,112 @@
       }
     });
 
+    enhanceSavedCardSection();
     enhanced = true;
+  }
+
+  function enhanceSavedCardSection() {
+    // Find the dark card section with "Tarjeta Guardada" or card number pattern
+    var allCards = document.querySelectorAll('[class*="from-slate-800"][class*="to-slate-900"], [class*="from-slate-800"][class*="to-blue-900"]');
+    if (allCards.length === 0) return;
+
+    var user = getUserData();
+    var userName = user ? (user.name || user.user_name || "").toUpperCase() : "";
+    var firstName = userName.split(" ")[0] || "";
+
+    allCards.forEach(function(card) {
+      if (card.getAttribute("data-card-enhanced")) return;
+      var text = card.textContent || "";
+      if (text.indexOf("4532") === -1 && text.indexOf("Tarjeta") === -1 && text.indexOf("****") === -1) return;
+      card.setAttribute("data-card-enhanced", "1");
+
+      // Find the CardContent div inside
+      var content = card.querySelector('[class*="p-6"]') || card.querySelector('[class*="CardContent"]') || card;
+      if (!content) return;
+
+      // Replace the entire content with our premium version
+      content.innerHTML = '';
+      content.style.cssText = 'padding:0!important;position:relative;overflow:hidden';
+
+      var inner = document.createElement('div');
+      inner.style.cssText = 'position:relative;padding:24px 28px';
+
+      inner.innerHTML =
+        // Background decorative elements
+        '<div style="position:absolute;top:-30px;right:-20px;width:140px;height:140px;background:radial-gradient(circle,rgba(6,182,212,.1),transparent 70%);border-radius:50%"></div>' +
+        '<div style="position:absolute;bottom:-20px;left:30%;width:100px;height:100px;background:radial-gradient(circle,rgba(59,130,246,.08),transparent 70%);border-radius:50%"></div>' +
+
+        // Top row: Label + Status
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative">' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>' +
+            '<span style="font-size:12px;color:#94a3b8;font-weight:500;letter-spacing:.05em;text-transform:uppercase">Metodo de Pago Preferido</span>' +
+          '</div>' +
+          '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:8px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.25);font-size:11px;font-weight:600;color:#34d399">' +
+            '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Listo para pagar' +
+          '</span>' +
+        '</div>' +
+
+        // Card visual
+        '<div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;position:relative">' +
+          // Visa-style card
+          '<div style="width:280px;height:160px;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%);border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 24px rgba(0,0,0,.3);position:relative;overflow:hidden;flex-shrink:0">' +
+            '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(6,182,212,.15),transparent 70%);border-radius:50%"></div>' +
+            '<div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;background:radial-gradient(circle,rgba(99,102,241,.12),transparent 70%);border-radius:50%"></div>' +
+            // Top: chip + contactless
+            '<div style="display:flex;align-items:center;justify-content:space-between">' +
+              '<div style="width:40px;height:30px;background:linear-gradient(135deg,#d4af37,#f0d060);border-radius:6px;display:flex;align-items:center;justify-content:center">' +
+                '<div style="width:24px;height:18px;border:1.5px solid rgba(0,0,0,.2);border-radius:3px"></div>' +
+              '</div>' +
+              '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2"/><path d="M12 18c3.314 0 6-2.686 6-6s-2.686-6-6-6"/><path d="M12 14a2 2 0 0 0 2-2 2 2 0 0 0-2-2"/></svg>' +
+            '</div>' +
+            // Number
+            '<div style="font-family:\'Courier New\',monospace;font-size:18px;letter-spacing:3px;color:#e2e8f0;text-shadow:0 1px 2px rgba(0,0,0,.3)">**** **** **** ****</div>' +
+            // Bottom: name + brand
+            '<div style="display:flex;align-items:flex-end;justify-content:space-between">' +
+              '<div>' +
+                '<p style="margin:0;font-size:9px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em">Titular</p>' +
+                '<p style="margin:2px 0 0;font-size:13px;color:#e2e8f0;font-weight:600;letter-spacing:.05em">' + (userName || 'TU NOMBRE') + '</p>' +
+              '</div>' +
+              '<div style="text-align:right">' +
+                '<p style="margin:0;font-size:20px;font-weight:800;color:#fff;font-style:italic;letter-spacing:.02em">VISA</p>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Right side: info
+          '<div style="flex:1;display:flex;flex-direction:column;gap:12px">' +
+            '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 18px">' +
+              '<p style="margin:0 0 8px;font-size:12px;color:#94a3b8;font-weight:500">Metodos disponibles para ti</p>' +
+              '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+                '<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;background:rgba(227,24,55,.12);border:1px solid rgba(227,24,55,.2);font-size:11px;font-weight:600;color:#f87171">' +
+                  '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> WebPay</span>' +
+                '<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;background:rgba(0,177,234,.12);border:1px solid rgba(0,177,234,.2);font-size:11px;font-weight:600;color:#38bdf8">' +
+                  '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> MercadoPago</span>' +
+                '<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;background:rgba(0,48,135,.12);border:1px solid rgba(0,48,135,.2);font-size:11px;font-weight:600;color:#60a5fa">' +
+                  '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> PayPal</span>' +
+                '<span style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;background:rgba(5,150,105,.12);border:1px solid rgba(5,150,105,.2);font-size:11px;font-weight:600;color:#34d399">' +
+                  '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/></svg> Transferencia</span>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:8px">' +
+              '<button class="pce-action-btn" data-action="pay" style="flex:1;padding:10px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(8,145,178,.3);transition:all .2s">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Realizar Pago</button>' +
+              '<a href="/pago/" target="_blank" style="padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px;text-decoration:none;transition:all .2s">' +
+                '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Pagina de Pago</a>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      content.appendChild(inner);
+
+      // Bind pay button
+      inner.querySelector('.pce-action-btn[data-action="pay"]').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        showQuickPayModal('webpay');
+      });
+    });
   }
 
   function showQuickPayModal(defaultMethod) {
