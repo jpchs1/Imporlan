@@ -529,54 +529,14 @@ switch (true) {
         handleAuthEndpoint($uriPath);
         break;
 
-    // Proxy: /api/test/* -> forward to bxlfgnkv Fly.dev backend at /api/*
+    // Proxy: /api/test/* -> handle locally via test/proxy.php (replaces Fly.dev dependency)
     case preg_match('#^(/api)?/test/(.+)$#', $uriPath, $matches):
-        $backendPath = '/api/' . $matches[2];
-        $query = parse_url($requestUri, PHP_URL_QUERY);
-        $targetUrl = 'https://app-bxlfgnkv.fly.dev' . $backendPath;
-        if ($query) $targetUrl .= '?' . $query;
-
-        $ch = curl_init($targetUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $requestMethod);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-
-        $proxyHeaders = [];
-        if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-            $proxyHeaders[] = 'Authorization: ' . $_SERVER['HTTP_AUTHORIZATION'];
+        $_SERVER['REQUEST_URI'] = '/api/test/' . $matches[2];
+        if (isset($_GET)) {
+            $query = parse_url($requestUri, PHP_URL_QUERY);
+            if ($query) $_SERVER['REQUEST_URI'] .= '?' . $query;
         }
-        if (isset($_SERVER['CONTENT_TYPE'])) {
-            $proxyHeaders[] = 'Content-Type: ' . $_SERVER['CONTENT_TYPE'];
-        }
-        if (!empty($proxyHeaders)) {
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $proxyHeaders);
-        }
-
-        $input = file_get_contents('php://input');
-        if ($input) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $input);
-        }
-
-        $proxyResp = curl_exec($ch);
-        $proxyCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $proxyContentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        $proxyErr = curl_error($ch);
-        curl_close($ch);
-
-        if ($proxyErr) {
-            error_log("api-proxy error: $targetUrl - $proxyErr");
-            http_response_code(502);
-            echo json_encode(['detail' => 'Backend unavailable']);
-            break;
-        }
-
-        if ($proxyContentType) {
-            header('Content-Type: ' . $proxyContentType);
-        }
-        http_response_code($proxyCode);
-        echo $proxyResp;
+        require_once __DIR__ . '/test/proxy.php';
         break;
 
     // Proxy: /api/register-proxy.php -> register on both backends + send email
