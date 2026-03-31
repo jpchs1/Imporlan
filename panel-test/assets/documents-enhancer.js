@@ -17,9 +17,23 @@
     return "";
   }
 
+  // Inject CSS immediately to hide React documents content before it renders
+  var hideStyle = document.createElement("style");
+  hideStyle.id = "docs-hide-react";
+  hideStyle.textContent = "";
+  document.head.appendChild(hideStyle);
+
   function isDocumentsPage() {
     var h1 = document.querySelector("main h1");
-    return h1 && h1.textContent.trim() === "Documentos";
+    var isDoc = h1 && h1.textContent.trim() === "Documentos";
+    // Immediately hide React content when on documents page
+    var st = document.getElementById("docs-hide-react");
+    if (st) {
+      st.textContent = isDoc
+        ? "main > *:not(#docs-enhancer) { display: none !important; }"
+        : "";
+    }
+    return isDoc;
   }
 
   function escHtml(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
