@@ -1351,25 +1351,33 @@
 
   window.__mktRenewListing = async function (id) {
     if (!confirm('Renovar este anuncio por 30 dias mas?')) return;
-    var btn = event.target.closest('button');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10"/></svg> Renovando...'; }
+    // Find the button that was clicked
+    var allBtns = document.querySelectorAll('button');
+    var btn = null;
+    allBtns.forEach(function(b) { if (b.textContent.indexOf('Renovar') !== -1 && b.onclick && b.onclick.toString().indexOf(id) !== -1) btn = b; });
+    if (!btn) { allBtns.forEach(function(b) { if (b.textContent.trim() === 'Renovar' || b.textContent.indexOf('Renovando') !== -1) btn = b; }); }
+    if (btn) { btn.disabled = true; btn.textContent = 'Renovando...'; }
     try {
-      var result = await apiCall('?action=renew', {
+      var resp = await fetch(API_BASE + '/marketplace_api.php?action=renew', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, getHeaders()),
         body: JSON.stringify({ id: id })
       });
+      var result = await resp.json();
       if (result && result.success) {
-        showToast('Anuncio renovado por 30 dias!', 'success');
-        // Reload my listings
+        if (typeof showToast === 'function') showToast('Anuncio renovado por 30 dias!', 'success');
+        else alert('Anuncio renovado por 30 dias!');
         await loadMyListings();
         window.__mktSwitchTab('sell');
       } else {
-        showToast(result.error || 'Error al renovar', 'error');
-        if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Renovar'; }
+        var errMsg = (result && result.error) ? result.error : 'Error al renovar';
+        if (typeof showToast === 'function') showToast(errMsg, 'error');
+        else alert(errMsg);
+        if (btn) { btn.disabled = false; btn.textContent = 'Renovar'; }
       }
     } catch (e) {
-      showToast('Error de conexion', 'error');
+      console.error('[Marketplace] Renew error:', e);
+      alert('Error de conexion al renovar. Intenta nuevamente.');
       if (btn) { btn.disabled = false; btn.textContent = 'Renovar'; }
     }
   };
