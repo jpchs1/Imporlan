@@ -1465,42 +1465,139 @@
     aside.appendChild(btn);
   }
 
-  function enhanceDashboard() {
+  async function enhanceDashboard() {
     var main = document.querySelector("main");
     if (!main) return true;
-    var sidebarBtns = document.querySelectorAll("aside nav button, aside nav a");
-    function clickSection(name) {
-      sidebarBtns.forEach(function (b) {
-        if (b.textContent.trim().toLowerCase().includes(name.toLowerCase())) b.click();
-      });
+
+    // Hide React dashboard content
+    hideReactContent(main);
+
+    var container = document.createElement("div");
+    container.setAttribute("data-enhancer-added", "true");
+    container.innerHTML = makeSkeletonTable(4, 3);
+    main.appendChild(container);
+
+    // Fetch real data
+    var users = [], orders = [], purchases = [];
+    try {
+      var [usersResp, ordersResp, purchasesResp] = await Promise.all([
+        fetch(API_BASE + "/users_api.php?action=list", { headers: authHeaders() }).then(function(r) { return r.json(); }),
+        fetch(API_BASE + "/orders_api.php?action=admin_list", { headers: authHeaders() }).then(function(r) { return r.json(); }),
+        fetch(API_BASE + "/purchases.php?action=all", { headers: authHeaders() }).then(function(r) { return r.json(); })
+      ]);
+      users = usersResp.users || [];
+      orders = ordersResp.orders || [];
+      purchases = (purchasesResp.purchases || []).filter(function(p) { return p.status === 'active' || p.status === 'paid'; });
+    } catch (e) { console.error("Dashboard data error:", e); }
+
+    var totalUsers = users.length;
+    var activeExpedientes = orders.filter(function(o) { return o.status === 'in_progress'; }).length;
+    var pendingExpedientes = orders.filter(function(o) { return o.status === 'pending_admin_fill' || o.status === 'new'; }).length;
+    var totalRevenue = purchases.reduce(function(sum, p) { return sum + (parseFloat(p.amount_clp) || 0); }, 0);
+    var recentOrders = orders.slice(0, 5);
+    var recentPurchases = purchases.slice(0, 5);
+
+    // Navigate helper
+    function navTo(section) {
+      var btns = document.querySelectorAll("aside nav button, aside nav a");
+      btns.forEach(function(b) { if (b.textContent.trim().toLowerCase().includes(section.toLowerCase())) b.click(); });
     }
-    var linkMap = [
-      { match: /total\s*usuarios/i, section: "usuarios" },
-      { match: /solicitudes?\s*pendientes?/i, section: "solicitudes" },
-      { match: /ingresos?\s*totales?/i, section: "pagos" },
-      { match: /planes?\s*activos?/i, section: "planes" }
+
+    var html = '';
+
+    // Stats cards row
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">';
+
+    var stats = [
+      { label: 'Usuarios Registrados', value: totalUsers, icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', color: '#3b82f6', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', nav: 'usuarios' },
+      { label: 'Expedientes Activos', value: activeExpedientes, icon: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>', color: '#0891b2', bg: 'linear-gradient(135deg,#ecfeff,#cffafe)', nav: 'expedientes' },
+      { label: 'Pendientes Revision', value: pendingExpedientes, icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', color: '#f59e0b', bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)', nav: 'expedientes' },
+      { label: 'Ingresos Totales', value: fmtCLP(totalRevenue), icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', color: '#10b981', bg: 'linear-gradient(135deg,#ecfdf5,#d1fae5)', nav: 'pagos' }
     ];
-    var cards = main.querySelectorAll("div");
-    cards.forEach(function (card) {
-      var text = card.textContent || "";
-      if (card.closest("[data-dash-linked]")) return;
-      for (var i = 0; i < linkMap.length; i++) {
-        if (linkMap[i].match.test(text) && text.length < 300) {
-          card.setAttribute("data-dash-linked", linkMap[i].section);
-          card.style.cursor = "pointer";
-          card.style.transition = "all .2s";
-          card.addEventListener("mouseenter", function () { this.style.transform = "translateY(-2px)"; this.style.boxShadow = "0 8px 24px rgba(8,145,178,.15)"; });
-          card.addEventListener("mouseleave", function () { this.style.transform = ""; this.style.boxShadow = ""; });
-          (function (sec) {
-            card.addEventListener("click", function (e) {
-              if (e.target.closest("a, button, input, select")) return;
-              clickSection(sec);
-            });
-          })(linkMap[i].section);
-          break;
-        }
+
+    stats.forEach(function(s) {
+      html += '<div class="dash-stat-card" data-nav="' + s.nav + '" style="background:' + s.bg + ';border:1px solid ' + s.color + '20;border-radius:16px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden">' +
+        '<div style="position:absolute;top:-15px;right:-15px;width:60px;height:60px;background:' + s.color + '10;border-radius:50%"></div>' +
+        '<div style="display:flex;align-items:center;gap:14px">' +
+        '<div style="width:48px;height:48px;background:' + s.color + ';border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px ' + s.color + '30"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">' + s.icon + '</svg></div>' +
+        '<div><p style="margin:0;font-size:28px;font-weight:800;color:#0f172a">' + s.value + '</p>' +
+        '<p style="margin:2px 0 0;font-size:12px;color:#64748b;font-weight:500">' + s.label + '</p></div></div></div>';
+    });
+    html += '</div>';
+
+    // Quick actions row
+    html += '<div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap">';
+    var actions = [
+      { label: 'Nuevo Expediente', icon: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', color: '#0891b2', nav: 'expedientes' },
+      { label: 'Ver Solicitudes', icon: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>', color: '#8b5cf6', nav: 'solicitudes' },
+      { label: 'Chat Soporte', icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', color: '#10b981', nav: '' },
+    ];
+    actions.forEach(function(a) {
+      html += '<button class="dash-action-btn" data-nav="' + a.nav + '" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;border:1px solid ' + a.color + '30;background:#fff;color:' + a.color + ';font-size:13px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + a.icon + '</svg>' + a.label + '</button>';
+    });
+    html += '</div>';
+
+    // Two-column layout: Recent Expedientes + Recent Payments
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">';
+
+    // Recent Expedientes
+    html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)">' +
+      '<div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:15px;font-weight:700;color:#1e293b">Expedientes Recientes</h3>' +
+      '<button class="dash-action-btn" data-nav="expedientes" style="padding:6px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Ver todos</button></div>';
+    if (recentOrders.length > 0) {
+      html += '<div style="padding:8px 0">';
+      recentOrders.forEach(function(o) {
+        var stColor = o.status === 'in_progress' ? '#10b981' : o.status === 'completed' ? '#6366f1' : '#f59e0b';
+        var stLabel = o.status === 'in_progress' ? 'En Proceso' : o.status === 'completed' ? 'Completado' : 'Pendiente';
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid #f8fafc">' +
+          '<div style="width:8px;height:8px;border-radius:50%;background:' + stColor + ';flex-shrink:0"></div>' +
+          '<div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#1e293b">' + esc(o.order_number) + ' - ' + esc(o.customer_name || '') + '</p>' +
+          '<p style="margin:1px 0 0;font-size:11px;color:#94a3b8">' + esc(o.plan_name || o.service_type || '') + '</p></div>' +
+          '<span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:600;background:' + stColor + '15;color:' + stColor + '">' + stLabel + '</span></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin expedientes recientes</div>';
+    }
+    html += '</div>';
+
+    // Recent Payments
+    html += '<div style="background:#fff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)">' +
+      '<div style="padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:15px;font-weight:700;color:#1e293b">Pagos Recientes</h3>' +
+      '<button class="dash-action-btn" data-nav="pagos" style="padding:6px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#10b981;font-size:12px;font-weight:600;cursor:pointer">Ver todos</button></div>';
+    if (recentPurchases.length > 0) {
+      html += '<div style="padding:8px 0">';
+      recentPurchases.forEach(function(p) {
+        var method = p.payment_method || 'N/A';
+        var methodColor = method.toLowerCase().includes('webpay') ? '#E31837' : method.toLowerCase().includes('mercado') ? '#00B1EA' : method.toLowerCase().includes('paypal') ? '#003087' : '#64748b';
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid #f8fafc">' +
+          '<div style="width:36px;height:36px;border-radius:10px;background:' + methodColor + '15;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + methodColor + '" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>' +
+          '<div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#1e293b">' + esc(p.user_email || p.description || '') + '</p>' +
+          '<p style="margin:1px 0 0;font-size:11px;color:#94a3b8">' + esc(p.description || p.type || '') + '</p></div>' +
+          '<span style="font-size:14px;font-weight:700;color:#10b981">' + fmtCLP(p.amount_clp || 0) + '</span></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:13px">Sin pagos recientes</div>';
+    }
+    html += '</div></div>';
+
+    container.innerHTML = html;
+
+    // Bind clicks
+    container.querySelectorAll('.dash-stat-card, .dash-action-btn').forEach(function(el) {
+      el.addEventListener('click', function() {
+        var nav = this.getAttribute('data-nav');
+        if (nav) navTo(nav);
+      });
+      if (el.classList.contains('dash-stat-card')) {
+        el.addEventListener('mouseenter', function() { this.style.transform = 'translateY(-3px)'; this.style.boxShadow = '0 8px 24px rgba(0,0,0,.08)'; });
+        el.addEventListener('mouseleave', function() { this.style.transform = ''; this.style.boxShadow = ''; });
       }
     });
+
     return true;
   }
 
