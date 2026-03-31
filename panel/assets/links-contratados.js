@@ -503,6 +503,78 @@
   }
 
   /* ── Detail view ── */
+  /* ── Timeline UI (5 steps) ── */
+  function buildTimelineUI(currentStep, isAdmin) {
+    var steps = [
+      { num: 1, label: 'Plan o Cotizacion', icon: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>', desc: 'Tu plan o cotizacion esta activo', cta: '' },
+      { num: 2, label: 'Busqueda Activa', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', desc: 'Estamos buscando las mejores opciones', cta: '' },
+      { num: 3, label: 'Inspeccion', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>', desc: 'Inspeccion tecnica pre-compra', cta: 'Solicitar Inspeccion' },
+      { num: 4, label: 'Compra', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', desc: 'Negociacion y compra de la embarcacion', cta: '' },
+      { num: 5, label: 'Logistica', icon: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>', desc: 'Transporte y seguimiento en vivo', cta: '' }
+    ];
+    var activeColor = '#0891b2';
+    var completedColor = '#10b981';
+    var futureColor = '#cbd5e1';
+
+    var html = '<div style="padding:24px 28px;border-bottom:1px solid #f1f5f9">';
+    // Mobile: vertical, Desktop: horizontal
+    html += '<div class="lc-timeline" style="display:flex;align-items:flex-start;justify-content:space-between;gap:0;position:relative;overflow:visible">';
+
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var isCompleted = s.num < currentStep;
+      var isActive = s.num === currentStep;
+      var isFuture = s.num > currentStep;
+      var color = isCompleted ? completedColor : isActive ? activeColor : futureColor;
+      var bgColor = isCompleted ? '#ecfdf5' : isActive ? '#f0f9ff' : '#f8fafc';
+      var borderColor = isCompleted ? '#a7f3d0' : isActive ? '#bae6fd' : '#e2e8f0';
+      var textColor = isCompleted ? '#065f46' : isActive ? '#0c4a6e' : '#94a3b8';
+      var labelWeight = isActive ? '700' : isCompleted ? '600' : '400';
+      var circleSize = isActive ? '44px' : '36px';
+      var iconSize = isActive ? '18' : '14';
+
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;min-width:0">';
+      // Circle
+      html += '<div style="width:' + circleSize + ';height:' + circleSize + ';border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s;';
+      if (isCompleted) {
+        html += 'background:' + completedColor + ';box-shadow:0 0 0 4px #d1fae5';
+      } else if (isActive) {
+        html += 'background:linear-gradient(135deg,' + activeColor + ',#06b6d4);box-shadow:0 0 0 4px #e0f2fe,0 4px 12px rgba(8,145,178,.3)';
+      } else {
+        html += 'background:#f1f5f9;border:2px solid #e2e8f0';
+      }
+      html += '">';
+      if (isCompleted) {
+        html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+      } else {
+        html += '<svg width="' + iconSize + '" height="' + iconSize + '" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : '#94a3b8') + '" stroke-width="2">' + s.icon + '</svg>';
+      }
+      html += '</div>';
+      // Label
+      html += '<p style="margin:8px 0 0;font-size:' + (isActive ? '13px' : '11px') + ';font-weight:' + labelWeight + ';color:' + textColor + ';text-align:center;line-height:1.3;max-width:100px">' + s.label + '</p>';
+      // Active description
+      if (isActive && !isAdmin) {
+        html += '<p style="margin:4px 0 0;font-size:10px;color:#64748b;text-align:center;max-width:120px;line-height:1.3">' + s.desc + '</p>';
+      }
+      // Next step CTA
+      if (isActive && s.num < 5 && !isAdmin) {
+        var nextStep = steps[s.num];
+        if (nextStep && nextStep.cta) {
+          html += '<a href="https://wa.me/56940211459?text=' + encodeURIComponent('Hola, me interesa avanzar con ' + nextStep.label.toLowerCase() + ' para mi expediente') + '" target="_blank" rel="noopener" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:linear-gradient(135deg,' + activeColor + ',#06b6d4);color:#fff;font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap">' + nextStep.cta + ' &rarr;</a>';
+        }
+      }
+      html += '</div>';
+      // Connector line (between steps)
+      if (i < steps.length - 1) {
+        var lineColor = (i + 1) < currentStep ? completedColor : '#e2e8f0';
+        html += '<div style="flex:0 0 auto;width:40px;height:3px;margin-top:' + (isActive ? '20px' : '17px') + ';background:' + lineColor + ';border-radius:2px;flex-shrink:1"></div>';
+      }
+    }
+
+    html += '</div></div>';
+    return html;
+  }
+
   function renderDetailView(order) {
     if (!order) {
       return '<div style="text-align:center;padding:60px 20px;color:#94a3b8"><p style="font-size:16px">Expediente no encontrado</p>' +
@@ -576,6 +648,7 @@
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' + getStatusBadge(order.status) +
       '<a href="' + whatsappUrl + '" target="_blank" rel="noopener" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(37,211,102,.4);background:rgba(37,211,102,.12);color:#25d366;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contactar Soporte</a></div></div></div>' +
       (function () { var b = STATUS_BANNERS[order.status]; if (!b) return ''; return '<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 28px;background:' + b.bg + ';border-bottom:1px solid ' + b.border + '">' + '<div style="flex-shrink:0;margin-top:2px">' + b.icon + '</div>' + '<div style="flex:1"><p style="margin:0 0 2px;font-size:15px;font-weight:700;color:' + b.color + '">' + b.title + '</p>' + '<p style="margin:0;font-size:13px;color:#475569;line-height:1.5">' + b.message + '</p></div></div>'; })() +
+      buildTimelineUI(order.timeline_step || 1, false) +
       '<div style="padding:20px 28px">' + infoGrid + '</div>' +
       statsHtml +
       (agentHtml ? '<div style="padding:0 28px 20px">' + agentHtml + '</div>' : '') + '</div>' +

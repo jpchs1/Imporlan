@@ -255,6 +255,57 @@ function logOrderEvent($pdo, $orderId, $eventType, $meta = [], $userId = null) {
     $stmt->execute([$orderId, $eventType, json_encode($meta), $userId]);
 }
 
+/**
+ * Compute timeline step (1-5) based on real data in the expediente.
+ * 1 = Plan Contratado (order exists with purchase)
+ * 2 = Búsqueda Activa (links added by admin)
+ * 3 = Inspección (inspection report exists for this user)
+ * 4 = Compra (status completed or purchase confirmed)
+ * 5 = Logística & Tracking (vessel assigned / tracking active)
+ */
+function computeTimelineStep($pdo, $order) {
+    $step = 1; // Default: plan contratado
+
+    // Step 2: links with actual URLs added
+    $links = $order['links'] ?? [];
+    $hasRealLinks = false;
+    foreach ($links as $lk) {
+        if (!empty($lk['url'])) { $hasRealLinks = true; break; }
+    }
+    if ($hasRealLinks) $step = 2;
+
+    // Step 3: inspection exists for this customer
+    if ($step >= 2) {
+        try {
+            $email = $order['customer_email'] ?? '';
+            if ($email) {
+                $inspStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM wp_inspection_reports WHERE user_email = ? AND status IN ('in_progress','completed','sent')");
+                $inspStmt->execute([$email]);
+                $inspCount = intval($inspStmt->fetch(PDO::FETCH_ASSOC)['cnt']);
+                if ($inspCount > 0) $step = 3;
+            }
+        } catch (Exception $e) {
+            // Table may not exist
+        }
+    }
+
+    // Step 4: order marked completed or specific event
+    if ($step >= 3 && in_array($order['status'] ?? '', ['completed'])) {
+        $step = 4;
+    }
+
+    // Step 5: vessel assigned (tracking active)
+    if (!empty($order['vessel_id'])) {
+        $step = 5;
+    }
+
+    // Also allow manual override: if DB timeline_step is higher, use that
+    $dbStep = intval($order['timeline_step'] ?? 0);
+    if ($dbStep > $step) $step = $dbStep;
+
+    return $step;
+}
+
 function userListOrders() {
     $userEmail = $_GET['user_email'] ?? '';
     $userId = $_GET['user_id'] ?? '';
@@ -348,6 +399,9 @@ function userGetOrderDetail() {
         $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $order['links'] = $links;
+
+        // Auto-detect timeline step from real data
+        $order['timeline_step'] = computeTimelineStep($pdo, $order);
 
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
@@ -478,6 +532,9 @@ function adminGetOrderDetail() {
 
         $order['links'] = $links;
         $order['events'] = $events;
+
+        // Auto-detect timeline step from real data
+        $order['timeline_step'] = computeTimelineStep($pdo, $order);
 
         // Lookup secondary email from user_secondary_emails table
         $order['secondary_email'] = null;

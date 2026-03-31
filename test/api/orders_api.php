@@ -1,7 +1,1491 @@
 <?php
 /**
- * Orders API proxy for test environment.
- * Forwards all requests to the main /api/orders_api.php so that
- * test and production share the same codebase and database.
+ * Orders (Expedientes) API - Imporlan
+ * 
+ * Endpoints para gestionar expedientes de busqueda y links contratados
+ * 
+ * User endpoints:
+ * - GET  ?action=user_list&user_email=X        - Listar expedientes del usuario
+ * - GET  ?action=user_detail&id=X&user_email=X - Detalle de un expediente
+ * 
+ * Admin endpoints (require auth):
+ * - GET  ?action=admin_list                     - Listar todos los expedientes
+ * - GET  ?action=admin_detail&id=X              - Detalle de expediente (admin)
+ * - POST ?action=admin_update                   - Actualizar expediente
+ * - POST ?action=admin_update_links             - Actualizar links de un expediente
+ * - POST ?action=admin_add_link                 - Agregar link a expediente
+ * - POST ?action=admin_delete_link              - Eliminar link de expediente
+ * - POST ?action=admin_create                   - Crear expediente manualmente
+ * - GET  ?action=migrate                        - Crear tablas en la BD
  */
-require_once dirname(__DIR__, 2) . '/api/orders_api.php';
+
+require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/auth_helper.php';
+
+if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Content-Type: application/json');
+
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit();
+    }
+
+    $action = $_GET['action'] ?? '';
+
+    switch ($action) {
+        case 'migrate':
+            requireAdminAuth();
+            runMigration();
+            break;
+        case 'user_list':
+            userListOrders();
+            break;
+        case 'user_detail':
+            userGetOrderDetail();
+            break;
+        case 'admin_list':
+            requireAdminAuth();
+            adminListOrders();
+            break;
+        case 'admin_detail':
+            requireAdminAuth();
+            adminGetOrderDetail();
+            break;
+        case 'admin_update':
+            requireAdminAuth();
+            adminUpdateOrder();
+            break;
+        case 'admin_update_links':
+            requireAdminAuth();
+            adminUpdateLinks();
+            break;
+        case 'admin_add_link':
+            requireAdminAuth();
+            adminAddLink();
+            break;
+        case 'admin_delete_link':
+            requireAdminAuth();
+            adminDeleteLink();
+            break;
+        case 'admin_reorder_links':
+            requireAdminAuth();
+            adminReorderLinks();
+            break;
+        case 'admin_create':
+            requireAdminAuth();
+            adminCreateOrder();
+            break;
+        case 'admin_delete':
+            requireAdminAuth();
+            adminDeleteOrder();
+            break;
+        case 'admin_send_client_update':
+            requireAdminAuth();
+            adminSendClientUpdate();
+            break;
+        case 'admin_change_status':
+            requireAdminAuth();
+            adminChangeStatus();
+            break;
+        case 'save_ranking':
+            saveRanking();
+            break;
+        case 'notify_ranking':
+            notifyRanking();
+            break;
+        default:
+            http_response_code(400);
+            echo json_encode(['error' => 'Accion no valida']);
+    }
+}
+
+function requireAdminAuth() {
+    return requireAdminAuthShared(['admin', 'support', 'agent']);
+}
+
+function runMigration() {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS orders (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                order_number VARCHAR(50) UNIQUE NOT NULL,
+                customer_id VARCHAR(100),
+                customer_email VARCHAR(255) NOT NULL,
+                customer_name VARCHAR(255) NOT NULL,
+                customer_phone VARCHAR(50),
+                plan_name VARCHAR(255),
+                requirement_name TEXT,
+                asset_name VARCHAR(255),
+                type_zone VARCHAR(255),
+                service_type ENUM('plan_busqueda','cotizacion_link') DEFAULT 'plan_busqueda',
+                agent_user_id VARCHAR(100),
+                agent_name VARCHAR(255),
+                agent_phone VARCHAR(50),
+                status ENUM('new','pending_admin_fill','in_progress','completed','expired','canceled') DEFAULT 'pending_admin_fill',
+                origin ENUM('web','admin','whatsapp') DEFAULT 'web',
+                admin_notes TEXT,
+                visible_to_client TINYINT(1) DEFAULT 1,
+                purchase_id VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_customer (customer_email),
+                INDEX idx_status (status),
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS order_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                order_id INT NOT NULL,
+                row_index INT NOT NULL,
+                url TEXT,
+                title VARCHAR(500),
+                value_usa_usd DECIMAL(12,2),
+                value_to_negotiate_usd DECIMAL(12,2),
+                value_chile_clp DECIMAL(12,0),
+                value_chile_negotiated_clp DECIMAL(12,0),
+                selection_order INT,
+                comments TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                INDEX idx_order (order_id, row_index)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS order_events (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                order_id INT NOT NULL,
+                event_type VARCHAR(100) NOT NULL,
+                meta_json TEXT,
+                user_id VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                INDEX idx_order_events (order_id, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('customer_phone', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN customer_phone VARCHAR(50) AFTER customer_name");
+        }
+        if (!in_array('service_type', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN service_type ENUM('plan_busqueda','cotizacion_link') DEFAULT 'plan_busqueda' AFTER type_zone");
+        }
+        if (!in_array('origin', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN origin ENUM('web','admin','whatsapp') DEFAULT 'web' AFTER status");
+        }
+        if (!in_array('admin_notes', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN admin_notes TEXT AFTER origin");
+        }
+        if (!in_array('visible_to_client', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN visible_to_client TINYINT(1) DEFAULT 1 AFTER admin_notes");
+        }
+
+        $linkCols = $pdo->query("SHOW COLUMNS FROM order_links")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('image_url', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN image_url TEXT AFTER title");
+        }
+        if (!in_array('location', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN location VARCHAR(255) AFTER image_url");
+        }
+        if (!in_array('hours', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN hours VARCHAR(100) AFTER location");
+        }
+        if (!in_array('link_status', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN link_status ENUM('active','sold','unavailable') DEFAULT 'active' AFTER hours");
+        }
+        if (!in_array('engine', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN engine VARCHAR(500) AFTER link_status");
+        }
+        if (!in_array('make', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN make VARCHAR(255) AFTER engine");
+        }
+        if (!in_array('model', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN model VARCHAR(255) AFTER make");
+        }
+        if (!in_array('year', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN year INT AFTER model");
+        }
+
+        // Timeline step column
+        if (!in_array('timeline_step', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN timeline_step TINYINT UNSIGNED DEFAULT 1 AFTER status");
+        }
+
+        // Ranking metadata columns
+        if (!in_array('ranking_author_name', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_name VARCHAR(255) AFTER admin_notes");
+        }
+        if (!in_array('ranking_author_role', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_role ENUM('user','admin') AFTER ranking_author_name");
+        }
+        if (!in_array('ranking_updated_at', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_updated_at TIMESTAMP NULL AFTER ranking_author_role");
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Migration failed: ' . $e->getMessage()]);
+    }
+}
+
+function generateOrderNumber($pdo) {
+    $stmt = $pdo->query("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM orders");
+    $row = $stmt->fetch();
+    $nextId = intval($row['next_id']);
+    return sprintf("IMP-%05d", $nextId);
+}
+
+function logOrderEvent($pdo, $orderId, $eventType, $meta = [], $userId = null) {
+    $stmt = $pdo->prepare("INSERT INTO order_events (order_id, event_type, meta_json, user_id) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$orderId, $eventType, json_encode($meta), $userId]);
+}
+
+/**
+ * Compute timeline step (1-5) based on real data in the expediente.
+ * 1 = Plan Contratado (order exists with purchase)
+ * 2 = Búsqueda Activa (links added by admin)
+ * 3 = Inspección (inspection report exists for this user)
+ * 4 = Compra (status completed or purchase confirmed)
+ * 5 = Logística & Tracking (vessel assigned / tracking active)
+ */
+function computeTimelineStep($pdo, $order) {
+    $step = 1; // Default: plan contratado
+
+    // Step 2: links with actual URLs added
+    $links = $order['links'] ?? [];
+    $hasRealLinks = false;
+    foreach ($links as $lk) {
+        if (!empty($lk['url'])) { $hasRealLinks = true; break; }
+    }
+    if ($hasRealLinks) $step = 2;
+
+    // Step 3: inspection exists for this customer
+    if ($step >= 2) {
+        try {
+            $email = $order['customer_email'] ?? '';
+            if ($email) {
+                $inspStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM wp_inspection_reports WHERE user_email = ? AND status IN ('in_progress','completed','sent')");
+                $inspStmt->execute([$email]);
+                $inspCount = intval($inspStmt->fetch(PDO::FETCH_ASSOC)['cnt']);
+                if ($inspCount > 0) $step = 3;
+            }
+        } catch (Exception $e) {
+            // Table may not exist
+        }
+    }
+
+    // Step 4: order marked completed or specific event
+    if ($step >= 3 && in_array($order['status'] ?? '', ['completed'])) {
+        $step = 4;
+    }
+
+    // Step 5: vessel assigned (tracking active)
+    if (!empty($order['vessel_id'])) {
+        $step = 5;
+    }
+
+    // Also allow manual override: if DB timeline_step is higher, use that
+    $dbStep = intval($order['timeline_step'] ?? 0);
+    if ($dbStep > $step) $step = $dbStep;
+
+    return $step;
+}
+
+function userListOrders() {
+    $userEmail = $_GET['user_email'] ?? '';
+    $userId = $_GET['user_id'] ?? '';
+
+    if (!$userEmail && !$userId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere user_email o user_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $where = 'WHERE visible_to_client = 1';
+        $params = [];
+        if ($userEmail) {
+            $where .= ' AND customer_email = ?';
+            $params[] = $userEmail;
+        } else {
+            $where .= ' AND customer_id = ?';
+            $params[] = $userId;
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT id, order_number, customer_email, customer_name, customer_phone,
+                   plan_name, requirement_name, asset_name, type_zone, service_type,
+                   agent_name, agent_phone, status, timeline_step, created_at, updated_at
+            FROM orders
+            $where
+            ORDER BY created_at DESC
+        ");
+        $stmt->execute($params);
+        $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode(['success' => true, 'orders' => $orders]);
+    } catch (PDOException $e) {
+        error_log("Error listing user orders: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener expedientes']);
+    }
+}
+
+function userGetOrderDetail() {
+    $orderId = intval($_GET['id'] ?? 0);
+    $userEmail = $_GET['user_email'] ?? '';
+    $userId = $_GET['user_id'] ?? '';
+
+    if (!$orderId || (!$userEmail && !$userId)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id y user_email o user_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $where = 'WHERE o.id = ? AND o.visible_to_client = 1';
+        $params = [$orderId];
+        if ($userEmail) {
+            $where .= ' AND o.customer_email = ?';
+            $params[] = $userEmail;
+        } else {
+            $where .= ' AND o.customer_id = ?';
+            $params[] = $userId;
+        }
+
+        $stmt = $pdo->prepare("SELECT o.* FROM orders o $where");
+        $stmt->execute($params);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $linkStmt = $pdo->prepare("
+            SELECT * FROM order_links WHERE order_id = ? ORDER BY row_index ASC
+        ");
+        $linkStmt->execute([$orderId]);
+        $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $order['links'] = $links;
+
+        // Auto-detect timeline step from real data
+        $order['timeline_step'] = computeTimelineStep($pdo, $order);
+
+        echo json_encode(['success' => true, 'order' => $order]);
+    } catch (PDOException $e) {
+        error_log("Error getting order detail: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener expediente']);
+    }
+}
+
+function adminListOrders() {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $where = [];
+        $params = [];
+
+        if (!empty($_GET['status'])) {
+            $where[] = 'status = ?';
+            $params[] = $_GET['status'];
+        }
+        if (!empty($_GET['agent'])) {
+            $where[] = 'agent_name LIKE ?';
+            $params[] = '%' . $_GET['agent'] . '%';
+        }
+        if (!empty($_GET['service_type'])) {
+            $where[] = 'service_type = ?';
+            $params[] = $_GET['service_type'];
+        }
+        if (!empty($_GET['from_date'])) {
+            $where[] = 'created_at >= ?';
+            $params[] = $_GET['from_date'] . ' 00:00:00';
+        }
+        if (!empty($_GET['to_date'])) {
+            $where[] = 'created_at <= ?';
+            $params[] = $_GET['to_date'] . ' 23:59:59';
+        }
+        if (!empty($_GET['search'])) {
+            $where[] = '(customer_name LIKE ? OR customer_email LIKE ? OR order_number LIKE ? OR asset_name LIKE ?)';
+            $search = '%' . $_GET['search'] . '%';
+            $params = array_merge($params, [$search, $search, $search, $search]);
+        }
+
+        $whereClause = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $pdo->prepare("
+            SELECT id, order_number, customer_email, customer_name, customer_phone,
+                   plan_name, requirement_name, asset_name, type_zone, service_type,
+                   agent_name, agent_phone, status, timeline_step, origin, admin_notes,
+                   visible_to_client, purchase_id, created_at, updated_at
+            FROM orders
+            $whereClause
+            ORDER BY created_at DESC
+        ");
+        $stmt->execute($params);
+        $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Enrich orders with purchase_date from purchases.json so dates match Pagos/Solicitudes
+        $purchasesFile = __DIR__ . '/purchases.json';
+        if (file_exists($purchasesFile)) {
+            $pData = json_decode(file_get_contents($purchasesFile), true);
+            $purchaseDates = [];
+            foreach (($pData['purchases'] ?? []) as $p) {
+                $pid = $p['id'] ?? '';
+                if ($pid) {
+                    $purchaseDates[$pid] = $p['timestamp'] ?? $p['date'] ?? null;
+                }
+            }
+            for ($i = 0; $i < count($orders); $i++) {
+                $pid = $orders[$i]['purchase_id'] ?? '';
+                $orders[$i]['purchase_date'] = isset($purchaseDates[$pid]) ? $purchaseDates[$pid] : null;
+            }
+        }
+
+        $countStmt = $pdo->query("SELECT COUNT(*) as total FROM orders");
+        $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+        echo json_encode(['success' => true, 'orders' => $orders, 'total' => intval($total)]);
+    } catch (PDOException $e) {
+        error_log("Error listing admin orders: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener expedientes']);
+    }
+}
+
+function adminGetOrderDetail() {
+    $orderId = intval($_GET['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $linkStmt = $pdo->prepare("
+            SELECT * FROM order_links WHERE order_id = ? ORDER BY row_index ASC
+        ");
+        $linkStmt->execute([$orderId]);
+        $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $eventStmt = $pdo->prepare("
+            SELECT * FROM order_events WHERE order_id = ? ORDER BY created_at DESC LIMIT 50
+        ");
+        $eventStmt->execute([$orderId]);
+        $events = $eventStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $order['links'] = $links;
+        $order['events'] = $events;
+
+        // Auto-detect timeline step from real data
+        $order['timeline_step'] = computeTimelineStep($pdo, $order);
+
+        // Lookup secondary email from user_secondary_emails table
+        $order['secondary_email'] = null;
+        if (!empty($order['customer_email'])) {
+            try {
+                $secStmt = $pdo->prepare("SELECT secondary_email FROM user_secondary_emails WHERE LOWER(primary_email) = LOWER(?) LIMIT 1");
+                $secStmt->execute([$order['customer_email']]);
+                $secRow = $secStmt->fetch(PDO::FETCH_ASSOC);
+                if ($secRow && !empty($secRow['secondary_email'])) {
+                    $order['secondary_email'] = $secRow['secondary_email'];
+                }
+            } catch (PDOException $e2) {
+                // Table may not exist yet, ignore
+            }
+        }
+
+        echo json_encode(['success' => true, 'order' => $order]);
+    } catch (PDOException $e) {
+        error_log("Error getting admin order detail: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener expediente']);
+    }
+}
+
+function adminUpdateOrder() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    $oldStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+    $oldStmt->execute([$orderId]);
+    $oldOrder = $oldStmt->fetch(PDO::FETCH_ASSOC);
+
+    $allowedFields = [
+        'plan_name', 'requirement_name', 'asset_name', 'type_zone',
+        'service_type', 'agent_user_id', 'agent_name', 'agent_phone',
+        'status', 'timeline_step', 'customer_name', 'customer_email', 'customer_phone',
+        'origin', 'admin_notes', 'visible_to_client'
+    ];
+
+    $sets = [];
+    $params = [];
+    $changes = [];
+
+    foreach ($allowedFields as $field) {
+        if (array_key_exists($field, $input)) {
+            $sets[] = "$field = ?";
+            $params[] = $input[$field];
+            if ($oldOrder && isset($oldOrder[$field]) && $oldOrder[$field] !== $input[$field]) {
+                $changes[$field] = ['from' => $oldOrder[$field], 'to' => $input[$field]];
+            }
+        }
+    }
+
+    if (empty($sets)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No hay campos para actualizar']);
+        return;
+    }
+
+    $params[] = $orderId;
+
+    try {
+        $stmt = $pdo->prepare("UPDATE orders SET " . implode(', ', $sets) . " WHERE id = ?");
+        $stmt->execute($params);
+
+        if (isset($changes['status'])) {
+            logOrderEvent($pdo, $orderId, 'status_changed', $changes['status'], $input['admin_user_id'] ?? null);
+        }
+        if (!empty($changes)) {
+            logOrderEvent($pdo, $orderId, 'updated_header', $changes, $input['admin_user_id'] ?? null);
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Expediente actualizado']);
+    } catch (PDOException $e) {
+        error_log("Error updating order: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar expediente']);
+    }
+}
+
+function adminUpdateLinks() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $links = $input['links'] ?? [];
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $updatedCells = [];
+        foreach ($links as $link) {
+            $linkId = intval($link['id'] ?? 0);
+            if ($linkId) {
+                $oldStmt = $pdo->prepare("SELECT * FROM order_links WHERE id = ? AND order_id = ?");
+                $oldStmt->execute([$linkId, $orderId]);
+                $oldLink = $oldStmt->fetch(PDO::FETCH_ASSOC);
+
+                $stmt = $pdo->prepare("
+                    UPDATE order_links SET
+                        url = ?, title = ?, image_url = ?, location = ?, hours = ?,
+                        value_usa_usd = ?, value_to_negotiate_usd = ?,
+                        value_chile_clp = ?, value_chile_negotiated_clp = ?,
+                        selection_order = ?, comments = ?, row_index = ?, link_status = ?, engine = ?,
+                        make = ?, model = ?, year = ?
+                    WHERE id = ? AND order_id = ?
+                ");
+                $stmt->execute([
+                    $link['url'] ?? null,
+                    $link['title'] ?? null,
+                    $link['image_url'] ?? null,
+                    $link['location'] ?? null,
+                    $link['hours'] ?? null,
+                    $link['value_usa_usd'] ?? null,
+                    $link['value_to_negotiate_usd'] ?? null,
+                    $link['value_chile_clp'] ?? null,
+                    $link['value_chile_negotiated_clp'] ?? null,
+                    $link['selection_order'] ?? null,
+                    $link['comments'] ?? null,
+                    $link['row_index'] ?? ($oldLink['row_index'] ?? 0),
+                    $link['link_status'] ?? ($oldLink['link_status'] ?? 'active'),
+                    $link['engine'] ?? ($oldLink['engine'] ?? null),
+                    $link['make'] ?? ($oldLink['make'] ?? null),
+                    $link['model'] ?? ($oldLink['model'] ?? null),
+                    $link['year'] ?? ($oldLink['year'] ?? null),
+                    $linkId,
+                    $orderId
+                ]);
+
+                if ($oldLink) {
+                    $fields = ['url','value_usa_usd','value_to_negotiate_usd','value_chile_clp','value_chile_negotiated_clp','selection_order','comments'];
+                    foreach ($fields as $f) {
+                        $oldVal = $oldLink[$f] ?? null;
+                        $newVal = $link[$f] ?? null;
+                        if ($oldVal != $newVal) {
+                            $updatedCells[] = ['link_id' => $linkId, 'field' => $f, 'from' => $oldVal, 'to' => $newVal];
+                        }
+                    }
+                }
+            }
+        }
+
+        $pdo->commit();
+
+        if (!empty($updatedCells)) {
+            logOrderEvent($pdo, $orderId, 'updated_cell', ['cells' => $updatedCells], $input['admin_user_id'] ?? null);
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Links actualizados']);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error updating links: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar links']);
+    }
+}
+
+function adminAddLink() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $maxStmt = $pdo->prepare("SELECT COALESCE(MAX(row_index), 0) + 1 as next_index FROM order_links WHERE order_id = ?");
+        $maxStmt->execute([$orderId]);
+        $nextIndex = $maxStmt->fetch(PDO::FETCH_ASSOC)['next_index'];
+
+        $stmt = $pdo->prepare("
+            INSERT INTO order_links (order_id, row_index, url, title, image_url, location, hours, value_usa_usd, value_to_negotiate_usd, value_chile_clp, value_chile_negotiated_clp, selection_order, comments, engine, make, model, year)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $orderId,
+            $nextIndex,
+            $input['url'] ?? null,
+            $input['title'] ?? null,
+            $input['image_url'] ?? null,
+            $input['location'] ?? null,
+            $input['hours'] ?? null,
+            $input['value_usa_usd'] ?? null,
+            $input['value_to_negotiate_usd'] ?? null,
+            $input['value_chile_clp'] ?? null,
+            $input['value_chile_negotiated_clp'] ?? null,
+            $input['selection_order'] ?? null,
+            $input['comments'] ?? null,
+            $input['engine'] ?? null,
+            $input['make'] ?? null,
+            $input['model'] ?? null,
+            $input['year'] ?? null
+        ]);
+
+        $linkId = $pdo->lastInsertId();
+        logOrderEvent($pdo, $orderId, 'added_link', ['link_id' => $linkId, 'row_index' => $nextIndex]);
+
+        echo json_encode(['success' => true, 'link_id' => intval($linkId), 'row_index' => intval($nextIndex)]);
+    } catch (PDOException $e) {
+        error_log("Error adding link: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al agregar link']);
+    }
+}
+
+function adminDeleteLink() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $linkId = intval($input['link_id'] ?? 0);
+    $orderId = intval($input['order_id'] ?? 0);
+
+    if (!$linkId || !$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere link_id y order_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM order_links WHERE id = ? AND order_id = ?");
+        $stmt->execute([$linkId, $orderId]);
+
+        logOrderEvent($pdo, $orderId, 'deleted_link', ['link_id' => $linkId]);
+
+        echo json_encode(['success' => true, 'message' => 'Link eliminado']);
+    } catch (PDOException $e) {
+        error_log("Error deleting link: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al eliminar link']);
+    }
+}
+
+function adminReorderLinks() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkIds = $input['link_ids'] ?? [];
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? 'admin';
+
+    if (!$orderId || empty($linkIds)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id y link_ids']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $pdo->beginTransaction();
+        foreach ($linkIds as $index => $linkId) {
+            $stmt = $pdo->prepare("UPDATE order_links SET row_index = ? WHERE id = ? AND order_id = ?");
+            $stmt->execute([$index + 1, intval($linkId), $orderId]);
+        }
+
+        // Update ranking metadata if author info provided
+        if ($authorName) {
+            $stmt = $pdo->prepare("UPDATE orders SET ranking_author_name = ?, ranking_author_role = ?, ranking_updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$authorName, $authorRole, $orderId]);
+        }
+
+        $pdo->commit();
+
+        logOrderEvent($pdo, $orderId, 'reordered_links', [
+            'new_order' => $linkIds,
+            'author_name' => $authorName,
+            'author_role' => $authorRole
+        ]);
+
+        echo json_encode(['success' => true, 'message' => 'Orden actualizado']);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error reordering links: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al reordenar links']);
+    }
+}
+
+function adminCreateOrder() {
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    if (empty($input['customer_email']) || empty($input['customer_name'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere customer_email y customer_name']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $orderNumber = generateOrderNumber($pdo);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, asset_name, type_zone, service_type,
+                agent_user_id, agent_name, agent_phone, status, origin, admin_notes, visible_to_client, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $orderNumber,
+            $input['customer_id'] ?? null,
+            $input['customer_email'],
+            $input['customer_name'],
+            $input['customer_phone'] ?? null,
+            $input['plan_name'] ?? null,
+            $input['requirement_name'] ?? null,
+            $input['asset_name'] ?? null,
+            $input['type_zone'] ?? null,
+            $input['service_type'] ?? 'plan_busqueda',
+            $input['agent_user_id'] ?? null,
+            $input['agent_name'] ?? 'Rodrigo Calderón',
+            $input['agent_phone'] ?? '+56 9 40211459',
+            'pending_admin_fill',
+            $input['origin'] ?? 'admin',
+            $input['admin_notes'] ?? null,
+            $input['visible_to_client'] ?? 1,
+            $input['purchase_id'] ?? null
+        ]);
+
+        $orderId = intval($pdo->lastInsertId());
+
+        $linkCount = intval($input['initial_links'] ?? 10);
+        for ($i = 1; $i <= $linkCount; $i++) {
+            $pdo->prepare("INSERT INTO order_links (order_id, row_index) VALUES (?, ?)")->execute([$orderId, $i]);
+        }
+
+        logOrderEvent($pdo, $orderId, 'created', [
+            'order_number' => $orderNumber,
+            'source' => $input['origin'] ?? 'admin',
+            'service_type' => $input['service_type'] ?? 'plan_busqueda'
+        ], $input['admin_user_id'] ?? null);
+
+        echo json_encode([
+            'success' => true,
+            'order_id' => $orderId,
+            'order_number' => $orderNumber,
+            'message' => 'Expediente creado exitosamente'
+        ]);
+    } catch (PDOException $e) {
+        error_log("Error creating order: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al crear expediente: ' . $e->getMessage()]);
+    }
+}
+
+function adminDeleteOrder() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT order_number, customer_name, customer_email FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $pdo->beginTransaction();
+        $pdo->prepare("DELETE FROM order_events WHERE order_id = ?")->execute([$orderId]);
+        $pdo->prepare("DELETE FROM order_links WHERE order_id = ?")->execute([$orderId]);
+        $pdo->prepare("DELETE FROM orders WHERE id = ?")->execute([$orderId]);
+        $pdo->commit();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Expediente eliminado',
+            'order_number' => $order['order_number']
+        ]);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error deleting order: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al eliminar expediente']);
+    }
+}
+
+function adminSendClientUpdate() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id del expediente']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        if (empty($order['customer_email'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'El expediente no tiene email de cliente']);
+            return;
+        }
+
+        $linkStmt = $pdo->prepare("SELECT * FROM order_links WHERE order_id = ? ORDER BY row_index ASC");
+        $linkStmt->execute([$orderId]);
+        $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+        $order['links'] = $links;
+
+        require_once __DIR__ . '/email_service.php';
+        $emailService = new EmailService();
+
+        $firstName = explode(' ', $order['customer_name'] ?? '')[0];
+        if (empty($firstName)) {
+            $firstName = explode('@', $order['customer_email'])[0];
+        }
+
+        $result = $emailService->sendExpedienteUpdateEmail(
+            $order['customer_email'],
+            $firstName,
+            $order
+        );
+
+        if ($result['success']) {
+            logOrderEvent($pdo, $orderId, 'client_update_sent', [
+                'email' => $order['customer_email'],
+                'sent_by' => $input['admin_user_id'] ?? null
+            ], $input['admin_user_id'] ?? null);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Email de actualizacion enviado a ' . $order['customer_email']
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al enviar email: ' . ($result['error'] ?? 'Error desconocido')
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Error sending client update: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al enviar actualizacion: ' . $e->getMessage()]);
+    }
+}
+
+function adminChangeStatus() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['id'] ?? 0);
+    $newStatus = $input['status'] ?? '';
+    $adminUserId = $input['admin_user_id'] ?? null;
+
+    $validStatuses = ['new', 'pending_admin_fill', 'in_progress', 'completed', 'expired', 'canceled'];
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere id del expediente']);
+        return;
+    }
+
+    if (!in_array($newStatus, $validStatuses)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Estado no valido: ' . $newStatus]);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        $oldStatus = $order['status'];
+
+        if ($oldStatus === $newStatus) {
+            echo json_encode(['success' => true, 'message' => 'El estado ya es ' . $newStatus, 'email_sent' => false]);
+            return;
+        }
+
+        // Update the status
+        $updateStmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
+        $updateStmt->execute([$newStatus, $orderId]);
+
+        // Log the event
+        logOrderEvent($pdo, $orderId, 'status_changed', ['from' => $oldStatus, 'to' => $newStatus], $adminUserId);
+
+        // Send email notification to client
+        $emailSent = false;
+        $emailError = null;
+        if (!empty($order['customer_email'])) {
+            try {
+                require_once __DIR__ . '/email_service.php';
+                $emailService = new EmailService();
+
+                $firstName = explode(' ', $order['customer_name'] ?? '')[0];
+                if (empty($firstName)) {
+                    $firstName = explode('@', $order['customer_email'])[0];
+                }
+
+                $order['status'] = $newStatus;
+                $result = $emailService->sendStatusChangeEmail(
+                    $order['customer_email'],
+                    $firstName,
+                    $order,
+                    $oldStatus,
+                    $newStatus
+                );
+
+                $emailSent = $result['success'] ?? false;
+                if (!$emailSent) {
+                    $emailError = $result['error'] ?? 'Error desconocido';
+                }
+            } catch (Exception $e) {
+                $emailError = $e->getMessage();
+                error_log("Error sending status change email: " . $e->getMessage());
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Estado actualizado de ' . $oldStatus . ' a ' . $newStatus,
+            'email_sent' => $emailSent,
+            'email_error' => $emailError,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus
+        ]);
+    } catch (PDOException $e) {
+        error_log("Error changing order status: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al cambiar estado: ' . $e->getMessage()]);
+    }
+}
+
+function createOrderFromPurchase($purchase) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        error_log("Orders: Cannot create order - DB connection failed");
+        return null;
+    }
+
+    try {
+        $orderNumber = generateOrderNumber($pdo);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, asset_name, type_zone, service_type, status, origin, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'plan_busqueda', 'pending_admin_fill', 'web', ?)
+        ");
+        $stmt->execute([
+            $orderNumber,
+            $purchase['customer_id'] ?? null,
+            $purchase['user_email'] ?? $purchase['customer_email'] ?? '',
+            $purchase['customer_name'] ?? explode('@', $purchase['user_email'] ?? '')[0],
+            $purchase['customer_phone'] ?? null,
+            $purchase['plan_name'] ?? '',
+            $purchase['description'] ?? '',
+            $purchase['asset_name'] ?? '',
+            $purchase['type_zone'] ?? '',
+            $purchase['id'] ?? $purchase['purchase_id'] ?? null
+        ]);
+
+        $orderId = intval($pdo->lastInsertId());
+
+        for ($i = 1; $i <= 10; $i++) {
+            $pdo->prepare("INSERT INTO order_links (order_id, row_index) VALUES (?, ?)")->execute([$orderId, $i]);
+        }
+
+        logOrderEvent($pdo, $orderId, 'created', [
+            'order_number' => $orderNumber,
+            'source' => 'purchase',
+            'purchase_id' => $purchase['id'] ?? null
+        ]);
+
+        return $orderId;
+    } catch (PDOException $e) {
+        error_log("Error creating order from purchase: " . $e->getMessage());
+        return null;
+    }
+}
+
+function ensureRankingColumns($pdo) {
+    try {
+        $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('ranking_author_name', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_name VARCHAR(255) AFTER admin_notes");
+        }
+        if (!in_array('ranking_author_role', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_author_role ENUM('user','admin') AFTER ranking_author_name");
+        }
+        if (!in_array('ranking_updated_at', $columns)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_updated_at TIMESTAMP NULL AFTER ranking_author_role");
+        }
+    } catch (PDOException $e) {
+        error_log("ensureRankingColumns: " . $e->getMessage());
+    }
+}
+
+function saveRanking() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkIds = $input['link_ids'] ?? [];
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? ''; // 'user' or 'admin'
+    $userEmail = $input['user_email'] ?? '';
+
+    if (!$orderId || empty($linkIds) || !$authorName || !$authorRole) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id, link_ids, author_name y author_role']);
+        return;
+    }
+
+    // Validate author_role
+    if (!in_array($authorRole, ['user', 'admin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'author_role debe ser user o admin']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    // Auto-migrate ranking columns if needed
+    ensureRankingColumns($pdo);
+
+    try {
+        // Verify access: if user role, check email matches order
+        if ($authorRole === 'user') {
+            $checkStmt = $pdo->prepare("SELECT id FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+            $checkStmt->execute([$orderId, $userEmail]);
+            if (!$checkStmt->fetch()) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes acceso a este expediente']);
+                return;
+            }
+        } else {
+            // Admin: require auth
+            requireAdminAuth();
+        }
+
+        $pdo->beginTransaction();
+
+        // Update link order
+        foreach ($linkIds as $index => $linkId) {
+            $stmt = $pdo->prepare("UPDATE order_links SET row_index = ? WHERE id = ? AND order_id = ?");
+            $stmt->execute([$index + 1, intval($linkId), $orderId]);
+        }
+
+        // Update ranking metadata on order
+        $stmt = $pdo->prepare("UPDATE orders SET ranking_author_name = ?, ranking_author_role = ?, ranking_updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$authorName, $authorRole, $orderId]);
+
+        $pdo->commit();
+
+        logOrderEvent($pdo, $orderId, 'ranking_updated', [
+            'author_name' => $authorName,
+            'author_role' => $authorRole,
+            'new_order' => $linkIds
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Ranking actualizado',
+            'ranking_author_name' => $authorName,
+            'ranking_author_role' => $authorRole
+        ]);
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log("Error saving ranking: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar ranking']);
+    }
+}
+
+function notifyRanking() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $authorName = $input['author_name'] ?? '';
+    $authorRole = $input['author_role'] ?? '';
+    $userEmail = $input['user_email'] ?? '';
+
+    if (!$orderId || !$authorName || !$authorRole) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id, author_name y author_role']);
+        return;
+    }
+
+    // Validate author_role
+    if (!in_array($authorRole, ['user', 'admin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'author_role debe ser user o admin']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    try {
+        // Authenticate based on role
+        if ($authorRole === 'user') {
+            // Verify user email matches order
+            $checkStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+            $checkStmt->execute([$orderId, $userEmail]);
+            $order = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$order) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes acceso a este expediente']);
+                return;
+            }
+        } else {
+            // Admin: require auth token
+            requireAdminAuth();
+            $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Expediente no encontrado']);
+            return;
+        }
+
+        // Get links for ranking preview
+        $linkStmt = $pdo->prepare("SELECT url, title, image_url, value_usa_usd, location FROM order_links WHERE order_id = ? ORDER BY row_index ASC LIMIT 5");
+        $linkStmt->execute([$orderId]);
+        $topLinks = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build ranking preview HTML
+        $rankingHtml = '';
+        foreach ($topLinks as $i => $link) {
+            $rankingHtml .= '<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0891b2;text-align:center">#' . ($i + 1) . '</td>';
+            $rankingHtml .= '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#1e293b">' . htmlspecialchars($link['title'] ?: ($link['url'] ? substr($link['url'], 0, 50) . '...' : 'Sin datos')) . '</td></tr>';
+        }
+
+        $roleLabel = $authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+
+        // Determine who to notify
+        if ($authorRole === 'user') {
+            // User changed ranking -> notify admin/agent
+            $recipientEmail = 'contacto@imporlan.cl';
+            $recipientName = $order['agent_name'] ?: 'Equipo Imporlan';
+        } else {
+            // Admin changed ranking -> notify user
+            $recipientEmail = $order['customer_email'];
+            $recipientName = $order['customer_name'] ?: 'Cliente';
+        }
+
+        // Send email
+        require_once __DIR__ . '/email_service.php';
+        $emailHtml = '
+        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:600px;margin:0 auto">
+            <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px;text-align:center;border-radius:16px 16px 0 0">
+                <h1 style="color:#fff;font-size:24px;margin:0">Ranking Actualizado</h1>
+                <p style="color:rgba(255,255,255,.7);font-size:14px;margin:8px 0 0">Expediente ' . htmlspecialchars($order['order_number']) . '</p>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:none">
+                <p style="font-size:16px;color:#1e293b;margin:0 0 8px">Hola ' . htmlspecialchars($recipientName) . ',</p>
+                <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 20px"><strong>' . htmlspecialchars($authorName) . '</strong> (' . $roleLabel . ') ha modificado el ranking de embarcaciones del expediente <strong>' . htmlspecialchars($order['order_number']) . '</strong>.</p>
+                <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0">
+                    <p style="font-size:13px;font-weight:700;color:#0891b2;margin:0 0 10px">Top 5 del nuevo ranking:</p>
+                    <table style="width:100%;border-collapse:collapse">' . $rankingHtml . '</table>
+                </div>
+                <p style="font-size:14px;color:#475569;margin:0 0 20px">Puedes revisar el ranking completo en el panel.</p>
+                <div style="text-align:center">
+                    <a href="https://www.imporlan.cl/panel/" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;text-decoration:none;border-radius:10px;font-weight:600;font-size:14px">Ver Expediente</a>
+                </div>
+            </div>
+            <div style="background:#f8fafc;padding:20px;text-align:center;border-radius:0 0 16px 16px;border:1px solid #e2e8f0;border-top:none">
+                <p style="font-size:12px;color:#94a3b8;margin:0">Imporlan - Importacion de Embarcaciones</p>
+            </div>
+        </div>';
+
+        $emailService = new EmailService();
+        $emailResult = $emailService->sendCustomEmail(
+            $recipientEmail,
+            'Ranking Actualizado - ' . $order['order_number'],
+            $emailHtml
+        );
+
+        // Also send internal copy
+        if ($recipientEmail !== 'contacto@imporlan.cl') {
+            $emailService->sendCustomEmail(
+                'contacto@imporlan.cl',
+                '[Copia] Ranking Actualizado - ' . $order['order_number'],
+                $emailHtml
+            );
+        }
+
+        logOrderEvent($pdo, $orderId, 'ranking_notification_sent', [
+            'author_name' => $authorName,
+            'author_role' => $authorRole,
+            'recipient' => $recipientEmail
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Notificacion enviada a ' . $recipientEmail,
+            'email_sent' => !empty($emailResult['success'])
+        ]);
+    } catch (Exception $e) {
+        error_log("Error notifying ranking: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al enviar notificacion']);
+    }
+}
+
+function createOrderFromQuotation($purchase, $storedLinks = []) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        error_log("Orders: Cannot create order from quotation - DB connection failed");
+        return null;
+    }
+
+    try {
+        $orderNumber = generateOrderNumber($pdo);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
+                plan_name, requirement_name, service_type, status, origin, purchase_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'cotizacion_link', 'pending_admin_fill', 'web', ?)
+        ");
+        $stmt->execute([
+            $orderNumber,
+            $purchase['customer_id'] ?? null,
+            $purchase['user_email'] ?? $purchase['customer_email'] ?? '',
+            $purchase['customer_name'] ?? explode('@', $purchase['user_email'] ?? '')[0],
+            $purchase['customer_phone'] ?? null,
+            $purchase['plan_name'] ?? 'Cotizacion por Links',
+            $purchase['description'] ?? '',
+            $purchase['id'] ?? $purchase['purchase_id'] ?? null
+        ]);
+
+        $orderId = intval($pdo->lastInsertId());
+
+        if (!empty($storedLinks)) {
+            foreach ($storedLinks as $index => $link) {
+                $url = is_array($link) ? ($link['url'] ?? $link['link'] ?? '') : $link;
+                $title = is_array($link) ? ($link['title'] ?? '') : '';
+                $pdo->prepare("INSERT INTO order_links (order_id, row_index, url, title) VALUES (?, ?, ?, ?)")
+                    ->execute([$orderId, $index + 1, $url, $title]);
+            }
+            $remaining = 10 - count($storedLinks);
+            for ($i = 0; $i < $remaining; $i++) {
+                $pdo->prepare("INSERT INTO order_links (order_id, row_index) VALUES (?, ?)")
+                    ->execute([$orderId, count($storedLinks) + $i + 1]);
+            }
+        } else {
+            for ($i = 1; $i <= 10; $i++) {
+                $pdo->prepare("INSERT INTO order_links (order_id, row_index) VALUES (?, ?)")->execute([$orderId, $i]);
+            }
+        }
+
+        logOrderEvent($pdo, $orderId, 'created', [
+            'order_number' => $orderNumber,
+            'source' => 'quotation',
+            'links_count' => count($storedLinks)
+        ]);
+
+        return $orderId;
+    } catch (PDOException $e) {
+        error_log("Error creating order from quotation: " . $e->getMessage());
+        return null;
+    }
+}
