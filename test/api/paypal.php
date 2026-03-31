@@ -114,8 +114,8 @@ function createOrder() {
             'brand_name' => 'Imporlan',
             'landing_page' => 'NO_PREFERENCE',
             'user_action' => 'PAY_NOW',
-            'return_url' => 'https://www.imporlan.cl/panel-test/#myproducts',
-            'cancel_url' => 'https://www.imporlan.cl/panel-test/#myproducts'
+            'return_url' => 'https://www.imporlan.cl/panel/#myproducts',
+            'cancel_url' => 'https://www.imporlan.cl/panel/#myproducts'
         ]
     ];
     
@@ -153,11 +153,11 @@ function createOrder() {
         'user_email' => $input['payer_email'] ?? '',
         'payer_name' => $input['payer_name'] ?? '',
         'payer_phone' => $input['payer_phone'] ?? '',
-        'plan_name' => $input['plan_name'] ?? '',
-        'description' => $input['description'] ?? '',
+        'plan_name' => $planName,
+        'description' => $description,
         'type' => $input['type'] ?? 'link',
         'days' => $input['days'] ?? 7,
-        'amount' => $input['amount'] ?? 0,
+        'amount' => $amount,
         'boat_links' => $input['boat_links'] ?? [],
         'payment_request_id' => $input['payment_request_id'] ?? null
     ];
@@ -169,17 +169,20 @@ function createOrder() {
         'status' => $order['status']
     ]);
     
-    // Only send cotización email for regular quotation payments, NOT for payment requests
+    // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
     $paymentRequestId = $input['payment_request_id'] ?? null;
-    if (!$paymentRequestId) {
+    $boatLinksPp = $input['boat_links'] ?? [];
+    $payerEmailPp = $input['payer_email'] ?? '';
+    $sourcePp = $input['source'] ?? '';
+    if (!$paymentRequestId && !empty($boatLinksPp) && !empty($payerEmailPp) && $sourcePp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
             $emailService->sendQuotationRequestNotification([
                 'name' => $input['payer_name'] ?? 'Cliente',
-                'email' => $input['payer_email'] ?? '',
+                'email' => $payerEmailPp,
                 'phone' => $input['payer_phone'] ?? '',
                 'country' => $input['country'] ?? 'Chile',
-                'boat_links' => $input['boat_links'] ?? []
+                'boat_links' => $boatLinksPp
             ]);
         } catch (Exception $e) {
             $logFile = __DIR__ . '/paypal.log';
@@ -208,6 +211,7 @@ function captureOrder() {
     $planName = $input['plan_name'] ?? '';
     $planDays = $input['plan_days'] ?? 7;
     $amountCLP = $input['amount_clp'] ?? 0;
+    $paymentRequestId = $input['payment_request_id'] ?? null;
     
     $accessToken = getAccessToken();
     if (!$accessToken) {
@@ -277,6 +281,12 @@ function captureOrder() {
             'status' => 'pending'
         ]);
         
+        // Check if this is a payment request
+        if ($paymentRequestId) {
+            require_once __DIR__ . '/payment_requests_helper.php';
+            handlePaymentRequestPaid($paymentRequestId, $captureId, 'paypal', $purchaseRecord['id'] ?? null);
+        }
+        
         sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
         createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
         
@@ -286,6 +296,7 @@ function captureOrder() {
         if (file_exists($pendingFile)) {
             $pendingInfo = json_decode(file_get_contents($pendingFile), true);
             $pendingBoatLinks = $pendingInfo['boat_links'] ?? [];
+            // Use payer_name from pending info if available
             if (!empty($pendingInfo['payer_name'])) {
                 $purchaseRecord['customer_name'] = $pendingInfo['payer_name'];
             }
@@ -294,7 +305,7 @@ function captureOrder() {
         
         // Create expedition order automatically
         try {
-            require_once __DIR__ . '/../../api/orders_api.php';
+            require_once __DIR__ . '/orders_api.php';
             if ($purchaseType === 'plan') {
                 createOrderFromPurchase($purchaseRecord);
             } else {
@@ -332,9 +343,9 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
         $purchaseType = $purchase['type'] ?? 'link';
         
         $plansConfig = [
-            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
-            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
-            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']]
+            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
+            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
+            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✓ Reporte IA incluido']]
         ];
         
         $planName = $purchase['plan_name'] ?: $productName;
@@ -377,40 +388,50 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
             'plan_end_date' => $planEndDate
         ];
         
-        $emailService->sendQuotationLinksPaidEmail(
-            $userEmail,
-            $payerName,
-            $commonData
-        );
-        
-        $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
-        $formData = array_merge($commonData, [
-            'boat_links' => $storedLinks,
-            'name' => $payerName
-        ]);
-        $emailService->sendQuotationFormEmail(
-            $userEmail,
-            $payerName,
-            $formData
-        );
-        
-        if ($purchaseType === 'plan') {
-            $emailService->sendPlanBusquedaEmail(
+        if ($purchaseType === 'pago_directo') {
+            $emailService->sendPagoDirectoEmail(
                 $userEmail,
                 $payerName,
                 $commonData
             );
+            $logFile = __DIR__ . '/paypal.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=pago_directo\n", FILE_APPEND);
         } else {
-            $emailService->sendCotizacionPorLinksEmail(
+            $emailService->sendQuotationLinksPaidEmail(
                 $userEmail,
                 $payerName,
                 $commonData
             );
+
+            $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+            $formData = array_merge($commonData, [
+                'boat_links' => $storedLinks,
+                'name' => $payerName
+            ]);
+            $emailService->sendQuotationFormEmail(
+                $userEmail,
+                $payerName,
+                $formData
+            );
+
+            if ($purchaseType === 'plan') {
+                $emailService->sendPlanBusquedaEmail(
+                    $userEmail,
+                    $payerName,
+                    $commonData
+                );
+            } else {
+                $emailService->sendCotizacionPorLinksEmail(
+                    $userEmail,
+                    $payerName,
+                    $commonData
+                );
+            }
+
+            $logFile = __DIR__ . '/paypal.log';
+            $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form+activation\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
         }
-        
-        $logFile = __DIR__ . '/paypal.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $userEmail . ', order=' . ($purchase['order_id'] ?? '') . ", emails=payment+form+activation\n";
-        file_put_contents($logFile, $logEntry, FILE_APPEND);
     } catch (Exception $e) {
         $logFile = __DIR__ . '/paypal.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";
@@ -419,7 +440,7 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
 }
 
 /**
- * Crear mensaje de sistema en el chat del panel tras pago con PayPal
+ * Create automated system message in panel chat after payment via PayPal
  */
 function createPayPalPaymentNotificationMessage($purchase, $userEmail) {
     try {

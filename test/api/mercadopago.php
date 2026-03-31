@@ -62,6 +62,22 @@ function createPreference() {
     $description = $input['description'];
     $planName = $input['plan_name'] ?? 'Plan Imporlan';
     $quantity = intval($input['quantity'] ?? 1);
+    $paymentRequestId = $input['payment_request_id'] ?? null;
+    
+    // If payment_request_id is provided, load request data
+    if ($paymentRequestId) {
+        $prFile = __DIR__ . '/payment_requests.json';
+        if (file_exists($prFile)) {
+            $prData = json_decode(file_get_contents($prFile), true);
+            foreach (($prData['requests'] ?? []) as $pr) {
+                if ($pr['id'] === $paymentRequestId) {
+                    $planName = $pr['title'];
+                    $description = $pr['description'] ?: $pr['title'];
+                    break;
+                }
+            }
+        }
+    }
     
     // Información del comprador (opcional)
     $payerEmail = $input['payer_email'] ?? null;
@@ -88,7 +104,7 @@ function createPreference() {
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
-        'external_reference' => $planName . '_' . time()
+        'external_reference' => ($paymentRequestId ? $paymentRequestId . '_' : '') . $planName . '_' . time()
     ];
     
     // Agregar información del pagador si está disponible
@@ -138,7 +154,7 @@ function createPreference() {
         'plan_name' => $planName,
         'description' => $description,
         'boat_links' => $input['boat_links'] ?? [],
-        'payment_request_id' => $input['payment_request_id'] ?? null
+        'payment_request_id' => $paymentRequestId
     ];
     $extRef = $preferenceData['external_reference'] ?? '';
     file_put_contents($pendingDir . '/' . md5($extRef) . '.json', json_encode($pendingInfo));
@@ -150,18 +166,18 @@ function createPreference() {
         'sandbox_init_point' => $preference['sandbox_init_point'] ?? $preference['init_point']
     ]);
     
-    // Only send cotización email for regular quotation payments, NOT for payment requests
-    $paymentRequestId = $input['payment_request_id'] ?? null;
-    if (!$paymentRequestId) {
+    // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
+    $boatLinksMp = $input['boat_links'] ?? [];
+    $sourceMp = $input['source'] ?? '';
+    if (!$paymentRequestId && !empty($boatLinksMp) && !empty($payerEmail) && $sourceMp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
-            $boatLinks = $input['boat_links'] ?? [];
             $emailService->sendQuotationRequestNotification([
                 'name' => $payerName ?? 'Cliente',
-                'email' => $payerEmail ?? '',
+                'email' => $payerEmail,
                 'phone' => $input['payer_phone'] ?? '',
                 'country' => $input['country'] ?? 'Chile',
-                'boat_links' => $boatLinks
+                'boat_links' => $boatLinksMp
             ]);
         } catch (Exception $e) {
             $logFile = __DIR__ . '/mp_webhooks.log';
@@ -251,6 +267,15 @@ function handleWebhook() {
             ]);
             
             if (empty($purchase['_duplicate'])) {
+                // Check if this is a payment request payment
+                if (strpos($externalRef, 'pr_') === 0) {
+                    require_once __DIR__ . '/payment_requests_helper.php';
+                    $prId = extractPaymentRequestId($externalRef);
+                    if ($prId) {
+                        handlePaymentRequestPaid($prId, $paymentId, 'mercadopago', $purchase['id'] ?? null);
+                    }
+                }
+                
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
                 createPaymentNotificationMessage($purchase, $payment);
 
@@ -264,10 +289,10 @@ function handleWebhook() {
                 }
                 
                 try {
-                    $dbConfig = __DIR__ . '/../../api/db_config.php';
+                    $dbConfig = __DIR__ . '/db_config.php';
                     if (file_exists($dbConfig)) {
                         require_once $dbConfig;
-                        require_once __DIR__ . '/../../api/orders_api.php';
+                        require_once __DIR__ . '/orders_api.php';
                         $userEmail = $payment['payer']['email'];
                         $payerName = trim(($payment['payer']['first_name'] ?? '') . ' ' . ($payment['payer']['last_name'] ?? ''));
                         if (empty($payerName)) $payerName = explode('@', $userEmail)[0];
@@ -332,9 +357,9 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
         }
         
         $plansConfig = [
-            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
-            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']],
-            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion']]
+            'fragata' => ['name' => 'Plan Fragata', 'days' => 7, 'proposals' => 5, 'features' => ['1 Requerimiento especifico', '5 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
+            'capitan' => ['name' => 'Plan Capitan de Navio', 'days' => 14, 'proposals' => 9, 'features' => ['1 Requerimiento especifico', '9 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✗ Reporte IA']],
+            'almirante' => ['name' => 'Plan Almirante', 'days' => 21, 'proposals' => 15, 'features' => ['1 Requerimiento especifico', '15 propuestas/cotizaciones', 'Analisis ofertas y recomendacion', '✓ Reporte IA incluido']]
         ];
         
         $purchaseType = $purchase['type'];
@@ -376,26 +401,50 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
             'plan_end_date' => $planEndDate
         ];
         
-        $emailService->sendQuotationLinksPaidEmail(
-            $purchase['user_email'],
-            $payerName,
-            $commonData
-        );
-        
-        $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
-        $formData = array_merge($commonData, [
-            'boat_links' => $storedLinks,
-            'name' => $payerName
-        ]);
-        $emailService->sendQuotationFormEmail(
-            $purchase['user_email'],
-            $payerName,
-            $formData
-        );
-        
-        $logFile = __DIR__ . '/mp_webhooks.log';
-        $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form\n";
-        file_put_contents($logFile, $logEntry, FILE_APPEND);
+        if ($purchaseType === 'pago_directo') {
+            $emailService->sendPagoDirectoEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+            $logFile = __DIR__ . '/mp_webhooks.log';
+            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=pago_directo\n", FILE_APPEND);
+        } else {
+            $emailService->sendQuotationLinksPaidEmail(
+                $purchase['user_email'],
+                $payerName,
+                $commonData
+            );
+
+            $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+            $formData = array_merge($commonData, [
+                'boat_links' => $storedLinks,
+                'name' => $payerName
+            ]);
+            $emailService->sendQuotationFormEmail(
+                $purchase['user_email'],
+                $payerName,
+                $formData
+            );
+
+            if ($purchaseType === 'plan') {
+                $emailService->sendPlanBusquedaEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            } else {
+                $emailService->sendCotizacionPorLinksEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+            }
+
+            $logFile = __DIR__ . '/mp_webhooks.log';
+            $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=payment+form+activation\n";
+            file_put_contents($logFile, $logEntry, FILE_APPEND);
+        }
     } catch (Exception $e) {
         $logFile = __DIR__ . '/mp_webhooks.log';
         $logEntry = date('Y-m-d H:i:s') . ' - EMAIL_ERROR: ' . $e->getMessage() . "\n";

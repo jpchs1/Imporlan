@@ -117,17 +117,20 @@ function createTransaction($data) {
     // Log the transaction creation
     logWebpay('CREATE_TRANSACTION', $requestData);
     
-    // Only send cotización email for regular quotation payments, NOT for payment requests
+    // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
     $paymentRequestId = $data['payment_request_id'] ?? null;
-    if (!$paymentRequestId) {
+    $boatLinksWp = $data['boat_links'] ?? [];
+    $payerEmailWp = $data['user_email'] ?? '';
+    $sourceWp = $data['source'] ?? '';
+    if (!$paymentRequestId && !empty($boatLinksWp) && !empty($payerEmailWp) && $sourceWp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
             $emailService->sendQuotationRequestNotification([
                 'name' => $data['payer_name'] ?? 'Cliente',
-                'email' => $data['user_email'] ?? '',
+                'email' => $payerEmailWp,
                 'phone' => $data['payer_phone'] ?? '',
                 'country' => $data['country'] ?? 'Chile',
-                'boat_links' => $data['boat_links'] ?? []
+                'boat_links' => $boatLinksWp
             ]);
         } catch (\Throwable $e) {
             logWebpay('NOTIF_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
