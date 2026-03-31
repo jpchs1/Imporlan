@@ -546,41 +546,49 @@
       item.fotos && item.fotos.length > 0
         ? item.fotos[0]
         : "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=400&h=300&fit=crop";
-    var statusBadge =
-      item.status === "sold"
+    var isExpired = item.status === 'expired';
+    var isSold = item.status === 'sold';
+    var statusBadge = isSold
         ? '<span style="background:#fef2f2;color:#b91c1c;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Vendida</span>'
+        : isExpired
+        ? '<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Vencida</span>'
         : '<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Activa</span>';
     var tipoPubBadge = item.tipo_publicacion === 'arriendo'
       ? '<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Arriendo</span>'
       : '<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600">Venta</span>';
+    // Expiry info
+    var expiryHtml = '';
+    if (item.expires_at && !isSold) {
+      var exp = new Date(item.expires_at);
+      var now = new Date();
+      var daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+      if (daysLeft > 7) {
+        expiryHtml = '<span style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Vence ' + exp.toLocaleDateString('es-CL') + '</span>';
+      } else if (daysLeft > 0) {
+        expiryHtml = '<span style="font-size:11px;color:#f59e0b;font-weight:600;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Vence en ' + daysLeft + ' dia' + (daysLeft > 1 ? 's' : '') + '</span>';
+      } else {
+        expiryHtml = '<span style="font-size:11px;color:#ef4444;font-weight:600;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Vencida</span>';
+      }
+    }
+    var renewBtn = (!isSold)
+      ? '<button onclick="window.__mktRenewListing(' + item.id + ')" style="display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s;box-shadow:0 2px 6px rgba(16,185,129,.25)" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Renovar</button>'
+      : '';
     return (
-      '<div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;display:flex;gap:16px;padding:16px;transition:box-shadow .2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
-      '<img src="' +
-      img +
-      '" style="width:120px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0">' +
+      '<div style="background:#fff;border-radius:16px;overflow:hidden;border:1px solid ' + (isExpired ? '#fecaca' : '#e2e8f0') + ';display:flex;gap:16px;padding:16px;transition:box-shadow .2s;' + (isExpired ? 'opacity:.85' : '') + '" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(0,0,0,.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+      '<img src="' + img + '" style="width:120px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0;' + (isExpired ? 'filter:grayscale(.3)' : '') + '">' +
       '<div style="flex:1;min-width:0">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">' +
-      '<h3 style="font-weight:600;color:#1e293b;font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-      (item.nombre || "Sin nombre") +
-      "</h3>" +
-      statusBadge + ' ' + tipoPubBadge +
-      "</div>" +
-      '<p style="color:#2563eb;font-weight:700;font-size:16px;margin:4px 0">' +
-      (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) +
-      "</p>" +
-      '<p style="color:#94a3b8;font-size:12px;margin:0">' +
-      (item.tipo || "") +
-      (item.ano ? " - " + item.ano : "") +
-      " | " +
-      (item.estado || "") +
-      " | " +
-      (item.condicion || "") +
-      "</p>" +
-      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;flex-wrap:wrap;gap:6px">' +
+      '<h3 style="font-weight:600;color:#1e293b;font-size:15px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (item.nombre || "Sin nombre") + "</h3>" +
+      '<div style="display:flex;gap:6px;align-items:center">' + statusBadge + ' ' + tipoPubBadge + "</div></div>" +
+      '<p style="color:#2563eb;font-weight:700;font-size:16px;margin:4px 0">' + (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) + "</p>" +
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<p style="color:#94a3b8;font-size:12px;margin:0">' + (item.tipo || "") + (item.ano ? " - " + item.ano : "") + " | " + (item.estado || "") + " | " + (item.condicion || "") + "</p>" +
+      expiryHtml + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
       '<button onclick="window.__mktOpenEdit(' + item.id + ')" style="display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#2563eb,#0891b2);color:#fff;border:none;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .2s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar</button>' +
+      renewBtn +
       '<button onclick="window.__mktDeleteListing(' + item.id + ',\'' + (item.nombre || '').replace(/'/g, "\\'") + '\')" style="display:flex;align-items:center;gap:4px;background:#fff;color:#dc2626;border:1px solid #fecaca;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s" onmouseover="this.style.background=\'#fef2f2\'" onmouseout="this.style.background=\'#fff\'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar</button>' +
-      '</div>' +
-      "</div></div>"
+      '</div></div></div>'
     );
   }
 
@@ -1339,6 +1347,31 @@
 
   window.__mktDeleteListing = function (id, nombre) {
     showDeleteConfirmModal(id, nombre);
+  };
+
+  window.__mktRenewListing = async function (id) {
+    if (!confirm('Renovar este anuncio por 30 dias mas?')) return;
+    var btn = event.target.closest('button');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><circle cx="12" cy="12" r="10"/></svg> Renovando...'; }
+    try {
+      var result = await apiCall('?action=renew', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+      });
+      if (result && result.success) {
+        showToast('Anuncio renovado por 30 dias!', 'success');
+        // Reload my listings
+        await loadMyListings();
+        window.__mktSwitchTab('sell');
+      } else {
+        showToast(result.error || 'Error al renovar', 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Renovar'; }
+      }
+    } catch (e) {
+      showToast('Error de conexion', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Renovar'; }
+    }
   };
 
   function showDeleteConfirmModal(id, nombre) {
