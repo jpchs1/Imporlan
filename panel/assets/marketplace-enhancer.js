@@ -218,7 +218,9 @@
       "</div>" +
       '<div style="text-align:right;flex-shrink:0">' +
       '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
-      '<span style="font-size:20px;line-height:1">' + (item.moneda === 'CLP' ? '\ud83c\udde8\ud83c\uddf1' : '\ud83c\uddfa\ud83c\uddf8') + '</span>' +
+      (item.moneda === 'CLP'
+        ? '<svg style="width:24px;height:18px;border-radius:3px;flex-shrink:0;vertical-align:middle" viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" d="M0 0h640v240H0z"/><path fill="#d52b1e" d="M0 240h640v240H0z"/><path fill="#0039a6" d="M0 0h220v240H0z"/><g transform="translate(110,120)"><polygon fill="#fff" points="0,-60 13.9,-19.1 56.6,-19.1 22.5,7.3 34.3,48.5 0,22 -34.3,48.5 -22.5,7.3 -56.6,-19.1 -13.9,-19.1"/></g></svg>'
+        : '<svg style="width:24px;height:18px;border-radius:3px;flex-shrink:0;vertical-align:middle" viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg"><path fill="#bd3d44" d="M0 0h640v37h-640zm0 74h640v37h-640zm0 148h640v37h-640zm0 74h640v37h-640zm0-296h640v37h-640zm0 148h640v37h-640zm0 148h640v37h-640z"/><path fill="#fff" d="M0 37h640v37h-640zm0 74h640v37h-640zm0 74h640v37h-640zm0 74h640v37h-640zm0 74h640v37h-640zm0 74h640v37h-640z"/><path fill="#192f5d" d="M0 0h260v259H0z"/></svg>') +
       '<p style="font-weight:700;color:#2563eb;font-size:18px;margin:0;white-space:nowrap">' +
       (getArriendoPrice(item) || formatPrice(item.precio, item.moneda)) +
       "</p></div>" +
