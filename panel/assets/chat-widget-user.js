@@ -10,7 +10,7 @@
     'use strict';
 
     // Configuration - Auto-detect TEST environment
-    const isTestEnv = window.location.pathname.startsWith('/test/');
+    const isTestEnv = window.location.pathname.startsWith('/test/') || window.location.pathname.startsWith('/panel-test/');
     const API_BASE = isTestEnv ? '/test/api/chat_api.php' : '/api/chat_api.php';
     const POLL_INTERVAL = 5000; // 5 seconds
     const NOTIFICATION_SOUND_ENABLED_KEY = 'imporlan_chat_sound_enabled';
@@ -36,13 +36,9 @@
     let initTimer = null;
 
     function init() {
-        console.log('Chat: init() called, attempt:', initAttempts + 1);
-        
         // Get user from localStorage (set by the panel app)
         const userStr = localStorage.getItem('imporlan_user');
         const token = localStorage.getItem('imporlan_token');
-        
-        console.log('Chat: userStr exists:', !!userStr, ', token exists:', !!token);
         
         if (!userStr || !token) {
             initAttempts++;
@@ -54,7 +50,7 @@
                 }
                 return;
             }
-            console.log('Chat: User not authenticated after ' + MAX_INIT_ATTEMPTS + ' attempts');
+            console.log('Chat: User not authenticated after ' + MAX_INIT_ATTEMPTS + ' attempts, widget will not load.');
             return;
         }
 
@@ -113,7 +109,13 @@
         link.id = 'chat-widget-css';
         link.rel = 'stylesheet';
         // Auto-detect TEST environment for CSS path
-        link.href = isTestEnv ? '/test/panel/assets/chat-widget.css' : '/panel/assets/chat-widget.css';
+        if (window.location.pathname.startsWith('/panel-test/')) {
+            link.href = '/panel-test/assets/chat-widget.css';
+        } else if (isTestEnv) {
+            link.href = '/test/panel/assets/chat-widget.css';
+        } else {
+            link.href = '/panel/assets/chat-widget.css';
+        }
         document.head.appendChild(link);
     }
 
