@@ -272,13 +272,30 @@
     }
   }
 
+  // Remove enhanced content when leaving Deckeva
+  function cleanup() {
+    var container = document.querySelector("[data-deckeva-enhanced]");
+    if (container) {
+      // Restore hidden React content
+      var main = container.parentElement;
+      if (main) {
+        Array.from(main.children).forEach(function(ch) {
+          if (ch.style.display === "none" && !ch.hasAttribute("data-deckeva-enhanced")) {
+            ch.style.display = "";
+          }
+        });
+      }
+      container.remove();
+    }
+    enhanced = false;
+  }
+
   // Watch for hash changes
   function checkAndEnhance() {
     if (window.location.hash.includes("deckeva")) {
-      // Small delay to let React render first
       setTimeout(enhance, 300);
-    } else {
-      enhanced = false;
+    } else if (enhanced || document.querySelector("[data-deckeva-enhanced]")) {
+      cleanup();
     }
   }
 
