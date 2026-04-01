@@ -69,7 +69,14 @@
   }
 
   function isInspectionPage() {
-    return window.location.hash === "#inspecciones" || window.location.hash.startsWith("#inspecciones/");
+    var main = document.querySelector("main");
+    if (!main) return false;
+    if (window.location.hash === "#inspecciones" || window.location.hash.startsWith("#inspecciones/")) return true;
+    var headings = main.querySelectorAll("h1, h2, h3");
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].textContent.trim() === "Mis Inspecciones") return true;
+    }
+    return false;
   }
 
   // ============================================================
