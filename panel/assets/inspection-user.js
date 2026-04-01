@@ -85,7 +85,7 @@
     var buttons = nav.querySelectorAll("button, a");
     buttons.forEach(function (el) {
       var text = el.textContent.trim().toLowerCase();
-      if (text.includes("productos") || text.includes("contratados") || text.includes("expedientes")) refBtn = el;
+      if (text.includes("documentos") || text.includes("documents")) refBtn = el;
     });
     if (!refBtn && buttons.length > 0) refBtn = buttons[buttons.length - 1];
     if (!refBtn) return;
