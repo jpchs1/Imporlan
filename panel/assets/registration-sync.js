@@ -1,5 +1,7 @@
 (function () {
   "use strict";
+  var isTestEnv = window.location.pathname.startsWith('/test/') || window.location.pathname.startsWith('/panel-test/');
+  var hookBase = isTestEnv ? '/test/api' : '/api';
   var originalFetch = window.fetch;
   window.fetch = function () {
     var url = arguments[0];
@@ -13,7 +15,7 @@
         if (response.ok) {
           try {
             var body = options.body ? JSON.parse(options.body) : {};
-            originalFetch("/api/register-hook.php", {
+            originalFetch(hookBase + "/register-hook.php", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
