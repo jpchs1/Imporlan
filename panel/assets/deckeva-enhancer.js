@@ -7,7 +7,7 @@
 
   var enhanced = false;
 
-  // Gallery images - 13 fotos lifestyle del chat
+  // Gallery images - 13 fotos lifestyle (extensiones reales del servidor)
   var GALLERY_IMAGES = [
     { src: "/panel/assets/deckeva/1.jpg", alt: "Disfrutando en velero con champagne" },
     { src: "/panel/assets/deckeva/2.jpg", alt: "Nautique wakeboard boat con deck EVA" },
@@ -15,13 +15,13 @@
     { src: "/panel/assets/deckeva/4.jpg", alt: "Relax en la proa con SportFisha" },
     { src: "/panel/assets/deckeva/5.jpg", alt: "Super Air Nautique a toda velocidad" },
     { src: "/panel/assets/deckeva/6.jpg", alt: "Experiencia nautica premium" },
-    { src: "/panel/assets/deckeva/7.jpg", alt: "Navegando con amigos" },
     { src: "/panel/assets/deckeva/8.jpg", alt: "Deck EVA en accion" },
     { src: "/panel/assets/deckeva/9.jpg", alt: "Vida en el mar" },
     { src: "/panel/assets/deckeva/10.jpg", alt: "Estilo sobre el agua" },
-    { src: "/panel/assets/deckeva/11.jpg", alt: "Aventura nautica" },
-    { src: "/panel/assets/deckeva/12.jpg", alt: "Paseo en lancha" },
-    { src: "/panel/assets/deckeva/13.jpg", alt: "Disfrutando el deck" }
+    { src: "/panel/assets/deckeva/11.png", alt: "Aventura nautica" },
+    { src: "/panel/assets/deckeva/12.png", alt: "Paseo en lancha" },
+    { src: "/panel/assets/deckeva/13.png", alt: "Disfrutando el deck" },
+    { src: "/panel/assets/deckeva/14.png", alt: "Navegando con amigos" }
   ];
 
   var HERO_BG = "/panel/assets/deckeva/1.jpg";
