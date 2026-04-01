@@ -7,17 +7,16 @@
 
   var enhanced = false;
 
-  // Gallery images - lifestyle boat photos with EVA deck
+  // Gallery images - fotos lifestyle del chat
   var GALLERY_IMAGES = [
-    { src: "https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=800&q=80", alt: "Lancha con piso EVA premium" },
-    { src: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80", alt: "Disfrutando en el agua" },
-    { src: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&q=80", alt: "Navegando con estilo" },
-    { src: "https://images.unsplash.com/photo-1588401667987-e06480c453e4?w=800&q=80", alt: "Deck de embarcacion" },
-    { src: "https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=800&q=80", alt: "Experiencia nautica premium" },
-    { src: "https://images.unsplash.com/photo-1540946485063-a40da27545f8?w=800&q=80", alt: "Vida en el mar" }
+    { src: "/panel/assets/deckeva/1.jpg", alt: "Disfrutando en velero con champagne" },
+    { src: "/panel/assets/deckeva/2.jpg", alt: "Nautique wakeboard boat con deck EVA" },
+    { src: "/panel/assets/deckeva/3.jpg", alt: "Nautique boat navegando con estilo" },
+    { src: "/panel/assets/deckeva/4.jpg", alt: "Relax en la proa con SportFisha" },
+    { src: "/panel/assets/deckeva/5.jpg", alt: "Super Air Nautique a toda velocidad" }
   ];
 
-  var HERO_BG = "https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=1400&q=80";
+  var HERO_BG = "/panel/assets/deckeva/5.jpg";
 
   var COLORS = [
     { name: "Teak Clasico", color: "#c4915e", border: "#a87740" },
@@ -43,11 +42,6 @@
       icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
       title: "Facil Instalacion",
       desc: "Sistema adhesivo 3M incluido. Instalacion simple sin herramientas especiales"
-    },
-    {
-      icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-      title: "Garantia 3 Anos",
-      desc: "Resistente a UV, agua salada y productos quimicos de limpieza"
     },
     {
       icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
@@ -107,8 +101,8 @@
         'Galeria de Instalaciones</h2>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-radius:16px;overflow:hidden" id="deckeva-gallery">';
     GALLERY_IMAGES.forEach(function(img, i) {
-      var h = i === 0 || i === 5 ? '240px' : '180px';
-      html += '<div style="position:relative;height:' + h + ';overflow:hidden;cursor:pointer;' + (i === 0 ? 'grid-column:span 2;grid-row:span 1;' : '') + (i === 5 ? 'grid-column:span 2;' : '') + '" onmouseover="this.querySelector(\'img\').style.transform=\'scale(1.08)\'" onmouseout="this.querySelector(\'img\').style.transform=\'scale(1)\'">' +
+      var h = i === 0 ? '280px' : '200px';
+      html += '<div style="position:relative;height:' + h + ';overflow:hidden;cursor:pointer;' + (i === 0 ? 'grid-column:span 3;' : '') + (i === 4 ? 'grid-column:span 1;' : '') + '" onmouseover="this.querySelector(\'img\').style.transform=\'scale(1.08)\'" onmouseout="this.querySelector(\'img\').style.transform=\'scale(1)\'">' +
         '<img src="' + img.src + '" alt="' + esc(img.alt) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;transition:transform .4s ease">' +
         '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4),transparent);pointer-events:none"></div>' +
       '</div>';
