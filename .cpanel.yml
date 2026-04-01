@@ -1,15 +1,84 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/wwimpo/public_html/
-    - /bin/cp index.html $DEPLOYPATH
-    - /bin/cp marketplace.html $DEPLOYPATH
-    - /bin/cp .htaccess $DEPLOYPATH
-    - /bin/cp -R assets $DEPLOYPATH
-    - /bin/cp -R marketplace $DEPLOYPATH
-    - /bin/cp -R pago $DEPLOYPATH
-    - /bin/cp -R cotizador-importacion $DEPLOYPATH
-    - /bin/cp -R simulacion-cotizacion $DEPLOYPATH
-    - /bin/cp -R panel $DEPLOYPATH
-    - /bin/cp -R api $DEPLOYPATH
-    - /bin/cp -R admin $DEPLOYPATH
+    # ============================================
+    #  IMPORLAN - cPanel Git Auto-Deploy
+    #  Deploys main branch to production on push
+    # ============================================
+
+    # --- Variables ---
+    - export DEPLOYPATH=/home/wwimpo/public_html
+    - export BACKUPDIR=/home/wwimpo/backups
+    - export TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
+
+    # --- Pre-deploy: backup server-only files ---
+    - mkdir -p $BACKUPDIR/pre_deploy_$TIMESTAMP
+    - /bin/test -f $DEPLOYPATH/api/db_config.php && /bin/cp $DEPLOYPATH/api/db_config.php $BACKUPDIR/pre_deploy_$TIMESTAMP/db_config.php || true
+    - /bin/test -d $DEPLOYPATH/api/marketplace_photos && /bin/cp -a $DEPLOYPATH/api/marketplace_photos $BACKUPDIR/pre_deploy_$TIMESTAMP/marketplace_photos || true
+
+    # --- Deploy root files ---
+    - /bin/cp index.html $DEPLOYPATH/
+    - /bin/cp marketplace.html $DEPLOYPATH/
+    - /bin/cp robots.txt $DEPLOYPATH/
+    - /bin/cp sitemap.xml $DEPLOYPATH/
+    - /bin/cp favicon.ico $DEPLOYPATH/
+    - /bin/test -f .htaccess && /bin/cp .htaccess $DEPLOYPATH/ || true
+
+    # --- Deploy core directories ---
+    - /bin/cp -Rf assets $DEPLOYPATH/
+    - /bin/cp -Rf api $DEPLOYPATH/
+    - /bin/cp -Rf admin $DEPLOYPATH/
+    - /bin/cp -Rf panel $DEPLOYPATH/
+    - /bin/cp -Rf marketplace $DEPLOYPATH/
+    - /bin/cp -Rf pago $DEPLOYPATH/
+    - /bin/cp -Rf images $DEPLOYPATH/
+
+    # --- Deploy tool/app directories ---
+    - /bin/cp -Rf cotizador-importacion $DEPLOYPATH/
+    - /bin/cp -Rf cotizar-importacion $DEPLOYPATH/
+    - /bin/cp -Rf simulacion-cotizacion $DEPLOYPATH/
+
+    # --- Deploy SEO/content pages ---
+    - /bin/cp -Rf embarcaciones $DEPLOYPATH/
+    - /bin/cp -Rf embarcaciones-usadas $DEPLOYPATH/
+    - /bin/cp -Rf lanchas $DEPLOYPATH/
+    - /bin/cp -Rf lanchas-usadas $DEPLOYPATH/
+    - /bin/cp -Rf lanchas-usadas-en-chile-2 $DEPLOYPATH/
+    - /bin/cp -Rf lanchas-de-pesca-usadas $DEPLOYPATH/
+    - /bin/cp -Rf lanchas-de-ski $DEPLOYPATH/
+    - /bin/cp -Rf veleros-usados $DEPLOYPATH/
+    - /bin/cp -Rf veleros-usados-a-la-venta-en-chile-o-usa $DEPLOYPATH/
+    - /bin/cp -Rf botes-de-pesca $DEPLOYPATH/
+    - /bin/cp -Rf importacion-lanchas-chile $DEPLOYPATH/
+    - /bin/cp -Rf importacion-veleros-chile $DEPLOYPATH/
+    - /bin/cp -Rf importacion-embarcaciones-usa-chile $DEPLOYPATH/
+    - /bin/cp -Rf importar-embarcaciones-usa $DEPLOYPATH/
+    - /bin/cp -Rf importar-motos-de-agua-desde-usa $DEPLOYPATH/
+    - /bin/cp -Rf importaciones $DEPLOYPATH/
+    - /bin/cp -Rf requisitos-importar-embarcaciones-chile $DEPLOYPATH/
+    - /bin/cp -Rf cuanto-cuesta-importar-una-lancha-a-chile $DEPLOYPATH/
+    - /bin/cp -Rf comprar-lanchas-usadas-en-chile-o-en-usa $DEPLOYPATH/
+    - /bin/cp -Rf como-comprar-lancha-usada-chile $DEPLOYPATH/
+    - /bin/cp -Rf como-vender-moto-de-agua-chile $DEPLOYPATH/
+    - /bin/cp -Rf costo-mantener-lancha-chile $DEPLOYPATH/
+    - /bin/cp -Rf casos-de-importacion $DEPLOYPATH/
+    - /bin/cp -Rf servicios $DEPLOYPATH/
+    - /bin/cp -Rf servicios-importacion $DEPLOYPATH/
+    - /bin/cp -Rf seguro-embarcaciones-chile $DEPLOYPATH/
+    - /bin/cp -Rf inspeccion-precompra-embarcaciones $DEPLOYPATH/
+    - /bin/cp -Rf logistica-maritima-importacion $DEPLOYPATH/
+    - /bin/cp -Rf transporte-logistica-embarcaciones-chile $DEPLOYPATH/
+    - /bin/cp -Rf documentos-tramites-vender-embarcacion-chile $DEPLOYPATH/
+    - /bin/cp -Rf preguntas-frecuentes-embarcaciones-usadas $DEPLOYPATH/
+    - /bin/cp -Rf tipos-de-lanchas-segun-uso $DEPLOYPATH/
+
+    # --- Post-deploy: restore server-only files ---
+    - /bin/test -f $BACKUPDIR/pre_deploy_$TIMESTAMP/db_config.php && /bin/cp $BACKUPDIR/pre_deploy_$TIMESTAMP/db_config.php $DEPLOYPATH/api/db_config.php || true
+    - /bin/test -d $BACKUPDIR/pre_deploy_$TIMESTAMP/marketplace_photos && /bin/cp -a $BACKUPDIR/pre_deploy_$TIMESTAMP/marketplace_photos $DEPLOYPATH/api/marketplace_photos || true
+
+    # --- Set permissions ---
+    - find $DEPLOYPATH -type d -exec chmod 755 {} +
+    - find $DEPLOYPATH -type f -exec chmod 644 {} +
+
+    # --- Cleanup old pre-deploy backups (keep last 10) ---
+    - cd $BACKUPDIR && ls -dt pre_deploy_* 2>/dev/null | tail -n +11 | xargs rm -rf 2>/dev/null || true
