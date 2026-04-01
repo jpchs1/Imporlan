@@ -81,31 +81,42 @@
     if (!nav) return;
 
     // Find "Documentos" button in sidebar
-    var docBtn = null;
-    nav.querySelectorAll("button, a").forEach(function (el) {
+    var docEl = null;
+    nav.querySelectorAll("button, a, li").forEach(function (el) {
       var text = (el.textContent || "").trim().toLowerCase();
-      if (text.includes("documentos")) docBtn = el;
+      if (text.includes("documentos")) docEl = el;
     });
     // Don't insert until Documentos is rendered by React
-    if (!docBtn) return;
+    if (!docEl) return;
 
-    var docLi = docBtn.closest("li");
-    if (!docLi || !docLi.parentNode) return;
+    // Find the container element (li, or the button/a itself if no li wrapper)
+    var docContainer = docEl.closest("li") || docEl;
+    if (!docContainer.parentNode) return;
 
     var existing = document.getElementById("sidebar-inspecciones-user");
     if (existing) {
-      // Check if already in correct position (right after Documentos)
-      var existingLi = existing.closest("li");
-      if (existingLi && docLi.nextSibling === existingLi) return;
-      // Wrong position - remove to re-insert correctly
-      if (existingLi) existingLi.remove();
+      var existingContainer = existing.closest("li") || existing.parentElement;
+      // Check if already in correct position
+      if (existingContainer && docContainer.nextSibling === existingContainer) return;
+      // Wrong position - remove to re-insert
+      if (existingContainer && existingContainer !== nav) existingContainer.remove();
+      else if (existing.parentElement) existing.parentElement.removeChild(existing);
     }
 
-    var li = document.createElement("li");
-    var btn = document.createElement("button");
+    // Clone the Documentos element structure for consistent styling
+    var wrapper = docContainer.cloneNode(false);
+    var btn;
+    if (docContainer.tagName === "LI") {
+      btn = document.createElement("button");
+      if (docEl.className) btn.className = docEl.className;
+      wrapper.appendChild(btn);
+    } else {
+      btn = wrapper;
+      if (docEl.className) btn.className = docEl.className;
+    }
     btn.id = "sidebar-inspecciones-user";
-    if (docBtn.className) btn.className = docBtn.className;
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/></svg> Inspecciones';
+    btn.style.cursor = "pointer";
 
     btn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -113,8 +124,7 @@
       window.location.hash = "#inspecciones";
     });
 
-    li.appendChild(btn);
-    docLi.parentNode.insertBefore(li, docLi.nextSibling);
+    docContainer.parentNode.insertBefore(wrapper.tagName === "LI" ? wrapper : btn, docContainer.nextSibling);
   }
 
   function updateSidebarActive() {
