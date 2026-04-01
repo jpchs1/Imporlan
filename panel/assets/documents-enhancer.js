@@ -24,16 +24,19 @@
   document.head.appendChild(hideStyle);
 
   function isDocumentsPage() {
-    var h1 = document.querySelector("main h1");
-    var isDoc = h1 && h1.textContent.trim() === "Documentos";
+    var hashMatch = window.location.hash === "#documentos" || window.location.hash === "#documents";
+    if (!hashMatch) {
+      var h1 = document.querySelector("main h1");
+      hashMatch = h1 && h1.textContent.trim() === "Documentos" && !window.location.hash.match(/#(alerts|inspecciones|marketplace|soporte|payments|messages|dashboard|tracking|deckeva|myproducts|plans|quotation|settings)/);
+    }
     // Immediately hide React content when on documents page
     var st = document.getElementById("docs-hide-react");
     if (st) {
-      st.textContent = isDoc
+      st.textContent = hashMatch
         ? "main > *:not(#docs-enhancer) { display: none !important; }"
         : "";
     }
-    return isDoc;
+    return hashMatch;
   }
 
   function escHtml(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
