@@ -113,6 +113,9 @@
   }
 
   function enhanceSavedCardSection() {
+    // Prevent duplicate enhanced cards
+    if (document.querySelectorAll('[data-card-enhanced="1"]').length > 0) return;
+
     // Find the dark card section with "Tarjeta Guardada" or card number pattern
     var allCards = document.querySelectorAll('[class*="from-slate-800"][class*="to-slate-900"], [class*="from-slate-800"][class*="to-blue-900"]');
     if (allCards.length === 0) return;
