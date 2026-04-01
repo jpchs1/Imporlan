@@ -113,8 +113,8 @@
   }
 
   function enhanceSavedCardSection() {
-    // Prevent duplicate enhanced cards
-    if (document.querySelectorAll('[data-card-enhanced="1"]').length > 0) return;
+    // Prevent duplicate: check if our enhanced version already exists in DOM
+    if (document.getElementById("pce-enhanced-card")) return;
 
     // Find the dark card section with "Tarjeta Guardada" or card number pattern
     var allCards = document.querySelectorAll('[class*="from-slate-800"][class*="to-slate-900"], [class*="from-slate-800"][class*="to-blue-900"]');
@@ -124,11 +124,15 @@
     var userName = user ? (user.name || user.user_name || "").toUpperCase() : "";
     var firstName = userName.split(" ")[0] || "";
 
+    var alreadyEnhanced = false;
     allCards.forEach(function(card) {
+      if (alreadyEnhanced) return;
       if (card.getAttribute("data-card-enhanced")) return;
       var text = card.textContent || "";
       if (text.indexOf("4532") === -1 && text.indexOf("Tarjeta") === -1 && text.indexOf("****") === -1) return;
       card.setAttribute("data-card-enhanced", "1");
+      card.id = "pce-enhanced-card";
+      alreadyEnhanced = true;
 
       // Find the CardContent div inside
       var content = card.querySelector('[class*="p-6"]') || card.querySelector('[class*="CardContent"]') || card;
