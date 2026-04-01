@@ -77,30 +77,34 @@
   // ============================================================
 
   function injectSidebarItem() {
-    if (document.getElementById("sidebar-inspecciones-user")) return;
     var nav = document.querySelector("aside nav") || document.querySelector("nav");
     if (!nav) return;
 
-    var refBtn = null;
-    var allItems = nav.querySelectorAll("button, a, li");
-    allItems.forEach(function (el) {
+    // Find "Documentos" button in sidebar
+    var docBtn = null;
+    nav.querySelectorAll("button, a").forEach(function (el) {
       var text = (el.textContent || "").trim().toLowerCase();
-      if (text === "documentos" || text === "documents") refBtn = el;
+      if (text.includes("documentos")) docBtn = el;
     });
-    // Fallback: search all elements with partial match
-    if (!refBtn) {
-      allItems.forEach(function (el) {
-        var text = (el.textContent || "").trim().toLowerCase();
-        if (text.includes("documentos")) refBtn = el;
-      });
+    // Don't insert until Documentos is rendered by React
+    if (!docBtn) return;
+
+    var docLi = docBtn.closest("li");
+    if (!docLi || !docLi.parentNode) return;
+
+    var existing = document.getElementById("sidebar-inspecciones-user");
+    if (existing) {
+      // Check if already in correct position (right after Documentos)
+      var existingLi = existing.closest("li");
+      if (existingLi && docLi.nextSibling === existingLi) return;
+      // Wrong position - remove to re-insert correctly
+      if (existingLi) existingLi.remove();
     }
-    if (!refBtn && allItems.length > 0) refBtn = allItems[allItems.length - 1];
-    if (!refBtn) return;
 
     var li = document.createElement("li");
     var btn = document.createElement("button");
     btn.id = "sidebar-inspecciones-user";
-    if (refBtn.className) btn.className = refBtn.className;
+    if (docBtn.className) btn.className = docBtn.className;
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/></svg> Inspecciones';
 
     btn.addEventListener("click", function (e) {
@@ -110,10 +114,7 @@
     });
 
     li.appendChild(btn);
-    var refLi = refBtn.closest("li");
-    if (refLi && refLi.parentNode) refLi.parentNode.insertBefore(li, refLi.nextSibling);
-    else if (nav.querySelector("ul")) nav.querySelector("ul").appendChild(li);
-    else nav.appendChild(li);
+    docLi.parentNode.insertBefore(li, docLi.nextSibling);
   }
 
   function updateSidebarActive() {
