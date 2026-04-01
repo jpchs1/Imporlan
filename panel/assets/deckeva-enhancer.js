@@ -7,16 +7,24 @@
 
   var enhanced = false;
 
-  // Gallery images - fotos lifestyle del chat
+  // Gallery images - 13 fotos lifestyle del chat
   var GALLERY_IMAGES = [
     { src: "/panel/assets/deckeva/1.jpg", alt: "Disfrutando en velero con champagne" },
     { src: "/panel/assets/deckeva/2.jpg", alt: "Nautique wakeboard boat con deck EVA" },
     { src: "/panel/assets/deckeva/3.jpg", alt: "Nautique boat navegando con estilo" },
     { src: "/panel/assets/deckeva/4.jpg", alt: "Relax en la proa con SportFisha" },
-    { src: "/panel/assets/deckeva/5.jpg", alt: "Super Air Nautique a toda velocidad" }
+    { src: "/panel/assets/deckeva/5.jpg", alt: "Super Air Nautique a toda velocidad" },
+    { src: "/panel/assets/deckeva/6.jpg", alt: "Experiencia nautica premium" },
+    { src: "/panel/assets/deckeva/7.jpg", alt: "Navegando con amigos" },
+    { src: "/panel/assets/deckeva/8.jpg", alt: "Deck EVA en accion" },
+    { src: "/panel/assets/deckeva/9.jpg", alt: "Vida en el mar" },
+    { src: "/panel/assets/deckeva/10.jpg", alt: "Estilo sobre el agua" },
+    { src: "/panel/assets/deckeva/11.jpg", alt: "Aventura nautica" },
+    { src: "/panel/assets/deckeva/12.jpg", alt: "Paseo en lancha" },
+    { src: "/panel/assets/deckeva/13.jpg", alt: "Disfrutando el deck" }
   ];
 
-  var HERO_BG = "/panel/assets/deckeva/5.jpg";
+  var HERO_BG = "/panel/assets/deckeva/1.jpg";
 
   var COLORS = [
     { name: "Teak Clasico", color: "#c4915e", border: "#a87740" },
@@ -99,12 +107,16 @@
       '<h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:10px">' +
         '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
         'Galeria de Instalaciones</h2>' +
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-radius:16px;overflow:hidden" id="deckeva-gallery">';
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;border-radius:16px;overflow:hidden" id="deckeva-gallery">';
+    // Layout: row1=[span2, span2], row2=[1,1,1,1], row3=[span2,1,1], row4=[1,span2,1]
+    var spans = { 0: 'grid-column:span 2;', 1: 'grid-column:span 2;', 6: 'grid-column:span 2;', 10: 'grid-column:span 2;' };
+    var heights = { 0: '240px', 1: '240px' };
     GALLERY_IMAGES.forEach(function(img, i) {
-      var h = i === 0 ? '280px' : '200px';
-      html += '<div style="position:relative;height:' + h + ';overflow:hidden;cursor:pointer;' + (i === 0 ? 'grid-column:span 3;' : '') + (i === 4 ? 'grid-column:span 1;' : '') + '" onmouseover="this.querySelector(\'img\').style.transform=\'scale(1.08)\'" onmouseout="this.querySelector(\'img\').style.transform=\'scale(1)\'">' +
+      var h = heights[i] || '200px';
+      var sp = spans[i] || '';
+      html += '<div style="position:relative;height:' + h + ';overflow:hidden;cursor:pointer;' + sp + '" onmouseover="this.querySelector(\'img\').style.transform=\'scale(1.08)\'" onmouseout="this.querySelector(\'img\').style.transform=\'scale(1)\'">' +
         '<img src="' + img.src + '" alt="' + esc(img.alt) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;transition:transform .4s ease">' +
-        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4),transparent);pointer-events:none"></div>' +
+        '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.3),transparent 60%);pointer-events:none"></div>' +
       '</div>';
     });
     html += '</div></div>';
