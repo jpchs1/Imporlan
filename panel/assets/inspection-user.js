@@ -425,10 +425,14 @@
     var main = document.querySelector("main");
     if (!main) return;
 
-    // Hide React content
-    Array.from(main.children).forEach(function (ch) {
-      if (!ch.getAttribute("data-enhancer-added")) ch.style.display = "none";
-    });
+    // Hide React content using a style tag (persists through React re-renders)
+    var hideStyle = document.getElementById("iu-hide-react");
+    if (!hideStyle) {
+      hideStyle = document.createElement("style");
+      hideStyle.id = "iu-hide-react";
+      document.head.appendChild(hideStyle);
+    }
+    hideStyle.textContent = "main > *:not(#iu-container) { display: none !important; }";
 
     var container = document.getElementById("iu-container");
     if (!container) {
@@ -460,10 +464,8 @@
   function hideModule() {
     var container = document.getElementById("iu-container");
     if (container) container.remove();
-    var main = document.querySelector("main");
-    if (main) {
-      Array.from(main.children).forEach(function (ch) { ch.style.display = ""; });
-    }
+    var hideStyle = document.getElementById("iu-hide-react");
+    if (hideStyle) hideStyle.textContent = "";
     currentDetail = null;
   }
 
