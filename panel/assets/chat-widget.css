@@ -1093,6 +1093,17 @@
     border-right: 1px solid #e2e8f0;
 }
 
+/* Chat Error State */
+.chat-error {
+    padding: 20px;
+    text-align: center;
+    color: #ef4444;
+    font-size: 14px;
+    background: #fef2f2;
+    border-radius: 8px;
+    margin: 16px;
+}
+
 #admin-chat-modal .chat-messages-panel {
     flex: 1;
     display: flex;

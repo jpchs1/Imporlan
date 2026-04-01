@@ -1,0 +1,131 @@
+/**
+ * Responsive Override - Imporlan Admin Panel
+ * Fixes layout issues on tablets and mobile devices
+ */
+
+/* ===== Tablet Landscape (max 1024px) ===== */
+@media (max-width: 1024px) {
+  #ea-module-container table,
+  #insp-admin-container table,
+  #tracking-admin-container table {
+    font-size: 13px;
+  }
+
+  #ea-module-container table th,
+  #ea-module-container table td,
+  #insp-admin-container table th,
+  #insp-admin-container table td,
+  #tracking-admin-container table th,
+  #tracking-admin-container table td {
+    padding: 10px 12px;
+  }
+
+  .insp-photos-grid,
+  .insp-videos-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  }
+}
+
+/* ===== Tablet Portrait & Mobile (max 768px) ===== */
+@media (max-width: 768px) {
+  /* Sidebar: collapse */
+  aside {
+    position: fixed !important;
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  aside.open {
+    transform: translateX(0);
+  }
+  main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Tables */
+  #ea-module-container table,
+  #insp-admin-container table,
+  #tracking-admin-container table {
+    font-size: 12px;
+  }
+
+  #ea-module-container table th,
+  #ea-module-container table td,
+  #insp-admin-container table th,
+  #insp-admin-container table td,
+  #tracking-admin-container table th,
+  #tracking-admin-container table td {
+    padding: 8px 10px;
+    word-break: break-word;
+  }
+
+  /* Filters: stack */
+  #ea-filters {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Grids: reduce columns */
+  .insp-photos-grid,
+  .insp-videos-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* Modals: fit viewport */
+  #ea-create-modal > div,
+  #ea-detail-modal > div,
+  .chat-modal > div {
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    margin: 5vh auto !important;
+    padding: 16px !important;
+  }
+
+  /* Forms: prevent iOS zoom */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Touch-friendly targets */
+  button, a, select, input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+  }
+}
+
+/* ===== Small Phones (max 480px) ===== */
+@media (max-width: 480px) {
+  /* Filters: single column */
+  #ea-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Modals: full width */
+  #ea-create-modal > div,
+  #ea-detail-modal > div,
+  .chat-modal > div {
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    padding: 12px !important;
+  }
+
+  /* Tables: tighter */
+  #ea-module-container table th,
+  #ea-module-container table td,
+  #insp-admin-container table th,
+  #insp-admin-container table td,
+  #tracking-admin-container table th,
+  #tracking-admin-container table td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  /* Reduce gaps globally */
+  [style*="gap: 14px"],
+  [style*="gap:14px"] {
+    gap: 8px !important;
+  }
+}

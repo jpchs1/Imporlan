@@ -9,7 +9,7 @@
 (function() {
   'use strict';
 
-  var API_BASE = 'https://www.imporlan.cl/api';
+  var API_BASE = window.location.pathname.includes('/panel-test') ? '/test/api' : '/api';
   var _webpayProcessing = false;
 
   function extractBoatLinksFromPage() {

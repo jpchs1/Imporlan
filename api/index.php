@@ -109,9 +109,9 @@ switch (true) {
                 ]
             ],
             'back_urls' => [
-                'success' => 'https://www.imporlan.cl/test/?payment=success&plan=' . $planId,
-                'failure' => 'https://www.imporlan.cl/test/?payment=failure&plan=' . $planId,
-                'pending' => 'https://www.imporlan.cl/test/?payment=pending&plan=' . $planId
+                'success' => 'https://www.imporlan.cl/panel/?payment=success&plan=' . $planId,
+                'failure' => 'https://www.imporlan.cl/panel/?payment=failure&plan=' . $planId,
+                'pending' => 'https://www.imporlan.cl/panel/?payment=pending&plan=' . $planId
             ],
             'auto_return' => 'approved',
             'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
@@ -211,8 +211,8 @@ switch (true) {
                 'brand_name' => 'Imporlan',
                 'landing_page' => 'NO_PREFERENCE',
                 'user_action' => 'PAY_NOW',
-                'return_url' => 'https://www.imporlan.cl/test/?payment=success&plan=' . $planId,
-                'cancel_url' => 'https://www.imporlan.cl/test/?payment=cancelled&plan=' . $planId
+                'return_url' => 'https://www.imporlan.cl/panel/?payment=success&plan=' . $planId,
+                'cancel_url' => 'https://www.imporlan.cl/panel/?payment=cancelled&plan=' . $planId
             ]
         ];
         

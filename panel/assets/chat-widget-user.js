@@ -800,7 +800,7 @@
             var truncated = messageText.length > 100 ? messageText.substring(0, 100) + '...' : messageText;
             var notification = new Notification('Nuevo mensaje de ' + (senderName || 'Imporlan'), {
                 body: truncated,
-                icon: 'https://www.imporlan.cl/assets/logo.png',
+                icon: '/assets/logo.png',
                 tag: 'imporlan-chat-' + Date.now(),
                 requireInteraction: false
             });

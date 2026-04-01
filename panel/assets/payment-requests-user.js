@@ -11,7 +11,7 @@
     ? "/test/api"
     : "/api";
 
-  var PAYMENT_API_BASE = "https://www.imporlan.cl/api";
+  var PAYMENT_API_BASE = API_BASE;
 
   var injected = false;
   var alertsInjected = false;

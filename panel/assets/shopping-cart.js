@@ -77,7 +77,7 @@
   };
 
   // API Base URL
-  const API_BASE = 'https://www.imporlan.cl/api';
+  const API_BASE = window.location.pathname.includes('/panel-test') ? '/test/api' : '/api';
 
   // Load cart from localStorage
   function loadCart() {
