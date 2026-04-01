@@ -518,10 +518,17 @@
   function init() {
     addStyles();
 
-    // Periodically try to inject sidebar
+    // Periodically try to inject sidebar + ensure cleanup
     var sidebarInterval = setInterval(function () {
       injectSidebarItem();
       updateSidebarActive();
+      // Safety: always clear hide style when NOT on inspecciones
+      if (window.location.hash !== "#inspecciones" && !window.location.hash.startsWith("#inspecciones/")) {
+        var hs = document.getElementById("iu-hide-react");
+        if (hs && hs.textContent) { hs.textContent = ""; }
+        var c = document.getElementById("iu-container");
+        if (c) c.remove();
+      }
     }, 1000);
 
     window.addEventListener("hashchange", function () {
