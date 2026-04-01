@@ -82,12 +82,19 @@
     if (!nav) return;
 
     var refBtn = null;
-    var buttons = nav.querySelectorAll("button, a");
-    buttons.forEach(function (el) {
-      var text = el.textContent.trim().toLowerCase();
-      if (text.includes("documentos") || text.includes("documents")) refBtn = el;
+    var allItems = nav.querySelectorAll("button, a, li");
+    allItems.forEach(function (el) {
+      var text = (el.textContent || "").trim().toLowerCase();
+      if (text === "documentos" || text === "documents") refBtn = el;
     });
-    if (!refBtn && buttons.length > 0) refBtn = buttons[buttons.length - 1];
+    // Fallback: search all elements with partial match
+    if (!refBtn) {
+      allItems.forEach(function (el) {
+        var text = (el.textContent || "").trim().toLowerCase();
+        if (text.includes("documentos")) refBtn = el;
+      });
+    }
+    if (!refBtn && allItems.length > 0) refBtn = allItems[allItems.length - 1];
     if (!refBtn) return;
 
     var li = document.createElement("li");
