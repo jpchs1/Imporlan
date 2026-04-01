@@ -2,9 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function() {
+        var originalAlert = window.alert;
+        window.alert = function(message) {
+          var msgLower = (message || '').toLowerCase();
+          if (msgLower.indexOf('error al procesar') !== -1 ||
+              msgLower.indexOf('error al conectar') !== -1) {
+            return originalAlert.call(window, message);
+          }
+          if (msgLower.indexOf('configurar la api') !== -1 ||
+              msgLower.indexOf('requiere configuracion') !== -1 ||
+              msgLower.indexOf('esta es una demo') !== -1) {
+            console.log('Payment override: Blocked demo alert');
+            return;
+          }
+          return originalAlert.call(window, message);
+        };
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>imporlan-panel</title>
+    <script>if(new URLSearchParams(location.search).get('publicar')==='1')sessionStorage.setItem('mkt_open_publish','1');</script>
     <meta property="og:type" content="website">
     <meta property="og:title" content="imporlan-panel">
     <meta property="og:description" content="Importación y venta de lanchas, embarcaciones y motos de agua en Chile.">
@@ -19,6 +39,7 @@
     <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
+    <script src="/panel-test/assets/fetch-interceptor.js?v=1"></script>
     <script src="/panel-test/assets/payment-override.js?v=6"></script>
     <script type="module" crossorigin src="/panel-test/assets/index-CnCPfROY.js"></script>
     <link rel="stylesheet" crossorigin href="/panel-test/assets/index-DasYcwDL.css">
@@ -56,5 +77,11 @@
     <script src="/panel-test/assets/demo-data-cleaner.js?v=4" defer></script>
     <!-- Inspection User Module - Mis Inspecciones Tecnicas -->
     <script src="/panel-test/assets/inspection-user.js?v=1" defer></script>
+    <!-- Notifications Enhancer - Bell Icon + Dropdown -->
+    <script src="/panel-test/assets/notifications-enhancer.js?v=1" defer></script>
+    <!-- Payment Cards Enhancer -->
+    <script src="/panel-test/assets/payment-cards-enhancer.js?v=1" defer></script>
+    <!-- Documents Section Enhancer -->
+    <script src="/panel-test/assets/documents-enhancer.js?v=1" defer></script>
   </body>
 </html>

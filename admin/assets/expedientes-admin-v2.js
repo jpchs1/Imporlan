@@ -1,0 +1,2448 @@
+/**
+ * Expedientes Admin Module - Imporlan Admin Panel
+ * Modern UI with drag & drop reordering
+ */
+(function () {
+  "use strict";
+
+  const API_BASE = (window.location.pathname.includes("/test/") || window.location.pathname.includes("/panel-test"))
+    ? "/test/api"
+    : "/api";
+
+  var eaSortDirection = "desc"; // Track current sort direction for Fecha column
+
+  const STATUS_COLORS = {
+    new: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    pending: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    pending_admin_fill: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    in_progress: { bg: "#10b981", text: "#ffffff", label: "En Proceso" },
+    completed: { bg: "#6366f1", text: "#ffffff", label: "Completado" },
+    expired: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+    canceled: { bg: "#f59e0b", text: "#ffffff", label: "Pendiente" },
+  };
+
+  const STATUS_OPTIONS = [
+    { value: "pending_admin_fill", label: "Pendiente" },
+    { value: "in_progress", label: "En Proceso" },
+    { value: "completed", label: "Completado" },
+    { value: "expired", label: "Vencido" },
+    { value: "canceled", label: "Cancelado" },
+  ];
+
+  const STATUS_MESSAGES = {
+    new: "Expediente creado, pendiente de revision.",
+    pending_admin_fill: "Pendiente de revision por el equipo.",
+    in_progress: "En Proceso - Monitoreo Continuo. Se iran agregando nuevas y mejores opciones.",
+    completed: "Expediente completado exitosamente.",
+    expired: "Expediente vencido.",
+    canceled: "Expediente cancelado."
+  };
+
+  let currentOrderData = null;
+  let currentLinks = [];
+  let hasUnsavedChanges = false;
+  var moduleHidden = false;
+  var dragSrcRow = null;
+  var adminRankingPollingTimer = null;
+  var adminLastRankingUpdatedAt = null;
+
+  function getAdminToken() {
+    return localStorage.getItem("token") || localStorage.getItem("imporlan_admin_token") || "";
+  }
+
+  function getAdminUser() {
+    try {
+      var raw = localStorage.getItem("imporlan_admin_user");
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return null;
+  }
+
+  function numOrEmpty(v) {
+    return (v === null || v === undefined || v === '') ? '' : v;
+  }
+
+  function formatDotNumber(v) {
+    if (v === null || v === undefined || v === '' || isNaN(v)) return '';
+    var n = Math.round(parseFloat(v));
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function formatUsdDisplay(v) {
+    if (v === null || v === undefined || v === '' || isNaN(v)) return '';
+    var n = parseFloat(v);
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function stripDots(s) {
+    if (!s) return '';
+    return s.toString().replace(/\./g, '');
+  }
+
+  function parseNumOrNull(v) {
+    if (v === '' || v === undefined || v === null) return null;
+    var n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
+  function escapeHtml(text) {
+    if (!text) return "";
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "N/A";
+    // Parse date without timezone conversion to avoid +1 day shift
+    var m = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      return m[3] + "-" + m[2] + "-" + m[1];
+    }
+    // Fallback: try "dd Mon YYYY" format (e.g. "09 Mar 2026")
+    var d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      var dd = String(d.getDate()).padStart(2, '0');
+      var mm = String(d.getMonth() + 1).padStart(2, '0');
+      return dd + "-" + mm + "-" + d.getFullYear();
+    }
+    return dateStr;
+  }
+
+  function formatCurrency(amount, currency) {
+    if (amount === null || amount === undefined || amount === "") return "-";
+    var num = parseFloat(amount);
+    if (isNaN(num)) return "-";
+    if (currency === "USD") return "$" + num.toLocaleString("en-US", { minimumFractionDigits: 2 }) + " USD";
+    return "$" + num.toLocaleString("es-CL") + " CLP";
+  }
+
+  function getStatusBadge(status) {
+    var s = STATUS_COLORS[status] || STATUS_COLORS["new"];
+    return '<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:9999px;font-size:12px;font-weight:600;background:' + s.bg + ';color:' + s.text + ';letter-spacing:.02em"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7"></span>' + escapeHtml(s.label) + '</span>';
+  }
+
+  function authHeaders() {
+    return {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + getAdminToken(),
+    };
+  }
+
+  function isExpedientesPage() {
+    var hash = window.location.hash;
+    return hash === "#expedientes" || hash.startsWith("#expedientes/");
+  }
+
+  function getOrderIdFromHash() {
+    var match = window.location.hash.match(/#expedientes\/(\d+)/);
+    return match ? parseInt(match[1]) : null;
+  }
+
+  function injectSidebarItem() {
+    var checkCount = 0;
+    var maxChecks = 60;
+
+    function tryInject() {
+      checkCount++;
+      if (checkCount > maxChecks) return;
+
+      if (document.getElementById("sidebar-expedientes-admin")) return;
+
+      var nav = document.querySelector("aside nav") || document.querySelector("nav");
+      if (!nav) {
+        setTimeout(tryInject, 500);
+        return;
+      }
+
+      var ul = nav.querySelector("ul");
+      var refBtn = null;
+      var buttons = nav.querySelectorAll("button");
+      buttons.forEach(function (el) {
+        var text = el.textContent.trim().toLowerCase();
+        if (text.includes("auditoria") || text.includes("contenido") || text.includes("pagos")) {
+          refBtn = el;
+        }
+      });
+
+      if (!refBtn && buttons.length > 0) {
+        refBtn = buttons[buttons.length - 1];
+      }
+
+      if (!refBtn) {
+        setTimeout(tryInject, 500);
+        return;
+      }
+
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.id = "sidebar-expedientes-admin";
+      if (refBtn.className) {
+        btn.className = refBtn.className.replace(/bg-cyan-500\/20|text-cyan-400|border-r-4|border-cyan-400|bg-blue-50|text-blue-600/g, "");
+      }
+      btn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>' +
+        ' Expedientes';
+
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        moduleHidden = false;
+        if (window.location.hash === "#expedientes") {
+          renderModule();
+        } else {
+          window.location.hash = "#expedientes";
+        }
+      });
+
+      li.appendChild(btn);
+
+      var refLi = refBtn.closest("li");
+      if (refLi && refLi.parentNode) {
+        refLi.parentNode.insertBefore(li, refLi.nextSibling);
+      } else if (ul) {
+        ul.appendChild(li);
+      } else {
+        nav.appendChild(li);
+      }
+
+      updateSidebarActive();
+    }
+
+    tryInject();
+  }
+
+  function updateSidebarActive() {
+    var item = document.getElementById("sidebar-expedientes-admin");
+    if (!item) return;
+    if (isExpedientesPage()) {
+      item.style.background = "rgba(0,212,255,0.15)";
+      item.style.color = "#00d4ff";
+      item.style.borderRight = "4px solid #00d4ff";
+      item.style.fontWeight = "600";
+    } else {
+      item.style.background = "transparent";
+      item.style.color = "";
+      item.style.borderRight = "none";
+      item.style.fontWeight = "";
+    }
+  }
+
+  async function fetchOrders(filters) {
+    try {
+      var params = new URLSearchParams({ action: "admin_list" });
+      if (filters) {
+        if (filters.status) params.append("status", filters.status);
+        if (filters.agent) params.append("agent", filters.agent);
+        if (filters.from_date) params.append("from_date", filters.from_date);
+        if (filters.to_date) params.append("to_date", filters.to_date);
+        if (filters.search) params.append("search", filters.search);
+        if (filters.service_type) params.append("service_type", filters.service_type);
+      }
+      var resp = await fetch(API_BASE + "/orders_api.php?" + params.toString(), { headers: authHeaders() });
+      var data = await resp.json();
+      return data.success ? data.orders || [] : [];
+    } catch (e) {
+      console.error("Error fetching admin orders:", e);
+      return [];
+    }
+  }
+
+  async function fetchOrderDetail(orderId) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_detail&id=" + orderId, { headers: authHeaders() });
+      var data = await resp.json();
+      return data.success ? data.order : null;
+    } catch (e) {
+      console.error("Error fetching admin order detail:", e);
+      return null;
+    }
+  }
+
+  async function saveOrder(orderData) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_update", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(orderData),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error saving order:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function saveLinks(orderId, links) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_update_links", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId, links: links }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error saving links:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function addNewLink(orderId) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_add_link", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error adding link:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function deleteLink(orderId, linkId) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_delete_link", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId, link_id: linkId }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error deleting link:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function deleteOrder(orderId) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_delete", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ id: orderId }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error deleting order:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function createNewOrder(orderData) {
+    try {
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_create", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(orderData),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error creating order:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function reorderLinks(orderId, linkIds) {
+    try {
+      var adminUser = getAdminUser();
+      var authorName = adminUser ? (adminUser.name || adminUser.full_name || adminUser.email || 'Admin') : 'Admin';
+      var resp = await fetch(API_BASE + "/orders_api.php?action=admin_reorder_links", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: authorName, author_role: 'admin' }),
+      });
+      return await resp.json();
+    } catch (e) {
+      console.error("Error reordering links:", e);
+      return { error: "Error de conexion" };
+    }
+  }
+
+  async function fetchClientPurchases(email) {
+    try {
+      var resp = await fetch(API_BASE + "/purchases.php?action=get&user_email=" + encodeURIComponent(email));
+      return await resp.json();
+    } catch (e) {
+      console.error("Error fetching purchases:", e);
+      return { plans: [], links: [] };
+    }
+  }
+
+  function renderProductsSection(data) {
+    var plans = data.plans || [];
+    var links = data.links || [];
+    if (plans.length === 0 && links.length === 0) return '';
+    var itemsHtml = '';
+    plans.forEach(function(p) {
+      var sc = p.status === 'active' ? '#10b981' : (p.status === 'pending' ? '#f59e0b' : '#94a3b8');
+      itemsHtml += '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;background:#fafafa">' +
+        '<div style="width:40px;height:40px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#1e293b">' + escapeHtml(p.planName || p.plan_name || '') + '</div>' +
+        '<div style="font-size:12px;color:#64748b;margin-top:2px">' + (p.days ? p.days + ' dias' : '') + (p.startDate ? ' - Desde ' + escapeHtml(p.startDate) : '') + '</div></div>' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
+        '<span style="font-size:14px;font-weight:700;color:#059669">$' + Number(p.price || 0).toLocaleString() + ' CLP</span>' +
+        '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + sc + ';color:#fff">' + escapeHtml(p.status || 'pendiente') + '</span></div></div>';
+    });
+    links.forEach(function(l) {
+      itemsHtml += '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:12px;border:1px solid #e2e8f0;background:#fafafa">' +
+        '<div style="width:40px;height:40px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:#1e293b">Cotizacion por Link</div>' +
+        '<a href="' + escapeHtml(l.url || '') + '" target="_blank" style="font-size:12px;color:#0891b2;text-decoration:none">' + escapeHtml((l.url || '').substring(0, 60)) + '</a></div></div>';
+    });
+    return '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="padding:18px 28px;background:linear-gradient(to right,#f0fdf4,#ecfdf5);border-bottom:1px solid #d1fae5;display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 0 0-8 0v2"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Productos Contratados del Cliente</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Planes y servicios adquiridos</p></div></div>' +
+      '<div style="padding:16px 28px;display:flex;flex-direction:column;gap:10px">' + itemsHtml + '</div></div>';
+  }
+
+  function showToast(msg, type) {
+    var toast = document.createElement("div");
+    var bgColor = type === "error" ? "#ef4444" : (type === "warning" ? "#f59e0b" : "#10b981");
+    var duration = type === "warning" ? 5000 : 3000;
+    toast.style.cssText = "position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:12px;color:#fff;font-size:14px;font-weight:500;z-index:99999;animation:eaSlideUp .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);max-width:400px;background:" + bgColor;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function () {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity .3s";
+      setTimeout(function () { toast.remove(); }, 300);
+    }, duration);
+  }
+
+  function inputStyle() {
+    return "width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;color:#1e293b;background:#fff;outline:none;transition:all .2s;box-sizing:border-box";
+  }
+
+  function cellInputStyle() {
+    return "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#1e293b;width:100%;box-sizing:border-box;outline:none;background:#fff;transition:all .2s";
+  }
+
+  function renderFilters() {
+    return (
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;padding:18px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:14px;border:1px solid #e2e8f0" id="ea-filters">' +
+      '<select id="ea-filter-status" style="' + inputStyle() + '">' +
+      '<option value="">Todos los estados</option>' +
+      STATUS_OPTIONS.map(function (s) { return '<option value="' + s.value + '">' + escapeHtml(s.label) + "</option>"; }).join("") +
+      "</select>" +
+      '<select id="ea-filter-service-type" style="' + inputStyle() + '">' +
+      '<option value="">Tipo Servicio</option>' +
+      '<option value="plan_busqueda">Plan Busqueda</option>' +
+      '<option value="cotizacion_link">Cotizacion Link</option>' +
+      '</select>' +
+      '<input type="text" id="ea-filter-agent" placeholder="Agente..." style="' + inputStyle() + '">' +
+      '<input type="date" id="ea-filter-from" style="' + inputStyle() + '" title="Desde">' +
+      '<input type="date" id="ea-filter-to" style="' + inputStyle() + '" title="Hasta">' +
+      '<input type="text" id="ea-filter-search" placeholder="Buscar cliente..." style="' + inputStyle() + '">' +
+      '<button id="ea-filter-btn" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.25)">Filtrar</button>' +
+      "</div>"
+    );
+  }
+
+  function sortOrders(orders, direction) {
+    orders.sort(function (a, b) {
+      var dateA = new Date(a.purchase_date || a.created_at || 0).getTime();
+      var dateB = new Date(b.purchase_date || b.created_at || 0).getTime();
+      var diff = dateB - dateA; // default desc
+      if (diff === 0) diff = (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
+      return direction === "asc" ? -diff : diff;
+    });
+    return orders;
+  }
+
+  function renderListView(orders) {
+    sortOrders(orders, eaSortDirection);
+    var rows = "";
+    if (orders.length === 0) {
+      rows = '<tr><td colspan="7" style="text-align:center;padding:50px;color:#94a3b8"><div style="display:flex;flex-direction:column;align-items:center;gap:12px"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size:15px">No se encontraron expedientes</span></div></td></tr>';
+    } else {
+      orders.forEach(function (o) {
+        var si = STATUS_COLORS[o.status] || STATUS_COLORS["new"];
+        rows +=
+          '<tr class="ea-list-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s;cursor:pointer" data-id="' + o.id + '">' +
+          '<td style="padding:14px 16px"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(8,145,178,.08),rgba(6,182,212,.08));color:#0891b2;font-size:13px;font-weight:700;letter-spacing:.02em">' + escapeHtml(o.order_number) + "</span></td>" +
+          '<td style="padding:14px 16px"><div style="font-size:14px;color:#1e293b;font-weight:500">' + escapeHtml(o.customer_name) + '</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">' + escapeHtml(o.customer_email) + "</div></td>" +
+          '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.plan_name || "-") + "</td>" +
+          '<td style="padding:14px 16px">' + getStatusBadge(o.status) + "</td>" +
+          '<td style="padding:14px 16px;font-size:13px;color:#64748b">' + formatDate(o.purchase_date || o.created_at) + "</td>" +
+          '<td style="padding:14px 16px;font-size:14px;color:#475569">' + escapeHtml(o.agent_name || "-") + "</td>" +
+          '<td style="padding:14px 16px"><button class="ea-btn-edit" data-id="' + o.id + '" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.2)">Editar</button></td>' +
+          "</tr>";
+      });
+    }
+
+    return (
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:28px 32px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(8,145,178,.12);border-radius:50%"></div>' +
+      '<div style="display:flex;align-items:center;gap:16px;position:relative">' +
+      '<div style="width:52px;height:52px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(8,145,178,.3)">' +
+      '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<div><h2 style="color:#fff;font-size:22px;font-weight:700;margin:0">Expedientes</h2>' +
+      '<p style="color:rgba(148,163,184,.8);font-size:13px;margin:4px 0 0">Gestion de expedientes de busqueda</p></div></div>' +
+      '<button id="ea-btn-create" style="padding:10px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.3);position:relative">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Expediente</button></div>' +
+      renderFilters() +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Pedido N\u00b0</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Cliente</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Plan</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Estado</th>' +
+      '<th id="ea-sort-fecha" style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;user-select:none;transition:color .2s" title="Click para ordenar por fecha">' +
+      'Fecha <span id="ea-sort-arrow" style="margin-left:4px;font-size:13px">' + (eaSortDirection === "desc" ? "\u25BC" : "\u25B2") + '</span></th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Agente</th>' +
+      '<th style="padding:14px 16px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Acciones</th>' +
+      "</tr></thead><tbody>" +
+      rows +
+      "</tbody></table></div></div>"
+    );
+  }
+
+  /* ── Admin Timeline UI (5 steps) - Premium ── */
+  function buildAdminTimelineUI(currentStep) {
+    var steps = [
+      { num: 1, label: 'Plan o Cotizacion', icon: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>' },
+      { num: 2, label: 'Busqueda Activa', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
+      { num: 3, label: 'Inspeccion', icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' },
+      { num: 4, label: 'Compra', icon: '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+      { num: 5, label: 'Logistica', icon: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.4 11.4 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>' }
+    ];
+
+    if (!document.getElementById('ea-timeline-styles')) {
+      var st = document.createElement('style'); st.id = 'ea-timeline-styles';
+      st.textContent = '@keyframes eaTlPulse{0%,100%{box-shadow:0 0 0 0 rgba(8,145,178,.35)}70%{box-shadow:0 0 0 10px rgba(8,145,178,0)}}.ea-tl-active{animation:eaTlPulse 2s ease-in-out infinite}';
+      document.head.appendChild(st);
+    }
+
+    var pct = Math.round(((currentStep - 1) / 4) * 100);
+
+    var html = '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f,#0f172a);border-radius:20px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12);margin-bottom:20px;position:relative">' +
+      '<div style="position:absolute;top:-30px;right:15%;width:100px;height:100px;background:radial-gradient(circle,rgba(8,145,178,.12),transparent 70%);border-radius:50%"></div>' +
+      '<div style="padding:16px 28px 10px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div style="display:flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' +
+      '<span style="font-size:14px;font-weight:700;color:#e0f2fe">Progreso del Expediente</span></div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><div style="width:80px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#10b981,#06b6d4);border-radius:3px"></div></div>' +
+      '<span style="font-size:12px;color:#06b6d4;font-weight:700">Paso ' + currentStep + '/5</span></div></div>' +
+      '<div style="padding:10px 20px 22px;display:flex;align-items:flex-start;justify-content:center;gap:0">';
+
+    for (var i = 0; i < steps.length; i++) {
+      var s = steps[i];
+      var isCompleted = s.num < currentStep;
+      var isActive = s.num === currentStep;
+
+      html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;max-width:110px">';
+      html += '<div class="' + (isActive ? 'ea-tl-active' : '') + '" style="width:' + (isActive ? '44px' : '36px') + ';height:' + (isActive ? '44px' : '36px') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;';
+      if (isCompleted) html += 'background:linear-gradient(135deg,#10b981,#34d399);box-shadow:0 4px 12px rgba(16,185,129,.35),0 0 0 3px rgba(16,185,129,.15)';
+      else if (isActive) html += 'background:linear-gradient(135deg,#0891b2,#06b6d4,#22d3ee);box-shadow:0 6px 16px rgba(8,145,178,.4),0 0 0 3px rgba(8,145,178,.2)';
+      else html += 'background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.1)';
+      html += '">';
+      if (isCompleted) html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
+      else html += '<svg width="' + (isActive ? '18' : '14') + '" height="' + (isActive ? '18' : '14') + '" viewBox="0 0 24 24" fill="none" stroke="' + (isActive ? '#fff' : 'rgba(255,255,255,.25)') + '" stroke-width="2">' + s.icon + '</svg>';
+      html += '</div>';
+      html += '<p style="margin:8px 0 0;font-size:' + (isActive ? '11px' : '10px') + ';font-weight:' + (isActive ? '700' : isCompleted ? '600' : '400') + ';color:' + (isCompleted ? '#34d399' : isActive ? '#fff' : 'rgba(255,255,255,.3)') + ';text-align:center">' + s.label + '</p>';
+      html += '</div>';
+      if (i < steps.length - 1) {
+        var cTop = isActive ? '20px' : '17px';
+        html += '<div style="flex:1;max-width:50px;height:3px;margin-top:' + cTop + ';background:' + (isCompleted ? 'linear-gradient(90deg,#10b981,#34d399)' : (i + 1 === currentStep - 1) ? 'linear-gradient(90deg,#10b981,#0891b2)' : 'rgba(255,255,255,.06)') + ';border-radius:2px;' + (isCompleted ? 'box-shadow:0 0 6px rgba(16,185,129,.25)' : '') + '"></div>';
+      }
+    }
+
+    // Admin controls: advance/retrocede buttons
+    html += '</div>' +
+      '<div style="padding:10px 28px 18px;display:flex;align-items:center;justify-content:center;gap:12px">' +
+      '<button id="ea-tl-prev" style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .2s"' + (currentStep <= 1 ? ' disabled style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:rgba(255,255,255,.15);font-size:12px;font-weight:600;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px"' : '') + '>' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Retroceder</button>' +
+      '<span style="font-size:12px;color:rgba(255,255,255,.5);font-weight:500">Paso ' + currentStep + ' de 5</span>' +
+      '<button id="ea-tl-next" style="padding:7px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .2s;box-shadow:0 2px 8px rgba(8,145,178,.3)"' + (currentStep >= 5 ? ' disabled style="padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:transparent;color:rgba(255,255,255,.15);font-size:12px;font-weight:600;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px"' : '') + '>' +
+      'Avanzar <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function renderDetailView(order) {
+    if (!order) {
+      return (
+        '<div style="text-align:center;padding:60px;color:#94a3b8"><p style="font-size:16px">Expediente no encontrado</p>' +
+        '<button class="ea-btn-back" style="margin-top:16px;padding:10px 24px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;cursor:pointer;font-size:14px;font-weight:500">Volver</button></div>'
+      );
+    }
+
+    currentOrderData = JSON.parse(JSON.stringify(order));
+    currentLinks = JSON.parse(JSON.stringify(order.links || []));
+
+    var statusOptions = STATUS_OPTIONS.map(function (s) {
+      return '<option value="' + s.value + '"' + (order.status === s.value ? " selected" : "") + ">" + escapeHtml(s.label) + "</option>";
+    }).join("");
+
+    var linksRows = "";
+    currentLinks.forEach(function (lk, idx) {
+      linksRows += renderLinkRow(lk, idx);
+    });
+
+    if (currentLinks.length === 0) {
+      linksRows = '<tr><td colspan="17" style="text-align:center;padding:40px;color:#94a3b8;font-size:14px"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>No hay links. Agrega uno con el boton de abajo.</td></tr>';
+    }
+
+    return (
+      '<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
+      '<button class="ea-btn-back" style="display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.04)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Volver</button>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<span id="ea-unsaved-badge" style="display:none;padding:8px 16px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:500;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Cambios sin guardar</span>' +
+      '<button id="ea-save-all" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(16,185,129,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo</button>' +
+      '<button id="ea-change-status-btn" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Cambiar Estado</button>' +
+      '<button id="ea-send-client-update" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(59,130,246,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente</button>' +
+      '<button id="ea-preview-report" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(139,92,246,.25)"' + (currentLinks.length === 0 ? ' disabled title="Agrega links primero"' : '') + '>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Generar Reporte (Preview)</button>' +
+      '<button id="ea-send-report" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.25)"' + (currentLinks.length === 0 ? ' disabled title="Agrega links primero"' : '') + '>' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Reporte</button>' +
+      '<button id="ea-delete-order" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;box-shadow:0 4px 12px rgba(239,68,68,.25)">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente</button></div></div>' +
+
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-bottom:20px">' +
+      '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1a365d 100%);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;position:relative;overflow:hidden">' +
+      '<div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(8,145,178,.12);border-radius:50%"></div>' +
+      '<div style="display:flex;align-items:center;gap:14px;position:relative">' +
+      '<div style="width:44px;height:44px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:12px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<h2 style="color:#fff;font-size:20px;font-weight:700;margin:0">Expediente ' + escapeHtml(order.order_number) + "</h2></div>" +
+      '<select id="ea-status-select" style="padding:8px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.12);color:#fff;font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(4px)">' + statusOptions + "</select></div>" +
+      '<div style="padding:24px 28px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Cliente</label><input id="ea-f-customer_name" value="' + escapeHtml(order.customer_name || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email</label><input id="ea-f-customer_email" value="' + escapeHtml(order.customer_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email Secundario' + (order.secondary_email ? ' <span style="font-size:10px;color:#10b981;font-weight:500;text-transform:none;letter-spacing:0">(CC en envios)</span>' : '') + '</label><input id="ea-f-secondary_email" value="' + escapeHtml(order.secondary_email || "") + '" style="' + inputStyle() + ';background:#f8fafc;color:#64748b" disabled' + (!order.secondary_email ? ' placeholder="Sin email secundario"' : '') + '></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-f-customer_phone" value="' + escapeHtml(order.customer_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-f-service_type" style="' + inputStyle() + '"><option value="plan_busqueda"' + (order.service_type === 'plan_busqueda' ? ' selected' : '') + '>Plan Busqueda</option><option value="cotizacion_link"' + (order.service_type === 'cotizacion_link' ? ' selected' : '') + '>Cotizacion Link</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Origen</label><select id="ea-f-origin" style="' + inputStyle() + '"><option value="web"' + (order.origin === 'web' ? ' selected' : '') + '>Web</option><option value="admin"' + (order.origin === 'admin' ? ' selected' : '') + '>Admin</option><option value="whatsapp"' + (order.origin === 'whatsapp' ? ' selected' : '') + '>WhatsApp</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-f-plan_name" value="' + escapeHtml(order.plan_name || "") + '" style="' + inputStyle() + '">' +
+      ((order.plan_name || '').toLowerCase().indexOf('almirante') !== -1
+        ? '<span style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#dcfce7;color:#166534">Reporte IA incluido</span>'
+        : '<span style="display:inline-block;margin-top:4px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e">Reporte IA: +$15.000 CLP</span>') +
+      '</div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-f-asset_name" value="' + escapeHtml(order.asset_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo/Zona</label><input id="ea-f-type_zone" value="' + escapeHtml(order.type_zone || "") + '" style="' + inputStyle() + '"><span style="font-size:10px;color:#64748b;margin-top:4px;display:flex;align-items:center;gap:4px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Ubicacion geografica del primer link</span></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Requerimiento</label><input id="ea-f-requirement_name" value="' + escapeHtml(order.requirement_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Agente</label><input id="ea-f-agent_name" value="' + escapeHtml(order.agent_name || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-f-agent_phone" value="' + escapeHtml(order.agent_phone || "") + '" style="' + inputStyle() + '"></div>' +
+      '<div style="grid-column:1/-1"><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Notas Admin (internas)</label><textarea id="ea-f-admin_notes" rows="3" style="' + inputStyle() + ';resize:vertical">' + escapeHtml(order.admin_notes || "") + '</textarea></div>' +
+      '<div><label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#475569;cursor:pointer"><input type="checkbox" id="ea-f-visible_to_client"' + (order.visible_to_client == 1 ? ' checked' : '') + ' style="width:18px;height:18px;accent-color:#0891b2;cursor:pointer">Visible para cliente</label></div>' +
+      "</div></div></div>" +
+
+      buildAdminTimelineUI(order.timeline_step || 1) +
+
+      '<div id="ea-client-products"></div>' +
+
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06)">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#0891b2,#06b6d4);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Ranking de Opciones en USA</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Arrastra las filas para reordenar (de mas gustada a menos gustada)</p></div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button id="ea-notify-ranking-btn" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(245,158,11,.25)" data-order-id="' + order.id + '">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking</button>' +
+      '<button id="ea-add-link" style="padding:8px 18px;border-radius:10px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila</button></div></div>' +
+      buildAdminRankingInfoBar(order) +
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse" id="ea-links-table">' +
+      '<thead><tr style="background:linear-gradient(to right,#f8fafc,#f1f5f9)">' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:32px"></th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;width:36px">#</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:100px">Imagen</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Marca</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:140px">Modelo</th>' +
+            '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:70px">A\u00f1o</th>' +
+            '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Link Opcion (USA)</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:150px">Ubicacion</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:80px">Horas</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:200px">Motor</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Valor USA (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:120px">Negociar (USD)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:130px">Chile (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:130px">Negociado (CLP)</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:55px">N\u00b0 Sel</th>' +
+      '<th style="padding:14px 8px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:180px">Comentarios</th>' +
+      '<th style="padding:14px 8px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;min-width:50px">Acc.</th>' +
+      '</tr></thead><tbody id="ea-links-tbody">' +
+      linksRows +
+      "</tbody></table></div></div>" +
+
+      '<div id="ea-reports-section" style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-top:20px">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#faf5ff,#f3e8ff);border-bottom:1px solid #e9d5ff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Reportes Generados</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Historial de reportes enviados al cliente</p></div></div></div>' +
+      '<div id="ea-reports-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando reportes...</div></div></div>' +
+
+      '<div id="ea-files-section" style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.06);margin-top:20px">' +
+      '<div style="padding:20px 28px;background:linear-gradient(to right,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div style="width:36px;height:36px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>' +
+      '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#1e293b">Documentos del Expediente</h3>' +
+      '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">Sube archivos, imagenes, videos y documentos para el cliente</p></div></div>' +
+      '<button id="ea-upload-files-btn" style="padding:8px 18px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s;box-shadow:0 2px 8px rgba(16,185,129,.25)">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Subir Archivos</button></div>' +
+      '<div id="ea-files-upload-area" style="display:none;padding:20px 28px;border-bottom:1px solid #e2e8f0;background:#fafafa">' +
+      '<form id="ea-files-upload-form" enctype="multipart/form-data">' +
+      '<div id="ea-drop-zone" style="border:2px dashed #cbd5e1;border-radius:14px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fff">' +
+      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" style="display:block;margin:0 auto 10px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      '<p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#475569">Arrastra archivos aqui o haz clic para seleccionar</p>' +
+      '<p style="margin:0;font-size:12px;color:#94a3b8">Imagenes, videos, PDFs, documentos. Max 100MB por archivo.</p>' +
+      '<input type="file" id="ea-files-input" name="files[]" multiple style="display:none" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar">' +
+      '</div>' +
+      '<div id="ea-files-preview" style="margin-top:12px;display:none"></div>' +
+      '<div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">' +
+      '<input type="text" id="ea-files-description" placeholder="Nota o descripcion para el cliente (opcional)" style="flex:1;min-width:200px;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;font-size:13px;outline:none;transition:border-color .2s">' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;cursor:pointer;white-space:nowrap"><input type="checkbox" id="ea-notify-client-check" checked style="width:16px;height:16px;accent-color:#10b981;cursor:pointer">Notificar al cliente</label>' +
+      '<button type="submit" id="ea-files-submit" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .2s;box-shadow:0 2px 8px rgba(16,185,129,.25)" disabled>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Subir</button></div></form></div>' +
+      '<div id="ea-files-list" style="padding:20px 28px"><div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando archivos...</div></div></div>'
+    );
+  }
+
+  function buildAdminRankingInfoBar(order) {
+    var authorName = order.ranking_author_name;
+    var authorRole = order.ranking_author_role;
+    var rankingDate = order.ranking_updated_at;
+    if (!authorName) {
+      return '<div style="padding:12px 28px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;display:flex;align-items:center;gap:10px">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+        '<span style="font-size:13px;color:#92400e;font-weight:500">Aun no se ha armado un ranking. El usuario o agente puede arrastrar para ordenar las opciones.</span></div>';
+    }
+    var roleLabel = authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+    var dateStr = rankingDate ? formatDate(rankingDate) : '';
+    return '<div id="ea-ranking-info" style="padding:12px 28px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+      '<span style="font-size:13px;color:#065f46;font-weight:500">Ranking armado por <strong>' + escapeHtml(authorName) + '</strong> (' + roleLabel + ')' + (dateStr ? ' - ' + dateStr : '') + '</span></div>';
+  }
+
+  /* ── Ranking Polling (30s) ── */
+  function startAdminRankingPolling(orderId) {
+    stopAdminRankingPolling();
+    adminRankingPollingTimer = setInterval(function() {
+      if (!getOrderIdFromHash()) { stopAdminRankingPolling(); return; }
+      pollAdminRankingUpdate(orderId);
+    }, 30000);
+  }
+
+  function stopAdminRankingPolling() {
+    if (adminRankingPollingTimer) { clearInterval(adminRankingPollingTimer); adminRankingPollingTimer = null; }
+  }
+
+  function pollAdminRankingUpdate(orderId) {
+    fetchOrderDetail(orderId).then(function(order) {
+      if (!order) return;
+      var newTs = order.ranking_updated_at || null;
+      if (adminLastRankingUpdatedAt && newTs && newTs !== adminLastRankingUpdatedAt) {
+        var authorName = order.ranking_author_name || 'Alguien';
+        var authorRole = order.ranking_author_role || '';
+        var roleLabel = authorRole === 'admin' ? 'Agente/Admin' : 'Usuario';
+        showToast('Ranking actualizado por ' + authorName + ' (' + roleLabel + ')', 'info');
+        adminLastRankingUpdatedAt = newTs;
+        // Update ranking info bar
+        var infoBar = document.getElementById('ea-ranking-info');
+        var infoParent = infoBar ? infoBar.parentElement : null;
+        if (infoParent) {
+          var newBar = document.createElement('div');
+          newBar.innerHTML = buildAdminRankingInfoBar(order);
+          infoBar.replaceWith(newBar.firstElementChild);
+        }
+        if (hasUnsavedChanges) {
+          // Show a reload banner instead of overwriting unsaved edits
+          var existing = document.getElementById('ea-ranking-reload-banner');
+          if (!existing) {
+            var banner = document.createElement('div');
+            banner.id = 'ea-ranking-reload-banner';
+            banner.style.cssText = 'padding:12px 28px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap';
+            banner.innerHTML = '<span style="font-size:13px;color:#92400e;font-weight:500">' +
+              '<strong>' + escapeHtml(authorName) + '</strong> ha reordenado el ranking. Tienes cambios sin guardar.' +
+              '</span><button id="ea-ranking-reload-btn" style="padding:6px 16px;border-radius:8px;border:none;background:#0891b2;color:#fff;font-size:12px;font-weight:600;cursor:pointer">Recargar ranking</button>';
+            var infoBarNew = document.getElementById('ea-ranking-info');
+            if (infoBarNew && infoBarNew.parentElement) {
+              infoBarNew.parentElement.insertBefore(banner, infoBarNew.nextSibling);
+            }
+            var reloadBtn = document.getElementById('ea-ranking-reload-btn');
+            if (reloadBtn) {
+              reloadBtn.addEventListener('click', function() {
+                fetchOrderDetail(orderId).then(function(freshOrder) {
+                  if (!freshOrder) return;
+                  var tbody = document.getElementById('ea-links-tbody');
+                  if (tbody && freshOrder.links) {
+                    currentOrderData = freshOrder;
+                    currentLinks = freshOrder.links;
+                    var linksHtml = '';
+                    freshOrder.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
+                    tbody.innerHTML = linksHtml;
+                    renumberRows();
+                    initDragDrop();
+                  }
+                  var b = document.getElementById('ea-ranking-reload-banner');
+                  if (b) b.remove();
+                });
+              });
+            }
+          }
+        } else {
+          // No unsaved changes: auto-refresh the table
+          var tbody = document.getElementById('ea-links-tbody');
+          if (tbody && order.links) {
+            currentOrderData = order;
+            currentLinks = order.links;
+            var linksHtml = '';
+            order.links.forEach(function(lk, idx) { linksHtml += renderLinkRow(lk, idx); });
+            tbody.innerHTML = linksHtml;
+            renumberRows();
+            initDragDrop();
+          }
+        }
+      } else if (newTs) {
+        adminLastRankingUpdatedAt = newTs;
+      }
+    }).catch(function() { /* silent */ });
+  }
+
+  function notifyAdminRankingChange(orderId) {
+    var adminUser = getAdminUser();
+    var authorName = adminUser ? (adminUser.name || adminUser.full_name || adminUser.email || 'Admin') : 'Admin';
+    var btn = document.getElementById('ea-notify-ranking-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...'; }
+    fetch(API_BASE + '/orders_api.php?action=notify_ranking', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        order_id: parseInt(orderId),
+        author_name: authorName,
+        author_role: 'admin'
+      })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.success) {
+        showToast('Notificacion enviada al usuario', 'success');
+      } else {
+        showToast(data.error || 'Error al notificar', 'error');
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking'; }
+    }).catch(function() {
+      showToast('Error de conexion', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Notificar Ranking'; }
+    });
+  }
+
+  function renderLinkRow(lk, idx) {
+    var ci = cellInputStyle();
+    var placeholderSvg = '<div class="ea-img-placeholder" style="width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer" title="Click para subir imagen"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>';
+    var imgPreview = lk.image_url
+      ? '<img src="' + escapeHtml(lk.image_url) + '" style="width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)" class="ea-img-preview" data-url="' + escapeHtml(lk.image_url) + '">'
+      : placeholderSvg;
+    var clpVal = formatDotNumber(lk.value_chile_clp);
+    var clpNegVal = formatDotNumber(lk.value_chile_negotiated_clp);
+    var usdVal = formatUsdDisplay(lk.value_usa_usd);
+    var usdNegVal = formatUsdDisplay(lk.value_to_negotiate_usd);
+    return (
+      '<tr data-link-id="' + (lk.id || "") + '" draggable="true" class="ea-link-row" style="border-bottom:1px solid #f1f5f9;transition:all .15s">' +
+      '<td style="padding:8px 4px;text-align:center;vertical-align:middle"><div class="ea-drag-handle" style="cursor:grab;padding:4px;opacity:.3;transition:opacity .2s" title="Arrastra para reordenar"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div></td>' +
+      '<td class="ea-row-num" style="padding:8px 4px;text-align:center;font-size:14px;color:#64748b;font-weight:800">' + (idx + 1) + '</td>' +
+      '<td style="padding:8px 6px;text-align:center;vertical-align:middle"><div style="display:flex;flex-direction:column;align-items:center;gap:4px">' + imgPreview +
+      '<div style="display:flex;gap:2px;align-items:center">' +
+      '<button class="ea-upload-img-btn" style="border:none;background:#f0f9ff;cursor:pointer;color:#0891b2;padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:3px;font-size:10px;font-weight:600;transition:all .15s" title="Subir imagen"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Subir</button>' +
+      '<button class="ea-edit-imgurl-btn" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:4px 6px;border-radius:6px;display:flex;align-items:center;font-size:10px;transition:all .15s" title="Editar URL de imagen"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+      '</div>' +
+      '<input type="file" class="ea-img-file-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none">' +
+            '<input class="ea-link-image_url" value="' + escapeHtml(lk.image_url || "") + '" placeholder="URL imagen" style="' + ci + ';font-size:10px;width:92px;text-align:center;padding:3px 6px;color:#94a3b8;display:none" title="URL de la imagen"></div></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-make" value="' + escapeHtml(lk.make || '') + '" placeholder="Ej: Sea Ray" style="' + ci + ';min-width:110px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-model" value="' + escapeHtml(lk.model || '') + '" placeholder="Ej: SLX 280" style="' + ci + ';min-width:130px"></td>' +
+            '<td style="padding:8px 6px"><input class="ea-link-year" type="number" value="' + numOrEmpty(lk.year) + '" placeholder="Ej: 2023" style="' + ci + ';min-width:65px;text-align:center"></td>' +
+            '<td style="padding:8px 6px"><div style="display:flex;align-items:center;gap:4px"><input class="ea-link-url" value="' + escapeHtml(lk.url || "") + '" placeholder="https://..." style="' + ci + ';flex:1;min-width:160px">' +
+      '<div style="display:flex;gap:2px;flex-shrink:0">' +
+      '<button class="ea-open-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Abrir"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' +
+      '<button class="ea-copy-url" data-url="' + escapeHtml(lk.url || "") + '" style="border:none;background:#f1f5f9;cursor:pointer;color:#64748b;padding:7px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Copiar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>' +
+      '</div></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-location" value="' + escapeHtml(lk.location || '') + '" placeholder="Ciudad, Estado" style="' + ci + ';min-width:140px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-hours" value="' + escapeHtml(lk.hours || '') + '" placeholder="0 hrs" style="' + ci + ';min-width:72px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-engine" value="' + escapeHtml(lk.engine || '') + '" placeholder="Ej: Mercruiser 4.5L" style="' + ci + ';min-width:190px"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_usa_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_usa_usd) + '" value="' + usdVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_to_negotiate_usd ea-fmt-usd" data-raw="' + numOrEmpty(lk.value_to_negotiate_usd) + '" value="' + usdNegVal + '" placeholder="0.00" style="' + ci + ';text-align:right;font-weight:600;color:#059669"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_chile_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_clp) + '" value="' + (clpVal ? '$ ' + clpVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-value_chile_negotiated_clp ea-fmt-clp" data-raw="' + numOrEmpty(lk.value_chile_negotiated_clp) + '" value="' + (clpNegVal ? '$ ' + clpNegVal : '') + '" placeholder="$ 0" style="' + ci + ';text-align:right;font-weight:700;color:#2563eb"></td>' +
+      '<td style="padding:8px 4px"><input class="ea-link-selection_order" type="number" value="' + numOrEmpty(lk.selection_order) + '" placeholder="-" style="' + ci + ';text-align:center;font-weight:700"></td>' +
+      '<td style="padding:8px 6px"><input class="ea-link-comments" value="' + escapeHtml(lk.comments || "") + '" placeholder="Agregar comentario..." style="' + ci + '"></td>' +
+      '<td style="padding:8px 4px;text-align:center"><div style="display:flex;flex-direction:column;gap:3px;align-items:center">' +
+      '<button class="ea-rescrape-link" style="border:none;background:#f0fdf4;cursor:pointer;color:#16a34a;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Re-scrapear datos del link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>' +
+      '<button class="ea-delete-link" data-link-id="' + (lk.id || "") + '" style="border:none;background:#fef2f2;cursor:pointer;color:#ef4444;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s" title="Eliminar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>' +
+      '</tr>'
+    );
+  }
+
+  function renderCreateModal() {
+    return (
+      '<div id="ea-create-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99998;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s;backdrop-filter:blur(4px)">' +
+      '<div style="background:#fff;border-radius:20px;width:90%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.3)">' +
+      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:24px 28px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>' +
+      '<h3 style="color:#fff;font-size:18px;font-weight:700;margin:0">Nuevo Expediente</h3></div>' +
+      '<button id="ea-close-modal" style="border:none;background:rgba(255,255,255,.1);color:#94a3b8;cursor:pointer;padding:8px;border-radius:8px;display:flex;align-items:center;transition:all .2s"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>' +
+      '<div style="padding:28px">' +
+      '<div style="display:grid;gap:16px">' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Email Cliente *</label><input id="ea-new-email" style="' + inputStyle() + '" placeholder="cliente@email.com"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Nombre Cliente *</label><input id="ea-new-name" style="' + inputStyle() + '" placeholder="Nombre completo"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Cliente</label><input id="ea-new-phone" style="' + inputStyle() + '" placeholder="+56 9 1234 5678"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tipo Servicio</label><select id="ea-new-service-type" style="' + inputStyle() + '"><option value="plan_busqueda">Plan Busqueda</option><option value="cotizacion_link">Cotizacion Link</option></select></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Plan</label><input id="ea-new-plan" style="' + inputStyle() + '" placeholder="Plan Fragata, etc."></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Embarcacion/Objetivo</label><input id="ea-new-asset" style="' + inputStyle() + '" placeholder="Tipo de embarcacion"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Zona/Tipo</label><input id="ea-new-zone" style="' + inputStyle() + '" placeholder="Costa Este USA, etc."></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Agente</label><input id="ea-new-agent-name" value="Rodrigo Calder\u00f3n" style="' + inputStyle() + '"></div>' +
+      '<div><label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Telefono Agente</label><input id="ea-new-agent-phone" value="+56 9 40211459" style="' + inputStyle() + '"></div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px">' +
+      '<button id="ea-cancel-create" style="padding:10px 24px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;cursor:pointer;font-weight:500;transition:all .2s">Cancelar</button>' +
+      '<button id="ea-submit-create" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.25);transition:all .2s">Crear Expediente</button>' +
+      "</div></div></div></div>"
+    );
+  }
+
+  function collectLinkData() {
+    var tbody = document.getElementById("ea-links-tbody");
+    if (!tbody) return [];
+    var rows = tbody.querySelectorAll("tr[data-link-id]");
+    var links = [];
+    rows.forEach(function (row, idx) {
+      links.push({
+        id: parseInt(row.getAttribute("data-link-id")) || null,
+        row_index: idx + 1,
+        url: (row.querySelector(".ea-link-url") || {}).value || null,
+        image_url: (row.querySelector(".ea-link-image_url") || {}).value || null,
+        location: (row.querySelector(".ea-link-location") || {}).value || null,
+        hours: (row.querySelector(".ea-link-hours") || {}).value || null,
+        value_usa_usd: parseNumOrNull((row.querySelector(".ea-link-value_usa_usd") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_usa_usd") || {}).value),
+        value_to_negotiate_usd: parseNumOrNull((row.querySelector(".ea-link-value_to_negotiate_usd") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_to_negotiate_usd") || {}).value),
+        value_chile_clp: parseNumOrNull(stripDots(((row.querySelector(".ea-link-value_chile_clp") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_chile_clp") || {}).value || '').replace(/\$/g,'').trim())),
+        value_chile_negotiated_clp: parseNumOrNull(stripDots(((row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).getAttribute('data-raw') || (row.querySelector(".ea-link-value_chile_negotiated_clp") || {}).value || '').replace(/\$/g,'').trim())),
+        selection_order: parseNumOrNull((row.querySelector(".ea-link-selection_order") || {}).value),
+        comments: (row.querySelector(".ea-link-comments") || {}).value || null,
+        engine: (row.querySelector(".ea-link-engine") || {}).value || null,
+        make: (row.querySelector(".ea-link-make") || {}).value || null,
+        model: (row.querySelector(".ea-link-model") || {}).value || null,
+        year: parseNumOrNull((row.querySelector(".ea-link-year") || {}).value),
+      });
+    });
+    return links;
+  }
+
+  function initDragDrop() {
+    var tbody = document.getElementById("ea-links-tbody");
+    if (!tbody) return;
+
+    tbody.querySelectorAll(".ea-link-row").forEach(function (row) {
+      row.addEventListener("dragstart", function (e) {
+        dragSrcRow = this;
+        this.style.opacity = "0.4";
+        this.classList.add("ea-dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", this.getAttribute("data-link-id"));
+      });
+
+      row.addEventListener("dragend", function () {
+        this.style.opacity = "1";
+        this.classList.remove("ea-dragging");
+        var ind = tbody.querySelector(".ea-drop-indicator-row");
+        if (ind) ind.remove();
+        dragSrcRow = null;
+        renumberRows();
+        hasUnsavedChanges = true;
+        showUnsavedBadge();
+      });
+
+      row.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (this === dragSrcRow) return;
+
+        var rect = this.getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+
+        var existing = tbody.querySelector(".ea-drop-indicator-row");
+        if (existing) existing.remove();
+
+        var indicator = document.createElement("tr");
+        indicator.className = "ea-drop-indicator-row";
+        indicator.innerHTML = '<td colspan="17" style="padding:0;border:none"><div style="height:3px;background:linear-gradient(90deg,#0891b2,#06b6d4);border-radius:2px;margin:0 8px"></div></td>';
+
+        if (e.clientY < midY) {
+          this.parentNode.insertBefore(indicator, this);
+        } else {
+          this.parentNode.insertBefore(indicator, this.nextSibling);
+        }
+      });
+
+      row.addEventListener("drop", function (e) {
+        e.preventDefault();
+        if (dragSrcRow === this) return;
+        var indicator = tbody.querySelector(".ea-drop-indicator-row");
+        if (indicator) {
+          tbody.insertBefore(dragSrcRow, indicator);
+          indicator.remove();
+        }
+      });
+    });
+  }
+
+  function isBoatTraderUrl(url) {
+    return /boattrader\.com|boats\.com/i.test(url);
+  }
+
+  function applyScrapedData(row, data, force) {
+    var filled = false;
+    if (data.image_url) {
+      var imgInput = row.querySelector(".ea-link-image_url");
+      if (imgInput && (force || !imgInput.value)) {
+        imgInput.value = data.image_url;
+        var imgContainer = imgInput.closest("div");
+        var placeholder = imgContainer ? imgContainer.querySelector(".ea-img-placeholder") : null;
+        var existingImg = imgContainer ? imgContainer.querySelector(".ea-img-preview") : null;
+        if (existingImg && force) {
+          existingImg.src = data.image_url;
+          existingImg.setAttribute("data-url", data.image_url);
+        } else if (placeholder) {
+          var newImg = document.createElement("img");
+          newImg.src = data.image_url;
+          newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
+          newImg.className = "ea-img-preview";
+          newImg.setAttribute("data-url", data.image_url);
+          placeholder.parentNode.insertBefore(newImg, placeholder);
+          placeholder.remove();
+        }
+        filled = true;
+      }
+    }
+    if (data.location) {
+      var locInput = row.querySelector(".ea-link-location");
+      if (locInput && (force || !locInput.value)) { locInput.value = data.location; filled = true; }
+    }
+    if (data.hours) {
+      var hrsInput = row.querySelector(".ea-link-hours");
+      if (hrsInput && (force || !hrsInput.value)) { hrsInput.value = data.hours; filled = true; }
+    }
+    var priceVal = data.value_usa_usd || data.price;
+    if (priceVal) {
+      var usdInput = row.querySelector(".ea-link-value_usa_usd");
+      if (usdInput && (force || (!usdInput.value && !usdInput.getAttribute("data-raw")))) {
+        usdInput.setAttribute("data-raw", priceVal);
+        usdInput.value = formatUsdDisplay(priceVal);
+        filled = true;
+      }
+    }
+    if (data.engine) {
+      var engInput = row.querySelector(".ea-link-engine");
+      if (engInput && (force || !engInput.value)) { engInput.value = data.engine; filled = true; }
+    }
+    if (data.make) {
+      var makeInput = row.querySelector(".ea-link-make");
+      if (makeInput && (force || !makeInput.value)) { makeInput.value = data.make; filled = true; }
+    }
+    if (data.model) {
+      var modelInput = row.querySelector(".ea-link-model");
+      if (modelInput && (force || !modelInput.value)) { modelInput.value = data.model; filled = true; }
+    }
+    if (data.year) {
+      var yearInput = row.querySelector(".ea-link-year");
+      if (yearInput && (force || !yearInput.value)) { yearInput.value = data.year; filled = true; }
+    }
+    return filled;
+  }
+
+  async function autoFetchLinkData(urlInput) {
+    var url = urlInput.value.trim();
+    if (!url || !url.match(/^https?:\/\//i)) return;
+    var row = urlInput.closest("tr");
+    if (!row) return;
+
+    var loadingEl = document.createElement("div");
+    loadingEl.className = "ea-link-loading";
+    loadingEl.style.cssText = "position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:10;border-radius:8px";
+    loadingEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:12px;color:#0369a1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Extrayendo datos...</div>';
+    row.style.position = "relative";
+    row.appendChild(loadingEl);
+
+    try {
+      var data = null;
+      if (isBoatTraderUrl(url)) {
+        var btResp = await fetch(API_BASE + "/boattrader_scraper.php?action=scrape&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        var btData = await btResp.json();
+        if (btData.success && btData.boat) {
+          data = btData.boat;
+        }
+      }
+      if (!data) {
+        var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        data = await resp.json();
+        if (!data.success) data = null;
+      }
+      if (data) {
+        var filled = applyScrapedData(row, data);
+        var hasImage = !!(data.image_url);
+        if (filled && hasImage && data._partial) {
+          showToast("Datos e imagen de referencia extraidos del link.", "success");
+        } else if (filled && hasImage) {
+          showToast("Datos extraidos del link", "success");
+        } else if (filled && !hasImage) {
+          showToast("Datos parciales extraidos. Sube la imagen manualmente.", "warning");
+        } else if (!filled && isBoatTraderUrl(url)) {
+          showToast("No se pudo extraer datos. BoatTrader tiene proteccion anti-bot. Sube la imagen manualmente.", "warning");
+        }
+        if (filled) {
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+        }
+      } else if (isBoatTraderUrl(url)) {
+        showToast("No se pudo acceder a BoatTrader. Ingresa los datos e imagen manualmente.", "warning");
+      }
+    } catch (e) {
+      console.warn("Auto-fetch failed:", e);
+    } finally {
+      if (loadingEl.parentNode) loadingEl.remove();
+    }
+  }
+
+  async function rescrapeLink(row) {
+    var urlInput = row.querySelector(".ea-link-url");
+    var url = urlInput ? urlInput.value.trim() : "";
+    if (!url || !url.match(/^https?:\/\//i)) {
+      showToast("No hay URL valida para re-scrapear", "warning");
+      return;
+    }
+    var btn = row.querySelector(".ea-rescrape-link");
+    var origHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+    }
+    try {
+      var data = null;
+      if (isBoatTraderUrl(url)) {
+        var btResp = await fetch(API_BASE + "/boattrader_scraper.php?action=scrape&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        var btData = await btResp.json();
+        if (btData.success && btData.boat) data = btData.boat;
+      }
+      if (!data) {
+        var resp = await fetch(API_BASE + "/link_scraper.php?action=fetch&url=" + encodeURIComponent(url), { headers: authHeaders() });
+        data = await resp.json();
+        if (!data.success) data = null;
+      }
+      if (data) {
+        var filled = applyScrapedData(row, data, true);
+        if (filled) {
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+          showToast("Datos actualizados desde el link", "success");
+        } else {
+          showToast("No se encontraron datos nuevos", "warning");
+        }
+      } else {
+        showToast("No se pudo extraer datos del link", "error");
+      }
+    } catch (e) {
+      console.warn("Rescrape failed:", e);
+      showToast("Error al re-scrapear", "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+    }
+  }
+
+  function showUnsavedBadge() {
+    var badge = document.getElementById("ea-unsaved-badge");
+    if (badge) badge.style.display = "inline-flex";
+  }
+
+  function hideUnsavedBadge() {
+    var badge = document.getElementById("ea-unsaved-badge");
+    if (badge) badge.style.display = "none";
+  }
+
+  async function uploadLinkImage(file, row) {
+    var uploadBtn = row.querySelector(".ea-upload-img-btn");
+    var origHtml = uploadBtn ? uploadBtn.innerHTML : "";
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+    }
+    try {
+      var formData = new FormData();
+      formData.append("image", file);
+      var resp = await fetch(API_BASE + "/image_upload.php?action=upload_link_image", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + getAdminToken() },
+        body: formData,
+      });
+      var data = await resp.json();
+      if (data.success && data.url) {
+        var imgInput = row.querySelector(".ea-link-image_url");
+        if (imgInput) imgInput.value = data.url;
+        updateImagePreview(row, data.url);
+        hasUnsavedChanges = true;
+        showUnsavedBadge();
+        showToast("Imagen subida exitosamente", "success");
+      } else {
+        showToast(data.error || "Error al subir imagen", "error");
+      }
+    } catch (e) {
+      console.error("Upload error:", e);
+      showToast("Error al subir imagen", "error");
+    } finally {
+      if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = origHtml;
+      }
+    }
+  }
+
+  function updateImagePreview(row, url) {
+    var container = row.querySelector("td:nth-child(3) > div");
+    if (!container) return;
+    var existingImg = container.querySelector(".ea-img-preview");
+    var existingPlaceholder = container.querySelector(".ea-img-placeholder");
+    if (url) {
+      if (existingImg) {
+        existingImg.src = url;
+        existingImg.setAttribute("data-url", url);
+        existingImg.style.display = "";
+      } else {
+        var newImg = document.createElement("img");
+        newImg.src = url;
+        newImg.style.cssText = "width:88px;height:66px;object-fit:cover;border-radius:10px;border:2px solid #e2e8f0;cursor:pointer;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,.08)";
+        newImg.className = "ea-img-preview";
+        newImg.setAttribute("data-url", url);
+        newImg.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var overlay = document.createElement("div");
+          overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s;backdrop-filter:blur(8px)";
+          overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
+          overlay.addEventListener("click", function () { overlay.remove(); });
+          document.body.appendChild(overlay);
+        });
+        newImg.addEventListener("error", function () {
+          this.style.display = "none";
+        });
+        if (existingPlaceholder) {
+          container.insertBefore(newImg, existingPlaceholder);
+          existingPlaceholder.remove();
+        } else {
+          container.insertBefore(newImg, container.firstChild);
+        }
+      }
+    } else {
+      if (existingImg) existingImg.style.display = "none";
+      if (!existingPlaceholder) {
+        var ph = document.createElement("div");
+        ph.className = "ea-img-placeholder";
+        ph.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer";
+        ph.title = "Click para subir imagen";
+        ph.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        ph.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var r = this.closest("tr");
+          if (r) { var fi = r.querySelector(".ea-img-file-input"); if (fi) fi.click(); }
+        });
+        container.insertBefore(ph, container.firstChild);
+      }
+    }
+  }
+
+  function bindOnce(el, event, handler, key) {
+    var attr = "data-ea-bound" + (key ? "-" + key : "");
+    if (el.getAttribute(attr)) return;
+    el.setAttribute(attr, "1");
+    el.addEventListener(event, handler);
+  }
+
+  function attachListeners(container) {
+    container.querySelectorAll(".ea-btn-edit").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.stopPropagation();
+        window.location.hash = "#expedientes/" + this.getAttribute("data-id");
+      });
+    });
+
+    container.querySelectorAll(".ea-list-row").forEach(function (row) {
+      bindOnce(row, "click", function () {
+        window.location.hash = "#expedientes/" + this.getAttribute("data-id");
+      });
+      bindOnce(row, "mouseover", function () { this.style.background = "#f8fafc"; }, "hover");
+      bindOnce(row, "mouseout", function () { this.style.background = "transparent"; }, "hout");
+    });
+
+    container.querySelectorAll(".ea-btn-back").forEach(function (btn) {
+      bindOnce(btn, "click", function () {
+        window.location.hash = "#expedientes";
+      });
+    });
+
+    container.querySelectorAll(".ea-open-url").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.stopPropagation();
+        var url = this.getAttribute("data-url");
+        if (url) window.open(url, "_blank");
+      });
+    });
+
+    container.querySelectorAll(".ea-copy-url").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.stopPropagation();
+        var url = this.getAttribute("data-url");
+        if (url) { navigator.clipboard.writeText(url); showToast("Link copiado", "success"); }
+      });
+    });
+
+    container.querySelectorAll(".ea-link-url").forEach(function (inp) {
+      bindOnce(inp, "blur", function () {
+        var val = this.value.trim();
+        if (val && val.match(/^https?:\/\//i)) {
+          autoFetchLinkData(this);
+        }
+      });
+    });
+
+    container.querySelectorAll('.ea-fmt-clp').forEach(function (inp) {
+      bindOnce(inp, 'focus', function () {
+        var raw = this.getAttribute('data-raw') || '';
+        this.value = raw;
+        this.select();
+      });
+      bindOnce(inp, 'blur', function () {
+        var val = stripDots(this.value.replace(/\$/g,'').trim());
+        var n = parseFloat(val);
+        if (!isNaN(n)) { this.setAttribute('data-raw', Math.round(n)); this.value = '$ ' + formatDotNumber(n); }
+        else if (!val) { this.setAttribute('data-raw', ''); this.value = ''; }
+      });
+    });
+
+    container.querySelectorAll('.ea-fmt-usd').forEach(function (inp) {
+      bindOnce(inp, 'focus', function () {
+        var raw = this.getAttribute('data-raw') || '';
+        this.value = raw;
+        this.select();
+      });
+      bindOnce(inp, 'blur', function () {
+        var val = this.value.replace(/,/g,'').trim();
+        var n = parseFloat(val);
+        if (!isNaN(n)) { this.setAttribute('data-raw', n); this.value = formatUsdDisplay(n); }
+        else if (!val) { this.setAttribute('data-raw', ''); this.value = ''; }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-preview").forEach(function (img) {
+      bindOnce(img, "error", function () {
+        this.style.display = "none";
+        var placeholder = document.createElement("div");
+        placeholder.className = "ea-img-placeholder";
+        placeholder.style.cssText = "width:88px;height:66px;border-radius:10px;border:2px dashed #d1d5db;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#f1f5f9);cursor:pointer";
+        placeholder.title = "Click para subir imagen";
+        placeholder.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+        this.parentNode.insertBefore(placeholder, this);
+      });
+    });
+    container.querySelectorAll(".ea-img-preview").forEach(function (img) {
+      bindOnce(img, "click", function (e) {
+        e.stopPropagation();
+        var url = this.getAttribute("data-url");
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;animation:eaFadeIn .2s;backdrop-filter:blur(8px)";
+        overlay.innerHTML = '<div style="position:relative;max-width:90%;max-height:90%"><img src="' + url + '" style="max-width:100%;max-height:85vh;object-fit:contain;border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.5)"><button style="position:absolute;top:-12px;right:-12px;width:36px;height:36px;border-radius:50%;border:none;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3);font-size:18px;font-weight:700">&times;</button></div>';
+        overlay.addEventListener("click", function () { overlay.remove(); });
+        document.body.appendChild(overlay);
+      });
+    });
+
+    container.querySelectorAll(".ea-upload-img-btn").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) {
+          var fileInput = row.querySelector(".ea-img-file-input");
+          if (fileInput) fileInput.click();
+        }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-placeholder").forEach(function (ph) {
+      bindOnce(ph, "click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) {
+          var fileInput = row.querySelector(".ea-img-file-input");
+          if (fileInput) fileInput.click();
+        }
+      });
+    });
+
+    container.querySelectorAll(".ea-img-file-input").forEach(function (inp) {
+      bindOnce(inp, "change", function () {
+        if (!this.files || !this.files[0]) return;
+        var file = this.files[0];
+        var row = this.closest("tr");
+        if (!row) return;
+        uploadLinkImage(file, row);
+      });
+    });
+
+    container.querySelectorAll(".ea-edit-imgurl-btn").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (!row) return;
+        var imgInput = row.querySelector(".ea-link-image_url");
+        if (!imgInput) return;
+        var currentUrl = imgInput.value || "";
+        var newUrl = prompt("URL de la imagen:", currentUrl);
+        if (newUrl !== null) {
+          imgInput.value = newUrl.trim();
+          updateImagePreview(row, newUrl.trim());
+          hasUnsavedChanges = true;
+          showUnsavedBadge();
+        }
+      });
+    });
+
+    var sortFechaBtn = document.getElementById("ea-sort-fecha");
+    if (sortFechaBtn) {
+      bindOnce(sortFechaBtn, "click", async function () {
+        eaSortDirection = eaSortDirection === "desc" ? "asc" : "desc";
+        var arrow = document.getElementById("ea-sort-arrow");
+        if (arrow) arrow.textContent = eaSortDirection === "desc" ? "\u25BC" : "\u25B2";
+        var filters = {
+          status: document.getElementById("ea-filter-status") ? document.getElementById("ea-filter-status").value : "",
+          service_type: document.getElementById("ea-filter-service-type") ? document.getElementById("ea-filter-service-type").value : "",
+          agent: document.getElementById("ea-filter-agent") ? document.getElementById("ea-filter-agent").value : "",
+          from_date: document.getElementById("ea-filter-from") ? document.getElementById("ea-filter-from").value : "",
+          to_date: document.getElementById("ea-filter-to") ? document.getElementById("ea-filter-to").value : "",
+          search: document.getElementById("ea-filter-search") ? document.getElementById("ea-filter-search").value : "",
+        };
+        var orders = await fetchOrders(filters);
+        var tableBody = container.querySelector("tbody");
+        if (tableBody) {
+          var tempDiv = document.createElement("div");
+          tempDiv.innerHTML = renderListView(orders);
+          var newBody = tempDiv.querySelector("tbody");
+          if (newBody) tableBody.innerHTML = newBody.innerHTML;
+          attachListeners(container);
+        }
+      });
+      bindOnce(sortFechaBtn, "mouseover", function () { this.style.color = "#0891b2"; }, "hover");
+      bindOnce(sortFechaBtn, "mouseout", function () { this.style.color = "#64748b"; }, "hout");
+    }
+
+    var filterBtn = document.getElementById("ea-filter-btn");
+    if (filterBtn) {
+      bindOnce(filterBtn, "click", async function () {
+        var filters = {
+          status: document.getElementById("ea-filter-status").value,
+          service_type: document.getElementById("ea-filter-service-type").value,
+          agent: document.getElementById("ea-filter-agent").value,
+          from_date: document.getElementById("ea-filter-from").value,
+          to_date: document.getElementById("ea-filter-to").value,
+          search: document.getElementById("ea-filter-search").value,
+        };
+        var orders = await fetchOrders(filters);
+        var tableBody = container.querySelector("tbody");
+        if (tableBody) {
+          var tempDiv = document.createElement("div");
+          tempDiv.innerHTML = renderListView(orders);
+          var newBody = tempDiv.querySelector("tbody");
+          if (newBody) tableBody.innerHTML = newBody.innerHTML;
+          attachListeners(container);
+        }
+      });
+    }
+
+    var createBtn = document.getElementById("ea-btn-create");
+    if (createBtn) {
+      bindOnce(createBtn, "click", function () {
+        document.body.insertAdjacentHTML("beforeend", renderCreateModal());
+        var modal = document.getElementById("ea-create-modal");
+
+        document.getElementById("ea-close-modal").addEventListener("click", function () { modal.remove(); });
+        document.getElementById("ea-cancel-create").addEventListener("click", function () { modal.remove(); });
+
+        document.getElementById("ea-submit-create").addEventListener("click", async function () {
+          var email = document.getElementById("ea-new-email").value.trim();
+          var name = document.getElementById("ea-new-name").value.trim();
+          if (!email || !name) {
+            showToast("Email y nombre son requeridos", "error");
+            return;
+          }
+          var result = await createNewOrder({
+            customer_email: email,
+            customer_name: name,
+            customer_phone: document.getElementById("ea-new-phone").value.trim(),
+            service_type: document.getElementById("ea-new-service-type").value,
+            plan_name: document.getElementById("ea-new-plan").value.trim(),
+            asset_name: document.getElementById("ea-new-asset").value.trim(),
+            type_zone: document.getElementById("ea-new-zone").value.trim(),
+            agent_name: document.getElementById("ea-new-agent-name").value.trim(),
+            agent_phone: document.getElementById("ea-new-agent-phone").value.trim(),
+            origin: "admin",
+          });
+          if (result.success) {
+            modal.remove();
+            showToast("Expediente creado: " + result.order_number, "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("expediente_edit", "expediente", result.order_id, null, { email: email, name: name }, "Expediente #" + result.order_number + " creado");
+            }
+            window.location.hash = "#expedientes/" + result.order_id;
+          } else {
+            showToast(result.error || "Error al crear", "error");
+          }
+        });
+      });
+    }
+
+    var notifyRankBtn = document.getElementById("ea-notify-ranking-btn");
+    if (notifyRankBtn) {
+      bindOnce(notifyRankBtn, "click", function (e) {
+        e.stopPropagation();
+        notifyAdminRankingChange(this.getAttribute("data-order-id"));
+      });
+    }
+
+    var saveAllBtn = document.getElementById("ea-save-all");
+    if (saveAllBtn && currentOrderData) {
+      bindOnce(saveAllBtn, "click", async function () {
+        saveAllBtn.disabled = true;
+        saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Guardando...';
+
+        var orderUpdate = {
+          id: currentOrderData.id,
+          status: document.getElementById("ea-status-select").value,
+          customer_phone: document.getElementById("ea-f-customer_phone").value,
+          service_type: document.getElementById("ea-f-service_type").value,
+          origin: document.getElementById("ea-f-origin").value,
+          plan_name: document.getElementById("ea-f-plan_name").value,
+          asset_name: document.getElementById("ea-f-asset_name").value,
+          type_zone: document.getElementById("ea-f-type_zone").value,
+          requirement_name: document.getElementById("ea-f-requirement_name").value,
+          agent_name: document.getElementById("ea-f-agent_name").value,
+          agent_phone: document.getElementById("ea-f-agent_phone").value,
+          admin_notes: document.getElementById("ea-f-admin_notes").value,
+          visible_to_client: document.getElementById("ea-f-visible_to_client").checked ? 1 : 0,
+        };
+
+        var r1 = await saveOrder(orderUpdate);
+
+        var linksData = collectLinkData();
+        var r2 = await saveLinks(currentOrderData.id, linksData);
+
+        if (r1.success && r2.success) {
+          showToast("Expediente guardado exitosamente", "success");
+          hasUnsavedChanges = false;
+          hideUnsavedBadge();
+          if (typeof window.logAuditAction === "function") {
+            var oldStatus = currentOrderData.status || "";
+            var newStatus = orderUpdate.status || "";
+            if (oldStatus !== newStatus) {
+              window.logAuditAction("status_change", "expediente", currentOrderData.id, { status: oldStatus }, { status: newStatus }, "Estado cambiado de " + oldStatus + " a " + newStatus);
+            }
+            window.logAuditAction("expediente_edit", "expediente", currentOrderData.id, null, orderUpdate, "Expediente #" + currentOrderData.order_number + " actualizado");
+            window.logAuditAction("link_modification", "links", currentOrderData.id, null, { count: linksData.length }, "Links actualizados para expediente #" + currentOrderData.order_number);
+          }
+        } else {
+          showToast((r1.error || "") + " " + (r2.error || ""), "error");
+        }
+
+        saveAllBtn.disabled = false;
+        saveAllBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar Todo';
+      });
+    }
+
+    var changeStatusBtn = document.getElementById("ea-change-status-btn");
+    if (changeStatusBtn && currentOrderData) {
+      bindOnce(changeStatusBtn, "click", function () {
+        var currentStatus = currentOrderData.status || "new";
+        var statusLabels = { new: "Nuevo", pending_admin_fill: "Pendiente", in_progress: "En Proceso - Monitoreo Continuo", completed: "Completado", expired: "Vencido", canceled: "Cancelado" };
+        var statusColors = { new: "#3b82f6", pending_admin_fill: "#f59e0b", in_progress: "#10b981", completed: "#6366f1", expired: "#ef4444", canceled: "#64748b" };
+        var opts = "";
+        Object.keys(statusLabels).forEach(function (key) {
+          opts += '<label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid ' + (key === currentStatus ? statusColors[key] + '60' : '#e2e8f0') + ';background:' + (key === currentStatus ? statusColors[key] + '08' : '#fff') + ';cursor:pointer;transition:all .2s">' +
+            '<input type="radio" name="ea-new-status" value="' + key + '"' + (key === currentStatus ? " checked" : "") + ' style="accent-color:' + statusColors[key] + ';width:18px;height:18px">' +
+            '<div style="flex:1"><span style="display:inline-block;padding:4px 12px;border-radius:9999px;font-size:12px;font-weight:700;background:' + statusColors[key] + ';color:#fff">' + statusLabels[key] + '</span>' +
+            '<p style="margin:4px 0 0;font-size:12px;color:#64748b">' + (STATUS_MESSAGES[key] || "") + '</p></div></label>';
+        });
+        var overlay = document.createElement("div");
+        overlay.id = "ea-status-modal-overlay";
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center;animation:eaFadeIn .2s;backdrop-filter:blur(4px)";
+        overlay.innerHTML = '<div style="background:#fff;border-radius:20px;padding:32px;max-width:520px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 24px 48px rgba(0,0,0,.2)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+          '<h3 style="margin:0;font-size:20px;font-weight:700;color:#1e293b">Cambiar Estado del Expediente</h3>' +
+          '<button id="ea-status-modal-close" style="width:32px;height:32px;border-radius:8px;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px">&times;</button></div>' +
+          '<p style="margin:0 0 4px;font-size:13px;color:#64748b">Expediente <strong>' + escapeHtml(currentOrderData.order_number) + '</strong> - ' + escapeHtml(currentOrderData.customer_name || "") + '</p>' +
+          '<p style="margin:0 0 16px;font-size:13px;color:#94a3b8">Estado actual: <strong style="color:' + (statusColors[currentStatus] || '#64748b') + '">' + (statusLabels[currentStatus] || currentStatus) + '</strong></p>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">' + opts + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fef3c7;border-radius:10px;border:1px solid #fde68a;margin-bottom:20px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>' +
+          '<span style="font-size:13px;color:#92400e">Se enviara un email automatico al cliente notificando el cambio de estado.</span></div>' +
+          '<div style="display:flex;gap:10px;justify-content:flex-end">' +
+          '<button id="ea-status-modal-cancel" style="padding:10px 24px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:14px;font-weight:500;cursor:pointer">Cancelar</button>' +
+          '<button id="ea-status-modal-confirm" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio</button></div></div>';
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", function (ev) { if (ev.target === overlay) overlay.remove(); });
+        document.getElementById("ea-status-modal-close").addEventListener("click", function () { overlay.remove(); });
+        document.getElementById("ea-status-modal-cancel").addEventListener("click", function () { overlay.remove(); });
+
+        document.getElementById("ea-status-modal-confirm").addEventListener("click", async function () {
+          var selected = overlay.querySelector('input[name="ea-new-status"]:checked');
+          if (!selected) { showToast("Selecciona un estado", "error"); return; }
+          var newStatus = selected.value;
+          if (newStatus === currentStatus) { showToast("El estado ya es " + (statusLabels[newStatus] || newStatus), "info"); overlay.remove(); return; }
+          var confirmBtn = this;
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Cambiando...';
+          try {
+            var adminUser = getAdminUser();
+            var resp = await fetch(API_BASE + "?action=admin_change_status", { method: "POST", headers: authHeaders(), body: JSON.stringify({ id: currentOrderData.id, status: newStatus, admin_user_id: adminUser ? adminUser.id : null }) });
+            var result = await resp.json();
+            if (result.success) {
+              currentOrderData.status = newStatus;
+              var selectEl = document.getElementById("ea-status-select");
+              if (selectEl) selectEl.value = newStatus;
+              var emailMsg = result.email_sent ? " Email enviado al cliente." : (result.email_error ? " Email no enviado: " + result.email_error : "");
+              showToast("Estado cambiado a " + (statusLabels[newStatus] || newStatus) + "." + emailMsg, "success");
+              if (typeof window.logAuditAction === "function") {
+                window.logAuditAction("status_change", "expediente", currentOrderData.id, { status: currentStatus }, { status: newStatus }, "Estado cambiado de " + (statusLabels[currentStatus] || currentStatus) + " a " + (statusLabels[newStatus] || newStatus));
+              }
+              overlay.remove();
+            } else {
+              showToast(result.error || "Error al cambiar estado", "error");
+              confirmBtn.disabled = false;
+              confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio';
+            }
+          } catch (err) {
+            showToast("Error de conexion: " + err.message, "error");
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirmar Cambio';
+          }
+        });
+      });
+    }
+
+    var deleteOrderBtn = document.getElementById("ea-delete-order");
+    if (deleteOrderBtn && currentOrderData) {
+      bindOnce(deleteOrderBtn, "click", async function () {
+        if (!confirm("¿Estas seguro de eliminar el expediente " + currentOrderData.order_number + "?\n\nEsta accion eliminara el expediente y todos sus links asociados. No se puede deshacer.")) return;
+        if (!confirm("Confirmar eliminacion definitiva de " + currentOrderData.order_number + "?")) return;
+        deleteOrderBtn.disabled = true;
+        deleteOrderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Eliminando...';
+        var result = await deleteOrder(currentOrderData.id);
+        if (result.success) {
+          if (typeof window.logAuditAction === "function") {
+            window.logAuditAction("expediente_edit", "expediente", currentOrderData.id, { order_number: currentOrderData.order_number, customer: currentOrderData.customer_name }, null, "Expediente #" + currentOrderData.order_number + " eliminado");
+          }
+          showToast("Expediente " + result.order_number + " eliminado", "success");
+          window.location.hash = "#expedientes";
+        } else {
+          showToast(result.error || "Error al eliminar", "error");
+          deleteOrderBtn.disabled = false;
+          deleteOrderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Eliminar Expediente';
+        }
+      });
+    }
+
+    var sendUpdateBtn = document.getElementById("ea-send-client-update");
+    if (sendUpdateBtn && currentOrderData) {
+      bindOnce(sendUpdateBtn, "click", async function () {
+        if (!currentOrderData.customer_email) {
+          showToast("El expediente no tiene email de cliente", "error");
+          return;
+        }
+        var confirmMsg = "Enviar actualizacion por email a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) confirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        confirmMsg += "\n\nSe enviara la informacion actual del expediente " + currentOrderData.order_number + " al cliente.";
+        if (!confirm(confirmMsg)) return;
+        sendUpdateBtn.disabled = true;
+        sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
+        try {
+          var resp = await fetch(API_BASE + "/orders_api.php?action=admin_send_client_update", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ id: currentOrderData.id, admin_user_id: (getAdminUser() || {}).id || null }),
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast(data.message || "Email enviado exitosamente", "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("client_update_sent", "expediente", currentOrderData.id, null, { email: currentOrderData.customer_email }, "Actualizacion enviada a " + currentOrderData.customer_email + " para expediente #" + currentOrderData.order_number);
+            }
+          } else {
+            showToast(data.error || "Error al enviar email", "error");
+          }
+        } catch (e) {
+          console.error("Error sending client update:", e);
+          showToast("Error de conexion al enviar email", "error");
+        }
+        sendUpdateBtn.disabled = false;
+        sendUpdateBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente';
+      });
+    }
+
+    var addLinkBtn = document.getElementById("ea-add-link");
+    if (addLinkBtn && currentOrderData) {
+      bindOnce(addLinkBtn, "click", async function () {
+        var result = await addNewLink(currentOrderData.id);
+        if (result.success) {
+          var newLink = {
+            id: result.link_id,
+            row_index: result.row_index,
+            url: "",
+            image_url: null,
+            value_usa_usd: null,
+            value_to_negotiate_usd: null,
+            value_chile_clp: null,
+            value_chile_negotiated_clp: null,
+            selection_order: null,
+            comments: null,
+          };
+          currentLinks.push(newLink);
+          var tbody = document.getElementById("ea-links-tbody");
+          if (tbody) {
+            if (tbody.querySelector("td[colspan]")) tbody.innerHTML = "";
+            tbody.insertAdjacentHTML("beforeend", renderLinkRow(newLink, currentLinks.length - 1));
+            initDragDrop();
+            attachListeners(container);
+          }
+          showToast("Fila agregada", "success");
+        } else {
+          showToast(result.error || "Error al agregar fila", "error");
+        }
+      });
+    }
+
+    container.querySelectorAll(".ea-rescrape-link").forEach(function (btn) {
+      bindOnce(btn, "click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var row = this.closest("tr");
+        if (row) rescrapeLink(row);
+      });
+    });
+
+    container.querySelectorAll(".ea-delete-link").forEach(function (btn) {
+      bindOnce(btn, "click", async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var linkId = parseInt(this.getAttribute("data-link-id"));
+        if (!linkId || isNaN(linkId) || !currentOrderData) {
+          console.warn("[Expedientes] Delete skipped: linkId=" + linkId + ", hasOrder=" + !!currentOrderData);
+          return;
+        }
+        if (!confirm("Eliminar esta fila de link?")) return;
+        try {
+          var result = await deleteLink(currentOrderData.id, linkId);
+          if (result.success) {
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("link_modification", "links", currentOrderData.id, { link_id: linkId }, null, "Link #" + linkId + " eliminado del expediente #" + currentOrderData.order_number);
+            }
+            var row = this.closest("tr");
+            if (row) row.remove();
+            currentLinks = currentLinks.filter(function (l) { return l.id !== linkId; });
+            renumberRows();
+            showToast("Fila eliminada", "success");
+          } else {
+            showToast(result.error || "Error al eliminar", "error");
+          }
+        } catch (err) {
+          console.error("[Expedientes] Delete error:", err);
+          showToast("Error de conexion al eliminar", "error");
+        }
+      });
+    });
+
+    initDragDrop();
+
+    var previewReportBtn = document.getElementById("ea-preview-report");
+    if (previewReportBtn && currentOrderData) {
+      bindOnce(previewReportBtn, "click", async function () {
+        if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
+        previewReportBtn.disabled = true;
+        previewReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generando...';
+        try {
+          var resp = await fetch(API_BASE + "/reports_api.php?action=preview", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ order_id: currentOrderData.id }),
+          });
+          var data = await resp.json();
+          if (data.success && data.html) {
+            var w = window.open("", "_blank");
+            if (w) { w.document.write(data.html); w.document.close(); }
+            else { showToast("Permite popups para ver el preview", "error"); }
+          } else {
+            showToast(data.error || "Error al generar preview", "error");
+          }
+        } catch (e) {
+          console.error("Preview report error:", e);
+          showToast("Error de conexion", "error");
+        }
+        previewReportBtn.disabled = false;
+        previewReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Generar Reporte (Preview)';
+      });
+    }
+
+    var sendReportBtn = document.getElementById("ea-send-report");
+    if (sendReportBtn && currentOrderData) {
+      bindOnce(sendReportBtn, "click", async function () {
+        if (currentLinks.length === 0) { showToast("No hay links para generar reporte", "error"); return; }
+        if (!currentOrderData.customer_email) { showToast("El expediente no tiene email de cliente", "error"); return; }
+        var reportConfirmMsg = "Enviar reporte profesional a " + currentOrderData.customer_email + "?";
+        if (currentOrderData.secondary_email) reportConfirmMsg += "\n(CC: " + currentOrderData.secondary_email + ")";
+        reportConfirmMsg += "\n\nSe generara el reporte con analisis AI, se guardara en el expediente, se notificara al cliente y se enviara por email.";
+        if (!confirm(reportConfirmMsg)) return;
+        sendReportBtn.disabled = true;
+        sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Enviando...';
+        try {
+          var resp = await fetch(API_BASE + "/reports_api.php?action=send", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ order_id: currentOrderData.id }),
+          });
+          var data = await resp.json();
+          if (data.success) {
+            showToast("Reporte enviado correctamente al cliente.", "success");
+            if (typeof window.logAuditAction === "function") {
+              window.logAuditAction("report_sent", "expediente", currentOrderData.id, null, { version: data.version, report_id: data.report_id }, "Reporte v" + data.version + " enviado para expediente #" + currentOrderData.order_number);
+            }
+            loadReportsList(currentOrderData.id);
+          } else {
+            showToast(data.error || "Error al enviar reporte", "error");
+          }
+        } catch (e) {
+          console.error("Send report error:", e);
+          showToast("Error de conexion al enviar reporte", "error");
+        }
+        sendReportBtn.disabled = false;
+        sendReportBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar Reporte';
+      });
+    }
+
+    if (currentOrderData) {
+      loadReportsList(currentOrderData.id);
+      loadExpedienteFiles(currentOrderData.id);
+      initFileUploadUI(currentOrderData.id);
+      initTimelineControls(currentOrderData);
+    }
+  }
+
+  function initTimelineControls(order) {
+    var prevBtn = document.getElementById('ea-tl-prev');
+    var nextBtn = document.getElementById('ea-tl-next');
+    if (!prevBtn || !nextBtn) return;
+
+    prevBtn.addEventListener('click', function() { changeTimelineStep(order.id, -1); });
+    nextBtn.addEventListener('click', function() { changeTimelineStep(order.id, 1); });
+  }
+
+  async function changeTimelineStep(orderId, direction) {
+    var currentStep = currentOrderData ? (parseInt(currentOrderData.timeline_step) || 1) : 1;
+    var newStep = currentStep + direction;
+    if (newStep < 1 || newStep > 5) return;
+
+    var stepLabels = {1:'Plan Contratado',2:'Busqueda Activa',3:'Inspeccion Tecnica',4:'Compra',5:'Logistica & Envio'};
+    if (!confirm('Mover a Paso ' + newStep + ': ' + stepLabels[newStep] + '?')) return;
+
+    try {
+      var resp = await fetch(API_BASE + '/orders_api.php?action=admin_update', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: orderId, timeline_step: newStep }),
+      });
+      var data = await resp.json();
+      if (data.success) {
+        showToast('Paso actualizado a: ' + stepLabels[newStep], 'success');
+        currentOrderData.timeline_step = newStep;
+        // Re-render entire module to update timeline
+        renderModule();
+      } else {
+        showToast(data.error || 'Error al actualizar paso', 'error');
+      }
+    } catch (e) {
+      showToast('Error de conexion', 'error');
+    }
+  }
+
+  function showEditReportModal(report, orderId) {
+    var existing = document.getElementById("ea-edit-report-modal");
+    if (existing) existing.remove();
+
+    var modal = document.createElement("div");
+    modal.id = "ea-edit-report-modal";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center";
+    modal.innerHTML =
+      '<div style="background:#fff;border-radius:16px;width:90%;max-width:900px;height:80vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25)">' +
+        '<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between">' +
+          '<h3 style="margin:0;font-size:16px;color:#1e293b">Editar Reporte v' + report.version + '</h3>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button id="ea-save-report-btn" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>' +
+            '<button id="ea-close-edit-modal" style="padding:8px 20px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;font-weight:600;cursor:pointer">Cerrar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="flex:1;overflow:hidden;padding:0">' +
+          '<iframe id="ea-edit-report-iframe" style="width:100%;height:100%;border:none"></iframe>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var iframe = document.getElementById("ea-edit-report-iframe");
+    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(report.html_content);
+    iframeDoc.close();
+    iframeDoc.designMode = "on";
+
+    document.getElementById("ea-close-edit-modal").addEventListener("click", function () {
+      modal.remove();
+    });
+
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) modal.remove();
+    });
+
+    document.getElementById("ea-save-report-btn").addEventListener("click", async function () {
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Guardando...";
+      var editedHtml = iframe.contentDocument.documentElement.outerHTML;
+      try {
+        var resp = await fetch(API_BASE + "/reports_api.php?action=save", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ report_id: report.id, html_content: editedHtml }),
+        });
+        var d = await resp.json();
+        if (d.success) {
+          showToast(d.message || "Reporte guardado", "success");
+          modal.remove();
+          loadReportsList(orderId);
+        } else {
+          showToast(d.error || "Error al guardar", "error");
+        }
+      } catch (e) {
+        showToast("Error de conexion", "error");
+      }
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Guardar";
+    });
+  }
+
+  async function loadReportsList(orderId) {
+    var listDiv = document.getElementById("ea-reports-list");
+    if (!listDiv) return;
+    try {
+      var resp = await fetch(API_BASE + "/reports_api.php?action=list&order_id=" + orderId, {
+        headers: authHeaders(),
+      });
+      var data = await resp.json();
+      if (data.success && data.reports && data.reports.length > 0) {
+        var html = '<table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:#f8fafc">' +
+          '<th style="padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Fecha</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Version</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Plan</th>' +
+          '<th style="padding:10px 12px;text-align:center;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase">Acciones</th>' +
+          '</tr></thead><tbody>';
+        data.reports.forEach(function (r) {
+          html += '<tr style="border-bottom:1px solid #f1f5f9">' +
+            '<td style="padding:10px 12px;font-size:13px;color:#475569">' + formatDate(r.created_at) + '</td>' +
+            '<td style="padding:10px 12px;text-align:center"><span style="background:#ede9fe;color:#7c3aed;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600">v' + r.version + '</span></td>' +
+            '<td style="padding:10px 12px;text-align:center;font-size:12px;color:#64748b">' + escapeHtml(r.plan_type || '-') + '</td>' +
+            '<td style="padding:10px 12px;text-align:center;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">' +
+            '<button class="ea-view-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #8b5cf6;background:transparent;color:#8b5cf6;font-size:11px;font-weight:600;cursor:pointer">Ver</button>' +
+            '<button class="ea-download-report" data-report-id="' + r.id + '" data-token="' + escapeHtml(r.access_token || '') + '" style="padding:5px 12px;border-radius:8px;border:1px solid #0891b2;background:transparent;color:#0891b2;font-size:11px;font-weight:600;cursor:pointer">PDF</button>' +
+            '<button class="ea-resend-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #f59e0b;background:transparent;color:#f59e0b;font-size:11px;font-weight:600;cursor:pointer">Reenviar</button>' +
+            '<button class="ea-edit-report" data-report-id="' + r.id + '" style="padding:5px 12px;border-radius:8px;border:1px solid #10b981;background:transparent;color:#10b981;font-size:11px;font-weight:600;cursor:pointer">Editar</button>' +
+            '<button class="ea-delete-report" data-report-id="' + r.id + '" data-version="' + r.version + '" style="padding:5px 12px;border-radius:8px;border:1px solid #ef4444;background:transparent;color:#ef4444;font-size:11px;font-weight:600;cursor:pointer">Eliminar</button>' +
+            '</td></tr>';
+        });
+        html += '</tbody></table>';
+        listDiv.innerHTML = html;
+
+        listDiv.querySelectorAll(".ea-view-report").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
+            var token = this.getAttribute("data-token");
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=view&report_id=" + reportId + "&token=" + token, "_blank"); }
+          });
+        });
+        listDiv.querySelectorAll(".ea-download-report").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var reportId = this.getAttribute("data-report-id");
+            var token = this.getAttribute("data-token");
+            if (reportId && token) { window.open(API_BASE + "/reports_api.php?action=download&report_id=" + reportId + "&token=" + token, "_blank"); }
+          });
+        });
+        listDiv.querySelectorAll(".ea-resend-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            if (!confirm("Reenviar este reporte al cliente?")) return;
+            this.disabled = true;
+            this.textContent = "Enviando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=resend", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success) {
+                showToast("Reporte reenviado exitosamente", "success");
+                loadReportsList(orderId);
+              } else {
+                showToast(d.error || "Error al reenviar", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Reenviar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-edit-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            this.disabled = true;
+            this.textContent = "Cargando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=edit", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success && d.report) {
+                showEditReportModal(d.report, orderId);
+              } else {
+                showToast(d.error || "Error al cargar reporte", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Editar";
+          });
+        });
+        listDiv.querySelectorAll(".ea-delete-report").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var reportId = this.getAttribute("data-report-id");
+            var version = this.getAttribute("data-version");
+            if (!confirm("¿Eliminar el reporte v" + version + "? Esta accion no se puede deshacer.")) return;
+            this.disabled = true;
+            this.textContent = "Eliminando...";
+            try {
+              var resp = await fetch(API_BASE + "/reports_api.php?action=delete", {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify({ report_id: reportId }),
+              });
+              var d = await resp.json();
+              if (d.success) {
+                showToast(d.message || "Reporte eliminado", "success");
+                loadReportsList(orderId);
+              } else {
+                showToast(d.error || "Error al eliminar", "error");
+              }
+            } catch (e) {
+              showToast("Error de conexion", "error");
+            }
+            this.disabled = false;
+            this.textContent = "Eliminar";
+          });
+        });
+      } else {
+        listDiv.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:13px"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>No hay reportes generados aun.<br>Usa el boton "Enviar Reporte" para crear uno.</div>';
+      }
+    } catch (e) {
+      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:13px">Error al cargar reportes</div>';
+    }
+  }
+
+  function renumberRows() {
+    var tbody = document.getElementById("ea-links-tbody");
+    if (!tbody) return;
+    var rows = tbody.querySelectorAll("tr[data-link-id]");
+    rows.forEach(function (row, idx) {
+      var numCell = row.querySelector(".ea-row-num");
+      if (numCell) numCell.textContent = idx + 1;
+    });
+  }
+
+  function renderSkeleton() {
+    return (
+      '<div style="background:#fff;border-radius:20px;border:1px solid #e2e8f0;overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:28px 32px">' +
+      '<div style="width:250px;height:24px;background:rgba(255,255,255,.1);border-radius:6px;margin-bottom:8px"></div>' +
+      '<div style="width:180px;height:14px;background:rgba(255,255,255,.06);border-radius:4px"></div></div>' +
+      '<div style="padding:20px">' +
+      [1, 2, 3, 4].map(function () {
+        return '<div style="display:flex;gap:12px;margin-bottom:14px"><div style="flex:1;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div><div style="flex:2;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div><div style="flex:1;height:40px;background:#f1f5f9;border-radius:10px;animation:eaPulse 1.5s infinite"></div></div>';
+      }).join("") +
+      "</div></div>"
+    );
+  }
+
+  async function renderModule() {
+    if (!isExpedientesPage()) return;
+    if (moduleHidden) return;
+
+    var mainContent = document.querySelector("main");
+    if (!mainContent) return;
+
+    var container = document.getElementById("ea-module-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "ea-module-container";
+      container.style.cssText = "max-width:1400px;margin:0 auto;padding:20px;animation:eaFadeIn .3s ease";
+
+      mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+        el.style.display = "none";
+      });
+      mainContent.appendChild(container);
+    }
+
+    var orderId = getOrderIdFromHash();
+    container.innerHTML = renderSkeleton();
+
+    if (orderId) {
+      var order = await fetchOrderDetail(orderId);
+      container.innerHTML = renderDetailView(order);
+      adminLastRankingUpdatedAt = order ? (order.ranking_updated_at || null) : null;
+      if (order) startAdminRankingPolling(orderId);
+      if (order && order.customer_email) {
+        fetchClientPurchases(order.customer_email).then(function(purchaseData) {
+          var productsDiv = document.getElementById("ea-client-products");
+          if (productsDiv && purchaseData && ((purchaseData.plans && purchaseData.plans.length > 0) || (purchaseData.links && purchaseData.links.length > 0))) {
+            productsDiv.innerHTML = renderProductsSection(purchaseData);
+          }
+        });
+      }
+    } else {
+      var orders = await fetchOrders();
+      container.innerHTML = renderListView(orders);
+    }
+
+    attachListeners(container);
+    updateSidebarActive();
+  }
+
+  function hideModule() {
+    stopAdminRankingPolling();
+    adminLastRankingUpdatedAt = null;
+    moduleHidden = true;
+    var container = document.getElementById("ea-module-container");
+    var mainContent = document.querySelector("main");
+    if (container) {
+      container.remove();
+    }
+    if (mainContent) {
+      mainContent.querySelectorAll(":scope > *").forEach(function (el) {
+        if (el.style.display === "none") {
+          el.style.display = "";
+        }
+      });
+    }
+    if (window.location.hash === "#expedientes" || window.location.hash.startsWith("#expedientes/")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    currentOrderData = null;
+    currentLinks = [];
+    updateSidebarActive();
+    setTimeout(function () {
+      if (mainContent && mainContent.children.length === 0) {
+        window.location.reload();
+      }
+    }, 500);
+  }
+
+  function addStyles() {
+    if (document.getElementById("ea-styles")) return;
+    var style = document.createElement("style");
+    style.id = "ea-styles";
+    style.textContent =
+      "@keyframes eaFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}" +
+      "@keyframes eaSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}" +
+      "@keyframes eaPulse{0%,100%{opacity:1}50%{opacity:.5}}" +
+      "@keyframes eaSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}" +
+      ".ea-spin{animation:eaSpin 1s linear infinite}" +
+      "#ea-module-container input:focus,#ea-module-container select:focus,#ea-module-container textarea:focus{border-color:#0891b2!important;box-shadow:0 0 0 3px rgba(8,145,178,.12)!important}" +
+      ".ea-link-row:hover{background:#f0f9ff!important}" +
+      ".ea-link-row:hover .ea-drag-handle{opacity:1!important}" +
+      ".ea-link-row:hover img{border-color:#0891b2!important;box-shadow:0 4px 12px rgba(8,145,178,.15)!important}" +
+      ".ea-img-preview:hover{transform:scale(1.05)}" +
+      ".ea-link-row.ea-dragging{opacity:.4;box-shadow:0 8px 24px rgba(0,0,0,.12)}" +
+      ".ea-drag-handle:active{cursor:grabbing!important}" +
+      ".ea-open-url:hover,.ea-copy-url:hover{background:#e2e8f0!important;color:#1e293b!important}" +
+      ".ea-rescrape-link:hover{background:#dcfce7!important}" +
+      ".ea-delete-link:hover{background:#fee2e2!important}" +
+      "#ea-add-link:hover{background:#0891b2!important;color:#fff!important}" +
+      "@media(max-width:768px){#ea-module-container table{font-size:12px}#ea-module-container th,#ea-module-container td{padding:4px 3px!important}#ea-filters{grid-template-columns:1fr 1fr!important}}";
+    document.head.appendChild(style);
+  }
+
+  function init() {
+    addStyles();
+    injectSidebarItem();
+
+    if (isExpedientesPage()) {
+      setTimeout(renderModule, 300);
+    }
+
+    window.addEventListener("hashchange", function () {
+      if (isExpedientesPage()) {
+        moduleHidden = false;
+        renderModule();
+      } else {
+        hideModule();
+      }
+    });
+
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("button, a");
+      if (btn && btn.id !== "sidebar-expedientes-admin" && e.target.closest("aside")) {
+        hideModule();
+      }
+    }, true);
+
+    var mainEl = document.querySelector("main");
+    if (mainEl) {
+      var observer = new MutationObserver(function () {
+        if (!document.getElementById("sidebar-expedientes-admin")) {
+          injectSidebarItem();
+        }
+        if (isExpedientesPage() && !moduleHidden && !document.getElementById("ea-module-container")) {
+          renderModule();
+        }
+      });
+      observer.observe(mainEl, { childList: true, subtree: false });
+    }
+
+    setInterval(function () {
+      if (!document.getElementById("sidebar-expedientes-admin")) {
+        injectSidebarItem();
+      }
+    }, 3000);
+  }
+
+  /* ── Expediente Files Section ── */
+  var pendingFiles = [];
+
+  function initFileUploadUI(orderId) {
+    var uploadBtn = document.getElementById('ea-upload-files-btn');
+    var uploadArea = document.getElementById('ea-files-upload-area');
+    var dropZone = document.getElementById('ea-drop-zone');
+    var fileInput = document.getElementById('ea-files-input');
+    var submitBtn = document.getElementById('ea-files-submit');
+    var form = document.getElementById('ea-files-upload-form');
+    var previewDiv = document.getElementById('ea-files-preview');
+
+    if (!uploadBtn || !uploadArea) return;
+
+    uploadBtn.addEventListener('click', function() {
+      uploadArea.style.display = uploadArea.style.display === 'none' ? 'block' : 'none';
+    });
+
+    if (dropZone) {
+      dropZone.addEventListener('click', function() { fileInput.click(); });
+      dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#10b981'; dropZone.style.background = '#ecfdf5'; });
+      dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#cbd5e1'; dropZone.style.background = '#fff'; });
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e1';
+        dropZone.style.background = '#fff';
+        if (e.dataTransfer.files.length > 0) {
+          fileInput.files = e.dataTransfer.files;
+          handleFilesSelected(fileInput.files, previewDiv, submitBtn);
+        }
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function() {
+        handleFilesSelected(this.files, previewDiv, submitBtn);
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        uploadExpedienteFiles(orderId);
+      });
+    }
+  }
+
+  function handleFilesSelected(files, previewDiv, submitBtn) {
+    if (!previewDiv || !files || files.length === 0) return;
+    pendingFiles = Array.from(files);
+    previewDiv.style.display = 'block';
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    var catIcons = { image: '#8b5cf6', video: '#ef4444', document: '#3b82f6', other: '#64748b' };
+    var catLabels = { image: 'IMG', video: 'VID', document: 'DOC', other: 'FILE' };
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      var cat = f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : (f.type === 'application/pdf' || f.type.includes('word') || f.type.includes('excel') || f.type.includes('sheet') || f.type.includes('presentation') || f.type.includes('text')) ? 'document' : 'other';
+      var color = catIcons[cat];
+      var label = catLabels[cat];
+      var size = f.size >= 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : (f.size / 1024).toFixed(0) + ' KB';
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid #e2e8f0;border-radius:10px">' +
+        '<div style="width:32px;height:32px;background:' + color + ';border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:10px;font-weight:700">' + label + '</span></div>' +
+        '<div><p style="margin:0;font-size:13px;font-weight:500;color:#1e293b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(f.name) + '</p>' +
+        '<p style="margin:0;font-size:11px;color:#94a3b8">' + size + '</p></div></div>';
+    }
+    html += '</div>';
+    previewDiv.innerHTML = html;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  async function uploadExpedienteFiles(orderId) {
+    var fileInput = document.getElementById('ea-files-input');
+    var submitBtn = document.getElementById('ea-files-submit');
+    var description = (document.getElementById('ea-files-description') || {}).value || '';
+    var notifyClient = (document.getElementById('ea-notify-client-check') || {}).checked !== false;
+
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      showToast('Selecciona archivos para subir', 'error');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ea-spin"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Subiendo...';
+
+    var formData = new FormData();
+    formData.append('order_id', orderId);
+    formData.append('description', description);
+    formData.append('notify_client', notifyClient ? '1' : '0');
+    for (var i = 0; i < fileInput.files.length; i++) {
+      formData.append('files[]', fileInput.files[i]);
+    }
+
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=upload', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + getAdminToken() },
+        body: formData,
+      });
+      var data = await resp.json();
+      if (data.success) {
+        var msg = data.count + ' archivo' + (data.count > 1 ? 's' : '') + ' subido' + (data.count > 1 ? 's' : '') + ' correctamente';
+        if (notifyClient) msg += '. Cliente notificado.';
+        showToast(msg, 'success');
+        // Reset form
+        fileInput.value = '';
+        var previewDiv = document.getElementById('ea-files-preview');
+        if (previewDiv) { previewDiv.style.display = 'none'; previewDiv.innerHTML = ''; }
+        var descInput = document.getElementById('ea-files-description');
+        if (descInput) descInput.value = '';
+        submitBtn.disabled = true;
+        document.getElementById('ea-files-upload-area').style.display = 'none';
+        pendingFiles = [];
+        // Reload files list
+        loadExpedienteFiles(orderId);
+        if (data.errors && data.errors.length > 0) {
+          showToast('Algunos archivos fallaron: ' + data.errors.join(', '), 'error');
+        }
+      } else {
+        showToast(data.error || 'Error al subir archivos', 'error');
+      }
+    } catch (e) {
+      console.error('Upload error:', e);
+      showToast('Error de conexion al subir archivos', 'error');
+    }
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Subir';
+  }
+
+  async function loadExpedienteFiles(orderId) {
+    var listDiv = document.getElementById('ea-files-list');
+    if (!listDiv) return;
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=list&order_id=' + orderId, {
+        headers: authHeaders(),
+      });
+      var data = await resp.json();
+      if (data.success && data.files && data.files.length > 0) {
+        var catIcons = { image: { bg: '#8b5cf6', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' },
+          video: { bg: '#ef4444', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' },
+          document: { bg: '#3b82f6', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+          other: { bg: '#64748b', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>' } };
+        var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+        data.files.forEach(function(f) {
+          var ci = catIcons[f.category] || catIcons.other;
+          var dateStr = f.created_at ? formatDate(f.created_at) : '';
+          var isPreviewable = f.category === 'image' || f.mime_type === 'application/pdf' || f.category === 'video';
+          html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fafafa;border:1px solid #f1f5f9;border-radius:12px;transition:all .2s" class="ea-file-item">' +
+            '<div style="width:40px;height:40px;background:' + ci.bg + ';border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + ci.icon + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+            '<p style="margin:0;font-size:14px;font-weight:500;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(f.original_name) + '</p>' +
+            '<p style="margin:2px 0 0;font-size:12px;color:#94a3b8">' + escapeHtml(f.file_size_formatted) + ' · ' + dateStr + (f.description ? ' · ' + escapeHtml(f.description) : '') + '</p></div>' +
+            '<div style="display:flex;gap:6px;flex-shrink:0">' +
+            (isPreviewable ? '<a href="' + f.download_url + '" target="_blank" style="padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver</a>' : '') +
+            '<a href="' + f.download_url + '" download style="padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#475569;font-size:12px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</a>' +
+            '<button class="ea-delete-file-btn" data-file-id="' + f.id + '" style="padding:6px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#ef4444;font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></div>';
+        });
+        html += '</div>';
+        listDiv.innerHTML = html;
+        // Bind delete buttons
+        listDiv.querySelectorAll('.ea-delete-file-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var fileId = this.getAttribute('data-file-id');
+            if (confirm('Eliminar este archivo?')) {
+              deleteExpedienteFile(fileId, orderId);
+            }
+          });
+        });
+      } else {
+        listDiv.innerHTML = '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="display:block;margin:0 auto 8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>No hay archivos subidos. Usa el boton "Subir Archivos" para agregar documentos.</div>';
+      }
+    } catch (e) {
+      console.error('Error loading files:', e);
+      listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;font-size:13px">Error al cargar archivos</div>';
+    }
+  }
+
+  async function deleteExpedienteFile(fileId, orderId) {
+    try {
+      var resp = await fetch(API_BASE + '/expediente_files_api.php?action=delete', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: parseInt(fileId) }),
+      });
+      var data = await resp.json();
+      if (data.success) {
+        showToast('Archivo eliminado', 'success');
+        loadExpedienteFiles(orderId);
+      } else {
+        showToast(data.error || 'Error al eliminar', 'error');
+      }
+    } catch (e) {
+      showToast('Error de conexion', 'error');
+    }
+  }
+
+  function startWhenReady() {
+    var aside = document.querySelector("aside");
+    if (aside && aside.querySelector("nav")) {
+      init();
+    } else {
+      setTimeout(startWhenReady, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setTimeout(startWhenReady, 1000);
+    });
+  } else {
+    setTimeout(startWhenReady, 1000);
+  }
+})();
