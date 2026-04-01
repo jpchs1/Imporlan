@@ -24,6 +24,8 @@
   }
 
   function isSoportePage() {
+    if (window.location.hash === "#soporte" || window.location.hash === "#support") return true;
+    if (window.location.hash.match(/#(alerts|inspecciones|marketplace|payments|messages|dashboard|tracking|deckeva|myproducts|plans|quotation|settings|documentos)/)) return false;
     var main = document.querySelector("main");
     if (!main) return false;
     var h1 = main.querySelector("h1");
