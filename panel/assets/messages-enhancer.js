@@ -107,18 +107,17 @@
   document.head.appendChild(hideStyle);
 
   function isMessagesPage() {
-    // Detect via hash (React SPA uses #messages for routing)
-    var hash = window.location.hash.replace("#", "");
-    var is = hash === "messages";
-    // Fallback: check h1 text if hash is empty (some navigation paths)
+    var h = document.querySelector("main h1");
+    var is = h && h.textContent.trim() === "Mensajes";
+    // Fallback: detect via hash
     if (!is) {
-      var h = document.querySelector("main h1");
-      is = h && h.textContent.trim() === "Mensajes";
+      var hash = window.location.hash.replace("#", "");
+      is = hash === "messages";
     }
     var st = document.getElementById("msg-hide-react");
     if (st) {
       st.textContent = is
-        ? "main .max-w-7xl > .space-y-6:not(#" + CONTAINER_ID + ") { display: none !important; } main > .space-y-6:not(#" + CONTAINER_ID + ") { display: none !important; }"
+        ? "main > *:not(#" + CONTAINER_ID + ") { display: none !important; }"
         : "";
     }
     return is;
@@ -263,9 +262,9 @@
     if (!el) {
       el = document.createElement("div");
       el.id = CONTAINER_ID;
-      // Insert into the max-w-7xl wrapper if it exists, otherwise directly in main
-      var target = document.querySelector("main .max-w-7xl") || document.querySelector("main");
-      if (target) target.appendChild(el);
+      // Insert directly into main (NOT inside React's wrapper) - same pattern as documents-enhancer
+      var main = document.querySelector("main");
+      if (main) main.appendChild(el);
       else return;
     }
 
@@ -294,7 +293,9 @@
         '</div>' +
       '</div>';
 
-    // New conversation modal
+    // New conversation modal (remove old one first to prevent duplicates)
+    var oldModal = document.getElementById("msg-new-modal");
+    if (oldModal) oldModal.remove();
     var modal = document.createElement("div");
     modal.className = "msg-modal-overlay";
     modal.id = "msg-new-modal";
@@ -626,7 +627,9 @@
     if (!currentUser) return;
 
     if (isMessagesPage()) {
-      if (!enhanced) {
+      if (!enhanced || !document.getElementById(CONTAINER_ID)) {
+        // Clean up old state if re-enhancing
+        if (enhanced) cleanup();
         enhanced = true;
         injectCSS();
         renderContainer();
