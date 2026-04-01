@@ -229,64 +229,46 @@
     '</div>';
   }
 
+  // Add styles once
+  function addStyles() {
+    if (document.getElementById("deckeva-styles")) return;
+    var style = document.createElement("style");
+    style.id = "deckeva-styles";
+    style.textContent = "@keyframes deckevaFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}" +
+      "#deckeva-overlay { position:absolute;inset:0;z-index:10;background:#f1f5f9;overflow-y:auto; }";
+    document.head.appendChild(style);
+  }
+
   function enhance() {
     if (enhanced) return;
     if (!window.location.hash.includes("deckeva")) return;
 
     var main = document.querySelector("main");
     if (!main) return;
+    if (document.getElementById("deckeva-overlay")) return;
 
-    // Wait for React to render
-    var existing = main.querySelector("[data-deckeva-enhanced]");
-    if (existing) return;
-
-    // Find the React-rendered Deckeva content
-    var cards = main.querySelectorAll(".bg-white.rounded-lg, .bg-gradient-to-r, [class*='animate-fade-in']");
-    var deckevaContent = null;
-
-    // Check if we're on the deckeva page by looking for distinctive content
+    // Check if we're on the deckeva page
     var allText = main.textContent || "";
     if (allText.indexOf("Deckeva") === -1 && allText.indexOf("deckeva") === -1 && allText.indexOf("Renueva tu lancha") === -1) return;
 
     enhanced = true;
+    addStyles();
 
-    // Hide all existing React content
-    Array.from(main.children).forEach(function(ch) {
-      ch.style.display = "none";
-    });
-
-    // Create enhanced container
-    var container = document.createElement("div");
-    container.setAttribute("data-deckeva-enhanced", "true");
-    container.style.cssText = "padding:20px 0;max-width:1100px;margin:0 auto;animation:deckevaFadeIn .5s ease-out";
-    container.innerHTML = buildHero() + buildGallery() + buildFeatures() + buildColors() + buildSizes() + buildTestimonials() + buildPromo() + buildContact();
-
-    main.appendChild(container);
-
-    // Add animation keyframes
-    if (!document.getElementById("deckeva-styles")) {
-      var style = document.createElement("style");
-      style.id = "deckeva-styles";
-      style.textContent = "@keyframes deckevaFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}";
-      document.head.appendChild(style);
-    }
+    // Use an overlay on top of main instead of hiding React children
+    main.style.position = "relative";
+    var overlay = document.createElement("div");
+    overlay.id = "deckeva-overlay";
+    overlay.setAttribute("data-deckeva-enhanced", "true");
+    overlay.innerHTML = '<div style="padding:20px 0;max-width:1100px;margin:0 auto;animation:deckevaFadeIn .5s ease-out">' +
+      buildHero() + buildGallery() + buildFeatures() + buildColors() + buildSizes() + buildTestimonials() + buildPromo() + buildContact() +
+      '</div>';
+    main.appendChild(overlay);
   }
 
   // Remove enhanced content when leaving Deckeva
   function cleanup() {
-    var container = document.querySelector("[data-deckeva-enhanced]");
-    if (container) {
-      // Restore hidden React content
-      var main = container.parentElement;
-      if (main) {
-        Array.from(main.children).forEach(function(ch) {
-          if (ch.style.display === "none" && !ch.hasAttribute("data-deckeva-enhanced")) {
-            ch.style.display = "";
-          }
-        });
-      }
-      container.remove();
-    }
+    var overlay = document.getElementById("deckeva-overlay");
+    if (overlay) overlay.remove();
     enhanced = false;
   }
 
@@ -294,7 +276,7 @@
   function checkAndEnhance() {
     if (window.location.hash.includes("deckeva")) {
       setTimeout(enhance, 300);
-    } else if (enhanced || document.querySelector("[data-deckeva-enhanced]")) {
+    } else if (enhanced || document.getElementById("deckeva-overlay")) {
       cleanup();
     }
   }
