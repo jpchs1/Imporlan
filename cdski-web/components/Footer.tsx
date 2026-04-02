@@ -19,9 +19,9 @@ export default function Footer({ dict, lang }: { dict: Dictionary; lang: Locale 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
-              <img src="/test/images/logo-cdski.svg" alt="CDSKI Logo" className="h-14 w-14 rounded-lg" />
-              <span className="text-2xl font-bold text-white tracking-tight">
-                CD<span className="text-orange-400">SKI</span>
+              <img src="/test/images/logo-cdski.png" alt="Clases de Ski" className="h-14 w-14 rounded-lg" />
+              <span className="text-xl font-bold text-white tracking-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                Clases de <span className="text-orange-400">Ski</span>
               </span>
             </div>
             <p className="text-white/40 text-sm leading-relaxed">{dict.footer.description}</p>

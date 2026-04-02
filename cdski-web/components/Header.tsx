@@ -41,9 +41,9 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <a href="#" className="flex items-center gap-3">
-            <img src="/test/images/logo-cdski.svg" alt="CDSKI Logo" className="h-12 w-12 rounded-lg" />
-            <span className="text-2xl font-bold text-white tracking-tight">
-              CD<span className="text-orange-400">SKI</span>
+            <img src="/test/images/logo-cdski.png" alt="Clases de Ski" className="h-12 w-12 rounded-lg" />
+            <span className="text-xl font-bold text-white tracking-tight hidden sm:block" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+              Clases de <span className="text-orange-400">Ski</span>
             </span>
           </a>
 
