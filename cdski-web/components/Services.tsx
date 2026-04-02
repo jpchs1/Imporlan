@@ -8,7 +8,7 @@ const serviceImages = [
   "https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=600&q=80&auto=format", // snowboard
   "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=600&q=80&auto=format", // guided
   "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=600&q=80&auto=format", // kids
-  "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=600&q=80&auto=format", // heliski mountains
+  "/test/images/heliski.jpg", // heliski - helicopter + skiers in powder
   "https://images.unsplash.com/photo-1609902726285-00668009f004?w=600&q=80&auto=format", // corporate group
 ];
 
