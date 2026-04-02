@@ -87,30 +87,61 @@
     ]
   },
   "pricing": {
-    "title": "Preços e Pacotes",
-    "subtitle": "Encontre o plano perfeito para sua aventura na neve",
-    "popular": "Mais Popular",
+    "title": "Calcule Sua Experiência",
+    "subtitle": "Planeje sua aventura na neve e obtenha um orçamento personalizado instantaneamente",
     "currency": "CLP",
-    "from": "a partir de",
-    "perPerson": "por pessoa",
-    "includes": "Inclui",
-    "book": "Reservar",
-    "programs": {
-      "title": "Programas El Colorado",
-      "subtitle": "Pacotes com ticket e aulas coletivas"
+    "calculator": {
+      "activity": "Atividade",
+      "activityOptions": { "ski": "Ski", "snowboard": "Snowboard" },
+      "lessonType": "Tipo de aula",
+      "lessonTypeOptions": { "group": "Em Grupo", "private": "Particular" },
+      "duration": "Duração",
+      "durationOptions": { "half": "Meio Dia (3 hrs)", "full": "Dia Completo (5 hrs)" },
+      "adults": "Adultos (13+ anos)",
+      "children": "Crianças (5-12 anos)",
+      "days": "Quantidade de dias",
+      "equipment": "Aluguel de equipamento",
+      "equipmentDesc": "Ski/Snowboard + botas + bastões",
+      "liftTicket": "Ticket de pista",
+      "liftTicketDesc": "Acesso a todas as pistas do centro",
+      "yes": "Sim",
+      "no": "Não",
+      "included": "Incluído"
     },
-    "packs": {
-      "title": "Pacotes de Aulas",
-      "subtitle": "Opções em grupo e particulares"
+    "summary": {
+      "title": "Resumo da Sua Experiência",
+      "lessons": "Aulas",
+      "equipment": "Aluguel de equipamento",
+      "liftTicket": "Ticket de pista",
+      "subtotal": "Subtotal",
+      "perDay": "/ dia",
+      "total": "Total",
+      "totalDays": "dia(s)",
+      "totalPeople": "pessoa(s)",
+      "groupNote": "* Aulas em grupo requerem mínimo de 4 pessoas. Com menos de 4, a aula dura 1 hora.",
+      "requestBooking": "Solicitar Reserva",
+      "sendWhatsApp": "Enviar por WhatsApp",
+      "sendEmail": "Enviar por Email"
     },
-    "tableHeaders": {
-      "program": "Programa",
-      "description": "Descrição",
-      "adult": "Adulto (13+)",
-      "child": "Criança (9-12)"
-    },
-    "duration": "Duração da aula: 2 horas",
-    "note": "* Com menos de 4 pessoas, a aula em grupo dura 1 hora. Aluguel com garantia durante o dia."
+    "bookingModal": {
+      "title": "Solicitar Reserva",
+      "subtitle": "Complete seus dados e enviaremos a confirmação por email",
+      "name": "Nome completo",
+      "email": "Seu email",
+      "phone": "WhatsApp (opcional)",
+      "preferredDate": "Data preferida",
+      "comments": "Comentários adicionais",
+      "submit": "Confirmar Solicitação",
+      "sending": "Enviando...",
+      "successTitle": "Solicitação Enviada!",
+      "successMsg": "Enviamos os detalhes para seu email e nossa equipe. Entraremos em contato nas próximas 2 horas para confirmar disponibilidade.",
+      "errorMsg": "Houve um erro ao enviar. Por favor, tente pelo WhatsApp.",
+      "close": "Fechar",
+      "errors": {
+        "name": "O nome é obrigatório",
+        "email": "Email inválido"
+      }
+    }
   },
   "howToBook": {
     "title": "Como Reservar?",

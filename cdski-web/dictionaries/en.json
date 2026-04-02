@@ -87,30 +87,61 @@
     ]
   },
   "pricing": {
-    "title": "Pricing & Packages",
-    "subtitle": "Find the perfect plan for your snow adventure",
-    "popular": "Most Popular",
+    "title": "Calculate Your Experience",
+    "subtitle": "Plan your snow adventure and get a personalized quote instantly",
     "currency": "CLP",
-    "from": "from",
-    "perPerson": "per person",
-    "includes": "Includes",
-    "book": "Book Now",
-    "programs": {
-      "title": "El Colorado Programs",
-      "subtitle": "Packages with ticket and group lessons"
+    "calculator": {
+      "activity": "Activity",
+      "activityOptions": { "ski": "Ski", "snowboard": "Snowboard" },
+      "lessonType": "Lesson Type",
+      "lessonTypeOptions": { "group": "Group", "private": "Private" },
+      "duration": "Duration",
+      "durationOptions": { "half": "Half Day (3 hrs)", "full": "Full Day (5 hrs)" },
+      "adults": "Adults (13+ years)",
+      "children": "Children (5-12 years)",
+      "days": "Number of days",
+      "equipment": "Equipment rental",
+      "equipmentDesc": "Ski/Snowboard + boots + poles",
+      "liftTicket": "Lift ticket",
+      "liftTicketDesc": "Access to all resort slopes",
+      "yes": "Yes",
+      "no": "No",
+      "included": "Included"
     },
-    "packs": {
-      "title": "Lesson Packs",
-      "subtitle": "Group and private options"
+    "summary": {
+      "title": "Your Experience Summary",
+      "lessons": "Lessons",
+      "equipment": "Equipment rental",
+      "liftTicket": "Lift ticket",
+      "subtotal": "Subtotal",
+      "perDay": "/ day",
+      "total": "Total",
+      "totalDays": "day(s)",
+      "totalPeople": "person(s)",
+      "groupNote": "* Group lessons require minimum 4 people. With fewer than 4, lesson lasts 1 hour.",
+      "requestBooking": "Request Booking",
+      "sendWhatsApp": "Send via WhatsApp",
+      "sendEmail": "Send via Email"
     },
-    "tableHeaders": {
-      "program": "Program",
-      "description": "Description",
-      "adult": "Adult (13+)",
-      "child": "Child (9-12)"
-    },
-    "duration": "Lesson duration: 2 hours",
-    "note": "* If fewer than 4 people, group lesson lasts 1 hour. Rental with warranty during the day."
+    "bookingModal": {
+      "title": "Request Booking",
+      "subtitle": "Complete your details and we'll send you a confirmation email",
+      "name": "Full name",
+      "email": "Your email",
+      "phone": "WhatsApp (optional)",
+      "preferredDate": "Preferred date",
+      "comments": "Additional comments",
+      "submit": "Confirm Request",
+      "sending": "Sending...",
+      "successTitle": "Request Sent!",
+      "successMsg": "We've sent the details to your email and our team. We'll contact you within the next 2 hours to confirm availability.",
+      "errorMsg": "There was an error sending. Please try via WhatsApp.",
+      "close": "Close",
+      "errors": {
+        "name": "Name is required",
+        "email": "Invalid email"
+      }
+    }
   },
   "howToBook": {
     "title": "How to Book?",

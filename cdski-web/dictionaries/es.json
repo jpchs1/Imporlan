@@ -87,30 +87,61 @@
     ]
   },
   "pricing": {
-    "title": "Precios y Paquetes",
-    "subtitle": "Encuentra el plan perfecto para tu aventura en la nieve",
-    "popular": "Más Popular",
+    "title": "Calcula Tu Experiencia",
+    "subtitle": "Planifica tu aventura en la nieve y obtén un presupuesto personalizado al instante",
     "currency": "CLP",
-    "from": "desde",
-    "perPerson": "por persona",
-    "includes": "Incluye",
-    "book": "Reservar",
-    "programs": {
-      "title": "Programas El Colorado",
-      "subtitle": "Paquetes con ticket y clases colectivas"
+    "calculator": {
+      "activity": "Actividad",
+      "activityOptions": { "ski": "Ski", "snowboard": "Snowboard" },
+      "lessonType": "Tipo de clase",
+      "lessonTypeOptions": { "group": "Grupal", "private": "Privada" },
+      "duration": "Duración",
+      "durationOptions": { "half": "Half Day (3 hrs)", "full": "Full Day (5 hrs)" },
+      "adults": "Adultos (13+ años)",
+      "children": "Niños (5-12 años)",
+      "days": "Cantidad de días",
+      "equipment": "Arriendo de equipo",
+      "equipmentDesc": "Ski/Snowboard + botas + bastones",
+      "liftTicket": "Ticket de pista",
+      "liftTicketDesc": "Acceso a todas las pistas del centro",
+      "yes": "Sí",
+      "no": "No",
+      "included": "Incluido"
     },
-    "packs": {
-      "title": "Packs de Clases",
-      "subtitle": "Opciones grupales y privadas"
+    "summary": {
+      "title": "Resumen de Tu Experiencia",
+      "lessons": "Clases",
+      "equipment": "Arriendo de equipo",
+      "liftTicket": "Ticket de pista",
+      "subtotal": "Subtotal",
+      "perDay": "/ día",
+      "total": "Total",
+      "totalDays": "día(s)",
+      "totalPeople": "persona(s)",
+      "groupNote": "* Clases grupales requieren mínimo 4 personas. Con menos de 4, la clase dura 1 hora.",
+      "requestBooking": "Solicitar Reserva",
+      "sendWhatsApp": "Enviar por WhatsApp",
+      "sendEmail": "Enviar por Email"
     },
-    "tableHeaders": {
-      "program": "Programa",
-      "description": "Descripción",
-      "adult": "Mayor (13+)",
-      "child": "Menor (9-12)"
-    },
-    "duration": "Duración de clase: 2 horas",
-    "note": "* En caso de menos de 4 personas, la clase grupal dura 1 hora. Rental con garantía durante la jornada."
+    "bookingModal": {
+      "title": "Solicitar Reserva",
+      "subtitle": "Completa tus datos y te enviaremos la confirmación por email",
+      "name": "Nombre completo",
+      "email": "Tu email",
+      "phone": "WhatsApp (opcional)",
+      "preferredDate": "Fecha preferida",
+      "comments": "Comentarios adicionales",
+      "submit": "Confirmar Solicitud",
+      "sending": "Enviando...",
+      "successTitle": "¡Solicitud Enviada!",
+      "successMsg": "Hemos enviado los detalles a tu email y a nuestro equipo. Te contactaremos dentro de las próximas 2 horas para confirmar disponibilidad.",
+      "errorMsg": "Hubo un error al enviar. Por favor intenta por WhatsApp.",
+      "close": "Cerrar",
+      "errors": {
+        "name": "El nombre es requerido",
+        "email": "Email inválido"
+      }
+    }
   },
   "howToBook": {
     "title": "¿Cómo Reservar?",
