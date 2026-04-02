@@ -13,15 +13,23 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           backgroundImage: `url('/images/ski-group-three.jpg')`,
         }}
       />
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/80 via-[#0a1628]/60 to-[#0a1628]/90" />
+      {/* Sunny warm overlay — bright day feel */}
+      <div className="absolute inset-0 bg-gradient-to-b from-sky-400/25 via-sky-200/15 to-sky-500/30" />
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+      {/* Sun glow effect */}
+      <div
+        className="absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full opacity-40"
+        style={{
+          background: "radial-gradient(circle, rgba(255,220,100,0.6) 0%, rgba(255,180,50,0.2) 40%, transparent 70%)",
+        }}
+      />
 
       {/* Snowfall particles */}
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(30)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute bg-white rounded-full"
+            className="absolute bg-white/90 rounded-full shadow-sm shadow-white/50"
             style={{
               left: `${(i * 3.33) % 100}%`,
               top: `-5%`,
@@ -49,9 +57,9 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-5 py-2.5 mb-8 border border-white/20">
-            <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-            <span className="text-white/90 text-sm font-medium">Valle Nevado · El Colorado · La Parva</span>
+          <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-md rounded-full px-5 py-2.5 mb-8 border border-white/40 shadow-lg">
+            <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+            <span className="text-slate-700 text-sm font-medium">Valle Nevado · El Colorado · La Parva</span>
           </div>
         </motion.div>
 
@@ -79,7 +87,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-xl sm:text-2xl text-blue-100/90 font-light mb-4"
+          className="text-xl sm:text-2xl text-white font-light mb-4 drop-shadow-lg"
         >
           {dict.hero.subtitle}
         </motion.p>
@@ -88,7 +96,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-lg text-white/60 max-w-2xl mx-auto mb-10"
+          className="text-lg text-white/90 max-w-2xl mx-auto mb-10 drop-shadow-md"
         >
           {dict.hero.description}
         </motion.p>
@@ -110,7 +118,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           </a>
           <a
             href="#pricing"
-            className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white/50 text-white font-semibold px-8 py-4 rounded-full text-lg transition-all hover:bg-white/10 backdrop-blur-sm"
+            className="inline-flex items-center justify-center gap-2 bg-white/80 hover:bg-white border-2 border-white/50 text-slate-800 font-semibold px-8 py-4 rounded-full text-lg transition-all backdrop-blur-sm shadow-lg"
           >
             {dict.hero.ctaSecondary}
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,7 +132,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="mt-16 flex items-center justify-center gap-8 text-white/50 text-sm"
+          className="mt-16 flex items-center justify-center gap-8 text-white text-sm drop-shadow-lg"
         >
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">

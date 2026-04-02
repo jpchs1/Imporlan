@@ -140,6 +140,10 @@ export default async function LangLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="alternate" hrefLang="es" href="https://clasesdeski.cl/es/" />
+        <link rel="alternate" hrefLang="en" href="https://clasesdeski.cl/en/" />
+        <link rel="alternate" hrefLang="pt-BR" href="https://clasesdeski.cl/pt/" />
+        <link rel="alternate" hrefLang="x-default" href="https://clasesdeski.cl/es/" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
