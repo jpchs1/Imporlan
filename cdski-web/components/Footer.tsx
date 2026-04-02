@@ -18,10 +18,16 @@ export default function Footer({ dict, lang }: { dict: Dictionary; lang: Locale 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-1">
-            <span className="text-2xl font-bold text-white tracking-tight">
-              CD<span className="text-orange-400">SKI</span>
-            </span>
-            <p className="text-white/40 text-sm mt-4 leading-relaxed">{dict.footer.description}</p>
+            <div className="flex items-center gap-3 mb-4">
+              <img src="/test/images/logo-cdski.svg" alt="CDSKI Logo" className="h-14 w-14 rounded-lg" />
+              <span className="text-2xl font-bold text-white tracking-tight">
+                CD<span className="text-orange-400">SKI</span>
+              </span>
+            </div>
+            <p className="text-white/40 text-sm leading-relaxed">{dict.footer.description}</p>
+            <div className="flex items-center gap-2 mt-3 text-xl">
+              <span>🇨🇱</span><span>🇧🇷</span><span>🇺🇸</span>
+            </div>
           </div>
 
           <div>

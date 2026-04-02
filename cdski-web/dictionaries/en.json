@@ -18,7 +18,7 @@
   "hero": {
     "title": "Live the Mountain",
     "subtitle": "Ski & Snowboard Lessons in the Chilean Andes",
-    "description": "Guided experiences with certified instructors at Valle Nevado, El Colorado, and La Parva. Your snow adventure starts here.",
+    "description": "Guided experiences with expert instructors at Valle Nevado, El Colorado, and La Parva. Your snow adventure starts here.",
     "cta": "Book Your Lesson",
     "ctaSecondary": "View Pricing"
   },
@@ -28,7 +28,7 @@
     "groupSki": {
       "title": "Group Ski Lessons",
       "description": "Learn to ski in a group with expert instructors. Perfect for families and friends who want to share the experience on the best slopes in the Andes.",
-      "features": ["Small groups (max 6)", "Equipment available", "All levels", "2-hour lessons"]
+      "features": ["Small groups (max 6)", "Equipment available", "All levels", "Half Day or Full Day"]
     },
     "privateSnowboard": {
       "title": "Private Snowboard Lessons",
@@ -42,8 +42,8 @@
     },
     "kids": {
       "title": "Kids Ski & Snowboard",
-      "description": "Specially designed lessons for the little ones. Fun and safe methodology so children enjoy their first experience in the snow.",
-      "features": ["Ages 5 and up", "Fun methodology", "Maximum safety", "Specialized instructors"]
+      "description": "Specially designed lessons for the little ones. Fun and safe methodology so children enjoy their first experience in the snow. Children under 7 should check the ski school at each resort.",
+      "features": ["Ages 7 and up", "Fun methodology", "Maximum safety", "Specialized instructors"]
     },
     "heliski": {
       "title": "Heliski Chile",
@@ -103,7 +103,7 @@
       "scheduleBreak": "break 13:30 - 14:30",
       "beginnerTip": "Recommended for beginners",
       "adults": "Adults (13+ years)",
-      "children": "Children (5-12 years)",
+      "children": "Children (7-12 years)",
       "days": "Number of days",
       "equipment": "Equipment rental",
       "equipmentDesc": "Ski/Snowboard + boots + poles + helmet",
@@ -178,42 +178,26 @@
     "title": "What Our Students Say",
     "subtitle": "Real experiences from tourists around the world",
     "reviews": [
-      {
-        "name": "María García",
-        "country": "Argentina",
-        "text": "We had a wonderful day with Juan Pablo. I would recommend him, he is charming and very patient. Really a great teacher and a great person.",
-        "rating": 5
-      },
-      {
-        "name": "Carlos Oliveira",
-        "country": "Brazil",
-        "text": "We had an amazing day with Juan Pablo! Great ski instructor, very kind and attentive. Thank you so much!",
-        "rating": 5
-      },
-      {
-        "name": "Patricia Mendez",
-        "country": "Chile",
-        "text": "Great instructors! We took lessons for two adults and two 5-year-old girls, JP is a great instructor with care and patience!",
-        "rating": 5
-      },
-      {
-        "name": "James Wilson",
-        "country": "United States",
-        "text": "Amazing experience! The instructors really know these mountains. Best ski lesson I've ever had. Valle Nevado is stunning!",
-        "rating": 5
-      },
-      {
-        "name": "Sophie Müller",
-        "country": "Germany",
-        "text": "Perfect ski lessons! The instructors are very patient and professional. We will definitely come back next year!",
-        "rating": 5
-      },
-      {
-        "name": "Yuki Tanaka",
-        "country": "Japan",
-        "text": "It was a wonderful ski experience. The instructor was very kind, and the Chilean mountains were beautiful.",
-        "rating": 5
-      }
+      { "name": "María García", "country": "Argentina", "text": "We had a wonderful day with Juan Pablo. I would recommend him, he is charming and very patient. Really a great teacher and a great person.", "rating": 5 },
+      { "name": "Carlos Oliveira", "country": "Brazil", "text": "We had an amazing day with Juan Pablo! Great ski instructor, very kind and attentive. Thank you so much!", "rating": 5 },
+      { "name": "Patricia Mendez", "country": "Chile", "text": "Great instructors! We took lessons for two adults and two girls, JP is a great instructor with care and patience!", "rating": 5 },
+      { "name": "James Wilson", "country": "United States", "text": "Amazing experience! The instructors really know these mountains. Best ski lesson I've ever had. Valle Nevado is stunning!", "rating": 5 },
+      { "name": "Sophie Müller", "country": "Germany", "text": "Perfect ski lessons! The instructors are very patient and professional. We will definitely come back next year!", "rating": 5 },
+      { "name": "Yuki Tanaka", "country": "Japan", "text": "It was a wonderful ski experience. The instructor was very kind, and the Chilean mountains were beautiful.", "rating": 5 },
+      { "name": "Luciana Ferreira", "country": "Brazil", "text": "First time in the snow and it was magical! JP taught us everything with great patience. We'll be back for sure!", "rating": 5 },
+      { "name": "Roberto Sánchez", "country": "Colombia", "text": "Excellent service. I had never skied before and in a few hours I was going down on my own. Top-notch instructors.", "rating": 5 },
+      { "name": "Emily Chen", "country": "United States", "text": "My kids had an incredible time. The CDSKI team made the whole family enjoy the snow.", "rating": 5 },
+      { "name": "Pierre Dubois", "country": "France", "text": "Impeccable service. Chile's mountains are spectacular and the instructors are very professional.", "rating": 5 },
+      { "name": "Ana Rodríguez", "country": "Mexico", "text": "It was our first time in the snow and Juan Pablo made us feel safe from the very first moment. 100% recommended!", "rating": 5 },
+      { "name": "Marco Bianchi", "country": "Italy", "text": "Great experience! I've skied in Europe but the attention here is much more personalized. I'll be back.", "rating": 5 },
+      { "name": "David Thompson", "country": "United Kingdom", "text": "I took my three kids and they all learned in a single day. The instructors have incredible patience with children.", "rating": 5 },
+      { "name": "Valentina López", "country": "Argentina", "text": "We came from Buenos Aires and it was worth every penny. The classes are excellent and the views from the slopes are unforgettable.", "rating": 5 },
+      { "name": "Rafael Costa", "country": "Brazil", "text": "Best ski school in Chile! Service in Portuguese, fair prices, and lots of fun in the snow.", "rating": 5 },
+      { "name": "Min-ji Park", "country": "South Korea", "text": "I didn't know skiing in Chile would be this great. The instructor was very kind and professional.", "rating": 5 },
+      { "name": "Catalina Herrera", "country": "Chile", "text": "I took my group of friends as a birthday gift and it was the best decision. We laughed all day while learning.", "rating": 5 },
+      { "name": "Michael Brown", "country": "Canada", "text": "I've skied Whistler many times but the experience with CDSKI is unique. Excellent value for money.", "rating": 5 },
+      { "name": "Isabella Morales", "country": "Ecuador", "text": "My first contact with snow was with CDSKI. Thanks for the patience and dedication. A dream experience!", "rating": 5 },
+      { "name": "Tom Richards", "country": "Australia", "text": "We came in July looking for snow and CDSKI exceeded all our expectations. First-class service.", "rating": 5 }
     ]
   },
   "faq": {
@@ -226,7 +210,7 @@
       },
       {
         "q": "What do the all-inclusive packages include?",
-        "a": "All-inclusive packages include ski resort access ticket, complete equipment (ski or snowboard, boots, and poles), and a 2-hour lesson with a certified instructor."
+        "a": "All-inclusive packages include ski resort access ticket, complete equipment (ski or snowboard, boots, and poles), and a 2-hour lesson with a expert instructor."
       },
       {
         "q": "Which ski resorts do you operate at?",
@@ -246,7 +230,7 @@
       },
       {
         "q": "What age can children start taking lessons?",
-        "a": "Children can start skiing from age 5. We have instructors specialized in children's teaching with fun and safe methodology."
+        "a": "Children can start skiing from age 7. We have instructors specialized in children's teaching with fun and safe methodology."
       },
       {
         "q": "What should I bring to my ski lesson?",

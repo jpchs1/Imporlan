@@ -39,7 +39,8 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <a href="#" className="flex items-center gap-2">
+          <a href="#" className="flex items-center gap-3">
+            <img src="/test/images/logo-cdski.svg" alt="CDSKI Logo" className="h-12 w-12 rounded-lg" />
             <span className="text-2xl font-bold text-white tracking-tight">
               CD<span className="text-orange-400">SKI</span>
             </span>
@@ -58,6 +59,9 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
           </nav>
 
           <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1 text-lg" title="Chile · Brasil · USA">
+              <span>🇨🇱</span><span>🇧🇷</span><span>🇺🇸</span>
+            </div>
             <div className="flex items-center gap-1 bg-white/10 rounded-full p-1">
               {(["es", "en", "pt"] as const).map((l) => (
                 <a

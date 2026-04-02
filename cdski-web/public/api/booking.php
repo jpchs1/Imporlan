@@ -112,9 +112,9 @@ function buildEmail($title, $bodyContent, $footerText) {
           <table width='600' cellpadding='0' cellspacing='0' style='background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);'>
             <!-- Header -->
             <tr>
-              <td style='background:linear-gradient(135deg,#0a1628,#0f2847);padding:32px 40px;text-align:center;'>
-                <h1 style='color:#ffffff;margin:0;font-size:28px;'>CD<span style='color:#f97316;'>SKI</span></h1>
-                <p style='color:rgba(255,255,255,0.6);margin:8px 0 0;font-size:14px;'>Clases de Ski & Snowboard Chile</p>
+              <td style='background:#F5A623;padding:24px 40px;text-align:center;'>
+                <img src='https://clasesdeski.cl/test/images/logo-cdski.svg' alt='CDSKI' width='80' height='80' style='display:block;margin:0 auto 8px;' />
+                <p style='color:#1a1a1a;margin:0;font-size:13px;font-style:italic;'>Aprende mientras disfrutas!</p>
               </td>
             </tr>
             <!-- Title -->

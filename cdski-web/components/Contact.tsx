@@ -153,18 +153,6 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                 {dict.contact.whatsapp}
               </a>
 
-              <div className="rounded-2xl overflow-hidden border border-white/10 h-64">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3330.0!2d-70.5756!3d-33.4028!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzPCsDI0JzEwLjEiUyA3MMKwMzQnMzIuMiJX!5e0!3m2!1ses!2scl!4v1234567890"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="CDSKI Location"
-                />
-              </div>
             </div>
           </AnimatedSection>
         </div>

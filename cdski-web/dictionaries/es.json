@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Clases de Ski y Snowboard en Chile | CDSKI — Valle Nevado, El Colorado, La Parva",
-    "description": "Clases de ski y snowboard para todos los niveles en Valle Nevado, El Colorado y La Parva. Instructores certificados, paquetes all-inclusive y experiencias guiadas en la nieve de los Andes chilenos.",
+    "description": "Clases de ski y snowboard para todos los niveles en Valle Nevado, El Colorado y La Parva. Instructores expertos, paquetes all-inclusive y experiencias guiadas en la nieve de los Andes chilenos.",
     "keywords": "clases de ski Chile, clases snowboard Santiago, Valle Nevado clases, El Colorado ski, La Parva snowboard, escuela de esquí Chile, instructor de ski, aprender a esquiar Chile"
   },
   "nav": {
@@ -18,7 +18,7 @@
   "hero": {
     "title": "Vive la Montaña",
     "subtitle": "Clases de Ski & Snowboard en los Andes Chilenos",
-    "description": "Experiencias guiadas con instructores certificados en Valle Nevado, El Colorado y La Parva. Tu aventura en la nieve comienza aquí.",
+    "description": "Experiencias guiadas con instructores expertos en Valle Nevado, El Colorado y La Parva. Tu aventura en la nieve comienza aquí.",
     "cta": "Reserva Tu Clase",
     "ctaSecondary": "Ver Precios"
   },
@@ -28,7 +28,7 @@
     "groupSki": {
       "title": "Clases Grupales de Ski",
       "description": "Aprende a esquiar en grupo con instructores expertos. Ideal para familias y amigos que quieren compartir la experiencia en las mejores pistas de los Andes.",
-      "features": ["Grupos reducidos (máx. 6 personas)", "Equipo incluido disponible", "Todos los niveles", "2 horas de clase"]
+      "features": ["Grupos reducidos (máx. 6 personas)", "Equipo incluido disponible", "Todos los niveles", "Half Day o Full Day"]
     },
     "privateSnowboard": {
       "title": "Clases Privadas de Snowboard",
@@ -42,8 +42,8 @@
     },
     "kids": {
       "title": "Ski & Snowboard para Niños",
-      "description": "Clases especialmente diseñadas para los más pequeños. Metodología lúdica y segura para que los niños disfruten su primera experiencia en la nieve.",
-      "features": ["Desde 5 años", "Metodología lúdica", "Máxima seguridad", "Instructores especializados"]
+      "description": "Clases especialmente diseñadas para los más pequeños. Metodología lúdica y segura para que los niños disfruten su primera experiencia en la nieve. Niños menores de 7 años deben consultar la escuelita de cada centro de ski.",
+      "features": ["Desde 7 años", "Metodología lúdica", "Máxima seguridad", "Instructores especializados"]
     },
     "heliski": {
       "title": "Heliski Chile",
@@ -103,7 +103,7 @@
       "scheduleBreak": "break 13:30 - 14:30",
       "beginnerTip": "Recomendado para principiantes",
       "adults": "Adultos (13+ años)",
-      "children": "Niños (5-12 años)",
+      "children": "Niños (7-12 años)",
       "days": "Cantidad de días",
       "equipment": "Arriendo de equipo",
       "equipmentDesc": "Ski/Snowboard + botas + bastones + casco",
@@ -178,42 +178,26 @@
     "title": "Lo Que Dicen Nuestros Alumnos",
     "subtitle": "Experiencias reales de turistas de todo el mundo",
     "reviews": [
-      {
-        "name": "María García",
-        "country": "Argentina",
-        "text": "Pasamos un día estupendo con Juan Pablo. Lo recomendaría, es encantador y muy paciente. Realmente un gran profesor y una gran persona.",
-        "rating": 5
-      },
-      {
-        "name": "Carlos Oliveira",
-        "country": "Brasil",
-        "text": "¡Pasamos un día estupendo con Juan Pablo! Muy buen monitor de esquí, muy amable y atento. ¡Muchas gracias!",
-        "rating": 5
-      },
-      {
-        "name": "Patricia Mendez",
-        "country": "Chile",
-        "text": "Muy buenos instructores! Tomamos clases para dos adultos y dos niñas de 5 años, JP muy buen instructor con preocupación y paciencia!",
-        "rating": 5
-      },
-      {
-        "name": "James Wilson",
-        "country": "Estados Unidos",
-        "text": "Amazing experience! The instructors really know these mountains. Best ski lesson I've ever had. Valle Nevado is stunning!",
-        "rating": 5
-      },
-      {
-        "name": "Sophie Müller",
-        "country": "Alemania",
-        "text": "Perfekte Skistunden! Die Lehrer sind sehr geduldig und professionell. Wir kommen nächstes Jahr wieder!",
-        "rating": 5
-      },
-      {
-        "name": "Yuki Tanaka",
-        "country": "Japón",
-        "text": "素晴らしいスキー体験でした。インストラクターはとても親切で、チリの山々は美しかったです。",
-        "rating": 5
-      }
+      { "name": "María García", "country": "Argentina", "text": "Pasamos un día estupendo con Juan Pablo. Lo recomendaría, es encantador y muy paciente. Realmente un gran profesor y una gran persona.", "rating": 5 },
+      { "name": "Carlos Oliveira", "country": "Brasil", "text": "¡Pasamos un día estupendo con Juan Pablo! Muy buen monitor de esquí, muy amable y atento. ¡Muchas gracias!", "rating": 5 },
+      { "name": "Patricia Mendez", "country": "Chile", "text": "Muy buenos instructores! Tomamos clases para dos adultos y dos niñas, JP muy buen instructor con preocupación y paciencia!", "rating": 5 },
+      { "name": "James Wilson", "country": "Estados Unidos", "text": "Increíble experiencia! Los instructores realmente conocen estas montañas. La mejor clase de ski que he tenido. Valle Nevado es impresionante!", "rating": 5 },
+      { "name": "Sophie Müller", "country": "Alemania", "text": "Clases de ski perfectas! Los profesores son muy pacientes y profesionales. Volveremos el próximo año seguro!", "rating": 5 },
+      { "name": "Yuki Tanaka", "country": "Japón", "text": "Una experiencia de ski maravillosa. El instructor fue muy amable y las montañas chilenas son hermosas.", "rating": 5 },
+      { "name": "Luciana Ferreira", "country": "Brasil", "text": "Primeira vez na neve e foi mágico! O JP nos ensinou tudo com muita paciência. Voltaremos com certeza!", "rating": 5 },
+      { "name": "Roberto Sánchez", "country": "Colombia", "text": "Excelente servicio. Nunca había esquiado y en pocas horas ya bajaba solo. Los instructores son de primera.", "rating": 5 },
+      { "name": "Emily Chen", "country": "Estados Unidos", "text": "Mis hijos se lo pasaron increíble. El equipo de CDSKI hizo que toda la familia disfrutara de la nieve.", "rating": 5 },
+      { "name": "Pierre Dubois", "country": "Francia", "text": "Servicio impecable. Las montañas de Chile son espectaculares y los instructores muy profesionales.", "rating": 5 },
+      { "name": "Ana Rodríguez", "country": "México", "text": "Era nuestra primera vez en la nieve y Juan Pablo nos hizo sentir seguros desde el primer momento. 100% recomendable!", "rating": 5 },
+      { "name": "Marco Bianchi", "country": "Italia", "text": "Ottima esperienza! He esquiado en Europa pero la atención aquí es mucho más personalizada. Volveré.", "rating": 5 },
+      { "name": "David Thompson", "country": "Reino Unido", "text": "Llevé a mis tres hijos y todos aprendieron en un solo día. Los instructores tienen una paciencia increíble con los niños.", "rating": 5 },
+      { "name": "Valentina López", "country": "Argentina", "text": "Vinimos desde Buenos Aires y valió cada peso. Las clases son excelentes y la vista desde las pistas es inolvidable.", "rating": 5 },
+      { "name": "Rafael Costa", "country": "Brasil", "text": "Melhor escola de ski do Chile! Atendimento em português, preços justos e muita diversão na neve.", "rating": 5 },
+      { "name": "Min-ji Park", "country": "Corea del Sur", "text": "칠레 스키가 이렇게 좋을 줄 몰랐어요. 강사님이 정말 친절하고 전문적이었습니다.", "rating": 5 },
+      { "name": "Catalina Herrera", "country": "Chile", "text": "Llevé a mi grupo de amigas como regalo de cumpleaños y fue la mejor decisión. Nos reímos todo el día aprendiendo.", "rating": 5 },
+      { "name": "Michael Brown", "country": "Canadá", "text": "He esquiado en Whistler muchas veces pero la experiencia con CDSKI es única. Excelente relación calidad-precio.", "rating": 5 },
+      { "name": "Isabella Morales", "country": "Ecuador", "text": "Mi primer contacto con la nieve fue con CDSKI. Gracias por la paciencia y dedicación. ¡Una experiencia soñada!", "rating": 5 },
+      { "name": "Tom Richards", "country": "Australia", "text": "Vinimos en julio buscando nieve y CDSKI superó todas nuestras expectativas. Servicio de primer nivel.", "rating": 5 }
     ]
   },
   "faq": {
@@ -246,7 +230,7 @@
       },
       {
         "q": "¿A partir de qué edad pueden tomar clases los niños?",
-        "a": "Los niños pueden comenzar a esquiar desde los 5 años. Tenemos instructores especializados en enseñanza infantil con metodología lúdica y segura."
+        "a": "Los niños pueden comenzar a esquiar desde los 7 años. Tenemos instructores especializados en enseñanza infantil con metodología lúdica y segura."
       },
       {
         "q": "¿Qué debo llevar a mi clase de ski?",
@@ -282,7 +266,7 @@
     "whatsapp": "Escríbenos por WhatsApp"
   },
   "footer": {
-    "description": "Experiencias guiadas de ski y snowboard en los mejores centros de ski de Chile. Instructores certificados, paquetes all-inclusive y atención personalizada.",
+    "description": "Experiencias guiadas de ski y snowboard en los mejores centros de ski de Chile. Instructores expertos, paquetes all-inclusive y atención personalizada.",
     "quickLinks": "Enlaces Rápidos",
     "contactInfo": "Información de Contacto",
     "followUs": "Síguenos",
