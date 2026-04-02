@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://clasesdeski.cl/test/es/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://clasesdeski.cl/test/es/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://clasesdeski.cl/test/en/" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://clasesdeski.cl/test/pt/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://clasesdeski.cl/test/es/" />
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://clasesdeski.cl/test/en/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://clasesdeski.cl/test/es/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://clasesdeski.cl/test/en/" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://clasesdeski.cl/test/pt/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://clasesdeski.cl/test/es/" />
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://clasesdeski.cl/test/pt/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://clasesdeski.cl/test/es/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://clasesdeski.cl/test/en/" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://clasesdeski.cl/test/pt/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://clasesdeski.cl/test/es/" />
+    <lastmod>2026-04-02</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

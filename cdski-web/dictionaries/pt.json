@@ -1,0 +1,259 @@
+{
+  "meta": {
+    "title": "Aulas de Ski e Snowboard no Chile | CDSKI — Valle Nevado, El Colorado, La Parva",
+    "description": "Aulas de ski e snowboard para todos os níveis em Valle Nevado, El Colorado e La Parva. Instrutores certificados, pacotes all-inclusive e experiências guiadas na neve dos Andes chilenos.",
+    "keywords": "aulas de ski Chile, aulas snowboard Santiago, Valle Nevado aulas, El Colorado ski, La Parva snowboard, escola de esqui Chile, instrutor de ski, aprender a esquiar Chile"
+  },
+  "nav": {
+    "services": "Serviços",
+    "whyUs": "Por Que Nos Escolher?",
+    "pricing": "Preços",
+    "howToBook": "Como Reservar",
+    "gallery": "Galeria",
+    "testimonials": "Depoimentos",
+    "faq": "FAQ",
+    "contact": "Contato",
+    "bookNow": "Reservar Agora"
+  },
+  "hero": {
+    "title": "Viva a Montanha",
+    "subtitle": "Aulas de Ski & Snowboard nos Andes Chilenos",
+    "description": "Experiências guiadas com instrutores certificados em Valle Nevado, El Colorado e La Parva. Sua aventura na neve começa aqui.",
+    "cta": "Reserve Sua Aula",
+    "ctaSecondary": "Ver Preços"
+  },
+  "services": {
+    "title": "Nossos Serviços",
+    "subtitle": "Experiências personalizadas para cada nível e estilo",
+    "groupSki": {
+      "title": "Aulas de Ski em Grupo",
+      "description": "Aprenda a esquiar em grupo com instrutores especializados. Ideal para famílias e amigos que querem compartilhar a experiência nas melhores pistas dos Andes.",
+      "features": ["Grupos reduzidos (máx. 6)", "Equipamento disponível", "Todos os níveis", "2 horas de aula"]
+    },
+    "privateSnowboard": {
+      "title": "Aulas Particulares de Snowboard",
+      "description": "Instrução personalizada 1 a 1 para aprender snowboard no seu ritmo. Progresso rápido garantido com atenção exclusiva do seu instrutor.",
+      "features": ["Instrutor dedicado", "Ritmo personalizado", "Progresso rápido", "Horário flexível"]
+    },
+    "guidedExperience": {
+      "title": "Experiência Guiada na Neve",
+      "description": "Serviço de guia personalizado nos melhores centros de ski do Chile. Conheça as montanhas com um especialista local.",
+      "features": ["Guia especialista", "3 centros de ski", "Roteiros exclusivos", "Fotos incluídas"]
+    },
+    "kids": {
+      "title": "Ski & Snowboard para Crianças",
+      "description": "Aulas especialmente projetadas para os pequenos. Metodologia lúdica e segura para que as crianças aproveitem sua primeira experiência na neve.",
+      "features": ["A partir de 5 anos", "Metodologia lúdica", "Máxima segurança", "Instrutores especializados"]
+    },
+    "heliski": {
+      "title": "Heliski Chile",
+      "description": "A experiência definitiva para especialistas. Acesse neve virgem de helicóptero e esquie onde ninguém esquiou antes nas montanhas dos Andes.",
+      "features": ["Neve virgem", "Helicóptero privado", "Para especialistas", "Vistas panorâmicas"]
+    },
+    "corporate": {
+      "title": "Experiências Corporativas",
+      "description": "Organize um dia de neve inesquecível para sua empresa ou escola. Team building na montanha com logística completa.",
+      "features": ["Empresas e escolas", "Logística completa", "Team building", "Grandes grupos"]
+    }
+  },
+  "whyUs": {
+    "title": "Por Que Escolher a CDSKI?",
+    "subtitle": "Mais de uma década de experiência levando turistas internacionais às melhores pistas do Chile",
+    "reasons": [
+      {
+        "title": "Instrutores Certificados",
+        "description": "Nossa equipe de instrutores profissionais conhece cada canto das montanhas. Você vai aprender com os melhores."
+      },
+      {
+        "title": "Segurança em Primeiro Lugar",
+        "description": "Protocolos de segurança rigorosos, equipamentos de primeira qualidade e acompanhamento constante."
+      },
+      {
+        "title": "3 Centros de Ski",
+        "description": "Valle Nevado, El Colorado e La Parva. Acesso às melhores pistas da América do Sul, a apenas 46 km de Santiago."
+      },
+      {
+        "title": "Multilíngue",
+        "description": "Atendimento em espanhol, inglês e português. Somos especialistas em receber turistas do mundo inteiro."
+      },
+      {
+        "title": "Tudo Incluído",
+        "description": "Pacotes all-inclusive com equipamento, tickets e aulas. Sem surpresas, sem custos ocultos."
+      },
+      {
+        "title": "Pagamento Flexível",
+        "description": "Webpay, Mercado Pago, PayPal e transferência bancária. Pague como preferir, com segurança."
+      }
+    ]
+  },
+  "pricing": {
+    "title": "Preços e Pacotes",
+    "subtitle": "Encontre o plano perfeito para sua aventura na neve",
+    "popular": "Mais Popular",
+    "currency": "CLP",
+    "from": "a partir de",
+    "perPerson": "por pessoa",
+    "includes": "Inclui",
+    "book": "Reservar",
+    "programs": {
+      "title": "Programas El Colorado",
+      "subtitle": "Pacotes com ticket e aulas coletivas"
+    },
+    "packs": {
+      "title": "Pacotes de Aulas",
+      "subtitle": "Opções em grupo e particulares"
+    },
+    "tableHeaders": {
+      "program": "Programa",
+      "description": "Descrição",
+      "adult": "Adulto (13+)",
+      "child": "Criança (9-12)"
+    },
+    "duration": "Duração da aula: 2 horas",
+    "note": "* Com menos de 4 pessoas, a aula em grupo dura 1 hora. Aluguel com garantia durante o dia."
+  },
+  "howToBook": {
+    "title": "Como Reservar?",
+    "subtitle": "Reserve sua experiência em 3 passos simples",
+    "steps": [
+      {
+        "title": "Escolha Sua Experiência",
+        "description": "Selecione o pacote que melhor se adapta ao seu nível e preferências. Ski ou snowboard? Grupo ou particular?"
+      },
+      {
+        "title": "Contate por WhatsApp",
+        "description": "Escreva para +56 9 4021 1459 para confirmar disponibilidade e coordenar os detalhes da sua aula."
+      },
+      {
+        "title": "Pague e Confirme",
+        "description": "Realize o pagamento seguro com Webpay, Mercado Pago ou PayPal. Receba confirmação imediata por email ou WhatsApp."
+      }
+    ]
+  },
+  "gallery": {
+    "title": "Galeria",
+    "subtitle": "Momentos inesquecíveis na neve dos Andes"
+  },
+  "testimonials": {
+    "title": "O Que Dizem Nossos Alunos",
+    "subtitle": "Experiências reais de turistas do mundo inteiro",
+    "reviews": [
+      {
+        "name": "María García",
+        "country": "Argentina",
+        "text": "Passamos um dia maravilhoso com Juan Pablo. Eu o recomendaria, é encantador e muito paciente. Realmente um ótimo professor e uma ótima pessoa.",
+        "rating": 5
+      },
+      {
+        "name": "Carlos Oliveira",
+        "country": "Brasil",
+        "text": "Passamos um dia incrível com Juan Pablo! Ótimo instrutor de ski, muito gentil e atencioso. Muito obrigado!",
+        "rating": 5
+      },
+      {
+        "name": "Patricia Mendez",
+        "country": "Chile",
+        "text": "Ótimos instrutores! Fizemos aulas para dois adultos e duas meninas de 5 anos, JP é um ótimo instrutor com cuidado e paciência!",
+        "rating": 5
+      },
+      {
+        "name": "James Wilson",
+        "country": "Estados Unidos",
+        "text": "Experiência incrível! Os instrutores realmente conhecem essas montanhas. Melhor aula de ski que já tive. Valle Nevado é deslumbrante!",
+        "rating": 5
+      },
+      {
+        "name": "Sophie Müller",
+        "country": "Alemanha",
+        "text": "Aulas de ski perfeitas! Os instrutores são muito pacientes e profissionais. Voltaremos no próximo ano com certeza!",
+        "rating": 5
+      },
+      {
+        "name": "Yuki Tanaka",
+        "country": "Japão",
+        "text": "Foi uma experiência de ski maravilhosa. O instrutor foi muito gentil e as montanhas chilenas são lindas.",
+        "rating": 5
+      }
+    ]
+  },
+  "faq": {
+    "title": "Perguntas Frequentes",
+    "subtitle": "Tudo o que você precisa saber antes da sua aventura na neve",
+    "questions": [
+      {
+        "q": "Preciso de experiência prévia para fazer aulas?",
+        "a": "Não! Temos aulas para todos os níveis, de iniciante absoluto a avançado. Nossos instrutores adaptam o ensino ao seu nível."
+      },
+      {
+        "q": "O que os pacotes all-inclusive incluem?",
+        "a": "Os pacotes all-inclusive incluem ticket de acesso ao centro de ski, equipamento completo (ski ou snowboard, botas e bastões) e aula com instrutor certificado de 2 horas."
+      },
+      {
+        "q": "Em quais centros de ski vocês operam?",
+        "a": "Operamos nos três principais centros de ski de Santiago: Valle Nevado (o maior da América do Sul), El Colorado e La Parva, todos a menos de 50 km de Santiago."
+      },
+      {
+        "q": "Quando é a temporada de ski no Chile?",
+        "a": "A temporada de ski no Chile vai de junho a outubro. A alta temporada inclui fins de semana, feriados e férias de inverno (geralmente última semana de junho e primeira de julho)."
+      },
+      {
+        "q": "Vocês oferecem aulas em português?",
+        "a": "Sim! Nossos instrutores falam espanhol, inglês e português. Somos especialistas em receber turistas internacionais das Américas, Europa e Ásia."
+      },
+      {
+        "q": "Como posso pagar?",
+        "a": "Aceitamos Webpay Plus (cartões de débito/crédito chilenos e internacionais), Mercado Pago, PayPal e transferência bancária. O pagamento é 100% seguro com confirmação imediata."
+      },
+      {
+        "q": "A partir de que idade as crianças podem fazer aulas?",
+        "a": "As crianças podem começar a esquiar a partir dos 5 anos. Temos instrutores especializados em ensino infantil com metodologia lúdica e segura."
+      },
+      {
+        "q": "O que devo levar para minha aula de ski?",
+        "a": "Recomendamos roupas térmicas em camadas, luvas impermeáveis, gorro, protetor solar e óculos de sol ou antiparras. O equipamento de ski/snowboard está incluído nos nossos pacotes."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contato e Reserva",
+    "subtitle": "Pronto para sua aventura na neve? Entre em contato!",
+    "form": {
+      "name": "Nome completo",
+      "email": "Email",
+      "phone": "WhatsApp",
+      "service": "Serviço de interesse",
+      "serviceOptions": ["Aulas de Ski em Grupo", "Aulas Particulares de Snowboard", "Experiência Guiada", "Aulas para Crianças", "Heliski", "Experiência Corporativa"],
+      "date": "Data desejada",
+      "message": "Mensagem",
+      "submit": "Enviar Consulta",
+      "success": "Mensagem enviada! Entraremos em contato em breve.",
+      "errors": {
+        "name": "O nome é obrigatório",
+        "email": "Email inválido",
+        "message": "A mensagem é obrigatória"
+      }
+    },
+    "info": {
+      "phone": "+56 9 4021 1459",
+      "email": "info@clasesdeski.cl",
+      "address": "Mall Sport, Las Condes, Santiago, Chile",
+      "hours": "Segunda a Domingo, 08:00 - 22:00"
+    },
+    "whatsapp": "Fale conosco no WhatsApp"
+  },
+  "footer": {
+    "description": "Experiências guiadas de ski e snowboard nos melhores centros de ski do Chile. Instrutores certificados, pacotes all-inclusive e atendimento personalizado.",
+    "quickLinks": "Links Rápidos",
+    "contactInfo": "Informações de Contato",
+    "followUs": "Siga-nos",
+    "rights": "Todos os direitos reservados.",
+    "legal": {
+      "privacy": "Política de Privacidade",
+      "terms": "Termos e Condições"
+    }
+  },
+  "whatsappWidget": {
+    "message": "Olá! Quero reservar uma aula de ski/snowboard 🎿"
+  },
+  "bookingSticky": "Reservar Aula"
+}

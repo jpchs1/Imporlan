@@ -1,0 +1,259 @@
+{
+  "meta": {
+    "title": "Ski & Snowboard Lessons in Chile | CDSKI — Valle Nevado, El Colorado, La Parva",
+    "description": "Ski and snowboard lessons for all levels at Valle Nevado, El Colorado, and La Parva. Certified instructors, all-inclusive packages, and guided snow experiences in the Chilean Andes.",
+    "keywords": "ski lessons Chile, snowboard classes Santiago, Valle Nevado lessons, El Colorado ski, La Parva snowboard, ski school Chile, ski instructor, learn to ski Chile"
+  },
+  "nav": {
+    "services": "Services",
+    "whyUs": "Why Choose Us?",
+    "pricing": "Pricing",
+    "howToBook": "How to Book",
+    "gallery": "Gallery",
+    "testimonials": "Testimonials",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "bookNow": "Book Now"
+  },
+  "hero": {
+    "title": "Live the Mountain",
+    "subtitle": "Ski & Snowboard Lessons in the Chilean Andes",
+    "description": "Guided experiences with certified instructors at Valle Nevado, El Colorado, and La Parva. Your snow adventure starts here.",
+    "cta": "Book Your Lesson",
+    "ctaSecondary": "View Pricing"
+  },
+  "services": {
+    "title": "Our Services",
+    "subtitle": "Personalized experiences for every level and style",
+    "groupSki": {
+      "title": "Group Ski Lessons",
+      "description": "Learn to ski in a group with expert instructors. Perfect for families and friends who want to share the experience on the best slopes in the Andes.",
+      "features": ["Small groups (max 6)", "Equipment available", "All levels", "2-hour lessons"]
+    },
+    "privateSnowboard": {
+      "title": "Private Snowboard Lessons",
+      "description": "One-on-one personalized instruction to learn snowboard at your own pace. Guaranteed rapid progress with your dedicated instructor.",
+      "features": ["Dedicated instructor", "Personalized pace", "Fast progress", "Flexible schedule"]
+    },
+    "guidedExperience": {
+      "title": "Guided Snow Experience",
+      "description": "Personalized guide service at Chile's best ski resorts. Explore the mountains with a local expert who will show you the best routes.",
+      "features": ["Local expert guide", "3 ski resorts", "Exclusive routes", "Photos included"]
+    },
+    "kids": {
+      "title": "Kids Ski & Snowboard",
+      "description": "Specially designed lessons for the little ones. Fun and safe methodology so children enjoy their first experience in the snow.",
+      "features": ["Ages 5 and up", "Fun methodology", "Maximum safety", "Specialized instructors"]
+    },
+    "heliski": {
+      "title": "Heliski Chile",
+      "description": "The ultimate experience for experts. Access untouched powder by helicopter and ski where no one has skied before in the Andes mountains.",
+      "features": ["Untouched powder", "Private helicopter", "For experts", "Panoramic views"]
+    },
+    "corporate": {
+      "title": "Corporate Experiences",
+      "description": "Organize an unforgettable snow day for your company or school. Mountain team building with complete logistics and personalized activities.",
+      "features": ["Companies & schools", "Full logistics", "Team building", "Large groups"]
+    }
+  },
+  "whyUs": {
+    "title": "Why Choose CDSKI?",
+    "subtitle": "Over a decade of experience taking international tourists to Chile's best slopes",
+    "reasons": [
+      {
+        "title": "Certified Instructors",
+        "description": "Our team of professional instructors knows every corner of the mountains. You'll learn from the best."
+      },
+      {
+        "title": "Safety First",
+        "description": "Strict safety protocols, top-quality equipment, and constant monitoring throughout the entire experience."
+      },
+      {
+        "title": "3 Ski Resorts",
+        "description": "Valle Nevado, El Colorado, and La Parva. Access to the best slopes in South America, just 46 km from Santiago."
+      },
+      {
+        "title": "Multilingual",
+        "description": "Service in Spanish, English, and Portuguese. We specialize in welcoming tourists from around the world."
+      },
+      {
+        "title": "All-Inclusive",
+        "description": "All-inclusive packages with equipment, tickets, and lessons. No surprises, no hidden costs."
+      },
+      {
+        "title": "Flexible Payment",
+        "description": "Webpay, Mercado Pago, PayPal, and bank transfer. Pay however you prefer, securely."
+      }
+    ]
+  },
+  "pricing": {
+    "title": "Pricing & Packages",
+    "subtitle": "Find the perfect plan for your snow adventure",
+    "popular": "Most Popular",
+    "currency": "CLP",
+    "from": "from",
+    "perPerson": "per person",
+    "includes": "Includes",
+    "book": "Book Now",
+    "programs": {
+      "title": "El Colorado Programs",
+      "subtitle": "Packages with ticket and group lessons"
+    },
+    "packs": {
+      "title": "Lesson Packs",
+      "subtitle": "Group and private options"
+    },
+    "tableHeaders": {
+      "program": "Program",
+      "description": "Description",
+      "adult": "Adult (13+)",
+      "child": "Child (9-12)"
+    },
+    "duration": "Lesson duration: 2 hours",
+    "note": "* If fewer than 4 people, group lesson lasts 1 hour. Rental with warranty during the day."
+  },
+  "howToBook": {
+    "title": "How to Book?",
+    "subtitle": "Book your experience in 3 simple steps",
+    "steps": [
+      {
+        "title": "Choose Your Experience",
+        "description": "Select the package that best fits your level and preferences. Ski or snowboard? Group or private?"
+      },
+      {
+        "title": "Contact via WhatsApp",
+        "description": "Write to us at +56 9 4021 1459 to confirm availability and coordinate the details of your lesson."
+      },
+      {
+        "title": "Pay & Confirm",
+        "description": "Make your secure payment with Webpay, Mercado Pago, or PayPal. Receive instant confirmation via email or WhatsApp."
+      }
+    ]
+  },
+  "gallery": {
+    "title": "Gallery",
+    "subtitle": "Unforgettable moments in the Andes snow"
+  },
+  "testimonials": {
+    "title": "What Our Students Say",
+    "subtitle": "Real experiences from tourists around the world",
+    "reviews": [
+      {
+        "name": "María García",
+        "country": "Argentina",
+        "text": "We had a wonderful day with Juan Pablo. I would recommend him, he is charming and very patient. Really a great teacher and a great person.",
+        "rating": 5
+      },
+      {
+        "name": "Carlos Oliveira",
+        "country": "Brazil",
+        "text": "We had an amazing day with Juan Pablo! Great ski instructor, very kind and attentive. Thank you so much!",
+        "rating": 5
+      },
+      {
+        "name": "Patricia Mendez",
+        "country": "Chile",
+        "text": "Great instructors! We took lessons for two adults and two 5-year-old girls, JP is a great instructor with care and patience!",
+        "rating": 5
+      },
+      {
+        "name": "James Wilson",
+        "country": "United States",
+        "text": "Amazing experience! The instructors really know these mountains. Best ski lesson I've ever had. Valle Nevado is stunning!",
+        "rating": 5
+      },
+      {
+        "name": "Sophie Müller",
+        "country": "Germany",
+        "text": "Perfect ski lessons! The instructors are very patient and professional. We will definitely come back next year!",
+        "rating": 5
+      },
+      {
+        "name": "Yuki Tanaka",
+        "country": "Japan",
+        "text": "It was a wonderful ski experience. The instructor was very kind, and the Chilean mountains were beautiful.",
+        "rating": 5
+      }
+    ]
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "subtitle": "Everything you need to know before your snow adventure",
+    "questions": [
+      {
+        "q": "Do I need prior experience to take lessons?",
+        "a": "Not at all! We have lessons for all levels, from absolute beginners to advanced. Our instructors adapt their teaching to your level."
+      },
+      {
+        "q": "What do the all-inclusive packages include?",
+        "a": "All-inclusive packages include ski resort access ticket, complete equipment (ski or snowboard, boots, and poles), and a 2-hour lesson with a certified instructor."
+      },
+      {
+        "q": "Which ski resorts do you operate at?",
+        "a": "We operate at Santiago's three main ski resorts: Valle Nevado (the largest in South America), El Colorado, and La Parva, all less than 50 km from Santiago."
+      },
+      {
+        "q": "When is the ski season in Chile?",
+        "a": "The ski season in Chile runs from June to October. Peak season includes weekends, holidays, and winter vacation (usually the last week of June and the first week of July)."
+      },
+      {
+        "q": "Do you offer lessons in English and Portuguese?",
+        "a": "Yes! Our instructors speak Spanish, English, and Portuguese. We specialize in welcoming international tourists from the Americas, Europe, and Asia."
+      },
+      {
+        "q": "How can I pay?",
+        "a": "We accept Webpay Plus (Chilean and international debit/credit cards), Mercado Pago, PayPal, and bank transfer. Payment is 100% secure with instant confirmation."
+      },
+      {
+        "q": "What age can children start taking lessons?",
+        "a": "Children can start skiing from age 5. We have instructors specialized in children's teaching with fun and safe methodology."
+      },
+      {
+        "q": "What should I bring to my ski lesson?",
+        "a": "We recommend thermal layered clothing, waterproof gloves, hat, sunscreen, and sunglasses or goggles. Ski/snowboard equipment is included in our packages."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contact & Booking",
+    "subtitle": "Ready for your snow adventure? Contact us!",
+    "form": {
+      "name": "Full name",
+      "email": "Email",
+      "phone": "WhatsApp",
+      "service": "Service of interest",
+      "serviceOptions": ["Group Ski Lessons", "Private Snowboard Lessons", "Guided Experience", "Kids Lessons", "Heliski", "Corporate Experience"],
+      "date": "Desired date",
+      "message": "Message",
+      "submit": "Send Inquiry",
+      "success": "Message sent! We'll contact you soon.",
+      "errors": {
+        "name": "Name is required",
+        "email": "Invalid email",
+        "message": "Message is required"
+      }
+    },
+    "info": {
+      "phone": "+56 9 4021 1459",
+      "email": "info@clasesdeski.cl",
+      "address": "Mall Sport, Las Condes, Santiago, Chile",
+      "hours": "Monday to Sunday, 08:00 - 22:00"
+    },
+    "whatsapp": "Chat on WhatsApp"
+  },
+  "footer": {
+    "description": "Guided ski and snowboard experiences at Chile's best ski resorts. Certified instructors, all-inclusive packages, and personalized service.",
+    "quickLinks": "Quick Links",
+    "contactInfo": "Contact Info",
+    "followUs": "Follow Us",
+    "rights": "All rights reserved.",
+    "legal": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms & Conditions"
+    }
+  },
+  "whatsappWidget": {
+    "message": "Hi! I'd like to book a ski/snowboard lesson 🎿"
+  },
+  "bookingSticky": "Book Lesson"
+}
