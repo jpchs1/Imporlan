@@ -4,9 +4,8 @@
  * CRUD for boat listings with photo upload
  */
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Email, X-User-Name');
+require_once __DIR__ . '/cors_helper.php';
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -111,24 +110,9 @@ function requireAuth() {
     $token = $matches[1];
     $payload = verifyJWT($token);
 
-    if (!$payload && $userEmail) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                $payload = [
-                    'sub' => $tokenPayload['sub'] ?? '0',
-                    'email' => $userEmail,
-                    'name' => $userName,
-                    'exp' => $tokenPayload['exp']
-                ];
-            }
-        }
-    }
-
     if (!$payload) {
         http_response_code(401);
-        echo json_encode(['error' => 'Token invalido']);
+        echo json_encode(['error' => 'Token invalido o expirado']);
         exit();
     }
 

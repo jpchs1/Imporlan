@@ -667,21 +667,23 @@ function adminRotateFeatured() {
         }
 
         if ($rotated > 0) {
-            $pdo->exec("
+            $stmt = $pdo->prepare("
                 UPDATE vessels SET status='active'
                 WHERE type='auto' AND status='scheduled'
-                LIMIT $rotated
+                LIMIT ?
             ");
+            $stmt->execute([intval($rotated)]);
         }
 
         $activeCount = $pdo->query("SELECT COUNT(*) FROM vessels WHERE is_featured=1 AND status='active'")->fetchColumn();
         if ($activeCount < 3) {
-            $needed = 3 - $activeCount;
-            $pdo->exec("
+            $needed = intval(3 - $activeCount);
+            $stmt = $pdo->prepare("
                 UPDATE vessels SET is_featured=1, status='active'
                 WHERE type='auto' AND status='scheduled' AND is_featured=0
-                LIMIT $needed
+                LIMIT ?
             ");
+            $stmt->execute([$needed]);
         }
 
         echo json_encode(['success' => true, 'rotated' => $rotated, 'active_featured' => intval($activeCount)]);

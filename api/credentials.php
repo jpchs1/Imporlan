@@ -15,16 +15,16 @@ if (file_exists($credentialsConfigFile)) {
     require_once $credentialsConfigFile;
 }
 
-// Fallback to environment variables, then to empty defaults that force configuration
+// Fallback to environment variables - NO insecure defaults
 if (!defined('IMPORLAN_ADMIN_EMAIL')) {
     define('IMPORLAN_ADMIN_EMAIL', getenv('IMPORLAN_ADMIN_EMAIL') ?: 'admin@imporlan.cl');
 }
 if (!defined('IMPORLAN_ADMIN_PASSWORD')) {
     $envPass = getenv('IMPORLAN_ADMIN_PASSWORD');
     if (!$envPass) {
-        error_log('WARNING: IMPORLAN_ADMIN_PASSWORD not configured. Using insecure default.');
+        error_log('CRITICAL: IMPORLAN_ADMIN_PASSWORD not configured. Login will fail.');
     }
-    define('IMPORLAN_ADMIN_PASSWORD', $envPass ?: 'CHANGE_ME_IMMEDIATELY');
+    define('IMPORLAN_ADMIN_PASSWORD', $envPass ?: bin2hex(random_bytes(32)));
 }
 if (!defined('IMPORLAN_SUPPORT_EMAIL')) {
     define('IMPORLAN_SUPPORT_EMAIL', getenv('IMPORLAN_SUPPORT_EMAIL') ?: 'soporte@imporlan.cl');
@@ -32,14 +32,14 @@ if (!defined('IMPORLAN_SUPPORT_EMAIL')) {
 if (!defined('IMPORLAN_SUPPORT_PASSWORD')) {
     $envSupportPass = getenv('IMPORLAN_SUPPORT_PASSWORD');
     if (!$envSupportPass) {
-        error_log('WARNING: IMPORLAN_SUPPORT_PASSWORD not configured. Using insecure default.');
+        error_log('CRITICAL: IMPORLAN_SUPPORT_PASSWORD not configured. Login will fail.');
     }
-    define('IMPORLAN_SUPPORT_PASSWORD', $envSupportPass ?: 'CHANGE_ME_IMMEDIATELY');
+    define('IMPORLAN_SUPPORT_PASSWORD', $envSupportPass ?: bin2hex(random_bytes(32)));
 }
 if (!defined('IMPORLAN_JWT_SECRET')) {
     $envJwt = getenv('IMPORLAN_JWT_SECRET');
     if (!$envJwt) {
-        error_log('WARNING: IMPORLAN_JWT_SECRET not configured. Using insecure default.');
+        error_log('CRITICAL: IMPORLAN_JWT_SECRET not configured. Using random per-request secret.');
     }
-    define('IMPORLAN_JWT_SECRET', $envJwt ?: 'CHANGE_ME_IMMEDIATELY_' . bin2hex(random_bytes(16)));
+    define('IMPORLAN_JWT_SECRET', $envJwt ?: bin2hex(random_bytes(32)));
 }

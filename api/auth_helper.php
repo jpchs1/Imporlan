@@ -6,21 +6,25 @@
  */
 
 function getJwtSecret() {
+    if (defined('IMPORLAN_JWT_SECRET')) {
+        return IMPORLAN_JWT_SECRET;
+    }
     if (defined('JWT_SECRET')) {
         return JWT_SECRET;
+    }
+    // Load from credentials config
+    $credentialsFile = __DIR__ . '/credentials.php';
+    if (file_exists($credentialsFile)) {
+        require_once $credentialsFile;
+        if (defined('IMPORLAN_JWT_SECRET')) {
+            return IMPORLAN_JWT_SECRET;
+        }
     }
     $secret = getenv('JWT_SECRET');
     if ($secret) {
         return $secret;
     }
-    $adminApi = __DIR__ . '/admin_api.php';
-    if (file_exists($adminApi)) {
-        $content = file_get_contents($adminApi);
-        if (preg_match("/define\s*\(\s*'JWT_SECRET'\s*,\s*'([^']+)'\s*\)/", $content, $m)) {
-            define('JWT_SECRET', $m[1]);
-            return $m[1];
-        }
-    }
+    error_log('CRITICAL: JWT secret not configured');
     return '';
 }
 
@@ -72,18 +76,6 @@ function requireAdminAuthShared($allowedRoles = ['admin', 'support']) {
     $payload = verifyJWTToken($token);
 
     if (!$payload) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(authBase64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                if (isset($tokenPayload['role']) && in_array($tokenPayload['role'], ['admin', 'support'])) {
-                    $payload = $tokenPayload;
-                }
-            }
-        }
-    }
-
-    if (!$payload) {
         http_response_code(401);
         echo json_encode(['error' => 'Token invalido o expirado']);
         exit();
@@ -114,46 +106,14 @@ function requireUserAuthShared() {
     }
 
     $token = $matches[1];
-    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
-    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
 
-    // Try to verify JWT with our secret
+    // Verify JWT with cryptographic signature - no bypass allowed
     $payload = verifyJWTToken($token);
-
-    // If JWT verification fails but we have email from header, decode without verifying
-    // (handles case where user panel uses a different JWT secret)
-    if (!$payload && $userEmail) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(authBase64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                $payload = [
-                    'sub' => $tokenPayload['sub'] ?? '0',
-                    'email' => $userEmail,
-                    'name' => $userName,
-                    'exp' => $tokenPayload['exp']
-                ];
-            }
-        }
-    }
 
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['error' => 'Token invalido o expirado']);
         exit();
-    }
-
-    // If email not in payload, use header
-    if (!isset($payload['email']) || empty($payload['email'])) {
-        if ($userEmail) {
-            $payload['email'] = $userEmail;
-        }
-    }
-
-    if (!isset($payload['name']) || empty($payload['name'])) {
-        if ($userName) {
-            $payload['name'] = $userName;
-        }
     }
 
     return $payload;

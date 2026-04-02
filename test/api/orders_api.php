@@ -41,10 +41,12 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             runMigration();
             break;
         case 'user_list':
-            userListOrders();
+            $userPayload = requireUserAuthShared();
+            userListOrders($userPayload);
             break;
         case 'user_detail':
-            userGetOrderDetail();
+            $userPayload = requireUserAuthShared();
+            userGetOrderDetail($userPayload);
             break;
         case 'admin_list':
             requireAdminAuth();
@@ -306,8 +308,8 @@ function computeTimelineStep($pdo, $order) {
     return $step;
 }
 
-function userListOrders() {
-    $userEmail = $_GET['user_email'] ?? '';
+function userListOrders($authPayload = null) {
+    $userEmail = $authPayload['email'] ?? ($_GET['user_email'] ?? '');
     $userId = $_GET['user_id'] ?? '';
 
     if (!$userEmail && !$userId) {
@@ -353,9 +355,9 @@ function userListOrders() {
     }
 }
 
-function userGetOrderDetail() {
+function userGetOrderDetail($authPayload = null) {
     $orderId = intval($_GET['id'] ?? 0);
-    $userEmail = $_GET['user_email'] ?? '';
+    $userEmail = $authPayload['email'] ?? ($_GET['user_email'] ?? '');
     $userId = $_GET['user_id'] ?? '';
 
     if (!$orderId || (!$userEmail && !$userId)) {

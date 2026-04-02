@@ -4,9 +4,8 @@
  * Handles support form submissions and sends emails to contacto@imporlan.cl
  */
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once __DIR__ . '/cors_helper.php';
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
