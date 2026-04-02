@@ -1,13 +1,8 @@
 User-agent: *
 Disallow: /test/
 Disallow: /panel/
-Disallow: /wp-admin/
-Disallow: /wp-includes/
-Disallow: /prueba2/
-Disallow: /t003/
+Disallow: /panel-test/
 Disallow: /api/
-Allow: /wp-includes/*.css
-Allow: /wp-includes/*.js
 Allow: /assets/*.css
 Allow: /assets/*.js
 

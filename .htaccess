@@ -4,9 +4,6 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# 301 Redirects: /pages/ -> /importaciones/
-RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
-
 RewriteBase /
 
 # 301 Redirects: TOUREVO pages moved to tourevo.cl

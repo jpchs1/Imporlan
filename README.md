@@ -27,7 +27,7 @@ imporlan/
 
 - Frontend: HTML, CSS, JavaScript, React (panel)
 - Backend: PHP
-- Base de datos: MySQL (WordPress)
+- Base de datos: MySQL
 - Hosting: Banahosting
 
 ## Contacto
