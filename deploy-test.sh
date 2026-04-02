@@ -131,7 +131,38 @@ fi
 echo "  -> All index.html files verified."
 
 echo ""
-echo "[8/8] Cleaning old backups (keeping last 5)..."
+echo "[8.5/9] Deploying CDSKI (clasesdeski.cl/test/)..."
+CDSKI_SRC="$STAGING_REPO/cdski-web"
+CDSKI_DEST="/home/wwimpo/clasesdeski.cl/test"
+if [ -d "$CDSKI_SRC" ]; then
+  mkdir -p "$CDSKI_DEST"
+  if [ -d "$CDSKI_SRC/out" ]; then
+    # Pre-built: just copy
+    \cp -Rf "$CDSKI_SRC/out/"* "$CDSKI_DEST/" 2>/dev/null || true
+    echo "  -> CDSKI deployed from pre-built /out."
+  elif command -v npm &>/dev/null; then
+    # Build on server
+    cd "$CDSKI_SRC"
+    npm install --production=false 2>/dev/null
+    npm run build 2>/dev/null
+    if [ -d "$CDSKI_SRC/out" ]; then
+      \cp -Rf "$CDSKI_SRC/out/"* "$CDSKI_DEST/" 2>/dev/null || true
+      echo "  -> CDSKI built and deployed."
+    else
+      echo "  -> WARNING: CDSKI build failed."
+    fi
+    cd "$STAGING_REPO"
+  else
+    echo "  -> WARNING: npm not found, cannot build CDSKI."
+  fi
+  find "$CDSKI_DEST" -type d -exec chmod 755 {} \;
+  find "$CDSKI_DEST" -type f -exec chmod 644 {} \;
+else
+  echo "  -> CDSKI source not found, skipping."
+fi
+
+echo ""
+echo "[9/9] Cleaning old backups (keeping last 5)..."
 for PREFIX in panel-test_backup test_backup; do
   BACKUPS=()
   while IFS= read -r -d '' entry; do
@@ -156,5 +187,6 @@ echo " Panel Test:       https://www.imporlan.cl/panel-test/"
 echo " Admin Panel Test: https://www.imporlan.cl/panel-test/admin/"
 echo " Web Test:         https://www.imporlan.cl/test/"
 echo " API Test:         https://www.imporlan.cl/test/api/"
+echo " CDSKI Test:       https://clasesdeski.cl/test/"
 echo " Backups:          $BACKUP_DIR"
 echo "============================================"

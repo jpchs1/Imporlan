@@ -89,6 +89,54 @@ done
 find "$PUBLIC_HTML" -type d -exec chmod 755 {} +
 find "$PUBLIC_HTML" -type f -exec chmod 644 {} +
 
+# ============================================
+#  CDSKI - Build & Deploy clasesdeski.cl/test/
+# ============================================
+CDSKI_SRC="$REPO_DIR/cdski-web"
+CDSKI_DEST="/home/wwimpo/clasesdeski.cl/test"
+
+if [ -d "$CDSKI_SRC" ]; then
+  echo "[$TIMESTAMP] Building CDSKI website..." >> "$LOGFILE"
+
+  # Check if node/npm is available
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" 2>/dev/null || true
+  export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+
+  if command -v npm &>/dev/null; then
+    cd "$CDSKI_SRC"
+
+    # Only rebuild if source changed
+    CDSKI_HASH_FILE="$CDSKI_SRC/.last-deploy-hash"
+    CDSKI_CURRENT_HASH=$(find "$CDSKI_SRC" -name '*.tsx' -o -name '*.ts' -o -name '*.json' -o -name '*.css' -o -name '*.php' | grep -v node_modules | sort | xargs md5sum 2>/dev/null | md5sum | cut -d' ' -f1)
+    CDSKI_LAST_HASH=""
+    [ -f "$CDSKI_HASH_FILE" ] && CDSKI_LAST_HASH=$(cat "$CDSKI_HASH_FILE")
+
+    if [ "$CDSKI_CURRENT_HASH" != "$CDSKI_LAST_HASH" ]; then
+      npm install --production=false >> "$LOGFILE" 2>&1
+      npm run build >> "$LOGFILE" 2>&1
+
+      if [ -d "$CDSKI_SRC/out" ]; then
+        # Deploy: sync output to destination
+        mkdir -p "$CDSKI_DEST"
+        rsync -a --delete --exclude='*.zip' "$CDSKI_SRC/out/" "$CDSKI_DEST/" >> "$LOGFILE" 2>&1
+        find "$CDSKI_DEST" -type d -exec chmod 755 {} +
+        find "$CDSKI_DEST" -type f -exec chmod 644 {} +
+        echo "$CDSKI_CURRENT_HASH" > "$CDSKI_HASH_FILE"
+        echo "[$TIMESTAMP] CDSKI deployed successfully to $CDSKI_DEST" >> "$LOGFILE"
+      else
+        echo "[$TIMESTAMP] CDSKI build failed - no out/ directory" >> "$LOGFILE"
+      fi
+    else
+      echo "[$TIMESTAMP] CDSKI: no source changes, skipping build" >> "$LOGFILE"
+    fi
+  else
+    echo "[$TIMESTAMP] CDSKI: npm not found, skipping build" >> "$LOGFILE"
+  fi
+
+  cd "$REPO_DIR"
+fi
+
 # --- Cleanup old backups (keep last 10) ---
 cd "$BACKUP_DIR" && ls -dt pre_deploy_* 2>/dev/null | tail -n +11 | xargs rm -rf 2>/dev/null || true
 

@@ -173,7 +173,37 @@ fi
 echo "  -> All critical files verified."
 
 echo ""
-echo "[9/9] Cleaning old production backups (keeping last 5)..."
+echo "[9/10] Deploying CDSKI (clasesdeski.cl/test/)..."
+CDSKI_SRC="$STAGING_REPO/cdski-web"
+CDSKI_DEST="/home/wwimpo/clasesdeski.cl/test"
+if [ -d "$CDSKI_SRC" ]; then
+  mkdir -p "$CDSKI_DEST"
+  if [ -d "$CDSKI_SRC/out" ]; then
+    rsync -a "$CDSKI_SRC/out/" "$CDSKI_DEST/"
+    echo "  -> CDSKI deployed from pre-built /out."
+  elif command -v npm &>/dev/null; then
+    cd "$CDSKI_SRC"
+    npm install --production=false 2>/dev/null
+    npm run build 2>/dev/null
+    if [ -d "$CDSKI_SRC/out" ]; then
+      rsync -a "$CDSKI_SRC/out/" "$CDSKI_DEST/"
+      echo "  -> CDSKI built and deployed."
+    else
+      echo "  -> WARNING: CDSKI build failed."
+    fi
+    cd "$STAGING_REPO"
+  else
+    echo "  -> WARNING: npm not found, cannot build CDSKI."
+  fi
+  find "$CDSKI_DEST" -type d -exec chmod 755 {} \;
+  find "$CDSKI_DEST" -type f -exec chmod 644 {} \;
+  echo "  -> CDSKI permissions set."
+else
+  echo "  -> CDSKI source not found, skipping."
+fi
+
+echo ""
+echo "[10/10] Cleaning old production backups (keeping last 5)..."
 for PREFIX in assets_backup api_backup panel_backup; do
   BACKUPS=()
   while IFS= read -r -d '' entry; do
@@ -198,5 +228,6 @@ echo " Marketplace:  https://www.imporlan.cl/marketplace/"
 echo " Panel:        https://www.imporlan.cl/panel/"
 echo " Admin:        https://www.imporlan.cl/admin/"
 echo " API:          https://www.imporlan.cl/api/"
+echo " CDSKI:        https://clasesdeski.cl/test/"
 echo " Backups:      $BACKUP_DIR"
 echo "============================================"

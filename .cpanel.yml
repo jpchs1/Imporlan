@@ -80,5 +80,9 @@ deployment:
     - find $DEPLOYPATH -type d -exec chmod 755 {} +
     - find $DEPLOYPATH -type f -exec chmod 644 {} +
 
+    # --- CDSKI: Deploy pre-built static site to clasesdeski.cl/test/ ---
+    - export CDSKI_DEST=/home/wwimpo/clasesdeski.cl/test
+    - /bin/test -d cdski-web/out && mkdir -p $CDSKI_DEST && /bin/cp -Rf cdski-web/out/* $CDSKI_DEST/ && find $CDSKI_DEST -type d -exec chmod 755 {} + && find $CDSKI_DEST -type f -exec chmod 644 {} + || true
+
     # --- Cleanup old pre-deploy backups (keep last 10) ---
     - cd $BACKUPDIR && ls -dt pre_deploy_* 2>/dev/null | tail -n +11 | xargs rm -rf 2>/dev/null || true
