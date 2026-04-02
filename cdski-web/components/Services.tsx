@@ -7,8 +7,8 @@ const serviceImages = [
   "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=600&q=80&auto=format", // group ski
   "https://images.unsplash.com/photo-1486673748761-a8d18475c757?w=600&q=80&auto=format", // snowboard
   "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=600&q=80&auto=format", // guided
-  "https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1?w=600&q=80&auto=format", // kids
-  "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=600&q=80&auto=format", // heliski mountains
+  "https://images.unsplash.com/photo-d3Lm40Dn9rA?w=600&q=80&auto=format", // kids skiing
+  "https://images.unsplash.com/photo-GC8CLBAjt_k?w=600&q=80&auto=format", // heliski/snowboard mountains
   "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=600&q=80&auto=format", // corporate group
 ];
 
