@@ -31,7 +31,7 @@ export default async function HomePage({
       <Header dict={dict} lang={locale} />
       <main>
         <Hero dict={dict} />
-        <Services dict={dict} />
+        <Services dict={dict} lang={locale} />
         <WhyChooseUs dict={dict} />
         <Pricing dict={dict} lang={locale} />
         <HowToBook dict={dict} />
