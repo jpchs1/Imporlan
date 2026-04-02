@@ -8,6 +8,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+require_once dirname(__DIR__) . '/credentials.php';
+
 $TARGET_BACKEND = 'https://app-bxlfgnkv.fly.dev';
 
 $requestUri = $_SERVER['REQUEST_URI'];
@@ -24,11 +26,11 @@ if ($path === '/api/auth/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $input['email'] ?? $input['username'] ?? '';
     $password = $input['password'] ?? '';
     
-    $adminEmail = 'admin@imporlan.cl';
-    $adminPassword = 'Adminimporlan2026';
-    $supportEmail = 'soporte@imporlan.cl';
-    $supportPassword = 'soporte123';
-    $jwtSecret = 'imporlan-admin-766ee1d06c0ee969-2026';
+    $adminEmail = IMPORLAN_ADMIN_EMAIL;
+    $adminPassword = IMPORLAN_ADMIN_PASSWORD;
+    $supportEmail = IMPORLAN_SUPPORT_EMAIL;
+    $supportPassword = IMPORLAN_SUPPORT_PASSWORD;
+    $jwtSecret = IMPORLAN_JWT_SECRET;
     
     $user = null;
     if ($email === $adminEmail && $password === $adminPassword) {
@@ -129,8 +131,8 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     $token = $matches[1];
-    $jwtSecret = 'imporlan-admin-766ee1d06c0ee969-2026';
-    
+    $jwtSecret = IMPORLAN_JWT_SECRET;
+
     // Verify JWT
     $parts = explode('.', $token);
     if (count($parts) !== 3) {

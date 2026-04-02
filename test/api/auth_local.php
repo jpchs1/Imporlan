@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/../../api/credentials.php';
 
 function handleAuthEndpoint($uriPath) {
     header('Content-Type: application/json');
@@ -48,7 +49,7 @@ function handleAuthEndpoint($uriPath) {
 }
 
 function getJwtSecretLocal() {
-    return 'imporlan-admin-766ee1d06c0ee969-2026';
+    return IMPORLAN_JWT_SECRET;
 }
 
 function generateJWT($payload) {
@@ -107,8 +108,8 @@ function handleLogin() {
 
     // Check hardcoded admin accounts
     $hardcoded = [
-        'admin@imporlan.cl' => ['password' => 'Adminimporlan2026', 'name' => 'Administrador Imporlan', 'role' => 'admin', 'id' => 1],
-        'soporte@imporlan.cl' => ['password' => 'soporte123', 'name' => 'Soporte Imporlan', 'role' => 'support', 'id' => 2],
+        IMPORLAN_ADMIN_EMAIL => ['password' => IMPORLAN_ADMIN_PASSWORD, 'name' => 'Administrador Imporlan', 'role' => 'admin', 'id' => 1],
+        IMPORLAN_SUPPORT_EMAIL => ['password' => IMPORLAN_SUPPORT_PASSWORD, 'name' => 'Soporte Imporlan', 'role' => 'support', 'id' => 2],
     ];
 
     $user = null;

@@ -15,11 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-define('ADMIN_EMAIL', 'admin@imporlan.cl');
-define('ADMIN_PASSWORD', 'Adminimporlan2026');
-define('SUPPORT_EMAIL', 'soporte@imporlan.cl');
-define('SUPPORT_PASSWORD', 'soporte123');
-define('JWT_SECRET', 'imporlan-admin-766ee1d06c0ee969-2026');
+require_once __DIR__ . '/credentials.php';
+define('ADMIN_EMAIL', IMPORLAN_ADMIN_EMAIL);
+define('ADMIN_PASSWORD', IMPORLAN_ADMIN_PASSWORD);
+define('SUPPORT_EMAIL', IMPORLAN_SUPPORT_EMAIL);
+define('SUPPORT_PASSWORD', IMPORLAN_SUPPORT_PASSWORD);
+define('JWT_SECRET', IMPORLAN_JWT_SECRET);
 
 $purchasesFile = __DIR__ . '/purchases.json';
 
