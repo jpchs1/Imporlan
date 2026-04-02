@@ -15,28 +15,28 @@ const galleryItems = [
     label: "Ski Lessons",
   },
   {
+    src: "https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&q=80&auto=format",
+    label: "Snowboard Action",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1542202229-7d93c33f5d07?w=800&q=80&auto=format",
+    label: "Snow Fun",
+  },
+  {
     src: "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&q=80&auto=format",
     label: "Andes Mountains",
   },
   {
-    src: "https://images.unsplash.com/photo-d3Lm40Dn9rA?w=800&q=80&auto=format",
-    label: "Kids Learning to Ski",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=800&q=80&auto=format",
-    label: "Snowboard Action",
-  },
-  {
-    src: "https://images.unsplash.com/photo-TsBKncMZU-Q?w=800&q=80&auto=format",
+    src: "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=80&auto=format",
     label: "Kids & Families",
   },
   {
-    src: "https://images.unsplash.com/photo-GC8CLBAjt_k?w=800&q=80&auto=format",
-    label: "Snowboard Carving",
+    src: "https://images.unsplash.com/photo-1516939884455-1445c8652f83?w=800&q=80&auto=format",
+    label: "Fresh Powder",
   },
   {
-    src: "https://images.unsplash.com/photo-PgYKoRkcsYA?w=800&q=80&auto=format",
-    label: "Snow Fun",
+    src: "https://images.unsplash.com/photo-1520962922320-2038eebab146?w=800&q=80&auto=format",
+    label: "Ski Group",
   },
 ];
 

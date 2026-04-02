@@ -23,7 +23,7 @@ export default function WhyChooseUs({ dict }: { dict: Dictionary }) {
         }}
       />
       <div className="absolute inset-0 bg-[#0a1628]/85 backdrop-blur-[2px]" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <AnimatedSection className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.whyUs.title}</h2>
           <p className="text-lg text-blue-200/60 max-w-3xl mx-auto">{dict.whyUs.subtitle}</p>
