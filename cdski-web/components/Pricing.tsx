@@ -218,7 +218,6 @@ function BookingModal({
       `Children: ${cfg.children}`,
       `Days: ${cfg.days}`,
       `Equipment: ${cfg.equipment ? "Yes" : "No"}`,
-      `Lift Ticket: ${cfg.liftTicket ? "Yes" : "No"}`,
       ``,
       `Subtotal/day: ${fmtCLP(totals.subtotalPerDay)} CLP (${fmtUSD(totals.subtotalPerDay)})`,
       `TOTAL: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
@@ -397,7 +396,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
     children: 0,
     days: 1,
     equipment: false,
-    liftTicket: true,
+    liftTicket: false,
   });
   const [currency, setCurrency] = useState<"CLP" | "USD">("CLP");
   const [showModal, setShowModal] = useState(false);
@@ -424,7 +423,6 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
       `- ${cfg.adults} adulto(s), ${cfg.children} niño(s)`,
       `- ${cfg.days} día(s)`,
       `- Equipo: ${cfg.equipment ? "Sí" : "No"}`,
-      `- Ticket: ${cfg.liftTicket ? "Sí" : "No"}`,
       `- Total estimado: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
     ].join("\n");
     return encodeURIComponent(msg);
@@ -552,12 +550,14 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 <p className="text-white/25 text-[11px] leading-relaxed px-1">
                   {t.calculator.equipmentNote}
                 </p>
-                <SwitchToggle
-                  label={t.calculator.liftTicket}
-                  desc={t.calculator.liftTicketDesc}
-                  checked={cfg.liftTicket}
-                  onChange={(v) => setCfg({ ...cfg, liftTicket: v })}
-                />
+                <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-white/50 text-xs">{t.calculator.liftTicketNote}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </AnimatedSection>
@@ -624,12 +624,6 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                     <div className="flex justify-between text-sm">
                       <span className="text-white/60">{t.summary.equipment}</span>
                       <span className="text-white">{fmt(totals.eqPerDay)} {t.summary.perDay}</span>
-                    </div>
-                  )}
-                  {cfg.liftTicket && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-white/60">{t.summary.liftTicket}</span>
-                      <span className="text-white">{fmt(totals.ticketPerDay)} {t.summary.perDay}</span>
                     </div>
                   )}
 
