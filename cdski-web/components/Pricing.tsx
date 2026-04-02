@@ -5,25 +5,43 @@ import { motion, AnimatePresence } from "framer-motion";
 import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
-// ─── Pricing Data (CLP per person per session) ───
+// ─── Pricing Data (CLP per person per session) — +20% applied ───
+const USD_RATE = 950; // CLP per 1 USD (approximate)
+
 const PRICES = {
-  group: { half: 65000, full: 128500 },
-  private: { half: 102700, full: 188500 },
-  equipmentAdult: 25000,
-  equipmentChild: 20000,
+  group: { half: 78000, full: 154200 },   // was 65k/128.5k → +20%
+  private: { half: 123200, full: 226200 }, // was 102.7k/188.5k → +20%
+  equipment: 65000, // flat per person, includes ski/snowboard + boots + poles + helmet
   liftTicketAdult: 29000,
   liftTicketChild: 22000,
   childDiscount: 0.15,
 };
 
-function fmt(n: number) {
+const SCHEDULES = {
+  half: {
+    morning: { start: "09:00", end: "12:00" },
+    afternoon: { start: "14:00", end: "17:00" },
+  },
+  full: {
+    start: "09:00",
+    end: "17:00",
+    break: "12:00 - 14:00",
+  },
+};
+
+function fmtCLP(n: number) {
   return "$" + Math.round(n).toLocaleString("es-CL");
+}
+
+function fmtUSD(n: number) {
+  return "US$" + Math.round(n / USD_RATE).toLocaleString("en-US");
 }
 
 type Cfg = {
   activity: "ski" | "snowboard";
   lessonType: "group" | "private";
   duration: "half" | "full";
+  schedule: "morning" | "afternoon";
   adults: number;
   children: number;
   days: number;
@@ -35,12 +53,10 @@ function calc(c: Cfg) {
   const basePrice = PRICES[c.lessonType][c.duration];
   const childPrice = basePrice * (1 - PRICES.childDiscount);
 
-  const lessonAdults = basePrice * c.adults;
-  const lessonChildren = childPrice * c.children;
-  const lessonsPerDay = lessonAdults + lessonChildren;
+  const lessonsPerDay = basePrice * c.adults + childPrice * c.children;
 
   const eqPerDay = c.equipment
-    ? PRICES.equipmentAdult * c.adults + PRICES.equipmentChild * c.children
+    ? PRICES.equipment * (c.adults + c.children)
     : 0;
 
   const ticketPerDay = c.liftTicket
@@ -123,23 +139,30 @@ function Counter({
 function SwitchToggle({
   label,
   desc,
+  price,
   checked,
   onChange,
 }: {
   label: string;
   desc: string;
+  price?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between bg-white/5 rounded-xl px-5 py-3 border border-white/10">
-      <div>
-        <span className="text-white/70 text-sm">{label}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-white/70 text-sm">{label}</span>
+          {price && (
+            <span className="text-orange-400/70 text-xs font-medium">{price}</span>
+          )}
+        </div>
         <p className="text-white/30 text-xs mt-0.5">{desc}</p>
       </div>
       <button
         onClick={() => onChange(!checked)}
-        className={`relative w-12 h-7 rounded-full transition-colors ${
+        className={`relative w-12 h-7 rounded-full transition-colors shrink-0 ml-3 ${
           checked ? "bg-orange-500" : "bg-white/10"
         }`}
       >
@@ -159,19 +182,27 @@ function BookingModal({
   dict,
   cfg,
   totals,
+  currency,
   lang,
   onClose,
 }: {
   dict: Dictionary;
   cfg: Cfg;
   totals: ReturnType<typeof calc>;
+  currency: "CLP" | "USD";
   lang: string;
   onClose: () => void;
 }) {
   const t = dict.pricing.bookingModal;
+  const fmt = currency === "USD" ? fmtUSD : fmtCLP;
   const [form, setForm] = useState({ name: "", email: "", phone: "", date: "", comments: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+
+  function getScheduleLabel() {
+    if (cfg.duration === "full") return `09:00 - 17:00 (${dict.pricing.calculator.scheduleBreak})`;
+    return cfg.schedule === "morning" ? "09:00 - 12:00" : "14:00 - 17:00";
+  }
 
   function buildSummaryText() {
     const actLabel = dict.pricing.calculator.activityOptions[cfg.activity];
@@ -182,14 +213,15 @@ function BookingModal({
       `Activity: ${actLabel}`,
       `Type: ${typeLabel}`,
       `Duration: ${durLabel}`,
+      `Schedule: ${getScheduleLabel()}`,
       `Adults: ${cfg.adults}`,
       `Children: ${cfg.children}`,
       `Days: ${cfg.days}`,
       `Equipment: ${cfg.equipment ? "Yes" : "No"}`,
       `Lift Ticket: ${cfg.liftTicket ? "Yes" : "No"}`,
       ``,
-      `Subtotal/day: ${fmt(totals.subtotalPerDay)}`,
-      `TOTAL: ${fmt(totals.total)} CLP`,
+      `Subtotal/day: ${fmtCLP(totals.subtotalPerDay)} CLP (${fmtUSD(totals.subtotalPerDay)})`,
+      `TOTAL: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
       ``,
       `Name: ${form.name}`,
       `Email: ${form.email}`,
@@ -221,14 +253,13 @@ function BookingModal({
           date: form.date,
           comments: form.comments,
           summary,
-          total: fmt(totals.total),
+          total: `${fmtCLP(totals.total)} (${fmtUSD(totals.total)})`,
           lang,
         }),
       });
       if (!res.ok) throw new Error("Failed");
       setStatus("success");
     } catch {
-      // Fallback: open mailto
       const subject = encodeURIComponent("CDSKI Booking Request - " + form.name);
       const body = encodeURIComponent(buildSummaryText());
       window.open(
@@ -284,7 +315,10 @@ function BookingModal({
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
                 <div className="flex justify-between items-center">
                   <span className="text-orange-300 text-sm font-medium">Total</span>
-                  <span className="text-orange-400 text-xl font-bold">{fmt(totals.total)} CLP</span>
+                  <div className="text-right">
+                    <span className="text-orange-400 text-xl font-bold">{fmtCLP(totals.total)}</span>
+                    <span className="text-orange-300/60 text-sm ml-2">({fmtUSD(totals.total)})</span>
+                  </div>
                 </div>
               </div>
 
@@ -358,16 +392,26 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
     activity: "ski",
     lessonType: "group",
     duration: "half",
+    schedule: "morning",
     adults: 2,
     children: 0,
     days: 1,
-    equipment: true,
+    equipment: false,
     liftTicket: true,
   });
+  const [currency, setCurrency] = useState<"CLP" | "USD">("CLP");
   const [showModal, setShowModal] = useState(false);
 
+  const fmt = currency === "USD" ? fmtUSD : fmtCLP;
   const totalPeople = cfg.adults + cfg.children;
   const totals = totalPeople > 0 ? calc(cfg) : { lessonsPerDay: 0, eqPerDay: 0, ticketPerDay: 0, subtotalPerDay: 0, total: 0 };
+
+  function getScheduleDisplay() {
+    if (cfg.duration === "full") {
+      return `09:00 - 17:00 (${t.calculator.scheduleBreak})`;
+    }
+    return cfg.schedule === "morning" ? "09:00 - 12:00" : "14:00 - 17:00";
+  }
 
   function buildWhatsAppMsg() {
     const actLabel = t.calculator.activityOptions[cfg.activity];
@@ -376,11 +420,12 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
     const msg = [
       `Hola! Quiero reservar clases con CDSKI:`,
       `- ${actLabel} / ${typeLabel} / ${durLabel}`,
+      `- Horario: ${getScheduleDisplay()}`,
       `- ${cfg.adults} adulto(s), ${cfg.children} niño(s)`,
       `- ${cfg.days} día(s)`,
       `- Equipo: ${cfg.equipment ? "Sí" : "No"}`,
       `- Ticket: ${cfg.liftTicket ? "Sí" : "No"}`,
-      `- Total estimado: ${fmt(totals.total)} CLP`,
+      `- Total estimado: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
     ].join("\n");
     return encodeURIComponent(msg);
   }
@@ -406,8 +451,8 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                   value={cfg.activity}
                   onChange={(v) => setCfg({ ...cfg, activity: v as "ski" | "snowboard" })}
                   options={[
-                    { value: "ski", label: `${t.calculator.activityOptions.ski}` },
-                    { value: "snowboard", label: `${t.calculator.activityOptions.snowboard}` },
+                    { value: "ski", label: t.calculator.activityOptions.ski },
+                    { value: "snowboard", label: t.calculator.activityOptions.snowboard },
                   ]}
                 />
               </div>
@@ -434,12 +479,42 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 </label>
                 <Toggle
                   value={cfg.duration}
-                  onChange={(v) => setCfg({ ...cfg, duration: v as "half" | "full" })}
+                  onChange={(v) => {
+                    const dur = v as "half" | "full";
+                    setCfg({ ...cfg, duration: dur, ...(dur === "full" ? { schedule: "morning" } : {}) });
+                  }}
                   options={[
                     { value: "half", label: t.calculator.durationOptions.half },
                     { value: "full", label: t.calculator.durationOptions.full },
                   ]}
                 />
+              </div>
+
+              {/* Schedule */}
+              <div>
+                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                  {t.calculator.schedule}
+                </label>
+                {cfg.duration === "full" ? (
+                  <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <span className="text-white text-sm font-medium">09:00 - 17:00</span>
+                      <span className="text-white/30 text-xs ml-2">({t.calculator.scheduleBreak})</span>
+                    </div>
+                  </div>
+                ) : (
+                  <Toggle
+                    value={cfg.schedule}
+                    onChange={(v) => setCfg({ ...cfg, schedule: v as "morning" | "afternoon" })}
+                    options={[
+                      { value: "morning", label: `${t.calculator.scheduleMorning} (09:00 - 12:00)` },
+                      { value: "afternoon", label: `${t.calculator.scheduleAfternoon} (14:00 - 17:00)` },
+                    ]}
+                  />
+                )}
               </div>
 
               <div className="border-t border-white/5 pt-5 space-y-3">
@@ -470,9 +545,13 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 <SwitchToggle
                   label={t.calculator.equipment}
                   desc={t.calculator.equipmentDesc}
+                  price={`${fmtCLP(PRICES.equipment)}/pp`}
                   checked={cfg.equipment}
                   onChange={(v) => setCfg({ ...cfg, equipment: v })}
                 />
+                <p className="text-white/25 text-[11px] leading-relaxed px-1">
+                  {t.calculator.equipmentNote}
+                </p>
                 <SwitchToggle
                   label={t.calculator.liftTicket}
                   desc={t.calculator.liftTicketDesc}
@@ -486,8 +565,27 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
           {/* ── Summary Panel ── */}
           <AnimatedSection delay={0.2} className="lg:col-span-2">
             <div className="bg-gradient-to-b from-white/[0.07] to-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden sticky top-24">
-              <div className="bg-orange-500/10 border-b border-orange-500/20 px-6 py-4">
+              <div className="bg-orange-500/10 border-b border-orange-500/20 px-6 py-4 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-white">{t.summary.title}</h3>
+                {/* Currency toggle */}
+                <div className="flex bg-white/10 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setCurrency("CLP")}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                      currency === "CLP" ? "bg-orange-500 text-white" : "text-white/50"
+                    }`}
+                  >
+                    CLP
+                  </button>
+                  <button
+                    onClick={() => setCurrency("USD")}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                      currency === "USD" ? "bg-orange-500 text-white" : "text-white/50"
+                    }`}
+                  >
+                    USD
+                  </button>
+                </div>
               </div>
 
               <div className="p-6 space-y-4">
@@ -502,6 +600,14 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                   <span className="px-3 py-1 bg-purple-500/10 text-purple-300 text-xs rounded-full border border-purple-500/20">
                     {t.calculator.durationOptions[cfg.duration]}
                   </span>
+                </div>
+
+                {/* Schedule info */}
+                <div className="flex items-center gap-2 text-white/40 text-xs">
+                  <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{getScheduleDisplay()}</span>
                 </div>
 
                 <div className="text-white/40 text-xs">
@@ -540,14 +646,22 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 </div>
 
                 {/* Total */}
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 flex justify-between items-center">
-                  <span className="text-orange-300 font-medium">{t.summary.total}</span>
-                  <span className="text-2xl font-bold text-white">{fmt(totals.total)}</span>
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-orange-300 font-medium">{t.summary.total}</span>
+                    <span className="text-2xl font-bold text-white">{fmt(totals.total)}</span>
+                  </div>
+                  {currency === "CLP" && (
+                    <div className="text-right text-white/30 text-xs mt-1">
+                      ≈ {fmtUSD(totals.total)}
+                    </div>
+                  )}
+                  {currency === "USD" && (
+                    <div className="text-right text-white/30 text-xs mt-1">
+                      ≈ {fmtCLP(totals.total)} CLP
+                    </div>
+                  )}
                 </div>
-
-                {cfg.lessonType === "group" && (
-                  <p className="text-white/30 text-[11px] leading-relaxed">{t.summary.groupNote}</p>
-                )}
 
                 {/* Action buttons */}
                 <div className="space-y-3 pt-2">
@@ -583,6 +697,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
             dict={dict}
             cfg={cfg}
             totals={totals}
+            currency={currency}
             lang={lang}
             onClose={() => setShowModal(false)}
           />
