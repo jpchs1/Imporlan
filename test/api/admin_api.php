@@ -128,8 +128,11 @@ function requireAuth() {
 }
 
 function handleLogin() {
+    require_once __DIR__ . '/../../api/antispam.php';
+    imporlan_login_protection();
+
     $input = json_decode(file_get_contents('php://input'), true);
-    
+
     $email = $input['email'] ?? '';
     $password = $input['password'] ?? '';
     

@@ -4,9 +4,8 @@
  * Generates a secure reset token, stores it on the server, and emails
  * a reset link to contacto@imporlan.cl so the admin can set a new password.
  */
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+require_once __DIR__ . '/cors_helper.php';
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

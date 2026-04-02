@@ -44,9 +44,16 @@ $protectedFiles = [
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Verificar token
-$token = $_GET['token'] ?? '';
-if ($token !== DEPLOY_TOKEN) {
+// Verificar token - accept via Authorization header or GET parameter
+$headers = getallheaders();
+$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+$token = '';
+if (preg_match('/Bearer\s+(.+)/', $authHeader, $m)) {
+    $token = $m[1];
+} else {
+    $token = $_GET['token'] ?? '';
+}
+if (!$token || !hash_equals(DEPLOY_TOKEN, $token)) {
     http_response_code(403);
     die(json_encode(['success' => false, 'error' => 'Invalid token']));
 }
@@ -113,8 +120,19 @@ if ($action === 'sync_files') {
         '.htaccess',
     ];
 
+    // Validate custom files - block path traversal
     if (!empty($customFiles)) {
-        $filesToSync = array_unique(array_merge($filesToSync, $customFiles));
+        $safeCustomFiles = array_filter($customFiles, function($f) {
+            $f = trim($f);
+            // Block path traversal and absolute paths
+            if (strpos($f, '..') !== false || strpos($f, '/') === 0 || strpos($f, '\\') !== false) {
+                return false;
+            }
+            // Only allow known safe extensions
+            $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
+            return in_array($ext, ['js', 'css', 'html', 'php', 'json']);
+        });
+        $filesToSync = array_unique(array_merge($filesToSync, $safeCustomFiles));
     }
     
     $ghRawBase = 'https://raw.githubusercontent.com/jpchs1/Imporlan/main/';

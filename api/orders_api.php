@@ -23,9 +23,8 @@ require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    require_once __DIR__ . '/cors_helper.php';
+    setCorsHeadersSecure();
     header('Content-Type: application/json');
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -41,10 +40,12 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             runMigration();
             break;
         case 'user_list':
-            userListOrders();
+            $userPayload = requireUserAuthShared();
+            userListOrders($userPayload);
             break;
         case 'user_detail':
-            userGetOrderDetail();
+            $userPayload = requireUserAuthShared();
+            userGetOrderDetail($userPayload);
             break;
         case 'admin_list':
             requireAdminAuth();
@@ -306,9 +307,10 @@ function computeTimelineStep($pdo, $order) {
     return $step;
 }
 
-function userListOrders() {
-    $userEmail = $_GET['user_email'] ?? '';
-    $userId = $_GET['user_id'] ?? '';
+function userListOrders($authPayload = null) {
+    // Use email from verified JWT token, not from untrusted GET parameter
+    $userEmail = $authPayload['email'] ?? $_GET['user_email'] ?? '';
+    $userId = $authPayload['sub'] ?? $_GET['user_id'] ?? '';
 
     if (!$userEmail && !$userId) {
         http_response_code(400);
@@ -353,10 +355,11 @@ function userListOrders() {
     }
 }
 
-function userGetOrderDetail() {
+function userGetOrderDetail($authPayload = null) {
     $orderId = intval($_GET['id'] ?? 0);
-    $userEmail = $_GET['user_email'] ?? '';
-    $userId = $_GET['user_id'] ?? '';
+    // Use email from verified JWT token, not from untrusted GET parameter
+    $userEmail = $authPayload['email'] ?? $_GET['user_email'] ?? '';
+    $userId = $authPayload['sub'] ?? $_GET['user_id'] ?? '';
 
     if (!$orderId || (!$userEmail && !$userId)) {
         http_response_code(400);

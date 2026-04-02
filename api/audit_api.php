@@ -14,9 +14,8 @@
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once __DIR__ . '/cors_helper.php';
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -161,8 +160,10 @@ function auditList() {
             SELECT * FROM audit_log
             $whereClause
             ORDER BY created_at DESC
-            LIMIT $limit OFFSET $offset
+            LIMIT ? OFFSET ?
         ");
+        $params[] = $limit;
+        $params[] = $offset;
         $stmt->execute($params);
         $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode([

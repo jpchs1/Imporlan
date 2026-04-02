@@ -6,9 +6,8 @@
  * Soporta usuarios del panel cliente y admin/soporte
  */
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once __DIR__ . '/cors_helper.php';
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -19,9 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/email_service.php';
 
-// Load JWT configuration - use the same secret as admin_api.php
+// Load JWT configuration from centralized credentials
+require_once __DIR__ . '/credentials.php';
 if (!defined('JWT_SECRET')) {
-    define('JWT_SECRET', 'imporlan-admin-secret-key-2026');
+    define('JWT_SECRET', IMPORLAN_JWT_SECRET);
 }
 if (!defined('ADMIN_EMAIL')) {
     define('ADMIN_EMAIL', getenv('ADMIN_EMAIL') ?: 'admin@imporlan.cl');
@@ -164,48 +164,15 @@ function requireUserAuth() {
         exit();
     }
     
-    // Try to verify the JWT with our secret
+    // Verify JWT with cryptographic signature - no bypass allowed
     $payload = verifyJWT($token);
-    
-    // If JWT verification fails but we have email from header, create a basic payload
-    // This handles the case where the user panel uses a different JWT secret
-    if (!$payload && $userEmail) {
-        // Decode the token payload without verifying signature
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                // Token is not expired, trust the email from header
-                $payload = [
-                    'sub' => $tokenPayload['sub'] ?? '0',
-                    'email' => $userEmail,
-                    'name' => $userName,
-                    'exp' => $tokenPayload['exp']
-                ];
-            }
-        }
-    }
-    
+
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
         exit();
     }
-    
-    // If email is not in the payload, use the one from header
-    if (!isset($payload['email']) || empty($payload['email'])) {
-        if ($userEmail) {
-            $payload['email'] = $userEmail;
-        }
-    }
-    
-    // If name is not in the payload, use the one from header
-    if (!isset($payload['name']) || empty($payload['name'])) {
-        if ($userName) {
-            $payload['name'] = $userName;
-        }
-    }
-    
+
     return $payload;
 }
 
@@ -219,22 +186,7 @@ function requireAdminAuth() {
     }
     
     $payload = verifyJWT($token);
-    
-    // If JWT verification fails, try to decode without verifying signature
-    // This handles the case where the admin panel uses a different JWT secret
-    if (!$payload) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                // Token is not expired, check if it has admin/support role
-                if (isset($tokenPayload['role']) && in_array($tokenPayload['role'], ['admin', 'support'])) {
-                    $payload = $tokenPayload;
-                }
-            }
-        }
-    }
-    
+
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);

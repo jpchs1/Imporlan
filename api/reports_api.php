@@ -23,13 +23,12 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     $action = $_GET['action'] ?? '';
     $isHtmlAction = in_array($action, ['view', 'view_report', 'download', 'download_pdf']);
     
+    require_once __DIR__ . '/cors_helper.php';
     if (!$isHtmlAction) {
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Email, X-User-Name');
+        setCorsHeadersSecure();
         header('Content-Type: application/json');
     } else {
-        header('Access-Control-Allow-Origin: *');
+        setCorsHeadersSecure();
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {

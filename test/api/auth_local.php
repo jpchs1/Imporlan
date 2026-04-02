@@ -96,6 +96,9 @@ function buildUserResponse($user, $token = null) {
 }
 
 function handleLogin() {
+    require_once __DIR__ . '/../../api/antispam.php';
+    imporlan_login_protection();
+
     $input = json_decode(file_get_contents('php://input'), true);
     $email = trim($input['email'] ?? $input['username'] ?? '');
     $password = $input['password'] ?? '';

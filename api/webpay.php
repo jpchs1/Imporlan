@@ -15,9 +15,20 @@ require_once 'config.php';
 require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/db_config.php';
 
-// WebPay Plus Production Credentials
-define('WEBPAY_COMMERCE_CODE', '597034812373');
-define('WEBPAY_API_KEY_SECRET', '464a2bf8092ad625b634ccf4bb506440');
+// WebPay Plus Production Credentials - loaded from external config
+$webpayConfigFile = '/home/wwimpo/webpay_config.php';
+if (file_exists($webpayConfigFile)) {
+    require_once $webpayConfigFile;
+}
+if (!defined('WEBPAY_COMMERCE_CODE')) {
+    define('WEBPAY_COMMERCE_CODE', getenv('WEBPAY_COMMERCE_CODE') ?: '');
+}
+if (!defined('WEBPAY_API_KEY_SECRET')) {
+    define('WEBPAY_API_KEY_SECRET', getenv('WEBPAY_API_KEY_SECRET') ?: '');
+}
+if (!WEBPAY_COMMERCE_CODE || !WEBPAY_API_KEY_SECRET) {
+    error_log('CRITICAL: WebPay credentials not configured');
+}
 define('WEBPAY_API_URL', 'https://webpay3g.transbank.cl');
 
 // Detect callback BEFORE setting CORS/JSON headers.
