@@ -161,5 +161,158 @@ export const blogPosts: BlogPost[] = [
       en: "<p>Safety is our number one priority. All our instructors are trained in mountain first aid and know the emergency protocols at each ski resort.</p><p>Before each lesson, we check weather conditions, slope status, and each student's equipment. Helmets are mandatory for all levels and we ensure boots and bindings are properly adjusted.</p><p>We respect the mountain and teach our students slope etiquette: right of way, controlled speed, and respect for other skiers.</p>",
       pt: "<p>A segurança é nossa prioridade número um. Todos os nossos instrutores são capacitados em primeiros socorros de montanha e conhecem os protocolos de emergência.</p><p>Antes de cada aula verificamos as condições climáticas, o estado das pistas e o equipamento de cada aluno. Capacete é obrigatório para todos os níveis.</p><p>Respeitamos a montanha e ensinamos as regras de convivência na pista: prioridade de passagem, velocidade controlada e respeito pelos outros esquiadores.</p>"
     }
+  },
+  {
+    slug: "centro-de-ski-el-colorado",
+    date: "2016-08-08",
+    image: "/test/images/ski-mountain-duo.jpg",
+    category: "blog" as const,
+    title: { es: "El Colorado Centro de Ski", en: "El Colorado Ski Resort", pt: "El Colorado Centro de Ski" },
+    excerpt: {
+      es: "A solo 36 km de Santiago, El Colorado cuenta con 112 pistas y 1.100 hectáreas de superficie esquiable. El centro ideal para familias y jóvenes.",
+      en: "Just 36 km from Santiago, El Colorado features 112 runs and 1,100 hectares of skiable terrain. The ideal resort for families and youth.",
+      pt: "A apenas 36 km de Santiago, El Colorado conta com 112 pistas e 1.100 hectares de superfície esquiável. O centro ideal para famílias."
+    },
+    content: {
+      es: "<p>El Colorado Centro de Esquí, ubicado a 36 kilómetros de Santiago, fue creado por Los Pioneros que buscaban establecer un centro de ski cercano a la capital. En 1935 se construyó el primer refugio en Farellones y en 1948 el primer andarivel de arrastre.</p><p>La altura mínima es de 2.560 metros (pista Los Zorros) y alcanza más de 3.300 metros sobre el nivel del mar, con un desnivel de 1.090 metros. Actualmente cuenta con 112 pistas y 1.100 hectáreas de superficie esquiable, siendo uno de los mejores centros de Sudamérica.</p><p>Junto a La Parva y Valle Nevado, forman la mayor superficie esquiable de Sudamérica. El Colorado es el centro ideal para familias y jóvenes por su cercanía a Santiago, variedad de servicios y pistas para todos los niveles. Posee hoteles, departamentos, gastronomía variada y arriendo de equipo completo.</p>",
+      en: "<p>El Colorado Ski Resort, located 36 km from Santiago, was created by Los Pioneros who sought to establish a ski center near the capital. In 1935 the first shelter was built in Farellones, and in 1948 the first drag lift.</p><p>The minimum elevation is 2,560 meters (Los Zorros run) reaching over 3,300 meters above sea level, with 1,090 meters of vertical drop. It currently has 112 runs and 1,100 hectares of skiable terrain, making it one of the best in South America.</p><p>Together with La Parva and Valle Nevado, they form South America's largest skiable area. El Colorado is ideal for families due to its proximity to Santiago, variety of services, and runs for all levels.</p>",
+      pt: "<p>El Colorado, localizado a 36 km de Santiago, foi criado por Los Pioneros que buscavam estabelecer um centro de ski perto da capital. Em 1935 foi construído o primeiro refúgio em Farellones.</p><p>A altitude mínima é de 2.560 metros, alcançando mais de 3.300 metros, com 1.090 metros de desnível. Atualmente conta com 112 pistas e 1.100 hectares de superfície esquiável.</p><p>Junto com La Parva e Valle Nevado, formam a maior superfície esquiável da América do Sul. El Colorado é ideal para famílias pela proximidade com Santiago e variedade de serviços.</p>"
+    }
+  },
+  {
+    slug: "centro-de-ski-la-parva",
+    date: "2016-08-08",
+    image: "/test/images/skier-jump.jpg",
+    category: "blog" as const,
+    title: { es: "Centro de Ski La Parva", en: "La Parva Ski Resort", pt: "Centro de Ski La Parva" },
+    excerpt: {
+      es: "A 50 km de Santiago, La Parva ofrece las mejores vistas al valle y 38 km de pistas esquiables conectables con Valle Nevado.",
+      en: "50 km from Santiago, La Parva offers the best valley views and 38 km of skiable runs connectable to Valle Nevado.",
+      pt: "A 50 km de Santiago, La Parva oferece as melhores vistas ao vale e 38 km de pistas conectáveis com Valle Nevado."
+    },
+    content: {
+      es: "<p>Emplazado en uno de los sectores más hermosos de la Cordillera, a solo 50 km de Santiago, La Parva tiene una hermosa vista al valle de Santiago y es el centro invernal con mayor cantidad de refugios y departamentos privados.</p><p>Se encuentra a 2.750 metros de altura, con arquitectura bella y pistas de excelente nivel reconocidas mundialmente. Cuenta con 30 pistas y 38 km de terreno esquiable que se pueden extender conectándose con Valle Nevado.</p><p>Ofrece todos los servicios: alojamiento, restaurantes, escuela de ski, bares, arriendo de equipos y snowpark. La práctica del snowboard y heliski está implementada. Cuenta con más de 100 niños en entrenamiento en ski alpino y freestyle.</p>",
+      en: "<p>Set in one of the most beautiful sectors of the Andes, just 50 km from Santiago, La Parva offers stunning views of the Santiago valley and has the most private lodges and apartments of any winter resort.</p><p>At 2,750 meters altitude, it features beautiful architecture and world-renowned runs. It has 30 runs and 38 km of skiable terrain that can be extended by connecting to Valle Nevado.</p><p>It offers full services: lodging, restaurants, ski school, bars, equipment rental, and snowpark. Snowboard and heliski are available. Over 100 children train in alpine and freestyle skiing.</p>",
+      pt: "<p>Situado em um dos setores mais bonitos da Cordilheira, a 50 km de Santiago, La Parva tem uma vista deslumbrante do vale de Santiago e é o centro com mais refugios e apartamentos privados.</p><p>A 2.750 metros de altitude, conta com 30 pistas e 38 km de terreno esquiável que podem se estender conectando-se com Valle Nevado.</p><p>Oferece todos os serviços: hospedagem, restaurantes, escola de ski, bares e aluguel de equipamentos. Snowboard e heliski estão disponíveis.</p>"
+    }
+  },
+  {
+    slug: "childrens-snowboard-lessons",
+    date: "2016-08-08",
+    image: "/test/images/kids-ski-group.jpg",
+    category: "blog" as const,
+    title: { es: "Esquí y Snowboard para Niños en Chile", en: "Kids Ski & Snowboard Lessons in Chile", pt: "Aulas de Ski e Snowboard para Crianças no Chile" },
+    excerpt: {
+      es: "La diversión y seguridad de los niños es prioridad en los centros de ski. Clases grupales desde $50.000 CLP y privadas desde $150.000 CLP para niños desde 7 años.",
+      en: "Children's fun and safety are top priority at ski resorts. Group lessons from $50,000 CLP and private from $150,000 CLP for kids 7 and up.",
+      pt: "A diversão e segurança das crianças é prioridade nos centros de ski. Aulas em grupo desde $50.000 CLP e particulares desde $150.000 CLP para crianças a partir de 7 anos."
+    },
+    content: {
+      es: "<p>La diversión y seguridad de los niños es prioridad en los centros de ski de Chile. Los resorts cuentan con profesionales dedicados a enseñar los fundamentos del esquí a los más pequeños, desde los 7 años de edad.</p><p>Centros como El Colorado, Valle Nevado, La Parva y Portillo son ideales para que los niños aprendan a esquiar en distintos niveles. Ya sea mediante clases grupales o individuales, los resorts en las cercanías de Santiago ofrecen una gran oportunidad familiar.</p><p>Las clases grupales tienen un precio desde $50.000 CLP, mientras que las lecciones privadas cuestan desde $150.000 CLP. Niños menores de 7 años deben consultar la escuelita de cada centro de ski directamente.</p>",
+      en: "<p>Children's fun and safety are top priority at Chile's ski resorts. The resorts have professionals dedicated to teaching skiing fundamentals to children from age 7.</p><p>Centers like El Colorado, Valle Nevado, La Parva, and Portillo are ideal for kids to learn skiing at different levels. Whether through group or private lessons, Santiago's nearby resorts offer a great family opportunity.</p><p>Group lessons start at $50,000 CLP, while private lessons cost from $150,000 CLP. Children under 7 should check the ski school at each resort directly.</p>",
+      pt: "<p>A diversão e segurança das crianças é prioridade nos centros de ski do Chile. Os resorts contam com profissionais dedicados a ensinar os fundamentos do esqui para crianças a partir dos 7 anos.</p><p>Centros como El Colorado, Valle Nevado, La Parva e Portillo são ideais para as crianças aprenderem a esquiar. Seja em aulas em grupo ou particulares, os resorts perto de Santiago oferecem uma ótima oportunidade familiar.</p><p>Aulas em grupo começam a partir de $50.000 CLP e particulares desde $150.000 CLP. Crianças menores de 7 anos devem consultar a escolinha de cada centro de ski.</p>"
+    }
+  },
+  {
+    slug: "rental",
+    date: "2016-08-08",
+    image: "/test/images/snowboards-rack.jpg",
+    category: "blog" as const,
+    title: { es: "Arriendo de Equipo de Ski y Snowboard", en: "Ski & Snowboard Equipment Rental", pt: "Aluguel de Equipamento de Ski e Snowboard" },
+    excerpt: {
+      es: "El equipo que usas es clave para aprender. Te recomendamos las mejores opciones de arriendo en los centros de ski de Santiago.",
+      en: "The equipment you use is key to learning. We recommend the best rental options at Santiago's ski resorts.",
+      pt: "O equipamento que você usa é fundamental para aprender. Recomendamos as melhores opções de aluguel nos centros de ski de Santiago."
+    },
+    content: {
+      es: "<p>El equipo que usas es clave a la hora de aprender o querer mejorar nivel. Un equipo adecuado te permite progresar más rápido y disfrutar más de la experiencia en la montaña.</p><p>En CDSKI ofrecemos arriendo de equipo completo por $65.000 CLP por persona, que incluye ski o snowboard, botas, bastones y casco. El arriendo está sujeto a disponibilidad.</p><p>La ropa de nieve y guantes se arriendan directamente en el centro de ski. Te recomendamos llevar ropa térmica en capas, guantes impermeables, gorro y protector solar factor 50+. Si no tienes stock de equipo con nosotros, también puedes arrendar directamente en el centro de ski.</p>",
+      en: "<p>The equipment you use is key to learning and improving your skills. Proper equipment allows you to progress faster and enjoy the mountain experience more.</p><p>At CDSKI we offer full equipment rental for $65,000 CLP per person, including ski or snowboard, boots, poles, and helmet. Rental is subject to availability.</p><p>Snow clothing and gloves are rented directly at the ski resort. We recommend layered thermal clothing, waterproof gloves, hat, and SPF 50+ sunscreen.</p>",
+      pt: "<p>O equipamento que você usa é fundamental para aprender e melhorar. Um equipamento adequado permite progredir mais rápido e curtir mais a experiência na montanha.</p><p>Na CDSKI oferecemos aluguel de equipamento completo por $65.000 CLP por pessoa, incluindo ski ou snowboard, botas, bastões e capacete. Sujeito a disponibilidade.</p><p>Roupas de neve e luvas são alugadas diretamente no centro de ski. Recomendamos roupas térmicas em camadas, luvas impermeáveis e protetor solar fator 50+.</p>"
+    }
+  },
+  {
+    slug: "experiencias",
+    date: "2016-08-08",
+    image: "/test/images/ski-group-three.jpg",
+    category: "blog" as const,
+    title: { es: "Experiencias CDSKI — Empresas y Colegios", en: "CDSKI Experiences — Corporate & Schools", pt: "Experiências CDSKI — Empresas e Escolas" },
+    excerpt: {
+      es: "Aventuras de esquí exclusivas para empresas y colegios en Valle Nevado, La Parva y El Colorado. Team building en la montaña.",
+      en: "Exclusive ski adventures for companies and schools at Valle Nevado, La Parva, and El Colorado. Mountain team building.",
+      pt: "Aventuras de ski exclusivas para empresas e escolas em Valle Nevado, La Parva e El Colorado. Team building na montanha."
+    },
+    content: {
+      es: "<p>CDSKI ofrece experiencias exclusivas para empresas y colegios en los principales centros de ski cerca de Santiago: Valle Nevado, La Parva y El Colorado. Organizamos jornadas completas de team building en la montaña.</p><p>Nuestras experiencias corporativas incluyen clases de ski o snowboard grupales, guía de montaña, coordinación logística completa y actividades personalizadas según los objetivos del grupo.</p><p>Para colegios, ofrecemos programas educativos en la nieve que combinan deporte, naturaleza y aprendizaje. Los estudiantes aprenden a esquiar mientras desarrollan habilidades de trabajo en equipo y superación personal. ¡Contáctanos para diseñar tu experiencia a medida!</p>",
+      en: "<p>CDSKI offers exclusive experiences for companies and schools at Santiago's main ski resorts: Valle Nevado, La Parva, and El Colorado. We organize complete mountain team building days.</p><p>Our corporate experiences include group ski or snowboard lessons, mountain guide, complete logistics coordination, and personalized activities according to group objectives.</p><p>For schools, we offer educational snow programs combining sport, nature, and learning. Students learn to ski while developing teamwork and personal growth skills. Contact us to design your custom experience!</p>",
+      pt: "<p>A CDSKI oferece experiências exclusivas para empresas e escolas nos principais centros de ski perto de Santiago: Valle Nevado, La Parva e El Colorado. Organizamos dias completos de team building na montanha.</p><p>Nossas experiências corporativas incluem aulas de ski ou snowboard em grupo, guia de montanha, coordenação logística completa e atividades personalizadas.</p><p>Para escolas, oferecemos programas educativos na neve que combinam esporte, natureza e aprendizado. Entre em contato para desenhar sua experiência sob medida!</p>"
+    }
+  },
+  {
+    slug: "donde-alojar-en-la-nieve",
+    date: "2016-08-08",
+    image: "/test/images/ski-mountain-duo.jpg",
+    category: "blog" as const,
+    title: { es: "¿Dónde Alojar si Vas a la Nieve?", en: "Where to Stay When Going to the Snow?", pt: "Onde se Hospedar se Vai à Neve?" },
+    excerpt: {
+      es: "Guía de alojamiento cerca de los centros de ski de Santiago. Hoteles, departamentos y opciones para todos los presupuestos.",
+      en: "Accommodation guide near Santiago's ski resorts. Hotels, apartments, and options for every budget.",
+      pt: "Guia de hospedagem perto dos centros de ski de Santiago. Hotéis, apartamentos e opções para todos os orçamentos."
+    },
+    content: {
+      es: "<p>Si vas a disfrutar de la nieve en los centros de ski cercanos a Santiago, tienes varias opciones de alojamiento. En Lo Barnechea y La Dehesa encontrarás hoteles modernos a pocos kilómetros de la subida a la montaña.</p><p>Valle Nevado cuenta con tres hoteles propios dentro del resort: Valle Nevado, Puerta del Sol y Tres Puntas, ideales para quienes quieren vivir la experiencia completa en la montaña sin preocuparse del transporte diario.</p><p>Farellones ofrece departamentos y refugios más económicos, perfectos para familias y grupos. También puedes alojarte en Santiago y subir cada día — el trayecto dura aproximadamente 1.5 horas desde Las Condes. CDSKI ofrece servicio de traslado en vehículo particular para grupos de 4 o más personas.</p>",
+      en: "<p>If you're going to enjoy the snow at Santiago's nearby ski resorts, you have several accommodation options. In Lo Barnechea and La Dehesa you'll find modern hotels just kilometers from the mountain road.</p><p>Valle Nevado has three hotels within the resort: Valle Nevado, Puerta del Sol, and Tres Puntas, ideal for those wanting the complete mountain experience without daily transport concerns.</p><p>Farellones offers more affordable apartments and lodges, perfect for families and groups. You can also stay in Santiago and go up daily — the drive takes about 1.5 hours from Las Condes. CDSKI offers private vehicle transfer for groups of 4 or more.</p>",
+      pt: "<p>Se você vai curtir a neve nos centros de ski perto de Santiago, tem várias opções de hospedagem. Em Lo Barnechea e La Dehesa encontrará hotéis modernos a poucos quilômetros da subida à montanha.</p><p>Valle Nevado conta com três hotéis próprios dentro do resort: Valle Nevado, Puerta del Sol e Tres Puntas, ideais para quem quer viver a experiência completa na montanha.</p><p>Farellones oferece apartamentos e refúgios mais econômicos, perfeitos para famílias. Também pode se hospedar em Santiago e subir diariamente. A CDSKI oferece traslado em veículo particular para grupos de 4 ou mais pessoas.</p>"
+    }
+  },
+  {
+    slug: "a-la-nieve-en-helicoptero",
+    date: "2016-08-08",
+    image: "/test/images/heliski.jpg",
+    category: "blog" as const,
+    title: { es: "A la Nieve en Helicóptero", en: "To the Snow by Helicopter", pt: "À Neve de Helicóptero" },
+    excerpt: {
+      es: "La forma más adrenalínica de llegar a Valle Nevado: 15 minutos de vuelo desde Santiago. Capacidad 5 pasajeros, desde $1.370 USD por tramo.",
+      en: "The most thrilling way to reach Valle Nevado: 15-minute flight from Santiago. 5-passenger capacity, from $1,370 USD per leg.",
+      pt: "A forma mais adrenalínica de chegar a Valle Nevado: 15 minutos de voo desde Santiago. Capacidade 5 passageiros, desde $1.370 USD por trecho."
+    },
+    content: {
+      es: "<p>Entre todas las posibilidades para subir a Valle Nevado, sin duda subir en helicóptero es la más adrenalínica. Un recuerdo único volando sobre Santiago adentrándose al corazón de la Cordillera de los Andes para disfrutar de la mejor nieve de Sudamérica.</p><p>El viaje dura solo 15 minutos desde el Aeródromo Tobalaba. Los helicópteros tienen capacidad para 5 pasajeros sin equipaje. El precio es de $1.370 USD por tramo (en base a helicóptero con capacidad para 4 pasajeros).</p><p>Las tarifas son por vuelo, independiente del número de pasajeros. Se consideran pasajeros todos los mayores de 2 años. Reservas al +56 9 4021 1459 o info@clasesdeski.cl</p>",
+      en: "<p>Among all the ways to get to Valle Nevado, going by helicopter is undoubtedly the most thrilling. A unique experience flying over Santiago into the heart of the Andes to enjoy South America's best snow.</p><p>The trip takes just 15 minutes from Tobalaba Aerodrome. Helicopters have capacity for 5 passengers without luggage. The price is $1,370 USD per leg (based on a 4-passenger helicopter).</p><p>Rates are per flight, regardless of the number of passengers. All passengers over 2 years old count. Book at +56 9 4021 1459 or info@clasesdeski.cl</p>",
+      pt: "<p>Entre todas as formas de chegar a Valle Nevado, subir de helicóptero é sem dúvida a mais adrenalínica. Uma experiência única voando sobre Santiago até o coração dos Andes.</p><p>A viagem dura apenas 15 minutos do Aeródromo Tobalaba. Os helicópteros têm capacidade para 5 passageiros sem bagagem. O preço é de $1.370 USD por trecho.</p><p>As tarifas são por voo, independente do número de passageiros. Reservas pelo +56 9 4021 1459 ou info@clasesdeski.cl</p>"
+    }
+  },
+  {
+    slug: "aulas-de-ski",
+    date: "2023-07-22",
+    image: "/test/images/ski-group-three.jpg",
+    category: "blog" as const,
+    title: { es: "Aulas de Ski no Chile (Português)", en: "Ski Lessons in Chile (Portuguese)", pt: "Aulas de Ski no Chile | CDSKI" },
+    excerpt: {
+      es: "Artículo en portugués sobre clases de ski en Chile para turistas brasileños.",
+      en: "Portuguese article about ski lessons in Chile for Brazilian tourists.",
+      pt: "Aprenda a esquiar nos melhores centros de ski do Chile. El Colorado e Valle Nevado oferecem a experiência perfeita para brasileiros."
+    },
+    content: {
+      es: "<p>Artículo dedicado a nuestros amigos brasileños que visitan Chile para esquiar. Las aulas de ski en El Colorado y Valle Nevado son la opción perfecta para quienes buscan aventura en la Cordillera de los Andes.</p>",
+      en: "<p>Article dedicated to our Brazilian friends visiting Chile to ski. Ski lessons at El Colorado and Valle Nevado are the perfect option for those seeking adventure in the Andes.</p>",
+      pt: "<p>Se você está buscando aventura e emoção em meio a belas paisagens de inverno, as aulas de ski nos centros de El Colorado e Valle Nevado são a opção perfeita. Deslizar pelas majestosas montanhas cobertas de neve é uma experiência inesquecível.</p><p>El Colorado e Valle Nevado são dois dos centros de ski mais destacados da região, conhecidos por suas excelentes instalações e pistas bem cuidadas. As aulas são ministradas por instrutores privados que conhecem as montanhas perfeitamente.</p><p>Nossos instrutores falam português! Atendemos turistas brasileiros com todo o carinho e dedicação. Reserve suas aulas pelo WhatsApp +56 9 4021 1459.</p>"
+    }
+  },
+  {
+    slug: "aulas-de-snowboard-2",
+    date: "2023-07-22",
+    image: "/test/images/young-skier.jpg",
+    category: "blog" as const,
+    title: { es: "Aulas de Snowboard no Chile (Português)", en: "Snowboard Lessons in Chile (Portuguese)", pt: "Aulas de Snowboard no Chile | CDSKI" },
+    excerpt: {
+      es: "Artículo en portugués sobre clases de snowboard para turistas brasileños.",
+      en: "Portuguese article about snowboard lessons for Brazilian tourists.",
+      pt: "Domine as montanhas nevadas do Chile com aulas de snowboard personalizadas. Instrutores que falam português para turistas brasileiros."
+    },
+    content: {
+      es: "<p>Artículo dedicado a turistas brasileños interesados en aprender snowboard en Chile.</p>",
+      en: "<p>Article for Brazilian tourists interested in learning snowboard in Chile.</p>",
+      pt: "<p>As aulas de snowboard com instrutores privados oferecem atenção personalizada e exclusiva. Nossos instrutores conhecem as técnicas mais seguras, permitindo que você aprenda de forma segura e eficaz.</p><p>Com aulas particulares, você progredirá rapidamente, enfrentando diferentes desafios com o apoio de um instrutor dedicado. As aulas são adaptadas completamente ao seu nível de habilidade e objetivos pessoais.</p><p>Oferecemos aulas em Valle Nevado, El Colorado e La Parva. Nossos instrutores falam português fluente! Reserve pelo WhatsApp +56 9 4021 1459.</p>"
+    }
   }
 ];
