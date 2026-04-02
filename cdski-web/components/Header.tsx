@@ -34,16 +34,16 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-[#0a1628]/90 backdrop-blur-xl shadow-2xl border-b border-white/5"
+          ? "bg-white/95 backdrop-blur-xl shadow-lg border-b border-slate-200"
           : "bg-transparent"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <a href="#" className="flex items-center gap-3">
-            <img src="/images/logo-cdski.png" alt="Clases de Ski" className="h-12 w-12 rounded-lg" />
-            <span className="text-xl font-bold text-white tracking-tight hidden sm:block" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-              Clases de <span className="text-orange-400">Ski</span>
+            <img src="/images/logo-cdski.png" alt="CDSKI" className="h-12 w-12 rounded-lg" />
+            <span className={`text-2xl font-bold tracking-tight hidden sm:block transition-colors ${scrolled ? "text-slate-800" : "text-white"}`} style={{ fontFamily: "'Montserrat', sans-serif" }}>
+              CD<span className="text-orange-500">SKI</span>
             </span>
           </a>
 
@@ -52,7 +52,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
               <a
                 key={item.href}
                 href={item.href}
-                className="px-3 py-2 text-sm text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                className={`px-3 py-2 text-sm transition-colors rounded-lg ${scrolled ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100" : "text-white/80 hover:text-white hover:bg-white/5"}`}
               >
                 {item.label}
               </a>
@@ -63,7 +63,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
             <div className="hidden sm:flex items-center gap-1 text-lg" title="Chile · Brasil · USA">
               <span>🇨🇱</span><span>🇧🇷</span><span>🇺🇸</span>
             </div>
-            <div className="flex items-center gap-1 bg-white/10 rounded-full p-1">
+            <div className={`flex items-center gap-1 rounded-full p-1 ${scrolled ? "bg-slate-100" : "bg-white/10"}`}>
               {(["es", "en", "pt"] as const).map((l) => (
                 <a
                   key={l}
@@ -71,7 +71,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
                   className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
                     lang === l
                       ? "bg-orange-500 text-white"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
+                      : scrolled ? "text-slate-500 hover:text-slate-800" : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {langLabels[l]}
@@ -88,7 +88,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
 
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="lg:hidden text-white p-2"
+              className={`lg:hidden p-2 ${scrolled ? "text-slate-700" : "text-white"}`}
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +109,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden bg-[#0a1628]/95 backdrop-blur-xl border-t border-white/10"
+            className="lg:hidden bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-lg"
           >
             <div className="px-4 py-4 flex flex-col gap-1">
               {navItems.map((item) => (
@@ -117,7 +117,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
                   key={item.href}
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
-                  className="px-4 py-3 text-white/80 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  className="px-4 py-3 text-slate-600 hover:text-orange-500 hover:bg-slate-50 rounded-lg transition-colors"
                 >
                   {item.label}
                 </a>
