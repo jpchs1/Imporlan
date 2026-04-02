@@ -17,16 +17,10 @@ const PRICES = {
   childDiscount: 0.15,
 };
 
+// Real schedules from CDSKI
 const SCHEDULES = {
-  half: {
-    morning: { start: "09:00", end: "12:00" },
-    afternoon: { start: "14:00", end: "17:00" },
-  },
-  full: {
-    start: "09:00",
-    end: "17:00",
-    break: "12:00 - 14:00",
-  },
+  half: "11:00 - 14:00",
+  full: "11:00 - 13:30 + 14:30 - 16:30",
 };
 
 function fmtCLP(n: number) {
@@ -41,32 +35,36 @@ type Cfg = {
   activity: "ski" | "snowboard";
   lessonType: "group" | "private";
   duration: "half" | "full";
-  schedule: "morning" | "afternoon";
+  schedule: "morning" | "afternoon" | "block1" | "block2" | "block3";
   adults: number;
   children: number;
   days: number;
   equipment: boolean;
   liftTicket: boolean;
+  transfer: boolean;
 };
+
+const TRANSFER_PRICE = 35000; // per person
 
 function calc(c: Cfg) {
   const basePrice = PRICES[c.lessonType][c.duration];
   const childPrice = basePrice * (1 - PRICES.childDiscount);
+  const totalPeople = c.adults + c.children;
 
   const lessonsPerDay = basePrice * c.adults + childPrice * c.children;
 
   const eqPerDay = c.equipment
-    ? PRICES.equipment * (c.adults + c.children)
+    ? PRICES.equipment * totalPeople
     : 0;
 
-  const ticketPerDay = c.liftTicket
-    ? PRICES.liftTicketAdult * c.adults + PRICES.liftTicketChild * c.children
+  const transferPerDay = c.transfer && totalPeople >= 4
+    ? TRANSFER_PRICE * totalPeople
     : 0;
 
-  const subtotalPerDay = lessonsPerDay + eqPerDay + ticketPerDay;
+  const subtotalPerDay = lessonsPerDay + eqPerDay + transferPerDay;
   const total = subtotalPerDay * c.days;
 
-  return { lessonsPerDay, eqPerDay, ticketPerDay, subtotalPerDay, total };
+  return { lessonsPerDay, eqPerDay, transferPerDay, subtotalPerDay, total };
 }
 
 // ─── Sub-components ───
@@ -200,8 +198,7 @@ function BookingModal({
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
 
   function getScheduleLabel() {
-    if (cfg.duration === "full") return `09:00 - 17:00 (${dict.pricing.calculator.scheduleBreak})`;
-    return cfg.schedule === "morning" ? "09:00 - 12:00" : "14:00 - 17:00";
+    return cfg.duration === "full" ? SCHEDULES.full : SCHEDULES.half;
   }
 
   function buildSummaryText() {
@@ -218,6 +215,7 @@ function BookingModal({
       `Children: ${cfg.children}`,
       `Days: ${cfg.days}`,
       `Equipment: ${cfg.equipment ? "Yes" : "No"}`,
+      cfg.transfer && (cfg.adults + cfg.children) >= 4 ? `Transfer: Yes` : "",
       ``,
       `Subtotal/day: ${fmtCLP(totals.subtotalPerDay)} CLP (${fmtUSD(totals.subtotalPerDay)})`,
       `TOTAL: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
@@ -391,25 +389,23 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
     activity: "ski",
     lessonType: "group",
     duration: "half",
-    schedule: "morning",
+    schedule: "block1",
     adults: 2,
     children: 0,
     days: 1,
     equipment: false,
     liftTicket: false,
+    transfer: false,
   });
   const [currency, setCurrency] = useState<"CLP" | "USD">("CLP");
   const [showModal, setShowModal] = useState(false);
 
   const fmt = currency === "USD" ? fmtUSD : fmtCLP;
   const totalPeople = cfg.adults + cfg.children;
-  const totals = totalPeople > 0 ? calc(cfg) : { lessonsPerDay: 0, eqPerDay: 0, ticketPerDay: 0, subtotalPerDay: 0, total: 0 };
+  const totals = totalPeople > 0 ? calc(cfg) : { lessonsPerDay: 0, eqPerDay: 0, transferPerDay: 0, subtotalPerDay: 0, total: 0 };
 
   function getScheduleDisplay() {
-    if (cfg.duration === "full") {
-      return `09:00 - 17:00 (${t.calculator.scheduleBreak})`;
-    }
-    return cfg.schedule === "morning" ? "09:00 - 12:00" : "14:00 - 17:00";
+    return cfg.duration === "full" ? SCHEDULES.full : SCHEDULES.half;
   }
 
   function buildWhatsAppMsg() {
@@ -423,6 +419,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
       `- ${cfg.adults} adulto(s), ${cfg.children} niño(s)`,
       `- ${cfg.days} día(s)`,
       `- Equipo: ${cfg.equipment ? "Sí" : "No"}`,
+      cfg.transfer && totalPeople >= 4 ? `- Traslado: Sí` : "",
       `- Total estimado: ${fmtCLP(totals.total)} CLP (${fmtUSD(totals.total)})`,
     ].join("\n");
     return encodeURIComponent(msg);
@@ -462,7 +459,10 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 </label>
                 <Toggle
                   value={cfg.lessonType}
-                  onChange={(v) => setCfg({ ...cfg, lessonType: v as "group" | "private" })}
+                  onChange={(v) => {
+                    const lt = v as "group" | "private";
+                    setCfg({ ...cfg, lessonType: lt, schedule: lt === "group" ? "block1" : "morning" });
+                  }}
                   options={[
                     { value: "group", label: t.calculator.lessonTypeOptions.group },
                     { value: "private", label: t.calculator.lessonTypeOptions.private },
@@ -493,26 +493,17 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
                   {t.calculator.schedule}
                 </label>
-                {cfg.duration === "full" ? (
-                  <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10 flex items-center gap-3">
-                    <svg className="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <span className="text-white text-sm font-medium">09:00 - 17:00</span>
-                      <span className="text-white/30 text-xs ml-2">({t.calculator.scheduleBreak})</span>
-                    </div>
+                <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10 flex items-center gap-3">
+                  <svg className="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <span className="text-white text-sm font-medium">{getScheduleDisplay()}</span>
+                    {cfg.duration === "full" && (
+                      <p className="text-orange-400/60 text-xs mt-0.5">{t.calculator.beginnerTip}</p>
+                    )}
                   </div>
-                ) : (
-                  <Toggle
-                    value={cfg.schedule}
-                    onChange={(v) => setCfg({ ...cfg, schedule: v as "morning" | "afternoon" })}
-                    options={[
-                      { value: "morning", label: `${t.calculator.scheduleMorning} (09:00 - 12:00)` },
-                      { value: "afternoon", label: `${t.calculator.scheduleAfternoon} (14:00 - 17:00)` },
-                    ]}
-                  />
-                )}
+                </div>
               </div>
 
               <div className="border-t border-white/5 pt-5 space-y-3">
@@ -550,6 +541,17 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 <p className="text-white/25 text-[11px] leading-relaxed px-1">
                   {t.calculator.equipmentNote}
                 </p>
+                {/* Transfer — only for 4+ people */}
+                {totalPeople >= 4 && (
+                  <SwitchToggle
+                    label={t.calculator.transfer}
+                    desc={t.calculator.transferDesc}
+                    price={`${fmtCLP(TRANSFER_PRICE)}/pp`}
+                    checked={cfg.transfer}
+                    onChange={(v) => setCfg({ ...cfg, transfer: v })}
+                  />
+                )}
+
                 <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -624,6 +626,13 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                     <div className="flex justify-between text-sm">
                       <span className="text-white/60">{t.summary.equipment}</span>
                       <span className="text-white">{fmt(totals.eqPerDay)} {t.summary.perDay}</span>
+                    </div>
+                  )}
+
+                  {cfg.transfer && totalPeople >= 4 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/60">{t.summary.transfer}</span>
+                      <span className="text-white">{fmt(totals.transferPerDay)} {t.summary.perDay}</span>
                     </div>
                   )}
 
