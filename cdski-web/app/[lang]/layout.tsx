@@ -17,7 +17,7 @@ export async function generateMetadata({
 
   const langAlternates: Record<string, string> = {};
   for (const l of locales) {
-    langAlternates[l] = `https://clasesdeski.cl/test/${l}/`;
+    langAlternates[l] = `https://clasesdeski.cl/${l}/`;
   }
 
   return {
@@ -26,17 +26,17 @@ export async function generateMetadata({
     keywords: dict.meta.keywords,
     metadataBase: new URL("https://clasesdeski.cl"),
     alternates: {
-      canonical: `/test/${locale}/`,
+      canonical: `/${locale}/`,
       languages: langAlternates,
     },
     openGraph: {
       title: dict.meta.title,
       description: dict.meta.description,
-      url: `https://clasesdeski.cl/test/${locale}/`,
+      url: `https://clasesdeski.cl/${locale}/`,
       siteName: "CDSKI — Clases de Ski y Snowboard Chile",
       locale: locale === "es" ? "es_CL" : locale === "pt" ? "pt_BR" : "en_US",
       type: "website",
-      images: [{ url: "/test/og-image.jpg", width: 1200, height: 630, alt: "CDSKI - Clases de Ski y Snowboard Chile" }],
+      images: [{ url: "/og-image.jpg", width: 1200, height: 630, alt: "CDSKI - Clases de Ski y Snowboard Chile" }],
     },
     twitter: {
       card: "summary_large_image",
@@ -127,7 +127,7 @@ export default async function LangLayout({
             "@type": "ListItem",
             position: 1,
             name: "Home",
-            item: `https://clasesdeski.cl/test/${locale}/`,
+            item: `https://clasesdeski.cl/${locale}/`,
           },
         ],
       },
@@ -137,9 +137,9 @@ export default async function LangLayout({
   return (
     <html lang={locale === "pt" ? "pt-BR" : locale === "en" ? "en" : "es-CL"}>
       <head>
-        <link rel="icon" href="/test/favicon.ico" sizes="any" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/test/icon-192.png" />
-        <link rel="apple-touch-icon" href="/test/icon-192.png" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

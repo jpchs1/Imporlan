@@ -28,7 +28,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
     { href: "#contact", label: dict.nav.contact },
   ];
 
-  const basePath = "/test";
+  const basePath = "";
 
   return (
     <header
@@ -41,7 +41,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <a href="#" className="flex items-center gap-3">
-            <img src="/test/images/logo-cdski.png" alt="Clases de Ski" className="h-12 w-12 rounded-lg" />
+            <img src="/images/logo-cdski.png" alt="Clases de Ski" className="h-12 w-12 rounded-lg" />
             <span className="text-xl font-bold text-white tracking-tight hidden sm:block" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               Clases de <span className="text-orange-400">Ski</span>
             </span>
@@ -67,7 +67,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
               {(["es", "en", "pt"] as const).map((l) => (
                 <a
                   key={l}
-                  href={`${basePath}/${l}/`}
+                  href={`/${l}/`}
                   className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
                     lang === l
                       ? "bg-orange-500 text-white"

@@ -5,12 +5,12 @@ import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
 const serviceImages = [
-  "/test/images/ski-group-three.jpg",
-  "/test/images/young-skier.jpg",
-  "/test/images/ski-mountain-duo.jpg",
-  "/test/images/kids-ski-group.jpg",
-  "/test/images/heliski.jpg",
-  "/test/images/snowboards-rack.jpg",
+  "/images/ski-group-three.jpg",
+  "/images/young-skier.jpg",
+  "/images/ski-mountain-duo.jpg",
+  "/images/kids-ski-group.jpg",
+  "/images/heliski.jpg",
+  "/images/snowboards-rack.jpg",
 ];
 
 const serviceIcons = [

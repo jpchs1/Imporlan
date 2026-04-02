@@ -240,7 +240,7 @@ function BookingModal({
 
     try {
       const summary = buildSummaryText();
-      const res = await fetch("https://clasesdeski.cl/test/api/booking.php", {
+      const res = await fetch("https://clasesdeski.cl/api/booking.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -12,7 +12,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "clases-de-ski",
     date: "2023-07-21",
-    image: "/test/images/ski-group-three.jpg",
+    image: "/images/ski-group-three.jpg",
     category: "blog",
     title: { es: "Clases de Ski en Chile | CDSKI", en: "Ski Lessons in Chile | CDSKI", pt: "Aulas de Ski no Chile | CDSKI" },
     excerpt: {
@@ -29,7 +29,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "clases-de-snowboard",
     date: "2023-07-22",
-    image: "/test/images/young-skier.jpg",
+    image: "/images/young-skier.jpg",
     category: "blog",
     title: { es: "Clases de Snowboard en Chile | CDSKI", en: "Snowboard Lessons in Chile | CDSKI", pt: "Aulas de Snowboard no Chile | CDSKI" },
     excerpt: {
@@ -46,7 +46,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "valle-nevado-centro-de-ski",
     date: "2016-08-08",
-    image: "/test/images/skier-action.jpg",
+    image: "/images/skier-action.jpg",
     category: "blog",
     title: { es: "Valle Nevado — El Centro de Ski Más Grande de Sudamérica", en: "Valle Nevado — South America's Largest Ski Resort", pt: "Valle Nevado — O Maior Centro de Ski da América do Sul" },
     excerpt: {
@@ -63,7 +63,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "heliski-chile",
     date: "2016-08-08",
-    image: "/test/images/heliski.jpg",
+    image: "/images/heliski.jpg",
     category: "blog",
     title: { es: "Heliski Chile — Lo Mejor de lo Mejor en los Andes", en: "Heliski Chile — The Best of the Best in the Andes", pt: "Heliski Chile — O Melhor dos Melhores nos Andes" },
     excerpt: {
@@ -80,7 +80,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "consejos-primer-dia-nieve",
     date: "2016-08-08",
-    image: "/test/images/snowboards-rack.jpg",
+    image: "/images/snowboards-rack.jpg",
     category: "blog",
     title: { es: "12 Consejos para tu Primer Día en la Nieve", en: "12 Tips for Your First Day in the Snow", pt: "12 Dicas para seu Primeiro Dia na Neve" },
     excerpt: {
@@ -97,7 +97,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "10-centros-de-ski-en-chile",
     date: "2016-08-08",
-    image: "/test/images/skier-jump.jpg",
+    image: "/images/skier-jump.jpg",
     category: "blog",
     title: { es: "10 Centros de Ski en Chile que Debes Conocer", en: "10 Ski Resorts in Chile You Must Visit", pt: "10 Centros de Ski no Chile que Você Precisa Conhecer" },
     excerpt: {
@@ -114,7 +114,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "about-cdski",
     date: "2026-03-12",
-    image: "/test/images/ski-group-three.jpg",
+    image: "/images/ski-group-three.jpg",
     category: "explora",
     title: { es: "Sobre CDSKI Chile", en: "About CDSKI Chile", pt: "Sobre a CDSKI Chile" },
     excerpt: {
@@ -131,7 +131,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "nuestro-metodo",
     date: "2026-03-12",
-    image: "/test/images/ski-mountain-duo.jpg",
+    image: "/images/ski-mountain-duo.jpg",
     category: "explora",
     title: { es: "Nuestro Método de Enseñanza", en: "Our Teaching Method", pt: "Nosso Método de Ensino" },
     excerpt: {
@@ -148,7 +148,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "seguridad-montana",
     date: "2026-03-12",
-    image: "/test/images/skier-jump.jpg",
+    image: "/images/skier-jump.jpg",
     category: "explora",
     title: { es: "Seguridad y Cultura de Montaña", en: "Mountain Safety & Culture", pt: "Segurança e Cultura de Montanha" },
     excerpt: {
@@ -165,7 +165,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "centro-de-ski-el-colorado",
     date: "2016-08-08",
-    image: "/test/images/ski-mountain-duo.jpg",
+    image: "/images/ski-mountain-duo.jpg",
     category: "blog" as const,
     title: { es: "El Colorado Centro de Ski", en: "El Colorado Ski Resort", pt: "El Colorado Centro de Ski" },
     excerpt: {
@@ -182,7 +182,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "centro-de-ski-la-parva",
     date: "2016-08-08",
-    image: "/test/images/skier-jump.jpg",
+    image: "/images/skier-jump.jpg",
     category: "blog" as const,
     title: { es: "Centro de Ski La Parva", en: "La Parva Ski Resort", pt: "Centro de Ski La Parva" },
     excerpt: {
@@ -199,7 +199,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "childrens-snowboard-lessons",
     date: "2016-08-08",
-    image: "/test/images/kids-ski-group.jpg",
+    image: "/images/kids-ski-group.jpg",
     category: "blog" as const,
     title: { es: "Esquí y Snowboard para Niños en Chile", en: "Kids Ski & Snowboard Lessons in Chile", pt: "Aulas de Ski e Snowboard para Crianças no Chile" },
     excerpt: {
@@ -216,7 +216,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "rental",
     date: "2016-08-08",
-    image: "/test/images/snowboards-rack.jpg",
+    image: "/images/snowboards-rack.jpg",
     category: "blog" as const,
     title: { es: "Arriendo de Equipo de Ski y Snowboard", en: "Ski & Snowboard Equipment Rental", pt: "Aluguel de Equipamento de Ski e Snowboard" },
     excerpt: {
@@ -233,7 +233,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "experiencias",
     date: "2016-08-08",
-    image: "/test/images/ski-group-three.jpg",
+    image: "/images/ski-group-three.jpg",
     category: "blog" as const,
     title: { es: "Experiencias CDSKI — Empresas y Colegios", en: "CDSKI Experiences — Corporate & Schools", pt: "Experiências CDSKI — Empresas e Escolas" },
     excerpt: {
@@ -250,7 +250,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "donde-alojar-en-la-nieve",
     date: "2016-08-08",
-    image: "/test/images/ski-mountain-duo.jpg",
+    image: "/images/ski-mountain-duo.jpg",
     category: "blog" as const,
     title: { es: "¿Dónde Alojar si Vas a la Nieve?", en: "Where to Stay When Going to the Snow?", pt: "Onde se Hospedar se Vai à Neve?" },
     excerpt: {
@@ -267,7 +267,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "a-la-nieve-en-helicoptero",
     date: "2016-08-08",
-    image: "/test/images/heliski.jpg",
+    image: "/images/heliski.jpg",
     category: "blog" as const,
     title: { es: "A la Nieve en Helicóptero", en: "To the Snow by Helicopter", pt: "À Neve de Helicóptero" },
     excerpt: {
@@ -284,7 +284,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "aulas-de-ski",
     date: "2023-07-22",
-    image: "/test/images/ski-group-three.jpg",
+    image: "/images/ski-group-three.jpg",
     category: "blog" as const,
     title: { es: "Aulas de Ski no Chile (Português)", en: "Ski Lessons in Chile (Portuguese)", pt: "Aulas de Ski no Chile | CDSKI" },
     excerpt: {
@@ -301,7 +301,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "aulas-de-snowboard-2",
     date: "2023-07-22",
-    image: "/test/images/young-skier.jpg",
+    image: "/images/young-skier.jpg",
     category: "blog" as const,
     title: { es: "Aulas de Snowboard no Chile (Português)", en: "Snowboard Lessons in Chile (Portuguese)", pt: "Aulas de Snowboard no Chile | CDSKI" },
     excerpt: {

@@ -19,7 +19,7 @@ export default function WhyChooseUs({ dict }: { dict: Dictionary }) {
       <div
         className="absolute inset-0 bg-cover bg-center bg-fixed"
         style={{
-          backgroundImage: `url('/test/images/skier-action.jpg')`,
+          backgroundImage: `url('/images/skier-action.jpg')`,
         }}
       />
       <div className="absolute inset-0 bg-[#0a1628]/85 backdrop-blur-[2px]" />

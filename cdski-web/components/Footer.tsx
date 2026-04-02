@@ -4,7 +4,7 @@ import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/dictionaries";
 
 export default function Footer({ dict, lang }: { dict: Dictionary; lang: Locale }) {
-  const basePath = "/test";
+  const basePath = "";
   const navItems = [
     { href: "#services", label: dict.nav.services },
     { href: "#pricing", label: dict.nav.pricing },
@@ -19,7 +19,7 @@ export default function Footer({ dict, lang }: { dict: Dictionary; lang: Locale 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
-              <img src="/test/images/logo-cdski.png" alt="Clases de Ski" className="h-14 w-14 rounded-lg" />
+              <img src="/images/logo-cdski.png" alt="Clases de Ski" className="h-14 w-14 rounded-lg" />
               <span className="text-xl font-bold text-white tracking-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                 Clases de <span className="text-orange-400">Ski</span>
               </span>
@@ -88,7 +88,7 @@ export default function Footer({ dict, lang }: { dict: Dictionary; lang: Locale 
                 {(["es", "en", "pt"] as const).map((l) => (
                   <a
                     key={l}
-                    href={`${basePath}/${l}/`}
+                    href={`/${l}/`}
                     className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
                       lang === l
                         ? "bg-orange-500/10 border-orange-400/30 text-orange-400"

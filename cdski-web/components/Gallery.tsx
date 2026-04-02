@@ -6,14 +6,14 @@ import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
 const galleryItems = [
-  { src: "/test/images/ski-group-three.jpg", label: "Ski Group Lessons" },
-  { src: "/test/images/kids-ski-group.jpg", label: "Kids Learning to Ski" },
-  { src: "/test/images/skier-action.jpg", label: "Ski Action" },
-  { src: "/test/images/young-skier.jpg", label: "Young Skier" },
-  { src: "/test/images/skier-jump.jpg", label: "Freestyle" },
-  { src: "/test/images/ski-mountain-duo.jpg", label: "Mountain Adventure" },
-  { src: "/test/images/heliski.jpg", label: "Heliski Chile" },
-  { src: "/test/images/snowboards-rack.jpg", label: "Snowboard Gear" },
+  { src: "/images/ski-group-three.jpg", label: "Ski Group Lessons" },
+  { src: "/images/kids-ski-group.jpg", label: "Kids Learning to Ski" },
+  { src: "/images/skier-action.jpg", label: "Ski Action" },
+  { src: "/images/young-skier.jpg", label: "Young Skier" },
+  { src: "/images/skier-jump.jpg", label: "Freestyle" },
+  { src: "/images/ski-mountain-duo.jpg", label: "Mountain Adventure" },
+  { src: "/images/heliski.jpg", label: "Heliski Chile" },
+  { src: "/images/snowboards-rack.jpg", label: "Snowboard Gear" },
 ];
 
 export default function Gallery({ dict }: { dict: Dictionary }) {

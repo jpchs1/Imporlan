@@ -54,7 +54,7 @@ export default function Testimonials({ dict }: { dict: Dictionary }) {
       <div
         className="absolute inset-0 bg-cover bg-center bg-fixed"
         style={{
-          backgroundImage: `url('/test/images/ski-mountain-duo.jpg')`,
+          backgroundImage: `url('/images/ski-mountain-duo.jpg')`,
         }}
       />
       <div className="absolute inset-0 bg-[#0a1628]/90" />
