@@ -8,6 +8,7 @@ import HowToBook from "@/components/HowToBook";
 import Gallery from "@/components/Gallery";
 import Testimonials from "@/components/Testimonials";
 import FAQ from "@/components/FAQ";
+import Blog from "@/components/Blog";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
@@ -38,6 +39,7 @@ export default async function HomePage({
         <Gallery dict={dict} />
         <Testimonials dict={dict} />
         <FAQ dict={dict} />
+        <Blog dict={dict} lang={locale} />
         <Contact dict={dict} />
       </main>
       <Footer dict={dict} lang={locale} />
