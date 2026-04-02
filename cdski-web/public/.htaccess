@@ -10,8 +10,8 @@ RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # ── Language detection for root ──
-# Default to Spanish
-RewriteRule ^test/?$ /es/ [R=302,L]
+# Redirect bare domain to Spanish (302 so Google indexes /es/ as canonical)
+RewriteRule ^$ /es/ [R=302,L]
 
 # ── Old WordPress blog post redirects → new site sections ──
 RewriteRule ^heliski-chile/?$ /es/#blog [R=301,L]
