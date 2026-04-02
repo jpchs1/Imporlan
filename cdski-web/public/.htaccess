@@ -1,0 +1,90 @@
+# ==========================================
+# CDSKI - Redirects 301 for SEO preservation
+# Old WordPress URLs → New static site
+# ==========================================
+
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ── Language detection for root ──
+# Default to Spanish
+RewriteRule ^test/?$ /test/es/ [R=302,L]
+
+# ── Old WordPress blog post redirects → new site sections ──
+RewriteRule ^heliski-chile/?$ /test/es/#blog [R=301,L]
+RewriteRule ^a-la-nieve-en-helicoptero/?$ /test/es/#blog [R=301,L]
+RewriteRule ^centro-de-ski-el-colorado/?$ /test/es/#blog [R=301,L]
+RewriteRule ^centro-de-ski-la-parva/?$ /test/es/#blog [R=301,L]
+RewriteRule ^valle-nevado-centro-de-ski/?$ /test/es/#blog [R=301,L]
+RewriteRule ^clases-de-ski/?$ /test/es/#services [R=301,L]
+RewriteRule ^clases-de-snowboard/?$ /test/es/#services [R=301,L]
+RewriteRule ^10-centros-de-ski-en-chile/?$ /test/es/#blog [R=301,L]
+RewriteRule ^consejos-primer-dia-nieve/?$ /test/es/#blog [R=301,L]
+RewriteRule ^donde-alojar-en-la-nieve/?$ /test/es/#blog [R=301,L]
+RewriteRule ^rental/?$ /test/es/#blog [R=301,L]
+RewriteRule ^experiencias/?$ /test/es/#services [R=301,L]
+RewriteRule ^services/childrens-snowboard-lessons/?$ /test/es/#services [R=301,L]
+
+# Portuguese content redirects
+RewriteRule ^aulas-de-ski/?$ /test/pt/#blog [R=301,L]
+RewriteRule ^aulas-de-snowboard-2/?$ /test/pt/#blog [R=301,L]
+
+# Old pricing pages
+RewriteRule ^snow-day/?$ /test/es/#pricing [R=301,L]
+RewriteRule ^precios-clases-de-ski/?$ /test/es/#pricing [R=301,L]
+RewriteRule ^precios/?$ /test/es/#pricing [R=301,L]
+
+# Old "Explora CDSKI" pages
+RewriteRule ^about-cdski/?$ /test/es/#blog [R=301,L]
+RewriteRule ^nuestro-metodo/?$ /test/es/#blog [R=301,L]
+RewriteRule ^seguridad-montana/?$ /test/es/#blog [R=301,L]
+RewriteRule ^niveles/?$ /test/es/#blog [R=301,L]
+RewriteRule ^experiencia-cdski/?$ /test/es/#blog [R=301,L]
+RewriteRule ^clases-ski-snowboard/?$ /test/es/#services [R=301,L]
+
+# Old payment/booking pages
+RewriteRule ^PAGO/?$ /test/es/#contact [R=301,L]
+RewriteRule ^pago/?$ /test/es/#contact [R=301,L]
+RewriteRule ^agendar-una-clase-consultas/?$ /test/es/#contact [R=301,L]
+
+# Old service pages
+RewriteRule ^servicios/?$ /test/es/#services [R=301,L]
+RewriteRule ^nosotros/?$ /test/es/#blog [R=301,L]
+RewriteRule ^clases/?$ /test/es/#services [R=301,L]
+RewriteRule ^experiencia/?$ /test/es/#services [R=301,L]
+RewriteRule ^experiencia-en-helicoptero/?$ /test/es/#blog [R=301,L]
+RewriteRule ^viajes-grupales/?$ /test/es/#services [R=301,L]
+RewriteRule ^group-trips/?$ /test/en/#services [R=301,L]
+RewriteRule ^reviews/?$ /test/es/#testimonials [R=301,L]
+RewriteRule ^dejanos-tu-resena/?$ /test/es/#testimonials [R=301,L]
+RewriteRule ^noticias/?$ /test/es/#blog [R=301,L]
+
+# Old WooCommerce/system pages → home
+RewriteRule ^cart/?$ /test/es/ [R=301,L]
+RewriteRule ^checkout/?$ /test/es/ [R=301,L]
+RewriteRule ^my-account/?$ /test/es/ [R=301,L]
+RewriteRule ^shop/?$ /test/es/ [R=301,L]
+RewriteRule ^tienda/?$ /test/es/ [R=301,L]
+RewriteRule ^booked/?$ /test/es/#contact [R=301,L]
+
+# Old tariff PDF → pricing section
+RewriteRule ^wp-content/uploads/2016/08/TARIFAS-CDSKI-2019.pdf$ /test/es/#pricing [R=301,L]
+
+# ── Performance headers ──
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType text/html "access plus 1 hour"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
