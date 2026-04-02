@@ -13,6 +13,7 @@
     "testimonials": "Testimonios",
     "faq": "FAQ",
     "contact": "Contacto",
+    "blog": "Blog",
     "bookNow": "Reservar Ahora"
   },
   "hero": {
@@ -286,5 +287,12 @@
   "whatsappWidget": {
     "message": "¡Hola! Quiero reservar una clase de ski/snowboard 🎿"
   },
-  "bookingSticky": "Reservar Clase"
+  "bookingSticky": "Reservar Clase",
+  "blog": {
+    "title": "Blog & Noticias",
+    "subtitle": "Artículos, guías y consejos sobre ski y snowboard en Chile",
+    "readMore": "Leer más",
+    "close": "Cerrar",
+    "backToBlog": "Volver al blog"
+  }
 }

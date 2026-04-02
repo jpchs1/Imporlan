@@ -24,6 +24,7 @@ export default function Header({ dict, lang }: { dict: Dictionary; lang: Locale 
     { href: "#gallery", label: dict.nav.gallery },
     { href: "#testimonials", label: dict.nav.testimonials },
     { href: "#faq", label: dict.nav.faq },
+    { href: "#blog", label: dict.nav.blog },
     { href: "#contact", label: dict.nav.contact },
   ];
 

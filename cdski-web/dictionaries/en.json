@@ -13,6 +13,7 @@
     "testimonials": "Testimonials",
     "faq": "FAQ",
     "contact": "Contact",
+    "blog": "Blog",
     "bookNow": "Book Now"
   },
   "hero": {
@@ -286,5 +287,12 @@
   "whatsappWidget": {
     "message": "Hi! I'd like to book a ski/snowboard lesson 🎿"
   },
-  "bookingSticky": "Book Lesson"
+  "bookingSticky": "Book Lesson",
+  "blog": {
+    "title": "Blog & News",
+    "subtitle": "Articles, guides and tips about skiing and snowboarding in Chile",
+    "readMore": "Read more",
+    "close": "Close",
+    "backToBlog": "Back to blog"
+  }
 }
