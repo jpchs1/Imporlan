@@ -1,18 +1,48 @@
 "use client";
 
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
 const galleryItems = [
-  { color: "from-blue-600/40 to-blue-900/40", label: "Valle Nevado", icon: "M" },
-  { color: "from-sky-500/40 to-blue-800/40", label: "El Colorado", icon: "S" },
-  { color: "from-indigo-600/40 to-purple-900/40", label: "La Parva", icon: "L" },
-  { color: "from-orange-500/40 to-red-800/40", label: "Ski Lessons", icon: "K" },
-  { color: "from-cyan-600/40 to-blue-900/40", label: "Snowboard", icon: "B" },
-  { color: "from-teal-500/40 to-emerald-800/40", label: "Kids Fun", icon: "N" },
+  {
+    src: "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=800&q=80&auto=format",
+    label: "Valle Nevado",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&q=80&auto=format",
+    label: "Ski Lessons",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&q=80&auto=format",
+    label: "Andes Mountains",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1486673748761-a8d18475c757?w=800&q=80&auto=format",
+    label: "Snowboard Fun",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80&auto=format",
+    label: "Panoramic Views",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1?w=800&q=80&auto=format",
+    label: "Kids & Families",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=800&q=80&auto=format",
+    label: "Fresh Powder",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=800&q=80&auto=format",
+    label: "Ski Group",
+  },
 ];
 
 export default function Gallery({ dict }: { dict: Dictionary }) {
+  const [selected, setSelected] = useState<number | null>(null);
+
   return (
     <section id="gallery" className="py-24 bg-[#0a1628] relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,25 +51,71 @@ export default function Gallery({ dict }: { dict: Dictionary }) {
           <p className="text-lg text-blue-200/60">{dict.gallery.subtitle}</p>
         </AnimatedSection>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {galleryItems.map((item, i) => (
-            <AnimatedSection key={i} delay={i * 0.08}>
-              <div className={`relative aspect-[4/3] rounded-2xl overflow-hidden group cursor-pointer bg-gradient-to-br ${item.color}`}>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <svg className="w-16 h-16 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {galleryItems.map((item, i) => {
+            const isLarge = i === 0 || i === 5;
+            return (
+              <AnimatedSection
+                key={i}
+                delay={i * 0.06}
+                className={isLarge ? "col-span-2 row-span-2" : ""}
+              >
+                <div
+                  onClick={() => setSelected(i)}
+                  className={`relative overflow-hidden rounded-2xl group cursor-pointer ${
+                    isLarge ? "aspect-square" : "aspect-[4/3]"
+                  }`}
+                >
+                  <img
+                    src={item.src}
+                    alt={item.label}
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <span className="text-white font-semibold text-sm drop-shadow-lg">{item.label}</span>
+                  </div>
+                  <div className="absolute inset-0 border-2 border-transparent group-hover:border-orange-400/40 rounded-2xl transition-colors" />
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4">
-                  <span className="text-white font-semibold text-sm">{item.label}</span>
-                </div>
-                <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/10 transition-colors duration-300" />
-              </div>
-            </AnimatedSection>
-          ))}
+              </AnimatedSection>
+            );
+          })}
         </div>
       </div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {selected !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setSelected(null)}
+          >
+            <motion.img
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              src={galleryItems[selected].src.replace("w=800", "w=1400")}
+              alt={galleryItems[selected].label}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+            />
+            <button
+              onClick={() => setSelected(null)}
+              className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 backdrop-blur-sm rounded-full p-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="absolute bottom-6 text-white/60 text-sm">
+              {galleryItems[selected].label}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

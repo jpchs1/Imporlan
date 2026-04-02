@@ -20,7 +20,14 @@ const countryFlags: Record<string, string> = {
 
 export default function Testimonials({ dict }: { dict: Dictionary }) {
   return (
-    <section id="testimonials" className="py-24 bg-gradient-to-b from-[#0a1628] to-[#0f2040] relative">
+    <section id="testimonials" className="py-24 relative overflow-hidden">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-fixed"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1551524559-8af4e6624178?w=1920&q=80&auto=format')`,
+        }}
+      />
+      <div className="absolute inset-0 bg-[#0a1628]/90" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.testimonials.title}</h2>

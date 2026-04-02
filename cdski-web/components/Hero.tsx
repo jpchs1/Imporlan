@@ -6,30 +6,38 @@ import type { Dictionary } from "@/lib/dictionaries";
 export default function Hero({ dict }: { dict: Dictionary }) {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628] via-[#0f2847] to-[#0a1628]" />
+      {/* Background image */}
       <div
-        className="absolute inset-0 opacity-30"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundImage: `url('https://images.unsplash.com/photo-1551524559-8af4e6624178?w=1920&q=80&auto=format')`,
         }}
       />
-      <div className="absolute inset-0">
-        {[...Array(20)].map((_, i) => (
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/80 via-[#0a1628]/60 to-[#0a1628]/90" />
+
+      {/* Snowfall particles */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[...Array(30)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-white/20 rounded-full"
+            className="absolute bg-white rounded-full"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
+              left: `${(i * 3.33) % 100}%`,
+              top: `-5%`,
+              width: `${2 + (i % 3) * 2}px`,
+              height: `${2 + (i % 3) * 2}px`,
             }}
             animate={{
-              y: [0, -30, 0],
-              opacity: [0.2, 0.8, 0.2],
+              y: ["0vh", "110vh"],
+              x: [0, (i % 2 === 0 ? 30 : -30)],
+              opacity: [0, 0.6, 0.6, 0],
             }}
             transition={{
-              duration: 3 + Math.random() * 4,
+              duration: 6 + (i % 5) * 2,
               repeat: Infinity,
-              delay: Math.random() * 3,
+              delay: (i * 0.4) % 8,
+              ease: "linear",
             }}
           />
         ))}
@@ -41,9 +49,9 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-8 border border-white/10">
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-5 py-2.5 mb-8 border border-white/20">
             <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-            <span className="text-white/80 text-sm">Valle Nevado · El Colorado · La Parva</span>
+            <span className="text-white/90 text-sm font-medium">Valle Nevado · El Colorado · La Parva</span>
           </div>
         </motion.div>
 
@@ -52,11 +60,12 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-5xl sm:text-7xl lg:text-8xl font-bold text-white mb-6 tracking-tight"
+          style={{ fontFamily: "'Montserrat', sans-serif" }}
         >
           {dict.hero.title.split(" ").map((word, i) => (
             <span key={i}>
               {i === dict.hero.title.split(" ").length - 1 ? (
-                <span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent drop-shadow-lg">
                   {word}
                 </span>
               ) : (
@@ -70,7 +79,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-xl sm:text-2xl text-blue-200/90 font-light mb-4"
+          className="text-xl sm:text-2xl text-blue-100/90 font-light mb-4"
         >
           {dict.hero.subtitle}
         </motion.p>
@@ -101,7 +110,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           </a>
           <a
             href="#pricing"
-            className="inline-flex items-center justify-center gap-2 border-2 border-white/20 hover:border-white/40 text-white font-semibold px-8 py-4 rounded-full text-lg transition-all hover:bg-white/5"
+            className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white/50 text-white font-semibold px-8 py-4 rounded-full text-lg transition-all hover:bg-white/10 backdrop-blur-sm"
           >
             {dict.hero.ctaSecondary}
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -110,11 +119,12 @@ export default function Hero({ dict }: { dict: Dictionary }) {
           </a>
         </motion.div>
 
+        {/* Trust badges */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="mt-16 flex items-center justify-center gap-8 text-white/40 text-sm"
+          className="mt-16 flex items-center justify-center gap-8 text-white/50 text-sm"
         >
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
@@ -129,6 +139,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
         </motion.div>
       </div>
 
+      {/* Scroll indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

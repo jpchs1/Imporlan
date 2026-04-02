@@ -14,7 +14,15 @@ const icons = [
 
 export default function WhyChooseUs({ dict }: { dict: Dictionary }) {
   return (
-    <section id="why-us" className="py-24 bg-gradient-to-b from-[#0a1628] to-[#0f2040] relative">
+    <section id="why-us" className="py-24 relative overflow-hidden">
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-fixed"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80&auto=format')`,
+        }}
+      />
+      <div className="absolute inset-0 bg-[#0a1628]/85 backdrop-blur-[2px]" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.whyUs.title}</h2>
