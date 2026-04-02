@@ -10,7 +10,7 @@ export default function Hero({ dict }: { dict: Dictionary }) {
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1551524559-8af4e6624178?w=1920&q=80&auto=format')`,
+          backgroundImage: `url('/test/images/ski-group-three.jpg')`,
         }}
       />
       {/* Dark overlay for readability */}

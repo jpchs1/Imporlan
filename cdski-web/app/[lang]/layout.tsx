@@ -36,6 +36,7 @@ export async function generateMetadata({
       siteName: "CDSKI — Clases de Ski y Snowboard Chile",
       locale: locale === "es" ? "es_CL" : locale === "pt" ? "pt_BR" : "en_US",
       type: "website",
+      images: [{ url: "/test/og-image.jpg", width: 1200, height: 630, alt: "CDSKI - Clases de Ski y Snowboard Chile" }],
     },
     twitter: {
       card: "summary_large_image",
@@ -137,6 +138,8 @@ export default async function LangLayout({
     <html lang={locale === "pt" ? "pt-BR" : locale === "en" ? "en" : "es-CL"}>
       <head>
         <link rel="icon" href="/test/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/test/icon-192.png" />
+        <link rel="apple-touch-icon" href="/test/icon-192.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

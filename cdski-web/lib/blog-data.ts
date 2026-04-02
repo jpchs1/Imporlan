@@ -12,7 +12,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "clases-de-ski",
     date: "2023-07-21",
-    image: "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=600&q=80&auto=format",
+    image: "/test/images/ski-group-three.jpg",
     category: "blog",
     title: { es: "Clases de Ski en Chile | CDSKI", en: "Ski Lessons in Chile | CDSKI", pt: "Aulas de Ski no Chile | CDSKI" },
     excerpt: {
@@ -29,7 +29,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "clases-de-snowboard",
     date: "2023-07-22",
-    image: "https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=600&q=80&auto=format",
+    image: "/test/images/young-skier.jpg",
     category: "blog",
     title: { es: "Clases de Snowboard en Chile | CDSKI", en: "Snowboard Lessons in Chile | CDSKI", pt: "Aulas de Snowboard no Chile | CDSKI" },
     excerpt: {
@@ -46,7 +46,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "valle-nevado-centro-de-ski",
     date: "2016-08-08",
-    image: "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=600&q=80&auto=format",
+    image: "/test/images/skier-action.jpg",
     category: "blog",
     title: { es: "Valle Nevado — El Centro de Ski Más Grande de Sudamérica", en: "Valle Nevado — South America's Largest Ski Resort", pt: "Valle Nevado — O Maior Centro de Ski da América do Sul" },
     excerpt: {
@@ -80,7 +80,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "consejos-primer-dia-nieve",
     date: "2016-08-08",
-    image: "https://images.unsplash.com/photo-1542202229-7d93c33f5d07?w=600&q=80&auto=format",
+    image: "/test/images/snowboards-rack.jpg",
     category: "blog",
     title: { es: "12 Consejos para tu Primer Día en la Nieve", en: "12 Tips for Your First Day in the Snow", pt: "12 Dicas para seu Primeiro Dia na Neve" },
     excerpt: {
@@ -97,7 +97,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "10-centros-de-ski-en-chile",
     date: "2016-08-08",
-    image: "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=600&q=80&auto=format",
+    image: "/test/images/skier-jump.jpg",
     category: "blog",
     title: { es: "10 Centros de Ski en Chile que Debes Conocer", en: "10 Ski Resorts in Chile You Must Visit", pt: "10 Centros de Ski no Chile que Você Precisa Conhecer" },
     excerpt: {
@@ -114,7 +114,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "about-cdski",
     date: "2026-03-12",
-    image: "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=600&q=80&auto=format",
+    image: "/test/images/ski-group-three.jpg",
     category: "explora",
     title: { es: "Sobre CDSKI Chile", en: "About CDSKI Chile", pt: "Sobre a CDSKI Chile" },
     excerpt: {
@@ -131,7 +131,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "nuestro-metodo",
     date: "2026-03-12",
-    image: "https://images.unsplash.com/photo-1609902726285-00668009f004?w=600&q=80&auto=format",
+    image: "/test/images/ski-mountain-duo.jpg",
     category: "explora",
     title: { es: "Nuestro Método de Enseñanza", en: "Our Teaching Method", pt: "Nosso Método de Ensino" },
     excerpt: {
@@ -148,7 +148,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "seguridad-montana",
     date: "2026-03-12",
-    image: "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=600&q=80&auto=format",
+    image: "/test/images/skier-jump.jpg",
     category: "explora",
     title: { es: "Seguridad y Cultura de Montaña", en: "Mountain Safety & Culture", pt: "Segurança e Cultura de Montanha" },
     excerpt: {

@@ -5,12 +5,12 @@ import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
 const serviceImages = [
-  "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&q=80&auto=format",
-  "https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&q=80&auto=format",
-  "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=800&q=80&auto=format",
-  "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=80&auto=format",
+  "/test/images/ski-group-three.jpg",
+  "/test/images/young-skier.jpg",
+  "/test/images/ski-mountain-duo.jpg",
+  "/test/images/kids-ski-group.jpg",
   "/test/images/heliski.jpg",
-  "https://images.unsplash.com/photo-1609902726285-00668009f004?w=800&q=80&auto=format",
+  "/test/images/snowboards-rack.jpg",
 ];
 
 const serviceIcons = [

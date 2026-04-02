@@ -6,38 +6,14 @@ import AnimatedSection from "./AnimatedSection";
 import type { Dictionary } from "@/lib/dictionaries";
 
 const galleryItems = [
-  {
-    src: "https://images.unsplash.com/photo-1565992441121-4367c2967103?w=800&q=80&auto=format",
-    label: "Valle Nevado",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800&q=80&auto=format",
-    label: "Ski Lessons",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&q=80&auto=format",
-    label: "Snowboard Action",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1542202229-7d93c33f5d07?w=800&q=80&auto=format",
-    label: "Snow Fun",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1551524559-8af4e6624178?w=800&q=80&auto=format",
-    label: "Andes Mountains",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=80&auto=format",
-    label: "Kids & Families",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1516939884455-1445c8652f83?w=800&q=80&auto=format",
-    label: "Fresh Powder",
-  },
-  {
-    src: "https://images.unsplash.com/photo-1520962922320-2038eebab146?w=800&q=80&auto=format",
-    label: "Ski Group",
-  },
+  { src: "/test/images/ski-group-three.jpg", label: "Ski Group Lessons" },
+  { src: "/test/images/kids-ski-group.jpg", label: "Kids Learning to Ski" },
+  { src: "/test/images/skier-action.jpg", label: "Ski Action" },
+  { src: "/test/images/young-skier.jpg", label: "Young Skier" },
+  { src: "/test/images/skier-jump.jpg", label: "Freestyle" },
+  { src: "/test/images/ski-mountain-duo.jpg", label: "Mountain Adventure" },
+  { src: "/test/images/heliski.jpg", label: "Heliski Chile" },
+  { src: "/test/images/snowboards-rack.jpg", label: "Snowboard Gear" },
 ];
 
 export default function Gallery({ dict }: { dict: Dictionary }) {
