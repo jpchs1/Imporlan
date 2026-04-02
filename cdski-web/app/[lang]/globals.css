@@ -5,8 +5,8 @@ html {
 }
 
 body {
-  background: #0a1628;
-  color: #ffffff;
+  background: #f0f7ff;
+  color: #1e293b;
 }
 
 ::-webkit-scrollbar {
@@ -14,16 +14,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a1628;
+  background: #e8f0fe;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e3a5f;
+  background: #94a3b8;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a5080;
+  background: #64748b;
 }
 
 ::selection {

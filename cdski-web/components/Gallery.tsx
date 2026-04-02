@@ -44,11 +44,11 @@ export default function Gallery({ dict }: { dict: Dictionary }) {
   const [selected, setSelected] = useState<number | null>(null);
 
   return (
-    <section id="gallery" className="py-24 bg-[#0a1628] relative">
+    <section id="gallery" className="py-24 bg-sky-50 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.gallery.title}</h2>
-          <p className="text-lg text-blue-200/60">{dict.gallery.subtitle}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{dict.gallery.title}</h2>
+          <p className="text-lg text-slate-500">{dict.gallery.subtitle}</p>
         </AnimatedSection>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">

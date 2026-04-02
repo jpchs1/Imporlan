@@ -79,7 +79,7 @@ function Toggle({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex bg-white/5 rounded-xl p-1 border border-white/10">
+    <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -87,7 +87,7 @@ function Toggle({
           className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
             value === opt.value
               ? "bg-orange-500 text-white shadow-lg"
-              : "text-white/50 hover:text-white"
+              : "text-slate-400 hover:text-slate-700"
           }`}
         >
           {opt.label}
@@ -111,17 +111,17 @@ function Counter({
   max?: number;
 }) {
   return (
-    <div className="flex items-center justify-between bg-white/5 rounded-xl px-5 py-3 border border-white/10">
-      <span className="text-white/70 text-sm">{label}</span>
+    <div className="flex items-center justify-between bg-slate-50 rounded-xl px-5 py-3 border border-slate-200">
+      <span className="text-slate-600 text-sm">{label}</span>
       <div className="flex items-center gap-3">
         <button
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
-          className="w-9 h-9 rounded-lg bg-white/10 text-white flex items-center justify-center hover:bg-white/20 disabled:opacity-30 transition-all"
+          className="w-9 h-9 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-300 disabled:opacity-30 transition-all"
         >
           -
         </button>
-        <span className="text-white font-bold text-lg w-6 text-center">{value}</span>
+        <span className="text-slate-800 font-bold text-lg w-6 text-center">{value}</span>
         <button
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
@@ -148,15 +148,15 @@ function SwitchToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between bg-white/5 rounded-xl px-5 py-3 border border-white/10">
+    <div className="flex items-center justify-between bg-slate-50 rounded-xl px-5 py-3 border border-slate-200">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-white/70 text-sm">{label}</span>
+          <span className="text-slate-600 text-sm">{label}</span>
           {price && (
             <span className="text-orange-400/70 text-xs font-medium">{price}</span>
           )}
         </div>
-        <p className="text-white/30 text-xs mt-0.5">{desc}</p>
+        <p className="text-slate-400 text-xs mt-0.5">{desc}</p>
       </div>
       <button
         onClick={() => onChange(!checked)}
@@ -279,15 +279,15 @@ function BookingModal({
         initial={{ scale: 0.9, y: 30 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 30 }}
-        className="bg-[#0f2040] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
         <div className="p-6 sm:p-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-xl font-bold text-white">{t.title}</h3>
-              <p className="text-white/40 text-sm mt-1">{t.subtitle}</p>
+              <h3 className="text-xl font-bold text-slate-800">{t.title}</h3>
+              <p className="text-slate-400 text-sm mt-1">{t.subtitle}</p>
             </div>
-            <button onClick={onClose} className="text-white/40 hover:text-white p-1">
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -301,7 +301,7 @@ function BookingModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h4 className="text-lg font-bold text-white mb-2">{t.successTitle}</h4>
+              <h4 className="text-lg font-bold text-slate-800 mb-2">{t.successTitle}</h4>
               <p className="text-white/50 text-sm mb-6">{t.successMsg}</p>
               <button onClick={onClose} className="bg-orange-500 text-white px-6 py-2.5 rounded-full font-medium">
                 {t.close}
@@ -345,13 +345,13 @@ function BookingModal({
                   placeholder={t.phone}
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50"
+                  className="w-full bg-white/5 border border-slate-200 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50"
                 />
                 <input
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/70 focus:outline-none focus:border-orange-400/50"
+                  className="w-full bg-white/5 border border-slate-200 rounded-xl px-4 py-3 text-white/70 focus:outline-none focus:border-orange-400/50"
                 />
               </div>
               <textarea
@@ -359,7 +359,7 @@ function BookingModal({
                 rows={2}
                 value={form.comments}
                 onChange={(e) => setForm({ ...form, comments: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 resize-none"
+                className="w-full bg-white/5 border border-slate-200 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 resize-none"
               />
 
               <button
@@ -426,20 +426,20 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
   }
 
   return (
-    <section id="pricing" className="py-24 bg-[#0a1628] relative">
+    <section id="pricing" className="py-24 bg-gradient-to-b from-sky-50 to-white relative">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-14">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{t.title}</h2>
-          <p className="text-lg text-blue-200/60 max-w-2xl mx-auto">{t.subtitle}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{t.title}</h2>
+          <p className="text-lg text-slate-500 max-w-2xl mx-auto">{t.subtitle}</p>
         </AnimatedSection>
 
         <div className="grid lg:grid-cols-5 gap-8">
           {/* ── Calculator Panel ── */}
           <AnimatedSection delay={0.1} className="lg:col-span-3">
-            <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 sm:p-8 border border-white/10 space-y-5">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-lg space-y-5">
               {/* Activity */}
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                <label className="text-slate-500 text-xs uppercase tracking-wider mb-2 block">
                   {t.calculator.activity}
                 </label>
                 <Toggle
@@ -454,7 +454,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
 
               {/* Lesson Type */}
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                <label className="text-slate-500 text-xs uppercase tracking-wider mb-2 block">
                   {t.calculator.lessonType}
                 </label>
                 <Toggle
@@ -472,7 +472,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
 
               {/* Duration */}
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                <label className="text-slate-500 text-xs uppercase tracking-wider mb-2 block">
                   {t.calculator.duration}
                 </label>
                 <Toggle
@@ -490,15 +490,15 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
 
               {/* Schedule */}
               <div>
-                <label className="text-white/50 text-xs uppercase tracking-wider mb-2 block">
+                <label className="text-slate-500 text-xs uppercase tracking-wider mb-2 block">
                   {t.calculator.schedule}
                 </label>
-                <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10 flex items-center gap-3">
+                <div className="bg-slate-50 rounded-xl px-5 py-3 border border-slate-200 flex items-center gap-3">
                   <svg className="w-5 h-5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
-                    <span className="text-white text-sm font-medium">{getScheduleDisplay()}</span>
+                    <span className="text-slate-800 text-sm font-medium">{getScheduleDisplay()}</span>
                     {cfg.duration === "full" && (
                       <p className="text-orange-400/60 text-xs mt-0.5">{t.calculator.beginnerTip}</p>
                     )}
@@ -506,7 +506,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 </div>
               </div>
 
-              <div className="border-t border-white/5 pt-5 space-y-3">
+              <div className="border-t border-slate-100 pt-5 space-y-3">
                 <Counter
                   label={t.calculator.adults}
                   value={cfg.adults}
@@ -530,7 +530,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 />
               </div>
 
-              <div className="border-t border-white/5 pt-5 space-y-3">
+              <div className="border-t border-slate-100 pt-5 space-y-3">
                 <SwitchToggle
                   label={t.calculator.equipment}
                   desc={t.calculator.equipmentDesc}
@@ -552,7 +552,7 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                   />
                 )}
 
-                <div className="bg-white/5 rounded-xl px-5 py-3 border border-white/10">
+                <div className="bg-slate-50 rounded-xl px-5 py-3 border border-slate-200">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -566,9 +566,9 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
 
           {/* ── Summary Panel ── */}
           <AnimatedSection delay={0.2} className="lg:col-span-2">
-            <div className="bg-gradient-to-b from-white/[0.07] to-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden sticky top-24">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden sticky top-24">
               <div className="bg-orange-500/10 border-b border-orange-500/20 px-6 py-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">{t.summary.title}</h3>
+                <h3 className="text-lg font-bold text-slate-800">{t.summary.title}</h3>
                 {/* Currency toggle */}
                 <div className="flex bg-white/10 rounded-lg p-0.5">
                   <button
@@ -605,44 +605,44 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 </div>
 
                 {/* Schedule info */}
-                <div className="flex items-center gap-2 text-white/40 text-xs">
+                <div className="flex items-center gap-2 text-slate-400 text-xs">
                   <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>{getScheduleDisplay()}</span>
                 </div>
 
-                <div className="text-white/40 text-xs">
+                <div className="text-slate-400 text-xs">
                   {totalPeople} {t.summary.totalPeople} &middot; {cfg.days} {t.summary.totalDays}
                 </div>
 
                 {/* Line items */}
-                <div className="space-y-3 border-t border-white/5 pt-4">
+                <div className="space-y-3 border-t border-slate-100 pt-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-white/60">{t.summary.lessons}</span>
+                    <span className="text-slate-500">{t.summary.lessons}</span>
                     <span className="text-white">{fmt(totals.lessonsPerDay)} {t.summary.perDay}</span>
                   </div>
                   {cfg.equipment && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/60">{t.summary.equipment}</span>
+                      <span className="text-slate-500">{t.summary.equipment}</span>
                       <span className="text-white">{fmt(totals.eqPerDay)} {t.summary.perDay}</span>
                     </div>
                   )}
 
                   {cfg.transfer && totalPeople >= 4 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/60">{t.summary.transfer}</span>
+                      <span className="text-slate-500">{t.summary.transfer}</span>
                       <span className="text-white">{fmt(totals.transferPerDay)} {t.summary.perDay}</span>
                     </div>
                   )}
 
-                  <div className="flex justify-between text-sm border-t border-white/5 pt-3">
-                    <span className="text-white/60">{t.summary.subtotal} {t.summary.perDay}</span>
-                    <span className="text-white font-medium">{fmt(totals.subtotalPerDay)}</span>
+                  <div className="flex justify-between text-sm border-t border-slate-100 pt-3">
+                    <span className="text-slate-500">{t.summary.subtotal} {t.summary.perDay}</span>
+                    <span className="text-slate-800 font-medium">{fmt(totals.subtotalPerDay)}</span>
                   </div>
 
                   {cfg.days > 1 && (
-                    <div className="text-white/30 text-xs text-right">
+                    <div className="text-slate-400 text-xs text-right">
                       &times; {cfg.days} {t.summary.totalDays}
                     </div>
                   )}
@@ -652,15 +652,15 @@ export default function Pricing({ dict, lang }: { dict: Dictionary; lang: "es" |
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4">
                   <div className="flex justify-between items-center">
                     <span className="text-orange-300 font-medium">{t.summary.total}</span>
-                    <span className="text-2xl font-bold text-white">{fmt(totals.total)}</span>
+                    <span className="text-2xl font-bold text-slate-900">{fmt(totals.total)}</span>
                   </div>
                   {currency === "CLP" && (
-                    <div className="text-right text-white/30 text-xs mt-1">
+                    <div className="text-right text-slate-400 text-xs mt-1">
                       ≈ {fmtUSD(totals.total)}
                     </div>
                   )}
                   {currency === "USD" && (
-                    <div className="text-right text-white/30 text-xs mt-1">
+                    <div className="text-right text-slate-400 text-xs mt-1">
                       ≈ {fmtCLP(totals.total)} CLP
                     </div>
                   )}

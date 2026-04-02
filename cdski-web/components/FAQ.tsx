@@ -7,12 +7,12 @@ import type { Dictionary } from "@/lib/dictionaries";
 
 function FAQItem({ q, a, open, toggle }: { q: string; a: string; open: boolean; toggle: () => void }) {
   return (
-    <div className="border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-colors">
+    <div className="border border-slate-200 rounded-xl overflow-hidden hover:border-orange-300 transition-colors bg-slate-50">
       <button
         onClick={toggle}
         className="w-full flex items-center justify-between p-6 text-left"
       >
-        <span className="text-white font-medium pr-4">{q}</span>
+        <span className="text-slate-800 font-medium pr-4">{q}</span>
         <motion.svg
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: 0.2 }}
@@ -32,7 +32,7 @@ function FAQItem({ q, a, open, toggle }: { q: string; a: string; open: boolean; 
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="px-6 pb-6 text-white/60 text-sm leading-relaxed">{a}</div>
+            <div className="px-6 pb-6 text-slate-600 text-sm leading-relaxed">{a}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -44,11 +44,11 @@ export default function FAQ({ dict }: { dict: Dictionary }) {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="py-24 bg-[#0f2040] relative">
+    <section id="faq" className="py-24 bg-white relative">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.faq.title}</h2>
-          <p className="text-lg text-blue-200/60">{dict.faq.subtitle}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{dict.faq.title}</h2>
+          <p className="text-lg text-slate-500">{dict.faq.subtitle}</p>
         </AnimatedSection>
 
         <div className="space-y-3">

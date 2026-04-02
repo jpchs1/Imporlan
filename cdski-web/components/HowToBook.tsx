@@ -11,15 +11,15 @@ const stepIcons = [
 
 export default function HowToBook({ dict }: { dict: Dictionary }) {
   return (
-    <section id="how-to-book" className="py-24 bg-gradient-to-b from-[#0f2040] to-[#0a1628] relative">
+    <section id="how-to-book" className="py-24 bg-gradient-to-b from-orange-50 to-white relative">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.howToBook.title}</h2>
-          <p className="text-lg text-blue-200/60">{dict.howToBook.subtitle}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{dict.howToBook.title}</h2>
+          <p className="text-lg text-slate-500">{dict.howToBook.subtitle}</p>
         </AnimatedSection>
 
         <div className="grid md:grid-cols-3 gap-8 relative">
-          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-gradient-to-r from-orange-400/0 via-orange-400/30 to-orange-400/0" />
+          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-gradient-to-r from-orange-300/0 via-orange-300/50 to-orange-300/0" />
           {dict.howToBook.steps.map((step, i) => (
             <AnimatedSection key={i} delay={i * 0.15} className="text-center relative">
               <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 mb-6">
@@ -28,8 +28,8 @@ export default function HowToBook({ dict }: { dict: Dictionary }) {
                   {i + 1}
                 </div>
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">{step.title}</h3>
-              <p className="text-white/50 text-sm leading-relaxed">{step.description}</p>
+              <h3 className="text-xl font-bold text-slate-800 mb-3">{step.title}</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">{step.description}</p>
             </AnimatedSection>
           ))}
         </div>

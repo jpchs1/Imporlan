@@ -26,11 +26,11 @@ export default function Contact({ dict }: { dict: Dictionary }) {
   }
 
   return (
-    <section id="contact" className="py-24 bg-gradient-to-b from-[#0f2040] to-[#0a1628] relative">
+    <section id="contact" className="py-24 bg-gradient-to-b from-sky-50 to-slate-100 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <AnimatedSection className="text-center mb-16">
-          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">{dict.contact.title}</h2>
-          <p className="text-lg text-blue-200/60">{dict.contact.subtitle}</p>
+          <h2 className="text-4xl sm:text-5xl font-bold text-slate-800 mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{dict.contact.title}</h2>
+          <p className="text-lg text-slate-500">{dict.contact.subtitle}</p>
         </AnimatedSection>
 
         <div className="grid lg:grid-cols-2 gap-12">
@@ -51,7 +51,7 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                       placeholder={dict.contact.form.name}
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className={`w-full bg-white/5 border ${errors.name ? "border-red-400/50" : "border-white/10"} rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 transition-colors`}
+                      className={`w-full bg-white border ${errors.name ? "border-red-400/50" : "border-slate-200"} rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-400/50 transition-colors`}
                     />
                     {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
                   </div>
@@ -61,7 +61,7 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                       placeholder={dict.contact.form.email}
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className={`w-full bg-white/5 border ${errors.email ? "border-red-400/50" : "border-white/10"} rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 transition-colors`}
+                      className={`w-full bg-white border ${errors.email ? "border-red-400/50" : "border-slate-200"} rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-400/50 transition-colors`}
                     />
                     {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
                   </div>
@@ -72,16 +72,16 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                     placeholder={dict.contact.form.phone}
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-400/50 transition-colors"
                   />
                   <select
                     value={form.service}
                     onChange={(e) => setForm({ ...form, service: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/70 focus:outline-none focus:border-orange-400/50 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-600 focus:outline-none focus:border-orange-400/50 transition-colors"
                   >
-                    <option value="" className="bg-[#0a1628]">{dict.contact.form.service}</option>
+                    <option value="" className="bg-white">{dict.contact.form.service}</option>
                     {dict.contact.form.serviceOptions.map((opt) => (
-                      <option key={opt} value={opt} className="bg-[#0a1628]">{opt}</option>
+                      <option key={opt} value={opt} className="bg-white">{opt}</option>
                     ))}
                   </select>
                 </div>
@@ -89,7 +89,7 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/70 focus:outline-none focus:border-orange-400/50 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-600 focus:outline-none focus:border-orange-400/50 transition-colors"
                 />
                 <div>
                   <textarea
@@ -97,7 +97,7 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                     rows={4}
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    className={`w-full bg-white/5 border ${errors.message ? "border-red-400/50" : "border-white/10"} rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-400/50 transition-colors resize-none`}
+                    className={`w-full bg-white border ${errors.message ? "border-red-400/50" : "border-slate-200"} rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-orange-400/50 transition-colors resize-none`}
                   />
                   {errors.message && <p className="text-red-400 text-xs mt-1">{errors.message}</p>}
                 </div>
@@ -113,14 +113,14 @@ export default function Contact({ dict }: { dict: Dictionary }) {
 
           <AnimatedSection delay={0.2}>
             <div className="space-y-8">
-              <div className="bg-white/5 rounded-2xl p-8 border border-white/10 space-y-6">
+              <div className="bg-white/5 rounded-2xl p-8 border border-slate-200 space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400 shrink-0">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                   </div>
                   <div>
-                    <div className="text-white font-medium">{dict.contact.info.phone}</div>
-                    <div className="text-white/40 text-sm">WhatsApp</div>
+                    <div className="text-slate-800 font-medium">{dict.contact.info.phone}</div>
+                    <div className="text-slate-400 text-sm">WhatsApp</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -128,8 +128,8 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                   </div>
                   <div>
-                    <div className="text-white font-medium">{dict.contact.info.email}</div>
-                    <div className="text-white/40 text-sm">Email</div>
+                    <div className="text-slate-800 font-medium">{dict.contact.info.email}</div>
+                    <div className="text-slate-400 text-sm">Email</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -137,8 +137,8 @@ export default function Contact({ dict }: { dict: Dictionary }) {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   </div>
                   <div>
-                    <div className="text-white font-medium">{dict.contact.info.address}</div>
-                    <div className="text-white/40 text-sm">{dict.contact.info.hours}</div>
+                    <div className="text-slate-800 font-medium">{dict.contact.info.address}</div>
+                    <div className="text-slate-400 text-sm">{dict.contact.info.hours}</div>
                   </div>
                 </div>
               </div>
