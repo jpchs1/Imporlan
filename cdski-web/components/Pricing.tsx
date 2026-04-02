@@ -210,39 +210,22 @@ function BookingModal({
     setStatus("sending");
 
     try {
-      // EmailJS: send to admin
-      const emailjs = await import("@emailjs/browser");
       const summary = buildSummaryText();
-
-      await emailjs.send(
-        "service_cdski",    // Replace with your EmailJS Service ID
-        "template_admin",   // Replace with your EmailJS Admin Template ID
-        {
-          to_email: "info@clasesdeski.cl",
-          from_name: form.name,
-          from_email: form.email,
+      const res = await fetch("https://clasesdeski.cl/test/api/booking.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
           phone: form.phone,
-          preferred_date: form.date,
+          date: form.date,
           comments: form.comments,
           summary,
           total: fmt(totals.total),
-        },
-        "YOUR_EMAILJS_PUBLIC_KEY" // Replace with your EmailJS Public Key
-      );
-
-      // EmailJS: send confirmation to user
-      await emailjs.send(
-        "service_cdski",       // Same Service ID
-        "template_user",       // Replace with your EmailJS User Template ID
-        {
-          to_email: form.email,
-          to_name: form.name,
-          summary,
-          total: fmt(totals.total),
-        },
-        "YOUR_EMAILJS_PUBLIC_KEY"
-      );
-
+          lang,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
       setStatus("success");
     } catch {
       // Fallback: open mailto
