@@ -110,3 +110,6 @@ export const disable2FA = (email) =>
 
 // Content pages
 export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=content_list`).catch(() => ({ items: [] }));
+
+// Marketplace
+export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
