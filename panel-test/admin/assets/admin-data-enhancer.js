@@ -62,7 +62,27 @@
   var checkTimer = null;
   var configActive = false;
 
+  var hashToSection = {
+    "": "Dashboard",
+    "dashboard": "Dashboard",
+    "usuarios": "Usuarios",
+    "solicitudes": "Solicitudes",
+    "planes": "Planes",
+    "pagos": "Pagos",
+    "contenido": "Contenido",
+    "auditoria": "Auditoria",
+    "inspecciones": "Inspecciones",
+    "tracking": "Tracking",
+    "expedientes": "Expedientes",
+    "configuracion": "Configuracion"
+  };
+
   function getSection() {
+    var hash = (window.location.hash || "").replace("#", "").split("?")[0].split("/")[0].toLowerCase();
+    if (hash && hashToSection[hash]) {
+      configActive = (hash === "configuracion");
+      return hashToSection[hash];
+    }
     if (configActive) return "Configuracion";
     var h = document.querySelector("main h1");
     return h ? h.textContent.trim() : "";
@@ -1637,6 +1657,7 @@
     btn.addEventListener("mouseenter", function() { this.style.background = "rgba(8,145,178,.08)"; this.style.color = "#0891b2"; });
     btn.addEventListener("mouseleave", function() { if (!this.classList.contains("cfg-active")) { this.style.background = "transparent"; this.style.color = "#94a3b8"; } });
     btn.addEventListener("click", function() {
+      window.location.hash = "#configuracion";
       configActive = true;
       var main = document.querySelector("main");
       if (main) {
