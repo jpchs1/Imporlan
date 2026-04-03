@@ -1815,8 +1815,16 @@
     return true;
   }
 
+  // Sections managed by other scripts - enhancer should not touch them
+  var externalSections = ["Inspecciones", "Tracking", "Expedientes"];
+
   function enhance(section) {
     if (enhanced[section]) return;
+    // Don't interfere with sections managed by other scripts
+    if (externalSections.indexOf(section) !== -1) {
+      enhanced[section] = true;
+      return;
+    }
     addSkeletonStyles();
     var ok = false;
     try {
@@ -1829,6 +1837,7 @@
         case "Contenido": ok = enhanceContenido(); break;
         case "Auditoria": ok = true; break;
         case "Configuracion": ok = enhanceConfiguracion(); break;
+        default: ok = true; break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
     if (ok) enhanced[section] = true;
@@ -1839,7 +1848,22 @@
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
-      cleanupEnhancer();
+      // Don't cleanup when entering sections managed by other scripts
+      if (externalSections.indexOf(s) === -1) {
+        cleanupEnhancer();
+      } else {
+        // Just remove enhancer-added elements without hiding React content
+        var main = document.querySelector("main");
+        if (main) {
+          main.querySelectorAll("[data-enhancer-added]").forEach(function(el) { el.remove(); });
+          main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
+            el.style.display = "";
+            el.removeAttribute("data-enhancer-hidden");
+          });
+          main.removeAttribute("data-enhancer-section");
+        }
+        configActive = false;
+      }
       lastSection = s;
       enhanced = {};
     }

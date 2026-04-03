@@ -1812,8 +1812,14 @@
     return true;
   }
 
+  var externalSections = ["Inspecciones", "Tracking", "Expedientes"];
+
   function enhance(section) {
     if (enhanced[section]) return;
+    if (externalSections.indexOf(section) !== -1) {
+      enhanced[section] = true;
+      return;
+    }
     addSkeletonStyles();
     var ok = false;
     try {
@@ -1826,6 +1832,7 @@
         case "Contenido": ok = enhanceContenido(); break;
         case "Auditoria": ok = true; break;
         case "Configuracion": ok = enhanceConfiguracion(); break;
+        default: ok = true; break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
     if (ok) enhanced[section] = true;
@@ -1836,7 +1843,20 @@
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
-      cleanupEnhancer();
+      if (externalSections.indexOf(s) === -1) {
+        cleanupEnhancer();
+      } else {
+        var main = document.querySelector("main");
+        if (main) {
+          main.querySelectorAll("[data-enhancer-added]").forEach(function(el) { el.remove(); });
+          main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
+            el.style.display = "";
+            el.removeAttribute("data-enhancer-hidden");
+          });
+          main.removeAttribute("data-enhancer-section");
+        }
+        configActive = false;
+      }
       lastSection = s;
       enhanced = {};
     }
