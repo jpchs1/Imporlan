@@ -1843,14 +1843,6 @@
         enhanced = {};
       }
     }, true);
-    window.addEventListener("hashchange", function() {
-      if (configActive) {
-        configActive = false;
-        cleanupEnhancer();
-        lastSection = "";
-        enhanced = {};
-      }
-    });
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
     setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
