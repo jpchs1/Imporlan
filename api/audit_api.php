@@ -156,14 +156,14 @@ function auditList() {
         $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM audit_log $whereClause");
         $countStmt->execute($params);
         $total = intval($countStmt->fetch(PDO::FETCH_ASSOC)['total']);
+        $limit = intval($limit);
+        $offset = intval($offset);
         $stmt = $pdo->prepare("
             SELECT * FROM audit_log
             $whereClause
             ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT $limit OFFSET $offset
         ");
-        $params[] = $limit;
-        $params[] = $offset;
         $stmt->execute($params);
         $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode([

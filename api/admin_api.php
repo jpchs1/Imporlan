@@ -68,7 +68,9 @@ function base64UrlDecode($data) {
 
 function createJWT($payload) {
     $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
-    $payload['exp'] = time() + (7 * 24 * 60 * 60);
+    if (!isset($payload['exp'])) {
+        $payload['exp'] = time() + (7 * 24 * 60 * 60);
+    }
     $payload['iat'] = time();
     
     $base64Header = base64UrlEncode($header);
@@ -117,12 +119,19 @@ function requireAuth() {
         exit();
     }
     
+    // Reject 2FA pending tokens - they should only be used for /auth/verify-2fa
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token de 2FA no es valido para esta operacion']);
+        exit();
+    }
+
     if (!in_array($payload['role'], ['admin', 'support', 'agent'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();
     }
-    
+
     return $payload;
 }
 
