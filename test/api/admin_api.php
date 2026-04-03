@@ -190,11 +190,39 @@ function handleLogin() {
     }
     
     if (!$user) {
+        require_once __DIR__ . '/../../api/security_alerts.php';
+        (new SecurityAlerts())->logFailedLogin($email);
+
         http_response_code(401);
         echo json_encode(['detail' => 'Invalid credentials']);
         return;
     }
-    
+
+    require_once __DIR__ . '/../../api/two_factor.php';
+    require_once __DIR__ . '/../../api/security_alerts.php';
+    $tfa = new TwoFactorAuth();
+    $securityAlerts = new SecurityAlerts();
+
+    if ($tfa->isEnabled($user['email'])) {
+        if (!$tfa->isTrustedDevice($user['email'])) {
+            $tempToken = createJWT([
+                'sub' => (string)$user['id'],
+                'email' => $user['email'],
+                'role' => $user['role'],
+                'purpose' => '2fa_pending',
+                'exp' => time() + 300
+            ]);
+            echo json_encode([
+                'requires_2fa' => true,
+                'temp_token' => $tempToken,
+                'message' => 'Se requiere codigo de verificacion 2FA'
+            ]);
+            return;
+        }
+    }
+
+    $securityAlerts->logSuccessfulLogin($user['email']);
+
     $token = createJWT([
         'sub' => (string)$user['id'],
         'email' => $user['email'],

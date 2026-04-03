@@ -33,6 +33,11 @@ function handleAuthEndpoint($uriPath) {
         return;
     }
 
+    if (preg_match('#/auth/verify-2fa$#', $uriPath) && $method === 'POST') {
+        handleVerify2FA();
+        return;
+    }
+
     if (preg_match('#/auth/logout$#', $uriPath)) {
         echo json_encode(['success' => true]);
         return;
@@ -182,10 +187,41 @@ function handleLogin() {
     }
 
     if (!$user) {
+        require_once __DIR__ . '/../../api/security_alerts.php';
+        (new SecurityAlerts())->logFailedLogin($email);
+
         http_response_code(401);
         echo json_encode(['detail' => 'Credenciales invalidas']);
         return;
     }
+
+    // Check if 2FA is enabled for this user
+    require_once __DIR__ . '/../../api/two_factor.php';
+    require_once __DIR__ . '/../../api/security_alerts.php';
+    $tfa = new TwoFactorAuth();
+    $securityAlerts = new SecurityAlerts();
+
+    if ($tfa->isEnabled($user['email'])) {
+        if (!$tfa->isTrustedDevice($user['email'])) {
+            $tempPayload = [
+                'sub' => (string)$user['id'],
+                'email' => $user['email'],
+                'role' => $user['role'],
+                'purpose' => '2fa_pending',
+                'exp' => time() + 300,
+                'iat' => time()
+            ];
+            $tempToken = generateJWT($tempPayload);
+            echo json_encode([
+                'requires_2fa' => true,
+                'temp_token' => $tempToken,
+                'message' => 'Se requiere codigo de verificacion 2FA'
+            ]);
+            return;
+        }
+    }
+
+    $securityAlerts->logSuccessfulLogin($user['email']);
 
     $payload = [
         'sub' => (string)$user['id'],
@@ -199,6 +235,114 @@ function handleLogin() {
 
     $token = generateJWT($payload);
     echo json_encode(buildUserResponse($user, $token));
+}
+
+function handleVerify2FA() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $tempToken = $input['temp_token'] ?? '';
+    $code = $input['code'] ?? '';
+    $trustDevice = $input['trust_device'] ?? false;
+
+    if (!$tempToken || !$code) {
+        http_response_code(400);
+        echo json_encode(['detail' => 'Token temporal y codigo 2FA son requeridos']);
+        return;
+    }
+
+    // Verify the temporary token
+    $payload = verifyJWTLocal($tempToken);
+    if (!$payload || ($payload['purpose'] ?? '') !== '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token temporal invalido o expirado']);
+        return;
+    }
+
+    require_once __DIR__ . '/../../api/two_factor.php';
+    require_once __DIR__ . '/../../api/security_alerts.php';
+    $tfa = new TwoFactorAuth();
+    $securityAlerts = new SecurityAlerts();
+
+    if (!$tfa->verifyLogin($payload['email'], $code)) {
+        $securityAlerts->log2FAFailure($payload['email']);
+        http_response_code(401);
+        echo json_encode(['detail' => 'Codigo 2FA invalido']);
+        return;
+    }
+
+    // 2FA verified - build the real user data
+    $email = $payload['email'];
+    $user = null;
+
+    // Rebuild user from DB or credentials
+    $hardcoded = [
+        IMPORLAN_ADMIN_EMAIL => ['password' => IMPORLAN_ADMIN_PASSWORD, 'name' => 'Administrador Imporlan', 'role' => 'admin', 'id' => 1],
+        IMPORLAN_SUPPORT_EMAIL => ['password' => IMPORLAN_SUPPORT_PASSWORD, 'name' => 'Soporte Imporlan', 'role' => 'support', 'id' => 2],
+    ];
+
+    if (isset($hardcoded[$email])) {
+        $user = [
+            'id' => $hardcoded[$email]['id'],
+            'email' => $email,
+            'name' => $hardcoded[$email]['name'],
+            'role' => $hardcoded[$email]['role'],
+            'status' => 'active',
+            'locale' => 'es',
+        ];
+    } else {
+        try {
+            $pdo = getDbConnection();
+            if ($pdo) {
+                $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
+                $stmt->execute([$email]);
+                $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($dbUser) {
+                    $user = [
+                        'id' => (int)$dbUser['id'],
+                        'email' => $dbUser['email'],
+                        'name' => $dbUser['name'],
+                        'role' => $dbUser['role'],
+                        'status' => $dbUser['status'],
+                        'locale' => $dbUser['locale'] ?? 'es',
+                        'permissions' => $dbUser['permissions'] ?? null,
+                    ];
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Usuario no encontrado']);
+        return;
+    }
+
+    // Trust device if requested
+    $trustedDeviceData = null;
+    if ($trustDevice) {
+        $trustedDeviceData = $tfa->trustDevice($email);
+    }
+
+    $securityAlerts->logSuccessfulLogin($email);
+
+    $fullPayload = [
+        'sub' => (string)$user['id'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+        'locale' => $user['locale'] ?? 'es',
+        'permissions' => $user['permissions'] ?? null,
+        'exp' => time() + (7 * 24 * 60 * 60),
+        'iat' => time()
+    ];
+
+    $token = generateJWT($fullPayload);
+    $response = buildUserResponse($user, $token);
+
+    // Include trusted device cookie info for the frontend to set
+    if ($trustedDeviceData) {
+        $response['trusted_device'] = $trustedDeviceData;
+    }
+
+    echo json_encode($response);
 }
 
 function handleAuthMe() {
