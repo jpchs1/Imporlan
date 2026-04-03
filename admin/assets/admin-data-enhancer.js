@@ -1803,7 +1803,7 @@
         case "Planes": ok = enhancePlanes(); break;
         case "Pagos": ok = enhancePagos(); break;
         case "Contenido": ok = enhanceContenido(); break;
-        case "Auditoria": ok = true; break;
+        // Auditoria disabled - handled by separate module if enabled
         case "Configuracion": ok = enhanceConfiguracion(); break;
       }
     } catch (e) { console.warn("Admin enhancer error:", e); }
