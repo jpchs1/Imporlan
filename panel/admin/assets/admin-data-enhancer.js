@@ -1831,23 +1831,8 @@
     }, 100);
   }
 
-  // Hide the Auditoria button from the React sidebar
-  function hideAuditoriaSidebar() {
-    var nav = document.querySelector("aside nav ul");
-    if (!nav) return;
-    nav.querySelectorAll("button, a").forEach(function(btn) {
-      var text = (btn.textContent || "").trim();
-      if (text === "Auditoria" || text === "Auditoría") {
-        var li = btn.closest("li");
-        if (li) li.style.display = "none";
-        else btn.style.display = "none";
-      }
-    });
-  }
-
   function init() {
     injectConfigSidebar();
-    hideAuditoriaSidebar();
     document.addEventListener("click", function(e) {
       if (!configActive) return;
       var btn = e.target.closest("aside nav ul button, aside nav ul a");
@@ -1878,7 +1863,7 @@
       }
     });
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
-    setInterval(function() { injectConfigSidebar(); hideAuditoriaSidebar(); check(); }, 500);
+    setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
   }
 
