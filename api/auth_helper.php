@@ -81,6 +81,12 @@ function requireAdminAuthShared($allowedRoles = ['admin', 'support']) {
         exit();
     }
 
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token de 2FA no es valido para esta operacion']);
+        exit();
+    }
+
     if (!isset($payload['role']) || !in_array($payload['role'], $allowedRoles)) {
         http_response_code(403);
         echo json_encode(['error' => 'Acceso denegado']);

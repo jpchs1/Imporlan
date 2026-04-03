@@ -40,12 +40,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             runMigration();
             break;
         case 'user_list':
-            $userPayload = requireUserAuthShared();
-            userListOrders($userPayload);
+            userListOrders();
             break;
         case 'user_detail':
-            $userPayload = requireUserAuthShared();
-            userGetOrderDetail($userPayload);
+            userGetOrderDetail();
             break;
         case 'admin_list':
             requireAdminAuth();

@@ -50,25 +50,24 @@ try {
     }
 
     if ($rotatedCount > 0) {
-        $stmt = $pdo->prepare("
+        $rotatedCount = intval($rotatedCount);
+        $pdo->exec("
             UPDATE vessels SET status='active', is_featured=1
             WHERE type='auto' AND status='scheduled'
             ORDER BY created_at ASC
-            LIMIT ?
+            LIMIT $rotatedCount
         ");
-        $stmt->execute([intval($rotatedCount)]);
     }
 
     $activeCount = $pdo->query("SELECT COUNT(*) FROM vessels WHERE is_featured=1 AND status='active'")->fetchColumn();
     if ($activeCount < 3) {
         $needed = intval(3 - $activeCount);
-        $stmt = $pdo->prepare("
+        $pdo->exec("
             UPDATE vessels SET is_featured=1, status='active'
             WHERE type='auto' AND status='scheduled' AND is_featured=0
             ORDER BY created_at ASC
-            LIMIT ?
+            LIMIT $needed
         ");
-        $stmt->execute([$needed]);
     }
 
     $navigatingCount = $pdo->query("
