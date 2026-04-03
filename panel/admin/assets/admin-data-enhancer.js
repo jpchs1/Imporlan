@@ -1843,6 +1843,25 @@
         enhanced = {};
       }
     }, true);
+    // Reset configActive when navigating away via hash change
+    window.addEventListener("hashchange", function() {
+      if (configActive) {
+        configActive = false;
+        cleanupEnhancer();
+        lastSection = "";
+        enhanced = {};
+      }
+    });
+    // Reset enhancer state when clicking any sidebar nav button
+    document.addEventListener("click", function(e) {
+      var btn = e.target.closest("aside nav ul button, aside nav ul a");
+      if (btn && btn.id !== "sidebar-config-admin") {
+        configActive = false;
+        cleanupEnhancer();
+        lastSection = "";
+        enhanced = {};
+      }
+    });
     new MutationObserver(debouncedCheck).observe(document.body, { childList: true, subtree: true });
     setInterval(function() { injectConfigSidebar(); check(); }, 500);
     check();
