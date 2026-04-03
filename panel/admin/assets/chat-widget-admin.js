@@ -551,10 +551,9 @@
     async function refreshAdminToken() {
         if (tokenRefreshAttempted) return false;
         tokenRefreshAttempted = true;
-        
-        // Show message to user that they need to re-login
+
+        // Log silently - don't show intrusive alert
         console.log('Chat: Token validation failed. Please re-login to use chat.');
-        alert('Tu sesion de chat ha expirado. Por favor, cierra sesion y vuelve a iniciar sesion para usar el chat.');
         return false;
     }
 
