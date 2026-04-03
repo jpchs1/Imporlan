@@ -1848,21 +1848,11 @@
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
-      // Don't cleanup when entering sections managed by other scripts
       if (externalSections.indexOf(s) === -1) {
         cleanupEnhancer();
       } else {
-        // Just remove enhancer-added elements without hiding React content
-        var main = document.querySelector("main");
-        if (main) {
-          main.querySelectorAll("[data-enhancer-added]").forEach(function(el) { el.remove(); });
-          main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
-            el.style.display = "";
-            el.removeAttribute("data-enhancer-hidden");
-          });
-          main.removeAttribute("data-enhancer-section");
-        }
-        configActive = false;
+        // External section: only remove enhancer-injected elements, don't touch anything else
+        cleanupEnhancer();
       }
       lastSection = s;
       enhanced = {};

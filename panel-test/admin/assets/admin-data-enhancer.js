@@ -1843,20 +1843,7 @@
     var s = getSection();
     if (!s) return;
     if (s !== lastSection) {
-      if (externalSections.indexOf(s) === -1) {
-        cleanupEnhancer();
-      } else {
-        var main = document.querySelector("main");
-        if (main) {
-          main.querySelectorAll("[data-enhancer-added]").forEach(function(el) { el.remove(); });
-          main.querySelectorAll("[data-enhancer-hidden]").forEach(function(el) {
-            el.style.display = "";
-            el.removeAttribute("data-enhancer-hidden");
-          });
-          main.removeAttribute("data-enhancer-section");
-        }
-        configActive = false;
-      }
+      cleanupEnhancer();
       lastSection = s;
       enhanced = {};
     }
