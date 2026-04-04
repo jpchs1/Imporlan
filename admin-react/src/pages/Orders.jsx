@@ -446,8 +446,8 @@ export default function Orders() {
         )}
 
         {/* Links table */}
-        <div className="overflow-x-auto -mx-6 px-6">
-          <table className="w-full border-collapse" style={{minWidth:1600}}>
+        <div className="overflow-x-auto -mx-6 px-6" style={{maxHeight:'70vh'}}>
+          <table className="w-full border-collapse" style={{minWidth:1200}}>
             <thead>
               <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
                 {['','#','Imagen','Marca','Modelo','Año','Link Opcion (USA)','Ubicacion','Horas','Motor','Valor USA (USD)','Negociar (USD)','Chile (CLP)','Negociado (CLP)','N° Sel','Comentarios','Acc.'].map((h,i) => (

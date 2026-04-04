@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/marketplace_email_service.php';
+require_once __DIR__ . '/auth_helper.php';
 
 if (!defined('JWT_SECRET')) {
     $jwt = getenv('JWT_SECRET');
@@ -70,6 +71,26 @@ switch ($action) {
         break;
     case 'migrate_arriendo':
         migrateArriendoFields();
+        break;
+    case 'admin_list':
+        requireAdminAuthShared();
+        adminListListings();
+        break;
+    case 'admin_get':
+        requireAdminAuthShared();
+        adminGetListing();
+        break;
+    case 'admin_update_status':
+        requireAdminAuthShared();
+        adminUpdateStatus();
+        break;
+    case 'admin_update':
+        requireAdminAuthShared();
+        adminUpdateListing();
+        break;
+    case 'admin_delete':
+        requireAdminAuthShared();
+        adminDeleteListing();
         break;
     default:
         http_response_code(400);
@@ -652,6 +673,142 @@ function ensureArriendoColumns($pdo) {
     if (!in_array('arriendo_periodos', $cols)) {
         $pdo->exec("ALTER TABLE marketplace_listings ADD COLUMN arriendo_periodos TEXT DEFAULT NULL AFTER tipo_publicacion");
     }
+}
+
+// ---- ADMIN ENDPOINTS ----
+
+function adminListListings() {
+    $pdo = getDbConnection();
+    $statusFilter = $_GET['status'] ?? '';
+    $where = '1=1';
+    $params = [];
+    if ($statusFilter && in_array($statusFilter, ['active','sold','deleted','expired'])) {
+        $where .= ' AND ml.status = ?';
+        $params[] = $statusFilter;
+    }
+    $stmt = $pdo->prepare("
+        SELECT ml.*, au.phone AS user_phone
+        FROM marketplace_listings ml
+        LEFT JOIN admin_users au ON au.email = ml.user_email
+        WHERE $where
+        ORDER BY ml.created_at DESC
+    ");
+    $stmt->execute($params);
+    $listings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($listings as &$l) {
+        $l['fotos'] = $l['fotos'] ? json_decode($l['fotos'], true) : [];
+        $l['fotos'] = normalizePhotoUrls($l['fotos']);
+        if (!empty($l['arriendo_periodos'])) {
+            $l['arriendo_periodos'] = json_decode($l['arriendo_periodos'], true) ?: [];
+        }
+    }
+    echo json_encode(['listings' => $listings]);
+}
+
+function adminGetListing() {
+    $id = intval($_GET['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+    $listing = fetchListingById($pdo, $id);
+    if (!$listing) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Publicacion no encontrada']);
+        return;
+    }
+    // Count leads for this listing
+    try {
+        $leadStmt = $pdo->prepare("SELECT COUNT(*) FROM marketplace_leads WHERE listing_id = ?");
+        $leadStmt->execute([$id]);
+        $listing['lead_count'] = (int) $leadStmt->fetchColumn();
+    } catch (Exception $e) {
+        $listing['lead_count'] = 0;
+    }
+    echo json_encode(['listing' => $listing]);
+}
+
+function adminUpdateStatus() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    $status = $input['status'] ?? '';
+    if (!$id || !in_array($status, ['active','sold','deleted'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id o status invalido']);
+        return;
+    }
+    $pdo = getDbConnection();
+    $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = ? WHERE id = ?");
+    $stmt->execute([$status, $id]);
+    echo json_encode(['success' => true]);
+}
+
+function adminUpdateListing() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+    $fields = [];
+    $params = [];
+    $allowedFields = [
+        'nombre' => 'string', 'tipo' => 'string', 'ano' => 'int',
+        'eslora' => 'string', 'precio' => 'float', 'moneda' => 'enum:USD,CLP',
+        'ubicacion' => 'string', 'descripcion' => 'string',
+        'estado' => 'enum:Nueva,Usada',
+        'condicion' => 'enum:Excelente,Muy Buena,Buena,Regular,Para Reparacion',
+        'horas' => 'int', 'status' => 'enum:active,sold,deleted',
+        'tipo_publicacion' => 'enum:venta,arriendo'
+    ];
+    foreach ($allowedFields as $field => $type) {
+        if (!array_key_exists($field, $input)) continue;
+        $val = $input[$field];
+        if (strpos($type, 'enum:') === 0) {
+            $valid = explode(',', substr($type, 5));
+            if (!in_array($val, $valid)) continue;
+        } elseif ($type === 'int') {
+            $val = intval($val) ?: null;
+        } elseif ($type === 'float') {
+            $val = floatval($val);
+        } else {
+            $val = trim($val);
+        }
+        $fields[] = "$field = ?";
+        $params[] = $val;
+    }
+    if (isset($input['fotos']) && is_array($input['fotos'])) {
+        $fields[] = 'fotos = ?';
+        $params[] = json_encode($input['fotos']);
+    }
+    if (empty($fields)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No hay campos para actualizar']);
+        return;
+    }
+    $params[] = $id;
+    $sql = "UPDATE marketplace_listings SET " . implode(', ', $fields) . " WHERE id = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    echo json_encode(['success' => true]);
+}
+
+function adminDeleteListing() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = intval($input['id'] ?? 0);
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta id']);
+        return;
+    }
+    $pdo = getDbConnection();
+    $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = 'deleted' WHERE id = ?");
+    $stmt->execute([$id]);
+    echo json_encode(['success' => true]);
 }
 
 function migrateArriendoFields() {

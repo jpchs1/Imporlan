@@ -33,6 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $action = $_GET['action'] ?? '';
 
 switch ($action) {
+    case 'get':
+        requireAdminAuthShared();
+        settingsGet();
+        break;
+    case 'update':
+        requireAdminAuthShared();
+        settingsUpdate();
+        break;
     case 'migrate':
         requireAdminAuthShared();
         configMigrate();
@@ -80,6 +88,63 @@ switch ($action) {
     default:
         http_response_code(400);
         echo json_encode(['error' => 'Accion no valida']);
+}
+
+function settingsGet() {
+    $pdo = getDbConnection();
+    if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS site_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                setting_key VARCHAR(100) NOT NULL UNIQUE,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM site_settings");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $settings = [];
+        foreach ($rows as $r) {
+            $settings[$r['setting_key']] = $r['setting_value'];
+        }
+        echo json_encode(['success' => true, 'settings' => $settings]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
+function settingsUpdate() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Datos requeridos']);
+        return;
+    }
+    $pdo = getDbConnection();
+    if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS site_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                setting_key VARCHAR(100) NOT NULL UNIQUE,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+        $allowed = ['site_name', 'contact_email', 'phone', 'address', 'dollar_rate', 'whatsapp'];
+        $stmt = $pdo->prepare("INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        foreach ($input as $key => $value) {
+            if (in_array($key, $allowed)) {
+                $stmt->execute([$key, $value]);
+            }
+        }
+        echo json_encode(['success' => true, 'message' => 'Configuracion guardada']);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
 }
 
 function configMigrate() {

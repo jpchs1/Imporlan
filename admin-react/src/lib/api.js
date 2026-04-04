@@ -125,6 +125,18 @@ export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=c
 
 // Marketplace
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
+export const getMarketplaceAdminList = (status = '') => {
+  const params = new URLSearchParams({ action: 'admin_list' });
+  if (status) params.append('status', status);
+  return request(`${API_BASE}/marketplace_api.php?${params}`);
+};
+export const getMarketplaceAdminDetail = (id) => request(`${API_BASE}/marketplace_api.php?action=admin_get&id=${id}`);
+export const updateMarketplaceStatus = (id, status) =>
+  request(`${API_BASE}/marketplace_api.php?action=admin_update_status`, { method: 'POST', body: JSON.stringify({ id, status }) });
+export const updateMarketplaceListing = (data) =>
+  request(`${API_BASE}/marketplace_api.php?action=admin_update`, { method: 'POST', body: JSON.stringify(data) });
+export const deleteMarketplaceListing = (id) =>
+  request(`${API_BASE}/marketplace_api.php?action=admin_delete`, { method: 'POST', body: JSON.stringify({ id }) });
 
 // Reports
 export const getReports = (orderId) => request(`${API_BASE}/reports_api.php?action=list&order_id=${orderId}`);
