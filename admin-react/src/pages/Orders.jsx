@@ -186,6 +186,30 @@ export default function Orders() {
     } catch (e) { toast?.('Error subiendo imagen', 'error'); }
   }
 
+  // ---- SCRAPE RESULT ----
+  const handleScrapeResult = useCallback((linkId, data, force) => {
+    const fields = ['make', 'model', 'year', 'location', 'hours', 'engine', 'image_url'];
+    const priceKey = data.value_usa_usd || data.price;
+    let filled = false;
+    setLinks(prev => prev.map(l => {
+      if (l.id !== linkId) return l;
+      const updated = { ...l };
+      fields.forEach(f => {
+        if (data[f] && (force || !l[f])) { updated[f] = data[f]; filled = true; }
+      });
+      if (priceKey && (force || !l.value_usa_usd)) { updated.value_usa_usd = priceKey; filled = true; }
+      return updated;
+    }));
+    if (filled) {
+      setUnsaved(true);
+      const hasImage = !!data.image_url;
+      if (filled && hasImage) toast?.('Datos extraidos del link', 'success');
+      else if (filled && !hasImage) toast?.('Datos parciales extraidos. Sube la imagen manualmente.', 'warning');
+    } else {
+      toast?.('No se encontraron datos nuevos', 'warning');
+    }
+  }, [toast]);
+
   // ---- DRAG & DROP ----
   function onDragStart(e, idx) {
     dragIdx.current = idx;
@@ -440,6 +464,7 @@ export default function Orders() {
                   onUpdate={handleLinkUpdate}
                   onDelete={handleDeleteLink}
                   onImageUpload={handleImageUpload}
+                  onScrapeResult={handleScrapeResult}
                   dragHandlers={{
                     onDragStart: e => onDragStart(e, idx),
                     onDragOver,

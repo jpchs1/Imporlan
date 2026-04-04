@@ -126,6 +126,14 @@ export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=c
 // Marketplace
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
 
+// Scraping
+export function scrapeBoatTrader(url) {
+  return request(`${API_BASE}/boattrader_scraper.php?action=scrape&url=${encodeURIComponent(url)}`);
+}
+export function scrapeLink(url) {
+  return request(`${API_BASE}/link_scraper.php?action=fetch&url=${encodeURIComponent(url)}`);
+}
+
 // File upload (multipart)
 export async function uploadLinkImage(orderId, linkId, file) {
   const fd = new FormData();
