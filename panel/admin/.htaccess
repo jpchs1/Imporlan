@@ -1,0 +1,11 @@
+# SPA routing for panel/admin React app
+RewriteEngine On
+RewriteBase /panel/admin/
+
+# Serve existing files and directories directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback: route all other requests to this app's index.html
+RewriteRule ^ index.html [L]
