@@ -96,13 +96,13 @@ export const deleteVessel = (id) =>
 export const getVesselPositions = (id) => request(`${API_BASE}/tracking_api.php?action=vessel_positions&id=${id}`);
 
 // Plans (config)
-export const getPlans = () => request(`${API_BASE}/config_api.php?action=plans_list`);
+export const getPlans = () => request(`${API_BASE}/settings_api.php?action=plans_list`);
 export const createPlan = (data) =>
-  request(`${API_BASE}/config_api.php?action=plans_create`, { method: 'POST', body: JSON.stringify(data) });
+  request(`${API_BASE}/settings_api.php?action=plans_create`, { method: 'POST', body: JSON.stringify(data) });
 export const updatePlan = (data) =>
-  request(`${API_BASE}/config_api.php?action=plans_update`, { method: 'POST', body: JSON.stringify(data) });
+  request(`${API_BASE}/settings_api.php?action=plans_update`, { method: 'POST', body: JSON.stringify(data) });
 export const deletePlan = (id) =>
-  request(`${API_BASE}/config_api.php?action=plans_delete`, { method: 'POST', body: JSON.stringify({ id }) });
+  request(`${API_BASE}/settings_api.php?action=plans_delete`, { method: 'POST', body: JSON.stringify({ id }) });
 
 // Settings
 export const getSettings = () => request(`${API_BASE}/settings_api.php?action=get`).catch(() => ({}));
@@ -110,9 +110,9 @@ export const updateSettings = (data) =>
   request(`${API_BASE}/settings_api.php?action=update`, { method: 'POST', body: JSON.stringify(data) });
 
 // Pricing
-export const getPricing = () => request(`${API_BASE}/config_api.php?action=pricing_get`);
+export const getPricing = () => request(`${API_BASE}/settings_api.php?action=pricing_get`);
 export const updatePricing = (data) =>
-  request(`${API_BASE}/config_api.php?action=pricing_update`, { method: 'POST', body: JSON.stringify(data) });
+  request(`${API_BASE}/settings_api.php?action=pricing_update`, { method: 'POST', body: JSON.stringify(data) });
 
 // Security
 export const getSecurityEvents = (params = '') => request(`${API_BASE}/security_alerts.php?action=list&${params}`).catch(() => ({ items: [] }));
