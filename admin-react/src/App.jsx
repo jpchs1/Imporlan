@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './components/Toast';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -13,6 +14,7 @@ import Tracking from './pages/Tracking';
 import Content from './pages/Content';
 import Config from './pages/Config';
 import Security from './pages/Security';
+import Marketplace from './pages/Marketplace';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -33,6 +35,7 @@ function AppRoutes() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/tracking" element={<Tracking />} />
+        <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/content" element={<Content />} />
         <Route path="/config" element={<Config />} />
         <Route path="/security" element={<Security />} />
@@ -45,9 +48,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

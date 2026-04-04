@@ -55,7 +55,11 @@ export const updatePurchaseStatus = (purchaseId, status) =>
   request(`${API_BASE}/admin_api.php?action=update_purchase_status`, { method: 'POST', body: JSON.stringify({ purchase_id: purchaseId, status }) });
 
 // Orders (Expedientes)
-export const getOrders = () => request(`${API_BASE}/orders_api.php?action=admin_list`);
+export const getOrders = (filters = {}) => {
+  const params = new URLSearchParams({ action: 'admin_list' });
+  Object.entries(filters).forEach(([k, v]) => { if (v) params.append(k, v); });
+  return request(`${API_BASE}/orders_api.php?${params}`);
+};
 export const getOrderDetail = (id) => request(`${API_BASE}/orders_api.php?action=admin_detail&id=${id}`);
 export const updateOrder = (data) =>
   request(`${API_BASE}/orders_api.php?action=admin_update`, { method: 'POST', body: JSON.stringify(data) });
@@ -63,12 +67,20 @@ export const createOrder = (data) =>
   request(`${API_BASE}/orders_api.php?action=admin_create`, { method: 'POST', body: JSON.stringify(data) });
 export const deleteOrder = (id) =>
   request(`${API_BASE}/orders_api.php?action=admin_delete`, { method: 'POST', body: JSON.stringify({ id }) });
-export const addOrderLink = (data) =>
-  request(`${API_BASE}/orders_api.php?action=admin_add_link`, { method: 'POST', body: JSON.stringify(data) });
-export const deleteOrderLink = (data) =>
-  request(`${API_BASE}/orders_api.php?action=admin_delete_link`, { method: 'POST', body: JSON.stringify(data) });
+export const addOrderLink = (orderId) =>
+  request(`${API_BASE}/orders_api.php?action=admin_add_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const deleteOrderLink = (orderId, linkId) =>
+  request(`${API_BASE}/orders_api.php?action=admin_delete_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId, link_id: linkId }) });
+export const updateOrderLinks = (orderId, links) =>
+  request(`${API_BASE}/orders_api.php?action=admin_update_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, links }) });
+export const reorderOrderLinks = (orderId, linkIds, authorName) =>
+  request(`${API_BASE}/orders_api.php?action=admin_reorder_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: authorName, author_role: 'admin' }) });
 export const changeOrderStatus = (data) =>
   request(`${API_BASE}/orders_api.php?action=admin_change_status`, { method: 'POST', body: JSON.stringify(data) });
+export const sendClientUpdate = (orderId) =>
+  request(`${API_BASE}/orders_api.php?action=admin_send_client_update`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const notifyRanking = (orderId, authorName) =>
+  request(`${API_BASE}/orders_api.php?action=notify_ranking`, { method: 'POST', body: JSON.stringify({ order_id: parseInt(orderId), author_name: authorName, author_role: 'admin' }) });
 
 // Inspections
 export const getInspections = () => request(`${API_BASE}/inspection_api.php?action=admin_list`).catch(() => ({ items: [] }));
@@ -110,3 +122,20 @@ export const disable2FA = (email) =>
 
 // Content pages
 export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=content_list`).catch(() => ({ items: [] }));
+
+// Marketplace
+export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
+
+// File upload (multipart)
+export async function uploadLinkImage(orderId, linkId, file) {
+  const fd = new FormData();
+  fd.append('order_id', orderId);
+  fd.append('link_id', linkId);
+  fd.append('image', file);
+  const res = await fetch(`${API_BASE}/expediente_files_api.php?action=upload_link_image`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getToken()}` },
+    body: fd,
+  });
+  return res.json();
+}
