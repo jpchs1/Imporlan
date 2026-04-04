@@ -126,6 +126,39 @@ export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=c
 // Marketplace
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
 
+// Reports
+export const getReports = (orderId) => request(`${API_BASE}/reports_api.php?action=list&order_id=${orderId}`);
+export const previewReport = (orderId) =>
+  request(`${API_BASE}/reports_api.php?action=preview`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const sendReport = (orderId) =>
+  request(`${API_BASE}/reports_api.php?action=send`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const resendReport = (reportId) =>
+  request(`${API_BASE}/reports_api.php?action=resend`, { method: 'POST', body: JSON.stringify({ report_id: reportId }) });
+export const editReport = (reportId) =>
+  request(`${API_BASE}/reports_api.php?action=edit`, { method: 'POST', body: JSON.stringify({ report_id: reportId }) });
+export const saveReport = (reportId, htmlContent) =>
+  request(`${API_BASE}/reports_api.php?action=save`, { method: 'POST', body: JSON.stringify({ report_id: reportId, html_content: htmlContent }) });
+export const deleteReport = (reportId) =>
+  request(`${API_BASE}/reports_api.php?action=delete`, { method: 'POST', body: JSON.stringify({ report_id: reportId }) });
+
+// Expediente files
+export const getExpedienteFiles = (orderId) => request(`${API_BASE}/expediente_files_api.php?action=list&order_id=${orderId}`);
+export const deleteExpedienteFile = (fileId) =>
+  request(`${API_BASE}/expediente_files_api.php?action=delete`, { method: 'POST', body: JSON.stringify({ id: parseInt(fileId) }) });
+export async function uploadExpedienteFiles(orderId, files, description = '', notifyClient = true) {
+  const fd = new FormData();
+  fd.append('order_id', orderId);
+  fd.append('description', description);
+  fd.append('notify_client', notifyClient ? '1' : '0');
+  for (let i = 0; i < files.length; i++) fd.append('files[]', files[i]);
+  const res = await fetch(`${API_BASE}/expediente_files_api.php?action=upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getToken()}` },
+    body: fd,
+  });
+  return res.json();
+}
+
 // Scraping
 export function scrapeBoatTrader(url) {
   return request(`${API_BASE}/boattrader_scraper.php?action=scrape&url=${encodeURIComponent(url)}`);

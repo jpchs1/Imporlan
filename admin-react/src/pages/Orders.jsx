@@ -6,6 +6,8 @@ import { PageHeader, Card, Badge, Button, Modal, Input, Select, Textarea, Spinne
 import { useToast } from '../components/Toast';
 import Timeline from '../components/Timeline';
 import LinkRow from '../components/LinkRow';
+import ReportsSection from '../components/ReportsSection';
+import FilesSection from '../components/FilesSection';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos los estados' },
@@ -477,6 +479,12 @@ export default function Orders() {
           </table>
         </div>
       </Card>
+
+      {/* Reports section */}
+      <ReportsSection orderId={detail.id} linksCount={links.length} customerEmail={detail.customer_email} />
+
+      {/* Files section */}
+      <FilesSection orderId={detail.id} />
 
       {/* Change status modal */}
       <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title="Cambiar estado" size="sm">
