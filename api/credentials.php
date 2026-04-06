@@ -39,7 +39,18 @@ if (!defined('IMPORLAN_SUPPORT_PASSWORD')) {
 if (!defined('IMPORLAN_JWT_SECRET')) {
     $envJwt = getenv('IMPORLAN_JWT_SECRET');
     if (!$envJwt) {
-        error_log('CRITICAL: IMPORLAN_JWT_SECRET not configured. Using random per-request secret.');
+        // Try to load or generate a persistent secret file so the secret
+        // survives across requests (avoids "Token invalido" errors).
+        $jwtSecretFile = __DIR__ . '/.jwt_secret';
+        if (file_exists($jwtSecretFile)) {
+            $envJwt = trim(file_get_contents($jwtSecretFile));
+        }
+        if (!$envJwt) {
+            $envJwt = bin2hex(random_bytes(32));
+            // Attempt to persist so all requests share the same secret
+            @file_put_contents($jwtSecretFile, $envJwt);
+            error_log('WARNING: IMPORLAN_JWT_SECRET not configured. Generated persistent secret at ' . $jwtSecretFile);
+        }
     }
-    define('IMPORLAN_JWT_SECRET', $envJwt ?: bin2hex(random_bytes(32)));
+    define('IMPORLAN_JWT_SECRET', $envJwt);
 }
