@@ -302,7 +302,7 @@
         } else {
           showAlert(
             "error",
-            data.message || "Error al enviar la consulta. Intenta nuevamente."
+            data.error || data.message || "Error al enviar la consulta. Intenta nuevamente."
           );
         }
       })

@@ -390,11 +390,16 @@ BASE64;
         $htmlContent = $this->getInternalNotificationTemplate($config['template'], $data);
         
         $results = [];
+        $anySuccess = false;
         foreach ($this->adminEmails as $adminEmail) {
-            $results[] = $this->sendEmail($adminEmail, $config['subject'], $htmlContent, 'internal_' . $type, $data);
+            $result = $this->sendEmail($adminEmail, $config['subject'], $htmlContent, 'internal_' . $type, $data);
+            $results[] = $result;
+            if (!empty($result['success'])) {
+                $anySuccess = true;
+            }
         }
-        
-        return ['success' => true, 'results' => $results];
+
+        return ['success' => $anySuccess, 'results' => $results];
     }
     
     /**

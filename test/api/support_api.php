@@ -58,15 +58,30 @@ try {
         'subject' => $subject,
         'message' => $message
     ]);
-    
+
     $confirmationSent = $emailService->sendSupportConfirmation($email, $name, $subject);
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Solicitud enviada correctamente',
-        'notification_sent' => $result['success'] ?? false,
-        'confirmation_sent' => $confirmationSent['success'] ?? false
-    ]);
+
+    $notificationOk = $result['success'] ?? false;
+    $confirmationOk = $confirmationSent['success'] ?? false;
+    $anyEmailSent = $notificationOk || $confirmationOk;
+
+    if ($anyEmailSent) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Solicitud enviada correctamente',
+            'notification_sent' => $notificationOk,
+            'confirmation_sent' => $confirmationOk
+        ]);
+    } else {
+        error_log("[SupportAPI] Email delivery failed - notification: " . json_encode($result) . " confirmation: " . json_encode($confirmationSent));
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'No se pudo enviar el email. Por favor intenta nuevamente o contactanos directamente a contacto@imporlan.cl',
+            'notification_sent' => false,
+            'confirmation_sent' => false
+        ]);
+    }
 } catch (Exception $e) {
     error_log("[SupportAPI] Error: " . $e->getMessage());
     http_response_code(500);
