@@ -156,12 +156,7 @@
         <priority>0.7</priority>
     </url>
 
-    <url>
-        <loc>https://www.imporlan.cl/lanchas-usadas-en-chile-2/</loc>
-        <lastmod>2026-03-05</lastmod>
-        <changefreq>monthly</changefreq>
-        <priority>0.7</priority>
-    </url>
+    <!-- /lanchas-usadas-en-chile-2/ removed: 301 redirect to /lanchas-usadas/ (cannibalization fix) -->
 
     <url>
         <loc>https://www.imporlan.cl/cuanto-cuesta-importar-una-lancha-a-chile/</loc>
