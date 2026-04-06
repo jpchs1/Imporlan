@@ -73,34 +73,45 @@ if [ -f "$STAGING_REPO/index.html" ]; then
 fi
 
 # Deploy assets (JS, CSS)
-rsync -a "$STAGING_REPO/assets/" "$PUBLIC_HTML/assets/"
+cp -a "$STAGING_REPO/assets/." "$PUBLIC_HTML/assets/"
 echo "  -> Assets deployed."
 
 # Deploy API (preserve db_config.php and server-only files)
-rsync -a --exclude='db_config.php' --exclude='marketplace_photos/' "$STAGING_REPO/api/" "$PUBLIC_HTML/api/"
-echo "  -> API deployed (db_config.php and photos preserved)."
+# Backup server-only files before overwrite
+if [ -f "$PUBLIC_HTML/api/db_config.php" ]; then
+  cp "$PUBLIC_HTML/api/db_config.php" "/tmp/db_config_bak_${TIMESTAMP}.php"
+fi
+cp -a "$STAGING_REPO/api/." "$PUBLIC_HTML/api/"
+# Restore server-only files
+if [ -f "/tmp/db_config_bak_${TIMESTAMP}.php" ]; then
+  cp "/tmp/db_config_bak_${TIMESTAMP}.php" "$PUBLIC_HTML/api/db_config.php"
+fi
+echo "  -> API deployed (db_config.php preserved)."
 
 # Deploy marketplace HTML files
 cp "$STAGING_REPO/marketplace.html" "$PUBLIC_HTML/marketplace.html"
 echo "  -> marketplace.html deployed."
 
-rsync -a "$STAGING_REPO/marketplace/" "$PUBLIC_HTML/marketplace/"
+cp -a "$STAGING_REPO/marketplace/." "$PUBLIC_HTML/marketplace/"
 echo "  -> marketplace/ directory deployed."
 
 # Deploy panel assets
-rsync -a "$STAGING_REPO/panel/" "$PUBLIC_HTML/panel/"
+cp -a "$STAGING_REPO/panel/." "$PUBLIC_HTML/panel/"
 echo "  -> Panel deployed."
 
 # Deploy pago (payment page)
-rsync -a "$STAGING_REPO/pago/" "$PUBLIC_HTML/pago/"
+mkdir -p "$PUBLIC_HTML/pago"
+cp -a "$STAGING_REPO/pago/." "$PUBLIC_HTML/pago/"
 echo "  -> Pago page deployed."
 
 # Deploy cotizador-importacion
-rsync -a "$STAGING_REPO/cotizador-importacion/" "$PUBLIC_HTML/cotizador-importacion/"
+mkdir -p "$PUBLIC_HTML/cotizador-importacion"
+cp -a "$STAGING_REPO/cotizador-importacion/." "$PUBLIC_HTML/cotizador-importacion/"
 echo "  -> Cotizador importacion deployed."
 
 # Deploy simulacion-cotizacion
-rsync -a "$STAGING_REPO/simulacion-cotizacion/" "$PUBLIC_HTML/simulacion-cotizacion/"
+mkdir -p "$PUBLIC_HTML/simulacion-cotizacion"
+cp -a "$STAGING_REPO/simulacion-cotizacion/." "$PUBLIC_HTML/simulacion-cotizacion/"
 echo "  -> Simulacion cotizacion deployed."
 
 # Deploy SEO content pages (landing pages)
@@ -131,7 +142,8 @@ SEO_PAGES=(
 )
 for PAGE in "${SEO_PAGES[@]}"; do
   if [ -d "$STAGING_REPO/$PAGE" ]; then
-    rsync -a "$STAGING_REPO/$PAGE/" "$PUBLIC_HTML/$PAGE/"
+    mkdir -p "$PUBLIC_HTML/$PAGE"
+    cp -a "$STAGING_REPO/$PAGE/." "$PUBLIC_HTML/$PAGE/"
     echo "  -> $PAGE/ deployed."
   fi
 done
