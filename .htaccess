@@ -7,6 +7,9 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # 301 Redirects: /pages/ -> /importaciones/
 RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
 
+# 301 Redirect: Consolidate duplicate lanchas-usadas page (SEO cannibalization fix)
+RedirectMatch 301 ^/lanchas-usadas-en-chile-2(/.*)?$ /lanchas-usadas/
+
 RewriteBase /
 
 # 301 Redirects: TOUREVO pages moved to tourevo.cl
@@ -177,10 +180,10 @@ FileETag MTime Size
   RewriteRule \.php$ - [F,L]
 </IfModule>
 
-# --- Block malicious bots ---
+# --- Block malicious bots (ahrefs/semrush unblocked for SEO monitoring) ---
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteCond %{HTTP_USER_AGENT} (ahrefs|semrush|mj12bot|dotbot|blexbot|rogerbot|megaindex|seopowersuite|baiduspider|yandexbot) [NC]
+  RewriteCond %{HTTP_USER_AGENT} (mj12bot|dotbot|blexbot|rogerbot|megaindex|seopowersuite) [NC]
   RewriteRule .* - [F,L]
 </IfModule>
 
