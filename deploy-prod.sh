@@ -103,6 +103,52 @@ echo "  -> Cotizador importacion deployed."
 rsync -a "$STAGING_REPO/simulacion-cotizacion/" "$PUBLIC_HTML/simulacion-cotizacion/"
 echo "  -> Simulacion cotizacion deployed."
 
+# Deploy SEO content pages (landing pages)
+SEO_PAGES=(
+  "lanchas-usadas"
+  "lanchas"
+  "lanchas-de-pesca-usadas"
+  "lanchas-de-ski"
+  "botes-de-pesca"
+  "embarcaciones"
+  "embarcaciones-usadas"
+  "veleros-en-venta"
+  "comprar-lanchas-usadas-en-chile-o-en-usa"
+  "como-comprar-lancha-usada-chile"
+  "como-vender-moto-de-agua-chile"
+  "costo-mantener-lancha-chile"
+  "cuanto-cuesta-importar-una-lancha-a-chile"
+  "documentos-tramites-vender-embarcacion-chile"
+  "importacion-embarcaciones-usa-chile"
+  "importacion-lanchas-chile"
+  "importacion-veleros-chile"
+  "importar-embarcaciones-usa"
+  "importar-motos-de-agua-desde-usa"
+  "inspeccion-precompra-embarcaciones"
+  "logistica-maritima-importacion"
+  "preguntas-frecuentes-embarcaciones-usadas"
+  "casos-de-importacion"
+)
+for PAGE in "${SEO_PAGES[@]}"; do
+  if [ -d "$STAGING_REPO/$PAGE" ]; then
+    rsync -a "$STAGING_REPO/$PAGE/" "$PUBLIC_HTML/$PAGE/"
+    echo "  -> $PAGE/ deployed."
+  fi
+done
+echo "  -> SEO content pages deployed."
+
+# Deploy sitemap.xml
+if [ -f "$STAGING_REPO/sitemap.xml" ]; then
+  cp "$STAGING_REPO/sitemap.xml" "$PUBLIC_HTML/sitemap.xml"
+  chmod 644 "$PUBLIC_HTML/sitemap.xml"
+  echo "  -> sitemap.xml deployed."
+fi
+if [ -f "$STAGING_REPO/sitemap-seo.xml" ]; then
+  cp "$STAGING_REPO/sitemap-seo.xml" "$PUBLIC_HTML/sitemap-seo.xml"
+  chmod 644 "$PUBLIC_HTML/sitemap-seo.xml"
+  echo "  -> sitemap-seo.xml deployed."
+fi
+
 # Deploy .htaccess
 if [ -f "$STAGING_REPO/.htaccess" ]; then
   cp "$STAGING_REPO/.htaccess" "$PUBLIC_HTML/.htaccess"
