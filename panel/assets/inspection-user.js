@@ -348,6 +348,17 @@
           '</div></div></div>';
       });
       html += '</div>';
+
+      // CTA to request new inspection (always visible when there are inspections)
+      html += '<div style="margin-top:28px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:20px;border:1px dashed #cbd5e1;padding:28px;text-align:center">' +
+        '<p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#1e293b">Necesitas otra inspeccion?</p>' +
+        '<p style="margin:0 0 18px;font-size:13px;color:#64748b">Solicita una nueva inspeccion pre-compra en:</p>' +
+        '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' +
+        '<a href="https://wa.me/56940211459?text=Hola%2C%20me%20interesa%20contratar%20una%20inspeccion%20de%20embarcacion%20en%20Chile" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:600;font-size:13px;text-decoration:none;box-shadow:0 3px 12px rgba(37,211,102,.25);transition:all .2s">' +
+        '<img src="https://flagcdn.com/w40/cl.png" width="20" height="14" style="border-radius:2px" alt="Chile">Chile</a>' +
+        '<a href="https://wa.me/56940211459?text=Hola%2C%20me%20interesa%20contratar%20una%20inspeccion%20de%20embarcacion%20en%20USA" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-weight:600;font-size:13px;text-decoration:none;box-shadow:0 3px 12px rgba(59,130,246,.25);transition:all .2s">' +
+        '<img src="https://flagcdn.com/w40/us.png" width="20" height="14" style="border-radius:2px" alt="USA">Estados Unidos</a>' +
+        '</div></div>';
     }
 
     html += '</div>';
