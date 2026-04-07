@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Expedientes from './pages/Expedientes';
 import Documents from './pages/Documents';
+import Tracking from './pages/Tracking';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -27,7 +28,7 @@ function AppRoutes() {
         {/* Placeholder routes - pages to be built in future phases */}
         <Route path="/expedientes" element={<Expedientes />} />
         <Route path="/marketplace" element={<ComingSoon label="Marketplace" />} />
-        <Route path="/tracking" element={<ComingSoon label="Seguimiento" />} />
+        <Route path="/tracking" element={<Tracking />} />
         <Route path="/messages" element={<ComingSoon label="Mensajes" />} />
         <Route path="/documents" element={<Documents />} />
         <Route path="/payments" element={<ComingSoon label="Pagos" />} />

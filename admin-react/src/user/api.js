@@ -68,12 +68,18 @@ export async function uploadListingPhoto(listingId, file) {
   return uploadFile(`${API_BASE}/marketplace_api.php?action=upload_photo`, fd);
 }
 
-// Tracking (user - read only)
-export const getMyVessels = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
-  return request(`${API_BASE}/tracking_api.php?action=user_vessels&user_email=${encodeURIComponent(email)}`);
-};
+// Tracking (user - read only, public endpoints)
+export const getFeaturedVessels = () =>
+  request(`${API_BASE}/tracking_api.php?action=featured`);
+
+export const getVesselDetail = (id) =>
+  request(`${API_BASE}/tracking_api.php?action=vessel_detail&id=${id}`);
+
+export const getVesselPositions = (id, limit = 100) =>
+  request(`${API_BASE}/tracking_api.php?action=vessel_positions&id=${id}&limit=${limit}`);
+
+export const refreshVesselPosition = (id) =>
+  request(`${API_BASE}/tracking_api.php?action=refresh_vessel_position&id=${id}`);
 
 // Chat / Messages
 export const getMyConversations = () => {
