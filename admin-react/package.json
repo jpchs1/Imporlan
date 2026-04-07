@@ -4,8 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "BUILD_TARGET=admin vite",
+    "dev:admin": "BUILD_TARGET=admin vite",
+    "dev:user": "BUILD_TARGET=user vite",
+    "build": "BUILD_TARGET=admin vite build",
+    "build:admin": "BUILD_TARGET=admin vite build",
+    "build:user": "BUILD_TARGET=user vite build",
+    "build:all": "npm run build:admin && npm run build:user",
     "lint": "eslint .",
     "preview": "vite preview"
   },

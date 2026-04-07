@@ -2,15 +2,35 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const target = process.env.BUILD_TARGET || 'admin';
+
+const configs = {
+  admin: {
+    base: '/panel/admin/',
+    outDir: '../panel/admin',
+    entry: 'admin.html',
+  },
+  user: {
+    base: '/panel/',
+    outDir: '../panel',
+    entry: 'index.html',
+  },
+};
+
+const cfg = configs[target];
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/panel/admin/',
+  base: cfg.base,
   build: {
-    outDir: '../panel/admin',
+    outDir: cfg.outDir,
     emptyOutDir: true,
+    rollupOptions: {
+      input: cfg.entry,
+    },
   },
   server: {
-    port: 5173,
+    port: target === 'admin' ? 5173 : 5174,
     proxy: {
       '/api': {
         target: 'https://www.imporlan.cl',
