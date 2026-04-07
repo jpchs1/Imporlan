@@ -112,6 +112,15 @@ export const startConversation = (subject, message) => {
   });
 };
 
+export const pollMessages = (lastCheck, conversationId) => {
+  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
+  const email = user.email || user.user_email || '';
+  const params = new URLSearchParams({ action: 'poll', user_email: email });
+  if (lastCheck) params.append('last_check', lastCheck);
+  if (conversationId) params.append('conversation_id', conversationId);
+  return request(`${API_BASE}/chat_api.php?${params}`);
+};
+
 // Documents (user files)
 export const getMyFiles = (orderId) => request(`${API_BASE}/expediente_files_api.php?action=list&order_id=${orderId}`);
 
