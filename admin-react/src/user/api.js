@@ -109,6 +109,13 @@ export const startConversation = (subject, message) => {
 // Documents (user files)
 export const getMyFiles = (orderId) => request(`${API_BASE}/expediente_files_api.php?action=list&order_id=${orderId}`);
 
+// Reports (user - read only)
+export const getMyReports = () => {
+  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
+  const email = user.email || user.user_email || '';
+  return request(`${API_BASE}/reports_api.php?action=user_reports&user_email=${encodeURIComponent(email)}`).catch(() => ({ reports: [] }));
+};
+
 // Inspections (user - read only)
 export const getMyInspections = () => {
   const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');

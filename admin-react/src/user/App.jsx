@@ -6,6 +6,7 @@ import { STORAGE_KEYS, BRANDING, NAV_ITEMS } from './config';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Expedientes from './pages/Expedientes';
+import Documents from './pages/Documents';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -28,7 +29,7 @@ function AppRoutes() {
         <Route path="/marketplace" element={<ComingSoon label="Marketplace" />} />
         <Route path="/tracking" element={<ComingSoon label="Seguimiento" />} />
         <Route path="/messages" element={<ComingSoon label="Mensajes" />} />
-        <Route path="/documents" element={<ComingSoon label="Documentos" />} />
+        <Route path="/documents" element={<Documents />} />
         <Route path="/payments" element={<ComingSoon label="Pagos" />} />
         <Route path="/profile" element={<ComingSoon label="Mi Perfil" />} />
       </Route>
