@@ -69,6 +69,20 @@
     return h;
   }
   function esc(t) { if (!t) return ""; var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+  function countryFlag(code) {
+    if (!code) return "";
+    var c = code.toLowerCase().trim();
+    if (c === "chile" || c === "cl") return '<img src="https://flagcdn.com/w40/cl.png" width="20" height="14" style="vertical-align:-2px;border-radius:2px;margin-right:4px" alt="Chile">';
+    if (c === "usa" || c === "us" || c === "estados unidos") return '<img src="https://flagcdn.com/w40/us.png" width="20" height="14" style="vertical-align:-2px;border-radius:2px;margin-right:4px" alt="USA">';
+    return "";
+  }
+  function countryName(code) {
+    if (!code) return "";
+    var c = code.toLowerCase().trim();
+    if (c === "chile" || c === "cl") return "Chile";
+    if (c === "usa" || c === "us" || c === "estados unidos") return "USA";
+    return code.toUpperCase();
+  }
   function fmtDate(s) {
     if (!s) return "N/A";
     var d = new Date(s);
@@ -297,13 +311,20 @@
         '<polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>' +
         '<h3 style="margin:0 0 10px;font-size:20px;font-weight:700;color:#1e293b">No tienes inspecciones aun</h3>' +
         '<p style="margin:0;font-size:14px;color:#94a3b8;max-width:420px;margin:0 auto;line-height:1.6">Cuando contrates una inspeccion tecnica de embarcacion, podras ver el reporte completo aqui con fotos, videos y calificaciones detalladas.</p>' +
-        '<div style="margin-top:28px"><a href="https://wa.me/56940211459?text=Hola%2C%20me%20interesa%20contratar%20una%20inspeccion%20de%20embarcacion" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:600;font-size:14px;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.3);transition:all .2s"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>Solicitar Inspeccion</a></div></div>';
+        '<p style="margin:20px 0 8px;font-size:13px;font-weight:600;color:#64748b">Solicitar inspeccion en:</p>' +
+        '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:8px">' +
+        '<a href="https://wa.me/56940211459?text=Hola%2C%20me%20interesa%20contratar%20una%20inspeccion%20de%20embarcacion%20en%20Chile" target="_blank" style="display:inline-flex;align-items:center;gap:10px;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;font-weight:600;font-size:14px;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.3);transition:all .2s">' +
+        '<img src="https://flagcdn.com/w40/cl.png" width="24" height="16" style="border-radius:2px" alt="Chile">Chile</a>' +
+        '<a href="https://wa.me/56940211459?text=Hola%2C%20me%20interesa%20contratar%20una%20inspeccion%20de%20embarcacion%20en%20USA" target="_blank" style="display:inline-flex;align-items:center;gap:10px;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-weight:600;font-size:14px;text-decoration:none;box-shadow:0 4px 16px rgba(59,130,246,.3);transition:all .2s">' +
+        '<img src="https://flagcdn.com/w40/us.png" width="24" height="16" style="border-radius:2px" alt="USA">Estados Unidos</a>' +
+        '</div></div>';
     } else {
       html += '<div style="display:grid;gap:18px">';
       inspections.forEach(function (insp, idx) {
         var rt = REPORT_TYPES[insp.report_type] || REPORT_TYPES.basica;
         var vessel = [insp.brand, insp.model, insp.vessel_year].filter(Boolean).join(" ") || "Embarcacion";
-        var location = [insp.city, insp.state_region, (insp.country || "").toUpperCase()].filter(Boolean).join(", ");
+        var location = [insp.city, insp.state_region].filter(Boolean).join(", ");
+        var flag = countryFlag(insp.country);
 
         html += '<div class="iu-card" data-id="' + insp.id + '" style="background:linear-gradient(135deg,rgba(255,255,255,0.95),rgba(248,250,252,0.98));backdrop-filter:blur(10px);border-radius:18px;border:1px solid #e2e8f0;overflow:hidden;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);animation:iuFadeIn .4s ease ' + (idx * 0.06) + 's both">' +
           '<div style="display:flex;align-items:stretch">' +
@@ -311,7 +332,7 @@
           '<div style="flex:1;padding:22px 26px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">' +
           '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:#0f172a">' + esc(vessel) + '</h3>' +
-          '<p style="margin:5px 0 0;font-size:13px;color:#64748b;display:flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(location) + '</p></div>' +
+          '<p style="margin:5px 0 0;font-size:13px;color:#64748b;display:flex;align-items:center;gap:4px">' + flag + esc(location) + '</p></div>' +
           '<span style="padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;background:' + rt.bg + ';color:' + rt.color + ';text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;border:1px solid ' + rt.color + '22">' + rt.label + '</span></div>' +
 
           '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px">' +
@@ -340,7 +361,8 @@
   function renderDetail(insp) {
     var rt = REPORT_TYPES[insp.report_type] || REPORT_TYPES.basica;
     var vessel = [insp.brand, insp.model, insp.vessel_year].filter(Boolean).join(" ") || "Embarcacion";
-    var location = [insp.city, insp.state_region, (insp.country || "").toUpperCase()].filter(Boolean).join(", ");
+    var location = [insp.city, insp.state_region].filter(Boolean).join(", ");
+    var flag = countryFlag(insp.country);
 
     var html = '<div data-enhancer-added="true" style="padding:0 8px;animation:iuFadeIn .4s ease">';
 
@@ -354,14 +376,14 @@
       '<div><h2 style="margin:0;font-size:26px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:12px">' +
       '<div style="width:44px;height:44px;background:linear-gradient(135deg,' + rt.color + ',' + rt.color + 'cc);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px ' + rt.color + '44;flex-shrink:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div>' +
       'Reporte de Inspeccion</h2>' +
-      '<p style="margin:8px 0 0;font-size:15px;color:#64748b">' + esc(vessel) + (location ? ' &mdash; ' + esc(location) : '') + '</p></div>' +
+      '<p style="margin:8px 0 0;font-size:15px;color:#64748b">' + flag + esc(vessel) + (location ? ' &mdash; ' + esc(location) : '') + '</p></div>' +
       '<span style="padding:7px 18px;border-radius:20px;font-size:12px;font-weight:700;background:' + rt.bg + ';color:' + rt.color + ';text-transform:uppercase;letter-spacing:.04em;border:1px solid ' + rt.color + '22;white-space:nowrap">Inspeccion ' + rt.label + '</span></div></div>';
 
     // Print-only branding header
     html += '<div class="iu-print-header" style="display:none"><div style="text-align:center;padding:20px 0 16px;border-bottom:3px solid #7c3aed;margin-bottom:24px">' +
       '<h1 style="margin:0;font-size:28px;font-weight:800;color:#0f172a">IMPORLAN</h1>' +
       '<p style="margin:4px 0 0;font-size:13px;color:#64748b;letter-spacing:.1em;text-transform:uppercase">Reporte de Inspeccion Tecnica de Embarcacion</p>' +
-      '<p style="margin:8px 0 0;font-size:14px;color:#475569"><strong>' + esc(vessel) + '</strong>' + (location ? ' &mdash; ' + esc(location) : '') + ' &mdash; Inspeccion ' + rt.label + '</p>' +
+      '<p style="margin:8px 0 0;font-size:14px;color:#475569">' + flag + '<strong>' + esc(vessel) + '</strong>' + (location ? ' &mdash; ' + esc(location) : '') + ' &mdash; Inspeccion ' + rt.label + '</p>' +
       '</div></div>';
 
     // Overall rating card
@@ -398,7 +420,7 @@
       { label: "Horas Motor", value: insp.engine_hours },
       { label: "Motores", value: insp.num_engines },
       { label: "Combustible", value: insp.fuel_type },
-      { label: "Pais", value: (insp.country || "").toUpperCase() },
+      { label: "Pais", value: countryName(insp.country), flag: true },
       { label: "Ciudad", value: insp.city },
       { label: "Marina", value: insp.marina }
     ];
@@ -408,7 +430,7 @@
       html += '<div style="background:#f8fafc;border-radius:12px;padding:14px 16px;border:1px solid #f1f5f9;transition:all .2s" class="iu-vessel-field">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>' +
         '<span style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:700;letter-spacing:.06em">' + f.label + '</span></div>' +
-        '<p style="margin:0;font-size:14px;font-weight:600;color:#1e293b">' + esc(String(f.value)) + '</p></div>';
+        '<p style="margin:0;font-size:14px;font-weight:600;color:#1e293b">' + (f.flag ? countryFlag(insp.country) : '') + esc(String(f.value)) + '</p></div>';
     });
 
     html += '</div></div></div>';
