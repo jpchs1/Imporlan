@@ -1,8 +1,7 @@
-// Legacy entry point - delegates to admin
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './admin/App.jsx'
+import '../index.css'
+import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

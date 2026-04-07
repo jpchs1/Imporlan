@@ -11,8 +11,8 @@ const configs = {
     entry: 'admin.html',
   },
   user: {
-    base: '/panel/',
-    outDir: '../panel',
+    base: '/panel/user/',
+    outDir: '../panel/user',
     entry: 'index.html',
   },
 };
