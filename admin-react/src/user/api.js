@@ -25,14 +25,21 @@ export const getMyOrderDetail = (id) => {
   return request(`${API_BASE}/orders_api.php?action=user_detail&id=${id}&user_email=${encodeURIComponent(email)}`);
 };
 
-export const saveRanking = (orderId, rankings) =>
-  request(`${API_BASE}/orders_api.php?action=save_ranking`, { method: 'POST', body: JSON.stringify({ order_id: orderId, rankings }) });
+export const saveRanking = (orderId, linkIds) => {
+  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
+  const email = user.email || user.user_email || '';
+  return request(`${API_BASE}/orders_api.php?action=save_ranking`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: user.name || '', author_role: 'user', user_email: email }),
+  });
+};
 
 export const notifyRanking = (orderId) => {
   const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
+  const email = user.email || user.user_email || '';
   return request(`${API_BASE}/orders_api.php?action=notify_ranking`, {
     method: 'POST',
-    body: JSON.stringify({ order_id: parseInt(orderId), author_name: user.name || '', author_role: 'client' }),
+    body: JSON.stringify({ order_id: parseInt(orderId), author_name: user.name || '', author_role: 'user', user_email: email }),
   });
 };
 

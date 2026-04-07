@@ -5,6 +5,7 @@ import Layout from '../shared/components/Layout';
 import { STORAGE_KEYS, BRANDING, NAV_ITEMS } from './config';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Expedientes from './pages/Expedientes';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -23,7 +24,7 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         {/* Placeholder routes - pages to be built in future phases */}
-        <Route path="/expedientes" element={<ComingSoon label="Mis Expedientes" />} />
+        <Route path="/expedientes" element={<Expedientes />} />
         <Route path="/marketplace" element={<ComingSoon label="Marketplace" />} />
         <Route path="/tracking" element={<ComingSoon label="Seguimiento" />} />
         <Route path="/messages" element={<ComingSoon label="Mensajes" />} />
