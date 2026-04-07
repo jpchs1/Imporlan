@@ -20,6 +20,9 @@ api/tracking/ais_config.php
 api/scraper_config.php
 api/image_cache_config.php
 credentials_config.php
+.jwt_secret
+.admin_password
+.support_password
 
 # IDE
 .idea/

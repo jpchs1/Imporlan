@@ -388,6 +388,79 @@ function handleAuthMe() {
     ]);
 }
 
+function verifyGoogleIdToken(string $idToken): ?array {
+    $parts = explode('.', $idToken);
+    if (count($parts) !== 3) return null;
+
+    [$b64Header, $b64Payload, $b64Sig] = $parts;
+
+    $header = json_decode(base64_decode(strtr($b64Header, '-_', '+/')), true);
+    $payload = json_decode(base64_decode(strtr($b64Payload, '-_', '+/')), true);
+    if (!$header || !$payload) return null;
+
+    $validIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+    if (!in_array($payload['iss'] ?? '', $validIssuers)) return null;
+    if (($payload['exp'] ?? 0) < time()) return null;
+    if (empty($payload['email'])) return null;
+
+    $kid = $header['kid'] ?? '';
+    if ($kid === '' || ($header['alg'] ?? '') !== 'RS256') return null;
+
+    $cacheFile = sys_get_temp_dir() . '/google_certs_' . md5(__DIR__) . '.json';
+    $certs = null;
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 3600) {
+        $certs = json_decode(file_get_contents($cacheFile), true);
+    }
+    if (!$certs) {
+        $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+        $raw = @file_get_contents('https://www.googleapis.com/oauth2/v3/certs', false, $ctx);
+        if ($raw) {
+            $certs = json_decode($raw, true);
+            @file_put_contents($cacheFile, $raw);
+        }
+    }
+    if (!$certs || empty($certs['keys'])) {
+        error_log('WARNING: Could not fetch Google public keys, accepting token with basic validation');
+        return $payload;
+    }
+
+    $matchingKey = null;
+    foreach ($certs['keys'] as $key) {
+        if (($key['kid'] ?? '') === $kid) { $matchingKey = $key; break; }
+    }
+    if (!$matchingKey) return null;
+
+    $n = base64_decode(strtr($matchingKey['n'], '-_', '+/'));
+    $e = base64_decode(strtr($matchingKey['e'], '-_', '+/'));
+
+    // ASN.1 DER encoding for RSA public key
+    $modulus = ltrim($n, "\x00");
+    if (ord($modulus[0]) > 0x7f) $modulus = "\x00" . $modulus;
+    $exponent = ltrim($e, "\x00");
+    if (ord($exponent[0]) > 0x7f) $exponent = "\x00" . $exponent;
+
+    $encodeLen = function(int $len): string {
+        if ($len < 0x80) return chr($len);
+        if ($len < 0x100) return "\x81" . chr($len);
+        return "\x82" . chr($len >> 8) . chr($len & 0xff);
+    };
+
+    $intMod = "\x02" . $encodeLen(strlen($modulus)) . $modulus;
+    $intExp = "\x02" . $encodeLen(strlen($exponent)) . $exponent;
+    $seq = "\x30" . $encodeLen(strlen($intMod) + strlen($intExp)) . $intMod . $intExp;
+    $bitString = "\x03" . $encodeLen(strlen($seq) + 1) . "\x00" . $seq;
+    $oid = "\x30\x0d\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01\x05\x00";
+    $der = "\x30" . $encodeLen(strlen($oid) + strlen($bitString)) . $oid . $bitString;
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n";
+
+    $sig = base64_decode(strtr($b64Sig, '-_', '+/'));
+    $pubKey = openssl_pkey_get_public($pem);
+    if (!$pubKey) return null;
+
+    $valid = openssl_verify("$b64Header.$b64Payload", $sig, $pubKey, OPENSSL_ALGO_SHA256);
+    return ($valid === 1) ? $payload : null;
+}
+
 function handleGoogleAuth() {
     $input = json_decode(file_get_contents('php://input'), true);
     $credential = $input['credential'] ?? $input['token'] ?? $input['id_token'] ?? '';
@@ -398,18 +471,17 @@ function handleGoogleAuth() {
         return;
     }
 
-    // Decode Google JWT (we just need the payload, Google already verified it client-side)
-    $parts = explode('.', $credential);
-    if (count($parts) !== 3) {
-        http_response_code(400);
-        echo json_encode(['detail' => 'Invalid Google token']);
+    // Verify Google ID token (signature + claims)
+    $googlePayload = verifyGoogleIdToken($credential);
+    if (!$googlePayload) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token de Google invalido o expirado. Intenta nuevamente.']);
         return;
     }
 
-    $googlePayload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
-    if (!$googlePayload || empty($googlePayload['email'])) {
-        http_response_code(400);
-        echo json_encode(['detail' => 'Invalid Google token payload']);
+    if (empty($googlePayload['email_verified']) && ($googlePayload['email_verified'] ?? null) !== true) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Email de Google no verificado']);
         return;
     }
 
