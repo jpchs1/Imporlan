@@ -406,7 +406,9 @@ export default function Payments() {
         {/* WebPay - Transbank */}
         <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="https://www.transbank.cl/public/img/logo-webpay.png" alt="WebPay" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
+              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#E31837"/><text x="60" y="26" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold" fontFamily="Arial,sans-serif">WebPay</text></svg>
+            </div>
             <div>
               <p className="font-bold text-slate-800">WebPay</p>
               <p className="text-[11px] text-slate-400">Transbank</p>
@@ -422,7 +424,9 @@ export default function Payments() {
         {/* MercadoPago */}
         <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/6.6.92/mercadopago/logo__large@2x.png" alt="MercadoPago" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
+              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#00B1EA"/><text x="60" y="20" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">MERCADO</text><text x="60" y="32" textAnchor="middle" fill="#FFE600" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">PAGO</text></svg>
+            </div>
             <div>
               <p className="font-bold text-slate-800">MercadoPago</p>
               <p className="text-[11px] text-slate-400">Mercado Libre</p>
@@ -438,7 +442,9 @@ export default function Payments() {
         {/* PayPal */}
         <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="https://www.paypalobjects.com/webstatic/icon/pp258.png" alt="PayPal" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
+              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#003087"/><text x="60" y="18" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">Pay</text><text x="60" y="32" textAnchor="middle" fill="#009CDE" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">Pal</text></svg>
+            </div>
             <div>
               <p className="font-bold text-slate-800">PayPal</p>
               <p className="text-[11px] text-slate-400">Internacional</p>
