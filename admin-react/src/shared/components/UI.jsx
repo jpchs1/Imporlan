@@ -114,9 +114,10 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
   if (!open) return null;
   const sizes = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[999]">
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={cn('bg-white rounded-2xl shadow-2xl w-full relative z-10 max-h-[85vh] flex flex-col animate-scale-in border border-slate-200/60', sizes[size])}>
+      <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div className={cn('bg-white rounded-2xl shadow-2xl w-full max-h-[85vh] flex flex-col animate-scale-in border border-slate-200/60 pointer-events-auto', sizes[size])}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">
@@ -124,6 +125,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        </div>
       </div>
     </div>
   );
