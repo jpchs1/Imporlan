@@ -163,10 +163,10 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
   }
 
   const methods = [
-    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', icon: '💳', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
-    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', icon: '🏧', action: handleWebPay },
-    { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', icon: '🏦', action: handleMercadoPago },
-    { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', icon: '🏛️', action: () => setShowBank(true) },
+    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', color: '#E31837', iconBg: 'linear-gradient(135deg, #E31837, #c41230)', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
+    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', color: '#E31837', iconBg: 'linear-gradient(135deg, #E31837, #c41230)', action: handleWebPay },
+    { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', color: '#00B1EA', iconBg: 'linear-gradient(135deg, #00B1EA, #009ACD)', action: handleMercadoPago },
+    { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', color: '#64748b', iconBg: 'linear-gradient(135deg, #64748b, #475569)', action: () => setShowBank(true) },
   ];
 
   return (
@@ -199,13 +199,15 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                       : 'border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/50'
                   )}
                 >
-                  <span className="text-2xl">{m.icon}</span>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: m.iconBg }}>
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                  </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
                     {m.badges && (
                       <div className="flex gap-1 mt-1">
-                        {m.badges.map(b => <span key={b} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500">{b}</span>)}
+                        {m.badges.map(b => <span key={b} className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: `${m.color}15`, color: m.color }}>{b}</span>)}
                       </div>
                     )}
                   </div>
@@ -298,37 +300,57 @@ export default function Payments() {
 
       {/* Payment Providers */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="border-red-200 hover:border-red-300 transition">
+        {/* WebPay - Transbank */}
+        <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><span className="text-red-600 text-xs font-bold">WP</span></div>
-            <div><p className="font-semibold text-slate-800 text-sm">WebPay</p><p className="text-[11px] text-slate-400">Transbank</p></div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #E31837, #c41230)' }}>
+              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M8 14h6l3 12h2l3-12h6" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/><circle cx="20" cy="28" r="2" fill="#fff"/></svg>
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">WebPay</p>
+              <p className="text-[11px] text-slate-400">Transbank</p>
+            </div>
           </div>
           <p className="text-xs text-slate-500 mb-3">Paga con tarjeta de credito o debito chilena</p>
           <div className="flex gap-1.5">
-            <Badge className="bg-red-50 text-red-600 text-[10px]">Credito</Badge>
-            <Badge className="bg-red-50 text-red-600 text-[10px]">Debito</Badge>
+            <Badge className="text-[10px]" style={{ background: '#fef2f2', color: '#E31837' }}>Credito</Badge>
+            <Badge className="text-[10px]" style={{ background: '#fef2f2', color: '#E31837' }}>Debito</Badge>
           </div>
         </Card>
-        <Card className="border-blue-200 hover:border-blue-300 transition">
+
+        {/* MercadoPago */}
+        <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><span className="text-blue-600 text-xs font-bold">MP</span></div>
-            <div><p className="font-semibold text-slate-800 text-sm">MercadoPago</p><p className="text-[11px] text-slate-400">Mercado Libre</p></div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #00B1EA, #009ACD)' }}>
+              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M12 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round"/><path d="M14 24c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#FFE600" strokeWidth="2.5" fill="none" strokeLinecap="round"/></svg>
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">MercadoPago</p>
+              <p className="text-[11px] text-slate-400">Mercado Libre</p>
+            </div>
           </div>
           <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta o tarjeta via MercadoPago</p>
           <div className="flex gap-1.5">
-            <Badge className="bg-blue-50 text-blue-600 text-[10px]">Wallet</Badge>
-            <Badge className="bg-blue-50 text-blue-600 text-[10px]">Tarjeta</Badge>
+            <Badge className="text-[10px]" style={{ background: '#e6f7fd', color: '#00B1EA' }}>Wallet</Badge>
+            <Badge className="text-[10px]" style={{ background: '#e6f7fd', color: '#00B1EA' }}>Tarjeta</Badge>
           </div>
         </Card>
-        <Card className="border-indigo-200 hover:border-indigo-300 transition">
+
+        {/* PayPal */}
+        <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center"><span className="text-indigo-600 text-xs font-bold">PP</span></div>
-            <div><p className="font-semibold text-slate-800 text-sm">PayPal</p><p className="text-[11px] text-slate-400">Internacional</p></div>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #003087, #001F5C)' }}>
+              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M15 10h6c3.3 0 6 2 6 5.5s-2.7 5.5-6 5.5h-3l-1 5h-4l2-16z" fill="#fff"/><path d="M18 13h4c2 0 3.5 1 3.5 3s-1.5 3-3.5 3h-2.5l-.8 4h-2.5L18 13z" fill="#009CDE"/></svg>
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">PayPal</p>
+              <p className="text-[11px] text-slate-400">Internacional</p>
+            </div>
           </div>
           <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta PayPal de forma segura</p>
           <div className="flex gap-1.5">
-            <Badge className="bg-indigo-50 text-indigo-600 text-[10px]">USD</Badge>
-            <Badge className="bg-indigo-50 text-indigo-600 text-[10px]">Internacional</Badge>
+            <Badge className="text-[10px]" style={{ background: '#e8eaf6', color: '#003087' }}>USD</Badge>
+            <Badge className="text-[10px]" style={{ background: '#e8eaf6', color: '#003087' }}>Internacional</Badge>
           </div>
         </Card>
       </div>
