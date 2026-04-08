@@ -18,7 +18,7 @@ const COUNTRIES = [
 export default function Quotation() {
   const toast = useToast();
   const { user } = useAuth();
-  const [links, setLinks] = useState(['']);
+  const [links, setLinks] = useState(['', '', '', '']);
   const [form, setForm] = useState({
     name: user?.name?.split(' ')[0] || '',
     lastName: user?.name?.split(' ').slice(1).join(' ') || '',
