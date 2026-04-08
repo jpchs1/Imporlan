@@ -32,67 +32,85 @@ function ListingCard({ item, onClick }) {
   const cover = photos[0] || null;
 
   return (
-    <Card className="p-0 overflow-hidden card-hover cursor-pointer group" onClick={() => onClick(item)}>
+    <div onClick={() => onClick(item)} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {/* Image */}
-      <div className="h-52 bg-slate-100 relative overflow-hidden">
+      <div className="h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
         {cover ? (
-          <img src={cover} alt={item.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img src={cover} alt={item.nombre} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <svg className="w-12 h-12 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span className="text-[10px] text-slate-300 font-medium">Sin imagen</span>
           </div>
         )}
-        <div className="absolute top-2 left-2 flex gap-1.5">
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow">EN VENTA</span>
-          {item.estado === 'Nueva' && <span className="px-2 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold shadow">NUEVA</span>}
+        {/* Gradient overlay at bottom */}
+        {cover && <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />}
+        {/* Badges */}
+        <div className="absolute top-3 left-3 flex gap-1.5">
+          <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[10px] font-bold shadow-lg shadow-emerald-500/30">EN VENTA</span>
+          {item.estado === 'Nueva' && <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-teal-400 to-cyan-500 text-white text-[10px] font-bold shadow-lg shadow-cyan-500/30">NUEVA</span>}
         </div>
         {photos.length > 1 && (
-          <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium">{photos.length} fotos</span>
+          <span className="absolute top-3 right-3 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            {photos.length}
+          </span>
+        )}
+        {/* Price on image */}
+        {cover && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-2">
+            {(item.moneda || 'USD') === 'CLP' ? (
+              <svg className="w-5 h-3.5 rounded-sm shrink-0 shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
+            ) : (
+              <svg className="w-5 h-3.5 rounded-sm shrink-0 shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
+            )}
+            <span className="text-xl font-extrabold text-white drop-shadow-lg">{fmtPrice(item.precio, item.moneda)}</span>
+          </div>
         )}
       </div>
 
       <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <p className="font-semibold text-slate-800 text-sm truncate">{item.nombre}</p>
-          {item.ano && <span className="text-xs text-slate-400 shrink-0">{item.ano}</span>}
-        </div>
-        {item.tipo && <p className="text-xs text-slate-400 mb-2">{item.tipo}</p>}
-
-        <div className="flex items-center gap-2">
-          {(item.moneda || 'USD') === 'CLP' ? (
-            <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/><polygon points="107,80 115,108 145,108 120,124 130,152 107,136 84,152 94,124 69,108 99,108" fill="#0039a6"/></svg>
-          ) : (
-            <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
-          )}
-          <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
-          <span className="text-xs text-slate-400 font-medium">{item.moneda || 'USD'}</span>
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
+            <p className="text-xs text-slate-400">{[item.tipo, item.ano].filter(Boolean).join(' · ')}</p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-slate-400">
-          {item.eslora && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>{item.eslora}</span>}
-          {item.horas && <span>{item.horas} hrs</span>}
-          {item.ubicacion && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>{item.ubicacion}</span>}
+        {/* Price (when no cover image) */}
+        {!cover && (
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
+            <span className="text-xs text-slate-400 font-medium">{item.moneda || 'USD'}</span>
+          </div>
+        )}
+
+        {/* Specs */}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-500">
+          {item.eslora && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>{item.eslora}</span>}
+          {item.horas && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>{item.horas} hrs</span>}
+          {item.ubicacion && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>{item.ubicacion}</span>}
         </div>
+
+        {/* Condition badges */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {item.condicion && <Badge className={cn('text-[10px] uppercase', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
+          {item.condicion && <Badge className={cn('text-[10px] uppercase font-bold', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
           {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px] uppercase">{item.estado}</Badge>}
         </div>
 
-        {/* Footer: Seller + Actions */}
+        {/* Footer */}
         <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold">{(item.user_name || 'U')[0].toUpperCase()}</div>
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">{(item.user_name || 'U')[0].toUpperCase()}</div>
             <span className="text-[11px] text-slate-400 truncate max-w-[100px]">{item.user_name || 'Vendedor'}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(window.location.origin + '/panel/user/#/marketplace'); }} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition" title="Compartir">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
-            </button>
-            <span className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-500 text-white text-[11px] font-semibold shadow-sm">Ver Detalles</span>
-          </div>
+          <span className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[11px] font-bold shadow-md shadow-cyan-500/20 group-hover:shadow-lg group-hover:shadow-cyan-500/30 transition-shadow">
+            Ver Detalles
+          </span>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -190,19 +208,26 @@ function DetailModal({ item, open, onClose }) {
     <Modal open={open} onClose={onClose} title={item.nombre} size="lg">
       {/* Photos */}
       {photos.length > 0 && (
-        <div className="mb-4">
-          <img src={photos[0]} alt="" className="w-full h-64 object-cover rounded-xl mb-2" />
+        <div className="mb-5 -mx-6 -mt-6">
+          <div className="relative">
+            <img src={photos[0]} alt="" className="w-full h-72 object-cover" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute bottom-4 left-5">
+              <p className="text-2xl font-extrabold text-white drop-shadow-lg">{fmtPrice(item.precio, item.moneda)}</p>
+              <p className="text-xs text-white/70">{item.moneda || 'USD'}</p>
+            </div>
+          </div>
           {photos.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 px-5 mt-2">
               {photos.slice(1, 5).map((p, i) => (
-                <img key={i} src={p} alt="" className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80" onClick={() => window.open(p, '_blank')} />
+                <img key={i} src={p} alt="" className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition" onClick={() => window.open(p, '_blank')} />
               ))}
             </div>
           )}
         </div>
       )}
 
-      <p className="text-2xl font-bold text-slate-900 mb-1">{fmtPrice(item.precio, item.moneda)}</p>
+      {photos.length === 0 && <p className="text-2xl font-bold text-slate-900 mb-1">{fmtPrice(item.precio, item.moneda)}</p>}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 my-4 text-sm">
         {item.tipo && <InfoCell label="Tipo" value={item.tipo} />}
