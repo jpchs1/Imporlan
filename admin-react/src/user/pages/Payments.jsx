@@ -169,13 +169,12 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
     { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', logoFallback: '#64748b', action: () => setShowBank(true) },
   ];
 
-  function MethodIcon({ fallbackColor }) {
-    return (
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${fallbackColor}, ${fallbackColor}cc)` }}>
-        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-      </div>
-    );
-  }
+  const logoMap = {
+    webpay: '/panel/user/assets/logos/logowebpay.png',
+    webpay2: '/panel/user/assets/logos/logowebpay.png',
+    mercadopago: '/panel/user/assets/logos/logomercadopago.png',
+    transfer: null,
+  };
 
   return (
     <Modal open={open} onClose={onClose} title={`Pagar: ${pr.title}`} size="md">
@@ -207,7 +206,13 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                       : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
                   )}
                 >
-                  <MethodIcon fallbackColor={m.logoFallback} />
+                  {logoMap[m.id] ? (
+                    <img src={logoMap[m.id]} alt={m.label} className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${m.logoFallback}, ${m.logoFallback}cc)` }}>
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    </div>
+                  )}
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
@@ -232,10 +237,13 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
 
 // --- Custom Pay Form (matching production screenshot) ---
 function PayLogo({ id }) {
-  if (id === 'webpay') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#E31837"/><text x="20" y="24" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">WEB</text></svg>;
-  if (id === 'mercadopago') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#00B1EA"/><text x="20" y="20" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="bold" fontFamily="Arial,sans-serif">MERCADO</text><text x="20" y="30" textAnchor="middle" fill="#FFE600" fontSize="8" fontWeight="bold" fontFamily="Arial,sans-serif">PAGO</text></svg>;
-  if (id === 'paypal') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#003087"/><text x="20" y="19" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">Pay</text><text x="20" y="30" textAnchor="middle" fill="#009CDE" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">Pal</text></svg>;
-  return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#10b981"/><text x="20" y="24" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">TRA</text></svg>;
+  const logos = {
+    webpay: '/panel/user/assets/logos/logowebpay.png',
+    mercadopago: '/panel/user/assets/logos/logomercadopago.png',
+    paypal: '/panel/user/assets/logos/logopaypal.png',
+  };
+  if (logos[id]) return <img src={logos[id]} alt={id} className="w-full h-full object-contain rounded-lg" />;
+  return <div className="w-full h-full rounded-lg bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">TRA</div>;
 }
 
 const PAY_METHODS = [
@@ -413,9 +421,7 @@ export default function Payments() {
         {/* WebPay - Transbank */}
         <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
-              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#E31837"/><text x="60" y="26" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold" fontFamily="Arial,sans-serif">WebPay</text></svg>
-            </div>
+            <img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">WebPay</p>
               <p className="text-[11px] text-slate-400">Transbank</p>
@@ -431,9 +437,7 @@ export default function Payments() {
         {/* MercadoPago */}
         <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
-              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#00B1EA"/><text x="60" y="20" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">MERCADO</text><text x="60" y="32" textAnchor="middle" fill="#FFE600" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">PAGO</text></svg>
-            </div>
+            <img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">MercadoPago</p>
               <p className="text-[11px] text-slate-400">Mercado Libre</p>
@@ -449,9 +453,7 @@ export default function Payments() {
         {/* PayPal */}
         <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-white border border-slate-100 p-1">
-              <svg viewBox="0 0 120 40" className="w-full h-full"><rect width="120" height="40" rx="6" fill="#003087"/><text x="60" y="18" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">Pay</text><text x="60" y="32" textAnchor="middle" fill="#009CDE" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">Pal</text></svg>
-            </div>
+            <img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">PayPal</p>
               <p className="text-[11px] text-slate-400">Internacional</p>
