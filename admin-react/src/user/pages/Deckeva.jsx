@@ -31,11 +31,11 @@ export default function Deckeva() {
   return (
     <div>
       {/* Hero Banner */}
-      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ minHeight: '280px' }}>
+      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ minHeight: '220px' }}>
         <img src="https://deckeva.cl/wp-content/uploads/2024/08/dock-bann-1.jpg" alt="Deckeva" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/50 to-slate-900/80" />
         <div className="relative z-10 flex flex-col items-center justify-center text-center p-8" style={{ minHeight: '280px' }}>
-          <img src="/panel/assets/logoevadeck.jpg" alt="Deckeva Logo" className="h-16 rounded-xl mb-4 shadow-lg" onError={e => { e.target.style.display = 'none'; }} />
+          <img src="/panel/assets/logoevadeck.jpg" alt="Deckeva Logo" className="h-10 sm:h-16 rounded-xl mb-3 sm:mb-4 shadow-lg" onError={e => { e.target.style.display = 'none'; }} />
           <h1 className="text-3xl font-bold text-white tracking-wide">DECKEVA</h1>
           <p className="text-sm font-semibold text-cyan-300 uppercase tracking-widest mt-2">Pisos EVA para Embarcaciones</p>
           <p className="text-white/80 text-sm mt-3 max-w-lg">Renueva tu lancha con pisos antideslizantes de goma EVA cortados a medida. Seguridad, estilo y confort en cada navegacion.</p>

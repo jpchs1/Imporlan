@@ -408,7 +408,7 @@ export default function Messages() {
           </Button>
         </Card>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden" style={{ height: 'calc(100vh - 210px)', minHeight: '500px' }}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden" style={{ height: 'calc(100vh - 180px)', minHeight: '400px' }}>
           <div className="flex h-full">
             {/* Sidebar */}
             <div className={cn('w-full sm:w-[340px] border-r border-slate-100 flex flex-col shrink-0 bg-white', selectedId && 'hidden sm:flex')}>

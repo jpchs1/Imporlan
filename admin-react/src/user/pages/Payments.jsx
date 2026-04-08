@@ -386,7 +386,7 @@ export default function Payments() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Visual Card */}
-            <div className="w-64 h-40 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 p-4 flex flex-col justify-between shrink-0">
+            <div className="w-full sm:w-64 h-40 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 p-4 flex flex-col justify-between shrink-0">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-7 rounded bg-amber-400/80 flex items-center justify-center"><svg className="w-5 h-5 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="2" y="5" width="20" height="14" rx="2"/></svg></div>
                 <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><svg className="w-3 h-3 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0"/></svg></div>

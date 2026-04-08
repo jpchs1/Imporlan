@@ -318,7 +318,7 @@ export default function Tracking() {
         <p className="text-sm text-slate-400 mt-1">{vessels.length} envio{vessels.length !== 1 ? 's' : ''} activo{vessels.length !== 1 ? 's' : ''}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-200px)]" style={{ minHeight: '400px' }}>
         {/* Left: vessel list */}
         <div className="lg:col-span-3 overflow-y-auto space-y-2">
           {vessels.map(v => (

@@ -29,7 +29,7 @@ export default function Layout({ navItems, branding = {} }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-[272px] bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#0f172a] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-64 lg:w-[272px] bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#0f172a] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-indigo-500/30">
