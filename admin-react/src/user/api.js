@@ -5,12 +5,15 @@ const { request, uploadFile, getToken, API_BASE } = createApiClient(STORAGE_KEYS
 
 // Auth
 export const login = (email, password) =>
-  request(`${API_BASE}/auth_local.php?action=login`, { method: 'POST', body: JSON.stringify({ email, password }) });
+  request(`${API_BASE}/auth/login`, { method: 'POST', body: JSON.stringify({ email, password }) });
 
 export const verify2FA = (code, tempToken) =>
-  request(`${API_BASE}/auth_local.php?action=verify-2fa`, { method: 'POST', body: JSON.stringify({ code, temp_token: tempToken }) });
+  request(`${API_BASE}/auth/verify-2fa`, { method: 'POST', body: JSON.stringify({ code, temp_token: tempToken }) });
 
-export const getMe = () => request(`${API_BASE}/auth_local.php?action=me`);
+export const getMe = () => request(`${API_BASE}/auth/me`);
+
+export const googleAuth = (credential) =>
+  request(`${API_BASE}/auth/google`, { method: 'POST', body: JSON.stringify({ credential }) });
 
 // Orders (user view)
 export const getMyOrders = () => {
