@@ -121,6 +121,9 @@ function VesselCard({ vessel, selected, onClick }) {
           {vessel.status || 'N/A'}
         </Badge>
       </div>
+      {vessel.client_name && (
+        <p className="text-[11px] text-cyan-600 font-medium">{vessel.client_name}</p>
+      )}
       {vessel.shipping_line && (
         <p className="text-[11px] text-slate-400">{vessel.shipping_line}</p>
       )}
@@ -153,28 +156,18 @@ function VesselDetailPanel({ vessel, onRefresh, refreshing }) {
         {vessel.shipping_line && <p className="text-sm text-slate-400">{vessel.shipping_line}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        {vessel.origin_label && (
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase">Origen</p>
-            <p className="text-slate-700">{vessel.origin_label}</p>
-          </div>
-        )}
-        {vessel.destination_label && (
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase">Destino</p>
-            <p className="text-slate-700 font-medium">{vessel.destination_label}</p>
-          </div>
-        )}
-        {eta && (
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase">ETA</p>
-            <p className="text-slate-700">{fmtDate(eta)}</p>
-          </div>
-        )}
-        <div>
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Estado</p>
-          <Badge className={STATUS_COLORS[vessel.status] || STATUS_COLORS.inactive}>{vessel.status || 'N/A'}</Badge>
+      {/* Info section */}
+      <div className="p-3 bg-slate-50 rounded-lg">
+        <p className="text-[11px] font-semibold text-slate-400 uppercase mb-2">Informacion</p>
+        <div className="space-y-1.5 text-sm">
+          {vessel.client_name && <div className="flex justify-between"><span className="text-slate-400 text-xs">Cliente</span><span className="text-slate-700 font-medium text-xs">{vessel.client_name}</span></div>}
+          {vessel.shipping_line && <div className="flex justify-between"><span className="text-slate-400 text-xs">Naviera</span><span className="text-slate-700 text-xs">{vessel.shipping_line}</span></div>}
+          {vessel.imo && <div className="flex justify-between"><span className="text-slate-400 text-xs">IMO</span><span className="text-slate-700 font-mono text-xs">{vessel.imo}</span></div>}
+          {vessel.mmsi && <div className="flex justify-between"><span className="text-slate-400 text-xs">MMSI</span><span className="text-slate-700 font-mono text-xs">{vessel.mmsi}</span></div>}
+          {vessel.origin_label && <div className="flex justify-between"><span className="text-slate-400 text-xs">Origen</span><span className="text-slate-700 text-xs">{vessel.origin_label}</span></div>}
+          {vessel.destination_label && <div className="flex justify-between"><span className="text-slate-400 text-xs">Destino</span><span className="text-slate-700 font-medium text-xs">{vessel.destination_label}</span></div>}
+          {eta && <div className="flex justify-between"><span className="text-slate-400 text-xs">ETA</span><span className="text-slate-700 text-xs">{fmtDate(eta)}</span></div>}
+          <div className="flex justify-between"><span className="text-slate-400 text-xs">Estado</span><Badge className={cn(STATUS_COLORS[vessel.status] || STATUS_COLORS.inactive, 'text-[10px]')}>{vessel.status || 'N/A'}</Badge></div>
         </div>
       </div>
 
