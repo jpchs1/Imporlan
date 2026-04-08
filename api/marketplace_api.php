@@ -17,9 +17,14 @@ require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/marketplace_email_service.php';
 require_once __DIR__ . '/auth_helper.php';
 
+require_once __DIR__ . '/credentials.php';
 if (!defined('JWT_SECRET')) {
-    $jwt = getenv('JWT_SECRET');
-    if ($jwt) define('JWT_SECRET', $jwt);
+    if (defined('IMPORLAN_JWT_SECRET')) {
+        define('JWT_SECRET', IMPORLAN_JWT_SECRET);
+    } else {
+        $jwt = getenv('JWT_SECRET');
+        if ($jwt) define('JWT_SECRET', $jwt);
+    }
 }
 
 $action = $_GET['action'] ?? '';
