@@ -10,6 +10,13 @@ export default function Layout({ navItems, branding = {} }) {
 
   const { title = 'Imporlan', subtitle = 'Panel', accentColor = 'indigo' } = branding;
 
+  const subtitleColors = {
+    indigo: 'text-indigo-400',
+    cyan: 'text-cyan-400',
+    emerald: 'text-emerald-400',
+    violet: 'text-violet-400',
+  };
+
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const currentPage = navItems.find(n => location.pathname.startsWith(n.to))?.label || 'Dashboard';
@@ -30,7 +37,7 @@ export default function Layout({ navItems, branding = {} }) {
           </div>
           <div>
             <span className="text-white font-bold text-[15px] tracking-tight">{title}</span>
-            <span className={`text-${accentColor}-400 text-xs block -mt-0.5 font-medium`}>{subtitle}</span>
+            <span className={`${subtitleColors[accentColor] || 'text-indigo-400'} text-xs block -mt-0.5 font-medium`}>{subtitle}</span>
           </div>
         </div>
 

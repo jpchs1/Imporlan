@@ -14,6 +14,12 @@ const STATUS_COLORS = {
   deleted: 'bg-slate-100 text-slate-500',
 };
 
+function parsePhotos(fotos) {
+  if (!fotos) return [];
+  if (Array.isArray(fotos)) return fotos;
+  try { return JSON.parse(fotos); } catch { return []; }
+}
+
 function fmtPrice(price, currency) {
   if (!price || isNaN(price)) return '-';
   if (currency === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
@@ -22,7 +28,7 @@ function fmtPrice(price, currency) {
 
 // --- Browse Card ---
 function ListingCard({ item, onClick }) {
-  const photos = item.fotos ? (typeof item.fotos === 'string' ? JSON.parse(item.fotos) : item.fotos) : [];
+  const photos = parsePhotos(item.fotos);
   const cover = photos[0] || null;
 
   return (
@@ -67,7 +73,7 @@ function ListingCard({ item, onClick }) {
 // --- My Listing Card ---
 function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
   const st = STATUS_COLORS[item.status] || STATUS_COLORS.active;
-  const photos = item.fotos ? (typeof item.fotos === 'string' ? JSON.parse(item.fotos) : item.fotos) : [];
+  const photos = parsePhotos(item.fotos);
 
   return (
     <Card className="p-0 overflow-hidden">
@@ -115,7 +121,7 @@ function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
 // --- Detail Modal ---
 function DetailModal({ item, open, onClose }) {
   if (!item) return null;
-  const photos = item.fotos ? (typeof item.fotos === 'string' ? JSON.parse(item.fotos) : item.fotos) : [];
+  const photos = parsePhotos(item.fotos);
 
   return (
     <Modal open={open} onClose={onClose} title={item.nombre} size="lg">
@@ -191,7 +197,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
         horas: editItem.horas || '',
         descripcion: editItem.descripcion || '',
       });
-      const existingPhotos = editItem.fotos ? (typeof editItem.fotos === 'string' ? JSON.parse(editItem.fotos) : editItem.fotos) : [];
+      const existingPhotos = parsePhotos(editItem.fotos);
       setPhotos(existingPhotos);
     } else {
       setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '' });

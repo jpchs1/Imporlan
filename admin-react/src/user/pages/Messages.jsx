@@ -142,9 +142,11 @@ function ChatPanel({ conversationId, conversations, onConversationUpdate }) {
         const data = await pollMessages(lastCheckRef.current, conversationId);
         if (data.new_messages?.length > 0) {
           setMessages(prev => {
-            const existingIds = new Set(prev.map(m => m.id));
+            // Remove optimistic messages when real server messages arrive
+            const withoutOptimistic = prev.filter(m => !m._optimistic);
+            const existingIds = new Set(withoutOptimistic.map(m => m.id));
             const newMsgs = data.new_messages.filter(m => !existingIds.has(m.id));
-            return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+            return newMsgs.length > 0 ? [...withoutOptimistic, ...newMsgs] : prev;
           });
           onConversationUpdate?.();
         }
@@ -161,7 +163,8 @@ function ChatPanel({ conversationId, conversations, onConversationUpdate }) {
     setText('');
     // Optimistic append
     const optimistic = {
-      id: Date.now(),
+      id: `optimistic-${Date.now()}`,
+      _optimistic: true,
       sender_role: 'user',
       sender_name: user?.name || 'Tu',
       message: msg,

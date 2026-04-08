@@ -11,11 +11,16 @@ const STATUS_COLORS = {
   scheduled: 'bg-amber-100 text-amber-700',
 };
 
-// --- Leaflet loader ---
+// --- Leaflet loader (idempotent) ---
 function useLeaflet() {
   const [loaded, setLoaded] = useState(!!window.L);
   useEffect(() => {
     if (window.L) { setLoaded(true); return; }
+    // Avoid duplicate loads
+    if (document.querySelector('script[src*="leaflet@1.9.4"]')) {
+      const check = setInterval(() => { if (window.L) { setLoaded(true); clearInterval(check); } }, 100);
+      return () => clearInterval(check);
+    }
     const css = document.createElement('link');
     css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.appendChild(css);
@@ -228,14 +233,12 @@ export default function Tracking() {
       const data = await getFeaturedVessels();
       const list = data.success && data.vessels ? data.vessels : (Array.isArray(data) ? data : []);
       setVessels(list);
-      if (list.length > 0 && !selectedId) {
-        setSelectedId(list[0].id);
-      }
+      setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
     } catch (e) {
       toast?.('Error al cargar seguimiento', 'error');
     }
     setLoading(false);
-  }, [toast, selectedId]);
+  }, [toast]);
 
   useEffect(() => { loadVessels(); }, [loadVessels]);
 
