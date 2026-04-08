@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles } from '../api';
-import { fmtDate, statusColor, cn } from '../../shared/lib/utils';
+import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyPurchases } from '../api';
+import { fmtDate, fmtCLP, statusColor, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -485,53 +485,91 @@ function OrderDetail({ orderId, onBack }) {
 export default function Expedientes() {
   const toast = useToast();
   const [orders, setOrders] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [tab, setTab] = useState('expedientes');
 
-  const loadOrders = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const data = await getMyOrders();
-      setOrders(data.success && data.orders ? data.orders : []);
+      const [ordersRes, purchasesRes] = await Promise.all([
+        getMyOrders().catch(() => ({ orders: [] })),
+        getMyPurchases().catch(() => ({ plans: [], links: [] })),
+      ]);
+      setOrders(ordersRes.success && ordersRes.orders ? ordersRes.orders : []);
+      setPlans(purchasesRes.plans || []);
     } catch (e) {
       toast?.('Error al cargar expedientes', 'error');
     }
     setLoading(false);
   }, [toast]);
 
-  useEffect(() => { loadOrders(); }, [loadOrders]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  // Detail view
   if (selectedId) {
-    return (
-      <OrderDetail
-        orderId={selectedId}
-        onBack={() => { setSelectedId(null); loadOrders(); }}
-      />
-    );
+    return <OrderDetail orderId={selectedId} onBack={() => { setSelectedId(null); loadData(); }} />;
   }
 
-  // List view
   return (
     <div>
-      <PageHeader
-        title="Mis Expedientes"
-        subtitle={`${orders.length} expediente${orders.length !== 1 ? 's' : ''}`}
-      />
+      <PageHeader title="Mis Productos Contratados" subtitle="Expedientes y planes de busqueda" />
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
+        <button onClick={() => setTab('expedientes')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'expedientes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+          Expedientes {orders.length > 0 && <span className="ml-1.5 text-xs bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full">{orders.length}</span>}
+        </button>
+        <button onClick={() => setTab('planes')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'planes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+          Planes {plans.length > 0 && <span className="ml-1.5 text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">{plans.length}</span>}
+        </button>
+      </div>
 
       {loading ? (
         <Spinner />
-      ) : orders.length === 0 ? (
-        <Card className="text-center py-16">
-          <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-          <p className="text-slate-500 font-medium">No tienes expedientes activos</p>
-          <p className="text-sm text-slate-400 mt-1">Cuando contrates un plan o cotizacion, aparecera aqui.</p>
-        </Card>
+      ) : tab === 'expedientes' ? (
+        orders.length === 0 ? (
+          <Card className="text-center py-16">
+            <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            <p className="text-slate-500 font-medium">No tienes expedientes activos</p>
+            <p className="text-sm text-slate-400 mt-1">Cuando contrates un plan o cotizacion, aparecera aqui.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {orders.map(order => <OrderCard key={order.id} order={order} onClick={setSelectedId} />)}
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {orders.map(order => (
-            <OrderCard key={order.id} order={order} onClick={setSelectedId} />
-          ))}
-        </div>
+        plans.length === 0 ? (
+          <Card className="text-center py-16">
+            <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <p className="text-slate-500 font-medium">No tienes planes contratados</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {plans.map((p, i) => (
+              <Card key={i} className={cn('relative overflow-hidden', p.status === 'active' && 'border-cyan-200')}>
+                {p.status === 'active' && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-teal-500" />}
+                <div className="flex items-start justify-between mb-3">
+                  <p className="font-bold text-slate-800">{p.planName || p.plan_name || 'Plan'}</p>
+                  <Badge className={p.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}>{p.status === 'active' ? 'Activo' : p.status}</Badge>
+                </div>
+                <div className="space-y-1.5 text-sm text-slate-500">
+                  {p.startDate && <div className="flex justify-between"><span>Inicio</span><span className="text-slate-700">{fmtDate(p.startDate)}</span></div>}
+                  {p.endDate && <div className="flex justify-between"><span>Vence</span><span className="text-slate-700">{fmtDate(p.endDate)}</span></div>}
+                  {p.days && <div className="flex justify-between"><span>Duracion</span><span className="text-slate-700">{p.days} dias</span></div>}
+                  {p.price && <div className="flex justify-between"><span>Precio</span><span className="font-bold text-slate-800">{fmtCLP(p.price)}</span></div>}
+                  {p.payment_method && <div className="flex justify-between"><span>Metodo</span><span className="text-slate-700 capitalize">{p.payment_method}</span></div>}
+                </div>
+                {p.proposalsTotal > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex justify-between text-xs text-slate-400 mb-1"><span>Propuestas</span><span>{p.proposalsReceived || 0}/{p.proposalsTotal}</span></div>
+                    <div className="h-2 bg-slate-100 rounded-full"><div className="h-full bg-cyan-500 rounded-full" style={{ width: `${Math.min(((p.proposalsReceived || 0) / p.proposalsTotal) * 100, 100)}%` }} /></div>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

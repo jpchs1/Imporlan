@@ -245,6 +245,12 @@ export default function Payments() {
     <div>
       <PageHeader title="Pagos" subtitle="Solicitudes de pago y transacciones" />
 
+      {/* SLA Info */}
+      <div className="mb-6 px-5 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl flex items-center gap-3">
+        <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p className="text-xs text-amber-700">Las solicitudes de pago son procesadas en un plazo de <strong>48-72 horas habiles</strong>. Para consultas sobre pagos, contacta a contacto@imporlan.cl</p>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard label="Pendientes" value={pending.length} color="yellow"

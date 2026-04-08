@@ -179,6 +179,17 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* SLA Info */}
+      <div className="mb-6 px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-start gap-4">
+        <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+          <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-blue-800">Informacion sobre tiempos de respuesta</p>
+          <p className="text-xs text-blue-600 mt-1">Nuestro equipo responde cotizaciones y consultas en un plazo de <strong>48-72 horas habiles</strong>. Para urgencias, contacta via WhatsApp al +56 9 4021 1459.</p>
+        </div>
+      </div>
+
       {/* Alert banner for pending payments */}
       {pendingPayments.length > 0 && (
         <div

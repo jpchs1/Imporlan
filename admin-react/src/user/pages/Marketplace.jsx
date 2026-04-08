@@ -58,12 +58,25 @@ function ListingCard({ item, onClick }) {
         </div>
         {item.tipo && <p className="text-xs text-slate-400 mb-2">{item.tipo}</p>}
 
-        <p className="text-lg font-bold text-slate-900">{fmtPrice(item.precio, item.moneda)}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-bold text-slate-900">{fmtPrice(item.precio, item.moneda)}</p>
+          <span className="text-xs text-slate-400 font-medium">{item.moneda || 'USD'}</span>
+        </div>
 
         <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-slate-400">
-          {item.eslora && <span>{item.eslora}</span>}
-          {item.ubicacion && <span>{item.ubicacion}</span>}
-          {item.condicion && <Badge className="bg-slate-100 text-slate-600 text-[10px]">{item.condicion}</Badge>}
+          {item.eslora && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>{item.eslora}</span>}
+          {item.horas && <span>{item.horas} hrs</span>}
+          {item.ubicacion && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>{item.ubicacion}</span>}
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {item.condicion && <Badge className={cn('text-[10px]', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
+          {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px]">{item.estado}</Badge>}
+        </div>
+
+        {/* Seller */}
+        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white text-[9px] font-bold">{(item.user_name || 'U')[0].toUpperCase()}</div>
+          <span className="text-[11px] text-slate-400 truncate">{item.user_name || 'Vendedor'}</span>
         </div>
       </div>
     </Card>
@@ -325,6 +338,8 @@ export default function Marketplace() {
   const [showPublish, setShowPublish] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [sort, setSort] = useState('recent');
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -342,7 +357,13 @@ export default function Marketplace() {
 
   useEffect(() => { load(); }, [load]);
 
-  const sorted = [...listings].sort((a, b) => {
+  const filtered = listings.filter(item => {
+    if (search && !(`${item.nombre} ${item.tipo} ${item.ubicacion}`.toLowerCase().includes(search.toLowerCase()))) return false;
+    if (filterType && item.tipo !== filterType) return false;
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
     if (sort === 'price_asc') return (a.precio || 0) - (b.precio || 0);
     if (sort === 'price_desc') return (b.precio || 0) - (a.precio || 0);
     if (sort === 'year') return (b.ano || 0) - (a.ano || 0);
@@ -404,18 +425,13 @@ export default function Marketplace() {
       {/* Browse tab */}
       {tab === 'browse' && (
         <>
-          <div className="mb-4">
-            <Select
-              value={sort}
-              onChange={e => setSort(e.target.value)}
-              options={[
-                { value: 'recent', label: 'Mas Recientes' },
-                { value: 'price_asc', label: 'Menor Precio' },
-                { value: 'price_desc', label: 'Mayor Precio' },
-                { value: 'year', label: 'Ano Descendente' },
-              ]}
-              className="w-48"
-            />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex-1 min-w-[200px] relative">
+              <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar embarcaciones..." className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
+            </div>
+            <Select value={filterType} onChange={e => setFilterType(e.target.value)} options={[{ value: '', label: 'Todos los tipos' }, ...TIPOS.map(t => ({ value: t, label: t }))]} className="w-44" />
+            <Select value={sort} onChange={e => setSort(e.target.value)} options={[{ value: 'recent', label: 'Mas Recientes' }, { value: 'price_asc', label: 'Menor Precio' }, { value: 'price_desc', label: 'Mayor Precio' }, { value: 'year', label: 'Ano Descendente' }]} className="w-44" />
           </div>
 
           {sorted.length === 0 ? (
