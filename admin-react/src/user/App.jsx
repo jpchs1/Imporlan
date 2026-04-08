@@ -9,6 +9,7 @@ import Expedientes from './pages/Expedientes';
 import Documents from './pages/Documents';
 import Tracking from './pages/Tracking';
 import Messages from './pages/Messages';
+import Payments from './pages/Payments';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -32,7 +33,7 @@ function AppRoutes() {
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/documents" element={<Documents />} />
-        <Route path="/payments" element={<ComingSoon label="Pagos" />} />
+        <Route path="/payments" element={<Payments />} />
         <Route path="/profile" element={<ComingSoon label="Mi Perfil" />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

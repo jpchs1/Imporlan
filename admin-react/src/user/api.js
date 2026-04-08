@@ -138,9 +138,25 @@ export const getMyInspections = () => {
   return request(`${API_BASE}/inspection_api.php?action=user_list&user_email=${encodeURIComponent(email)}`).catch(() => ({ items: [] }));
 };
 
-// Payments (user - read only)
-export const getMyPaymentRequests = () => {
+// Payments (user)
+export const getMyPaymentRequests = (status = 'all') => {
   const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
   const email = user.email || user.user_email || '';
-  return request(`${API_BASE}/payment_requests_api.php?action=user_list_public&user_email=${encodeURIComponent(email)}`).catch(() => ({ items: [] }));
+  return request(`${API_BASE}/payment_requests_api.php?action=user_list_public&user_email=${encodeURIComponent(email)}&status=${status}`).catch(() => ({ requests: [] }));
 };
+
+// Payment gateways
+export const createWebPayTransaction = (data) =>
+  request(`${API_BASE}/webpay.php?action=create_transaction`, { method: 'POST', body: JSON.stringify(data) });
+
+export const createMercadoPagoPreference = (data) =>
+  request(`${API_BASE}/mercadopago.php?action=create_preference`, { method: 'POST', body: JSON.stringify(data) });
+
+export const getPayPalClientId = () =>
+  request(`${API_BASE}/paypal.php?action=get_client_id`);
+
+export const createPayPalOrder = (data) =>
+  request(`${API_BASE}/paypal.php?action=create_order`, { method: 'POST', body: JSON.stringify(data) });
+
+export const capturePayPalOrder = (orderId) =>
+  request(`${API_BASE}/paypal.php?action=capture_order`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
