@@ -34,7 +34,7 @@ function ListingCard({ item, onClick }) {
   return (
     <div onClick={() => onClick(item)} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       {/* Image */}
-      <div className="h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
+      <div className="h-40 sm:h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
         {cover ? (
           <img src={cover} alt={item.nombre} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
         ) : (
@@ -127,7 +127,7 @@ function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
     <Card className="p-0 overflow-hidden card-hover">
       <div className="flex flex-col sm:flex-row">
         {/* Image */}
-        <div className="sm:w-48 h-40 sm:h-auto bg-slate-100 overflow-hidden shrink-0 relative">
+        <div className="sm:w-48 h-32 sm:h-auto bg-slate-100 overflow-hidden shrink-0 relative">
           {photos[0] ? (
             <img src={photos[0]} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -222,7 +222,7 @@ function DetailModal({ item, open, onClose }) {
             </div>
           </div>
           {photos.length > 1 && (
-            <div className="grid grid-cols-4 gap-1.5 px-5 mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 px-5 mt-2">
               {photos.slice(1, 5).map((p, i) => (
                 <img key={i} src={p} alt="" className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition" onClick={() => window.open(p, '_blank')} />
               ))}

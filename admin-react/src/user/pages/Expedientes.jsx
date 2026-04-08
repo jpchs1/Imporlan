@@ -101,7 +101,7 @@ function VesselCard({ link, index, dragHandlers }) {
       </div>
 
       {/* Image */}
-      <div className="shrink-0 w-24 h-16 rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
+      <div className="shrink-0 w-16 sm:w-24 h-14 sm:h-16 rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
         {link.image_url && !imgError ? (
           <img src={link.image_url} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
         ) : (
@@ -168,7 +168,7 @@ function VesselCard({ link, index, dragHandlers }) {
             </>
           )}
           {link.comments && (
-            <span className="text-[11px] text-slate-400 italic truncate max-w-[200px]" title={link.comments}>
+            <span className="text-[11px] text-slate-400 italic truncate max-w-[120px] sm:max-w-[200px]" title={link.comments}>
               {link.comments}
             </span>
           )}
