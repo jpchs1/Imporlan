@@ -33,27 +33,53 @@ const DEMO_INSPECTION = {
   created_at: '2026-04-07',
   listing_url: 'https://www.boattrader.com/boat/2021-bayliner-vr5/',
   recommendations: 'La embarcacion se encuentra en muy buen estado general para su ano. El motor Mercury MerCruiser presenta un funcionamiento optimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapiceria del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar anodos de zinc en la proxima temporada\n4. Verificar tension de la correa del alternador\n\nEn general, es una excelente opcion de compra con muy buena relacion precio-calidad.',
+  section_details: {
+    hull: { rating: 8.5, fields: { 'Estado del gelcoat': 'Buen estado', 'Linea de flotacion': 'Sin osmosis', 'Quilla': 'Sin danos', 'Obra viva': 'Antifouling vigente', 'Cubierta': 'Buen estado general' }, notes: 'Casco en buen estado. Se recomienda aplicar cera protectora.' },
+    engine: { rating: 9.0, fields: { 'Arranque': 'Funcionando correctamente', 'Ralenti': 'Estable', 'Aceite': 'Nivel correcto, color normal', 'Filtros': 'Limpios', 'Correas': 'Buen estado', 'Sistema de enfriamiento': 'Funcionando' }, notes: 'Motor en excelente estado. 120 horas de uso.' },
+    electrical: { rating: 8.0, fields: { 'Bateria': 'Buen estado (12.6V)', 'Alternador': 'Cargando correctamente', 'Luces de navegacion': 'Funcionando todas', 'Panel de instrumentos': 'Operativo', 'Bocina': 'Funcionando' }, notes: 'Sistema electrico operativo. Verificar correa alternador.' },
+    interior: { rating: 7.5, fields: { 'Tapiceria asientos': 'Desgaste menor copiloto', 'Alfombra': 'Buen estado', 'Consola': 'Sin fisuras', 'Almacenamiento': 'Seco, sin humedad', 'Volante': 'Buen estado' }, notes: 'Interior bien cuidado. Tapiceria copiloto con desgaste menor.' },
+    trailer: { rating: 8.0, fields: { 'Estructura': 'Sin oxidacion', 'Neumaticos': 'Buen estado', 'Luces': 'Funcionando', 'Winche': 'Operativo', 'Rodillos': 'Buen estado' }, notes: 'Trailer en condiciones adecuadas para transporte.' },
+    navigation: { rating: 8.5, fields: { 'GPS/Chartplotter': 'Funcionando', 'Ecosonda': 'Operativa', 'Radio VHF': 'Funcionando', 'Compas': 'Calibrado' }, notes: 'Equipos de navegacion operativos y actualizados.' },
+    safety: { rating: 9.0, fields: { 'Chalecos salvavidas': '6 unidades, buen estado', 'Extintor': 'Vigente (2025)', 'Bengalas': 'Vigentes', 'Botiquin': 'Completo', 'Aro salvavidas': 'Presente' }, notes: 'Equipamiento de seguridad completo y vigente.' },
+    test_drive: { rating: 8.0, fields: { 'Aceleracion': 'Respuesta normal', 'Velocidad maxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rapido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcacion responde bien en todas las pruebas.' },
+  },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
   photos_hull: [
-    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1575362018506-a5668db0e7ff?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&h=400&fit=crop',
   ],
   photos_engine: [
-    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1622653902360-1b5e0a6e9fd2?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1586939072042-78e6dc8dbb9e?w=600&h=400&fit=crop',
+  ],
+  photos_electrical: [
+    'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=600&h=400&fit=crop',
   ],
   photos_interior: [
     'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?w=600&h=400&fit=crop',
+  ],
+  photos_trailer: [
+    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop',
+  ],
+  photos_navigation: [
+    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop',
+  ],
+  photos_safety: [
+    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop',
   ],
   photos_general: [
+    'https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=800&h=500&fit=crop',
     'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop&q=80',
     'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop&q=80',
     'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop&q=80',
   ],
   photos_test_drive: [
-    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop&q=90',
+    'https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?w=600&h=400&fit=crop&q=90',
+    'https://images.unsplash.com/photo-1575362018506-a5668db0e7ff?w=600&h=400&fit=crop&q=90',
   ],
-  videos_test_drive: [],
+  videos_test_drive: ['https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
 };
 
 const METRICS = ['hull', 'engine', 'electrical', 'interior', 'trailer', 'navigation', 'safety', 'test_drive'];
@@ -261,7 +287,58 @@ function InspectionDetail({ report, onBack }) {
         </Card>
       </div>
 
-      {d.recommendations && <Card className="mb-5"><h3 className="font-bold text-slate-800 mb-2">Recomendaciones</h3><p className="text-sm text-slate-600 whitespace-pre-wrap">{d.recommendations}</p></Card>}
+      {/* Section-by-section details */}
+      {d.section_details && (
+        <Card className="mb-5">
+          <h3 className="font-bold text-slate-800 mb-4">Detalle por Seccion</h3>
+          <div className="space-y-3">
+            {METRICS.map(key => {
+              const sec = d.section_details[key];
+              if (!sec) return null;
+              const rColor = sec.rating >= 7 ? '#10b981' : sec.rating >= 5 ? '#f59e0b' : '#ef4444';
+              return (
+                <details key={key} className="border border-slate-200 rounded-xl overflow-hidden group">
+                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition list-none">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: rColor }}>{sec.rating}</div>
+                    <span className="flex-1 text-sm font-semibold text-slate-700">{METRIC_LABELS[key]}</span>
+                    <svg className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 12 15 18 9"/></svg>
+                  </summary>
+                  <div className="px-4 pb-4 border-t border-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                      {Object.entries(sec.fields || {}).map(([field, value]) => {
+                        const isBad = /malo|danado|no funciona|roto/i.test(value);
+                        const isGood = /excelente|buen estado|funcionando|correcto|operativ|completo|vigente|estable|limpi|normal/i.test(value);
+                        return (
+                          <div key={field} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 text-sm">
+                            <span className="text-slate-500 text-xs">{field}</span>
+                            <span className={cn('text-xs font-medium px-2 py-0.5 rounded', isBad ? 'bg-red-100 text-red-700' : isGood ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{value}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {sec.notes && (
+                      <div className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex gap-2">
+                        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+                        {sec.notes}
+                      </div>
+                    )}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {d.recommendations && (
+        <Card className="mb-5 bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200">
+          <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
+            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Recomendaciones del Inspector
+          </h3>
+          <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.recommendations}</p>
+        </Card>
+      )}
 
       {photoSections.length > 0 && (
         <Card className="mb-5">

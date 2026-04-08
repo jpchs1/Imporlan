@@ -111,6 +111,18 @@ body {
 /* Leaflet fix */
 .leaflet-container { z-index: 1; }
 
+/* Print/PDF styles */
+@media print {
+  body { background: white !important; }
+  aside, header, nav, .no-print { display: none !important; }
+  main { padding: 0 !important; margin: 0 !important; }
+  .print-break { page-break-before: always; }
+  details { display: block !important; }
+  details > summary { display: none !important; }
+  details > div { display: block !important; border: none !important; }
+  * { box-shadow: none !important; }
+}
+
 /* Recharts tooltip */
 .recharts-tooltip-wrapper {
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
