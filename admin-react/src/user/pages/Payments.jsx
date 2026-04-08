@@ -163,19 +163,29 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
   }
 
   const methods = [
-    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', color: '#E31837', iconBg: 'linear-gradient(135deg, #E31837, #c41230)', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
-    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', color: '#E31837', iconBg: 'linear-gradient(135deg, #E31837, #c41230)', action: handleWebPay },
-    { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', color: '#00B1EA', iconBg: 'linear-gradient(135deg, #00B1EA, #009ACD)', action: handleMercadoPago },
-    { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', color: '#64748b', iconBg: 'linear-gradient(135deg, #64748b, #475569)', action: () => setShowBank(true) },
+    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
+    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay },
+    { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', logo: 'https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/6.6.92/mercadopago/logo__large@2x.png', logoFallback: '#00B1EA', action: handleMercadoPago },
+    { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', logoFallback: '#64748b', action: () => setShowBank(true) },
   ];
+
+  function LogoIcon({ logo, fallbackColor, label }) {
+    const [err, setErr] = useState(false);
+    if (!logo || err) return (
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${fallbackColor}, ${fallbackColor}cc)` }}>
+        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+      </div>
+    );
+    return <img src={logo} alt={label} className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" onError={() => setErr(true)} />;
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={`Pagar: ${pr.title}`} size="md">
       <div className="space-y-4">
         {/* Amount */}
-        <div className="text-center py-3 bg-slate-50 rounded-xl">
-          <p className="text-2xl font-bold text-slate-900">{fmtCLP(pr.amount_clp)}</p>
-          {pr.amount_usd > 0 && <p className="text-sm text-slate-400">{fmtUSD(pr.amount_usd)}</p>}
+        <div className="text-center py-4 bg-slate-50 rounded-xl">
+          <p className="text-3xl font-bold text-slate-900">{fmtCLP(pr.amount_clp)}</p>
+          {pr.amount_usd > 0 && <p className="text-sm text-slate-400 mt-1">{fmtUSD(pr.amount_usd)}</p>}
         </div>
 
         {showBank ? (
@@ -196,18 +206,16 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                     'w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all',
                     method === m.id && processing
                       ? 'border-cyan-300 bg-cyan-50'
-                      : 'border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/50'
+                      : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
                   )}
                 >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: m.iconBg }}>
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                  </div>
+                  <LogoIcon logo={m.logo} fallbackColor={m.logoFallback} label={m.label} />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
                     {m.badges && (
                       <div className="flex gap-1 mt-1">
-                        {m.badges.map(b => <span key={b} className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ background: `${m.color}15`, color: m.color }}>{b}</span>)}
+                        {m.badges.map(b => <span key={b} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-50 text-red-600">{b}</span>)}
                       </div>
                     )}
                   </div>
@@ -231,6 +239,9 @@ export default function Payments() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
+  const [showCustomPay, setShowCustomPay] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
+  const [customConcept, setCustomConcept] = useState('');
 
   const loadRequests = useCallback(async () => {
     try {
@@ -253,7 +264,7 @@ export default function Payments() {
   return (
     <div>
       <PageHeader title="Pagos" subtitle="Gestiona tus pagos y facturas" action={
-        <Button variant="accent" size="sm" onClick={() => setPayTarget(pending[0] || null)} disabled={pending.length === 0} className="flex items-center gap-1.5">
+        <Button variant="accent" size="sm" onClick={() => setShowCustomPay(true)} className="flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
           Realizar Pago
         </Button>
@@ -303,9 +314,7 @@ export default function Payments() {
         {/* WebPay - Transbank */}
         <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #E31837, #c41230)' }}>
-              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M8 14h6l3 12h2l3-12h6" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/><circle cx="20" cy="28" r="2" fill="#fff"/></svg>
-            </div>
+            <img src="https://www.transbank.cl/public/img/logo-webpay.png" alt="WebPay" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
             <div>
               <p className="font-bold text-slate-800">WebPay</p>
               <p className="text-[11px] text-slate-400">Transbank</p>
@@ -321,9 +330,7 @@ export default function Payments() {
         {/* MercadoPago */}
         <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #00B1EA, #009ACD)' }}>
-              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M12 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round"/><path d="M14 24c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="#FFE600" strokeWidth="2.5" fill="none" strokeLinecap="round"/></svg>
-            </div>
+            <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/6.6.92/mercadopago/logo__large@2x.png" alt="MercadoPago" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
             <div>
               <p className="font-bold text-slate-800">MercadoPago</p>
               <p className="text-[11px] text-slate-400">Mercado Libre</p>
@@ -339,9 +346,7 @@ export default function Payments() {
         {/* PayPal */}
         <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'linear-gradient(135deg, #003087, #001F5C)' }}>
-              <svg viewBox="0 0 40 40" className="w-8 h-8"><rect width="40" height="40" rx="4" fill="none"/><path d="M15 10h6c3.3 0 6 2 6 5.5s-2.7 5.5-6 5.5h-3l-1 5h-4l2-16z" fill="#fff"/><path d="M18 13h4c2 0 3.5 1 3.5 3s-1.5 3-3.5 3h-2.5l-.8 4h-2.5L18 13z" fill="#009CDE"/></svg>
-            </div>
+            <img src="https://www.paypalobjects.com/webstatic/icon/pp258.png" alt="PayPal" className="h-10 w-10 object-contain rounded-xl bg-white border border-slate-100 p-1" onError={e => { e.target.style.display='none'; }} />
             <div>
               <p className="font-bold text-slate-800">PayPal</p>
               <p className="text-[11px] text-slate-400">Internacional</p>
@@ -424,13 +429,39 @@ export default function Payments() {
         </div>
       )}
 
-      {/* Pay modal */}
+      {/* Pay modal for existing requests */}
       <PayModal
         open={!!payTarget}
         onClose={() => setPayTarget(null)}
         paymentRequest={payTarget}
         toast={toast}
       />
+
+      {/* Custom payment modal */}
+      <Modal open={showCustomPay} onClose={() => setShowCustomPay(false)} title="Realizar Pago" size="md">
+        <div className="space-y-4">
+          <Input label="Monto (CLP) *" type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="Ej: 50000" />
+          <Input label="Concepto / Descripcion *" value={customConcept} onChange={e => setCustomConcept(e.target.value)} placeholder="Ej: Pago de inspeccion, Cotizacion, etc." />
+          {customAmount > 0 && (
+            <div className="text-center py-3 bg-slate-50 rounded-xl">
+              <p className="text-2xl font-bold text-slate-900">{fmtCLP(parseInt(customAmount))}</p>
+            </div>
+          )}
+          <Button
+            variant="accent"
+            className="w-full"
+            disabled={!customAmount || !customConcept.trim()}
+            onClick={() => {
+              setShowCustomPay(false);
+              setPayTarget({ id: `custom-${Date.now()}`, title: customConcept, amount_clp: parseInt(customAmount), amount_usd: null, status: 'pending' });
+              setCustomAmount('');
+              setCustomConcept('');
+            }}
+          >
+            Continuar al Pago
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
