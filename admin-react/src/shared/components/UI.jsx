@@ -114,9 +114,9 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
   if (!open) return null;
   const sizes = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 overflow-y-auto pt-10 sm:pt-4">
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={cn('bg-white rounded-2xl shadow-2xl w-full relative z-10 max-h-[90vh] flex flex-col animate-scale-in border border-slate-200/60', sizes[size])}>
+      <div className={cn('bg-white rounded-2xl shadow-2xl w-full relative z-10 max-h-[90vh] flex flex-col animate-scale-in border border-slate-200/60 my-auto', sizes[size])}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
           <button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">

@@ -47,7 +47,11 @@ function ListingCard({ item, onClick }) {
         {cover && <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />}
         {/* Badges */}
         <div className="absolute top-3 left-3 flex gap-1.5">
-          <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[10px] font-bold shadow-lg shadow-emerald-500/30">EN VENTA</span>
+          {item.tipo_publicacion === 'arriendo' ? (
+            <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold shadow-lg shadow-amber-500/30">EN ARRIENDO</span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[10px] font-bold shadow-lg shadow-emerald-500/30">EN VENTA</span>
+          )}
           {item.estado === 'Nueva' && <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-teal-400 to-cyan-500 text-white text-[10px] font-bold shadow-lg shadow-cyan-500/30">NUEVA</span>}
         </div>
         {photos.length > 1 && (
@@ -281,7 +285,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
   const toast = useToast();
   const { user } = useAuth();
   const fileRef = useRef(null);
-  const [form, setForm] = useState({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '' });
+  const [form, setForm] = useState({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -300,11 +304,12 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
         condicion: editItem.condicion || 'Buena',
         horas: editItem.horas || '',
         descripcion: editItem.descripcion || '',
+        tipo_publicacion: editItem.tipo_publicacion || 'venta',
       });
       const existingPhotos = parsePhotos(editItem.fotos);
       setPhotos(existingPhotos);
     } else {
-      setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '' });
+      setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
       setPhotos([]);
     }
   }, [editItem, open]);
@@ -367,6 +372,18 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
   return (
     <Modal open={open} onClose={onClose} title={editItem ? 'Editar Publicacion' : 'Publicar Embarcacion'} size="lg">
       <div className="space-y-4">
+        {/* Tipo publicacion */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tipo de Publicacion</label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => set('tipo_publicacion', 'venta')} className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border-2', form.tipo_publicacion === 'venta' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
+              Venta
+            </button>
+            <button type="button" onClick={() => set('tipo_publicacion', 'arriendo')} className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border-2', form.tipo_publicacion === 'arriendo' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
+              Arriendo
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Nombre / Modelo *" value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Sea Ray 250 SLX" />
           <Select label="Tipo" value={form.tipo} onChange={e => set('tipo', e.target.value)} options={TIPOS.map(t => ({ value: t, label: t }))} />
