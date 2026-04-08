@@ -35,25 +35,36 @@ function RadarChart({ metrics, size = 200 }) {
 }
 
 function InspectionCard({ report, onClick }) {
+  const r = report;
+  const vesselName = [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspeccion';
   return (
-    <Card className="card-hover cursor-pointer" onClick={() => onClick(report)}>
+    <Card className="card-hover cursor-pointer border-l-4" style={{ borderLeftColor: r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : r.overall_rating ? '#ef4444' : '#94a3b8' }} onClick={() => onClick(report)}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <p className="font-semibold text-slate-800">{report.vessel_name || report.name || 'Inspeccion'}</p>
-          <p className="text-xs text-slate-400">{report.vessel_type} {report.year && `· ${report.year}`}</p>
+          <p className="font-semibold text-slate-800">{vesselName}</p>
+          <p className="text-xs text-slate-400">{r.location && `${r.location}`} {r.vessel_type && `· ${r.vessel_type}`}</p>
         </div>
-        <Badge className={STATUS_COLORS[report.status] || STATUS_COLORS.pending}>{report.status || 'pending'}</Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge className={STATUS_COLORS[r.status] || STATUS_COLORS.pending}>{r.status || 'pending'}</Badge>
+          {r.report_type && <Badge className="bg-violet-100 text-violet-700 text-[9px]">{r.report_type}</Badge>}
+        </div>
       </div>
-      {report.overall_rating && (
-        <div className="flex items-center gap-2 mb-2">
-          <div className="text-lg font-bold text-cyan-600">{report.overall_rating}/10</div>
-          <div className="flex-1 h-2 bg-slate-100 rounded-full"><div className="h-full bg-cyan-500 rounded-full" style={{ width: `${(report.overall_rating / 10) * 100}%` }} /></div>
+      {r.overall_rating && (
+        <div className="flex items-center gap-3 mb-2">
+          <div className={`w-10 h-10 rounded-full border-3 flex items-center justify-center text-sm font-bold ${r.overall_rating >= 7 ? 'border-emerald-400 text-emerald-600' : r.overall_rating >= 5 ? 'border-amber-400 text-amber-600' : 'border-red-400 text-red-600'}`}>{r.overall_rating}</div>
+          <div className="flex-1">
+            <div className="h-2 bg-slate-100 rounded-full"><div className="h-full rounded-full" style={{ width: `${(r.overall_rating / 10) * 100}%`, background: r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : '#ef4444' }} /></div>
+          </div>
         </div>
       )}
       <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-        {report.location && <span>{report.location}</span>}
-        {report.size && <span>{report.size}</span>}
-        <span>{fmtDate(report.sent_at || report.created_at)}</span>
+        {(r.length_ft || r.size) && <span>{r.length_ft ? `${r.length_ft} ft` : r.size}</span>}
+        {r.hull_material && <span>{r.hull_material}</span>}
+        {r.inspector_name && <span>Inspector: {r.inspector_name}</span>}
+        <span>{fmtDate(r.sent_at || r.created_at)}</span>
+      </div>
+      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
+        <span className="text-xs text-cyan-600 font-medium flex items-center gap-1">Ver Detalle <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg></span>
       </div>
     </Card>
   );
@@ -112,18 +123,45 @@ function InspectionDetail({ report, onBack }) {
         </div>
       </div>
 
-      {/* Vessel info */}
-      {(d.listing_url || d.overall_rating) && (
-        <Card className="mb-5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            {d.overall_rating && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Calificacion</p><p className="text-lg font-bold text-cyan-600">{d.overall_rating}/10</p></div>}
-            {d.vessel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p><p className="text-slate-700">{d.vessel_type}</p></div>}
-            {d.year && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ano</p><p className="text-slate-700">{d.year}</p></div>}
-            {d.size && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tamano</p><p className="text-slate-700">{d.size}</p></div>}
+      {/* Overall Rating Card */}
+      {d.overall_rating && (
+        <Card className="mb-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+          <div className="flex items-center gap-5">
+            <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl font-bold ${d.overall_rating >= 7 ? 'border-emerald-400 text-emerald-400' : d.overall_rating >= 5 ? 'border-amber-400 text-amber-400' : 'border-red-400 text-red-400'}`}>
+              {d.overall_rating}
+            </div>
+            <div>
+              <p className="text-sm text-slate-400">Calificacion General</p>
+              <p className="text-xl font-bold">{d.overall_rating} / 10</p>
+              {d.overall_summary && <p className="text-xs text-slate-400 mt-1">{d.overall_summary}</p>}
+              {d.inspector_name && <p className="text-xs text-slate-500 mt-1">Inspector: {d.inspector_name}</p>}
+            </div>
           </div>
-          {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-600 hover:text-cyan-700 font-medium">Ver listing original <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>}
         </Card>
       )}
+
+      {/* Vessel Data Card */}
+      <Card className="mb-5">
+        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+          <svg className="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Datos de la Embarcacion
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-sm">
+          {d.vessel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p><p className="text-slate-700">{d.vessel_type}</p></div>}
+          {d.brand && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Marca</p><p className="text-slate-700">{d.brand}</p></div>}
+          {d.model && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Modelo</p><p className="text-slate-700">{d.model}</p></div>}
+          {(d.year || d.vessel_year) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ano</p><p className="text-slate-700">{d.year || d.vessel_year}</p></div>}
+          {(d.size || d.length_ft) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Eslora</p><p className="text-slate-700">{d.size || `${d.length_ft} ft`}</p></div>}
+          {d.hull_material && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Material</p><p className="text-slate-700">{d.hull_material}</p></div>}
+          {(d.engine_brand || d.engine_model) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Motor</p><p className="text-slate-700">{[d.engine_brand, d.engine_model].filter(Boolean).join(' ')}</p></div>}
+          {d.engine_hours && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Horas Motor</p><p className="text-slate-700">{d.engine_hours}</p></div>}
+          {d.num_engines && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Motores</p><p className="text-slate-700">{d.num_engines}</p></div>}
+          {d.fuel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Combustible</p><p className="text-slate-700">{d.fuel_type}</p></div>}
+          {d.location && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ubicacion</p><p className="text-slate-700">{d.city ? `${d.city}, ` : ''}{d.location}</p></div>}
+          {d.marina && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Marina</p><p className="text-slate-700">{d.marina}</p></div>}
+        </div>
+        {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-600 hover:text-cyan-700 font-medium">Ver listing original <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>}
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         {Object.keys(metrics).length > 0 && (
@@ -176,6 +214,11 @@ function InspectionDetail({ report, onBack }) {
           </div>
         </Card>
       )}
+
+      {/* Footer */}
+      <p className="text-center text-xs text-slate-400 mb-5">
+        Reporte generado el {fmtDate(d.sent_at || d.created_at)} {d.report_type && `· Inspeccion ${d.report_type}`} · Imporlan.cl
+      </p>
 
       {lightbox && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer" onClick={() => setLightbox(null)}>

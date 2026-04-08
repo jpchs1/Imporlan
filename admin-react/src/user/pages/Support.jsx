@@ -5,24 +5,22 @@ import { PageHeader, Card, Button, Input, Select, Textarea } from '../../shared/
 import { useToast } from '../../shared/components/Toast';
 
 const SUBJECTS = [
-  { value: '', label: 'Selecciona un tema...' },
+  { value: '', label: 'Selecciona un asunto' },
   { value: 'Consulta general', label: 'Consulta general' },
-  { value: 'Problema con mi cuenta', label: 'Problema con mi cuenta' },
-  { value: 'Consulta sobre importacion', label: 'Consulta sobre importacion' },
-  { value: 'Problema con un pago', label: 'Problema con un pago' },
-  { value: 'Seguimiento de pedido', label: 'Seguimiento de pedido' },
+  { value: 'Estado de importacion', label: 'Estado de importacion' },
+  { value: 'Cotizacion', label: 'Cotizacion' },
+  { value: 'Documentos', label: 'Documentos' },
+  { value: 'Pagos y facturacion', label: 'Pagos y facturacion' },
   { value: 'Problema tecnico', label: 'Problema tecnico' },
-  { value: 'Solicitud de cotizacion', label: 'Solicitud de cotizacion' },
-  { value: 'Sugerencia o comentario', label: 'Sugerencia o comentario' },
   { value: 'Otro', label: 'Otro' },
 ];
 
 const FAQS = [
-  { q: 'Como funciona el proceso de importacion?', a: 'Imporlan se encarga de todo el proceso: busqueda, inspeccion, compra, logistica y entrega en Chile. Tu solo eliges la embarcacion.' },
-  { q: 'Que incluye la pre-inspeccion?', a: 'Un inspector certificado revisa casco, motor, sistema electrico, interior, trailer, navegacion y seguridad. Recibes un reporte detallado con fotos y recomendaciones.' },
-  { q: 'Que documentos necesito?', a: 'Solo necesitas tu cedula de identidad o pasaporte. Nosotros nos encargamos de toda la documentacion aduanera y de importacion.' },
-  { q: 'Como puedo hacer seguimiento de mi envio?', a: 'En la seccion "Seguimiento" de tu panel puedes ver la ubicacion en tiempo real de tu embarcacion durante el transporte maritimo.' },
-  { q: 'Cuanto demora una importacion?', a: 'El tiempo promedio es de 30-60 dias desde la compra hasta la entrega en Chile, dependiendo del origen y la logistica.' },
+  { q: 'Cuanto demora una importacion?', a: 'El tiempo promedio de una importacion completa es de 45 a 90 dias dependiendo del origen, tipo de embarcacion y tramites aduaneros. Te mantendremos informado en cada etapa del proceso.' },
+  { q: 'Que incluye el servicio puerta a puerta?', a: 'Nuestro servicio incluye: inspeccion pre-compra, compra de la embarcacion, transporte maritimo, seguros, tramites aduaneros, internacion y entrega en el destino que indiques.' },
+  { q: 'Como funciona la inspeccion pre-compra?', a: 'Coordinamos con inspectores certificados en el pais de origen. Revisan el estado mecanico, estructural y estetico de la embarcacion, entregandote un informe detallado con fotos y video antes de concretar la compra.' },
+  { q: 'Que documentos necesito para importar?', a: 'Necesitas: cedula de identidad vigente, titulo de la embarcacion (Bill of Sale), factura comercial y documentos de exportacion del pais de origen. Nosotros nos encargamos de toda la tramitacion.' },
+  { q: 'Puedo hacer seguimiento de mi importacion?', a: 'Si, desde tu WebPanel puedes ver el estado en tiempo real de tu importacion, incluyendo ubicacion del envio, documentos asociados y proximos pasos. Tambien recibiras notificaciones automaticas en cada cambio de estado.' },
 ];
 
 export default function Support() {
@@ -49,7 +47,7 @@ export default function Support() {
 
   return (
     <div>
-      <PageHeader title="Soporte" subtitle="Centro de ayuda y contacto" />
+      <PageHeader title="Centro de Soporte" subtitle="Estamos aqui para ayudarte con tu importacion" />
 
       {/* Contact cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -77,6 +75,21 @@ export default function Support() {
           <p className="text-xs text-slate-600">Lun-Vie 09:00-18:00</p>
           <p className="text-[11px] text-slate-400 mt-1">Sab-Dom 10:00-14:00</p>
         </Card>
+      </div>
+
+      {/* SLA Info */}
+      <div className="mb-6 px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+        <div className="flex gap-3">
+          <svg className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Tiempo de Respuesta (SLA)</p>
+            <p className="text-xs text-blue-600 mt-1">El tiempo de respuesta y trabajo para tu requerimiento es de hasta 48 horas por lo general. En algunos periodos de alta demanda, puede llegar a ser de hasta 72 hrs segun la cantidad de requerimientos en curso.</p>
+            <div className="flex gap-4 mt-2 text-xs">
+              <a href="mailto:contacto@imporlan.cl" className="text-blue-700 underline">contacto@imporlan.cl</a>
+              <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="text-emerald-700 underline">WhatsApp</a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
