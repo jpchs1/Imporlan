@@ -46,7 +46,7 @@ export default function Profile() {
       {/* Avatar + Name header */}
       <Card className="mb-5">
         <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-400 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-cyan-500/20 shrink-0">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-400 flex items-center justify-center text-white text-2xl font-bold shadow-xl shadow-cyan-500/25 shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">

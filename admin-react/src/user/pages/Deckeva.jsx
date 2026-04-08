@@ -58,7 +58,7 @@ export default function Deckeva() {
       <h2 className="text-lg font-bold text-slate-800 mb-4">Galeria de Instalaciones</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {GALLERY.map((url, i) => (
-          <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 cursor-pointer hover:shadow-lg transition group ${i < 2 ? 'md:col-span-2 aspect-video' : 'aspect-[4/3]'}`}>
+          <div key={i} className={`rounded-xl overflow-hidden bg-slate-100 cursor-pointer hover:shadow-xl transition-all duration-300 group ${i < 2 ? 'md:col-span-2 aspect-video' : 'aspect-[4/3]'}`}>
             <img
               src={url}
               alt={`Instalacion ${i + 1}`}

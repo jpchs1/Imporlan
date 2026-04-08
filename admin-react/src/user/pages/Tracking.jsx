@@ -304,8 +304,8 @@ export default function Tracking() {
         </div>
         <Card className="text-center py-16">
           <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          <p className="text-slate-500 font-medium">No hay envios en seguimiento</p>
-          <p className="text-sm text-slate-400 mt-1">Cuando tu importacion este en camino, podras ver el seguimiento aqui.</p>
+          <p className="text-lg font-bold text-slate-700">No hay envios en seguimiento</p>
+          <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">Cuando tu importacion este en camino, podras ver la ubicacion en tiempo real de tu embarcacion aqui.</p>
         </Card>
       </div>
     );

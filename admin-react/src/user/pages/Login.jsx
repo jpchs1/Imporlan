@@ -147,7 +147,7 @@ export default function Login() {
             /* Forgot password view */
             <div className="space-y-5">
               <div className="text-center mb-2">
-                <div className="w-12 h-12 mx-auto bg-cyan-500/10 rounded-xl flex items-center justify-center mb-3">
+                <div className="w-14 h-14 mx-auto bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/10">
                   <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-9.75 6.093L2.25 6.75" /></svg>
                 </div>
                 <h3 className="text-white font-semibold text-lg">Recuperar Contrasena</h3>
@@ -239,7 +239,7 @@ export default function Login() {
           ) : (
             <form onSubmit={handle2FA} className="space-y-5">
               <div className="text-center mb-2">
-                <div className="w-12 h-12 mx-auto bg-cyan-500/10 rounded-xl flex items-center justify-center mb-3">
+                <div className="w-14 h-14 mx-auto bg-cyan-500/10 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/10">
                   <svg className="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                 </div>
                 <p className="text-sm text-slate-400">Ingresa el codigo de tu app de autenticacion</p>
