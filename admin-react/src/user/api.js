@@ -147,10 +147,43 @@ export const getMyReports = () => {
 
 // Inspections (user - read only)
 export const getMyInspections = () => {
-  const user = userJson();
   const email = getUserEmail();
-  return request(`${API_BASE}/inspection_api.php?action=user_list&user_email=${encodeURIComponent(email)}`).catch(() => ({ items: [] }));
+  return request(`${API_BASE}/inspection_reports_api.php?action=user_list&user_email=${encodeURIComponent(email)}`).catch(() => ({ reports: [] }));
 };
+
+export const getInspectionDetail = (id) => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/inspection_reports_api.php?action=user_detail&id=${id}&user_email=${encodeURIComponent(email)}`);
+};
+
+// Purchases / Plans
+export const getMyPurchases = () => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/purchases.php?action=get&user_email=${encodeURIComponent(email)}`).catch(() => ({ plans: [], links: [] }));
+};
+
+// Notifications / Alerts
+export const getNotifications = (limit = 30) => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=list&user_email=${encodeURIComponent(email)}&limit=${limit}`).catch(() => ({ notifications: [] }));
+};
+
+export const getUnreadCount = () => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=unread_count&user_email=${encodeURIComponent(email)}`).catch(() => ({ unread_count: 0 }));
+};
+
+export const markNotificationRead = (id) =>
+  request(`${API_BASE}/notifications_api.php?action=mark_read`, { method: 'POST', body: JSON.stringify({ id }) });
+
+export const markAllNotificationsRead = () => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=mark_all_read`, { method: 'POST', body: JSON.stringify({ user_email: email }) });
+};
+
+// Support
+export const submitSupportRequest = (data) =>
+  request(`${API_BASE}/support_api.php`, { method: 'POST', body: JSON.stringify(data) });
 
 // Payments (user)
 export const getMyPaymentRequests = (status = 'all') => {

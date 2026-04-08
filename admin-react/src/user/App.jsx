@@ -12,6 +12,13 @@ import Messages from './pages/Messages';
 import Payments from './pages/Payments';
 import Profile from './pages/Profile';
 import Marketplace from './pages/Marketplace';
+import Inspections from './pages/Inspections';
+import Imports from './pages/Imports';
+import Plans from './pages/Plans';
+import Quotation from './pages/Quotation';
+import Alerts from './pages/Alerts';
+import Support from './pages/Support';
+import Deckeva from './pages/Deckeva';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -29,12 +36,19 @@ function AppRoutes() {
       <Route path="/login" element={isAuth ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/expedientes" element={<Expedientes />} />
-        <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/tracking" element={<Tracking />} />
-        <Route path="/messages" element={<Messages />} />
+        <Route path="/expedientes" element={<Expedientes />} />
+        <Route path="/imports" element={<Imports />} />
         <Route path="/documents" element={<Documents />} />
+        <Route path="/inspections" element={<Inspections />} />
+        <Route path="/quotation" element={<Quotation />} />
+        <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/plans" element={<Plans />} />
+        <Route path="/deckeva" element={<Deckeva />} />
         <Route path="/payments" element={<Payments />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/alerts" element={<Alerts />} />
+        <Route path="/support" element={<Support />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
