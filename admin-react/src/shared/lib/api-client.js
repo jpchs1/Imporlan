@@ -14,7 +14,9 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
   }
 
   async function request(url, options = {}) {
-    const headers = { 'Content-Type': 'application/json', ...authHeaders(), ...options.headers };
+    const isGet = !options.method || options.method === 'GET';
+    const baseHeaders = isGet ? { ...authHeaders() } : { 'Content-Type': 'application/json', ...authHeaders() };
+    const headers = { ...baseHeaders, ...options.headers };
     let res;
     try {
       const controller = new AbortController();
