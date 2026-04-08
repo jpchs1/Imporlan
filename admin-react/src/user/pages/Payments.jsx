@@ -225,6 +225,7 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
 // --- Main Page ---
 export default function Payments() {
   const toast = useToast();
+  const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
