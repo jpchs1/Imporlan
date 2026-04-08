@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
 
 export function Card({ children, className, ...props }) {
@@ -112,11 +113,11 @@ export function Table({ columns, data, onRowClick, emptyMsg = 'Sin datos' }) {
 
 export function Modal({ open, onClose, title, children, size = 'md' }) {
   if (!open) return null;
-  const sizes = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
-  return (
+  const widths = { sm: '28rem', md: '32rem', lg: '42rem', xl: '56rem' };
+  return createPortal(
     <>
-      <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999, width: '100%', maxWidth: size === 'sm' ? '28rem' : size === 'lg' ? '42rem' : size === 'xl' ? '56rem' : '32rem', maxHeight: '85vh', padding: '0 1rem' }}>
+      <div className="animate-fade-in" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999, width: `min(${widths[size] || '32rem'}, calc(100% - 2rem))`, maxHeight: '85vh' }}>
         <div className="bg-white rounded-2xl shadow-2xl flex flex-col animate-scale-in border border-slate-200/60" style={{ maxHeight: '85vh' }}>
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
             <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
@@ -127,7 +128,8 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
           <div className="flex-1 overflow-y-auto p-6">{children}</div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
