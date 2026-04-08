@@ -230,6 +230,102 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
   );
 }
 
+// --- Custom Pay Form (matching production screenshot) ---
+const PAY_METHODS = [
+  { id: 'webpay', label: 'WebPay (Transbank)', desc: 'Tarjeta credito o debito chilena', abbr: 'WEB', color: '#E31837' },
+  { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', abbr: 'MER', color: '#00B1EA' },
+  { id: 'paypal', label: 'PayPal (USD)', desc: 'Pago internacional con PayPal', abbr: 'PAY', color: '#003087' },
+  { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Transferencia directa', abbr: 'TRA', color: '#10b981' },
+];
+
+function CustomPayForm({ onClose, toast, user }) {
+  const [amount, setAmount] = useState('');
+  const [concept, setConcept] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState('webpay');
+  const [processing, setProcessing] = useState(false);
+  const [showBank, setShowBank] = useState(false);
+
+  const email = user?.email || user?.user_email || '';
+  const name = user?.name || '';
+
+  async function handlePay() {
+    if (!amount || parseInt(amount) <= 0) { toast?.('Ingresa un monto valido', 'error'); return; }
+    setProcessing(true);
+    const desc = concept || 'Pago Imporlan';
+    const amt = parseInt(amount);
+
+    try {
+      if (selectedMethod === 'webpay') {
+        const data = await createWebPayTransaction({ amount: amt, session_id: `pay_${Date.now()}`, buy_order: `PAY-${Date.now()}`, user_email: email, payer_name: name, description: desc, type: 'custom_payment', return_url: window.location.href });
+        if (data.success && data.url && data.token) {
+          const f = document.createElement('form'); f.method = 'POST'; f.action = data.url;
+          const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'token_ws'; inp.value = data.token;
+          f.appendChild(inp); document.body.appendChild(f); f.submit(); return;
+        } else { toast?.('Error al crear transaccion', 'error'); }
+      } else if (selectedMethod === 'mercadopago') {
+        const data = await createMercadoPagoPreference({ amount: amt, description: desc, plan_name: desc, payer_email: email, payer_name: name });
+        if (data.success && data.init_point) { window.location.href = data.init_point; return; }
+        else { toast?.('Error al crear preferencia', 'error'); }
+      } else if (selectedMethod === 'transfer') {
+        setShowBank(true); setProcessing(false); return;
+      } else { toast?.('Metodo no disponible aun', 'warning'); }
+    } catch (e) { toast?.(e.message || 'Error al procesar', 'error'); }
+    setProcessing(false);
+  }
+
+  if (showBank) return (
+    <div className="space-y-4">
+      <BankTransferInfo amount={parseInt(amount)} />
+      <Button variant="secondary" className="w-full" onClick={() => setShowBank(false)}>Volver</Button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <p className="text-xs text-slate-400">Selecciona metodo e ingresa el monto</p>
+
+      <Input label="Monto (CLP)" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Ej: 150.000" />
+      <Input label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej: Pago inspeccion, Anticipo embarcacion..." />
+
+      <div>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Metodo de Pago</label>
+        <div className="space-y-2">
+          {PAY_METHODS.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setSelectedMethod(m.id)}
+              className={cn(
+                'w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all',
+                selectedMethod === m.id ? 'border-cyan-400 bg-cyan-50/50 shadow-sm' : 'border-slate-200 hover:border-slate-300'
+              )}
+            >
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-[10px] font-bold" style={{ background: m.color }}>
+                {m.abbr}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-slate-700">{m.label}</p>
+                <p className="text-xs text-slate-400">{m.desc}</p>
+              </div>
+              <div className={cn('w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0', selectedMethod === m.id ? 'border-cyan-500' : 'border-slate-300')}>
+                {selectedMethod === m.id && <div className="w-2.5 h-2.5 rounded-full" style={{ background: m.color }} />}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={handlePay}
+        disabled={processing || !amount || parseInt(amount) <= 0}
+        className="w-full py-3.5 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-cyan-600/30 hover:from-cyan-700 hover:to-cyan-600 transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        {processing ? 'Procesando...' : 'Pagar Ahora'}
+      </button>
+    </div>
+  );
+}
+
 // --- Main Page ---
 export default function Payments() {
   const toast = useToast();
@@ -238,8 +334,6 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
   const [showCustomPay, setShowCustomPay] = useState(false);
-  const [customAmount, setCustomAmount] = useState('');
-  const [customConcept, setCustomConcept] = useState('');
 
   const loadRequests = useCallback(async () => {
     try {
@@ -435,30 +529,13 @@ export default function Payments() {
         toast={toast}
       />
 
-      {/* Custom payment modal */}
+      {/* Custom payment modal - matching production design */}
       <Modal open={showCustomPay} onClose={() => setShowCustomPay(false)} title="Realizar Pago" size="md">
-        <div className="space-y-4">
-          <Input label="Monto (CLP) *" type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="Ej: 50000" />
-          <Input label="Concepto / Descripcion *" value={customConcept} onChange={e => setCustomConcept(e.target.value)} placeholder="Ej: Pago de inspeccion, Cotizacion, etc." />
-          {customAmount > 0 && (
-            <div className="text-center py-3 bg-slate-50 rounded-xl">
-              <p className="text-2xl font-bold text-slate-900">{fmtCLP(parseInt(customAmount))}</p>
-            </div>
-          )}
-          <Button
-            variant="accent"
-            className="w-full"
-            disabled={!customAmount || !customConcept.trim()}
-            onClick={() => {
-              setShowCustomPay(false);
-              setPayTarget({ id: `custom-${Date.now()}`, title: customConcept, amount_clp: parseInt(customAmount), amount_usd: null, status: 'pending' });
-              setCustomAmount('');
-              setCustomConcept('');
-            }}
-          >
-            Continuar al Pago
-          </Button>
-        </div>
+        <CustomPayForm
+          onClose={() => setShowCustomPay(false)}
+          toast={toast}
+          user={user}
+        />
       </Modal>
     </div>
   );
