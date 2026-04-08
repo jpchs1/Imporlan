@@ -45,41 +45,41 @@ const DEMO_INSPECTION = {
   },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
   photos_hull: [
-    'https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1575362018506-a5668db0e7ff?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/3.jpg',
+    '/panel/user/assets/gallery/5.jpg',
+    '/panel/user/assets/gallery/10.jpg',
   ],
   photos_engine: [
-    'https://images.unsplash.com/photo-1622653902360-1b5e0a6e9fd2?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1586939072042-78e6dc8dbb9e?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/6.jpg',
+    '/panel/user/assets/gallery/9.jpg',
   ],
   photos_electrical: [
-    'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/8.jpg',
   ],
   photos_interior: [
-    'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/1.jpg',
+    '/panel/user/assets/gallery/4.jpg',
   ],
   photos_trailer: [
-    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/2.jpg',
   ],
   photos_navigation: [
-    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/2.jpeg',
   ],
   photos_safety: [
-    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop',
+    '/panel/user/assets/gallery/11.png',
   ],
   photos_general: [
-    'https://images.unsplash.com/photo-1569263979104-865ab7cd8d13?w=800&h=500&fit=crop',
-    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop&q=80',
+    '/panel/user/assets/gallery/1.jpg',
+    '/panel/user/assets/gallery/3.jpg',
+    '/panel/user/assets/gallery/5.jpg',
+    '/panel/user/assets/gallery/4.jpg',
   ],
   photos_test_drive: [
-    'https://images.unsplash.com/photo-1544551763-77ef2d0cfc6c?w=600&h=400&fit=crop&q=90',
-    'https://images.unsplash.com/photo-1575362018506-a5668db0e7ff?w=600&h=400&fit=crop&q=90',
+    '/panel/user/assets/gallery/12.png',
+    '/panel/user/assets/gallery/13.png',
   ],
-  videos_test_drive: ['https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+  videos_test_drive: ['https://vimeo.com/908368343'],
 };
 
 const METRICS = ['hull', 'engine', 'electrical', 'interior', 'trailer', 'navigation', 'safety', 'test_drive'];
@@ -360,14 +360,40 @@ function InspectionDetail({ report, onBack }) {
 
       {videos.length > 0 && (
         <Card className="mb-5">
-          <h3 className="font-bold text-slate-800 mb-4">Videos ({videos.length})</h3>
-          <div className="space-y-2">
-            {videos.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition">
-                <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">VID</span></div>
-                <span className="text-sm text-slate-700 truncate">Video {i + 1}</span>
-              </a>
-            ))}
+          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Videos Test-Drive ({videos.length})
+          </h3>
+          <div className="space-y-3">
+            {videos.map((url, i) => {
+              const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+              const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+              if (ytMatch || vimeoMatch) {
+                const embedUrl = ytMatch
+                  ? `https://www.youtube.com/embed/${ytMatch[1]}`
+                  : `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+                return (
+                  <div key={i}>
+                    <p className="text-xs text-slate-500 mb-2">Test Drive - Sea Ray SPX 210 Sterndrive 2024 | BoatTEST Review</p>
+                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900">
+                      <iframe
+                        src={embedUrl}
+                        title={`Video Test Drive ${i + 1}`}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition">
+                  <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">VID</span></div>
+                  <span className="text-sm text-slate-700 truncate">Video {i + 1}</span>
+                </a>
+              );
+            })}
           </div>
         </Card>
       )}
