@@ -368,23 +368,34 @@ function InspectionDetail({ report, onBack }) {
             {videos.map((url, i) => {
               const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
               const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-              if (ytMatch || vimeoMatch) {
-                const embedUrl = ytMatch
-                  ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?rel=0`
-                  : `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+              if (ytMatch) {
+                const videoId = ytMatch[1];
                 return (
                   <div key={i}>
                     <p className="text-xs text-slate-500 mb-2">Test Drive - 2007 Monterey 180 FS | Lake Test</p>
-                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200">
-                      <iframe
-                        src={embedUrl}
-                        title={`Video Test Drive ${i + 1}`}
-                        className="w-full h-full border-0"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                        allowFullScreen
-                      />
-                    </div>
+                    <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noreferrer" className="block relative aspect-video rounded-xl overflow-hidden bg-slate-900 group cursor-pointer">
+                      <img src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`} alt="Video Test Drive" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => { e.target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`; }} />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/40 transition">
+                        <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                          <svg className="w-7 h-7 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/></svg>
+                        <span className="text-white text-xs font-semibold">Ver en YouTube</span>
+                      </div>
+                    </a>
+                  </div>
+                );
+              }
+              if (vimeoMatch) {
+                return (
+                  <div key={i}>
+                    <a href={url} target="_blank" rel="noreferrer" className="block relative aspect-video rounded-xl overflow-hidden bg-slate-900 group cursor-pointer">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-cyan-600 flex items-center justify-center shadow-lg"><svg className="w-7 h-7 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+                      </div>
+                    </a>
                   </div>
                 );
               }
