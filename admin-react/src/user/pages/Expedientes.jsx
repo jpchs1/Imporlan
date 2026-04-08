@@ -84,7 +84,7 @@ function VesselCard({ link, index, dragHandlers }) {
     <div
       draggable
       className={cn(
-        'flex gap-4 p-4 bg-white border border-slate-200 rounded-xl transition-all group',
+        'flex gap-4 p-4 bg-white border border-slate-200 rounded-xl transition-all group relative',
         isSold && 'opacity-60 grayscale',
         'hover:shadow-md hover:border-slate-300'
       )}
@@ -132,15 +132,23 @@ function VesselCard({ link, index, dragHandlers }) {
         {/* Prices */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
           {link.value_usa_usd > 0 && (
-            <span className="text-xs font-semibold text-emerald-600">{fmtUsd(link.value_usa_usd)} USD</span>
-          )}
-          {link.value_chile_clp > 0 && (
-            <span className="text-xs font-semibold text-blue-600">{fmtClp(link.value_chile_clp)}</span>
+            <span className="text-xs font-semibold text-emerald-600">{fmtUsd(link.value_usa_usd)} USA</span>
           )}
           {link.value_to_negotiate_usd > 0 && (
-            <span className="text-xs text-slate-400">Neg: {fmtUsd(link.value_to_negotiate_usd)}</span>
+            <span className="text-xs text-emerald-500">Neg: {fmtUsd(link.value_to_negotiate_usd)}</span>
+          )}
+          {link.value_chile_clp > 0 && (
+            <span className="text-xs font-semibold text-blue-600">{fmtClp(link.value_chile_clp)} CLP</span>
+          )}
+          {link.value_chile_negotiated_clp > 0 && (
+            <span className="text-xs text-blue-500">Neg: {fmtClp(link.value_chile_negotiated_clp)}</span>
           )}
         </div>
+
+        {/* Selection order */}
+        {link.selection_order && (
+          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-400 text-white text-[10px] font-bold flex items-center justify-center">{link.selection_order}</span>
+        )}
 
         {/* Actions + Comments */}
         <div className="flex items-center gap-2 mt-2">
@@ -307,8 +315,10 @@ function OrderDetail({ orderId, onBack }) {
 
   const title = [order.make, order.model, order.year].filter(Boolean).join(' ') || order.asset_name || `Expediente #${order.order_number}`;
   const activeLinks = links.filter(l => l.url);
-  const imageFiles = files.filter(f => (f.category || '').startsWith('image') || (f.mime_type || '').startsWith('image/'));
-  const docFiles = files.filter(f => !((f.category || '').startsWith('image') || (f.mime_type || '').startsWith('image/')));
+  const imageFiles = files.filter(f => (f.category || '') === 'image' || (f.mime_type || '').startsWith('image/'));
+  const videoFiles = files.filter(f => (f.category || '') === 'video' || (f.mime_type || '').startsWith('video/'));
+  const docFiles = files.filter(f => !['image', 'video'].includes(f.category) && !(f.mime_type || '').startsWith('image/') && !(f.mime_type || '').startsWith('video/'));
+  const fileNote = files.find(f => f.description)?.description;
 
   return (
     <div>
@@ -319,12 +329,28 @@ function OrderDetail({ orderId, onBack }) {
       </button>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">#{order.order_number}</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{title}</p>
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-5 mb-5 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold">#{order.order_number}</h1>
+            <p className="text-sm text-slate-300 mt-0.5">{title}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={cn(statusColor(order.status), 'text-xs')}>{(order.status || '').replace(/_/g, ' ')}</Badge>
+            <a href="https://wa.me/56940211459?text=Hola%2C%20tengo%20una%20consulta%20sobre%20expediente%20%23{order.order_number}" target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-medium hover:bg-emerald-500/30 transition flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+              Soporte
+            </a>
+          </div>
         </div>
-        <Badge className={cn(statusColor(order.status), 'text-xs')}>{(order.status || '').replace(/_/g, ' ')}</Badge>
+        {/* Stats bar */}
+        {activeLinks.length > 0 && (
+          <div className="flex gap-4 mt-3 pt-3 border-t border-white/10 text-xs">
+            <span className="text-slate-400">{activeLinks.length} embarcacion{activeLinks.length !== 1 ? 'es' : ''}</span>
+            <span className="text-slate-400">{activeLinks.filter(l => l.image_url).length} con foto</span>
+            <span className="text-slate-400">{activeLinks.filter(l => l.value_usa_usd > 0 || l.value_chile_clp > 0).length} con precio</span>
+          </div>
+        )}
       </div>
 
       {/* Timeline */}
@@ -438,38 +464,69 @@ function OrderDetail({ orderId, onBack }) {
             Documentos ({files.length})
           </h2>
 
+          {/* Team note */}
+          {fileNote && (
+            <div className="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl flex gap-2 text-xs text-emerald-700">
+              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>{fileNote}</span>
+            </div>
+          )}
+
           {/* Image gallery */}
           {imageFiles.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
-              {imageFiles.map(f => (
-                <div
-                  key={f.id}
-                  className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:shadow-md transition group"
-                  onClick={() => setLightbox(f.download_url)}
-                >
-                  <img src={f.download_url} alt={f.original_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-              ))}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Imagenes ({imageFiles.length})</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {imageFiles.map(f => (
+                  <div key={f.id} className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:shadow-md transition group relative" onClick={() => setLightbox(f.download_url)}>
+                    <img src={f.download_url} alt={f.original_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
+                      <p className="text-[10px] text-white truncate">{f.original_name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Videos */}
+          {videoFiles.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Videos ({videoFiles.length})</p>
+              <div className="space-y-2">
+                {videoFiles.map(f => (
+                  <div key={f.id} className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">VID</span></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{f.original_name}</p>
+                      <p className="text-xs text-slate-400">{f.file_size_formatted || ''}</p>
+                    </div>
+                    <a href={f.download_url} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px] font-medium hover:bg-red-100 transition">Ver</a>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Document list */}
           {docFiles.length > 0 && (
-            <div className="space-y-2">
-              {docFiles.map(f => (
-                <div key={f.id} className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
-                  <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-white text-[10px] font-bold">DOC</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Documentos ({docFiles.length})</p>
+              <div className="space-y-2">
+                {docFiles.map(f => (
+                  <div key={f.id} className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">DOC</span></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{f.original_name}</p>
+                      <p className="text-xs text-slate-400">{f.file_size_formatted || ''} {f.description ? `· ${f.description}` : ''}</p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <a href={f.download_url} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-medium hover:bg-white transition">Ver</a>
+                      <a href={f.download_url} download className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-medium hover:bg-blue-100 transition">Descargar</a>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{f.original_name}</p>
-                    <p className="text-xs text-slate-400">{f.file_size_formatted || ''} {f.description ? `· ${f.description}` : ''}</p>
-                  </div>
-                  <a href={f.download_url} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-medium hover:bg-white transition">
-                    Descargar
-                  </a>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </Card>

@@ -276,11 +276,36 @@ export default function Documents() {
           <p className="text-slate-500 font-medium">
             {allDocs.length === 0 ? 'No tienes documentos todavia' : 'No se encontraron documentos'}
           </p>
-          <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
+          <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
             {allDocs.length === 0
-              ? <>Cuando tu agente suba archivos a tus expedientes, apareceran aqui. Si tienes dudas, contactanos por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="text-cyan-600 underline">WhatsApp</a>.</>
+              ? 'Cuando tu agente suba archivos a tus expedientes, apareceran aqui.'
               : 'Intenta con otro termino de busqueda o filtro.'}
           </p>
+          {allDocs.length === 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-3 mt-6 max-w-md mx-auto">
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <svg className="w-6 h-6 text-blue-500 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                  <p className="text-[11px] font-semibold text-blue-700">PDFs y Docs</p>
+                  <p className="text-[10px] text-blue-500">Contratos, facturas</p>
+                </div>
+                <div className="bg-violet-50 rounded-xl p-3 text-center">
+                  <svg className="w-6 h-6 text-violet-500 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <p className="text-[11px] font-semibold text-violet-700">Imagenes</p>
+                  <p className="text-[10px] text-violet-500">Fotos de inspecciones</p>
+                </div>
+                <div className="bg-red-50 rounded-xl p-3 text-center">
+                  <svg className="w-6 h-6 text-red-500 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                  <p className="text-[11px] font-semibold text-red-700">Videos</p>
+                  <p className="text-[10px] text-red-500">Test drives, recorridos</p>
+                </div>
+              </div>
+              <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                Contactar Soporte
+              </a>
+            </>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

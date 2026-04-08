@@ -163,9 +163,10 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
   }
 
   const methods = [
-    { id: 'webpay', label: 'WebPay', desc: 'Tarjeta credito/debito', icon: '💳', action: handleWebPay },
-    { id: 'mercadopago', label: 'MercadoPago', desc: 'Multiples medios de pago', icon: '🏦', action: handleMercadoPago },
-    { id: 'transfer', label: 'Transferencia', desc: 'Banco Santander', icon: '🏧', action: () => setShowBank(true) },
+    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', icon: '💳', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
+    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', icon: '🏧', action: handleWebPay },
+    { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', icon: '🏦', action: handleMercadoPago },
+    { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', icon: '🏛️', action: () => setShowBank(true) },
   ];
 
   return (
@@ -202,6 +203,11 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
+                    {m.badges && (
+                      <div className="flex gap-1 mt-1">
+                        {m.badges.map(b => <span key={b} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-500">{b}</span>)}
+                      </div>
+                    )}
                   </div>
                   {method === m.id && processing && (
                     <svg className="w-4 h-4 animate-spin text-cyan-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
