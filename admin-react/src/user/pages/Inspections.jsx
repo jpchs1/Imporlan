@@ -79,7 +79,19 @@ function InspectionDetail({ report, onBack }) {
   if (loading) return <Spinner />;
   const d = detail || report;
   const metrics = d.metrics || {};
-  const allPhotos = [...(d.photos_general || []), ...(d.photos_hull || []), ...(d.photos_engine || []), ...(d.photos_interior || [])];
+  const photoSections = [
+    { key: 'general', label: 'General', photos: d.photos_general || [] },
+    { key: 'hull', label: 'Casco', photos: d.photos_hull || [] },
+    { key: 'engine', label: 'Motor', photos: d.photos_engine || [] },
+    { key: 'electrical', label: 'Electrica', photos: d.photos_electrical || [] },
+    { key: 'interior', label: 'Interior', photos: d.photos_interior || [] },
+    { key: 'trailer', label: 'Trailer', photos: d.photos_trailer || [] },
+    { key: 'navigation', label: 'Navegacion', photos: d.photos_navigation || [] },
+    { key: 'safety', label: 'Seguridad', photos: d.photos_safety || [] },
+    { key: 'test_drive', label: 'Prueba', photos: d.photos_test_drive || [] },
+  ].filter(s => s.photos.length > 0);
+  const allPhotos = photoSections.flatMap(s => s.photos);
+  const videos = d.videos_test_drive || [];
 
   return (
     <div>
@@ -89,10 +101,29 @@ function InspectionDetail({ report, onBack }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{d.vessel_name || d.name}</h1>
-          <p className="text-sm text-slate-400">{d.vessel_type} {d.year && `· ${d.year}`} {d.location && `· ${d.location}`}</p>
+          <p className="text-sm text-slate-400">{d.vessel_type} {d.year && `· ${d.year}`} {d.size && `· ${d.size}`} {d.location && `· ${d.location}`}</p>
         </div>
-        <Badge className={STATUS_COLORS[d.status] || STATUS_COLORS.pending}>{d.status}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={STATUS_COLORS[d.status] || STATUS_COLORS.pending}>{d.status}</Badge>
+          <button onClick={() => window.print()} className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            PDF
+          </button>
+        </div>
       </div>
+
+      {/* Vessel info */}
+      {(d.listing_url || d.overall_rating) && (
+        <Card className="mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            {d.overall_rating && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Calificacion</p><p className="text-lg font-bold text-cyan-600">{d.overall_rating}/10</p></div>}
+            {d.vessel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p><p className="text-slate-700">{d.vessel_type}</p></div>}
+            {d.year && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ano</p><p className="text-slate-700">{d.year}</p></div>}
+            {d.size && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tamano</p><p className="text-slate-700">{d.size}</p></div>}
+          </div>
+          {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-600 hover:text-cyan-700 font-medium">Ver listing original <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>}
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         {Object.keys(metrics).length > 0 && (
@@ -114,14 +145,33 @@ function InspectionDetail({ report, onBack }) {
 
       {d.recommendations && <Card className="mb-5"><h3 className="font-bold text-slate-800 mb-2">Recomendaciones</h3><p className="text-sm text-slate-600 whitespace-pre-wrap">{d.recommendations}</p></Card>}
 
-      {allPhotos.length > 0 && (
+      {photoSections.length > 0 && (
         <Card className="mb-5">
           <h3 className="font-bold text-slate-800 mb-4">Fotos ({allPhotos.length})</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {allPhotos.map((url, i) => (
-              <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:shadow-md transition" onClick={() => setLightbox(url)}>
-                <img src={url} alt="" className="w-full h-full object-cover" />
+          {photoSections.map(section => (
+            <div key={section.key} className="mb-4 last:mb-0">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{section.label} ({section.photos.length})</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {section.photos.map((url, i) => (
+                  <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:shadow-md transition" onClick={() => setLightbox(url)}>
+                    <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  </div>
+                ))}
               </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {videos.length > 0 && (
+        <Card className="mb-5">
+          <h3 className="font-bold text-slate-800 mb-4">Videos ({videos.length})</h3>
+          <div className="space-y-2">
+            {videos.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition">
+                <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">VID</span></div>
+                <span className="text-sm text-slate-700 truncate">Video {i + 1}</span>
+              </a>
             ))}
           </div>
         </Card>

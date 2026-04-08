@@ -28,7 +28,7 @@ const FAQS = [
 export default function Support() {
   const toast = useToast();
   const { user } = useAuth();
-  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', phone: '', subject: '', message: '' });
+  const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', phone: '', subject: '', message: '', operation: '' });
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
@@ -99,9 +99,17 @@ export default function Support() {
                 <Input label="Email" type="email" value={form.email} onChange={e => set('email', e.target.value)} />
               </div>
               <Input label="Telefono (opcional)" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 ..." />
+              <Input label="N° Operacion (opcional)" value={form.operation} onChange={e => set('operation', e.target.value)} placeholder="IMP-XXXX" />
               <Select label="Tema *" value={form.subject} onChange={e => set('subject', e.target.value)} options={SUBJECTS} />
-              <Textarea label="Mensaje *" value={form.message} onChange={e => set('message', e.target.value)} placeholder="Describe tu consulta..." />
+              <div>
+                <Textarea label="Mensaje *" value={form.message} onChange={e => { if (e.target.value.length <= 2000) set('message', e.target.value); }} placeholder="Describe tu consulta..." />
+                <p className="text-[11px] text-slate-400 text-right mt-1">{form.message.length} / 2000</p>
+              </div>
               <Button variant="accent" type="submit" disabled={sending} className="w-full">{sending ? 'Enviando...' : 'Enviar'}</Button>
+              <div className="flex items-center gap-4 pt-2 border-t border-slate-100 text-[11px] text-slate-400">
+                <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>Conexion segura</span>
+                <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Respuesta en 48 hrs</span>
+              </div>
             </form>
           )}
         </Card>

@@ -72,7 +72,13 @@ export default function Alerts() {
               onClick={() => { if (!n.read_at) handleMarkRead(n.id); if (n.link) window.open(n.link, '_blank'); }}
             >
               <div className="flex items-start gap-3">
-                <div className={cn('w-2 h-2 rounded-full mt-2 shrink-0', n.read_at ? 'bg-slate-200' : 'bg-cyan-500')} />
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', n.type === 'report' ? 'bg-violet-100' : 'bg-cyan-100')}>
+                  {n.type === 'report' ? (
+                    <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <p className={cn('text-sm', n.read_at ? 'text-slate-600' : 'font-semibold text-slate-800')}>{n.title}</p>

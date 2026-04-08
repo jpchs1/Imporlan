@@ -269,9 +269,9 @@ export default function Documents() {
           <p className="text-slate-500 font-medium">
             {allDocs.length === 0 ? 'No tienes documentos todavia' : 'No se encontraron documentos'}
           </p>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
             {allDocs.length === 0
-              ? 'Cuando tu agente suba archivos a tus expedientes, apareceran aqui.'
+              ? <>Cuando tu agente suba archivos a tus expedientes, apareceran aqui. Si tienes dudas, contactanos por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="text-cyan-600 underline">WhatsApp</a>.</>
               : 'Intenta con otro termino de busqueda o filtro.'}
           </p>
         </Card>
