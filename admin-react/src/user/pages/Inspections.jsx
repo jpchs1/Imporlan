@@ -370,16 +370,17 @@ function InspectionDetail({ report, onBack }) {
               const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
               if (ytMatch || vimeoMatch) {
                 const embedUrl = ytMatch
-                  ? `https://www.youtube.com/embed/${ytMatch[1]}`
+                  ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?rel=0`
                   : `https://player.vimeo.com/video/${vimeoMatch[1]}`;
                 return (
                   <div key={i}>
                     <p className="text-xs text-slate-500 mb-2">Test Drive - 2007 Monterey 180 FS | Lake Test</p>
-                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900">
+                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200">
                       <iframe
                         src={embedUrl}
                         title={`Video Test Drive ${i + 1}`}
-                        className="w-full h-full"
+                        className="w-full h-full border-0"
+                        frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                         allowFullScreen
                       />
