@@ -34,37 +34,53 @@ function RadarChart({ metrics, size = 200 }) {
   );
 }
 
+function CountryFlag({ country }) {
+  const isUSA = /usa|united states|estados unidos|florida|miami|texas|california/i.test(country || '');
+  if (isUSA) return <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>;
+  return <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>;
+}
+
 function InspectionCard({ report, onClick }) {
   const r = report;
   const vesselName = [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspeccion';
+  const ratingColor = r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : r.overall_rating ? '#ef4444' : '#94a3b8';
+
   return (
-    <Card className="card-hover cursor-pointer border-l-4" style={{ borderLeftColor: r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : r.overall_rating ? '#ef4444' : '#94a3b8' }} onClick={() => onClick(report)}>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <p className="font-semibold text-slate-800">{vesselName}</p>
-          <p className="text-xs text-slate-400">{r.location && `${r.location}`} {r.vessel_type && `· ${r.vessel_type}`}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <Badge className={STATUS_COLORS[r.status] || STATUS_COLORS.pending}>{r.status || 'pending'}</Badge>
-          {r.report_type && <Badge className="bg-violet-100 text-violet-700 text-[9px]">{r.report_type}</Badge>}
-        </div>
-      </div>
-      {r.overall_rating && (
-        <div className="flex items-center gap-3 mb-2">
-          <div className={`w-10 h-10 rounded-full border-3 flex items-center justify-center text-sm font-bold ${r.overall_rating >= 7 ? 'border-emerald-400 text-emerald-600' : r.overall_rating >= 5 ? 'border-amber-400 text-amber-600' : 'border-red-400 text-red-600'}`}>{r.overall_rating}</div>
-          <div className="flex-1">
-            <div className="h-2 bg-slate-100 rounded-full"><div className="h-full rounded-full" style={{ width: `${(r.overall_rating / 10) * 100}%`, background: r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : '#ef4444' }} /></div>
+    <Card className="card-hover cursor-pointer border-l-4 p-5" style={{ borderLeftColor: ratingColor }} onClick={() => onClick(report)}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <h3 className="font-bold text-slate-800 text-base">{vesselName}</h3>
+          {/* Location with flag */}
+          {r.location && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <CountryFlag country={r.location} />
+              <span className="text-sm text-slate-500">{r.location}</span>
+            </div>
+          )}
+          {/* Specs row */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
+            {(r.length_ft || r.size) && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>{r.length_ft ? `${r.length_ft} ft` : r.size}</span>}
+            {r.hull_material && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/></svg>{r.hull_material}</span>}
+            {r.inspector_name && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>{r.inspector_name}</span>}
           </div>
+          {/* Rating */}
+          {r.overall_rating && (
+            <div className="flex items-center gap-2 mt-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: ratingColor }}>{r.overall_rating}</div>
+              <span className="text-sm text-slate-500">/ 10</span>
+            </div>
+          )}
         </div>
-      )}
-      <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-        {(r.length_ft || r.size) && <span>{r.length_ft ? `${r.length_ft} ft` : r.size}</span>}
-        {r.hull_material && <span>{r.hull_material}</span>}
-        {r.inspector_name && <span>Inspector: {r.inspector_name}</span>}
-        <span>{fmtDate(r.sent_at || r.created_at)}</span>
-      </div>
-      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-end">
-        <span className="text-xs text-cyan-600 font-medium flex items-center gap-1">Ver Detalle <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg></span>
+
+        {/* Right side: report type + date */}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {r.report_type && <Badge className="bg-violet-100 text-violet-700 text-[10px] uppercase">{r.report_type}</Badge>}
+          <span className="text-xs text-slate-400 flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            {fmtDate(r.sent_at || r.created_at)}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -252,7 +268,19 @@ export default function Inspections() {
 
   return (
     <div>
-      <PageHeader title="Inspecciones" subtitle={`${reports.length} inspeccion${reports.length !== 1 ? 'es' : ''}`} />
+      {/* Header matching production */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Mis Inspecciones</h1>
+          <p className="text-sm text-slate-400">Tus reportes de inspeccion tecnica de embarcaciones</p>
+        </div>
+      </div>
+
+      <div className="mb-6" />
+
       {reports.length === 0 ? (
         <Card className="text-center py-16">
           <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -260,10 +288,26 @@ export default function Inspections() {
           <p className="text-sm text-slate-400 mt-1">Cuando solicites una inspeccion, aparecera aqui.</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
           {reports.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
         </div>
       )}
+
+      {/* CTA: Request new inspection */}
+      <Card className="mt-6 text-center py-8 border-dashed border-2 border-slate-200">
+        <p className="font-bold text-slate-800">Necesitas otra inspeccion?</p>
+        <p className="text-sm text-slate-400 mt-1">Solicita una nueva inspeccion pre-compra en:</p>
+        <div className="flex justify-center gap-3 mt-4">
+          <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Chile" target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 text-white text-sm font-semibold shadow-md hover:shadow-lg transition flex items-center gap-2">
+            <svg className="w-4 h-3 rounded-sm" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
+            Chile
+          </a>
+          <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Estados%20Unidos" target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-700 text-white text-sm font-semibold shadow-md hover:shadow-lg transition flex items-center gap-2">
+            <svg className="w-4 h-3 rounded-sm" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
+            Estados Unidos
+          </a>
+        </div>
+      </Card>
     </div>
   );
 }
