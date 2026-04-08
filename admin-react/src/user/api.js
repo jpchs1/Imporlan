@@ -61,6 +61,12 @@ export const updateListing = (data) =>
 export const deleteListing = (id) =>
   request(`${API_BASE}/marketplace_api.php?action=delete`, { method: 'POST', body: JSON.stringify({ id }) });
 
+export const renewListing = (id) =>
+  request(`${API_BASE}/marketplace_api.php?action=renew`, { method: 'POST', body: JSON.stringify({ id }) });
+
+export const markListingSold = (id) =>
+  request(`${API_BASE}/marketplace_api.php?action=mark_sold`, { method: 'POST', body: JSON.stringify({ id }) });
+
 export async function uploadListingPhoto(listingId, file) {
   const fd = new FormData();
   fd.append('listing_id', listingId);
