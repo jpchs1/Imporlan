@@ -141,12 +141,15 @@ export default function Dashboard() {
 
   if (loading) return <Spinner />;
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos dias' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+
   return (
     <div>
       {/* Welcome */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Bienvenido, {name}
+          {greeting}, {name}
         </h1>
         <p className="text-sm text-slate-400 mt-1">Resumen de tu actividad en Imporlan</p>
       </div>

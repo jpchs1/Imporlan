@@ -74,7 +74,17 @@ export default function Profile() {
         </h3>
         <div className="space-y-4">
           <InfoRow label="Nombre" value={data.name || '-'} />
-          <InfoRow label="Email" value={data.email || '-'} />
+          <div className="flex items-center justify-between py-2 border-b border-slate-100">
+            <span className="text-sm text-slate-400">Email</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-700 font-medium">{data.email || '-'}</span>
+              {data.email && (
+                <button onClick={() => { navigator.clipboard.writeText(data.email); }} className="text-slate-400 hover:text-cyan-600 transition" title="Copiar email">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+              )}
+            </div>
+          </div>
           <InfoRow label="Rol" value="Cliente" />
           {data.locale && <InfoRow label="Idioma" value={data.locale === 'es' ? 'Espanol' : data.locale} />}
           {data.last_login && <InfoRow label="Ultimo acceso" value={fmtDate(data.last_login)} />}

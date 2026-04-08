@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getMyOrders } from '../api';
 import { fmtDate, cn, statusColor } from '../../shared/lib/utils';
-import { PageHeader, Card, Badge, Spinner } from '../../shared/components/UI';
+import { PageHeader, Card, Badge, Button, Spinner } from '../../shared/components/UI';
 import Timeline from '../../shared/components/Timeline';
 
 const STATUS_LABELS = { new: 'Nuevo', pending_admin_fill: 'En Proceso', in_progress: 'En Transito', completed: 'Completado', expired: 'Expirado', canceled: 'Cancelado' };
 
 export default function Imports() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,9 +48,14 @@ export default function Imports() {
                 <Badge className={statusColor(order.status)}>{STATUS_LABELS[order.status] || order.status}</Badge>
               </div>
               <Timeline step={order.timeline_step || 1} />
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-2">
-                <span>Creado: {fmtDate(order.created_at)}</span>
-                {order.agent_name && <span>Agente: {order.agent_name}</span>}
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                  <span>Creado: {fmtDate(order.created_at)}</span>
+                  {order.agent_name && <span>Agente: {order.agent_name}</span>}
+                </div>
+                <button onClick={() => navigate('/expedientes')} className="text-xs text-cyan-600 font-medium hover:text-cyan-700 flex items-center gap-1">
+                  Ver expediente <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
               </div>
             </Card>
           ))}

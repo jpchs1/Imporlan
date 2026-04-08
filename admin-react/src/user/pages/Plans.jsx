@@ -24,7 +24,14 @@ export default function Plans() {
 
   return (
     <div>
-      <PageHeader title="Planes de Busqueda" subtitle="Tus planes contratados y servicios activos" />
+      <PageHeader title="Planes de Busqueda" subtitle="Tus planes contratados y servicios activos" action={
+        <a href="https://www.imporlan.cl/#planes" target="_blank" rel="noreferrer">
+          <Button variant="accent" size="sm" className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4"/></svg>
+            Contratar Plan
+          </Button>
+        </a>
+      } />
 
       {plans.length === 0 && links.length === 0 ? (
         <Card className="text-center py-16">
