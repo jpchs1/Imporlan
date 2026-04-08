@@ -91,10 +91,10 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadAll() {
       const results = await Promise.allSettled([
-        getMyOrders(),
-        getMyPaymentRequests('all'),
-        getMyConversations(),
-        getFeaturedVessels(),
+        getMyOrders().catch(() => ({ orders: [] })),
+        getMyPaymentRequests('all').catch(() => ({ requests: [] })),
+        getMyConversations().catch(() => ({ conversations: [] })),
+        getFeaturedVessels().catch(() => ({ vessels: [] })),
         getMyReports(),
         getMyListings(),
       ]);

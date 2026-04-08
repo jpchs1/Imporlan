@@ -15,7 +15,16 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
 
   async function request(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...authHeaders(), ...options.headers };
-    const res = await fetch(url, { ...options, headers });
+    let res;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      res = await fetch(url, { ...options, headers, signal: controller.signal });
+      clearTimeout(timeout);
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('Timeout: el servidor no respondio');
+      throw new Error('Error de conexion');
+    }
     if (res.status === 401) {
       localStorage.removeItem(storageKeys.token);
       localStorage.removeItem(storageKeys.user);
@@ -26,7 +35,13 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
       const err = await res.json().catch(() => ({ detail: 'Error del servidor' }));
       throw new Error(err.detail || err.error || `Error ${res.status}`);
     }
-    return res.json();
+    const text = await res.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error('Respuesta invalida del servidor');
+    }
   }
 
   async function uploadFile(url, formData) {
@@ -35,7 +50,9 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
       headers: { Authorization: `Bearer ${getToken()}` },
       body: formData,
     });
-    return res.json();
+    const text = await res.text();
+    if (!text) return {};
+    try { return JSON.parse(text); } catch { return { error: 'Respuesta invalida' }; }
   }
 
   return { request, uploadFile, getToken, authHeaders, API_BASE };
