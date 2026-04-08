@@ -102,42 +102,79 @@ function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
   const photos = parsePhotos(item.fotos);
 
   return (
-    <Card className="p-0 overflow-hidden">
-      <div className="flex gap-4 p-4">
-        {/* Thumbnail */}
-        <div className="w-20 h-16 rounded-lg bg-slate-100 overflow-hidden shrink-0">
+    <Card className="p-0 overflow-hidden card-hover">
+      <div className="flex flex-col sm:flex-row">
+        {/* Image */}
+        <div className="sm:w-48 h-40 sm:h-auto bg-slate-100 overflow-hidden shrink-0 relative">
           {photos[0] ? (
             <img src={photos[0]} alt="" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            <div className="w-full h-full flex items-center justify-center min-h-[120px]">
+              <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </div>
           )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-semibold text-sm text-slate-800 truncate">{item.nombre}</p>
-            <Badge className={st}>{item.status}</Badge>
+          <div className="absolute top-2 left-2">
+            <Badge className={cn(st, 'shadow-sm')}>{item.status === 'active' ? 'Activa' : item.status === 'sold' ? 'Vendida' : item.status === 'expired' ? 'Expirada' : item.status}</Badge>
           </div>
-          <p className="text-sm font-bold text-slate-700">{fmtPrice(item.precio, item.moneda)}</p>
-          <p className="text-[11px] text-slate-400">{fmtDate(item.created_at)}{item.tipo ? ` · ${item.tipo}` : ''}</p>
+          {photos.length > 1 && (
+            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium">{photos.length} fotos</span>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-1.5 shrink-0">
-          {item.status === 'active' && (
-            <>
-              <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>Editar</Button>
-              <Button variant="ghost" size="sm" onClick={() => onMarkSold(item.id)}>Vendido</Button>
-            </>
-          )}
-          {(item.status === 'sold' || item.status === 'expired') && (
-            <Button variant="ghost" size="sm" onClick={() => onRenew(item.id)}>Renovar</Button>
-          )}
-          {item.status !== 'deleted' && (
-            <Button variant="ghost" size="sm" className="!text-red-500" onClick={() => onDelete(item.id, item.nombre)}>Eliminar</Button>
-          )}
+        {/* Content */}
+        <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div>
+                <p className="font-bold text-slate-800">{item.nombre}</p>
+                <p className="text-xs text-slate-400">{item.tipo}{item.ano ? ` · ${item.ano}` : ''}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
+              <span className="text-xs text-slate-400">{item.moneda || 'USD'}</span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
+              {item.eslora && <span>{item.eslora}</span>}
+              {item.horas && <span>{item.horas} hrs</span>}
+              {item.ubicacion && <span>{item.ubicacion}</span>}
+              <span>{fmtDate(item.created_at)}</span>
+            </div>
+            {item.condicion && (
+              <div className="flex gap-1.5 mt-2">
+                <Badge className={cn('text-[10px]', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>
+                {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px]">{item.estado}</Badge>}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+            {item.status === 'active' && (
+              <>
+                <button onClick={() => onEdit(item)} className="px-3 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  Editar
+                </button>
+                <button onClick={() => onMarkSold(item.id)} className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Marcar Vendido
+                </button>
+              </>
+            )}
+            {(item.status === 'sold' || item.status === 'expired') && (
+              <button onClick={() => onRenew(item.id)} className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Renovar (+30 dias)
+              </button>
+            )}
+            {item.status !== 'deleted' && (
+              <button onClick={() => onDelete(item.id, item.nombre)} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                Eliminar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </Card>
