@@ -4,13 +4,28 @@ const API_BASE = isTest ? '/test/api' : '/api';
 export { API_BASE };
 
 export function createApiClient(storageKeys = { token: 'token', user: 'user' }) {
+  let redirecting = false;
+
   function getToken() {
     return localStorage.getItem(storageKeys.token);
   }
 
+  function getUserData() {
+    try { return JSON.parse(localStorage.getItem(storageKeys.user) || '{}'); } catch { return {}; }
+  }
+
+  function getUserEmail() {
+    const u = getUserData();
+    return u.email || u.user_email || '';
+  }
+
   function authHeaders() {
     const token = getToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const email = getUserEmail();
+    if (email) headers['X-User-Email'] = email;
+    return headers;
   }
 
   async function request(url, options = {}) {
@@ -28,9 +43,12 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
       throw new Error('Error de conexion');
     }
     if (res.status === 401) {
-      localStorage.removeItem(storageKeys.token);
-      localStorage.removeItem(storageKeys.user);
-      window.location.hash = '#/login';
+      if (!redirecting) {
+        redirecting = true;
+        localStorage.removeItem(storageKeys.token);
+        localStorage.removeItem(storageKeys.user);
+        window.location.hash = '#/login';
+      }
       throw new Error('No autorizado');
     }
     if (!res.ok) {
@@ -57,5 +75,5 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
     try { return JSON.parse(text); } catch { return { error: 'Respuesta invalida' }; }
   }
 
-  return { request, uploadFile, getToken, authHeaders, API_BASE };
+  return { request, uploadFile, getToken, getUserEmail, authHeaders, API_BASE };
 }

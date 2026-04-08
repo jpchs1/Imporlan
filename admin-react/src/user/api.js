@@ -1,7 +1,12 @@
 import { createApiClient } from '../shared/lib/api-client';
 import { STORAGE_KEYS } from './config';
 
-const { request, uploadFile, getToken, API_BASE } = createApiClient(STORAGE_KEYS);
+const client = createApiClient(STORAGE_KEYS);
+const { request, uploadFile, getToken, getUserEmail, API_BASE } = client;
+
+function userJson() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}'); } catch { return {}; }
+}
 
 // Auth
 export const login = (email, password) =>
@@ -17,20 +22,20 @@ export const googleAuth = (credential) =>
 
 // Orders (user view)
 export const getMyOrders = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/orders_api.php?action=user_list&user_email=${encodeURIComponent(email)}`);
 };
 
 export const getMyOrderDetail = (id) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/orders_api.php?action=user_detail&id=${id}&user_email=${encodeURIComponent(email)}`);
 };
 
 export const saveRanking = (orderId, linkIds) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/orders_api.php?action=save_ranking`, {
     method: 'POST',
     body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: user.name || '', author_role: 'user', user_email: email }),
@@ -38,8 +43,8 @@ export const saveRanking = (orderId, linkIds) => {
 };
 
 export const notifyRanking = (orderId) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/orders_api.php?action=notify_ranking`, {
     method: 'POST',
     body: JSON.stringify({ order_id: parseInt(orderId), author_name: user.name || '', author_role: 'user', user_email: email }),
@@ -50,8 +55,8 @@ export const notifyRanking = (orderId) => {
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
 
 export const getMyListings = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/marketplace_api.php?action=my_listings&user_email=${encodeURIComponent(email)}`);
 };
 
@@ -92,20 +97,20 @@ export const refreshVesselPosition = (id) =>
 
 // Chat / Messages
 export const getMyConversations = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/chat_api.php?action=user_conversations&user_email=${encodeURIComponent(email)}`);
 };
 
 export const getMessages = (conversationId) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/chat_api.php?action=user_messages&conversation_id=${conversationId}&user_email=${encodeURIComponent(email)}`);
 };
 
 export const sendMessage = (conversationId, message) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/chat_api.php?action=user_send`, {
     method: 'POST',
     body: JSON.stringify({ conversation_id: conversationId, message, user_email: email }),
@@ -113,8 +118,8 @@ export const sendMessage = (conversationId, message) => {
 };
 
 export const startConversation = (subject, message) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/chat_api.php?action=user_start_conversation`, {
     method: 'POST',
     body: JSON.stringify({ subject, message, user_email: email, user_name: user.name || '' }),
@@ -122,8 +127,8 @@ export const startConversation = (subject, message) => {
 };
 
 export const pollMessages = (lastCheck, conversationId) => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   const params = new URLSearchParams({ action: 'poll', user_email: email });
   if (lastCheck) params.append('last_check', lastCheck);
   if (conversationId) params.append('conversation_id', conversationId);
@@ -135,22 +140,22 @@ export const getMyFiles = (orderId) => request(`${API_BASE}/expediente_files_api
 
 // Reports (user - read only)
 export const getMyReports = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/reports_api.php?action=user_reports&user_email=${encodeURIComponent(email)}`).catch(() => ({ reports: [] }));
 };
 
 // Inspections (user - read only)
 export const getMyInspections = () => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/inspection_api.php?action=user_list&user_email=${encodeURIComponent(email)}`).catch(() => ({ items: [] }));
 };
 
 // Payments (user)
 export const getMyPaymentRequests = (status = 'all') => {
-  const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}');
-  const email = user.email || user.user_email || '';
+  const user = userJson();
+  const email = getUserEmail();
   return request(`${API_BASE}/payment_requests_api.php?action=user_list_public&user_email=${encodeURIComponent(email)}&status=${status}`).catch(() => ({ requests: [] }));
 };
 
