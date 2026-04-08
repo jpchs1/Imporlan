@@ -34,7 +34,7 @@ function ListingCard({ item, onClick }) {
   return (
     <Card className="p-0 overflow-hidden card-hover cursor-pointer group" onClick={() => onClick(item)}>
       {/* Image */}
-      <div className="h-44 bg-slate-100 relative overflow-hidden">
+      <div className="h-52 bg-slate-100 relative overflow-hidden">
         {cover ? (
           <img src={cover} alt={item.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         ) : (
@@ -59,7 +59,12 @@ function ListingCard({ item, onClick }) {
         {item.tipo && <p className="text-xs text-slate-400 mb-2">{item.tipo}</p>}
 
         <div className="flex items-center gap-2">
-          <p className="text-lg font-bold text-slate-900">{fmtPrice(item.precio, item.moneda)}</p>
+          {(item.moneda || 'USD') === 'CLP' ? (
+            <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/><polygon points="107,80 115,108 145,108 120,124 130,152 107,136 84,152 94,124 69,108 99,108" fill="#0039a6"/></svg>
+          ) : (
+            <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
+          )}
+          <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
           <span className="text-xs text-slate-400 font-medium">{item.moneda || 'USD'}</span>
         </div>
 
@@ -69,8 +74,8 @@ function ListingCard({ item, onClick }) {
           {item.ubicacion && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>{item.ubicacion}</span>}
         </div>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {item.condicion && <Badge className={cn('text-[10px]', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
-          {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px]">{item.estado}</Badge>}
+          {item.condicion && <Badge className={cn('text-[10px] uppercase', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
+          {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px] uppercase">{item.estado}</Badge>}
         </div>
 
         {/* Footer: Seller + Actions */}
