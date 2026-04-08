@@ -314,7 +314,7 @@ function CustomPayForm({ onClose, toast, user }) {
                 selectedMethod === m.id ? 'border-cyan-400 bg-cyan-50/50 shadow-sm' : 'border-slate-200 hover:border-slate-300'
               )}
             >
-              <div className="w-10 h-10 shrink-0">
+              <div className="w-14 h-10 shrink-0">
                 <PayLogo id={m.id} />
               </div>
               <div className="flex-1">
