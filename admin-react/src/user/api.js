@@ -20,6 +20,15 @@ export const getMe = () => request(`${API_BASE}/auth/me`);
 export const googleAuth = (credential) =>
   request(`${API_BASE}/auth/google`, { method: 'POST', body: JSON.stringify({ credential }) });
 
+export const updateProfile = (data) =>
+  request(`${API_BASE}/auth/update-profile`, { method: 'POST', body: JSON.stringify(data) });
+
+export async function uploadAvatar(file) {
+  const fd = new FormData();
+  fd.append('avatar', file);
+  return uploadFile(`${API_BASE}/auth/upload-avatar`, fd);
+}
+
 // Orders (user view)
 export const getMyOrders = () => {
   const user = userJson();

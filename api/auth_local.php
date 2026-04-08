@@ -43,6 +43,16 @@ function handleAuthEndpoint($uriPath) {
         return;
     }
 
+    if (preg_match('#/auth/update-profile$#', $uriPath) && $method === 'POST') {
+        handleUpdateProfile();
+        return;
+    }
+
+    if (preg_match('#/auth/upload-avatar$#', $uriPath) && $method === 'POST') {
+        handleUploadAvatar();
+        return;
+    }
+
     // Settings endpoints
     if (preg_match('#/settings/dollar-observado$#', $uriPath)) {
         handleDollarObservado();
@@ -667,4 +677,107 @@ function handleDollarObservado() {
 
     // Fallback
     echo json_encode(['value' => 950.0]);
+}
+
+function handleUpdateProfile() {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'No autorizado']);
+        return;
+    }
+    $payload = verifyJWTLocal($matches[1]);
+    if (!$payload) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token invalido']);
+        return;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $name = trim($input['name'] ?? '');
+    $phone = trim($input['phone'] ?? '');
+
+    if (empty($name)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'El nombre es requerido']);
+        return;
+    }
+
+    $email = $payload['email'] ?? '';
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'DB error']);
+        return;
+    }
+
+    try {
+        $stmt = $pdo->prepare("UPDATE admin_users SET name = ?, phone = ? WHERE email = ?");
+        $stmt->execute([$name, $phone, $email]);
+        echo json_encode(['success' => true, 'message' => 'Perfil actualizado', 'name' => $name, 'phone' => $phone]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar perfil']);
+    }
+}
+
+function handleUploadAvatar() {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'No autorizado']);
+        return;
+    }
+    $payload = verifyJWTLocal($matches[1]);
+    if (!$payload) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token invalido']);
+        return;
+    }
+
+    if (empty($_FILES['avatar'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No se recibio archivo']);
+        return;
+    }
+
+    $file = $_FILES['avatar'];
+    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!in_array($file['type'], $allowed)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Solo se permiten JPG, PNG o WebP']);
+        return;
+    }
+    if ($file['size'] > 2 * 1024 * 1024) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Imagen muy grande (max 2MB)']);
+        return;
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg';
+    $filename = 'avatar_' . md5($payload['email']) . '_' . time() . '.' . $ext;
+    $uploadDir = __DIR__ . '/avatars/';
+    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    $filepath = $uploadDir . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al guardar archivo']);
+        return;
+    }
+
+    $avatarUrl = '/api/avatars/' . $filename;
+    $pdo = getDbConnection();
+    if ($pdo) {
+        try {
+            // Add avatar_url column if not exists
+            $pdo->exec("ALTER TABLE admin_users ADD COLUMN avatar_url VARCHAR(500) NULL");
+        } catch (Exception $e) { /* column exists */ }
+        try {
+            $stmt = $pdo->prepare("UPDATE admin_users SET avatar_url = ? WHERE email = ?");
+            $stmt->execute([$avatarUrl, $payload['email']]);
+        } catch (Exception $e) {}
+    }
+
+    echo json_encode(['success' => true, 'avatar_url' => $avatarUrl]);
 }
