@@ -1,18 +1,20 @@
 import { Card, Button } from '../../shared/components/UI';
 
 const GALLERY = [
-  'https://deckeva.cl/wp-content/uploads/2024/08/pisos-antideslizante.jpg',
-  'https://deckeva.cl/wp-content/uploads/2024/08/piso-de-lancha.jpg',
-  'https://deckeva.cl/wp-content/uploads/2024/08/Pisos-de-goma-eva-para-embarcaciones.jpg',
-  'https://deckeva.cl/wp-content/uploads/2021/01/Lancha-Starcratf-principal-1024x576.jpg',
-  'https://deckeva.cl/wp-content/uploads/2024/09/varas-principal-1024x576.jpg',
-  'https://deckeva.cl/wp-content/uploads/2024/09/Lancha-Monterey-258SS-–-Deckeva-principal-1024x576.jpg',
-  'https://deckeva.cl/wp-content/uploads/2021/01/13-1024x768.webp',
-  'https://deckeva.cl/wp-content/uploads/2021/01/16-1024x768.webp',
-  'https://deckeva.cl/wp-content/uploads/2024/09/8-2-1024x768.webp',
-  'https://deckeva.cl/wp-content/uploads/2024/09/9-3-1024x768.webp',
-  'https://deckeva.cl/wp-content/uploads/2024/09/Lancha-Monterey-258SS-–-Deckeva-2-1024x768.webp',
-  'https://deckeva.cl/wp-content/uploads/2024/09/Lancha-Monterey-258SS-–-Deckeva-3-1024x768.webp',
+  '/panel/user/assets/gallery/1.jpg',
+  '/panel/user/assets/gallery/2.jpg',
+  '/panel/user/assets/gallery/3.jpg',
+  '/panel/user/assets/gallery/4.jpg',
+  '/panel/user/assets/gallery/5.jpg',
+  '/panel/user/assets/gallery/6.jpg',
+  '/panel/user/assets/gallery/8.jpg',
+  '/panel/user/assets/gallery/9.jpg',
+  '/panel/user/assets/gallery/10.jpg',
+  '/panel/user/assets/gallery/2.jpeg',
+  '/panel/user/assets/gallery/11.png',
+  '/panel/user/assets/gallery/12.png',
+  '/panel/user/assets/gallery/13.png',
+  '/panel/user/assets/gallery/14.png',
 ];
 
 export default function Deckeva() {
