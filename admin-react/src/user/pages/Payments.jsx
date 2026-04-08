@@ -249,7 +249,88 @@ export default function Payments() {
 
   return (
     <div>
-      <PageHeader title="Pagos" subtitle="Solicitudes de pago y transacciones" />
+      <PageHeader title="Pagos" subtitle="Gestiona tus pagos y facturas" action={
+        <Button variant="accent" size="sm" onClick={() => setPayTarget(pending[0] || null)} disabled={pending.length === 0} className="flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+          Realizar Pago
+        </Button>
+      } />
+
+      {/* Payment Method Card */}
+      <Card className="mb-6 p-0 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            Metodo de Pago Preferido
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Visual Card */}
+            <div className="w-64 h-40 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 p-4 flex flex-col justify-between shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-7 rounded bg-amber-400/80 flex items-center justify-center"><svg className="w-5 h-5 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="2" y="5" width="20" height="14" rx="2"/></svg></div>
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><svg className="w-3 h-3 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0"/></svg></div>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-mono tracking-widest">**** **** **** ****</p>
+                <div className="flex items-end justify-between mt-2">
+                  <div>
+                    <p className="text-[10px] text-slate-500 uppercase">Titular</p>
+                    <p className="text-white text-sm font-semibold">{(user?.name || 'TITULAR').toUpperCase()}</p>
+                  </div>
+                  <span className="text-white font-bold text-lg tracking-wider">VISA</span>
+                </div>
+              </div>
+            </div>
+            {/* Available methods */}
+            <div className="flex-1 flex flex-col justify-center">
+              <p className="text-slate-400 text-xs mb-2">Metodos disponibles para ti</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>WebPay</span>
+                <span className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>MercadoPago</span>
+                <span className="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>PayPal</span>
+                <span className="px-3 py-1.5 rounded-lg bg-slate-500/20 text-slate-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Transferencia</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Payment Providers */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Card className="border-red-200 hover:border-red-300 transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><span className="text-red-600 text-xs font-bold">WP</span></div>
+            <div><p className="font-semibold text-slate-800 text-sm">WebPay</p><p className="text-[11px] text-slate-400">Transbank</p></div>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Paga con tarjeta de credito o debito chilena</p>
+          <div className="flex gap-1.5">
+            <Badge className="bg-red-50 text-red-600 text-[10px]">Credito</Badge>
+            <Badge className="bg-red-50 text-red-600 text-[10px]">Debito</Badge>
+          </div>
+        </Card>
+        <Card className="border-blue-200 hover:border-blue-300 transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center"><span className="text-blue-600 text-xs font-bold">MP</span></div>
+            <div><p className="font-semibold text-slate-800 text-sm">MercadoPago</p><p className="text-[11px] text-slate-400">Mercado Libre</p></div>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta o tarjeta via MercadoPago</p>
+          <div className="flex gap-1.5">
+            <Badge className="bg-blue-50 text-blue-600 text-[10px]">Wallet</Badge>
+            <Badge className="bg-blue-50 text-blue-600 text-[10px]">Tarjeta</Badge>
+          </div>
+        </Card>
+        <Card className="border-indigo-200 hover:border-indigo-300 transition">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center"><span className="text-indigo-600 text-xs font-bold">PP</span></div>
+            <div><p className="font-semibold text-slate-800 text-sm">PayPal</p><p className="text-[11px] text-slate-400">Internacional</p></div>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta PayPal de forma segura</p>
+          <div className="flex gap-1.5">
+            <Badge className="bg-indigo-50 text-indigo-600 text-[10px]">USD</Badge>
+            <Badge className="bg-indigo-50 text-indigo-600 text-[10px]">Internacional</Badge>
+          </div>
+        </Card>
+      </div>
 
       {/* SLA Info */}
       <div className="mb-6 px-5 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl flex items-center gap-3">
