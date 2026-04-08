@@ -231,11 +231,18 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
 }
 
 // --- Custom Pay Form (matching production screenshot) ---
+function PayLogo({ id }) {
+  if (id === 'webpay') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#E31837"/><text x="20" y="24" textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold" fontFamily="Arial,sans-serif">WEB</text></svg>;
+  if (id === 'mercadopago') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#00B1EA"/><text x="20" y="20" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="bold" fontFamily="Arial,sans-serif">MERCADO</text><text x="20" y="30" textAnchor="middle" fill="#FFE600" fontSize="8" fontWeight="bold" fontFamily="Arial,sans-serif">PAGO</text></svg>;
+  if (id === 'paypal') return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#003087"/><text x="20" y="19" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">Pay</text><text x="20" y="30" textAnchor="middle" fill="#009CDE" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">Pal</text></svg>;
+  return <svg viewBox="0 0 40 40" className="w-full h-full"><rect width="40" height="40" rx="10" fill="#10b981"/><text x="20" y="24" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="Arial,sans-serif">TRA</text></svg>;
+}
+
 const PAY_METHODS = [
-  { id: 'webpay', label: 'WebPay (Transbank)', desc: 'Tarjeta credito o debito chilena', abbr: 'WEB', color: '#E31837' },
-  { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', abbr: 'MER', color: '#00B1EA' },
-  { id: 'paypal', label: 'PayPal (USD)', desc: 'Pago internacional con PayPal', abbr: 'PAY', color: '#003087' },
-  { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Transferencia directa', abbr: 'TRA', color: '#10b981' },
+  { id: 'webpay', label: 'WebPay (Transbank)', desc: 'Tarjeta credito o debito chilena', color: '#E31837' },
+  { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', color: '#00B1EA' },
+  { id: 'paypal', label: 'PayPal (USD)', desc: 'Pago internacional con PayPal', color: '#003087' },
+  { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Transferencia directa', color: '#10b981' },
 ];
 
 function CustomPayForm({ onClose, toast, user }) {
@@ -299,8 +306,8 @@ function CustomPayForm({ onClose, toast, user }) {
                 selectedMethod === m.id ? 'border-cyan-400 bg-cyan-50/50 shadow-sm' : 'border-slate-200 hover:border-slate-300'
               )}
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-[10px] font-bold" style={{ background: m.color }}>
-                {m.abbr}
+              <div className="w-10 h-10 shrink-0">
+                <PayLogo id={m.id} />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-slate-700">{m.label}</p>
