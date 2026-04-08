@@ -207,7 +207,7 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                   )}
                 >
                   {logoMap[m.id] ? (
-                    <img src={logoMap[m.id]} alt={m.label} className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
+                    <img src={logoMap[m.id]} alt={m.label} className="w-14 h-10 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
                   ) : (
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${m.logoFallback}, ${m.logoFallback}cc)` }}>
                       <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
@@ -242,7 +242,7 @@ function PayLogo({ id }) {
     mercadopago: '/panel/user/assets/logos/logomercadopago.png',
     paypal: '/panel/user/assets/logos/logopaypal.png',
   };
-  if (logos[id]) return <img src={logos[id]} alt={id} className="w-full h-full object-contain rounded-lg" />;
+  if (logos[id]) return <img src={logos[id]} alt={id} className="w-full h-full object-contain rounded-lg p-0.5" />;
   return <div className="w-full h-full rounded-lg bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">TRA</div>;
 }
 
@@ -421,7 +421,7 @@ export default function Payments() {
         {/* WebPay - Transbank */}
         <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
+            <img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="w-16 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1.5 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">WebPay</p>
               <p className="text-[11px] text-slate-400">Transbank</p>
@@ -437,7 +437,7 @@ export default function Payments() {
         {/* MercadoPago */}
         <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
+            <img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="w-16 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1.5 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">MercadoPago</p>
               <p className="text-[11px] text-slate-400">Mercado Libre</p>
@@ -453,7 +453,7 @@ export default function Payments() {
         {/* PayPal */}
         <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
           <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="w-12 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" />
+            <img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="w-16 h-12 rounded-xl object-contain bg-white border border-slate-100 p-1.5 shrink-0" />
             <div>
               <p className="font-bold text-slate-800">PayPal</p>
               <p className="text-[11px] text-slate-400">Internacional</p>
