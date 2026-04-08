@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getMyPurchases } from '../api';
 import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
-import { PageHeader, Card, Badge, Spinner } from '../../shared/components/UI';
+import { PageHeader, Card, Badge, Button, Spinner } from '../../shared/components/UI';
 
 export default function Plans() {
   const [plans, setPlans] = useState([]);

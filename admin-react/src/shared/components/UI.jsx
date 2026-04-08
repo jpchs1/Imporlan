@@ -33,7 +33,24 @@ export function Input({ label, className, ...props }) {
   return (
     <div className={className}>
       {label && <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>}
-      <input className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all duration-200 bg-white placeholder:text-slate-300" {...props} />
+      <input className={cn("w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 focus:shadow-sm outline-none transition-all duration-200 bg-white placeholder:text-slate-300", props.disabled && "bg-slate-50 text-slate-400 cursor-not-allowed")} {...props} />
+    </div>
+  );
+}
+
+export function Skeleton({ className }) {
+  return <div className={cn("bg-slate-100 rounded-xl animate-pulse", className)} />;
+}
+
+export function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 space-y-3">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-6 w-16 rounded-lg" />
+      </div>
+      <Skeleton className="h-3 w-48" />
+      <Skeleton className="h-3 w-24" />
     </div>
   );
 }
@@ -42,7 +59,7 @@ export function Select({ label, options, className, ...props }) {
   return (
     <div className={className}>
       {label && <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>}
-      <select className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none bg-white transition-all duration-200 cursor-pointer" {...props}>
+      <select className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 focus:shadow-sm outline-none bg-white transition-all duration-200 cursor-pointer" {...props}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
@@ -53,7 +70,7 @@ export function Textarea({ label, className, ...props }) {
   return (
     <div className={className}>
       {label && <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>}
-      <textarea className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all duration-200 resize-y bg-white placeholder:text-slate-300" rows={3} {...props} />
+      <textarea className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-400 focus:shadow-sm outline-none transition-all duration-200 resize-y bg-white placeholder:text-slate-300" rows={3} {...props} />
     </div>
   );
 }

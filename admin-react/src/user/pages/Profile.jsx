@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getMe } from '../api';
 import { fmtDate, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
-import { Card, Button, Badge } from '../../shared/components/UI';
+import { Card, Button, Badge, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 export default function Profile() {
@@ -29,11 +29,11 @@ export default function Profile() {
   const name = data.name || data.email || 'Usuario';
   const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
+  const [showLogout, setShowLogout] = useState(false);
+
   function handleLogout() {
-    if (confirm('Cerrar sesion?')) {
-      logout();
-      window.location.hash = '#/login';
-    }
+    logout();
+    window.location.hash = '#/login';
   }
 
   return (
@@ -114,13 +114,27 @@ export default function Profile() {
           Sesion
         </h3>
         <p className="text-sm text-slate-500 mb-4">Cierra tu sesion en este dispositivo.</p>
-        <Button variant="danger" size="sm" onClick={handleLogout} className="flex items-center gap-1.5">
+        <Button variant="danger" size="sm" onClick={() => setShowLogout(true)} className="flex items-center gap-1.5">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           Cerrar Sesion
         </Button>
       </Card>
+
+      <Modal open={showLogout} onClose={() => setShowLogout(false)} title="Cerrar Sesion" size="sm">
+        <div className="text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+          </div>
+          <p className="text-slate-700 font-medium mb-1">Estas seguro?</p>
+          <p className="text-sm text-slate-400 mb-6">Se cerrara tu sesion en este dispositivo.</p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="secondary" size="sm" onClick={() => setShowLogout(false)}>Cancelar</Button>
+            <Button variant="danger" size="sm" onClick={handleLogout}>Cerrar Sesion</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

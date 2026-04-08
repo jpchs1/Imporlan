@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../../shared/context/AuthContext';
+import { cn } from '../../shared/lib/utils';
 import { submitSupportRequest } from '../api';
 import { PageHeader, Card, Button, Input, Select, Textarea } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -116,9 +117,12 @@ export default function Support() {
               <Select label="Tema *" value={form.subject} onChange={e => set('subject', e.target.value)} options={SUBJECTS} />
               <div>
                 <Textarea label="Mensaje *" value={form.message} onChange={e => { if (e.target.value.length <= 2000) set('message', e.target.value); }} placeholder="Describe tu consulta..." />
-                <p className="text-[11px] text-slate-400 text-right mt-1">{form.message.length} / 2000</p>
+                <p className={cn('text-[11px] text-right mt-1', form.message.length > 1600 ? 'text-red-500 font-semibold' : 'text-slate-400')}>{form.message.length} / 2000</p>
               </div>
-              <Button variant="accent" type="submit" disabled={sending} className="w-full">{sending ? 'Enviando...' : 'Enviar'}</Button>
+              <Button variant="accent" type="submit" disabled={sending} className="w-full flex items-center justify-center gap-2">
+                {sending && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>}
+                {sending ? 'Enviando...' : 'Enviar Consulta'}
+              </Button>
               <div className="flex items-center gap-4 pt-2 border-t border-slate-100 text-[11px] text-slate-400">
                 <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>Conexion segura</span>
                 <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Respuesta en 48 hrs</span>

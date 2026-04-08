@@ -68,7 +68,7 @@ export default function Alerts() {
           {notifications.map(n => (
             <Card
               key={n.id}
-              className={cn('cursor-pointer transition-all py-4', !n.read_at && 'border-l-4 border-l-cyan-500 bg-cyan-50/30')}
+              className={cn('cursor-pointer transition-all py-4 relative', !n.read_at ? 'border-l-4 border-l-cyan-500 bg-cyan-50/30 shadow-sm shadow-cyan-500/10 hover:bg-cyan-50/50' : 'hover:bg-slate-50')}
               onClick={() => { if (!n.read_at) handleMarkRead(n.id); if (n.link) window.open(n.link, '_blank'); }}
             >
               <div className="flex items-start gap-3">

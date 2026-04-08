@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { getMyOrders, getMyPaymentRequests, getMyConversations, getFeaturedVessels, getMyReports, getMyListings } from '../api';
 import { fmtDate, fmtCLP, cn, statusColor } from '../../shared/lib/utils';
-import { Card, Badge, Spinner } from '../../shared/components/UI';
+import { Card, Badge, Spinner, SkeletonCard } from '../../shared/components/UI';
 
 function StatCard({ label, value, icon, color, onClick, subtitle }) {
   const colors = {
@@ -139,7 +139,13 @@ export default function Dashboard() {
   const pendingTotal = pendingPayments.reduce((sum, r) => sum + (r.amount_clp || 0), 0);
   const activeListings = myListings.filter(l => l.status === 'active');
 
-  if (loading) return <Spinner />;
+  if (loading) return (
+    <div className="space-y-6">
+      <div><div className="h-8 w-64 bg-slate-100 rounded-lg animate-pulse mb-2" /><div className="h-4 w-48 bg-slate-100 rounded-lg animate-pulse" /></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[1,2,3,4].map(i => <SkeletonCard key={i} />)}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">{[1,2].map(i => <SkeletonCard key={i} />)}</div>
+    </div>
+  );
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Buenos dias' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
