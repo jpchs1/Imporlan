@@ -4,6 +4,58 @@ import { fmtDate, cn } from '../../shared/lib/utils';
 import { PageHeader, Card, Badge, Button, Modal, Spinner } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
+const DEMO_INSPECTION = {
+  id: 'demo-1',
+  _demo: true,
+  vessel_name: 'Bayliner VR5 Bowrider 2021',
+  name: 'Bayliner VR5 Bowrider 2021',
+  brand: 'Bayliner',
+  model: 'VR5',
+  vessel_year: 2021,
+  vessel_type: 'Bowrider',
+  location: 'Miami, Florida',
+  length_ft: '19.50',
+  hull_material: 'Fibra de Vidrio',
+  engine_brand: 'Mercury',
+  engine_model: 'MerCruiser 4.5L',
+  engine_hours: '120',
+  num_engines: '1',
+  fuel_type: 'Gasolina',
+  marina: 'Miami Beach Marina',
+  city: 'Miami',
+  country: 'USA',
+  inspector_name: 'Carlos Rodriguez M.',
+  status: 'completed',
+  report_type: 'PREMIUM',
+  overall_rating: 8.3,
+  overall_summary: 'Embarcacion en muy buen estado general. Motor con bajo horaje y buen mantenimiento. Se recomienda revision de tapiceria por desgaste menor.',
+  sent_at: '2026-04-07',
+  created_at: '2026-04-07',
+  listing_url: 'https://www.boattrader.com/boat/2021-bayliner-vr5/',
+  recommendations: 'La embarcacion se encuentra en muy buen estado general para su ano. El motor Mercury MerCruiser presenta un funcionamiento optimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapiceria del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar anodos de zinc en la proxima temporada\n4. Verificar tension de la correa del alternador\n\nEn general, es una excelente opcion de compra con muy buena relacion precio-calidad.',
+  metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
+  photos_hull: [
+    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop',
+  ],
+  photos_engine: [
+    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop',
+  ],
+  photos_interior: [
+    'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop&q=80',
+  ],
+  photos_general: [
+    'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&h=400&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1559494007-9f5847c49d94?w=600&h=400&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=400&fit=crop&q=80',
+  ],
+  photos_test_drive: [
+    'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=600&h=400&fit=crop&q=90',
+  ],
+  videos_test_drive: [],
+};
+
 const METRICS = ['hull', 'engine', 'electrical', 'interior', 'trailer', 'navigation', 'safety', 'test_drive'];
 const METRIC_LABELS = { hull: 'Casco', engine: 'Motor', electrical: 'Electrica', interior: 'Interior', trailer: 'Trailer', navigation: 'Navegacion', safety: 'Seguridad', test_drive: 'Prueba' };
 const STATUS_COLORS = { completed: 'bg-emerald-100 text-emerald-700', pending: 'bg-amber-100 text-amber-700', draft: 'bg-slate-100 text-slate-600' };
@@ -94,6 +146,7 @@ function InspectionDetail({ report, onBack }) {
 
   useEffect(() => {
     async function load() {
+      if (report._demo) { setDetail(report); setLoading(false); return; }
       try {
         const data = await getInspectionDetail(report.id);
         setDetail(data.report || data);
@@ -125,6 +178,17 @@ function InspectionDetail({ report, onBack }) {
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4 transition">
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="15 18 9 12 15 6" /></svg> Volver
       </button>
+
+      {d._demo && (
+        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl flex items-center gap-3">
+          <svg className="w-5 h-5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+          <div>
+            <p className="text-sm font-semibold text-violet-800">Reporte de ejemplo (informativo)</p>
+            <p className="text-xs text-violet-600">Este es un ejemplo de inspeccion para que conozcas el formato. Los datos son ilustrativos.</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900">{d.vessel_name || d.name}</h1>
@@ -256,8 +320,9 @@ export default function Inspections() {
     async function load() {
       try {
         const data = await getMyInspections();
-        setReports(data.reports || data.items || []);
-      } catch { /* empty */ }
+        const real = data.reports || data.items || [];
+        setReports(real.length > 0 ? real : [DEMO_INSPECTION]);
+      } catch { setReports([DEMO_INSPECTION]); }
       setLoading(false);
     }
     load();
@@ -288,9 +353,20 @@ export default function Inspections() {
           <p className="text-sm text-slate-400 mt-1">Cuando solicites una inspeccion, aparecera aqui.</p>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {reports.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
-        </div>
+        <>
+          {reports.some(r => r._demo) && (
+            <div className="mb-4 px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl flex items-center gap-3">
+              <svg className="w-5 h-5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+              <div>
+                <p className="text-sm font-semibold text-violet-800">Inspeccion de ejemplo (informativo)</p>
+                <p className="text-xs text-violet-600">Este reporte es una muestra de como se ve una inspeccion completa. Cuando solicites una inspeccion real, aparecera aqui con los datos de tu embarcacion.</p>
+              </div>
+            </div>
+          )}
+          <div className="space-y-4">
+            {reports.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
+          </div>
+        </>
       )}
 
       {/* CTA: Request new inspection */}
