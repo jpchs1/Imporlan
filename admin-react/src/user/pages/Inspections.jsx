@@ -79,7 +79,7 @@ const DEMO_INSPECTION = {
     '/panel/user/assets/gallery/12.png',
     '/panel/user/assets/gallery/13.png',
   ],
-  videos_test_drive: ['https://vimeo.com/908368343'],
+  videos_test_drive: ['https://www.youtube.com/watch?v=qAuCVrVybIQ'],
 };
 
 const METRICS = ['hull', 'engine', 'electrical', 'interior', 'trailer', 'navigation', 'safety', 'test_drive'];
@@ -374,7 +374,7 @@ function InspectionDetail({ report, onBack }) {
                   : `https://player.vimeo.com/video/${vimeoMatch[1]}`;
                 return (
                   <div key={i}>
-                    <p className="text-xs text-slate-500 mb-2">Test Drive - Sea Ray SPX 210 Sterndrive 2024 | BoatTEST Review</p>
+                    <p className="text-xs text-slate-500 mb-2">Test Drive - 2007 Monterey 180 FS | Lake Test</p>
                     <div className="aspect-video rounded-xl overflow-hidden bg-slate-900">
                       <iframe
                         src={embedUrl}
