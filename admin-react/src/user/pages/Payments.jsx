@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getMyPaymentRequests, createWebPayTransaction, createMercadoPagoPreference, createPayPalOrder, capturePayPalOrder, getPayPalClientId } from '../api';
 import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
-import { PageHeader, Card, Badge, Button, Modal, Spinner, StatCard } from '../../shared/components/UI';
+import { PageHeader, Card, Badge, Button, Modal, Input, Spinner, StatCard } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 const STATUS_MAP = {
@@ -169,14 +169,12 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
     { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', logoFallback: '#64748b', action: () => setShowBank(true) },
   ];
 
-  function LogoIcon({ logo, fallbackColor, label }) {
-    const [err, setErr] = useState(false);
-    if (!logo || err) return (
+  function MethodIcon({ fallbackColor }) {
+    return (
       <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${fallbackColor}, ${fallbackColor}cc)` }}>
         <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
       </div>
     );
-    return <img src={logo} alt={label} className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-100 p-1 shrink-0" onError={() => setErr(true)} />;
   }
 
   return (
@@ -209,7 +207,7 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                       : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
                   )}
                 >
-                  <LogoIcon logo={m.logo} fallbackColor={m.logoFallback} label={m.label} />
+                  <MethodIcon fallbackColor={m.logoFallback} />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
