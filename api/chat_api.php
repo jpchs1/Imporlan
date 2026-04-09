@@ -688,9 +688,33 @@ function closeConversation($admin) {
     }
     
     try {
+        // Get user email before closing
+        $convStmt = $pdo->prepare("SELECT user_email, user_name FROM chat_conversations WHERE id = ?");
+        $convStmt->execute([$conversationId]);
+        $conv = $convStmt->fetch(PDO::FETCH_ASSOC);
+
         $stmt = $pdo->prepare("UPDATE chat_conversations SET status = 'closed' WHERE id = ?");
         $stmt->execute([$conversationId]);
-        
+
+        // Notify user that conversation was closed
+        if ($conv && $conv['user_email']) {
+            try {
+                require_once __DIR__ . '/email_service.php';
+                $emailService = new EmailService();
+                $userName = $conv['user_name'] ?: explode('@', $conv['user_email'])[0];
+                $content = "
+                    <h2 style='color:#0f172a;margin:0 0 16px'>Conversacion Cerrada</h2>
+                    <p style='color:#475569;font-size:15px'>Hola <strong>{$userName}</strong>,</p>
+                    <p style='color:#475569;font-size:15px'>Tu conversacion #{$conversationId} ha sido cerrada por nuestro equipo.</p>
+                    <p style='color:#475569;font-size:15px'>Si necesitas ayuda adicional, puedes iniciar una nueva conversacion desde tu <a href='https://www.imporlan.cl/panel/#/messages' style='color:#0891b2'>Panel de Mensajes</a>.</p>
+                    <p style='color:#94a3b8;font-size:13px'>Gracias por contactarnos.</p>
+                ";
+                $emailService->sendEmail($conv['user_email'], 'Conversacion cerrada - Imporlan', $emailService->getBaseTemplate($content, 'Conversacion Cerrada'), 'chat_closed', ['conversation_id' => $conversationId]);
+            } catch (Exception $e) {
+                error_log("Chat close email error: " . $e->getMessage());
+            }
+        }
+
         echo json_encode(['success' => true, 'message' => 'Conversacion cerrada']);
     } catch (PDOException $e) {
         http_response_code(500);

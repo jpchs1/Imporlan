@@ -921,6 +921,30 @@ function adminCreateOrder() {
             'order_number' => $orderNumber,
             'message' => 'Expediente creado exitosamente'
         ]);
+
+        // Send email to client about new order
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $emailService = new EmailService();
+            $customerEmail = $input['customer_email'];
+            $customerName = $input['customer_name'];
+            $planName = $input['plan_name'] ?? 'Servicio Imporlan';
+            $content = "
+                <h2 style='color:#0f172a;margin:0 0 16px'>Nuevo Expediente Creado</h2>
+                <p style='color:#475569;font-size:15px'>Hola <strong>{$customerName}</strong>,</p>
+                <p style='color:#475569;font-size:15px'>Se ha creado un nuevo expediente para tu solicitud.</p>
+                <div style='background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:16px;margin:20px 0'>
+                    <p style='color:#0c4a6e;font-size:14px;margin:0 0 8px'><strong>Expediente:</strong> #{$orderNumber}</p>
+                    <p style='color:#0c4a6e;font-size:14px;margin:0 0 8px'><strong>Plan:</strong> {$planName}</p>
+                    <p style='color:#0c4a6e;font-size:14px;margin:0'><strong>Estado:</strong> En proceso</p>
+                </div>
+                <p style='color:#475569;font-size:15px'>Nuestro equipo ya esta trabajando en tu solicitud. Puedes ver el estado en tu <a href='https://www.imporlan.cl/panel/#/expedientes' style='color:#0891b2'>Panel de Usuario</a>.</p>
+                <p style='color:#94a3b8;font-size:13px'>Tiempo de respuesta estimado: 48-72 horas habiles.</p>
+            ";
+            $emailService->sendEmail($customerEmail, "Expediente #{$orderNumber} creado - Imporlan", $emailService->getBaseTemplate($content, 'Nuevo Expediente'), 'order_created', ['order_number' => $orderNumber, 'user_email' => $customerEmail]);
+        } catch (Exception $e) {
+            error_log("Order created email error: " . $e->getMessage());
+        }
     } catch (PDOException $e) {
         error_log("Error creating order: " . $e->getMessage());
         http_response_code(500);
