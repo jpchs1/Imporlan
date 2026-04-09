@@ -384,6 +384,17 @@ function updateRequestStatus() {
     if ($newStatus === 'paid') {
         $updates['paid_at'] = date('Y-m-d H:i:s');
         $updates['payment_method'] = $input['payment_method'] ?? 'manual';
+
+        // Send payment confirmation email to user
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $emailService = new EmailService();
+            $firstName = explode(' ', $request['user_email'])[0];
+            $userName = $firstName ?: explode('@', $request['user_email'])[0];
+            $emailService->sendPaymentRequestPaidEmail($request['user_email'], $userName, array_merge($request, $updates), $updates);
+        } catch (Exception $e) {
+            logPaymentRequest('PAID_EMAIL_ERROR', ['id' => $requestId, 'error' => $e->getMessage()]);
+        }
     }
     
     $updated = updateRequestInFile($requestId, $updates);

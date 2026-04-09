@@ -550,6 +550,15 @@ function handleGoogleAuth() {
                 $stmt = $pdo->prepare("INSERT INTO admin_users (name, email, password_hash, role, status, last_login, created_at) VALUES (?, ?, ?, 'user', 'active', NOW(), NOW())");
                 $stmt->execute([$name, $email, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT)]);
                 $userId = (int)$pdo->lastInsertId();
+
+                // Send welcome email for new Google registrations
+                try {
+                    require_once __DIR__ . '/email_service.php';
+                    $emailService = new EmailService();
+                    $emailService->sendWelcomeEmail($email, $name);
+                } catch (Exception $e) {
+                    error_log("Google welcome email error: " . $e->getMessage());
+                }
             }
         }
     } catch (Exception $e) {
@@ -714,6 +723,26 @@ function handleUpdateProfile() {
     try {
         $stmt = $pdo->prepare("UPDATE admin_users SET name = ?, phone = ? WHERE email = ?");
         $stmt->execute([$name, $phone, $email]);
+
+        // Send profile update confirmation email
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $emailService = new EmailService();
+            $content = "
+                <h2 style='color:#0f172a;margin:0 0 16px'>Perfil Actualizado</h2>
+                <p style='color:#475569;font-size:15px'>Hola <strong>{$name}</strong>,</p>
+                <p style='color:#475569;font-size:15px'>Tu perfil en Imporlan ha sido actualizado exitosamente.</p>
+                <div style='background:#f8fafc;border-radius:12px;padding:16px;margin:20px 0'>
+                    <p style='color:#64748b;font-size:13px;margin:0 0 8px'><strong>Nombre:</strong> {$name}</p>
+                    " . ($phone ? "<p style='color:#64748b;font-size:13px;margin:0'><strong>Telefono:</strong> {$phone}</p>" : "") . "
+                </div>
+                <p style='color:#94a3b8;font-size:13px'>Si no realizaste este cambio, contacta a soporte inmediatamente.</p>
+            ";
+            $emailService->sendEmail($email, 'Perfil actualizado - Imporlan', $emailService->getBaseTemplate($content, 'Perfil Actualizado'), 'profile_update', ['user_email' => $email]);
+        } catch (Exception $e) {
+            error_log("Profile update email error: " . $e->getMessage());
+        }
+
         echo json_encode(['success' => true, 'message' => 'Perfil actualizado', 'name' => $name, 'phone' => $phone]);
     } catch (Exception $e) {
         http_response_code(500);
