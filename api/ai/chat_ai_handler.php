@@ -20,10 +20,18 @@ class ChatAIHandler {
     private $claude;
     private $memory;
     private $maxToolRounds = 3;
+    private $business = null;
 
     public function __construct() {
         $this->claude = new ClaudeClient();
         $this->memory = new ConversationMemory();
+    }
+
+    /**
+     * Set the business context for this handler.
+     */
+    public function setBusiness(?array $business): void {
+        $this->business = $business;
     }
 
     /**
@@ -84,8 +92,8 @@ class ChatAIHandler {
             ];
         }
 
-        // 5. Build system prompt with context
-        $systemPrompt = getSystemPrompt($context);
+        // 5. Build system prompt with business context
+        $systemPrompt = getSystemPrompt($context, $this->business);
 
         // 6. Get conversation history
         $messages = $this->memory->getMessageHistory($conversationId, 20);
@@ -101,8 +109,8 @@ class ChatAIHandler {
             array_shift($messages);
         }
 
-        // 7. Get tool definitions
-        $tools = getAllToolDefinitions();
+        // 7. Get tool definitions (filtered by business)
+        $tools = getToolsForBusiness($this->business);
 
         // Inject conversation_id and phone into tools that need it
         $toolContext = [

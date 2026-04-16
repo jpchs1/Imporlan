@@ -14,7 +14,7 @@ class ConversationMemory {
     /**
      * Get or create a conversation for a WhatsApp phone number.
      */
-    public function getOrCreateConversation(string $phone, string $contactName, string $waId): array {
+    public function getOrCreateConversation(string $phone, string $contactName, string $waId, ?int $businessId = null): array {
         $phone = $this->normalizePhone($phone);
 
         // Look for existing open conversation
@@ -38,24 +38,25 @@ class ConversationMemory {
         try {
             $stmt = $this->pdo->prepare("
                 INSERT INTO chat_conversations
-                (user_id, user_email, user_name, channel, whatsapp_phone, whatsapp_wa_id, status)
-                VALUES (0, ?, ?, 'whatsapp', ?, ?, 'open')
+                (user_id, user_email, user_name, channel, whatsapp_phone, whatsapp_wa_id, status, business_id)
+                VALUES (0, ?, ?, 'whatsapp', ?, ?, 'open', ?)
             ");
             $email = "wa_{$phone}@whatsapp.imporlan.cl";
             $stmt->execute([
                 $email,
                 $contactName ?: "WhatsApp $phone",
                 $phone,
-                $waId
+                $waId,
+                $businessId
             ]);
             $conversationId = (int)$this->pdo->lastInsertId();
 
             $stmt = $this->pdo->prepare("
                 INSERT INTO whatsapp_ai_context
-                (conversation_id, whatsapp_phone, lead_stage, lead_data, message_count)
-                VALUES (?, ?, 'nuevo', '{}', 0)
+                (conversation_id, whatsapp_phone, lead_stage, lead_data, message_count, business_id)
+                VALUES (?, ?, 'nuevo', '{}', 0, ?)
             ");
-            $stmt->execute([$conversationId, $phone]);
+            $stmt->execute([$conversationId, $phone, $businessId]);
 
             $this->pdo->commit();
 
@@ -72,6 +73,7 @@ class ConversationMemory {
                 'ai_message_count' => 0,
                 'escalated_at' => null,
                 'conversation_summary' => null,
+                'business_id' => $businessId,
             ];
         } catch (\PDOException $e) {
             $this->pdo->rollBack();
