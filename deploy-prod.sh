@@ -234,9 +234,12 @@ echo ""
 echo "[9/9] Cleaning old production backups (keeping last 5)..."
 for PREFIX in assets_backup api_backup panel_backup; do
   BACKUPS=()
-  while IFS= read -r -d '' entry; do
-    BACKUPS+=("$entry")
-  done < <(find "$BACKUP_DIR" -maxdepth 1 -type d -name "${PREFIX}_*" -print0 2>/dev/null | sort -z)
+  for entry in "$BACKUP_DIR"/${PREFIX}_*; do
+    [ -d "$entry" ] && BACKUPS+=("$entry")
+  done
+  if [ "${#BACKUPS[@]}" -gt 0 ]; then
+    IFS=$'\n' BACKUPS=($(printf '%s\n' "${BACKUPS[@]}" | sort)); unset IFS
+  fi
   COUNT=${#BACKUPS[@]}
   if [ "$COUNT" -gt 5 ]; then
     REMOVE=$((COUNT - 5))
