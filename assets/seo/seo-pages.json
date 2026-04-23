@@ -241,14 +241,6 @@
       "icon": "sailboat"
     },
     {
-      "id": "lanchas-de-ski",
-      "title": "Lanchas de Ski y Wakeboard",
-      "description": "Lanchas de ski acuático y wakeboard: MasterCraft, Malibu, Nautique. Importadas desde USA.",
-      "url": "/lanchas-de-ski/",
-      "category": "Catálogo",
-      "icon": "jetski"
-    },
-    {
       "id": "lanchas-usadas",
       "title": "Lanchas Usadas",
       "description": "Portal de lanchas usadas: compra, venta e importación. Todas las marcas y tamaños.",
