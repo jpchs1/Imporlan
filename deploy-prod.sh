@@ -5,6 +5,8 @@ STAGING_REPO="/home/wwimpo/imporlan-staging"
 PUBLIC_HTML="/home/wwimpo/public_html"
 BACKUP_DIR="/home/wwimpo/backups"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M)
+SENTINEL="$PUBLIC_HTML/.imporlan_docroot"
+FORCE="${FORCE:-0}"
 
 echo "============================================"
 echo " IMPORLAN - Deploy PRODUCTION"
@@ -15,6 +17,50 @@ if [ ! -d "$STAGING_REPO/.git" ]; then
   echo "ERROR: Staging repo not found at $STAGING_REPO"
   exit 1
 fi
+
+# Safety check: verify $PUBLIC_HTML is an Imporlan doc-root before we deploy on top of it.
+# This prevents wiping out an unrelated site if $PUBLIC_HTML was repointed or if the
+# account's doc-root was overwritten by another deploy (see incident 2026-04-19 where
+# the primary doc-root was replaced with content from another project).
+echo ""
+echo "[0/9] Verifying doc-root identity ($PUBLIC_HTML)..."
+if [ ! -d "$PUBLIC_HTML" ]; then
+  echo "ERROR: \$PUBLIC_HTML ($PUBLIC_HTML) does not exist. Aborting."
+  exit 1
+fi
+
+IDENTITY_OK=0
+# Primary signal: a sentinel file is created by this script after every successful deploy.
+if [ -f "$SENTINEL" ]; then
+  IDENTITY_OK=1
+fi
+# Fallback signal: known Imporlan markers in live index.html (for the very first deploy
+# after this change, before the sentinel exists yet).
+if [ "$IDENTITY_OK" -eq 0 ] && [ -f "$PUBLIC_HTML/index.html" ]; then
+  if grep -qiE 'imporlan|Importaci[oó]n de Lanchas' "$PUBLIC_HTML/index.html"; then
+    IDENTITY_OK=1
+  fi
+fi
+
+if [ "$IDENTITY_OK" -eq 0 ]; then
+  echo "ERROR: $PUBLIC_HTML does not look like an Imporlan doc-root."
+  echo "       No sentinel ($SENTINEL) and index.html has no Imporlan markers."
+  echo ""
+  echo "       Deploying on top of this directory would wipe out an unrelated site."
+  echo "       If you are *certain* this is the correct target, re-run with FORCE=1:"
+  echo "         FORCE=1 bash $0"
+  if [ "$FORCE" != "1" ]; then
+    # Snapshot whatever is there right now so we never silently destroy someone else's site.
+    UNKNOWN_SNAPSHOT="$BACKUP_DIR/unknown_docroot_snapshot_${TIMESTAMP}"
+    echo ""
+    echo "       Taking a defensive snapshot to $UNKNOWN_SNAPSHOT before exiting."
+    mkdir -p "$BACKUP_DIR"
+    cp -a "$PUBLIC_HTML" "$UNKNOWN_SNAPSHOT" || true
+    exit 2
+  fi
+  echo "       FORCE=1 set — continuing despite unknown doc-root."
+fi
+echo "  -> Doc-root identity check passed."
 
 echo ""
 echo "[1/9] Pulling latest changes from GitHub (main)..."
@@ -229,6 +275,16 @@ if [ "$VALID" = false ]; then
   exit 1
 fi
 echo "  -> All critical files verified."
+
+# Write/refresh the doc-root identity sentinel. Checked at the start of the next
+# deploy (step [0/9]) to abort if someone has repointed or overwritten $PUBLIC_HTML.
+cat > "$SENTINEL" <<SENTINEL_EOF
+imporlan
+last_deploy: ${TIMESTAMP}
+repo: jpchs1/Imporlan
+SENTINEL_EOF
+chmod 644 "$SENTINEL"
+echo "  -> Sentinel refreshed: $SENTINEL"
 
 echo ""
 echo "[9/9] Cleaning old production backups (keeping last 5)..."
