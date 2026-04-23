@@ -255,6 +255,46 @@
       "url": "/lanchas-usadas/",
       "category": "Catálogo",
       "icon": "list"
+    },
+    {
+      "id": "lanchas-usadas-baratas-chile",
+      "title": "Lanchas Usadas Baratas en Chile",
+      "description": "Lanchas usadas económicas desde $6.000.000 CLP. Top 7 modelos, financiamiento y opciones importadas desde USA.",
+      "url": "/lanchas-usadas-baratas-chile/",
+      "category": "Catálogo",
+      "icon": "money"
+    },
+    {
+      "id": "mejores-lanchas-usadas-chile",
+      "title": "Mejores Lanchas Usadas para Comprar",
+      "description": "Ranking Top 10 de las mejores lanchas usadas en Chile 2026. Bayliner, Sea Ray, Mastercraft, Boston Whaler y más.",
+      "url": "/mejores-lanchas-usadas-chile/",
+      "category": "Guías",
+      "icon": "star"
+    },
+    {
+      "id": "precio-lanchas-usadas-chile",
+      "title": "Precio de Lanchas Usadas Chile 2026",
+      "description": "Tablas actualizadas de precios en CLP y USD por tipo, marca y tamaño. Compara local vs importación USA.",
+      "url": "/precio-lanchas-usadas-chile/",
+      "category": "Costos",
+      "icon": "calculator"
+    },
+    {
+      "id": "lanchas-usadas-marcas",
+      "title": "Marcas de Lanchas Usadas",
+      "description": "Guía completa de Bayliner, Sea Ray, Chaparral, Boston Whaler, Mastercraft, Malibu y más. Ventajas por marca.",
+      "url": "/lanchas-usadas-marcas/",
+      "category": "Guías",
+      "icon": "bookmark"
+    },
+    {
+      "id": "lanchas-usadas-santiago",
+      "title": "Lanchas Usadas en Santiago y Chile",
+      "description": "Lanchas usadas en Santiago, Viña del Mar, Concepción, Temuco, Valdivia y Puerto Montt. Entrega nacional.",
+      "url": "/lanchas-usadas-santiago/",
+      "category": "Catálogo",
+      "icon": "map"
     }
   ],
   "categories": [
