@@ -191,7 +191,19 @@ $year = date('Y');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cotizador de Importacion | IMPORLAN Chile</title>
     <meta name="description" content="Herramienta de cotizacion para importacion de embarcaciones a Chile. Servicio All-Inclusive puerta a puerta. Cotiza tu lancha, velero, yate o moto de agua.">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.imporlan.cl/cotizador-importacion/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Cotizador de Importacion de Embarcaciones | Imporlan Chile">
+    <meta property="og:description" content="Cotiza online la importacion de tu lancha, velero, yate o moto de agua a Chile. Servicio All-Inclusive puerta a puerta.">
+    <meta property="og:url" content="https://www.imporlan.cl/cotizador-importacion/">
+    <meta property="og:site_name" content="Imporlan">
+    <meta property="og:locale" content="es_CL">
+    <meta property="og:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cotizador de Importacion de Embarcaciones | Imporlan Chile">
+    <meta name="twitter:description" content="Cotiza online la importacion de tu lancha, velero, yate o moto de agua a Chile. Servicio All-Inclusive puerta a puerta.">
+    <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
     <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
