@@ -163,6 +163,11 @@ echo "  -> Simulacion cotizacion deployed."
 # Deploy SEO content pages (landing pages)
 SEO_PAGES=(
   "lanchas-usadas"
+  "lanchas-usadas-baratas-chile"
+  "mejores-lanchas-usadas-chile"
+  "precio-lanchas-usadas-chile"
+  "lanchas-usadas-marcas"
+  "lanchas-usadas-santiago"
   "lanchas"
   "lanchas-de-pesca-usadas"
   "lanchas-de-ski"
