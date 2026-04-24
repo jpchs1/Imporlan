@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>US Operations | Imporlan Deal Desk</title>
+  <meta name="description" content="Imporlan US Operations mission control. End-to-end tracker for sourcing, negotiating, buying, picking up, refurbishing and selling opportunity boats in the United States." />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://www.imporlan.cl/USOperations/" />
+
+  <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/images/imporlan-favicon-48.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/imporlan-favicon-32.png" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="ops.css?v=1" />
+</head>
+<body>
+
+<header class="ops-header">
+  <div class="ops-header-inner">
+    <a href="/" class="ops-logo" aria-label="Back to Imporlan">
+      <span class="ops-logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/></svg>
+      </span>
+      <span class="ops-logo-text">
+        <span class="ops-logo-brand">IMPORLAN</span>
+        <span class="ops-logo-sub">US Operations</span>
+      </span>
+    </a>
+
+    <nav class="ops-nav" aria-label="Dashboard sections">
+      <a href="#target" class="ops-nav-link">Target</a>
+      <a href="#pipeline" class="ops-nav-link">Pipeline</a>
+      <a href="#negotiation" class="ops-nav-link">Negotiation</a>
+      <a href="#purchase" class="ops-nav-link">Purchase</a>
+      <a href="#pickup" class="ops-nav-link">Pickup</a>
+      <a href="#refurbishment" class="ops-nav-link">Refit</a>
+      <a href="#sale" class="ops-nav-link">Sale</a>
+      <a href="#pnl" class="ops-nav-link">P&amp;L</a>
+    </nav>
+
+    <div class="ops-header-actions">
+      <span class="ops-status-pill" id="statusPill">
+        <span class="ops-status-dot"></span>
+        <span id="statusLabel">Live</span>
+      </span>
+      <button type="button" class="ops-btn ops-btn-ghost" id="btnExport" title="Export dashboard state">Export</button>
+      <button type="button" class="ops-btn ops-btn-ghost" id="btnImport" title="Import dashboard state">Import</button>
+      <button type="button" class="ops-btn ops-btn-danger" id="btnReset" title="Reset all data">Reset</button>
+      <input type="file" id="importFile" accept="application/json" hidden />
+    </div>
+  </div>
+</header>
+
+<main class="ops-main">
+
+  <!-- HERO / TARGET -->
+  <section class="ops-hero" id="target">
+    <div class="ops-hero-grid">
+      <div class="ops-hero-copy">
+        <span class="ops-eyebrow">Deal #<span data-field="dealNumber">US-2026-001</span> &middot; <span data-field="dealStatus">Sourcing</span></span>
+        <h1>
+          US Opportunity Boat Desk
+          <span class="ops-h1-accent">Source &rarr; Negotiate &rarr; Buy &rarr; Refit &rarr; Sell</span>
+        </h1>
+        <p class="ops-hero-lede">
+          Mission control for Imporlan&rsquo;s US operation. We work hand-in-hand with our stateside collaborators to buy below market, fix the known issue, prep the boat for sale, and flip it for a profit &mdash; fully documented, stage by stage.
+        </p>
+
+        <div class="ops-hero-kpis">
+          <div class="ops-kpi">
+            <span class="ops-kpi-label">Asking Price</span>
+            <span class="ops-kpi-value" id="kpiAsking">$0</span>
+          </div>
+          <div class="ops-kpi">
+            <span class="ops-kpi-label">Target Buy</span>
+            <span class="ops-kpi-value ops-kpi-accent" id="kpiTarget">$0</span>
+          </div>
+          <div class="ops-kpi">
+            <span class="ops-kpi-label">All-In Cost</span>
+            <span class="ops-kpi-value" id="kpiAllIn">$0</span>
+          </div>
+          <div class="ops-kpi">
+            <span class="ops-kpi-label">Resale Target</span>
+            <span class="ops-kpi-value ops-kpi-gold" id="kpiResale">$0</span>
+          </div>
+          <div class="ops-kpi ops-kpi-profit">
+            <span class="ops-kpi-label">Projected Profit</span>
+            <span class="ops-kpi-value" id="kpiProfit">$0</span>
+            <span class="ops-kpi-sub" id="kpiMargin">0% margin</span>
+          </div>
+        </div>
+
+        <div class="ops-hero-ctas">
+          <a id="heroMarketplaceLink" class="ops-btn ops-btn-primary" target="_blank" rel="noopener noreferrer">
+            View on Facebook Marketplace
+          </a>
+          <a href="#negotiation" class="ops-btn ops-btn-outline">Open Negotiation Board</a>
+        </div>
+      </div>
+
+      <aside class="ops-hero-card" aria-label="Target vessel card">
+        <div class="ops-hero-card-header">
+          <span class="ops-hero-card-badge" id="vesselBadge">Opportunity</span>
+          <span class="ops-hero-card-id">FB &middot; 976023998340848</span>
+        </div>
+
+        <div class="ops-hero-card-image" id="vesselImageWrap">
+          <div class="ops-hero-card-image-placeholder" id="vesselImagePlaceholder">
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 46c2 2 4 2 8 2s6-2 10-2 6 2 10 2 6-2 10-2 6 2 10 2 6-2 8-2" />
+              <path d="M52 44 54 30H10l2 14" />
+              <path d="M32 30V14l14 16" />
+            </svg>
+            <span>Upload vessel photo</span>
+          </div>
+          <img id="vesselImage" alt="Target vessel" hidden />
+          <label for="vesselImageInput" class="ops-hero-card-image-edit" title="Change photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </label>
+          <input type="file" id="vesselImageInput" accept="image/*" hidden />
+        </div>
+
+        <dl class="ops-hero-card-specs">
+          <div><dt>Make / Model</dt><dd contenteditable="true" data-field="makeModel">TBD &mdash; confirm with seller</dd></div>
+          <div><dt>Year</dt><dd contenteditable="true" data-field="year">TBD</dd></div>
+          <div><dt>Length</dt><dd contenteditable="true" data-field="length">TBD ft</dd></div>
+          <div><dt>Engine</dt><dd contenteditable="true" data-field="engine">TBD</dd></div>
+          <div><dt>Hours</dt><dd contenteditable="true" data-field="hours">TBD</dd></div>
+          <div><dt>Location (US)</dt><dd contenteditable="true" data-field="locationUS">TBD</dd></div>
+          <div><dt>Trailer</dt><dd contenteditable="true" data-field="trailer">TBD</dd></div>
+          <div><dt>Title</dt><dd contenteditable="true" data-field="titleStatus">TBD</dd></div>
+        </dl>
+
+        <div class="ops-hero-card-issue">
+          <span class="ops-hero-card-issue-label">Known Issue</span>
+          <p contenteditable="true" data-field="knownIssue">Describe the known fault that is driving the price down. Add diagnostic notes from the US collaborator once the boat has been inspected in person.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section class="ops-section" id="pipeline" aria-labelledby="pipeline-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="pipeline-title">Deal Pipeline</h2>
+        <p class="ops-section-sub">Advance each stage as we hit milestones. Progress is tracked from source to sold.</p>
+      </div>
+      <div class="ops-progress-wrap">
+        <div class="ops-progress-bar"><div class="ops-progress-fill" id="pipelineFill"></div></div>
+        <span class="ops-progress-label"><span id="pipelinePct">0</span>% complete</span>
+      </div>
+    </div>
+
+    <ol class="ops-pipeline" id="pipelineList"></ol>
+  </section>
+
+  <!-- NEGOTIATION -->
+  <section class="ops-section" id="negotiation" aria-labelledby="negotiation-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="negotiation-title">Negotiation Board</h2>
+        <p class="ops-section-sub">Lowball smart, anchor on the defect, and leave room to walk. Log every round so we always know where we stand.</p>
+      </div>
+    </div>
+
+    <div class="ops-grid-2">
+      <div class="ops-card">
+        <h3 class="ops-card-title">Price Anchors</h3>
+        <div class="ops-field">
+          <label for="askingPrice">Listing (asking) price (USD)</label>
+          <input type="number" min="0" step="100" id="askingPrice" />
+        </div>
+        <div class="ops-field">
+          <label for="walkAwayPrice">Walk-away price (USD)</label>
+          <input type="number" min="0" step="100" id="walkAwayPrice" />
+        </div>
+        <div class="ops-field">
+          <label for="targetPrice">Target buy price (USD)</label>
+          <input type="number" min="0" step="100" id="targetPrice" />
+        </div>
+        <div class="ops-field">
+          <label for="openingOffer">Opening offer (USD)</label>
+          <input type="number" min="0" step="100" id="openingOffer" />
+        </div>
+
+        <div class="ops-hint-box">
+          <strong>Playbook</strong>
+          <ul>
+            <li>Lead with the <em>known issue</em>: request independent repair estimate in the offer.</li>
+            <li>Open at <span id="hintOpen">20&ndash;25%</span> below asking, anchored on comparable sold listings.</li>
+            <li>Bid in $250&ndash;$500 increments; never negotiate against yourself.</li>
+            <li>Close at or below target buy. If not, walk &mdash; the market will bring another one.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ops-card">
+        <h3 class="ops-card-title">Offer Log</h3>
+        <form class="ops-offer-form" id="offerForm">
+          <div class="ops-offer-row">
+            <input type="date" id="offerDate" required />
+            <select id="offerSide">
+              <option value="us">Our offer</option>
+              <option value="seller">Seller counter</option>
+            </select>
+            <input type="number" id="offerAmount" placeholder="Amount USD" min="0" step="100" required />
+          </div>
+          <input type="text" id="offerNote" placeholder="Note (e.g. anchored on $1,200 repair estimate)" />
+          <button type="submit" class="ops-btn ops-btn-primary ops-btn-sm">Log offer</button>
+        </form>
+        <ul class="ops-offer-list" id="offerList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- PURCHASE -->
+  <section class="ops-section" id="purchase" aria-labelledby="purchase-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="purchase-title">Purchase &amp; Paperwork</h2>
+        <p class="ops-section-sub">Lock the deal cleanly: bill of sale, signed title, proof of payment, hull/trailer VINs checked.</p>
+      </div>
+    </div>
+
+    <div class="ops-grid-2">
+      <div class="ops-card">
+        <h3 class="ops-card-title">Closing Checklist</h3>
+        <ul class="ops-checklist" id="purchaseChecklist"></ul>
+      </div>
+      <div class="ops-card">
+        <h3 class="ops-card-title">Payment &amp; Closing Details</h3>
+        <div class="ops-field">
+          <label for="agreedPrice">Final agreed price (USD)</label>
+          <input type="number" min="0" step="100" id="agreedPrice" />
+        </div>
+        <div class="ops-field">
+          <label for="depositAmount">Deposit / earnest money (USD)</label>
+          <input type="number" min="0" step="100" id="depositAmount" />
+        </div>
+        <div class="ops-field">
+          <label for="paymentMethod">Payment method</label>
+          <select id="paymentMethod">
+            <option value="">Select...</option>
+            <option>Cashier&rsquo;s check</option>
+            <option>Wire transfer</option>
+            <option>Zelle</option>
+            <option>Cash (in person)</option>
+            <option>Escrow service</option>
+          </select>
+        </div>
+        <div class="ops-field">
+          <label for="closingDate">Closing date</label>
+          <input type="date" id="closingDate" />
+        </div>
+        <div class="ops-field">
+          <label for="titleNotes">Title &amp; registration notes</label>
+          <textarea id="titleNotes" rows="4" placeholder="Title state, lien release status, trailer VIN, hull HIN, registration transfer plan..."></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PICKUP -->
+  <section class="ops-section" id="pickup" aria-labelledby="pickup-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="pickup-title">Pickup &amp; Logistics</h2>
+        <p class="ops-section-sub">Move the boat from the seller to our US yard safely and cheaply.</p>
+      </div>
+    </div>
+
+    <div class="ops-grid-3">
+      <div class="ops-card">
+        <h3 class="ops-card-title">Route</h3>
+        <div class="ops-field">
+          <label for="pickupFrom">Pickup location</label>
+          <input type="text" id="pickupFrom" placeholder="City, State" />
+        </div>
+        <div class="ops-field">
+          <label for="pickupTo">Drop-off yard (US collaborator)</label>
+          <input type="text" id="pickupTo" placeholder="Our US yard / storage" />
+        </div>
+        <div class="ops-field">
+          <label for="pickupDate">Scheduled pickup date</label>
+          <input type="date" id="pickupDate" />
+        </div>
+        <div class="ops-field">
+          <label for="pickupDistance">Distance (miles)</label>
+          <input type="number" min="0" id="pickupDistance" />
+        </div>
+      </div>
+
+      <div class="ops-card">
+        <h3 class="ops-card-title">Transport</h3>
+        <div class="ops-field">
+          <label for="transportMode">Transport mode</label>
+          <select id="transportMode">
+            <option value="">Select...</option>
+            <option>Self-tow (our trailer)</option>
+            <option>Seller's trailer (if included)</option>
+            <option>3rd-party hauler</option>
+            <option>Flatbed / roll-on</option>
+          </select>
+        </div>
+        <div class="ops-field">
+          <label for="transportCost">Transport cost (USD)</label>
+          <input type="number" min="0" step="25" id="transportCost" />
+        </div>
+        <div class="ops-field">
+          <label for="fuelCost">Fuel / tolls (USD)</label>
+          <input type="number" min="0" step="5" id="fuelCost" />
+        </div>
+        <div class="ops-field">
+          <label for="storageMonthly">Storage per month (USD)</label>
+          <input type="number" min="0" step="10" id="storageMonthly" />
+        </div>
+      </div>
+
+      <div class="ops-card">
+        <h3 class="ops-card-title">Pickup Checklist</h3>
+        <ul class="ops-checklist" id="pickupChecklist"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- REFURBISHMENT -->
+  <section class="ops-section" id="refurbishment" aria-labelledby="refurbishment-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="refurbishment-title">Refurbishment &amp; Sea-Trial Prep</h2>
+        <p class="ops-section-sub">Fix the known issue first, then cosmetic prep. Track parts &amp; labor line by line.</p>
+      </div>
+      <div class="ops-totals">
+        <span>Parts: <strong id="partsTotal">$0</strong></span>
+        <span>Labor: <strong id="laborTotal">$0</strong></span>
+        <span>Refit total: <strong id="refitTotal">$0</strong></span>
+      </div>
+    </div>
+
+    <div class="ops-card">
+      <form class="ops-refit-form" id="refitForm">
+        <div class="ops-refit-row">
+          <input type="text" id="refitItem" placeholder="Work item (e.g. replace lower unit seal)" required />
+          <select id="refitCategory">
+            <option value="Mechanical">Mechanical</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Hull / Gelcoat">Hull / Gelcoat</option>
+            <option value="Upholstery">Upholstery</option>
+            <option value="Trailer">Trailer</option>
+            <option value="Detail / Clean">Detail / Clean</option>
+            <option value="Other">Other</option>
+          </select>
+          <input type="number" id="refitParts" placeholder="Parts $" min="0" step="1" />
+          <input type="number" id="refitLabor" placeholder="Labor $" min="0" step="1" />
+          <select id="refitStatus">
+            <option value="Planned">Planned</option>
+            <option value="In progress">In progress</option>
+            <option value="Done">Done</option>
+          </select>
+          <button type="submit" class="ops-btn ops-btn-primary ops-btn-sm">Add</button>
+        </div>
+      </form>
+
+      <div class="ops-refit-table-wrap">
+        <table class="ops-refit-table">
+          <thead>
+            <tr>
+              <th>Work item</th>
+              <th>Category</th>
+              <th class="ops-num">Parts</th>
+              <th class="ops-num">Labor</th>
+              <th class="ops-num">Total</th>
+              <th>Status</th>
+              <th aria-label="Actions"></th>
+            </tr>
+          </thead>
+          <tbody id="refitTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- SALE -->
+  <section class="ops-section" id="sale" aria-labelledby="sale-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="sale-title">Sale &amp; Listing</h2>
+        <p class="ops-section-sub">Once the boat is dialed in, list it at a price that moves fast but respects the margin.</p>
+      </div>
+    </div>
+
+    <div class="ops-grid-2">
+      <div class="ops-card">
+        <h3 class="ops-card-title">Listing</h3>
+        <div class="ops-field">
+          <label for="listPrice">List price (USD)</label>
+          <input type="number" min="0" step="100" id="listPrice" />
+        </div>
+        <div class="ops-field">
+          <label for="minAcceptable">Minimum acceptable price (USD)</label>
+          <input type="number" min="0" step="100" id="minAcceptable" />
+        </div>
+        <div class="ops-field">
+          <label for="saleChannels">Listing channels</label>
+          <input type="text" id="saleChannels" placeholder="Facebook Marketplace, Craigslist, BoatTrader, YachtWorld..." />
+        </div>
+        <div class="ops-field">
+          <label for="saleDescription">Listing description (draft)</label>
+          <textarea id="saleDescription" rows="5" placeholder="Lead with what was fixed, hours on new parts, clean title, ready for the water."></textarea>
+        </div>
+      </div>
+
+      <div class="ops-card">
+        <h3 class="ops-card-title">Sale Checklist</h3>
+        <ul class="ops-checklist" id="saleChecklist"></ul>
+
+        <h3 class="ops-card-title" style="margin-top:1.5rem;">Buyer Inquiries</h3>
+        <form class="ops-offer-form" id="inquiryForm">
+          <div class="ops-offer-row">
+            <input type="date" id="inquiryDate" required />
+            <input type="text" id="inquiryName" placeholder="Buyer name" required />
+            <input type="number" id="inquiryAmount" placeholder="Offer USD" min="0" step="100" />
+          </div>
+          <input type="text" id="inquiryNote" placeholder="Note (contact, status, sea-trial booked, ...)" />
+          <button type="submit" class="ops-btn ops-btn-primary ops-btn-sm">Log inquiry</button>
+        </form>
+        <ul class="ops-offer-list" id="inquiryList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLLABORATORS -->
+  <section class="ops-section" id="collaborators" aria-labelledby="collab-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="collab-title">US Collaborators</h2>
+        <p class="ops-section-sub">The people on the ground making every stage happen.</p>
+      </div>
+    </div>
+
+    <div class="ops-card">
+      <form class="ops-team-form" id="teamForm">
+        <input type="text" id="teamName" placeholder="Name" required />
+        <input type="text" id="teamRole" placeholder="Role (buyer, hauler, mechanic, broker...)" required />
+        <input type="text" id="teamContact" placeholder="Phone / email" />
+        <input type="text" id="teamLocation" placeholder="City, State" />
+        <button type="submit" class="ops-btn ops-btn-primary ops-btn-sm">Add</button>
+      </form>
+      <div class="ops-team-grid" id="teamGrid"></div>
+    </div>
+  </section>
+
+  <!-- P&L -->
+  <section class="ops-section" id="pnl" aria-labelledby="pnl-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="pnl-title">Profit &amp; Loss</h2>
+        <p class="ops-section-sub">Live roll-up of every dollar in and every dollar out.</p>
+      </div>
+    </div>
+
+    <div class="ops-pnl">
+      <div class="ops-pnl-col">
+        <h3>Cost Stack</h3>
+        <ul class="ops-pnl-list" id="pnlCosts"></ul>
+        <div class="ops-pnl-total">
+          <span>All-in cost</span>
+          <strong id="pnlAllIn">$0</strong>
+        </div>
+      </div>
+
+      <div class="ops-pnl-col">
+        <h3>Revenue</h3>
+        <ul class="ops-pnl-list">
+          <li><span>Expected sale price</span><strong id="pnlSale">$0</strong></li>
+          <li><span>Selling fees / commissions</span>
+            <span class="ops-pnl-inline">
+              <input type="number" min="0" step="10" id="sellingFees" />
+            </span>
+          </li>
+        </ul>
+        <div class="ops-pnl-total">
+          <span>Net revenue</span>
+          <strong id="pnlNetRev">$0</strong>
+        </div>
+      </div>
+
+      <div class="ops-pnl-col ops-pnl-col-outcome">
+        <h3>Outcome</h3>
+        <div class="ops-pnl-outcome-value" id="pnlProfitBig">$0</div>
+        <div class="ops-pnl-outcome-label"><span id="pnlMarginBig">0%</span> projected margin</div>
+        <div class="ops-pnl-outcome-bar"><div id="pnlMarginBar"></div></div>
+        <p class="ops-pnl-outcome-hint" id="pnlHint">Keep the refit budget in check and sell within 60 days of listing to protect the margin.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="ops-footer">
+    <p>Imporlan US Operations &middot; Internal tool &middot; Data stored locally in this browser. Use <strong>Export</strong> to share state with the team.</p>
+    <p class="ops-footer-sub">Back to <a href="/">Imporlan.cl</a> &middot; <a href="/marketplace/">Marketplace</a> &middot; <a href="/cotizador-importacion/">Import quote</a></p>
+  </footer>
+</main>
+
+<div class="ops-toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="ops.js?v=1"></script>
+</body>
+</html>
