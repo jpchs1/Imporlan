@@ -479,3 +479,178 @@
     boot();
   }
 })();
+
+/* ============================================================
+   PHASE B3 — Pipeline render, advance/undo, vessel photo upload
+   ============================================================ */
+(function () {
+  'use strict';
+  const Ops = window.__usOps;
+  if (!Ops) return;
+
+  // ----------------------------------------------------------
+  //  PIPELINE
+  // ----------------------------------------------------------
+  function progressPct() {
+    const total = Ops.STAGES.length;
+    return Math.round((Ops.state.pipelineIndex / total) * 100);
+  }
+
+  function currentStageName() {
+    const i = Ops.state.pipelineIndex;
+    if (i >= Ops.STAGES.length) return 'Sold';
+    return Ops.STAGES[i].title;
+  }
+
+  function paintPipeline() {
+    const list = document.getElementById('pipelineList');
+    const fill = document.getElementById('pipelineFill');
+    const lab  = document.getElementById('pipelinePct');
+    if (!list) return;
+
+    list.innerHTML = '';
+    Ops.STAGES.forEach((stage, idx) => {
+      let stateAttr = 'todo';
+      if (idx < Ops.state.pipelineIndex) stateAttr = 'done';
+      else if (idx === Ops.state.pipelineIndex) stateAttr = 'active';
+
+      const li = document.createElement('li');
+      li.className = 'ops-pipeline-stage';
+      li.setAttribute('data-state', stateAttr);
+      li.setAttribute('data-stage', stage.key);
+
+      const statusLabel = stateAttr === 'done'
+        ? 'Completed'
+        : stateAttr === 'active' ? 'In progress' : 'Up next';
+
+      // Buttons available only for the active stage.
+      const actions = stateAttr === 'active'
+        ? '<div class="ops-pipeline-stage-actions">'
+            + (Ops.state.pipelineIndex > 0
+                ? '<button class="ops-pipeline-stage-btn" data-action="undo">↶ Back</button>' : '')
+            + '<button class="ops-pipeline-stage-btn" data-action="advance">'
+              + (idx === Ops.STAGES.length - 1 ? 'Mark sold ✓' : 'Advance →')
+            + '</button>'
+          + '</div>'
+        : '';
+
+      li.innerHTML =
+        '<div class="ops-pipeline-stage-num">' + (idx + 1) + '</div>' +
+        '<div class="ops-pipeline-stage-title">' + stage.title + '</div>' +
+        '<div class="ops-pipeline-stage-desc">' + stage.desc + '</div>' +
+        '<div class="ops-pipeline-stage-status">' + statusLabel + '</div>' +
+        actions;
+
+      // Click on stage body → jump to section.
+      li.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;
+        const target = stage.key === 'sourcing' ? 'target' : stage.key;
+        const section = document.getElementById(target);
+        if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      list.appendChild(li);
+    });
+
+    // Wire advance / undo buttons.
+    list.querySelectorAll('button[data-action]').forEach(btn => {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const action = btn.getAttribute('data-action');
+        if (action === 'advance' && Ops.state.pipelineIndex < Ops.STAGES.length) {
+          Ops.state.pipelineIndex += 1;
+          afterAdvance();
+        } else if (action === 'undo' && Ops.state.pipelineIndex > 0) {
+          Ops.state.pipelineIndex -= 1;
+          afterAdvance(true);
+        }
+      });
+    });
+
+    if (fill) fill.style.width = progressPct() + '%';
+    if (lab)  lab.textContent  = progressPct();
+
+    // Sync deal status pill in eyebrow.
+    Ops.state.dealStatus = currentStageName();
+    const statusEl = document.querySelector('[data-field="dealStatus"]');
+    if (statusEl) statusEl.textContent = Ops.state.dealStatus;
+  }
+  Ops.paintPipeline = paintPipeline;
+
+  function afterAdvance(undo) {
+    Ops.persist();
+    Ops.broadcast();
+    paintPipeline();
+    Ops.toast(undo ? 'Stage rolled back.' : 'Stage advanced — keep moving.', 'success');
+  }
+
+  // ----------------------------------------------------------
+  //  VESSEL PHOTO UPLOAD
+  // ----------------------------------------------------------
+  function paintVesselPhoto() {
+    const wrap = document.getElementById('vesselImageWrap');
+    const ph   = document.getElementById('vesselImagePlaceholder');
+    const img  = document.getElementById('vesselImage');
+    if (!wrap || !img) return;
+
+    if (Ops.state.vesselPhoto) {
+      img.src = Ops.state.vesselPhoto;
+      img.hidden = false;
+      if (ph) ph.style.display = 'none';
+    } else {
+      img.removeAttribute('src');
+      img.hidden = true;
+      if (ph) ph.style.display = '';
+    }
+  }
+  Ops.paintVesselPhoto = paintVesselPhoto;
+
+  function bindVesselUpload() {
+    const input = document.getElementById('vesselImageInput');
+    if (!input) return;
+    input.addEventListener('change', function () {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        Ops.toast('Please choose an image file.', 'error');
+        return;
+      }
+      // Cap at ~3MB to keep localStorage healthy.
+      if (file.size > 3 * 1024 * 1024) {
+        Ops.toast('Image too large (max 3MB). Resize before uploading.', 'error');
+        input.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function () {
+        Ops.state.vesselPhoto = reader.result;
+        Ops.persist({ toast: 'Vessel photo updated.', variant: 'success' });
+        Ops.broadcast();
+        paintVesselPhoto();
+      };
+      reader.onerror = function () { Ops.toast('Could not read that image.', 'error'); };
+      reader.readAsDataURL(file);
+      input.value = '';
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  Boot
+  // ----------------------------------------------------------
+  function boot() {
+    paintPipeline();
+    paintVesselPhoto();
+    bindVesselUpload();
+    document.addEventListener('usops:state', function () {
+      // Pipeline doesn't depend on every state field, so only repaint
+      // when the pipelineIndex moved (cheap guard to avoid flicker).
+      // Other modules can call paintPipeline() explicitly if needed.
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
