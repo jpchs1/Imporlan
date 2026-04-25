@@ -82,9 +82,20 @@
     Ops.setStatus(label, variant);
   }
 
+  // Read ?deal=US-XXX from the URL — overrides the in-state dealNumber
+  // so the same dashboard can show any deal.
+  function dealFromQuery() {
+    try {
+      const u = new URL(window.location.href);
+      return u.searchParams.get('deal') || null;
+    } catch (e) { return null; }
+  }
+  Ops.dealFromQuery = dealFromQuery;
+
   // Pull remote -> overwrite local (called on boot, manual "Pull").
   function pull() {
-    const dn = Ops.state.dealNumber || 'US-2026-001';
+    const dn = dealFromQuery() || Ops.state.dealNumber || 'US-2026-001';
+    Ops.state.dealNumber = dn;
     return api('get', { query: 'deal_number=' + encodeURIComponent(dn) }).then(json => {
       if (!json || !json.ok || !json.deal) throw new Error('Empty response');
       const remote = json.deal.payload || {};
@@ -121,7 +132,7 @@
   function pushNow() {
     if (inFlight) { saveTimer = setTimeout(pushNow, 400); return; }
     inFlight = true;
-    const dn = Ops.state.dealNumber || 'US-2026-001';
+    const dn = Ops.state.dealNumber || dealFromQuery() || 'US-2026-001';
     return api('save', {
       method: 'POST',
       body: { deal_number: dn, payload: Ops.state }

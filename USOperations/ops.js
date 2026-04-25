@@ -264,8 +264,17 @@
   };
 
   // Show last-saved status if present, otherwise live.
+  // Also honor ?deal=US-XXX query param so the same dashboard can host
+  // any deal — the sync.js layer will pull the matching record.
   document.addEventListener('DOMContentLoaded', function () {
     const s = window.__usOps.state;
+    try {
+      const q = new URL(window.location.href).searchParams.get('deal');
+      if (q && q.trim()) s.dealNumber = q.trim();
+    } catch (e) { /* ignore */ }
+    const dnEl = document.querySelector('[data-field="dealNumber"]');
+    if (dnEl) dnEl.textContent = s.dealNumber;
+
     if (s.updatedAt) {
       const when = new Date(s.updatedAt);
       setStatus('Saved ' + when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -1115,8 +1124,15 @@
     const btnExport = document.getElementById('btnExport');
     const btnImport = document.getElementById('btnImport');
     const btnReset  = document.getElementById('btnReset');
+    const btnPrint  = document.getElementById('btnPrint');
     const file      = document.getElementById('importFile');
 
+    if (btnPrint) {
+      btnPrint.addEventListener('click', function () {
+        Ops.toast('Opening print view…', 'success');
+        setTimeout(() => window.print(), 200);
+      });
+    }
     if (btnExport) btnExport.addEventListener('click', exportJSON);
     if (btnImport && file) {
       btnImport.addEventListener('click', function () { file.click(); });
