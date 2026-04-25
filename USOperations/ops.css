@@ -1,0 +1,310 @@
+/**
+ * Imporlan — US Operations Deal Desk
+ * Internal mission-control dashboard for sourcing, negotiating,
+ * buying, picking up, refitting and reselling opportunity boats in the US.
+ *
+ * Phase 1 / styling — A1: tokens, reset, header, nav, buttons.
+ */
+
+/* ============================================================
+   1.  DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* Palette — anchored on Imporlan brand navy with an accent blue
+     and gold for "money" highlights. */
+  --bg-0:        #060c18;
+  --bg-1:        #0a1628;
+  --bg-2:        #0f1d33;
+  --bg-3:        #14253f;
+  --bg-card:     linear-gradient(160deg, #142844 0%, #0d1c33 100%);
+  --bg-card-hi:  linear-gradient(160deg, #1a3458 0%, #112341 100%);
+  --bg-elev:     #0c1a30;
+
+  --line:        rgba(148, 184, 230, 0.12);
+  --line-strong: rgba(148, 184, 230, 0.22);
+  --line-hover:  rgba(96, 165, 250, 0.45);
+
+  --text:        #f8fbff;
+  --text-soft:   #c7d4e8;
+  --text-mute:   #8da4c4;
+  --text-dim:    #6b819f;
+
+  --accent:        #3b82f6;
+  --accent-hi:     #60a5fa;
+  --accent-soft:   rgba(59, 130, 246, 0.16);
+  --accent-glow:   rgba(59, 130, 246, 0.35);
+
+  --gold:        #f59e0b;
+  --gold-hi:     #fbbf24;
+  --gold-soft:   rgba(245, 158, 11, 0.16);
+
+  --green:       #10b981;
+  --green-soft:  rgba(16, 185, 129, 0.18);
+  --red:         #ef4444;
+  --red-soft:    rgba(239, 68, 68, 0.18);
+  --purple:      #8b5cf6;
+
+  /* Layout */
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+
+  --shadow-sm:  0 4px 14px rgba(0, 0, 0, 0.25);
+  --shadow:     0 12px 28px rgba(0, 0, 0, 0.32);
+  --shadow-lg:  0 28px 60px rgba(0, 0, 0, 0.45);
+
+  --header-h:   72px;
+  --maxw:       1280px;
+
+  --ease:       cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   2.  RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(139,92,246,0.12), transparent 60%),
+    var(--bg-0);
+  background-attachment: fixed;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img { max-width: 100%; display: block; }
+
+a { color: var(--accent-hi); text-decoration: none; transition: color 0.2s var(--ease); }
+a:hover { color: var(--accent); }
+
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font: inherit; color: inherit; }
+
+::selection { background: var(--accent-glow); color: #fff; }
+
+[contenteditable="true"] {
+  outline: none;
+  border-radius: 6px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+[contenteditable="true"]:hover { background: rgba(255,255,255,0.04); }
+[contenteditable="true"]:focus {
+  background: rgba(59,130,246,0.10);
+  box-shadow: 0 0 0 1px rgba(96,165,250,0.5);
+}
+
+/* ============================================================
+   3.  HEADER + NAV
+   ============================================================ */
+.ops-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(6, 12, 24, 0.78);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.ops-header-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  height: var(--header-h);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.ops-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.ops-logo:hover { color: var(--text); }
+
+.ops-logo-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent) 0%, #1e40af 100%);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(59,130,246,0.35);
+}
+.ops-logo-mark svg { width: 22px; height: 22px; }
+
+.ops-logo-text { display: flex; flex-direction: column; line-height: 1.1; }
+.ops-logo-brand {
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+.ops-logo-sub {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+}
+
+/* Nav */
+.ops-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ops-nav::-webkit-scrollbar { display: none; }
+
+.ops-nav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-soft);
+  white-space: nowrap;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.ops-nav-link:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.ops-nav-link.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-hi);
+}
+
+/* Header right side */
+.ops-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ops-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid rgba(16,185,129,0.28);
+}
+.ops-status-pill.is-saving { background: var(--accent-soft); color: var(--accent-hi); border-color: rgba(96,165,250,0.35); }
+.ops-status-pill.is-error  { background: var(--red-soft);   color: #fca5a5;       border-color: rgba(239,68,68,0.35); }
+.ops-status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: opsPulse 2.4s var(--ease) infinite;
+}
+@keyframes opsPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0);  }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0);    }
+}
+
+/* ============================================================
+   4.  BUTTONS
+   ============================================================ */
+.ops-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition:
+    background 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    color 0.2s var(--ease),
+    transform 0.1s var(--ease),
+    box-shadow 0.2s var(--ease);
+  white-space: nowrap;
+  user-select: none;
+}
+.ops-btn:active { transform: translateY(1px); }
+.ops-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(96,165,250,0.45);
+}
+
+.ops-btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(59,130,246,0.35);
+}
+.ops-btn-primary:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 12px 28px rgba(59,130,246,0.45);
+}
+
+.ops-btn-ghost {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-soft);
+  border-color: var(--line-strong);
+}
+.ops-btn-ghost:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+  border-color: var(--line-hover);
+}
+
+.ops-btn-outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.ops-btn-outline:hover {
+  border-color: var(--accent-hi);
+  color: var(--accent-hi);
+  background: rgba(96,165,250,0.06);
+}
+
+.ops-btn-danger {
+  background: rgba(239,68,68,0.10);
+  color: #fca5a5;
+  border-color: rgba(239,68,68,0.30);
+}
+.ops-btn-danger:hover {
+  background: rgba(239,68,68,0.18);
+  color: #fff;
+  border-color: rgba(239,68,68,0.55);
+}
+
+.ops-btn-sm {
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  border-radius: 8px;
+}
