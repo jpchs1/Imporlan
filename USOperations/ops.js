@@ -995,3 +995,187 @@
     boot();
   }
 })();
+
+/* ============================================================
+   PHASE B5 — P&L roll-up, export/import/reset, header wire-up
+   ============================================================ */
+(function () {
+  'use strict';
+  const Ops = window.__usOps;
+  if (!Ops) return;
+
+  // ----------------------------------------------------------
+  //  P&L
+  // ----------------------------------------------------------
+  function paintPnL() {
+    const buy     = Ops.buyPriceUsed();
+    const tax     = 0; // hook for future "sales tax / fees" line
+    const pickup  = Ops.pickupTotal();
+    const refit   = Ops.refitTotal();
+    const allIn   = buy + tax + pickup + refit;
+    const sale    = Ops.toNum(Ops.state.listPrice);
+    const fees    = Ops.toNum(Ops.state.sellingFees);
+    const netRev  = sale - fees;
+    const profit  = netRev - allIn;
+    const margin  = sale > 0 ? (profit / sale) * 100 : 0;
+
+    // Cost stack (left column)
+    const costs = document.getElementById('pnlCosts');
+    if (costs) {
+      costs.innerHTML =
+        '<li><span>Final / target buy price</span><strong>' + Ops.money(buy)    + '</strong></li>' +
+        '<li><span>Pickup &amp; transport</span>'           + '<strong>' + Ops.money(pickup) + '</strong></li>' +
+        '<li><span>Refit (parts + labor)</span>'            + '<strong>' + Ops.money(refit)  + '</strong></li>';
+    }
+
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('pnlAllIn',       Ops.money(allIn));
+    setText('pnlSale',        Ops.money(sale));
+    setText('pnlNetRev',      Ops.money(netRev));
+    setText('pnlProfitBig',   (profit < 0 ? '-' : '') + Ops.money(Math.abs(profit)).replace('-', ''));
+    setText('pnlMarginBig',   Ops.pct(margin));
+
+    // Margin bar (cap at 100%, clamp to 0 when loss).
+    const bar = document.getElementById('pnlMarginBar');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, margin)) + '%';
+
+    // Outcome panel state.
+    const out = document.querySelector('.ops-pnl-col-outcome');
+    if (out) out.classList.toggle('is-loss', profit < 0);
+
+    // Hint copy.
+    const hint = document.getElementById('pnlHint');
+    if (hint) {
+      if (sale === 0) {
+        hint.textContent = 'Set a list price in the Sale section to see the projected outcome.';
+      } else if (profit < 0) {
+        hint.textContent = 'You are projected to lose money at this list price. Re-negotiate the buy or trim the refit.';
+      } else if (margin < 10) {
+        hint.textContent = 'Margin under 10%. Push the list price up or look for a cheaper buy before pulling the trigger.';
+      } else if (margin < 25) {
+        hint.textContent = 'Healthy margin. Aim to sell within 60 days of listing to protect it.';
+      } else {
+        hint.textContent = 'Strong margin. Move fast and lock the buy.';
+      }
+    }
+  }
+  Ops.paintPnL = paintPnL;
+
+  // ----------------------------------------------------------
+  //  EXPORT / IMPORT / RESET
+  // ----------------------------------------------------------
+  function exportJSON() {
+    const data = JSON.stringify(Ops.state, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const dn   = (Ops.state.dealNumber || 'deal').replace(/[^A-Za-z0-9_-]+/g, '_');
+    a.href = url;
+    a.download = 'imporlan-us-ops-' + dn + '-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+    Ops.toast('Deal exported.', 'success');
+  }
+
+  function importJSON(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || typeof parsed !== 'object') throw new Error('Invalid file');
+        const merged = Ops.mergeDefaults(parsed, Ops.defaultState());
+        Ops.state = merged;
+        Ops.Storage.save(Ops.state);
+        Ops.toast('Deal imported. Reloading…', 'success');
+        setTimeout(() => location.reload(), 600);
+      } catch (err) {
+        console.warn('[us-ops] import failed:', err);
+        Ops.toast('Could not parse that JSON.', 'error');
+      }
+    };
+    reader.onerror = function () { Ops.toast('Could not read the file.', 'error'); };
+    reader.readAsText(file);
+  }
+
+  function resetAll() {
+    const ok = window.confirm('Reset the entire deal desk? This wipes all locally saved data.');
+    if (!ok) return;
+    Ops.Storage.clear();
+    Ops.toast('Deal desk reset.', 'success');
+    setTimeout(() => location.reload(), 500);
+  }
+
+  // ----------------------------------------------------------
+  //  HEADER WIRE-UP + ACTIVE NAV LINK
+  // ----------------------------------------------------------
+  function bindHeader() {
+    const btnExport = document.getElementById('btnExport');
+    const btnImport = document.getElementById('btnImport');
+    const btnReset  = document.getElementById('btnReset');
+    const file      = document.getElementById('importFile');
+
+    if (btnExport) btnExport.addEventListener('click', exportJSON);
+    if (btnImport && file) {
+      btnImport.addEventListener('click', function () { file.click(); });
+      file.addEventListener('change', function () {
+        importJSON(file.files && file.files[0]);
+        file.value = '';
+      });
+    }
+    if (btnReset) btnReset.addEventListener('click', resetAll);
+
+    // Smooth-scroll + active state on nav links.
+    const links = document.querySelectorAll('.ops-nav-link');
+    links.forEach(link => {
+      link.addEventListener('click', function (e) {
+        const href = link.getAttribute('href') || '';
+        if (!href.startsWith('#')) return;
+        const target = document.querySelector(href);
+        if (!target) return;
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    // Use IntersectionObserver to highlight the active section in the nav.
+    const sections = ['target', 'pipeline', 'negotiation', 'purchase', 'pickup', 'refurbishment', 'sale', 'pnl']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+
+    if ('IntersectionObserver' in window && sections.length) {
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            links.forEach(l => l.classList.toggle('is-active', l.getAttribute('href') === '#' + id));
+          }
+        });
+      }, { rootMargin: '-40% 0px -55% 0px', threshold: 0 });
+      sections.forEach(s => obs.observe(s));
+    }
+  }
+
+  // ----------------------------------------------------------
+  //  Boot
+  // ----------------------------------------------------------
+  function boot() {
+    paintPnL();
+    bindHeader();
+    document.addEventListener('usops:state', paintPnL);
+
+    // Compose all paints once on load (fixes any module ordering edge).
+    if (Ops.paintPipeline)  Ops.paintPipeline();
+    if (Ops.paintKPIs)      Ops.paintKPIs();
+    if (Ops.paintRefit)     Ops.paintRefit();
+    if (Ops.paintChecklists)Ops.paintChecklists();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
