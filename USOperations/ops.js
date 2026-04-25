@@ -274,3 +274,208 @@
     }
   });
 })();
+
+/* ============================================================
+   PHASE B2 — DOM bindings, KPI computation, contenteditable hero
+   ============================================================ */
+(function () {
+  'use strict';
+  const Ops = window.__usOps;
+  if (!Ops) return;
+
+  // ----------------------------------------------------------
+  //  Persist helper — debounce writes so quick typing isn't
+  //  thrashing localStorage.
+  // ----------------------------------------------------------
+  let saveTimer = null;
+  function persist(reason) {
+    if (saveTimer) clearTimeout(saveTimer);
+    Ops.setStatus('Saving…', 'saving');
+    saveTimer = setTimeout(function () {
+      const ok = Ops.Storage.save(Ops.state);
+      const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      Ops.setStatus(ok ? 'Saved ' + stamp : 'Save failed', ok ? null : 'error');
+      if (reason && reason.toast) Ops.toast(reason.toast, reason.variant || 'success');
+    }, 220);
+  }
+  Ops.persist = persist;
+
+  // Notify other panels when state changes so they can re-render.
+  function broadcast() {
+    document.dispatchEvent(new CustomEvent('usops:state', { detail: Ops.state }));
+  }
+  Ops.broadcast = broadcast;
+
+  // ----------------------------------------------------------
+  //  HERO — contenteditable text fields (data-field="...")
+  // ----------------------------------------------------------
+  function bindEditables() {
+    const nodes = document.querySelectorAll('[contenteditable="true"][data-field]');
+    nodes.forEach(node => {
+      const key = node.getAttribute('data-field');
+      // Initial paint from state.
+      if (Ops.state[key] != null) node.textContent = Ops.state[key];
+
+      node.addEventListener('blur', function () {
+        const val = node.textContent.replace(/\s+/g, ' ').trim();
+        if (Ops.state[key] !== val) {
+          Ops.state[key] = val;
+          persist();
+          broadcast();
+        }
+      });
+      // Disable line breaks in single-line fields.
+      if (key !== 'knownIssue') {
+        node.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); node.blur(); }
+        });
+      }
+    });
+
+    // Special-case readouts (non-editable spans inside the eyebrow).
+    const dealNumberEl = document.querySelector('[data-field="dealNumber"]');
+    const dealStatusEl = document.querySelector('[data-field="dealStatus"]');
+    if (dealNumberEl) dealNumberEl.textContent = Ops.state.dealNumber;
+    if (dealStatusEl) dealStatusEl.textContent = Ops.state.dealStatus;
+  }
+
+  // ----------------------------------------------------------
+  //  Number / text inputs — bind by element id ↔ state key.
+  // ----------------------------------------------------------
+  const SCALAR_BINDINGS = [
+    // negotiation
+    { id: 'askingPrice',     key: 'askingPrice',     type: 'number' },
+    { id: 'walkAwayPrice',   key: 'walkAwayPrice',   type: 'number' },
+    { id: 'targetPrice',     key: 'targetPrice',     type: 'number' },
+    { id: 'openingOffer',    key: 'openingOffer',    type: 'number' },
+    // purchase
+    { id: 'agreedPrice',     key: 'agreedPrice',     type: 'number' },
+    { id: 'depositAmount',   key: 'depositAmount',   type: 'number' },
+    { id: 'paymentMethod',   key: 'paymentMethod',   type: 'text'   },
+    { id: 'closingDate',     key: 'closingDate',     type: 'text'   },
+    { id: 'titleNotes',      key: 'titleNotes',      type: 'text'   },
+    // pickup
+    { id: 'pickupFrom',      key: 'pickupFrom',      type: 'text'   },
+    { id: 'pickupTo',        key: 'pickupTo',        type: 'text'   },
+    { id: 'pickupDate',      key: 'pickupDate',      type: 'text'   },
+    { id: 'pickupDistance',  key: 'pickupDistance',  type: 'number' },
+    { id: 'transportMode',   key: 'transportMode',   type: 'text'   },
+    { id: 'transportCost',   key: 'transportCost',   type: 'number' },
+    { id: 'fuelCost',        key: 'fuelCost',        type: 'number' },
+    { id: 'storageMonthly',  key: 'storageMonthly',  type: 'number' },
+    // sale
+    { id: 'listPrice',       key: 'listPrice',       type: 'number' },
+    { id: 'minAcceptable',   key: 'minAcceptable',   type: 'number' },
+    { id: 'saleChannels',    key: 'saleChannels',    type: 'text'   },
+    { id: 'saleDescription', key: 'saleDescription', type: 'text'   },
+    { id: 'sellingFees',     key: 'sellingFees',     type: 'number' }
+  ];
+
+  function bindScalars() {
+    SCALAR_BINDINGS.forEach(b => {
+      const el = document.getElementById(b.id);
+      if (!el) return;
+
+      // Paint from state.
+      const val = Ops.state[b.key];
+      if (val !== null && val !== undefined && val !== '') {
+        el.value = val;
+      }
+
+      el.addEventListener('input', function () {
+        const v = b.type === 'number' ? Ops.toNum(el.value) : el.value;
+        if (Ops.state[b.key] !== v) {
+          Ops.state[b.key] = v;
+          persist();
+          broadcast();
+        }
+      });
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  KPI strip — Asking / Target / All-In / Resale / Profit + margin
+  // ----------------------------------------------------------
+  function refitTotal() {
+    return (Ops.state.refit || []).reduce((sum, r) => sum + Ops.toNum(r.parts) + Ops.toNum(r.labor), 0);
+  }
+  Ops.refitTotal = refitTotal;
+
+  function pickupTotal() {
+    return Ops.toNum(Ops.state.transportCost) + Ops.toNum(Ops.state.fuelCost) + Ops.toNum(Ops.state.storageMonthly);
+  }
+  Ops.pickupTotal = pickupTotal;
+
+  function buyPriceUsed() {
+    // Prefer agreed price if locked, else target buy, else asking.
+    return Ops.toNum(Ops.state.agreedPrice) || Ops.toNum(Ops.state.targetPrice) || Ops.toNum(Ops.state.askingPrice);
+  }
+  Ops.buyPriceUsed = buyPriceUsed;
+
+  function allInCost() {
+    return buyPriceUsed() + pickupTotal() + refitTotal();
+  }
+  Ops.allInCost = allInCost;
+
+  function netRevenue() {
+    return Ops.toNum(Ops.state.listPrice) - Ops.toNum(Ops.state.sellingFees);
+  }
+  Ops.netRevenue = netRevenue;
+
+  function projectedProfit() {
+    return netRevenue() - allInCost();
+  }
+  Ops.projectedProfit = projectedProfit;
+
+  function projectedMargin() {
+    const rev = Ops.toNum(Ops.state.listPrice);
+    if (rev <= 0) return 0;
+    return (projectedProfit() / rev) * 100;
+  }
+  Ops.projectedMargin = projectedMargin;
+
+  function paintKPIs() {
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    setText('kpiAsking', Ops.money(Ops.state.askingPrice));
+    setText('kpiTarget', Ops.money(Ops.state.targetPrice || Ops.state.openingOffer));
+    setText('kpiAllIn',  Ops.money(allInCost()));
+    setText('kpiResale', Ops.money(Ops.state.listPrice));
+
+    const profit = projectedProfit();
+    const margin = projectedMargin();
+    setText('kpiProfit', Ops.money(profit));
+    setText('kpiMargin', Ops.pct(margin) + ' margin');
+
+    // Toggle loss color on the profit card.
+    const profitCard = document.querySelector('.ops-kpi-profit');
+    if (profitCard) profitCard.classList.toggle('is-loss', profit < 0);
+  }
+  Ops.paintKPIs = paintKPIs;
+
+  // Hero CTA — make the FB Marketplace link live.
+  function paintHeroLink() {
+    const a = document.getElementById('heroMarketplaceLink');
+    if (a && !a.href) a.href = Ops.FB_URL;
+    if (a) a.href = Ops.FB_URL;
+  }
+
+  // ----------------------------------------------------------
+  //  Boot — wait for DOM, then bind & paint.
+  // ----------------------------------------------------------
+  function boot() {
+    bindEditables();
+    bindScalars();
+    paintHeroLink();
+    paintKPIs();
+
+    // Re-paint KPIs whenever state changes (other modules emit usops:state).
+    document.addEventListener('usops:state', paintKPIs);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
