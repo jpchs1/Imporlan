@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deals · US Operations | Imporlan</title>
+  <meta name="description" content="All US Operations deals at a glance. Track every Imporlan boat-flip from sourcing through resale." />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://www.imporlan.cl/USOperations/deals/" />
+
+  <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/images/imporlan-favicon-48.png" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="../ops.css?v=1" />
+  <style>
+    /* Page-specific styles for the deals index */
+    .deals-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .deals-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .deals-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    .deals-table thead th {
+      text-align: left;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-mute);
+      padding: 14px 16px;
+      background: rgba(0,0,0,0.25);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .deals-table thead th.ops-num { text-align: right; }
+    .deals-table tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      color: var(--text-soft);
+    }
+    .deals-table tbody tr:hover { background: rgba(96,165,250,0.04); cursor: pointer; }
+    .deals-table tbody tr:last-child td { border-bottom: none; }
+    .deals-table tbody td.ops-num {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .deals-table .deal-num {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.82rem;
+      color: var(--accent-hi);
+    }
+    .deals-table .deal-title {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .deals-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+    .deals-status::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .deals-status[data-status="Sourcing"]    { background: rgba(255,255,255,0.06); color: var(--text-mute); }
+    .deals-status[data-status="Negotiation"] { background: var(--accent-soft);     color: var(--accent-hi); }
+    .deals-status[data-status="Purchase"]    { background: rgba(139,92,246,0.16);  color: #c4b5fd; }
+    .deals-status[data-status="Pickup"]      { background: rgba(6,182,212,0.16);   color: #67e8f9; }
+    .deals-status[data-status="Refit"]       { background: var(--gold-soft);       color: var(--gold-hi);   }
+    .deals-status[data-status="Sale"],
+    .deals-status[data-status="Sold"]        { background: var(--green-soft);      color: var(--green);    }
+    .profit-pos { color: var(--green) !important; }
+    .profit-neg { color: #fca5a5 !important; }
+
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--text-mute);
+    }
+    .empty-state svg { width: 64px; height: 64px; opacity: 0.4; margin-bottom: 14px; }
+    .empty-state h3 { color: var(--text); margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+<header class="ops-header">
+  <div class="ops-header-inner">
+    <a href="/" class="ops-logo" aria-label="Back to Imporlan">
+      <span class="ops-logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/></svg>
+      </span>
+      <span class="ops-logo-text">
+        <span class="ops-logo-brand">IMPORLAN</span>
+        <span class="ops-logo-sub">US Operations · Deals</span>
+      </span>
+    </a>
+
+    <nav class="ops-nav" aria-label="Sections">
+      <a href="../" class="ops-nav-link">← Active deal desk</a>
+    </nav>
+
+    <div class="ops-header-actions">
+      <span class="ops-status-pill" id="statusPill">
+        <span class="ops-status-dot"></span>
+        <span id="statusLabel">Loading…</span>
+      </span>
+      <button class="ops-btn ops-btn-outline" id="btnRefresh" type="button">Refresh</button>
+      <a class="ops-btn ops-btn-primary" href="../">+ New / open deal</a>
+    </div>
+  </div>
+</header>
+
+<main class="ops-main">
+
+  <section class="ops-section">
+    <div class="ops-section-head">
+      <div>
+        <h2>Active Deals</h2>
+        <p class="ops-section-sub">Every opportunity boat moving through the US pipeline. Click a row to open it in the deal desk.</p>
+      </div>
+    </div>
+
+    <!-- Roll-up KPIs across all deals -->
+    <div class="deals-summary" id="dealsSummary">
+      <div class="ops-kpi"><span class="ops-kpi-label">Deals tracked</span><span class="ops-kpi-value" id="sumDeals">—</span></div>
+      <div class="ops-kpi"><span class="ops-kpi-label">In progress</span><span class="ops-kpi-value" id="sumActive">—</span></div>
+      <div class="ops-kpi"><span class="ops-kpi-label">Total all-in</span><span class="ops-kpi-value" id="sumAllIn">—</span></div>
+      <div class="ops-kpi"><span class="ops-kpi-label">Total list value</span><span class="ops-kpi-value ops-kpi-gold" id="sumList">—</span></div>
+      <div class="ops-kpi ops-kpi-profit"><span class="ops-kpi-label">Projected profit</span><span class="ops-kpi-value" id="sumProfit">—</span><span class="ops-kpi-sub" id="sumMargin">— avg margin</span></div>
+    </div>
+
+    <div class="deals-table-wrap">
+      <table class="deals-table" id="dealsTable">
+        <thead>
+          <tr>
+            <th>Deal #</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th class="ops-num">Asking</th>
+            <th class="ops-num">All-in</th>
+            <th class="ops-num">List</th>
+            <th class="ops-num">Profit</th>
+            <th class="ops-num">Margin</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="dealsTbody">
+          <tr><td colspan="9" style="padding:32px;text-align:center;color:var(--text-dim);">Loading deals…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<div class="ops-toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  const TOKEN_KEY = 'imporlan.us_operations.token';
+  const API = '/api/us_operations_api.php';
+
+  function $(id) { return document.getElementById(id); }
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function setStatus(label, variant) {
+    const pill = $('statusPill');
+    const lab  = $('statusLabel');
+    if (!pill || !lab) return;
+    pill.classList.remove('is-saving','is-error');
+    if (variant) pill.classList.add('is-' + variant);
+    lab.textContent = label;
+  }
+  let toastTimer = null;
+  function toast(msg, variant) {
+    const el = $('toast'); if (!el) return;
+    el.textContent = msg;
+    el.className = 'ops-toast is-visible' + (variant ? ' is-' + variant : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2200);
+  }
+
+  const fmtUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  function money(n) { const x = parseFloat(n); return Number.isFinite(x) ? fmtUSD.format(x) : '—'; }
+  function pct(n)   { const x = parseFloat(n); return Number.isFinite(x) ? (x.toFixed(1).replace(/\.0$/, '') + '%') : '—'; }
+  function rel(when) {
+    if (!when) return '—';
+    const d = new Date(when.replace(' ', 'T'));
+    if (isNaN(d)) return when;
+    const diff = (Date.now() - d.getTime()) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600)   return Math.round(diff/60)   + 'm ago';
+    if (diff < 86400)  return Math.round(diff/3600) + 'h ago';
+    if (diff < 604800) return Math.round(diff/86400)+ 'd ago';
+    return d.toLocaleDateString();
+  }
+
+  function fetchDeals() {
+    setStatus('Loading…', 'saving');
+    const tok = getToken();
+    if (!tok) {
+      setStatus('Offline — token required');
+      renderEmpty('Sync token required. Open the deal desk and click <b>Sync</b> to set it, then come back here.');
+      return;
+    }
+    fetch(API + '?action=list', { headers: { 'X-Ops-Token': tok }, cache: 'no-store' })
+      .then(r => r.text().then(t => { try { return JSON.parse(t); } catch(e){ return null; } }))
+      .then(json => {
+        if (!json) throw new Error('Bad response');
+        if (!json.ok) throw new Error(json.error || 'Server error');
+        render(json.deals || []);
+        setStatus('Synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      })
+      .catch(err => {
+        setStatus('Offline', 'error');
+        renderEmpty('Could not reach the server: ' + (err.message || 'unknown'));
+      });
+  }
+
+  function renderEmpty(html) {
+    const tbody = $('dealsTbody');
+    tbody.innerHTML =
+      '<tr><td colspan="9">' +
+        '<div class="empty-state">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/></svg>' +
+          '<h3>No deals yet</h3><p>' + html + '</p>' +
+        '</div>' +
+      '</td></tr>';
+    ['sumDeals','sumActive','sumAllIn','sumList','sumProfit','sumMargin'].forEach(id => $(id).textContent = '—');
+  }
+
+  function render(deals) {
+    if (!deals.length) return renderEmpty('No deals saved yet — open the deal desk and start one.');
+
+    // Roll-up
+    const allIn   = deals.reduce((s,d) => s + (parseFloat(d.all_in_cost)||0), 0);
+    const list    = deals.reduce((s,d) => s + (parseFloat(d.list_price)||0), 0);
+    const profit  = deals.reduce((s,d) => s + (parseFloat(d.projected_profit)||0), 0);
+    const margins = deals.map(d => parseFloat(d.margin_pct)).filter(Number.isFinite);
+    const avgMargin = margins.length ? (margins.reduce((s,n)=>s+n,0)/margins.length) : NaN;
+    const active = deals.filter(d => (d.status || '').toLowerCase() !== 'sold' && parseInt(d.pipeline_index, 10) < 6).length;
+
+    $('sumDeals').textContent  = deals.length;
+    $('sumActive').textContent = active;
+    $('sumAllIn').textContent  = money(allIn);
+    $('sumList').textContent   = money(list);
+    $('sumProfit').textContent = money(profit);
+    $('sumMargin').textContent = (Number.isFinite(avgMargin) ? pct(avgMargin) : '—') + ' avg margin';
+    document.querySelector('.ops-kpi-profit').classList.toggle('is-loss', profit < 0);
+
+    // Rows
+    const rows = deals.map(d => {
+      const profitClass = (parseFloat(d.projected_profit) || 0) >= 0 ? 'profit-pos' : 'profit-neg';
+      return '<tr data-deal="' + (d.deal_number||'') + '">' +
+        '<td><span class="deal-num">' + (d.deal_number || '—') + '</span></td>' +
+        '<td><span class="deal-title">' + (d.title || '(untitled)') + '</span></td>' +
+        '<td><span class="deals-status" data-status="' + (d.status||'Sourcing') + '">' + (d.status || 'Sourcing') + '</span></td>' +
+        '<td class="ops-num">' + money(d.asking_price) + '</td>' +
+        '<td class="ops-num">' + money(d.all_in_cost) + '</td>' +
+        '<td class="ops-num">' + money(d.list_price) + '</td>' +
+        '<td class="ops-num ' + profitClass + '">' + money(d.projected_profit) + '</td>' +
+        '<td class="ops-num">' + (Number.isFinite(parseFloat(d.margin_pct)) ? pct(d.margin_pct) : '—') + '</td>' +
+        '<td>' + rel(d.updated_at) + '</td>' +
+      '</tr>';
+    }).join('');
+    $('dealsTbody').innerHTML = rows;
+
+    $('dealsTbody').querySelectorAll('tr[data-deal]').forEach(tr => {
+      tr.addEventListener('click', function () {
+        const dn = tr.getAttribute('data-deal');
+        if (dn) location.href = '../?deal=' + encodeURIComponent(dn);
+      });
+    });
+  }
+
+  function boot() {
+    fetchDeals();
+    $('btnRefresh').addEventListener('click', fetchDeals);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
