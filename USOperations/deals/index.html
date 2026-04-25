@@ -103,6 +103,22 @@
     }
     .empty-state svg { width: 64px; height: 64px; opacity: 0.4; margin-bottom: 14px; }
     .empty-state h3 { color: var(--text); margin-bottom: 6px; }
+
+    /* New-deal modal */
+    #ndModal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; }
+    #ndModal.is-open { display: flex; }
+    .nd-overlay { position: absolute; inset: 0; background: rgba(6,12,24,0.72); backdrop-filter: blur(6px); }
+    .nd-dialog {
+      position: relative; width: min(540px, calc(100% - 32px)); max-height: 90vh; overflow: auto;
+      background: var(--bg-card); border: 1px solid var(--line-strong); border-radius: 18px;
+      padding: 24px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 14px;
+    }
+    .nd-head { display: flex; align-items: center; justify-content: space-between; }
+    .nd-head h3 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+    .nd-close { font-size: 1.4rem; color: var(--text-mute); width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; }
+    .nd-close:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .nd-hint { font-size: 0.88rem; color: var(--text-mute); line-height: 1.5; }
+    .nd-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -129,7 +145,7 @@
         <span id="statusLabel">Loading…</span>
       </span>
       <button class="ops-btn ops-btn-outline" id="btnRefresh" type="button">Refresh</button>
-      <a class="ops-btn ops-btn-primary" href="../">+ New / open deal</a>
+      <button class="ops-btn ops-btn-primary" id="btnNew" type="button">+ New deal</button>
     </div>
   </div>
 </header>
@@ -176,6 +192,44 @@
   </section>
 
 </main>
+
+<!-- New-deal modal -->
+<div id="ndModal" role="dialog" aria-modal="true" aria-labelledby="ndTitle">
+  <div class="nd-overlay"></div>
+  <div class="nd-dialog">
+    <header class="nd-head">
+      <h3 id="ndTitle">New US Operations deal</h3>
+      <button class="nd-close" aria-label="Close" id="ndClose">×</button>
+    </header>
+    <p class="nd-hint">Spin up a new opportunity-boat deal. Fill in what you have — you can edit everything inside the deal desk later.</p>
+
+    <div class="ops-field">
+      <label for="ndNumber">Deal number</label>
+      <input type="text" id="ndNumber" placeholder="US-2026-002" />
+    </div>
+    <div class="ops-field">
+      <label for="ndTitleInput">Boat title (make + model + year)</label>
+      <input type="text" id="ndTitleInput" placeholder="e.g. 2014 Bayliner 185" />
+    </div>
+    <div class="ops-field">
+      <label for="ndUrl">Listing URL (Facebook Marketplace, Craigslist, BoatTrader…)</label>
+      <input type="text" id="ndUrl" placeholder="https://…" />
+    </div>
+    <div class="ops-field">
+      <label for="ndAsking">Asking price (USD)</label>
+      <input type="number" min="0" step="100" id="ndAsking" placeholder="0" />
+    </div>
+    <div class="ops-field">
+      <label for="ndIssue">Known issue / why it's an opportunity</label>
+      <textarea id="ndIssue" rows="3" placeholder="e.g. Outdrive needs new seal, otherwise clean."></textarea>
+    </div>
+
+    <div class="nd-actions">
+      <button class="ops-btn ops-btn-ghost" id="ndCancel" type="button">Cancel</button>
+      <button class="ops-btn ops-btn-primary" id="ndCreate" type="button">Create &amp; open</button>
+    </div>
+  </div>
+</div>
 
 <div class="ops-toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -254,7 +308,8 @@
   }
 
   function render(deals) {
-    if (!deals.length) return renderEmpty('No deals saved yet — open the deal desk and start one.');
+    lastDeals = deals || [];
+    if (!deals.length) return renderEmpty('No deals saved yet — click <b>+ New deal</b> to start one.');
 
     // Roll-up
     const allIn   = deals.reduce((s,d) => s + (parseFloat(d.all_in_cost)||0), 0);
@@ -297,9 +352,115 @@
     });
   }
 
+  // ----------------------------------------------------------
+  //  NEW-DEAL MODAL
+  // ----------------------------------------------------------
+  let lastDeals = [];
+
+  function suggestNumber() {
+    // Look at the latest deal_numbers and increment the last segment.
+    const year = new Date().getFullYear();
+    const prefix = 'US-' + year + '-';
+    const matching = lastDeals
+      .map(d => (d.deal_number || ''))
+      .filter(s => s.startsWith(prefix))
+      .map(s => parseInt(s.slice(prefix.length), 10))
+      .filter(n => Number.isFinite(n));
+    const next = matching.length ? Math.max.apply(null, matching) + 1 : 1;
+    return prefix + String(next).padStart(3, '0');
+  }
+
+  function openNewModal() {
+    const m = $('ndModal');
+    if (!m) return;
+    $('ndNumber').value = suggestNumber();
+    $('ndTitleInput').value = '';
+    $('ndUrl').value = '';
+    $('ndAsking').value = '';
+    $('ndIssue').value = '';
+    m.classList.add('is-open');
+    setTimeout(() => $('ndNumber').focus(), 80);
+  }
+  function closeNewModal() { $('ndModal').classList.remove('is-open'); }
+
+  function extractFbItemId(url) {
+    if (!url) return null;
+    const m = String(url).match(/marketplace\/item\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  function createDeal() {
+    const tok = getToken();
+    if (!tok) { toast('Set the sync token first.', 'error'); return; }
+
+    const dealNumber = ($('ndNumber').value || '').trim();
+    if (!dealNumber) { toast('Deal number is required.', 'error'); return; }
+    if (lastDeals.some(d => d.deal_number === dealNumber)) {
+      toast('That deal number already exists.', 'error');
+      return;
+    }
+
+    const title  = ($('ndTitleInput').value || '').trim();
+    const url    = ($('ndUrl').value || '').trim();
+    const asking = parseFloat($('ndAsking').value) || 0;
+    const issue  = ($('ndIssue').value || '').trim();
+
+    // Build the same shape that ops.js's defaultState() produces, so the
+    // deal desk picks it up cleanly when the user opens it next.
+    const payload = {
+      version: 1,
+      dealNumber: dealNumber,
+      dealStatus: 'Sourcing',
+      pipelineIndex: 0,
+      makeModel: title || 'TBD',
+      year: '',
+      length: '',
+      engine: '',
+      hours: '',
+      locationUS: '',
+      trailer: '',
+      titleStatus: '',
+      knownIssue: issue || 'TBD — confirm with US team after first inspection.',
+      askingPrice: asking,
+      sourceUrl: url || null,
+      fbItemId: extractFbItemId(url),
+      offers: [], inquiries: [], refit: [], team: [],
+      purchaseCheck: [], pickupCheck: [], saleCheck: []
+    };
+
+    const btn = $('ndCreate');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+
+    fetch(API + '?action=save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Ops-Token': tok },
+      cache: 'no-store',
+      body: JSON.stringify({ deal_number: dealNumber, payload: payload })
+    }).then(r => r.json()).then(json => {
+      if (!json || !json.ok) throw new Error((json && json.error) || 'Save failed');
+      toast('Deal created — opening…', 'success');
+      setTimeout(() => {
+        location.href = '../?deal=' + encodeURIComponent(dealNumber);
+      }, 500);
+    }).catch(err => {
+      toast('Could not create: ' + (err.message || 'unknown'), 'error');
+      btn.disabled = false;
+      btn.textContent = 'Create & open';
+    });
+  }
+
   function boot() {
     fetchDeals();
     $('btnRefresh').addEventListener('click', fetchDeals);
+    $('btnNew').addEventListener('click', openNewModal);
+    $('ndClose').addEventListener('click', closeNewModal);
+    $('ndCancel').addEventListener('click', closeNewModal);
+    $('ndModal').querySelector('.nd-overlay').addEventListener('click', closeNewModal);
+    $('ndCreate').addEventListener('click', createDeal);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && $('ndModal').classList.contains('is-open')) closeNewModal();
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
