@@ -654,3 +654,344 @@
     boot();
   }
 })();
+
+/* ============================================================
+   PHASE B4 — Offer log, inquiry log, refit table, checklists, team
+   ============================================================ */
+(function () {
+  'use strict';
+  const Ops = window.__usOps;
+  if (!Ops) return;
+
+  // Tiny helper for safe text rendering.
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  Ops.esc = esc;
+
+  // Trash icon (re-used by every list).
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+
+  // ----------------------------------------------------------
+  //  OFFER LOG
+  // ----------------------------------------------------------
+  function paintOffers() {
+    const list = document.getElementById('offerList');
+    if (!list) return;
+    const offers = (Ops.state.offers || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    list.innerHTML = '';
+    offers.forEach(o => {
+      const li = document.createElement('li');
+      const sideClass = o.side === 'us' ? 'is-us' : 'is-seller';
+      const sideLabel = o.side === 'us' ? 'Our offer' : 'Seller counter';
+      li.innerHTML =
+        '<span class="ops-offer-date">' + esc(o.date) + '</span>' +
+        '<span class="ops-offer-side ' + sideClass + '">' + sideLabel + '</span>' +
+        '<span class="ops-offer-amount">' + Ops.money(o.amount) + '</span>' +
+        '<button class="ops-offer-del" aria-label="Delete entry" data-id="' + esc(o.id) + '">' + TRASH + '</button>' +
+        (o.note ? '<span class="ops-offer-note">' + esc(o.note) + '</span>' : '');
+      list.appendChild(li);
+    });
+
+    list.querySelectorAll('.ops-offer-del').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-id');
+        Ops.state.offers = Ops.state.offers.filter(x => x.id !== id);
+        Ops.persist({ toast: 'Offer removed.' });
+        Ops.broadcast();
+        paintOffers();
+      });
+    });
+  }
+  Ops.paintOffers = paintOffers;
+
+  function bindOfferForm() {
+    const form = document.getElementById('offerForm');
+    if (!form) return;
+    const dateInp = document.getElementById('offerDate');
+    if (dateInp && !dateInp.value) dateInp.value = Ops.todayISO();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const offer = {
+        id: Ops.uid(),
+        date: dateInp.value || Ops.todayISO(),
+        side: document.getElementById('offerSide').value,
+        amount: Ops.toNum(document.getElementById('offerAmount').value),
+        note: document.getElementById('offerNote').value.trim()
+      };
+      Ops.state.offers = (Ops.state.offers || []).concat(offer);
+      // Auto-advance pipeline to Negotiation if we're still in Sourcing.
+      if (Ops.state.pipelineIndex < 1) {
+        Ops.state.pipelineIndex = 1;
+        if (Ops.paintPipeline) Ops.paintPipeline();
+      }
+      Ops.persist({ toast: 'Offer logged.' });
+      Ops.broadcast();
+      paintOffers();
+      form.reset();
+      if (dateInp) dateInp.value = Ops.todayISO();
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  INQUIRY LOG (resale buyer interest)
+  // ----------------------------------------------------------
+  function paintInquiries() {
+    const list = document.getElementById('inquiryList');
+    if (!list) return;
+    const items = (Ops.state.inquiries || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    list.innerHTML = '';
+    items.forEach(q => {
+      const li = document.createElement('li');
+      li.innerHTML =
+        '<span class="ops-offer-date">' + esc(q.date) + '</span>' +
+        '<span class="ops-offer-side is-us">' + esc(q.name || '—') + '</span>' +
+        '<span class="ops-offer-amount">' + (q.amount ? Ops.money(q.amount) : '—') + '</span>' +
+        '<button class="ops-offer-del" aria-label="Delete inquiry" data-id="' + esc(q.id) + '">' + TRASH + '</button>' +
+        (q.note ? '<span class="ops-offer-note">' + esc(q.note) + '</span>' : '');
+      list.appendChild(li);
+    });
+
+    list.querySelectorAll('.ops-offer-del').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-id');
+        Ops.state.inquiries = Ops.state.inquiries.filter(x => x.id !== id);
+        Ops.persist({ toast: 'Inquiry removed.' });
+        Ops.broadcast();
+        paintInquiries();
+      });
+    });
+  }
+  Ops.paintInquiries = paintInquiries;
+
+  function bindInquiryForm() {
+    const form = document.getElementById('inquiryForm');
+    if (!form) return;
+    const dateInp = document.getElementById('inquiryDate');
+    if (dateInp && !dateInp.value) dateInp.value = Ops.todayISO();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const item = {
+        id: Ops.uid(),
+        date: dateInp.value || Ops.todayISO(),
+        name: document.getElementById('inquiryName').value.trim(),
+        amount: Ops.toNum(document.getElementById('inquiryAmount').value),
+        note: document.getElementById('inquiryNote').value.trim()
+      };
+      Ops.state.inquiries = (Ops.state.inquiries || []).concat(item);
+      Ops.persist({ toast: 'Inquiry logged.' });
+      Ops.broadcast();
+      paintInquiries();
+      form.reset();
+      if (dateInp) dateInp.value = Ops.todayISO();
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  REFIT TABLE
+  // ----------------------------------------------------------
+  function paintRefit() {
+    const tbody = document.getElementById('refitTableBody');
+    if (!tbody) return;
+    const rows = Ops.state.refit || [];
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-dim);font-style:italic;">No refit items yet — add the first one above.</td></tr>';
+    } else {
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const total = Ops.toNum(r.parts) + Ops.toNum(r.labor);
+        tr.innerHTML =
+          '<td>' + esc(r.item) + '</td>' +
+          '<td>' + esc(r.category) + '</td>' +
+          '<td class="ops-num">' + Ops.money(r.parts) + '</td>' +
+          '<td class="ops-num">' + Ops.money(r.labor) + '</td>' +
+          '<td class="ops-num">' + Ops.money(total) + '</td>' +
+          '<td><span class="ops-refit-status" data-status="' + esc(r.status) + '">' + esc(r.status) + '</span></td>' +
+          '<td><button class="ops-refit-del" aria-label="Delete row" data-id="' + esc(r.id) + '">' + TRASH + '</button></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Totals chip in section head.
+    const partsTotal = rows.reduce((s, r) => s + Ops.toNum(r.parts), 0);
+    const laborTotal = rows.reduce((s, r) => s + Ops.toNum(r.labor), 0);
+    const grand = partsTotal + laborTotal;
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('partsTotal', Ops.money(partsTotal));
+    setText('laborTotal', Ops.money(laborTotal));
+    setText('refitTotal', Ops.money(grand));
+
+    tbody.querySelectorAll('.ops-refit-del').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-id');
+        Ops.state.refit = Ops.state.refit.filter(x => x.id !== id);
+        Ops.persist({ toast: 'Refit item removed.' });
+        Ops.broadcast();
+        paintRefit();
+      });
+    });
+  }
+  Ops.paintRefit = paintRefit;
+
+  function bindRefitForm() {
+    const form = document.getElementById('refitForm');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const row = {
+        id: Ops.uid(),
+        item:     document.getElementById('refitItem').value.trim(),
+        category: document.getElementById('refitCategory').value,
+        parts:    Ops.toNum(document.getElementById('refitParts').value),
+        labor:    Ops.toNum(document.getElementById('refitLabor').value),
+        status:   document.getElementById('refitStatus').value
+      };
+      if (!row.item) { Ops.toast('Describe the work item first.', 'error'); return; }
+      Ops.state.refit = (Ops.state.refit || []).concat(row);
+      Ops.persist({ toast: 'Refit item added.' });
+      Ops.broadcast();
+      paintRefit();
+      form.reset();
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  CHECKLISTS  (purchase / pickup / sale)
+  // ----------------------------------------------------------
+  const CHECKLIST_BINDINGS = [
+    { containerId: 'purchaseChecklist', stateKey: 'purchaseCheck' },
+    { containerId: 'pickupChecklist',   stateKey: 'pickupCheck'   },
+    { containerId: 'saleChecklist',     stateKey: 'saleCheck'     }
+  ];
+
+  function paintChecklists() {
+    CHECKLIST_BINDINGS.forEach(b => {
+      const root = document.getElementById(b.containerId);
+      if (!root) return;
+      const items = Ops.state[b.stateKey] || [];
+      root.innerHTML = '';
+      items.forEach(it => {
+        const li = document.createElement('li');
+        li.className = it.done ? 'is-done' : '';
+        const checkboxId = 'chk_' + it.id;
+        li.innerHTML =
+          '<input type="checkbox" id="' + esc(checkboxId) + '" data-id="' + esc(it.id) + '"' + (it.done ? ' checked' : '') + ' />' +
+          '<label for="' + esc(checkboxId) + '">' + esc(it.label) + '</label>';
+        root.appendChild(li);
+      });
+
+      root.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', function () {
+          const id = cb.getAttribute('data-id');
+          const arr = Ops.state[b.stateKey];
+          const item = arr && arr.find(x => x.id === id);
+          if (item) {
+            item.done = cb.checked;
+            cb.closest('li').classList.toggle('is-done', cb.checked);
+            Ops.persist();
+            Ops.broadcast();
+          }
+        });
+      });
+    });
+  }
+  Ops.paintChecklists = paintChecklists;
+
+  // ----------------------------------------------------------
+  //  TEAM (US collaborators)
+  // ----------------------------------------------------------
+  function initials(name) {
+    return String(name || '?')
+      .split(/\s+/).filter(Boolean).slice(0, 2)
+      .map(p => p[0]).join('').toUpperCase() || '?';
+  }
+
+  function paintTeam() {
+    const grid = document.getElementById('teamGrid');
+    if (!grid) return;
+    const rows = Ops.state.team || [];
+    grid.innerHTML = '';
+    rows.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'ops-team-card';
+      card.innerHTML =
+        '<div class="ops-team-card-top">' +
+          '<div class="ops-team-avatar">' + esc(initials(t.name)) + '</div>' +
+          '<div>' +
+            '<div class="ops-team-name">' + esc(t.name) + '</div>' +
+            '<div class="ops-team-role">' + esc(t.role) + '</div>' +
+          '</div>' +
+        '</div>' +
+        (t.contact || t.location
+          ? '<div class="ops-team-meta">' + [t.contact, t.location].filter(Boolean).map(esc).join(' · ') + '</div>'
+          : '') +
+        '<button class="ops-team-del" aria-label="Remove" data-id="' + esc(t.id) + '">' + TRASH + '</button>';
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('.ops-team-del').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-id');
+        Ops.state.team = Ops.state.team.filter(x => x.id !== id);
+        Ops.persist({ toast: 'Collaborator removed.' });
+        Ops.broadcast();
+        paintTeam();
+      });
+    });
+  }
+  Ops.paintTeam = paintTeam;
+
+  function bindTeamForm() {
+    const form = document.getElementById('teamForm');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const row = {
+        id: Ops.uid(),
+        name:     document.getElementById('teamName').value.trim(),
+        role:     document.getElementById('teamRole').value.trim(),
+        contact:  document.getElementById('teamContact').value.trim(),
+        location: document.getElementById('teamLocation').value.trim()
+      };
+      if (!row.name || !row.role) { Ops.toast('Name and role are required.', 'error'); return; }
+      Ops.state.team = (Ops.state.team || []).concat(row);
+      Ops.persist({ toast: 'Collaborator added.' });
+      Ops.broadcast();
+      paintTeam();
+      form.reset();
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  Boot
+  // ----------------------------------------------------------
+  function boot() {
+    paintOffers();
+    paintInquiries();
+    paintRefit();
+    paintChecklists();
+    paintTeam();
+
+    bindOfferForm();
+    bindInquiryForm();
+    bindRefitForm();
+    bindTeamForm();
+
+    document.addEventListener('usops:state', function () {
+      // The refit table feeds into KPIs; repaint totals chip on every change.
+      paintRefit();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
