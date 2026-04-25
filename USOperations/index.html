@@ -37,6 +37,7 @@
       <a href="#target" class="ops-nav-link">Target</a>
       <a href="#pipeline" class="ops-nav-link">Pipeline</a>
       <a href="#negotiation" class="ops-nav-link">Negotiation</a>
+      <a href="#insights" class="ops-nav-link">Insights</a>
       <a href="#purchase" class="ops-nav-link">Purchase</a>
       <a href="#pickup" class="ops-nav-link">Pickup</a>
       <a href="#refurbishment" class="ops-nav-link">Refit</a>
@@ -218,6 +219,69 @@
           <button type="submit" class="ops-btn ops-btn-primary ops-btn-sm">Log offer</button>
         </form>
         <ul class="ops-offer-list" id="offerList"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSIGHTS — Comps + Import bridge -->
+  <section class="ops-section" id="insights" aria-labelledby="insights-title">
+    <div class="ops-section-head">
+      <div>
+        <h2 id="insights-title">Market insights &amp; import bridge</h2>
+        <p class="ops-section-sub">Anchor your offer in real comparable sales and decide whether to flip in the US or import to Chile.</p>
+      </div>
+    </div>
+
+    <div class="ops-grid-2">
+      <!-- Comps -->
+      <div class="ops-card" id="compsCard">
+        <h3 class="ops-card-title">
+          Comparable sales
+          <button class="ops-btn ops-btn-sm ops-btn-outline" id="btnRefreshComps" type="button">Refresh</button>
+        </h3>
+        <p class="ops-section-sub" style="margin:0;">Quick reference for similar boats sold in the US. Adjust make/model/year in the hero card to refine.</p>
+        <ul class="ops-offer-list" id="compsList" style="max-height:none;"></ul>
+        <div class="ops-hint-box" id="compsHint" style="display:none;">
+          <strong>Suggested anchor</strong>
+          <ul>
+            <li id="compsAvg">Avg comp: —</li>
+            <li id="compsTarget">Suggested target buy: —</li>
+            <li id="compsResale">Suggested resale: —</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Import bridge -->
+      <div class="ops-card" id="importBridge">
+        <h3 class="ops-card-title">Sell in US or import to Chile?</h3>
+        <p class="ops-section-sub" style="margin:0;">Compare the US flip versus shipping to Chile through the Imporlan all-inclusive door-to-door service.</p>
+
+        <div class="ops-grid-2" style="gap:12px;">
+          <div class="ops-kpi">
+            <span class="ops-kpi-label">Flip in US</span>
+            <span class="ops-kpi-value" id="flipUsProfit">—</span>
+            <span class="ops-kpi-sub" id="flipUsMargin">— margin</span>
+          </div>
+          <div class="ops-kpi ops-kpi-profit">
+            <span class="ops-kpi-label">Import to Chile</span>
+            <span class="ops-kpi-value" id="flipClProfit">—</span>
+            <span class="ops-kpi-sub" id="flipClMargin">— margin</span>
+          </div>
+        </div>
+
+        <div class="ops-hint-box">
+          <strong>Quick assumptions</strong>
+          <ul>
+            <li>Chile resale uplift on a clean, US-imported boat: <em id="clUpliftLabel">+45%</em> over US list price.</li>
+            <li>All-inclusive import (freight, taxes, port + Imporlan service): ~<em id="clImportCostLabel">$8,500 USD</em>.</li>
+            <li>Adjust the slider once we plug in the live cotizador.</li>
+          </ul>
+        </div>
+
+        <div class="ops-hero-ctas" style="margin-top:auto;">
+          <a class="ops-btn ops-btn-outline" id="btnOpenCotizador" href="/cotizador-importacion/" target="_blank" rel="noopener">Open Imporlan import quote →</a>
+          <button class="ops-btn ops-btn-primary" id="btnFlipDecision" type="button">Recommend best path</button>
+        </div>
       </div>
     </div>
   </section>
@@ -513,6 +577,7 @@
 <div class="ops-toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="ops.js?v=1"></script>
+<script src="insights.js?v=1" defer></script>
 <script src="sync.js?v=1" defer></script>
 </body>
 </html>

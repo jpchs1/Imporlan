@@ -1157,7 +1157,7 @@
     });
 
     // Use IntersectionObserver to highlight the active section in the nav.
-    const sections = ['target', 'pipeline', 'negotiation', 'purchase', 'pickup', 'refurbishment', 'sale', 'pnl']
+    const sections = ['target', 'pipeline', 'negotiation', 'insights', 'purchase', 'pickup', 'refurbishment', 'sale', 'pnl']
       .map(id => document.getElementById(id))
       .filter(Boolean);
 
