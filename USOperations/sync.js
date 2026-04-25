@@ -92,7 +92,35 @@
   }
   Ops.dealFromQuery = dealFromQuery;
 
+  // Repaint everything after the state has been replaced.
+  function repaintAll() {
+    document.dispatchEvent(new CustomEvent('usops:state', { detail: Ops.state }));
+    if (Ops.paintPipeline)    Ops.paintPipeline();
+    if (Ops.paintKPIs)        Ops.paintKPIs();
+    if (Ops.paintRefit)       Ops.paintRefit();
+    if (Ops.paintChecklists)  Ops.paintChecklists();
+    if (Ops.paintTeam)        Ops.paintTeam();
+    if (Ops.paintOffers)      Ops.paintOffers();
+    if (Ops.paintInquiries)   Ops.paintInquiries();
+    if (Ops.paintVesselPhoto) Ops.paintVesselPhoto();
+    if (Ops.paintPnL)         Ops.paintPnL();
+    if (Ops.paintComps)       Ops.paintComps();
+    if (Ops.paintBridge)      Ops.paintBridge();
+
+    // Refresh editable / scalar fields the user can see.
+    document.querySelectorAll('[contenteditable="true"][data-field]').forEach(node => {
+      const k = node.getAttribute('data-field');
+      if (Ops.state[k] != null) node.textContent = Ops.state[k];
+    });
+    document.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+      if (el.id in Ops.state) el.value = Ops.state[el.id] != null ? Ops.state[el.id] : '';
+    });
+  }
+
   // Pull remote -> overwrite local (called on boot, manual "Pull").
+  // Tolerates 404 — if the deal doesn't exist yet, we start from
+  // defaults with the right dealNumber and the first push will
+  // create the row in the DB.
   function pull() {
     const dn = dealFromQuery() || Ops.state.dealNumber || 'US-2026-001';
     Ops.state.dealNumber = dn;
@@ -100,23 +128,29 @@
       if (!json || !json.ok || !json.deal) throw new Error('Empty response');
       const remote = json.deal.payload || {};
       const merged = Ops.mergeDefaults(remote, Ops.defaultState());
+      merged.dealNumber = dn;
       Ops.state = merged;
       Ops.Storage.save(Ops.state);
       onlineMode = true;
       Ops.toast('Pulled latest deal from server.', 'success');
       setSyncStatus('Online · synced', 'saving');
-      // Re-paint everything.
-      document.dispatchEvent(new CustomEvent('usops:state', { detail: Ops.state }));
-      if (Ops.paintPipeline)   Ops.paintPipeline();
-      if (Ops.paintKPIs)       Ops.paintKPIs();
-      if (Ops.paintRefit)      Ops.paintRefit();
-      if (Ops.paintChecklists) Ops.paintChecklists();
-      if (Ops.paintTeam)       Ops.paintTeam();
-      if (Ops.paintOffers)     Ops.paintOffers();
-      if (Ops.paintInquiries)  Ops.paintInquiries();
-      if (Ops.paintVesselPhoto) Ops.paintVesselPhoto();
-      if (Ops.paintPnL)        Ops.paintPnL();
+      repaintAll();
       return true;
+    }).catch(err => {
+      // 404 = deal not in DB yet. Stay online so the first edit
+      // pushes a new row. Anything else falls back to local-only.
+      if (err && err.status === 404) {
+        const fresh = Ops.defaultState();
+        fresh.dealNumber = dn;
+        Ops.state = fresh;
+        Ops.Storage.save(Ops.state);
+        onlineMode = true;
+        Ops.toast('New deal — start editing and it will be saved on the server.', 'success');
+        setSyncStatus('Online · new deal');
+        repaintAll();
+        return true;
+      }
+      throw err;
     });
   }
   Ops.pull = pull;
