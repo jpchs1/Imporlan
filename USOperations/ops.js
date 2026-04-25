@@ -1118,6 +1118,40 @@
   }
 
   // ----------------------------------------------------------
+  //  Build a deep link to this deal and copy it to the clipboard
+  //  so the operator can paste it into WhatsApp / Slack / email
+  //  to a US collaborator. The link auto-loads the right deal via
+  //  the ?deal= query param (handled by ops.js + sync.js).
+  // ----------------------------------------------------------
+  function shareDealLink() {
+    const dn = Ops.state.dealNumber || 'US-2026-001';
+    const url = location.origin + location.pathname.replace(/\/?$/, '/') + '?deal=' + encodeURIComponent(dn);
+
+    const fallback = function () {
+      // Fallback for older browsers or non-secure contexts.
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* noop */ }
+      document.body.removeChild(ta);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(
+        () => Ops.toast('Link copied — share with the US team. (' + dn + ')', 'success'),
+        () => { fallback(); Ops.toast('Link copied (fallback). (' + dn + ')', 'success'); }
+      );
+    } else {
+      fallback();
+      Ops.toast('Link copied. Paste it to the team. (' + dn + ')', 'success');
+    }
+  }
+
+  // ----------------------------------------------------------
   //  HEADER WIRE-UP + ACTIVE NAV LINK
   // ----------------------------------------------------------
   function bindHeader() {
@@ -1133,6 +1167,10 @@
         setTimeout(() => window.print(), 200);
       });
     }
+
+    const btnShare = document.getElementById('btnShare');
+    if (btnShare) btnShare.addEventListener('click', shareDealLink);
+
     if (btnExport) btnExport.addEventListener('click', exportJSON);
     if (btnImport && file) {
       btnImport.addEventListener('click', function () { file.click(); });
