@@ -130,9 +130,10 @@ def build():
     add_heading(doc, "2. Resumen ejecutivo – J/29 1987", level=1)
     add_para(
         doc,
-        "Considerando un valor de compra en USA de USD 10.000 (publicado), el costo total "
-        "del proceso completo —compra, inspección, importación e internación entregado en la "
-        "V Región— asciende a:",
+        "Considerando un valor de compra en USA de USD 10.000 —bajo el supuesto de una "
+        "negociación muy exitosa con el vendedor, ya que el monto final está sujeto al "
+        "resultado de dicha negociación— el costo total del proceso completo (compra, "
+        "inspección, importación e internación entregado en la V Región) asciende a:",
     )
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -207,6 +208,15 @@ def build():
     doc.add_paragraph()
     add_para(
         doc,
+        "Importante: este escenario asume que logramos una negociación muy exitosa cerrando "
+        "la compra en USD 10.000. El valor final está sujeto al resultado de la negociación "
+        "con el vendedor y, por tanto, el total puede variar.",
+        bold=True,
+        size=10,
+        color=AZUL,
+    )
+    add_para(
+        doc,
         "Tipo de cambio referencial USD 1 = CLP 920. La cotización se reajusta el día del pago "
         "al vendedor según tipo de cambio observado del Banco Central.",
         size=10,
@@ -226,7 +236,7 @@ def build():
     hdr[0].text = "Hito"
     hdr[1].text = "Cuándo"
     hdr[2].text = "Qué se paga"
-    hdr[3].text = "Monto referencial"
+    hdr[3].text = "% aprox. del total"
     for c in hdr:
         shade(c, "0B3D91")
         set_cell_borders(c)
@@ -243,25 +253,25 @@ def build():
             "1. Inspección pre-compra",
             "Antes de viajar a inspeccionar",
             "Honorarios del surveyor + traslados en USA",
-            "USD 800 – USD 1.500\n(según ubicación)",
+            "Independiente\n(no incluido en total)",
         ),
         (
             "2. Compra al vendedor",
             "Una vez aprobada la inspección y cerrada la negociación",
             "Valor de compra del velero en USA",
-            "$9.200.000 (USD 10.000)",
+            "≈ 28%",
         ),
         (
             "3. Logística e importación",
             "Al iniciar traslado en USA y embarque marítimo",
             "Flete USA, ocean freight, seguro, FEE Imporlan parcial",
-            "≈ $12.000.000",
+            "≈ 37%",
         ),
         (
             "4. Internación y entrega",
             "Al arribo a Chile, previo a retiro del puerto",
             "Aduana, IVA, gastos portuarios, traslado a V Región, FEE Imporlan saldo",
-            "≈ $11.500.000",
+            "≈ 35%",
         ),
     ]
     for hito, cuando, que, monto in pagos:
@@ -288,7 +298,7 @@ def build():
         color=GRIS,
     )
 
-    add_heading(doc, "5. Inspección pre-compra: alcance, valor y garantías", level=1)
+    add_heading(doc, "5. Inspección pre-compra: alcance y valor", level=1)
 
     add_heading(doc, "5.1 Valor de la inspección", level=2)
     add_para(
@@ -343,45 +353,83 @@ def build():
         "mar, también se evalúa rendimiento, vibraciones, manejo y comportamiento bajo carga.",
     )
 
-    add_heading(doc, "5.4 Garantías sobre la inspección", level=2)
+    add_heading(doc, "6. Asesoría Pre-Compra con búsqueda – Planes Imporlan", level=1)
     add_para(
         doc,
-        "Es importante ser transparentes con este punto: una inspección pre-compra es una "
-        "fotografía técnica del estado del velero en una fecha determinada. Las garantías "
-        "que entrega son:",
+        "En tu caso ya tienes identificado el J/29 1987, por lo que aplica directamente el "
+        "Plan Básico. Sin embargo, si en algún momento prefieres explorar más alternativas "
+        "antes de cerrar una decisión, contamos con tres planes de servicio adaptados al nivel "
+        "de acompañamiento que necesites:",
     )
-    add_bullet(
-        doc,
-        "Responsabilidad profesional del surveyor: el inspector es un profesional acreditado "
-        "(SAMS®/NAMS®) con seguro de responsabilidad civil (E&O). Si omite un defecto "
-        "evidente o detectable mediante los métodos estándar de inspección, responde "
-        "profesionalmente.",
-        bold_prefix="• ",
-    )
-    add_bullet(
-        doc,
-        "Argumentos para renegociar precio: cualquier hallazgo permite ajustar el valor "
-        "final con el vendedor o solicitar reparaciones antes del cierre.",
-        bold_prefix="• ",
-    )
-    add_bullet(
-        doc,
-        "Decisión informada: si el informe arroja problemas mayores, puedes desistir de la "
-        "compra sin haber comprometido el grueso del presupuesto (solo perderías el costo "
-        "de la inspección, ~USD 1.000).",
-        bold_prefix="• ",
-    )
+
+    plan_table = doc.add_table(rows=1, cols=3)
+    plan_table.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    hdr = plan_table.rows[0].cells
+    hdr[0].text = "Plan Básico"
+    hdr[1].text = "Plan Completo"
+    hdr[2].text = "Plan Premium"
+    for c in hdr:
+        shade(c, "0B3D91")
+        set_cell_borders(c)
+        for p in c.paragraphs:
+            for run in p.runs:
+                run.bold = True
+                run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                run.font.size = Pt(11)
+                run.font.name = "Calibri"
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    planes = [
+        (
+            "Para clientes que ya tienen embarcación identificada (tu caso actual con el J/29).\n\n"
+            "Incluye:\n"
+            "• Coordinación de inspección\n"
+            "• Gestión de transporte marítimo\n"
+            "• Desaduanaje\n"
+            "• Nacionalización\n\n"
+            "Inversión: desde CLP $1.200.000 + gastos",
+            "Para clientes que necesitan búsqueda y gestión total.\n\n"
+            "Incluye:\n"
+            "• Búsqueda especializada (hasta 10 opciones)\n"
+            "• Inspección y negociación\n"
+            "• Logística completa USA-Chile\n"
+            "• Desaduanaje y nacionalización\n"
+            "• Entrega a destino final\n"
+            "• Seguimiento post-importación (3 meses)\n\n"
+            "Inversión: desde CLP $2.500.000 + gastos",
+            "Para yates y embarcaciones de alto valor.\n\n"
+            "Incluye:\n"
+            "• Todo lo del Plan Completo\n"
+            "• Visita presencial para inspección (1 viaje)\n"
+            "• Coordinación de capitán profesional para sea trial\n"
+            "• Gestión de upgrades o reparaciones pre-embarque\n"
+            "• Seguro premium all-risk\n"
+            "• Seguimiento post-importación (6 meses)\n\n"
+            "Inversión: a cotizar según embarcación",
+        )
+    ]
+    row = plan_table.add_row().cells
+    for i, contenido in enumerate(planes[0]):
+        row[i].text = contenido
+        set_cell_borders(row[i])
+        for p in row[i].paragraphs:
+            for run in p.runs:
+                run.font.size = Pt(10)
+                run.font.name = "Calibri"
+
+    doc.add_paragraph()
     add_para(
         doc,
-        "Lo que la inspección NO garantiza: defectos ocultos no detectables sin desarme, "
-        "fallas futuras del motor o equipos, ni el comportamiento del velero después de la "
-        "compra. Por esto recomendamos siempre que, además de la inspección, se contrate un "
-        "seguro de embarcación que cubra el período de traslado y posterior uso en Chile.",
+        "Recomendación para tu caso: dado que ya elegiste el velero, el Plan Básico es el "
+        "más eficiente; la cotización de CLP $32.697.440 ya está construida sobre esta base. "
+        "Si más adelante prefieres comparar el J/29 con otras alternativas en USA antes de "
+        "decidir, podemos migrar al Plan Completo y ampliar la búsqueda hasta 10 opciones "
+        "que cumplan tus criterios (eslora, año, presupuesto, ubicación).",
         size=10,
         color=GRIS,
     )
 
-    add_heading(doc, "6. Negociación con el vendedor", level=1)
+    add_heading(doc, "7. Negociación con el vendedor", level=1)
     add_para(
         doc,
         "Sí, en Imporlan nos encargamos íntegramente de la negociación con el vendedor: tú no "
@@ -418,7 +466,7 @@ def build():
         bold_prefix="5. ",
     )
 
-    add_heading(doc, "7. Transparencia: FEE Imporlan", level=1)
+    add_heading(doc, "8. Transparencia: FEE Imporlan", level=1)
     add_para(
         doc,
         "Por política de transparencia, te informamos desde el primer contacto cuál es nuestro "
@@ -441,7 +489,7 @@ def build():
         "junto con el paquete).",
     )
 
-    add_heading(doc, "8. Próximos pasos sugeridos", level=1)
+    add_heading(doc, "9. Próximos pasos sugeridos", level=1)
     add_bullet(
         doc,
         "Confirmar interés en avanzar con el J/29 1987 (link YachtWorld 9841792).",
