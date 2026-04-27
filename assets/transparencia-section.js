@@ -298,6 +298,7 @@
     if (existing) existing.remove();
 
     var checkInterval = setInterval(function () {
+      var cotizarSection = document.getElementById('cotizar');
       var inspeccionSection = document.getElementById('inspeccion-precompra');
       var procesoSection = document.getElementById('proceso-compra');
       var serviciosSection = document.getElementById('servicios-importacion');
@@ -306,7 +307,10 @@
       var insertPoint = null;
       var parentNode = null;
 
-      if (inspeccionSection) {
+      if (cotizarSection) {
+        insertPoint = cotizarSection.nextSibling;
+        parentNode = cotizarSection.parentNode;
+      } else if (inspeccionSection) {
         insertPoint = inspeccionSection.nextSibling;
         parentNode = inspeccionSection.parentNode;
       } else if (procesoSection) {
