@@ -54,25 +54,32 @@
     return m ? m[1] : null;
   }
 
-  if (origAssign) {
-    window.location.assign = function(url) {
-      if (isPayPalCheckout(url)) {
-        var token = extractPayPalToken(url);
-        if (token) { showPayPalSmartButtonsModal(token); return; }
-      }
-      origAssign(url);
-    };
-  }
+  // window.location.assign / .replace are non-writable in modern browsers; the
+  // click interceptor below is the real PayPal redirect catcher. Wrap so a
+  // TypeError here doesn't abort the rest of the script.
+  try {
+    if (origAssign) {
+      window.location.assign = function(url) {
+        if (isPayPalCheckout(url)) {
+          var token = extractPayPalToken(url);
+          if (token) { showPayPalSmartButtonsModal(token); return; }
+        }
+        origAssign(url);
+      };
+    }
+  } catch (e) { /* read-only in modern browsers */ }
 
-  if (origReplace) {
-    window.location.replace = function(url) {
-      if (isPayPalCheckout(url)) {
-        var token = extractPayPalToken(url);
-        if (token) { showPayPalSmartButtonsModal(token); return; }
-      }
-      origReplace(url);
-    };
-  }
+  try {
+    if (origReplace) {
+      window.location.replace = function(url) {
+        if (isPayPalCheckout(url)) {
+          var token = extractPayPalToken(url);
+          if (token) { showPayPalSmartButtonsModal(token); return; }
+        }
+        origReplace(url);
+      };
+    }
+  } catch (e) { /* read-only in modern browsers */ }
 
   // Intercept window.location.href setter
   // Use a navigation event listener as the most reliable method

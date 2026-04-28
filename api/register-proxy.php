@@ -1,7 +1,19 @@
 <?php
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+/**
+ * Register Proxy - Imporlan
+ *
+ * Originally proxied to two Fly.dev backends (now retired / DNS no longer resolves).
+ * Kept as a back-compat shim because the SPA bundle hardcodes /api/register-proxy.php.
+ *
+ * Flow:
+ *   1. Delegate registration to handleRegister() in auth_local.php (local DB).
+ *   2. On success, fire an internal admin notification email via EmailService.
+ */
+
+require_once __DIR__ . '/cors_helper.php';
+require_once __DIR__ . '/auth_local.php';
+
+setCorsHeadersSecure();
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -15,164 +27,45 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
-
-if (!$input || empty($input['email']) || empty($input['password'])) {
-    http_response_code(400);
-    echo json_encode(['detail' => 'Email y password son requeridos']);
-    exit();
-}
-
-$FLY_ADMIN = 'https://app-hbgmmbqj.fly.dev';
-$FLY_USER = 'https://app-bxlfgnkv.fly.dev';
-
-function proxyRegister($url, $path, $data) {
-    $ch = curl_init($url . $path);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    $resp = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($err) error_log("register-proxy error: $url$path - $err");
-    return ['code' => $code, 'body' => json_decode($resp, true), 'raw' => $resp];
-}
-
-$registrationData = [
-    'email' => $input['email'],
-    'password' => $input['password'],
-    'name' => $input['name'] ?? explode('@', $input['email'])[0],
-    'phone' => $input['phone'] ?? null
-];
-
-$adminResult = proxyRegister($FLY_ADMIN, '/api/test/auth/register', $registrationData);
-
-$userResult = proxyRegister($FLY_USER, '/api/auth/register', $registrationData);
-
-$primaryResult = null;
-if ($userResult['code'] >= 200 && $userResult['code'] < 300) {
-    $primaryResult = $userResult;
-} elseif ($adminResult['code'] >= 200 && $adminResult['code'] < 300) {
-    $primaryResult = $adminResult;
-}
-
-if (!$primaryResult) {
-    $errorBody = $userResult['body'] ?? $adminResult['body'] ?? ['detail' => 'Error al registrar usuario'];
-    http_response_code($userResult['code'] ?: 500);
-    echo json_encode($errorBody);
-    exit();
-}
-
+ob_start();
 try {
-    sendRegistrationNotification($registrationData);
-} catch (Exception $e) {
-    error_log("register-proxy email error: " . $e->getMessage());
-}
-
-try {
-    require_once __DIR__ . '/db_config.php';
-    $pdo = getDbConnection();
-    if ($pdo) {
-        $check = $pdo->prepare("SELECT id FROM admin_users WHERE email = ?");
-        $check->execute([strtolower($registrationData['email'])]);
-        if (!$check->fetch()) {
-            $stmt = $pdo->prepare("INSERT INTO admin_users (name, email, password_hash, role, status, phone) VALUES (?, ?, ?, 'user', 'active', ?)");
-            $stmt->execute([
-                $registrationData['name'] ?? explode('@', $registrationData['email'])[0],
-                strtolower($registrationData['email']),
-                password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
-                $registrationData['phone'] ?? null
-            ]);
-        }
+    handleRegister();
+} catch (Throwable $e) {
+    error_log("register-proxy handleRegister error: " . $e->getMessage());
+    if (http_response_code() < 400) {
+        http_response_code(500);
     }
-} catch (Exception $e) {
-    error_log("register-proxy db insert error: " . $e->getMessage());
+    echo json_encode(['detail' => 'Error al registrar usuario']);
+}
+$body = ob_get_clean();
+$status = http_response_code();
+
+echo $body;
+
+if ($status >= 200 && $status < 300) {
+    try {
+        $data = json_decode($body, true);
+        $user = is_array($data) && isset($data['user']) ? $data['user'] : null;
+        if ($user && !empty($user['email'])) {
+            sendInternalRegistrationNotification($user);
+        }
+    } catch (Throwable $e) {
+        error_log("register-proxy notification error: " . $e->getMessage());
+    }
 }
 
-http_response_code($primaryResult['code']);
-echo $primaryResult['raw'];
-
-function sendRegistrationNotification($data) {
+function sendInternalRegistrationNotification(array $user): void {
     $emailServiceFile = __DIR__ . '/email_service.php';
-    $dbConfigFile = __DIR__ . '/db_config.php';
-
-    if (file_exists($emailServiceFile) && file_exists($dbConfigFile)) {
-        if (!class_exists('EmailService')) {
-            require_once $emailServiceFile;
-        }
-        try {
-            $emailService = new EmailService();
-            $emailService->sendInternalNotification('new_registration', [
-                'user_name' => $data['name'] ?? explode('@', $data['email'])[0],
-                'user_email' => $data['email'],
-                'registration_date' => date('d/m/Y H:i:s')
-            ]);
-            return;
-        } catch (Exception $e) {
-            error_log("EmailService failed, using fallback: " . $e->getMessage());
-        }
+    if (!file_exists($emailServiceFile)) {
+        return;
     }
-
-    sendFallbackEmail($data);
-}
-
-function sendFallbackEmail($data) {
-    $smtpHost = 'mail.imporlan.cl';
-    $smtpPort = 465;
-    $smtpUser = 'contacto@imporlan.cl';
-    $smtpPass = '^IBn?P-Z5@#_';
-    $adminEmails = ['contacto@imporlan.cl', 'jpchs1@gmail.com'];
-
-    $userName = $data['name'] ?? explode('@', $data['email'])[0];
-    $userEmail = $data['email'];
-    $date = date('d/m/Y H:i:s');
-
-    $subject = 'Nuevo registro de usuario - Imporlan Panel';
-    $body = "Nuevo usuario registrado en el panel de Imporlan:\n\n";
-    $body .= "Nombre: $userName\n";
-    $body .= "Email: $userEmail\n";
-    $body .= "Fecha: $date\n\n";
-    $body .= "-- Notificacion automatica del sistema Imporlan";
-
-    foreach ($adminEmails as $to) {
-        $errno = 0;
-        $errstr = '';
-        $context = stream_context_create([
-            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]
-        ]);
-        $smtp = @stream_socket_client("ssl://$smtpHost:$smtpPort", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context);
-        if (!$smtp) {
-            error_log("SMTP connect failed: $errstr ($errno)");
-            continue;
-        }
-
-        fgets($smtp, 515);
-        fwrite($smtp, "EHLO imporlan.cl\r\n"); fgets($smtp, 515);
-        while ($line = fgets($smtp, 515)) { if ($line[3] === ' ') break; }
-        fwrite($smtp, "AUTH LOGIN\r\n"); fgets($smtp, 515);
-        fwrite($smtp, base64_encode($smtpUser) . "\r\n"); fgets($smtp, 515);
-        fwrite($smtp, base64_encode($smtpPass) . "\r\n"); fgets($smtp, 515);
-        fwrite($smtp, "MAIL FROM:<$smtpUser>\r\n"); fgets($smtp, 515);
-        fwrite($smtp, "RCPT TO:<$to>\r\n"); fgets($smtp, 515);
-        fwrite($smtp, "DATA\r\n"); fgets($smtp, 515);
-
-        $headers = "From: Imporlan <$smtpUser>\r\n";
-        $headers .= "To: $to\r\n";
-        $headers .= "Subject: $subject\r\n";
-        $headers .= "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        $headers .= "Date: " . date('r') . "\r\n";
-        $headers .= "Message-ID: <" . uniqid('imporlan_', true) . "@imporlan.cl>\r\n";
-        $headers .= "\r\n";
-
-        fwrite($smtp, $headers . $body . "\r\n.\r\n");
-        fgets($smtp, 515);
-        fwrite($smtp, "QUIT\r\n");
-        fclose($smtp);
+    if (!class_exists('EmailService')) {
+        require_once $emailServiceFile;
     }
+    $service = new EmailService();
+    $service->sendInternalNotification('new_registration', [
+        'user_name'         => $user['name'] ?? explode('@', $user['email'])[0],
+        'user_email'        => $user['email'],
+        'registration_date' => date('d/m/Y H:i:s'),
+    ]);
 }
