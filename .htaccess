@@ -4,6 +4,25 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# ============================================
+# 410 GONE — WordPress legacy query params
+# ============================================
+RewriteCond %{QUERY_STRING} (^|&)(p|page_id|cat|tag|author|attachment_id|preview|preview_id|wc-ajax|add-to-cart|removed_item)= [NC]
+RewriteRule ^ - [R=410,L]
+
+# ============================================
+# 410 GONE — WordPress legacy paths
+# ============================================
+RewriteRule ^feed(/.*)?$ - [R=410,L]
+RewriteRule ^author(/.*)?$ - [R=410,L]
+RewriteRule ^category(/.*)?$ - [R=410,L]
+RewriteRule ^tag(/.*)?$ - [R=410,L]
+RewriteRule ^wp-json(/.*)?$ - [R=410,L]
+RewriteRule ^wp-login\.php$ - [R=410,L]
+RewriteRule ^comments(/.*)?$ - [R=410,L]
+RewriteRule ^trackback(/.*)?$ - [R=410,L]
+RewriteRule ^[0-9]{4}/[0-9]{2}(/.*)?$ - [R=410,L]
+
 # 301 Redirects: /pages/ -> /importaciones/
 RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
 
@@ -15,6 +34,10 @@ RewriteBase /
 # 301 Redirects: TOUREVO pages moved to tourevo.cl
 RewriteRule ^en(/.*)?$ https://tourevo.cl/en$1 [R=301,L]
 RewriteRule ^br(/.*)?$ https://tourevo.cl/br$1 [R=301,L]
+
+# 301 Redirects: CDSKI pages moved to clasesdeski.cl
+RewriteRule ^es(/.*)?$ https://clasesdeski.cl/es$1 [R=301,L]
+RewriteRule ^pt(/.*)?$ https://clasesdeski.cl/pt$1 [R=301,L]
 
 # Cotizador Importacion - serve PHP
 RewriteRule ^cotizador-importacion/?$ /cotizador-importacion/index.php [L]
@@ -32,9 +55,17 @@ RewriteCond %{REQUEST_URI} ^/api [OR]
 RewriteCond %{REQUEST_URI} ^/pago [OR]
 RewriteCond %{REQUEST_URI} ^/test
 RewriteRule ^ - [L]
+
+# ============================================
+# CUSTOM 404 — replace SPA catch-all
+# ============================================
+# Previously served index.html for all unknown URLs (Soft 404).
+# Now returns a proper HTTP 404 with a noindex page.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+RewriteRule ^ - [R=404,L]
+
+ErrorDocument 404 /404.html
 
 # ============================================
 # CORE WEB VITALS OPTIMIZATIONS 2026
