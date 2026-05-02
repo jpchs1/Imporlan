@@ -276,10 +276,9 @@ function handleWebhook() {
                     }
                 }
                 
-                sendMercadoPagoConfirmationEmail($purchase, $payment);
-                createPaymentNotificationMessage($purchase, $payment);
-
-                // Retrieve stored boat_links from pending file
+                // Retrieve stored boat_links from pending file BEFORE sending emails,
+                // so the form email includes the URLs even when the payer's email
+                // (MercadoPago account) differs from the email used in the cotizacion form.
                 $pendingBoatLinks = [];
                 $pendingFile = __DIR__ . '/mp_pending/' . md5($externalRef) . '.json';
                 if (file_exists($pendingFile)) {
@@ -287,6 +286,10 @@ function handleWebhook() {
                     $pendingBoatLinks = $pendingInfo['boat_links'] ?? [];
                     unlink($pendingFile);
                 }
+                $purchase['boat_links'] = $pendingBoatLinks;
+
+                sendMercadoPagoConfirmationEmail($purchase, $payment);
+                createPaymentNotificationMessage($purchase, $payment);
                 
                 try {
                     $dbConfig = __DIR__ . '/db_config.php';
@@ -417,6 +420,11 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
             );
 
             $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+            // Fallback to boat_links carried in $purchase (from mp_pending) when the payer's
+            // email does not match the email used to submit the cotizacion form.
+            if (empty($storedLinks) && !empty($purchase['boat_links'])) {
+                $storedLinks = $purchase['boat_links'];
+            }
             $formData = array_merge($commonData, [
                 'boat_links' => $storedLinks,
                 'name' => $payerName

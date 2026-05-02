@@ -287,10 +287,9 @@ function captureOrder() {
             handlePaymentRequestPaid($paymentRequestId, $captureId, 'paypal', $purchaseRecord['id'] ?? null);
         }
         
-        sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
-        createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
-        
-        // Retrieve stored boat_links from pending file
+        // Retrieve stored boat_links from pending file BEFORE sending emails,
+        // so the form email includes the URLs even when the PayPal account email
+        // differs from the email used in the cotizacion form.
         $pendingBoatLinks = [];
         $pendingFile = __DIR__ . '/paypal_pending/' . $orderId . '.json';
         if (file_exists($pendingFile)) {
@@ -302,7 +301,11 @@ function captureOrder() {
             }
             unlink($pendingFile);
         }
-        
+        $purchaseRecord['boat_links'] = $pendingBoatLinks;
+
+        sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
+        createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
+
         // Create expedition order automatically
         try {
             require_once __DIR__ . '/orders_api.php';
@@ -404,6 +407,11 @@ function sendPayPalConfirmationEmails($purchase, $userEmail) {
             );
 
             $storedLinks = $emailService->getStoredQuotationLinks($userEmail);
+            // Fallback to boat_links carried in $purchase (from paypal_pending) when the
+            // PayPal account email does not match the email used in the cotizacion form.
+            if (empty($storedLinks) && !empty($purchase['boat_links'])) {
+                $storedLinks = $purchase['boat_links'];
+            }
             $formData = array_merge($commonData, [
                 'boat_links' => $storedLinks,
                 'name' => $payerName
