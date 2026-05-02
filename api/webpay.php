@@ -346,6 +346,9 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
         'proposals_received' => 0,
         'date' => date('d M Y'),
         'timestamp' => date('Y-m-d H:i:s'),
+        'payer_name' => $purchaseInfo['payer_name'] ?? '',
+        'payer_phone' => $purchaseInfo['payer_phone'] ?? '',
+        'boat_links' => $purchaseInfo['boat_links'] ?? [],
         'webpay_details' => [
             'authorization_code' => $transaction['authorization_code'] ?? null,
             'payment_type' => $transaction['payment_type_code'] ?? null,
@@ -464,10 +467,10 @@ function sendPurchaseConfirmationEmail($purchase) {
         
         if ($purchaseType === 'pago_directo') {
             // Pago Directo from /pago/ page - single confirmation email
-            $commonData['payer_phone'] = $purchaseInfo['payer_phone'] ?? '';
+            $commonData['payer_phone'] = $purchase['payer_phone'] ?? '';
             $emailService->sendPagoDirectoEmail(
                 $purchase['user_email'],
-                $purchaseInfo['payer_name'] ?? $payerName,
+                $purchase['payer_name'] ?: $payerName,
                 $commonData
             );
             logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'pago_directo']);
@@ -507,6 +510,78 @@ function sendPurchaseConfirmationEmail($purchase) {
         }
     } catch (\Throwable $e) {
         logWebpay('EMAIL_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+    }
+}
+
+/**
+ * Create automated system message in panel chat after successful WebPay payment.
+ * Mirrors createPaymentNotificationMessage (mercadopago) and
+ * createPayPalPaymentNotificationMessage (paypal).
+ */
+function createWebpayPaymentNotificationMessage($purchase) {
+    try {
+        if (!function_exists('getDbConnection')) {
+            return;
+        }
+        $pdo = getDbConnection();
+        if (!$pdo) return;
+
+        $userEmail = $purchase['user_email'] ?? '';
+        if (empty($userEmail)) return;
+
+        $userName = trim($purchase['payer_name'] ?? '');
+        if (empty($userName)) {
+            $userName = explode('@', $userEmail)[0];
+        }
+
+        $stmt = $pdo->prepare("SELECT id FROM chat_conversations WHERE user_email = ? AND status = 'open' ORDER BY updated_at DESC LIMIT 1");
+        $stmt->execute([$userEmail]);
+        $conv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$conv) {
+            $stmt = $pdo->prepare("INSERT INTO chat_conversations (user_email, user_name, status, auto_messages_sent) VALUES (?, ?, 'open', '{}')");
+            $stmt->execute([$userEmail, $userName]);
+            $conversationId = intval($pdo->lastInsertId());
+        } else {
+            $conversationId = intval($conv['id']);
+        }
+
+        $amount = number_format($purchase['amount_clp'] ?? $purchase['amount'] ?? 0, 0, ',', '.');
+        $description = $purchase['description'] ?? 'Servicio Imporlan';
+        $type = $purchase['type'] ?? 'link';
+
+        if ($type === 'plan') {
+            $planName = $purchase['plan_name'] ?: $description;
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$planName} ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Tu plan ya esta activo. Nuestro equipo comenzara a trabajar en tu requerimiento de inmediato.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        } elseif ($type === 'pago_directo') {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por {$description} ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Hemos registrado tu pago. Si requieres factura o algun documento adicional, contactanos a contacto@imporlan.cl.";
+        } else {
+            $message = "Pago confirmado\n\n" .
+                "Tu pago por Cotizacion por Links ha sido procesado exitosamente via WebPay.\n\n" .
+                "Monto: \${$amount} CLP\n" .
+                "Fecha: " . date('d/m/Y H:i') . "\n\n" .
+                "Nuestro equipo revisara tu solicitud y te enviaremos la cotizacion a la brevedad.\n\n" .
+                "Puedes ver el estado en la seccion 'Mis Productos Contratados' de tu panel.";
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO chat_messages (conversation_id, sender_id, sender_role, sender_name, sender_email, message) VALUES (?, 0, 'system', 'Sistema Imporlan', NULL, ?)");
+        $stmt->execute([$conversationId, $message]);
+
+        $stmt = $pdo->prepare("UPDATE chat_conversations SET updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$conversationId]);
+
+        logWebpay('CHAT_MSG_SENT', ['conversation_id' => $conversationId, 'user_email' => $userEmail]);
+    } catch (\Throwable $e) {
+        logWebpay('CHAT_MSG_ERROR', ['error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
     }
 }
 

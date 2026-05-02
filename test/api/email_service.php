@@ -379,7 +379,12 @@ BASE64;
             'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead'],
             'payment_request_created' => ['subject' => 'Nueva solicitud de pago creada', 'template' => 'internal_payment_request_created'],
             'payment_request_paid' => ['subject' => 'Solicitud de pago confirmada', 'template' => 'internal_payment_request_paid'],
-            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled']
+            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled'],
+            'pago_directo' => ['subject' => 'Pago Directo - Pago Confirmado', 'template' => 'internal_pago_directo'],
+            'cotizacion_links_activated' => ['subject' => 'Cotizacion por Links - Activada', 'template' => 'internal_cotizacion_links_activated'],
+            'plan_busqueda_activated' => ['subject' => 'Plan de Busqueda - Activado', 'template' => 'internal_plan_busqueda_activated'],
+            'status_change' => ['subject' => 'Cambio de estado de orden', 'template' => 'internal_status_change'],
+            'payment_reminder_sent' => ['subject' => 'Recordatorio de pago enviado', 'template' => 'internal_payment_reminder_sent']
         ];
         
         if (!isset($notifications[$type])) {
@@ -2889,11 +2894,114 @@ BASE64;
                 return $this->getInternalPaymentRequestPaidTemplate($data);
             case 'internal_payment_request_cancelled':
                 return $this->getInternalPaymentRequestCancelledTemplate($data);
+            case 'internal_pago_directo':
+                return $this->getInternalPagoDirectoTemplate($data);
+            case 'internal_cotizacion_links_activated':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Cotizacion por Links - Activada',
+                    'success',
+                    'Servicio Activado',
+                    $data
+                );
+            case 'internal_plan_busqueda_activated':
+                return $this->getInternalGenericNotificationTemplate(
+                    ($data['plan_name'] ?? 'Plan de Busqueda') . ' - Activado',
+                    'success',
+                    'Plan Activado',
+                    $data
+                );
+            case 'internal_status_change':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Cambio de estado de orden',
+                    'info',
+                    'Estado actualizado',
+                    $data
+                );
+            case 'internal_payment_reminder_sent':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Recordatorio de pago enviado',
+                    'info',
+                    'Recordatorio enviado',
+                    $data
+                );
             default:
                 return '';
         }
     }
-    
+
+    private function getInternalGenericNotificationTemplate($title, $badgeType, $badgeText, $data) {
+        $c = $this->colors;
+        $rows = [];
+        $labels = [
+            'user_email' => 'Email',
+            'user_name' => 'Cliente',
+            'plan_name' => 'Plan',
+            'description' => 'Descripcion',
+            'amount' => 'Monto',
+            'currency' => 'Moneda',
+            'payment_method' => 'Metodo de pago',
+            'payment_reference' => 'Referencia',
+            'purchase_date' => 'Fecha',
+            'order_id' => 'Orden',
+            'old_status' => 'Estado anterior',
+            'new_status' => 'Nuevo estado',
+            'phone' => 'Telefono',
+            'reminder_count' => 'Recordatorio #'
+        ];
+        foreach ($labels as $key => $label) {
+            if (isset($data[$key]) && $data[$key] !== '' && !is_array($data[$key])) {
+                $rows[$label] = $data[$key];
+            }
+        }
+        if (empty($rows)) {
+            foreach ($data as $k => $v) {
+                if (!is_array($v) && $v !== '') {
+                    $rows[$k] = $v;
+                }
+            }
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge($badgeType, $badgeText) . '
+            </div>
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                ' . htmlspecialchars($title) . '
+            </h2>
+            ' . $this->getInfoCard('Detalle', $rows);
+
+        return $this->getBaseTemplate($content, $title . ' - Admin');
+    }
+
+    private function getInternalPagoDirectoTemplate($data) {
+        $c = $this->colors;
+        $description = $data['description'] ?? 'Pago Directo';
+        $title = 'Pago Directo - ' . $description;
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago Confirmado') . '
+            </div>
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                ' . htmlspecialchars($title) . '
+            </h2>
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Cliente' => $data['user_name'] ?? '-',
+                'Email' => $data['user_email'] ?? '-',
+                'Telefono' => $data['phone'] ?? ($data['payer_phone'] ?? '-'),
+                'Descripcion' => $description,
+                'Monto' => '$' . ($data['amount'] ?? '0') . ' ' . ($data['currency'] ?? 'CLP'),
+                'Metodo de pago' => $data['payment_method'] ?? '-',
+                'Referencia' => $data['payment_reference'] ?? 'N/A',
+                'Fecha' => $data['purchase_date'] ?? date('d/m/Y')
+            ]) . '
+            <p style="margin: 20px 0 0 0; color: ' . $c['success'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Pago directo recibido. Verificar si requiere factura o boleta.
+            </p>';
+
+        return $this->getBaseTemplate($content, $title . ' - Admin');
+    }
+
     private function getInternalNewRegistrationTemplate($data) {
         $c = $this->colors;
         
