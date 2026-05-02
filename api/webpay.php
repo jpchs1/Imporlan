@@ -482,6 +482,11 @@ function sendPurchaseConfirmationEmail($purchase) {
             );
 
             $storedLinks = $emailService->getStoredQuotationLinks($purchase['user_email']);
+            // Fallback to boat_links carried in $purchase (from webpay_pending) when the
+            // payer's email does not match the email used in the cotizacion form.
+            if (empty($storedLinks) && !empty($purchase['boat_links'])) {
+                $storedLinks = $purchase['boat_links'];
+            }
             $formData = array_merge($commonData, [
                 'boat_links' => $storedLinks,
                 'name' => $payerName
