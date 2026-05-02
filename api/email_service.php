@@ -15,15 +15,30 @@
 
 require_once __DIR__ . '/db_config.php';
 
+// SMTP credentials are loaded from an external server-only config file so they
+// stay out of git. Fall back to environment variables if not present.
+// /home/wwimpo/smtp_config.php should define:
+//   IMPORLAN_SMTP_HOST, IMPORLAN_SMTP_PORT, IMPORLAN_SMTP_SECURE,
+//   IMPORLAN_SMTP_USERNAME, IMPORLAN_SMTP_PASSWORD
+$smtpConfigFile = '/home/wwimpo/smtp_config.php';
+if (file_exists($smtpConfigFile)) {
+    require_once $smtpConfigFile;
+}
+if (!defined('IMPORLAN_SMTP_HOST'))     define('IMPORLAN_SMTP_HOST',     getenv('IMPORLAN_SMTP_HOST')     ?: 'mail.imporlan.cl');
+if (!defined('IMPORLAN_SMTP_PORT'))     define('IMPORLAN_SMTP_PORT',     (int)(getenv('IMPORLAN_SMTP_PORT') ?: 465));
+if (!defined('IMPORLAN_SMTP_SECURE'))   define('IMPORLAN_SMTP_SECURE',   getenv('IMPORLAN_SMTP_SECURE')   ?: 'ssl');
+if (!defined('IMPORLAN_SMTP_USERNAME')) define('IMPORLAN_SMTP_USERNAME', getenv('IMPORLAN_SMTP_USERNAME') ?: 'contacto@imporlan.cl');
+if (!defined('IMPORLAN_SMTP_PASSWORD')) define('IMPORLAN_SMTP_PASSWORD', getenv('IMPORLAN_SMTP_PASSWORD') ?: '');
+
 class EmailService {
     protected $pdo;
-    
-    // SMTP Configuration
-    private $smtpHost = 'mail.imporlan.cl';
-    private $smtpPort = 465;
-    private $smtpSecure = 'ssl';
-    private $smtpUsername = 'contacto@imporlan.cl';
-    private $smtpPassword = '^IBn?P-Z5@#_';
+
+    // SMTP Configuration (loaded from /home/wwimpo/smtp_config.php in production)
+    private $smtpHost;
+    private $smtpPort;
+    private $smtpSecure;
+    private $smtpUsername;
+    private $smtpPassword;
     
     // Email Configuration
     private $fromEmail = 'contacto@imporlan.cl';
@@ -68,12 +83,22 @@ class EmailService {
     
     public function __construct() {
         $this->pdo = getDbConnection();
-        
+
+        $this->smtpHost     = IMPORLAN_SMTP_HOST;
+        $this->smtpPort     = IMPORLAN_SMTP_PORT;
+        $this->smtpSecure   = IMPORLAN_SMTP_SECURE;
+        $this->smtpUsername = IMPORLAN_SMTP_USERNAME;
+        $this->smtpPassword = IMPORLAN_SMTP_PASSWORD;
+
+        if (empty($this->smtpPassword)) {
+            error_log('CRITICAL: SMTP password not configured. Set IMPORLAN_SMTP_PASSWORD in /home/wwimpo/smtp_config.php');
+        }
+
         // Auto-detect TEST environment based on script path
         // If running from /test/, /panel-test/, or /api-test/ directories, enable test mode
         $scriptPath = $_SERVER['SCRIPT_FILENAME'] ?? __FILE__;
         $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($scriptPath, '/test/') !== false || 
+        if (strpos($scriptPath, '/test/') !== false ||
             strpos($scriptPath, '/panel-test/') !== false ||
             strpos($requestUri, '/test/') !== false ||
             strpos($requestUri, '/panel-test/') !== false) {
@@ -379,7 +404,12 @@ BASE64;
             'marketplace_lead' => ['subject' => 'Nuevo registro en oportunidades semanales', 'template' => 'internal_marketplace_lead'],
             'payment_request_created' => ['subject' => 'Nueva solicitud de pago creada', 'template' => 'internal_payment_request_created'],
             'payment_request_paid' => ['subject' => 'Solicitud de pago confirmada', 'template' => 'internal_payment_request_paid'],
-            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled']
+            'payment_request_cancelled' => ['subject' => 'Solicitud de pago cancelada', 'template' => 'internal_payment_request_cancelled'],
+            'pago_directo' => ['subject' => 'Pago Directo - Pago Confirmado', 'template' => 'internal_pago_directo'],
+            'cotizacion_links_activated' => ['subject' => 'Cotizacion por Links - Activada', 'template' => 'internal_cotizacion_links_activated'],
+            'plan_busqueda_activated' => ['subject' => 'Plan de Busqueda - Activado', 'template' => 'internal_plan_busqueda_activated'],
+            'status_change' => ['subject' => 'Cambio de estado de orden', 'template' => 'internal_status_change'],
+            'payment_reminder_sent' => ['subject' => 'Recordatorio de pago enviado', 'template' => 'internal_payment_reminder_sent']
         ];
         
         if (!isset($notifications[$type])) {
@@ -589,16 +619,24 @@ BASE64;
     public function sendQuotationFormEmail($userEmail, $firstName, $formData) {
         $htmlContent = $this->getQuotationFormTemplate($firstName, $formData);
         $subject = 'Cotizacion por Links - Formulario de Servicios';
-        
-        $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
-        
+
+        $clientResult = $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
+
         $adminHtml = $this->getQuotationFormAdminTemplate($firstName, $formData);
         $adminSubject = 'Cotizacion por Links - Formulario del Cliente';
+        $adminResults = [];
         foreach ($this->adminEmails as $adminEmail) {
-            $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
+            $adminResults[] = $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
         }
-        
-        return ['success' => true];
+
+        $adminOk = false;
+        foreach ($adminResults as $r) { if (!empty($r['success'])) { $adminOk = true; break; } }
+
+        return [
+            'success' => !empty($clientResult['success']) && $adminOk,
+            'client'  => $clientResult,
+            'admin'   => $adminResults,
+        ];
     }
     
     private function storeQuotationRequest($requestData) {
@@ -2894,9 +2932,112 @@ BASE64;
                 return $this->getInternalPaymentRequestPaidTemplate($data);
             case 'internal_payment_request_cancelled':
                 return $this->getInternalPaymentRequestCancelledTemplate($data);
+            case 'internal_pago_directo':
+                return $this->getInternalPagoDirectoTemplate($data);
+            case 'internal_cotizacion_links_activated':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Cotizacion por Links - Activada',
+                    'success',
+                    'Servicio Activado',
+                    $data
+                );
+            case 'internal_plan_busqueda_activated':
+                return $this->getInternalGenericNotificationTemplate(
+                    ($data['plan_name'] ?? 'Plan de Busqueda') . ' - Activado',
+                    'success',
+                    'Plan Activado',
+                    $data
+                );
+            case 'internal_status_change':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Cambio de estado de orden',
+                    'info',
+                    'Estado actualizado',
+                    $data
+                );
+            case 'internal_payment_reminder_sent':
+                return $this->getInternalGenericNotificationTemplate(
+                    'Recordatorio de pago enviado',
+                    'info',
+                    'Recordatorio enviado',
+                    $data
+                );
             default:
                 return '';
         }
+    }
+
+    private function getInternalGenericNotificationTemplate($title, $badgeType, $badgeText, $data) {
+        $c = $this->colors;
+        $rows = [];
+        $labels = [
+            'user_email' => 'Email',
+            'user_name' => 'Cliente',
+            'plan_name' => 'Plan',
+            'description' => 'Descripcion',
+            'amount' => 'Monto',
+            'currency' => 'Moneda',
+            'payment_method' => 'Metodo de pago',
+            'payment_reference' => 'Referencia',
+            'purchase_date' => 'Fecha',
+            'order_id' => 'Orden',
+            'old_status' => 'Estado anterior',
+            'new_status' => 'Nuevo estado',
+            'phone' => 'Telefono',
+            'reminder_count' => 'Recordatorio #'
+        ];
+        foreach ($labels as $key => $label) {
+            if (isset($data[$key]) && $data[$key] !== '' && !is_array($data[$key])) {
+                $rows[$label] = $data[$key];
+            }
+        }
+        if (empty($rows)) {
+            foreach ($data as $k => $v) {
+                if (!is_array($v) && $v !== '') {
+                    $rows[$k] = $v;
+                }
+            }
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge($badgeType, $badgeText) . '
+            </div>
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                ' . htmlspecialchars($title) . '
+            </h2>
+            ' . $this->getInfoCard('Detalle', $rows);
+
+        return $this->getBaseTemplate($content, $title . ' - Admin');
+    }
+
+    private function getInternalPagoDirectoTemplate($data) {
+        $c = $this->colors;
+        $description = $data['description'] ?? 'Pago Directo';
+        $title = 'Pago Directo - ' . $description;
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 25px;">
+                ' . $this->getStatusBadge('success', 'Pago Confirmado') . '
+            </div>
+            <h2 style="margin: 0 0 25px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">
+                ' . htmlspecialchars($title) . '
+            </h2>
+            ' . $this->getInfoCard('Datos del Cliente', [
+                'Cliente' => $data['user_name'] ?? '-',
+                'Email' => $data['user_email'] ?? '-',
+                'Telefono' => $data['phone'] ?? ($data['payer_phone'] ?? '-'),
+                'Descripcion' => $description,
+                'Monto' => '$' . ($data['amount'] ?? '0') . ' ' . ($data['currency'] ?? 'CLP'),
+                'Metodo de pago' => $data['payment_method'] ?? '-',
+                'Referencia' => $data['payment_reference'] ?? 'N/A',
+                'Fecha' => $data['purchase_date'] ?? date('d/m/Y')
+            ]) . '
+            <p style="margin: 20px 0 0 0; color: ' . $c['success'] . '; font-size: 13px; text-align: center; font-weight: 600;">
+                Pago directo recibido. Verificar si requiere factura o boleta.
+            </p>';
+
+        return $this->getBaseTemplate($content, $title . ' - Admin');
     }
     
     private function getInternalNewRegistrationTemplate($data) {
