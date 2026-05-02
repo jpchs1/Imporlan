@@ -15,15 +15,30 @@
 
 require_once __DIR__ . '/db_config.php';
 
+// SMTP credentials are loaded from an external server-only config file so they
+// stay out of git. Fall back to environment variables if not present.
+// /home/wwimpo/smtp_config.php should define:
+//   IMPORLAN_SMTP_HOST, IMPORLAN_SMTP_PORT, IMPORLAN_SMTP_SECURE,
+//   IMPORLAN_SMTP_USERNAME, IMPORLAN_SMTP_PASSWORD
+$smtpConfigFile = '/home/wwimpo/smtp_config.php';
+if (file_exists($smtpConfigFile)) {
+    require_once $smtpConfigFile;
+}
+if (!defined('IMPORLAN_SMTP_HOST'))     define('IMPORLAN_SMTP_HOST',     getenv('IMPORLAN_SMTP_HOST')     ?: 'mail.imporlan.cl');
+if (!defined('IMPORLAN_SMTP_PORT'))     define('IMPORLAN_SMTP_PORT',     (int)(getenv('IMPORLAN_SMTP_PORT') ?: 465));
+if (!defined('IMPORLAN_SMTP_SECURE'))   define('IMPORLAN_SMTP_SECURE',   getenv('IMPORLAN_SMTP_SECURE')   ?: 'ssl');
+if (!defined('IMPORLAN_SMTP_USERNAME')) define('IMPORLAN_SMTP_USERNAME', getenv('IMPORLAN_SMTP_USERNAME') ?: 'contacto@imporlan.cl');
+if (!defined('IMPORLAN_SMTP_PASSWORD')) define('IMPORLAN_SMTP_PASSWORD', getenv('IMPORLAN_SMTP_PASSWORD') ?: '');
+
 class EmailService {
     protected $pdo;
-    
-    // SMTP Configuration
-    private $smtpHost = 'mail.imporlan.cl';
-    private $smtpPort = 465;
-    private $smtpSecure = 'ssl';
-    private $smtpUsername = 'contacto@imporlan.cl';
-    private $smtpPassword = '^IBn?P-Z5@#_';
+
+    // SMTP Configuration (loaded from /home/wwimpo/smtp_config.php in production)
+    private $smtpHost;
+    private $smtpPort;
+    private $smtpSecure;
+    private $smtpUsername;
+    private $smtpPassword;
     
     // Email Configuration
     private $fromEmail = 'contacto@imporlan.cl';
@@ -68,12 +83,22 @@ class EmailService {
     
     public function __construct() {
         $this->pdo = getDbConnection();
-        
+
+        $this->smtpHost     = IMPORLAN_SMTP_HOST;
+        $this->smtpPort     = IMPORLAN_SMTP_PORT;
+        $this->smtpSecure   = IMPORLAN_SMTP_SECURE;
+        $this->smtpUsername = IMPORLAN_SMTP_USERNAME;
+        $this->smtpPassword = IMPORLAN_SMTP_PASSWORD;
+
+        if (empty($this->smtpPassword)) {
+            error_log('CRITICAL: SMTP password not configured. Set IMPORLAN_SMTP_PASSWORD in /home/wwimpo/smtp_config.php');
+        }
+
         // Auto-detect TEST environment based on script path
         // If running from /test/, /panel-test/, or /api-test/ directories, enable test mode
         $scriptPath = $_SERVER['SCRIPT_FILENAME'] ?? __FILE__;
         $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($scriptPath, '/test/') !== false || 
+        if (strpos($scriptPath, '/test/') !== false ||
             strpos($scriptPath, '/panel-test/') !== false ||
             strpos($requestUri, '/test/') !== false ||
             strpos($requestUri, '/panel-test/') !== false) {
@@ -594,16 +619,24 @@ BASE64;
     public function sendQuotationFormEmail($userEmail, $firstName, $formData) {
         $htmlContent = $this->getQuotationFormTemplate($firstName, $formData);
         $subject = 'Cotizacion por Links - Formulario de Servicios';
-        
-        $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
-        
+
+        $clientResult = $this->sendEmail($userEmail, $subject, $htmlContent, 'quotation_form_client', $formData);
+
         $adminHtml = $this->getQuotationFormAdminTemplate($firstName, $formData);
         $adminSubject = 'Cotizacion por Links - Formulario del Cliente';
+        $adminResults = [];
         foreach ($this->adminEmails as $adminEmail) {
-            $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
+            $adminResults[] = $this->sendEmail($adminEmail, $adminSubject, $adminHtml, 'quotation_form_admin', $formData);
         }
-        
-        return ['success' => true];
+
+        $adminOk = false;
+        foreach ($adminResults as $r) { if (!empty($r['success'])) { $adminOk = true; break; } }
+
+        return [
+            'success' => !empty($clientResult['success']) && $adminOk,
+            'client'  => $clientResult,
+            'admin'   => $adminResults,
+        ];
     }
     
     private function storeQuotationRequest($requestData) {
