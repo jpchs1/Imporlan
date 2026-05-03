@@ -523,6 +523,7 @@ BASE64;
             'user_name' => $firstName,
             'description' => $purchaseData['description'] ?? ($isPlan ? $purchaseData['plan_name'] ?? 'Plan de Busqueda' : 'Cotizacion por Links'),
             'items' => $purchaseData['items'] ?? [],
+            'boat_links' => $purchaseData['boat_links'] ?? [],
             'amount' => number_format($purchaseData['price'], 0, ',', '.'),
             'currency' => $purchaseData['currency'] ?? 'CLP',
             'payment_method' => $purchaseData['payment_method'],
@@ -1610,8 +1611,20 @@ BASE64;
             }
         }
         
+        // Prefer the actual contracted boat_links over the generic items the
+        // payment provider may have sent (e.g. MercadoPago often sends a single
+        // "Cotizacion Online - 3 links" placeholder instead of the real URLs).
+        $items = [];
+        if (!empty($purchaseData['boat_links']) && is_array($purchaseData['boat_links'])) {
+            foreach ($purchaseData['boat_links'] as $link) {
+                if (!empty($link)) $items[] = ['title' => $link, 'url' => $link];
+            }
+        }
+        if (empty($items) && !empty($purchaseData['items']) && is_array($purchaseData['items'])) {
+            $items = $purchaseData['items'];
+        }
+
         $itemsHtml = '';
-        $items = $purchaseData['items'] ?? [];
         if (!empty($items) && is_array($items)) {
             $sectionTitle = $isPlan ? 'Servicios Contratados' : 'Links Contratados';
             $itemsHtml = '
@@ -3244,16 +3257,31 @@ BASE64;
             </table>';
         }
         
+        // Prefer the actual contracted boat_links over the generic items the
+        // payment provider may have sent (e.g. MercadoPago often sends a single
+        // "Cotizacion Online - 3 links" placeholder instead of the real URLs).
+        $linksToRender = [];
+        if (!empty($data['boat_links']) && is_array($data['boat_links'])) {
+            foreach ($data['boat_links'] as $link) {
+                if (!empty($link)) $linksToRender[] = ['title' => $link, 'url' => $link];
+            }
+        }
+        if (empty($linksToRender) && !empty($data['items']) && is_array($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $linksToRender[] = is_array($item) ? $item : ['title' => $item, 'url' => ''];
+            }
+        }
+
         $itemsHtml = '';
-        if (!empty($data['items']) && is_array($data['items'])) {
+        if (!empty($linksToRender)) {
             $sectionLabel = $isPlan ? 'Servicios Contratados' : 'Links Contratados';
             $itemsHtml = '
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; margin: 20px 0; border-left: 4px solid ' . $c['success'] . ';">
                 <tr>
                     <td style="padding: 20px;">
                         <h3 style="margin: 0 0 15px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">' . $sectionLabel . '</h3>';
-            
-            foreach ($data['items'] as $i => $item) {
+
+            foreach ($linksToRender as $i => $item) {
                 $title = is_array($item) ? ($item['title'] ?? $item['description'] ?? 'Servicio ' . ($i + 1)) : $item;
                 $url = is_array($item) ? ($item['url'] ?? '') : '';
                 $isUrl = !empty($url) && (strpos($url, 'http') === 0);
@@ -3261,14 +3289,14 @@ BASE64;
                     $url = $title;
                     $isUrl = true;
                 }
-                
+
                 $displayContent = $isUrl
                     ? '<a href="' . htmlspecialchars($url ?: $title) . '" style="color: ' . $c['primary'] . '; word-break: break-all;">' . htmlspecialchars($title) . '</a>'
                     : htmlspecialchars($title);
-                
+
                 $itemsHtml .= '<p style="margin: 0 0 8px 0; font-size: 13px; color: ' . $c['text_dark'] . ';"><span style="display: inline-block; width: 20px; height: 20px; background: ' . $c['success'] . '; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; margin-right: 8px; font-weight: 700;">' . ($i + 1) . '</span>' . $displayContent . '</p>';
             }
-            
+
             $itemsHtml .= '</td></tr></table>';
         }
         
