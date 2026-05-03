@@ -450,6 +450,7 @@ function sendPurchaseConfirmationEmail($purchase) {
         $commonData = [
             'description' => $productName ?: ($purchaseType === 'plan' ? $planName : 'Cotizacion por Links'),
             'items' => $items,
+            'boat_links' => $purchase['boat_links'] ?? [],
             'price' => $purchase['amount_clp'],
             'currency' => 'CLP',
             'payment_method' => 'WebPay',
