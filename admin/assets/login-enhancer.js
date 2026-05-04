@@ -131,7 +131,7 @@
         '</div>' +
         '<p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.5">' +
           'Ingresa tu email de inicio de sesion (<strong>admin@imporlan.cl</strong>).<br>' +
-          'Se enviara un enlace de recuperacion a <strong>contacto@imporlan.cl</strong>.' +
+          'El enlace de recuperacion se enviara al buzon del administrador: <strong>contacto@imporlan.cl</strong>.' +
         '</p>' +
         '<label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:#475569">Email de inicio de sesion</label>' +
         '<input id="admin-forgot-email" type="email" value="admin@imporlan.cl" ' +
@@ -182,12 +182,16 @@
         msgEl.style.display = "block";
         if (data.success) {
           msgEl.style.color = "#10b981";
-          msgEl.textContent = data.message || "Se ha enviado un enlace de recuperacion a contacto@imporlan.cl.";
+          msgEl.textContent = data.message || "Se envio un enlace de recuperacion al buzon del administrador (contacto@imporlan.cl). Revisa la bandeja de entrada y la carpeta de spam.";
           sendBtn.textContent = "Enlace Enviado";
           sendBtn.style.background = "#10b981";
         } else {
           msgEl.style.color = "#ef4444";
-          msgEl.textContent = data.error || "No se pudo procesar la solicitud.";
+          var errorText = data.error || "No se pudo procesar la solicitud.";
+          if (data.detail) {
+            errorText += " (" + data.detail + ")";
+          }
+          msgEl.textContent = errorText;
           sendBtn.disabled = false;
           sendBtn.textContent = "Enviar Enlace de Recuperacion";
           sendBtn.style.opacity = "1";
