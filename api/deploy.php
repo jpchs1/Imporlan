@@ -109,8 +109,6 @@ if ($action === 'sync_files') {
         'panel/assets/marketplace-enhancer.js',
         'panel/assets/chat-widget-user.js',
         'panel/assets/notifications-enhancer.js',
-        'panel/admin/assets/admin-data-enhancer.js',
-        'panel-test/admin/assets/admin-data-enhancer.js',
         'api/users_api.php',
         'api/email_service.php',
         'api/marketplace_api.php',
