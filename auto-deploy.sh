@@ -59,7 +59,7 @@ done
 
 # --- Deploy all directories ---
 DIRS=(
-  assets api admin panel marketplace pago images
+  assets api panel marketplace pago images
   cotizador-importacion cotizar-importacion simulacion-cotizacion
   embarcaciones embarcaciones-usadas
   lanchas lanchas-usadas lanchas-usadas-en-chile-2 lanchas-de-pesca-usadas lanchas-de-ski

@@ -10,6 +10,30 @@ export const login = (email, password) =>
 export const verify2FA = (code, tempToken) =>
   request(`${API_BASE}/auth_local.php?action=verify-2fa`, { method: 'POST', body: JSON.stringify({ code, temp_token: tempToken }) });
 
+export const forgotPassword = (email) =>
+  request(`${API_BASE}/admin_forgot_password.php`, { method: 'POST', body: JSON.stringify({ email }) });
+
+// Profile (admin)
+export const getProfile = () => request(`${API_BASE}/admin_profile.php`);
+export const updateProfileName = (name) =>
+  request(`${API_BASE}/admin_profile.php`, { method: 'POST', body: JSON.stringify({ action: 'update_profile', name }) });
+export const changeProfilePassword = (currentPassword, newPassword, confirmPassword) =>
+  request(`${API_BASE}/admin_profile.php`, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'change_password',
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    }),
+  });
+export async function uploadProfilePhoto(file) {
+  const fd = new FormData();
+  fd.append('action', 'update_photo');
+  fd.append('avatar', file);
+  return uploadFile(`${API_BASE}/admin_profile.php`, fd);
+}
+
 // Dashboard
 export const getDashboard = () => request(`${API_BASE}/admin_api.php?action=dashboard`);
 
