@@ -2,17 +2,21 @@
 /**
  * Admin Reset Password Page - Imporlan Admin Panel
  * Validates the reset token and allows the admin to set a new password.
- * Updates the hardcoded admin password in the PHP auth files (proxy.php, admin_api.php).
+ *
+ * The admin password is loaded by api/credentials.php from one of:
+ *   1. /home/wwimpo/credentials_config.php (cPanel-level config, outside web root)
+ *   2. Environment variable IMPORLAN_ADMIN_PASSWORD
+ *   3. api/.admin_password (persistent secret file, auto-generated fallback)
+ *
+ * To make a password change actually take effect, this script writes to (1) when
+ * present and always refreshes (3). Env vars cannot be updated from PHP.
  */
 
 $tokenDir = __DIR__ . '/../.admin_reset_tokens';
 $tokenFile = $tokenDir . '/token.json';
 
-// Files that contain the hardcoded admin password and need updating
-$authFiles = [
-    __DIR__ . '/test/proxy.php',
-    __DIR__ . '/admin_api.php',
-];
+$cpanelConfigFile  = '/home/wwimpo/credentials_config.php';
+$persistentSecretFile = __DIR__ . '/.admin_password';
 
 // Handle POST (password update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -61,71 +65,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Token is valid - update the hardcoded admin password in the PHP auth files
     try {
-        $updatedCount = 0;
-        $errors = [];
+        $log = [];
+        $effectiveUpdate = false;
 
-        foreach ($authFiles as $filePath) {
-            if (!file_exists($filePath)) {
-                continue;
-            }
-
-            $content = file_get_contents($filePath);
+        // 1) cPanel-level credentials_config.php — this is what credentials.php
+        // pulls the password from in production (outside web root).
+        if (file_exists($cpanelConfigFile)) {
+            $content = @file_get_contents($cpanelConfigFile);
             if ($content === false) {
-                $errors[] = basename($filePath) . ': no se pudo leer';
-                continue;
-            }
-
-            // Match the line: $adminPassword = 'xxx'; (in proxy.php)
-            // or: define('ADMIN_PASSWORD', 'xxx'); (in admin_api.php)
-            // Use preg_replace_callback to avoid $ backreference issues in passwords
-            $escapedPassword = addcslashes($newPassword, "'\\");
-            $changed = false;
-
-            // Pattern for proxy.php style: $adminPassword = 'xxx';
-            $newContent = preg_replace_callback(
-                "/\\\$adminPassword\s*=\s*'[^']*'/",
-                function() use ($escapedPassword) {
-                    return "\$adminPassword = '" . $escapedPassword . "'";
-                },
-                $content,
-                -1,
-                $count
-            );
-            if ($count > 0) $changed = true;
-
-            // Pattern for admin_api.php style: define('ADMIN_PASSWORD', 'xxx');
-            $newContent = preg_replace_callback(
-                "/define\\s*\\(\\s*'ADMIN_PASSWORD'\\s*,\\s*'[^']*'\\s*\\)/",
-                function() use ($escapedPassword) {
-                    return "define('ADMIN_PASSWORD', '" . $escapedPassword . "')";
-                },
-                $newContent,
-                -1,
-                $count
-            );
-            if ($count > 0) $changed = true;
-
-            if ($changed) {
-                if (file_put_contents($filePath, $newContent) !== false) {
-                    $updatedCount++;
+                $log[] = 'credentials_config.php: no se pudo leer';
+            } else {
+                $escapedPassword = addcslashes($newPassword, "'\\");
+                $newContent = preg_replace_callback(
+                    "/define\\s*\\(\\s*'IMPORLAN_ADMIN_PASSWORD'\\s*,\\s*'[^']*'\\s*\\)/",
+                    function () use ($escapedPassword) {
+                        return "define('IMPORLAN_ADMIN_PASSWORD', '" . $escapedPassword . "')";
+                    },
+                    $content,
+                    -1,
+                    $count
+                );
+                if ($count > 0) {
+                    if (@file_put_contents($cpanelConfigFile, $newContent) !== false) {
+                        $effectiveUpdate = true;
+                        $log[] = 'credentials_config.php actualizado';
+                    } else {
+                        $log[] = 'credentials_config.php: sin permisos de escritura';
+                    }
                 } else {
-                    $errors[] = basename($filePath) . ': no se pudo escribir';
+                    $log[] = 'credentials_config.php: no contiene IMPORLAN_ADMIN_PASSWORD';
                 }
             }
         }
 
-        if ($updatedCount === 0) {
-            if (!empty($errors)) {
-                throw new Exception('No se pudo actualizar la contrasena: ' . implode(', ', $errors));
-            } else {
-                throw new Exception('No se encontraron los archivos de autenticacion para actualizar.');
+        // 2) Persistent secret file (api/.admin_password) — fallback used by
+        // _loadPersistentSecret() when neither (1) nor the env var defines the
+        // constant. Always refresh it so the new password sticks if the
+        // production setup ever drops back to the fallback path.
+        if (@file_put_contents($persistentSecretFile, $newPassword) !== false) {
+            @chmod($persistentSecretFile, 0600);
+            $log[] = '.admin_password actualizado';
+            // Only count as effective if cPanel config didn't already win.
+            if (!$effectiveUpdate && !file_exists($cpanelConfigFile)) {
+                $effectiveUpdate = true;
             }
+        } else {
+            $log[] = '.admin_password: sin permisos de escritura';
         }
 
-        // Invalidate the token
+        if (!$effectiveUpdate) {
+            throw new Exception('No se pudo actualizar la contrasena. ' . implode('; ', $log));
+        }
+
         @unlink($tokenFile);
+
+        error_log('admin_reset_password: ' . implode('; ', $log));
 
         echo json_encode([
             'success' => true,
