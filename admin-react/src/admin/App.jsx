@@ -16,6 +16,7 @@ import Content from './pages/Content';
 import Config from './pages/Config';
 import Security from './pages/Security';
 import Marketplace from './pages/Marketplace';
+import Chat from './pages/Chat';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/content" element={<Content />} />
         <Route path="/config" element={<Config />} />
         <Route path="/security" element={<Security />} />
+        <Route path="/chat" element={<Chat />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

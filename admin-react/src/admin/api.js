@@ -151,6 +151,23 @@ export function scrapeLink(url) {
   return request(`${API_BASE}/link_scraper.php?action=fetch&url=${encodeURIComponent(url)}`);
 }
 
+// Chat
+export const getChatConversations = (status = 'all', assigned = 'all') => {
+  const params = new URLSearchParams({ action: 'admin_conversations', status, assigned });
+  return request(`${API_BASE}/chat_api.php?${params}`);
+};
+export const getChatMessages = (conversationId) =>
+  request(`${API_BASE}/chat_api.php?action=admin_messages&conversation_id=${conversationId}`);
+export const sendChatMessage = (conversationId, message) =>
+  request(`${API_BASE}/chat_api.php?action=admin_send`, { method: 'POST', body: JSON.stringify({ conversation_id: conversationId, message }) });
+export const assignChatConversation = (conversationId) =>
+  request(`${API_BASE}/chat_api.php?action=admin_assign`, { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) });
+export const closeChatConversation = (conversationId) =>
+  request(`${API_BASE}/chat_api.php?action=admin_close`, { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) });
+export const reopenChatConversation = (conversationId) =>
+  request(`${API_BASE}/chat_api.php?action=admin_reopen`, { method: 'POST', body: JSON.stringify({ conversation_id: conversationId }) });
+export const getChatUnreadCount = () => request(`${API_BASE}/chat_api.php?action=admin_unread_count`);
+
 // File upload (multipart)
 export async function uploadLinkImage(orderId, linkId, file) {
   const fd = new FormData();
