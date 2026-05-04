@@ -962,7 +962,7 @@ BASE64;
     public function sendPasswordResetEmail($userEmail, $userName, $temporaryPassword) {
         $c = $this->colors;
 
-        $loginUrl = $this->websiteUrl . '/admin/';
+        $loginUrl = $this->websiteUrl . '/panel/admin/';
 
         $content = '
             <div style="text-align: center; margin-bottom: 25px;">

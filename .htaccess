@@ -7,6 +7,10 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 # 301 Redirects: /pages/ -> /importaciones/
 RedirectMatch 301 ^/pages/(.*)$ /importaciones/$1
 
+# 301 Redirect: legacy /admin/ panel -> new React admin panel at /panel/admin/
+RedirectMatch 301 ^/admin/?$ /panel/admin/
+RedirectMatch 301 ^/admin/(.*)$ /panel/admin/$1
+
 # 301 Redirect: Consolidate duplicate lanchas-usadas page (SEO cannibalization fix)
 RedirectMatch 301 ^/lanchas-usadas-en-chile-2(/.*)?$ /lanchas-usadas/
 

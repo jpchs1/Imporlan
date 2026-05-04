@@ -17,6 +17,7 @@ import Config from './pages/Config';
 import Security from './pages/Security';
 import Marketplace from './pages/Marketplace';
 import Chat from './pages/Chat';
+import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -24,7 +25,7 @@ function ProtectedRoute({ children }) {
 }
 
 function AdminLayout() {
-  return <Layout navItems={NAV_ITEMS} branding={BRANDING} />;
+  return <Layout navItems={NAV_ITEMS} branding={BRANDING} profilePath="/profile" />;
 }
 
 function AppRoutes() {
@@ -46,6 +47,7 @@ function AppRoutes() {
         <Route path="/config" element={<Config />} />
         <Route path="/security" element={<Security />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
