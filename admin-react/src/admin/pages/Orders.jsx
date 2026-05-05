@@ -176,13 +176,18 @@ export default function Orders() {
         engine: '', make: '', model: '', year: null,
       };
       setLinks(prev => [...prev, newLink]);
-      toast?.('Fila agregada');
-      // The new row is appended to the bottom of a scrollable container.
-      // Scroll into view so the admin actually SEES the row that was added.
+      toast?.(`Fila agregada (#${newLink.row_index})`);
+      // Scroll the new row into view at the bottom of the page-level scroll
+      // (no more internal max-height container) so the admin actually sees
+      // the row that was added — but with `block: 'nearest'` so context
+      // above stays visible too.
       setTimeout(() => {
         const c = linksContainerRef.current;
-        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
-      }, 50);
+        const last = c?.lastElementChild;
+        if (last && last.scrollIntoView) {
+          last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 60);
     } catch (e) { toast?.(e.message || 'Error agregando fila', 'error'); }
   }
 
@@ -194,6 +199,23 @@ export default function Orders() {
       setLinks(prev => prev.filter(l => l.id !== linkId));
       toast?.('Link eliminado');
     } catch (e) { toast?.(e.message, 'error'); }
+  }
+
+  // ---- DELETE ALL EMPTY LINKS ----
+  // Bulk-clean rows that have no URL, no make/model and no image — typical
+  // leftover from "Agregar Fila" clicks during testing or from old plans
+  // that pre-allocated empty rows.
+  async function handleDeleteEmptyLinks() {
+    const empty = links.filter(l => !l.url && !l.make && !l.model && !l.image_url);
+    if (!empty.length) return;
+    if (!confirm(`Borrar ${empty.length} fila${empty.length === 1 ? '' : 's'} vacía${empty.length === 1 ? '' : 's'}?`)) return;
+    try {
+      for (const lk of empty) {
+        if (lk.id) await deleteOrderLink(detail.id, lk.id);
+      }
+      setLinks(prev => prev.filter(l => !empty.find(e => e.id === l.id)));
+      toast?.(`${empty.length} fila${empty.length === 1 ? '' : 's'} vacía${empty.length === 1 ? '' : 's'} borrada${empty.length === 1 ? '' : 's'}`);
+    } catch (e) { toast?.(e.message || 'Error borrando filas', 'error'); }
   }
 
   // ---- UPDATE LINK FIELD ----
@@ -444,11 +466,17 @@ export default function Orders() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
             </div>
             <div>
-              <h3 className="font-bold text-slate-800">Ranking de Opciones en USA</h3>
+              <h3 className="font-bold text-slate-800">Ranking de Opciones en USA <span className="text-xs font-normal text-slate-400">({links.length} {links.length === 1 ? 'fila' : 'filas'})</span></h3>
               <p className="text-xs text-slate-400">Arrastra las filas para reordenar</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {links.some(l => !l.url && !l.make && !l.model && !l.image_url) && (
+              <Button variant="secondary" onClick={handleDeleteEmptyLinks} className="flex items-center gap-1.5 !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" title="Borra todas las filas que no tienen URL, marca, modelo ni imagen">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                Borrar vacías
+              </Button>
+            )}
             <Button variant="secondary" onClick={handleNotifyRanking} className="flex items-center gap-1.5 !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Notificar Ranking
             </Button>
@@ -471,8 +499,8 @@ export default function Orders() {
           </div>
         )}
 
-        {/* Links list */}
-        <div ref={linksContainerRef} className="space-y-3" style={{maxHeight:'70vh', overflowY:'auto', paddingRight:'4px'}}>
+        {/* Links list — natural page scroll, no internal max-height. */}
+        <div ref={linksContainerRef} className="space-y-3">
           {links.length === 0 ? (
             <div className="py-12 text-center text-slate-300 text-sm border border-dashed border-slate-200 rounded-2xl">
               No hay links. Agrega uno con el botón de arriba.
