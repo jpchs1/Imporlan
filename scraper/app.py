@@ -23,6 +23,7 @@ Response shape (kept compatible with the previous scraper):
 
 import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -32,6 +33,12 @@ from fastapi import FastAPI, HTTPException, Query
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("scraper")
+
+# When set (via `flyctl secrets set SCRAPINGBEE_API_KEY=...`), the scraper proxies
+# every BoatTrader fetch through ScrapingBee's residential pool — required for
+# more than ~3 calls before Cloudflare flags the Fly.io IP. Without it we fall
+# back to direct curl_cffi, which works for occasional one-off scrapes only.
+SCRAPINGBEE_API_KEY = os.getenv("SCRAPINGBEE_API_KEY", "").strip()
 
 app = FastAPI(title="Imporlan BoatTrader Scraper", version="1.0.0")
 
@@ -90,10 +97,48 @@ def debug(url: str = Query(...), bytes_: int = Query(2000, alias="bytes")):
 _PROFILES = ("chrome", "chrome131", "chrome124", "chrome120")
 
 
-def _fetch_with_rotation(url: str):
-    """Fetch a URL, rotating through curl_cffi impersonation profiles.
-    Returns (html, profile_used, last_error). html is None on total failure.
+def _fetch_via_scrapingbee(url: str):
+    """Fetch URL through ScrapingBee's residential proxy pool.
+
+    Returns (html, "scrapingbee", None) on success, (None, None, error) otherwise.
+    Each call costs 1 ScrapingBee credit (1000/mo on the free tier).
     """
+    if not SCRAPINGBEE_API_KEY:
+        return None, None, "no_scrapingbee_key"
+    api_url = "https://app.scrapingbee.com/api/v1/"
+    params = {
+        "api_key": SCRAPINGBEE_API_KEY,
+        "url": url,
+        # render_js=false: BoatTrader serves SSR HTML so we don't need a headless
+        # browser. Saves ~5x the credits per call.
+        "render_js": "false",
+    }
+    try:
+        r = curl_requests.get(api_url, params=params, timeout=40)
+    except Exception as e:
+        log.warning("scrapingbee fetch failed: %s", e)
+        return None, None, f"scrapingbee_failed: {e}"
+    if r.status_code == 200 and r.text and len(r.text) > 1000:
+        log.info("fetch ok via scrapingbee len=%d", len(r.text))
+        return r.text, "scrapingbee", None
+    log.warning("scrapingbee http=%s body=%s", r.status_code, (r.text or "")[:200])
+    return None, None, f"scrapingbee_http_{r.status_code}"
+
+
+def _fetch_with_rotation(url: str):
+    """Fetch a URL — ScrapingBee first if configured, then direct curl_cffi rotation.
+
+    Returns (html, mechanism_used, last_error). html is None on total failure.
+    """
+    # ScrapingBee handles Cloudflare via residential proxy rotation. If the key
+    # is set we use it as the primary path; direct curl_cffi stays as a backup
+    # for the cases where ScrapingBee itself errors out.
+    if SCRAPINGBEE_API_KEY:
+        html, profile, err = _fetch_via_scrapingbee(url)
+        if html:
+            return html, profile, None
+        log.warning("scrapingbee failed (%s) — falling back to direct fetch", err)
+
     headers = _browser_headers()
     last_err = None
     for profile in _PROFILES:
@@ -441,14 +486,25 @@ def _from_meta(soup: BeautifulSoup, url: str, listing_id) -> dict[str, Any]:
         if loc_val:
             location = loc_val
 
-    # Title tag fallback for location: BoatTrader puts ", <zip> <city> - Boat Trader" there
+    # Title tag fallback for location: BoatTrader puts ", <zip> <city> - Boat Trader"
+    # in the page title for many listings, but for some (e.g. WaveRunners) the title
+    # carries spec data instead like ", 18.5 gal - Boat Trader". Reject anything that
+    # looks like a measurement, then strip a leading 5-digit US zip if present.
     if not location and soup.title and soup.title.string:
         m = re.search(r",\s*(.+?)\s*-\s*Boat\s*Trader\b", soup.title.string, re.I)
         if m:
-            loc = m.group(1).strip()
-            # Strip leading 5-digit US zip if present ("56001 Mankato" -> "Mankato")
-            loc = re.sub(r"^\d{5}\s+", "", loc).strip()
-            location = loc
+            cand = m.group(1).strip()
+            # Reject spec values (e.g. "18.5 gal", "21ft", "220hp", "417 hours")
+            if not re.search(
+                r"\b(gal|gallons?|ft|in|cm|mm|m|kg|lbs?|hp|kw|cc|mph|kn|knots?|hours?|hrs?)\b",
+                cand,
+                re.I,
+            ):
+                # Strip leading US zip ("56001 Mankato" -> "Mankato")
+                cand = re.sub(r"^\d{5}\s+", "", cand).strip()
+                # Final sanity: 2-50 chars, must contain at least 2 letters in a row
+                if 2 <= len(cand) <= 50 and re.search(r"[A-Za-z]{2,}", cand):
+                    location = cand
 
     if hours is None:
         h_val = _find_in_specs(specs, "engine hours", "hours")
