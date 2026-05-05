@@ -11,6 +11,7 @@
  */
 
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/credentials.php';
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -654,40 +655,251 @@ function fetchMetaViaDDG($slug, $listingId) {
  * @return array|null Extracted data or null on failure
  */
 function fetchViaScraperAPI($url) {
-    $apiBase = 'https://imporlan-boattrader-scraper.fly.dev';
-    $apiUrl = $apiBase . '/scrape?url=' . urlencode($url);
-
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $apiUrl,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 20,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_HTTPHEADER => ['Accept: application/json'],
-    ]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200 || !$response) {
-        error_log("[BoatTrader Scraper] Scraper API failed: HTTP $httpCode");
+    // Replaces the previous Fly.io-hosted Python scraper with a direct
+    // ScrapingBee call + PHP parser. Same return shape as before so the
+    // caller (scrapeBoatDetail) doesn't need to know the difference.
+    $html = btFetchHtmlViaScrapingBee($url);
+    if (!$html) {
+        error_log('[BoatTrader Scraper] ScrapingBee fetch returned null');
         return null;
     }
-
-    $data = json_decode($response, true);
+    $data = btParseHtmlListing($html, $url);
     if (!$data || empty($data['success'])) {
-        error_log("[BoatTrader Scraper] Scraper API returned error: " . ($data['error'] ?? 'unknown'));
+        error_log('[BoatTrader Scraper] HTML parser returned no usable data');
         return null;
     }
-
-    error_log("[BoatTrader Scraper] Scraper API success for listing " . ($data['listing_id'] ?? '?')
+    error_log("[BoatTrader Scraper] PHP-parsed listing " . ($data['listing_id'] ?? '?')
         . ": city=" . ($data['city'] ?? '')
         . ", price=" . ($data['price'] ?? '')
         . ", hours=" . ($data['hours'] ?? '')
         . ", image=" . (!empty($data['image_url']) ? 'yes' : 'no'));
-
     return $data;
+}
+
+/**
+ * Fetch a BoatTrader listing page through ScrapingBee. The API key comes
+ * from /home/wwimpo/credentials_config.php (IMPORLAN_SCRAPINGBEE_API_KEY)
+ * or the SCRAPINGBEE_API_KEY env var. Returns raw HTML or null.
+ */
+function btFetchHtmlViaScrapingBee(string $url): ?string {
+    $apiKey = defined('IMPORLAN_SCRAPINGBEE_API_KEY') ? IMPORLAN_SCRAPINGBEE_API_KEY : '';
+    if (!$apiKey) {
+        error_log('[BoatTrader Scraper] ScrapingBee API key not configured');
+        return null;
+    }
+    $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query([
+        'api_key' => $apiKey,
+        'url' => $url,
+        // BoatTrader serves SSR HTML so we don't need a headless browser
+        // (saves ~5x credits per call on the free 1000/month tier).
+        'render_js' => 'false',
+    ]);
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $sbUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 40,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($httpCode !== 200 || !$response || strlen($response) < 1000) {
+        if (in_array($httpCode, [401, 403])) {
+            error_log("[BoatTrader Scraper] ScrapingBee credits exhausted or invalid key (HTTP $httpCode)");
+        } elseif ($httpCode === 429) {
+            error_log('[BoatTrader Scraper] ScrapingBee rate limited');
+        } else {
+            error_log("[BoatTrader Scraper] ScrapingBee HTTP $httpCode, body length: " . strlen($response ?? ''));
+        }
+        return null;
+    }
+    return $response;
+}
+
+/**
+ * Parse a BoatTrader listing HTML into the same shape the Fly.io scraper
+ * used to return. Combines og:meta + JSON-LD (Product / additionalProperty)
+ * + visible spec tables (dt/dd, table rows) + the <title> tag fallback for
+ * location.
+ */
+function btParseHtmlListing(string $html, string $url): ?array {
+    $doc = new DOMDocument();
+    $prevErrors = libxml_use_internal_errors(true);
+    @$doc->loadHTML('<?xml encoding="UTF-8">' . $html);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prevErrors);
+    $xpath = new DOMXPath($doc);
+
+    $boat = [
+        'success' => false,
+        'title' => '',
+        'price' => null,
+        'value_usa_usd' => null,
+        'location' => '',
+        'city' => '',
+        'hours' => null,
+        'engine' => '',
+        'image_url' => '',
+        'listing_id' => '',
+        'url' => $url,
+        'source' => 'php_parser',
+    ];
+
+    if (preg_match('/-(\d{6,})\/?(?:\?|$)/', $url, $m)) $boat['listing_id'] = $m[1];
+
+    // og:meta — works for most pages even when JSON-LD is sparse.
+    foreach ($xpath->query('//meta[@property]') as $meta) {
+        $prop = $meta->getAttribute('property');
+        $content = trim($meta->getAttribute('content'));
+        if ($prop === 'og:title' && !$boat['title']) $boat['title'] = $content;
+        if ($prop === 'og:image' && !$boat['image_url']) $boat['image_url'] = $content;
+    }
+
+    // JSON-LD (Product / Vehicle / additionalProperty).
+    foreach ($xpath->query('//script[@type="application/ld+json"]') as $script) {
+        $payload = json_decode($script->textContent, true);
+        if (!$payload) continue;
+        $items = isset($payload[0]) ? $payload : [$payload];
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            $offers = is_array($item['offers'] ?? null) ? $item['offers'] : [];
+            if ($boat['price'] === null) {
+                $p = $offers['price'] ?? $offers['lowPrice'] ?? $item['price'] ?? null;
+                if ($p !== null && $p !== '') $boat['price'] = floatval($p);
+            }
+            if (!$boat['title'] && !empty($item['name'])) $boat['title'] = (string)$item['name'];
+            if (!$boat['image_url'] && !empty($item['image'])) {
+                $im = $item['image'];
+                $boat['image_url'] = is_array($im) ? (string)($im[0] ?? '') : (string)$im;
+            }
+            if (!$boat['location']) {
+                foreach (['areaServed', 'location', 'address'] as $k) {
+                    $src = $item[$k] ?? ($offers[$k] ?? null);
+                    $addr = (is_array($src) && isset($src['address']) && is_array($src['address'])) ? $src['address'] : $src;
+                    if (is_array($addr)) {
+                        $city = $addr['addressLocality'] ?? $addr['city'] ?? '';
+                        $state = $addr['addressRegion'] ?? $addr['state'] ?? '';
+                        $loc = trim(implode(', ', array_filter([$city, $state])));
+                        if ($loc) { $boat['location'] = $loc; break; }
+                    }
+                }
+            }
+            if (!$boat['engine'] && isset($item['vehicleEngine'])) {
+                $ve = $item['vehicleEngine'];
+                if (is_array($ve)) $boat['engine'] = trim((string)($ve['name'] ?? $ve['description'] ?? ''));
+                elseif (is_string($ve)) $boat['engine'] = trim($ve);
+            }
+            $extra = $item['additionalProperty'] ?? null;
+            if (is_array($extra)) {
+                foreach ($extra as $p) {
+                    if (!is_array($p)) continue;
+                    $name = strtolower((string)($p['name'] ?? ''));
+                    $val = $p['value'] ?? $p['propertyValue'] ?? null;
+                    if ($val === null || $val === '') continue;
+                    if ($boat['hours'] === null && strpos($name, 'hour') !== false) {
+                        $clean = preg_replace('/[^\d]/', '', (string)$val);
+                        if ($clean !== '') $boat['hours'] = intval($clean);
+                    } elseif (!$boat['engine'] && (strpos($name, 'engine') !== false || strpos($name, 'power') !== false || strpos($name, 'motor') !== false || strpos($name, 'propulsion') !== false)) {
+                        $boat['engine'] = (string)$val;
+                    }
+                }
+            }
+        }
+    }
+
+    // Spec tables (visible HTML).
+    $specs = btExtractSpecsFromXPath($xpath);
+
+    if (!$boat['engine']) {
+        $eMake = btSpecsLookupWord($specs, ['engine make', 'engine 1 make']);
+        $eModel = btSpecsLookupWord($specs, ['engine model', 'engine 1 model']);
+        $parts = array_filter([$eMake, $eModel], fn($v) => $v !== null && $v !== '');
+        if ($parts) $boat['engine'] = trim(implode(' ', $parts));
+        else $boat['engine'] = btSpecsLookupWord($specs, ['primary engine', 'engine type', 'power', 'propulsion', 'engine']) ?? '';
+    }
+    if ($boat['hours'] === null) {
+        $h = btSpecsLookupWord($specs, ['engine hours', 'hours']);
+        if ($h !== null && $h !== '') {
+            $clean = preg_replace('/[^\d]/', '', $h);
+            if ($clean !== '') $boat['hours'] = intval($clean);
+        }
+    }
+    if (!$boat['location']) {
+        $loc = btSpecsLookupWord($specs, ['location', 'city', 'boat location', 'dealer location']);
+        if ($loc) $boat['location'] = $loc;
+    }
+
+    // <title> tag fallback for location.
+    if (!$boat['location']) {
+        $titleNode = $xpath->query('//title')->item(0);
+        $titleText = $titleNode ? trim($titleNode->textContent) : '';
+        if ($titleText && preg_match('/,\s*(.+?)\s*-\s*Boat\s*Trader\b/i', $titleText, $tm)) {
+            $cand = trim($tm[1]);
+            if (!preg_match('/\b(gal|gallons?|ft|in|cm|mm|m|kg|lbs?|hp|kw|cc|mph|kn|knots?|hours?|hrs?)\b/i', $cand)) {
+                $cand = trim(preg_replace('/^\d{5}\s+/', '', $cand));
+                if (strlen($cand) >= 2 && strlen($cand) <= 50 && preg_match('/[A-Za-z]{2,}/', $cand)) {
+                    $boat['location'] = $cand;
+                }
+            }
+        }
+    }
+
+    $boat['city'] = $boat['location'];
+    $boat['value_usa_usd'] = $boat['price'];
+    $boat['success'] = !empty($boat['title']) || !empty($boat['image_url']);
+    return $boat;
+}
+
+/**
+ * Walk every dt/dd, table row and "label: value" candidate in the page
+ * and collect them as a flat lower-cased label => value map.
+ */
+function btExtractSpecsFromXPath(DOMXPath $xpath): array {
+    $specs = [];
+    $remember = function ($label, $value) use (&$specs) {
+        $label = strtolower(trim((string)$label));
+        $label = rtrim($label, ":");
+        $value = trim((string)$value);
+        if ($label !== '' && $value !== '' && !isset($specs[$label])) {
+            $specs[$label] = $value;
+        }
+    };
+    foreach ($xpath->query('//dt') as $dt) {
+        $sib = $dt->nextSibling;
+        while ($sib && $sib->nodeName !== 'dd') $sib = $sib->nextSibling;
+        if ($sib) $remember($dt->textContent, $sib->textContent);
+    }
+    foreach ($xpath->query('//tr') as $tr) {
+        $cells = [];
+        foreach ($tr->childNodes as $c) {
+            if ($c->nodeName === 'th' || $c->nodeName === 'td') $cells[] = $c->textContent;
+        }
+        if (count($cells) >= 2) $remember($cells[0], $cells[1]);
+    }
+    foreach ($xpath->query('//li | //p | //span') as $el) {
+        $text = trim(preg_replace('/\s+/', ' ', $el->textContent ?? ''));
+        if ($text === '' || strlen($text) > 80) continue;
+        if (preg_match('/^([A-Za-z][A-Za-z \/-]{2,30})\s*[:|]\s*(.+)$/u', $text, $m)) {
+            $remember($m[1], $m[2]);
+        }
+    }
+    return $specs;
+}
+
+/**
+ * Look up a value by whole-word match against spec keys. Whole-word
+ * matching avoids the bug where "city" matches "capacity" (PR #493).
+ */
+function btSpecsLookupWord(array $specs, array $needles): ?string {
+    foreach ($needles as $n) {
+        $pat = '/\b' . preg_quote(strtolower($n), '/') . '\b/i';
+        foreach ($specs as $k => $v) {
+            if (preg_match($pat, $k)) return $v;
+        }
+    }
+    return null;
 }
 
 /**

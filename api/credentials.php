@@ -66,3 +66,13 @@ if (!defined('IMPORLAN_SUPPORT_PASSWORD')) {
 if (!defined('IMPORLAN_JWT_SECRET')) {
     define('IMPORLAN_JWT_SECRET', _loadPersistentSecret('IMPORLAN_JWT_SECRET', 'jwt_secret'));
 }
+
+// ScrapingBee — used by api/boattrader_scraper.php to fetch listing pages
+// from BoatTrader through a residential proxy (Cloudflare blocks our
+// datacenter IPs otherwise). Free tier covers 1000 requests/month.
+// Set in /home/wwimpo/credentials_config.php with:
+//     define('IMPORLAN_SCRAPINGBEE_API_KEY', '...');
+// or via environment variable SCRAPINGBEE_API_KEY.
+if (!defined('IMPORLAN_SCRAPINGBEE_API_KEY')) {
+    define('IMPORLAN_SCRAPINGBEE_API_KEY', getenv('SCRAPINGBEE_API_KEY') ?: getenv('IMPORLAN_SCRAPINGBEE_API_KEY') ?: '');
+}
