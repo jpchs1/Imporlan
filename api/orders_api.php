@@ -21,6 +21,7 @@
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/cotizador_helpers.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     require_once __DIR__ . '/cors_helper.php';
@@ -406,6 +407,12 @@ function userGetOrderDetail($authPayload = null) {
         ");
         $linkStmt->execute([$orderId]);
         $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Apply quote visibility rules: clients only see a quote_data 24 hours
+        // after admin saved it. While pending, expose just a "quote_pending"
+        // flag with no numbers. Also lazy-publishes quotes whose delay just
+        // expired (idempotent) so emails fire without waiting for cron.
+        $links = cotizadorApplyClientVisibility($pdo, $links);
 
         $order['links'] = $links;
 
