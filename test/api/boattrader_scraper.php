@@ -656,7 +656,7 @@ function fetchMetaViaDDG($slug, $listingId) {
  * @return array|null Extracted data or null on failure
  */
 function fetchViaScraperAPI($url) {
-    $apiBase = 'https://boattrader-scraper-jocitetw.fly.dev';
+    $apiBase = 'https://imporlan-boattrader-scraper.fly.dev';
     $apiUrl = $apiBase . '/scrape?url=' . urlencode($url);
 
     $ch = curl_init();
