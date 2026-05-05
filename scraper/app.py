@@ -71,11 +71,12 @@ def debug(url: str = Query(...), bytes_: int = Query(2000, alias="bytes")):
     }
     json_ld_scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
     out["json_ld_count"] = len(json_ld_scripts)
-    if json_ld_scripts:
+    out["json_ld"] = []
+    for s in json_ld_scripts:
         try:
-            out["json_ld_first"] = json.loads(json_ld_scripts[0].string or "")
+            out["json_ld"].append(json.loads(s.string or ""))
         except Exception:
-            out["json_ld_first_raw"] = (json_ld_scripts[0].string or "")[:500]
+            out["json_ld"].append({"_raw": (s.string or "")[:500]})
     specs = _extract_specs_from_html(soup)
     # Cap specs to keep the response payload manageable
     out["specs"] = dict(list(specs.items())[:40])
@@ -434,16 +435,36 @@ def _from_meta(soup: BeautifulSoup, url: str, listing_id) -> dict[str, Any]:
 
     # Last resort: extract specs from visible HTML (dt/dd, table rows, label/value spans)
     specs = _extract_specs_from_html(soup)
+
     if not location:
         loc_val = _find_in_specs(specs, "location", "city", "boat location", "dealer location")
         if loc_val:
             location = loc_val
+
+    # Title tag fallback for location: BoatTrader puts ", <zip> <city> - Boat Trader" there
+    if not location and soup.title and soup.title.string:
+        m = re.search(r",\s*(.+?)\s*-\s*Boat\s*Trader\b", soup.title.string, re.I)
+        if m:
+            loc = m.group(1).strip()
+            # Strip leading 5-digit US zip if present ("56001 Mankato" -> "Mankato")
+            loc = re.sub(r"^\d{5}\s+", "", loc).strip()
+            location = loc
+
     if hours is None:
         h_val = _find_in_specs(specs, "engine hours", "hours")
         if h_val:
             hours = _to_int(h_val)
+
     if not engine:
-        engine = _find_in_specs(specs, "engine model", "primary engine", "engine make/model", "engine", "power", "propulsion") or ""
+        # Combine "engine make" + "engine model" if available — gives "MerCruiser 5.0"
+        # rather than just "5.0".
+        eng_make = _find_in_specs(specs, "engine make", "engine 1 make")
+        eng_model = _find_in_specs(specs, "engine model", "engine 1 model")
+        parts = [p for p in (eng_make, eng_model) if p]
+        if parts:
+            engine = " ".join(parts).strip()
+        else:
+            engine = _find_in_specs(specs, "primary engine", "engine make/model", "engine type", "power", "propulsion", "engine") or ""
 
     return {
         "title": title,
