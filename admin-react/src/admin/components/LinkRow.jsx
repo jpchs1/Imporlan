@@ -15,6 +15,32 @@ function isBoatTraderUrl(url) {
   return /boattrader\.com|boats\.com/i.test(url || '');
 }
 
+/**
+ * Numeric input that only formats the displayed value on blur.
+ * While focused, shows the raw value so typing works naturally —
+ * otherwise the formatter rewrites the input on every keystroke and
+ * makes editing impossible (see "Negociar (USD)" bug).
+ */
+function MoneyInput({ value, onChange, format, parse, prefix = '', className, style, placeholder }) {
+  const [focused, setFocused] = useState(false);
+  const raw = value === null || value === undefined ? '' : String(value);
+  const display = focused ? raw : format(value);
+  return (
+    <input
+      className={className}
+      style={style}
+      placeholder={placeholder}
+      value={prefix && display ? prefix + display : display}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onChange={e => onChange(parse(e.target.value))}
+    />
+  );
+}
+
+const parseUsd = v => (v || '').toString().replace(/[^0-9.]/g, '');
+const parseClp = v => stripDots(v);
+
 export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, onScrapeResult, dragHandlers }) {
   const fileRef = useRef(null);
   const lk = link;
@@ -145,13 +171,55 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
       {/* 10. Motor */}
       <td className="px-1 py-2"><input className={ci} style={{minWidth:170}} value={lk.engine||''} onChange={e=>set('engine',e.target.value)} placeholder="Mercruiser 4.5L"/></td>
       {/* 11. Valor USA USD */}
-      <td className="px-1 py-2"><input className={`${ci} text-right font-semibold text-emerald-600`} style={{minWidth:105}} value={fmtUsd(lk.value_usa_usd)} onChange={e=>{const raw=e.target.value.replace(/[^0-9.]/g,'');set('value_usa_usd',raw)}} placeholder="0.00"/></td>
+      <td className="px-1 py-2">
+        <MoneyInput
+          className={`${ci} text-right font-semibold text-emerald-600`}
+          style={{minWidth:105}}
+          placeholder="0.00"
+          value={lk.value_usa_usd}
+          onChange={v => set('value_usa_usd', v)}
+          format={fmtUsd}
+          parse={parseUsd}
+        />
+      </td>
       {/* 12. Negociar USD */}
-      <td className="px-1 py-2"><input className={`${ci} text-right font-semibold text-emerald-600`} style={{minWidth:105}} value={fmtUsd(lk.value_to_negotiate_usd)} onChange={e=>{const raw=e.target.value.replace(/[^0-9.]/g,'');set('value_to_negotiate_usd',raw)}} placeholder="0.00"/></td>
+      <td className="px-1 py-2">
+        <MoneyInput
+          className={`${ci} text-right font-semibold text-emerald-600`}
+          style={{minWidth:105}}
+          placeholder="0.00"
+          value={lk.value_to_negotiate_usd}
+          onChange={v => set('value_to_negotiate_usd', v)}
+          format={fmtUsd}
+          parse={parseUsd}
+        />
+      </td>
       {/* 13. Chile CLP */}
-      <td className="px-1 py-2"><input className={`${ci} text-right font-bold text-blue-600`} style={{minWidth:115}} value={lk.value_chile_clp ? '$ '+fmtDot(lk.value_chile_clp) : ''} onChange={e=>{const raw=stripDots(e.target.value);set('value_chile_clp',raw)}} placeholder="$ 0"/></td>
+      <td className="px-1 py-2">
+        <MoneyInput
+          className={`${ci} text-right font-bold text-blue-600`}
+          style={{minWidth:115}}
+          placeholder="$ 0"
+          prefix="$ "
+          value={lk.value_chile_clp}
+          onChange={v => set('value_chile_clp', v)}
+          format={fmtDot}
+          parse={parseClp}
+        />
+      </td>
       {/* 14. Negociado CLP */}
-      <td className="px-1 py-2"><input className={`${ci} text-right font-bold text-blue-600`} style={{minWidth:115}} value={lk.value_chile_negotiated_clp ? '$ '+fmtDot(lk.value_chile_negotiated_clp) : ''} onChange={e=>{const raw=stripDots(e.target.value);set('value_chile_negotiated_clp',raw)}} placeholder="$ 0"/></td>
+      <td className="px-1 py-2">
+        <MoneyInput
+          className={`${ci} text-right font-bold text-blue-600`}
+          style={{minWidth:115}}
+          placeholder="$ 0"
+          prefix="$ "
+          value={lk.value_chile_negotiated_clp}
+          onChange={v => set('value_chile_negotiated_clp', v)}
+          format={fmtDot}
+          parse={parseClp}
+        />
+      </td>
       {/* 15. N° Sel */}
       <td className="px-1 py-2"><input type="number" className={`${ci} text-center font-bold`} style={{minWidth:50}} value={lk.selection_order||''} onChange={e=>set('selection_order',e.target.value)} placeholder="-"/></td>
       {/* 16. Comentarios */}
