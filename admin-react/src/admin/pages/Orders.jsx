@@ -55,6 +55,7 @@ export default function Orders() {
 
   // Drag state
   const dragIdx = useRef(null);
+  const linksContainerRef = useRef(null);
 
   useEffect(() => { loadOrders(); }, []);
 
@@ -176,6 +177,12 @@ export default function Orders() {
       };
       setLinks(prev => [...prev, newLink]);
       toast?.('Fila agregada');
+      // The new row is appended to the bottom of a scrollable container.
+      // Scroll into view so the admin actually SEES the row that was added.
+      setTimeout(() => {
+        const c = linksContainerRef.current;
+        if (c) c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+      }, 50);
     } catch (e) { toast?.(e.message || 'Error agregando fila', 'error'); }
   }
 
@@ -465,7 +472,7 @@ export default function Orders() {
         )}
 
         {/* Links list */}
-        <div className="space-y-3" style={{maxHeight:'70vh', overflowY:'auto', paddingRight:'4px'}}>
+        <div ref={linksContainerRef} className="space-y-3" style={{maxHeight:'70vh', overflowY:'auto', paddingRight:'4px'}}>
           {links.length === 0 ? (
             <div className="py-12 text-center text-slate-300 text-sm border border-dashed border-slate-200 rounded-2xl">
               No hay links. Agrega uno con el botón de arriba.

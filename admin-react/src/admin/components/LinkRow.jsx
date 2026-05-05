@@ -90,8 +90,13 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
   function handleUrlBlur(e) {
     const url = e.target.value.trim();
     if (url && url !== prevUrlRef.current && url.match(/^https?:\/\//i)) {
+      const wasEmpty = !prevUrlRef.current;
       prevUrlRef.current = url;
-      doScrape(url, false);
+      // If the admin pasted into an empty URL field this is a first scrape —
+      // force=false is fine (no existing data to preserve). If the URL just
+      // CHANGED to a different listing, force=true so the title/image/specs
+      // of the previous listing get overwritten with the new one's data.
+      doScrape(url, !wasEmpty);
     }
   }
 
