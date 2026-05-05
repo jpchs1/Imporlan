@@ -151,15 +151,32 @@ export default function Orders() {
   }
 
   // ---- ADD LINK ----
+  // Adding a row used to do a full refetch which silently discarded any
+  // unsaved local edits (scrape data the admin hadn't hit Save on yet).
+  // Persist current edits first, then append the new empty row to the
+  // local state without re-fetching — no flicker, no data loss.
   async function handleAddLink() {
+    if (!detail) return;
     try {
+      if (unsaved) {
+        await updateOrderLinks(detail.id, links);
+        setUnsaved(false);
+      }
       const res = await addOrderLink(detail.id);
-      const o = await getOrderDetail(detail.id);
-      const order = o.order || o;
-      setDetail(order);
-      setLinks(JSON.parse(JSON.stringify(order.links || [])));
+      const newLink = {
+        id: res?.link_id,
+        order_id: detail.id,
+        row_index: res?.row_index ?? (links.length + 1),
+        url: '', title: '', image_url: '',
+        location: '', hours: null,
+        value_usa_usd: null, value_to_negotiate_usd: null,
+        value_chile_clp: null, value_chile_negotiated_clp: null,
+        selection_order: null, comments: '',
+        engine: '', make: '', model: '', year: null,
+      };
+      setLinks(prev => [...prev, newLink]);
       toast?.('Fila agregada');
-    } catch (e) { toast?.(e.message, 'error'); }
+    } catch (e) { toast?.(e.message || 'Error agregando fila', 'error'); }
   }
 
   // ---- DELETE LINK ----
@@ -493,7 +510,18 @@ export default function Orders() {
         open={!!cotizandoLink}
         link={cotizandoLink}
         onClose={() => setCotizandoLink(null)}
-        onSaved={() => detail?.id && openDetail(detail.id)}
+        onSaved={async () => {
+          if (!detail?.id) return;
+          // Persist any pending link edits BEFORE the refetch — otherwise
+          // the openDetail call below blows away unsaved scrape data.
+          if (unsaved) {
+            try {
+              await updateOrderLinks(detail.id, links);
+              setUnsaved(false);
+            } catch (e) { /* keep going — refetch will surface the issue */ }
+          }
+          openDetail(detail.id);
+        }}
       />
     </div>
   );
