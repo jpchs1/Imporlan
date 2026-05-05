@@ -173,9 +173,105 @@ function VesselCard({ link, index, dragHandlers }) {
             </span>
           )}
         </div>
+
+        <QuoteSummary link={link} />
       </div>
     </div>
   );
+}
+
+/**
+ * Client-facing summary of the cotización. Shows the analysing badge while
+ * inside the 24h delay window (admin marked the link as cotizado but the
+ * server is hiding the numbers until the delay expires), or the itemized
+ * summary once published. Backend (cotizadorApplyClientVisibility) is the
+ * source of truth — this component is purely presentational.
+ */
+function QuoteSummary({ link }) {
+  if (!link) return null;
+  function fmtClp(v) {
+    if (!v || isNaN(v)) return '$ 0';
+    return '$ ' + Math.round(v).toLocaleString('es-CL');
+  }
+  function fmtUsd(v) {
+    if (!v || isNaN(v)) return '';
+    return 'USD ' + Math.round(v).toLocaleString('en-US');
+  }
+
+  if (link.quote_pending) {
+    return (
+      <div className="mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center gap-2">
+        <svg className="w-4 h-4 text-amber-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span className="text-[11px] font-semibold text-amber-700">Cotización en análisis</span>
+        <span className="text-[10px] text-amber-600/80">Listo en aprox. 24 hrs</span>
+      </div>
+    );
+  }
+
+  if (!link.quote_total_clp) return null;
+
+  let qd = link.quote_data;
+  if (typeof qd === 'string') { try { qd = JSON.parse(qd); } catch { qd = null; } }
+  let pay = link.quote_payments;
+  if (typeof pay === 'string') { try { pay = JSON.parse(pay); } catch { pay = null; } }
+
+  const lanchaUsd = qd?.valor_lancha_usd;
+  const rate = qd?.usd_clp_rate || 1;
+  const lanchaClp = lanchaUsd ? lanchaUsd * rate : null;
+  const ivaPct = qd?.iva_pct;
+  const lujoAplica = qd?.lujo_aplica;
+  const lujoPct = qd?.lujo_pct;
+  // Client-side derived: All-Inclusive shown to client = Total - Lancha - IVA - Lujo
+  const totalClp = parseFloat(link.quote_total_clp);
+  const ivaClp = lanchaClp && qd?.transporte_roro_usd != null
+    ? (lanchaClp + parseFloat(qd.transporte_roro_usd) * rate) * (parseFloat(ivaPct) / 100)
+    : 0;
+  const lujoClp = lujoAplica && lanchaClp ? lanchaClp * (parseFloat(lujoPct) / 100) : 0;
+  const allInclusive = totalClp - (lanchaClp || 0) - ivaClp - lujoClp;
+
+  return (
+    <div className="mt-3 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-3.5 shadow-sm">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Cotización</div>
+      <div className="space-y-1 text-xs">
+        {lanchaClp != null && (
+          <Row label="Valor lancha" value={fmtClp(lanchaClp)} sub={fmtUsd(lanchaUsd)} />
+        )}
+        <Row label="Servicio All-Inclusive" value={fmtClp(allInclusive)} />
+        <Row label="IVA Aduanero" value={fmtClp(ivaClp)} />
+        {lujoAplica ? (
+          <Row label="Impuesto al Lujo" value={fmtClp(lujoClp)} />
+        ) : (
+          <Row label="Impuesto al Lujo" value="N/A" muted />
+        )}
+        <hr className="border-white/10 my-1" />
+        <Row label="TOTAL" value={fmtClp(totalClp)} sub={fmtUsd(link.quote_total_usd)} bold />
+      </div>
+      {pay && (
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {[1, 2, 3].map(n => pay[`p${n}_clp`] != null && (
+            <div key={n} className="px-2 py-1.5 bg-white/5 rounded-md text-center">
+              <div className="text-[9px] text-slate-400 uppercase tracking-wider">Pago {n} ({pay[`p${n}_pct`]}%)</div>
+              <div className="text-[11px] text-slate-100 font-semibold">{fmtClp(pay[`p${n}_clp`])}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  function Row({ label, value, sub, bold, muted }) {
+    return (
+      <div className="flex items-baseline justify-between gap-3">
+        <div className={'text-slate-300 ' + (bold ? 'font-bold text-white' : '')}>{label}</div>
+        <div className="text-right">
+          <div className={(bold ? 'text-base font-bold text-white' : (muted ? 'text-slate-500' : 'text-slate-100 font-semibold'))}>{value}</div>
+          {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
+        </div>
+      </div>
+    );
+  }
 }
 
 // --- Detail View ---

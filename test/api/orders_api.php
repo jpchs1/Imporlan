@@ -21,6 +21,7 @@
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/cotizador_helpers.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     header('Access-Control-Allow-Origin: *');
@@ -405,6 +406,8 @@ function userGetOrderDetail($authPayload = null) {
         ");
         $linkStmt->execute([$orderId]);
         $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $links = cotizadorApplyClientVisibility($pdo, $links);
 
         $order['links'] = $links;
 
