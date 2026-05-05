@@ -447,39 +447,30 @@ export default function Orders() {
           </div>
         )}
 
-        {/* Links table */}
-        <div className="overflow-x-auto -mx-6 px-6" style={{maxHeight:'70vh'}}>
-          <table className="w-full border-collapse" style={{minWidth:1200}}>
-            <thead>
-              <tr className="bg-gradient-to-r from-slate-50 to-slate-100">
-                {['','#','Imagen','Marca','Modelo','Año','Link Opcion (USA)','Ubicacion','Horas','Motor','Valor USA (USD)','Negociar (USD)','Chile (CLP)','Negociado (CLP)','N° Sel','Comentarios','Acc.'].map((h,i) => (
-                  <th key={i} className="py-2.5 px-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {links.length === 0 ? (
-                <tr><td colSpan={17} className="py-12 text-center text-slate-300 text-sm">No hay links. Agrega uno con el boton de arriba.</td></tr>
-              ) : links.map((lk, idx) => (
-                <LinkRow
-                  key={lk.id || idx}
-                  link={lk}
-                  idx={idx}
-                  onUpdate={handleLinkUpdate}
-                  onDelete={handleDeleteLink}
-                  onImageUpload={handleImageUpload}
-                  onScrapeResult={handleScrapeResult}
-                  onCotizar={lk.id ? setCotizandoLink : undefined}
-                  dragHandlers={{
-                    onDragStart: e => onDragStart(e, idx),
-                    onDragOver,
-                    onDrop: e => onDrop(e, idx),
-                    onDragEnd,
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
+        {/* Links list */}
+        <div className="space-y-3" style={{maxHeight:'70vh', overflowY:'auto', paddingRight:'4px'}}>
+          {links.length === 0 ? (
+            <div className="py-12 text-center text-slate-300 text-sm border border-dashed border-slate-200 rounded-2xl">
+              No hay links. Agrega uno con el botón de arriba.
+            </div>
+          ) : links.map((lk, idx) => (
+            <LinkRow
+              key={lk.id || idx}
+              link={lk}
+              idx={idx}
+              onUpdate={handleLinkUpdate}
+              onDelete={handleDeleteLink}
+              onImageUpload={handleImageUpload}
+              onScrapeResult={handleScrapeResult}
+              onCotizar={lk.id ? setCotizandoLink : undefined}
+              dragHandlers={{
+                onDragStart: e => onDragStart(e, idx),
+                onDragOver,
+                onDrop: e => onDrop(e, idx),
+                onDragEnd,
+              }}
+            />
+          ))}
         </div>
       </Card>
 
