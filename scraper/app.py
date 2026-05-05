@@ -121,7 +121,16 @@ def _fetch_via_scrapingbee(url: str):
     if r.status_code == 200 and r.text and len(r.text) > 1000:
         log.info("fetch ok via scrapingbee len=%d", len(r.text))
         return r.text, "scrapingbee", None
-    log.warning("scrapingbee http=%s body=%s", r.status_code, (r.text or "")[:200])
+    # Surface the most common ScrapingBee failure modes explicitly so the PHP
+    # caller / admin can act on them (refill credits, rotate the key, etc).
+    body_snippet = (r.text or "")[:300]
+    if r.status_code in (401, 403):
+        log.error("scrapingbee auth/credit issue http=%s body=%s", r.status_code, body_snippet)
+        return None, None, f"scrapingbee_credits_or_auth_http_{r.status_code}"
+    if r.status_code == 429:
+        log.warning("scrapingbee rate limited http=429")
+        return None, None, "scrapingbee_rate_limit_429"
+    log.warning("scrapingbee http=%s body=%s", r.status_code, body_snippet)
     return None, None, f"scrapingbee_http_{r.status_code}"
 
 
@@ -184,10 +193,43 @@ def scrape(url: str = Query(..., description="boattrader.com or boats.com listin
         raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
 
     log.info("scrape url=%s", url)
-    html, _profile, last_err = _fetch_with_rotation(url)
+    html, profile, last_err = _fetch_with_rotation(url)
     if html is None:
-        return {"success": False, "error": last_err}
-    return _parse(url, html)
+        return {"success": False, "error": last_err, "fetch_strategy": None}
+    out = _parse(url, html)
+    # Surface which fetch path won so the PHP caller and admin can tell at a
+    # glance whether ScrapingBee (residential) or direct curl_cffi (datacenter,
+    # likely to get blocked again soon) was the source.
+    out["fetch_strategy"] = profile
+    return out
+
+
+@app.get("/status")
+def status():
+    """Quick health check for the proxy chain: confirms the service is up,
+    whether a ScrapingBee key is configured, and that ScrapingBee responds
+    to a tiny probe call. Useful when /scrape starts returning empty data —
+    tells us if the issue is the upstream proxy or our parser.
+    """
+    out = {"service": "imporlan-boattrader-scraper", "scrapingbee_key_set": bool(SCRAPINGBEE_API_KEY)}
+    if SCRAPINGBEE_API_KEY:
+        try:
+            # Minimal probe: scrape a tiny static page through ScrapingBee.
+            r = curl_requests.get(
+                "https://app.scrapingbee.com/api/v1/",
+                params={"api_key": SCRAPINGBEE_API_KEY, "url": "https://example.com/", "render_js": "false"},
+                timeout=15,
+            )
+            out["scrapingbee_http"] = r.status_code
+            out["scrapingbee_ok"] = r.status_code == 200 and len(r.text or "") > 100
+            if r.status_code in (401, 403):
+                out["scrapingbee_hint"] = "credits exhausted or invalid key — check app.scrapingbee.com dashboard"
+            elif r.status_code == 429:
+                out["scrapingbee_hint"] = "rate limited"
+        except Exception as e:
+            out["scrapingbee_ok"] = False
+            out["scrapingbee_error"] = str(e)
+    return out
 
 
 def _is_supported_url(url: str) -> bool:
