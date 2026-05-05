@@ -46,17 +46,55 @@ def health():
     return {"ok": True}
 
 
-@app.get("/scrape")
-def scrape(url: str = Query(..., description="boattrader.com or boats.com listing URL")):
+@app.get("/debug")
+def debug(url: str = Query(...), bytes_: int = Query(2000, alias="bytes")):
+    """Diagnostic endpoint — fetches the URL and returns key extraction signals.
+
+    Useful to confirm whether the source page actually contains __NEXT_DATA__,
+    JSON-LD, og:meta or any spec table when the main /scrape comes back partial.
+    """
     if not _is_supported_url(url):
         raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
 
-    log.info("scrape url=%s", url)
+    headers = _browser_headers()
+    try:
+        r = curl_requests.get(url, impersonate="chrome131", headers=headers, timeout=25, allow_redirects=True)
+    except Exception as e:
+        return {"error": f"fetch_failed: {e}"}
 
-    # Realistic browser headers — Cloudflare also fingerprints header order/content,
-    # not just the TLS layer. We rotate through a few impersonation profiles if the
-    # first one trips a 403/503.
-    headers = {
+    out: dict[str, Any] = {"http": r.status_code, "html_size": len(r.text or "")}
+    if r.status_code != 200 or not r.text:
+        out["excerpt"] = (r.text or "")[:bytes_]
+        return out
+
+    soup = BeautifulSoup(r.text, "lxml")
+    out["has_next_data"] = bool(soup.find("script", id="__NEXT_DATA__"))
+    out["title_tag"] = (soup.title.string or "").strip() if soup.title else ""
+    out["h1"] = (soup.h1.get_text(strip=True) if soup.h1 else "")
+    out["og"] = {
+        (t.get("property") or "").replace("og:", ""): t.get("content")
+        for t in soup.find_all("meta", property=True)
+        if (t.get("property") or "").startswith("og:")
+    }
+    json_ld_scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
+    out["json_ld_count"] = len(json_ld_scripts)
+    if json_ld_scripts:
+        try:
+            out["json_ld_first"] = json.loads(json_ld_scripts[0].string or "")
+        except Exception:
+            out["json_ld_first_raw"] = (json_ld_scripts[0].string or "")[:500]
+    specs = _extract_specs_from_html(soup)
+    # Limit specs to 30 entries to keep response reasonable
+    out["specs"] = dict(list(specs.items())[:30])
+    out["scrape_result"] = _parse(url, r.text)
+    return out
+
+
+def _browser_headers() -> dict:
+    """Headers that pair with curl_cffi's chrome impersonation to look like a real browser.
+    Cloudflare also fingerprints header presence and order, not just TLS.
+    """
+    return {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -72,6 +110,15 @@ def scrape(url: str = Query(..., description="boattrader.com or boats.com listin
         "Upgrade-Insecure-Requests": "1",
         "Referer": "https://www.google.com/",
     }
+
+
+@app.get("/scrape")
+def scrape(url: str = Query(..., description="boattrader.com or boats.com listing URL")):
+    if not _is_supported_url(url):
+        raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
+
+    log.info("scrape url=%s", url)
+    headers = _browser_headers()
 
     last_err = None
     for profile in ("chrome131", "chrome124", "chrome120", "chrome"):
@@ -315,14 +362,18 @@ def _from_next_data(data: dict, url: str, listing_id) -> dict | None:
 
 def _from_meta(soup: BeautifulSoup, url: str, listing_id) -> dict[str, Any]:
     # og: meta
-    og = lambda p: (soup.find("meta", property=p) or {}).get("content", "") if soup.find("meta", property=p) else ""
+    def og(p):
+        tag = soup.find("meta", property=p)
+        return (tag.get("content", "") if tag else "")
+
     title = (og("og:title") or "").strip()
     image_url = (og("og:image") or "").strip()
-    description = (og("og:description") or "").strip()
 
-    # JSON-LD: Product / Vehicle / Boat with offers.price
+    # JSON-LD: Product / Vehicle / Boat. We harvest as much as we can.
     price = None
     location = ""
+    hours = None
+    engine = ""
     for ld in soup.find_all("script", attrs={"type": "application/ld+json"}):
         if not ld.string:
             continue
@@ -334,10 +385,9 @@ def _from_meta(soup: BeautifulSoup, url: str, listing_id) -> dict[str, Any]:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            offers = item.get("offers")
-            if isinstance(offers, dict) and price is None:
-                p = offers.get("price") or offers.get("lowPrice")
-                price = _to_float(p)
+            offers = item.get("offers") if isinstance(item.get("offers"), dict) else {}
+            if price is None:
+                price = _to_float(offers.get("price") or offers.get("lowPrice") or item.get("price"))
             if not title and item.get("name"):
                 title = str(item["name"])
             if not image_url and item.get("image"):
@@ -346,24 +396,111 @@ def _from_meta(soup: BeautifulSoup, url: str, listing_id) -> dict[str, Any]:
                     image_url = str(im[0])
                 elif isinstance(im, str):
                     image_url = im
-            # Location may live under offers.areaServed or item.location
-            for loc_key in ("areaServed", "location"):
-                loc = (offers.get(loc_key) if isinstance(offers, dict) else None) or item.get(loc_key)
-                if isinstance(loc, dict) and not location:
-                    addr = loc.get("address") if isinstance(loc.get("address"), dict) else loc
-                    city = addr.get("addressLocality") or addr.get("city") or ""
-                    state = addr.get("addressRegion") or addr.get("state") or ""
-                    location = ", ".join(p for p in (city, state) if p)
+            # Location: address, location, areaServed
+            if not location:
+                for src in (offers.get("areaServed"), item.get("location"), item.get("address")):
+                    addr = src.get("address") if isinstance(src, dict) and isinstance(src.get("address"), dict) else src
+                    if isinstance(addr, dict):
+                        city = addr.get("addressLocality") or addr.get("city") or ""
+                        state = addr.get("addressRegion") or addr.get("state") or ""
+                        if city or state:
+                            location = ", ".join(p for p in (city, state) if p)
+                            break
+            # Hours: schema.org Vehicle uses mileageFromOdometer. Also look at additionalProperty.
+            if hours is None:
+                m = item.get("mileageFromOdometer")
+                if isinstance(m, dict) and m.get("value"):
+                    hours = _to_int(m["value"])
+            # Engine: vehicleEngine or additionalProperty
+            if not engine:
+                ve = item.get("vehicleEngine")
+                if isinstance(ve, dict):
+                    engine = str(ve.get("name") or ve.get("description") or "").strip()
+                elif isinstance(ve, str):
+                    engine = ve.strip()
+            # additionalProperty: [{name: "Hours", value: 350}, {name: "Engine", value: "..."}]
+            extra = item.get("additionalProperty")
+            if isinstance(extra, list):
+                for prop in extra:
+                    if not isinstance(prop, dict):
+                        continue
+                    pname = (prop.get("name") or "").lower()
+                    pval = prop.get("value") or prop.get("propertyValue")
+                    if pval is None:
+                        continue
+                    if hours is None and any(k in pname for k in ("hour", "engine hour")):
+                        hours = _to_int(pval)
+                    elif not engine and any(k in pname for k in ("engine", "power", "motor", "propulsion")):
+                        engine = str(pval).strip()
+
+    # Last resort: extract specs from visible HTML (dt/dd, table rows, label/value spans)
+    specs = _extract_specs_from_html(soup)
+    if not location:
+        loc_val = _find_in_specs(specs, "location", "city", "boat location", "dealer location")
+        if loc_val:
+            location = loc_val
+    if hours is None:
+        h_val = _find_in_specs(specs, "engine hours", "hours")
+        if h_val:
+            hours = _to_int(h_val)
+    if not engine:
+        engine = _find_in_specs(specs, "engine model", "primary engine", "engine make/model", "engine", "power", "propulsion") or ""
 
     return {
         "title": title,
         "price": price,
         "location": location,
         "city": location,
-        "hours": None,
-        "engine": "",
+        "hours": hours,
+        "engine": engine,
         "image_url": image_url,
         "listing_id": listing_id,
         "url": url,
         "source": "meta",
     }
+
+
+def _extract_specs_from_html(soup: BeautifulSoup) -> dict:
+    """Collect any label->value pairs visible in the page (spec tables, dl, etc.)."""
+    specs: dict[str, str] = {}
+
+    def remember(label: str, value: str):
+        label = (label or "").strip().lower().rstrip(":")
+        value = (value or "").strip()
+        if label and value and label not in specs:
+            specs[label] = value
+
+    # <dl><dt>label</dt><dd>value</dd></dl>
+    for dt in soup.find_all("dt"):
+        dd = dt.find_next_sibling("dd")
+        if dd:
+            remember(dt.get_text(), dd.get_text())
+
+    # <table><tr><th>label</th><td>value</td></tr></table>
+    # also <tr><td>label</td><td>value</td></tr> — first td label, second td value
+    for tr in soup.find_all("tr"):
+        cells = tr.find_all(["th", "td"])
+        if len(cells) >= 2:
+            remember(cells[0].get_text(), cells[1].get_text())
+
+    # Generic <li>label: value</li> or <p>label: value</p>
+    for el in soup.find_all(["li", "p", "div", "span"]):
+        text = el.get_text(separator=" ", strip=True)
+        if not text or len(text) > 80:
+            continue
+        # match "Hours: 350" / "Engine: Mercruiser 4.5L"
+        m = re.match(r"^([A-Za-z][A-Za-z /-]{2,30})\s*[:|]\s*(.+)$", text)
+        if m:
+            remember(m.group(1), m.group(2))
+
+    return specs
+
+
+def _find_in_specs(specs: dict, *keys) -> str | None:
+    """Find first value whose key contains any of the given key fragments (case-insensitive)."""
+    for k in keys:
+        kl = k.lower()
+        for spec_key, val in specs.items():
+            if kl in spec_key:
+                return val
+    return None

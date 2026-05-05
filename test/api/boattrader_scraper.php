@@ -290,10 +290,9 @@ function extractBoatFromLd($ld) {
     $year = null;
     $make = '';
     $model = '';
-    if (preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $name, $m)) {
+    if (preg_match('/^(\d{4})\s+(.+)$/', $name, $m)) {
         $year = intval($m[1]);
-        $make = trim($m[2]);
-        $model = trim($m[3]);
+        list($make, $model) = btSplitMakeModel(trim($m[2]));
     }
 
     $location = '';
@@ -383,10 +382,9 @@ function parseBoatTraderHtml($html) {
         $year = null;
         $make = '';
         $model = '';
-        if (preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $title, $m)) {
+        if (preg_match('/^(\d{4})\s+(.+)$/', $title, $m)) {
             $year = intval($m[1]);
-            $make = trim($m[2]);
-            $model = trim($m[3]);
+            list($make, $model) = btSplitMakeModel(trim($m[2]));
         }
 
         $location = '';
@@ -692,6 +690,37 @@ function fetchViaScraperAPI($url) {
     return $data;
 }
 
+/**
+ * Split "Make Model 200 Sundeck" into [make, model], handling multi-word brand names.
+ */
+function btSplitMakeModel($rest) {
+    $rest = trim($rest);
+    if ($rest === '') return ['', ''];
+
+    static $multiWordMakes = [
+        'Boston Whaler', 'Sea Ray', 'Grady-White', 'Grady White', 'Chris-Craft', 'Chris Craft',
+        'Sun Tracker', 'Bass Tracker', 'Princess Yachts', 'Carver Yachts', 'Tiara Yachts',
+        'Hatteras Yachts', 'Regal Boats', 'Four Winns', 'Pursuit Boats', 'Sea Hunt',
+        'Sea Pro', 'Sea Fox', 'Robalo Boats', 'Cobalt Boats', 'World Cat', 'Key West',
+        'Glastron', 'Bayliner', 'Cobia', 'Yamaha Boats', 'Scout Boats', 'Pioneer',
+        'Tahoe Boats', 'Lund Boats', 'Crestliner', 'Ranger Boats', 'Triton Boats',
+        'Carolina Skiff', 'Edgewater', 'Stingray', 'Monterey', 'Crownline', 'Larson',
+        'Centurion Boats', 'Mastercraft', 'Malibu Boats', 'Nautique', 'Axis Wake',
+        'Ranger Tugs', 'Cutwater Boats', 'Pacific Mariner', 'Catalina Yachts',
+        'Beneteau', 'Jeanneau', 'Dufour', 'Hunter Marine', 'Island Packet',
+    ];
+
+    foreach ($multiWordMakes as $make) {
+        if (stripos($rest, $make . ' ') === 0) {
+            return [$make, trim(substr($rest, strlen($make)))];
+        }
+    }
+
+    $parts = preg_split('/\s+/', $rest, 2);
+    return [$parts[0] ?? '', $parts[1] ?? ''];
+}
+
+
 function extractBoatFromUrl($url) {
     $path = parse_url($url, PHP_URL_PATH) ?? '';
     // BoatTrader URLs: /boat/YEAR-MAKE-MODEL-LISTINGID/
@@ -800,11 +829,10 @@ function scrapeBoatDetail($url) {
             'condition' => 'Used',
             'value_usa_usd' => isset($apiData['price']) ? floatval($apiData['price']) : null,
         ];
-        // Extract year/make/model from title
-        if ($boat['title'] && preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $boat['title'], $m)) {
+        // Extract year/make/model from title (e.g. "2006 Sea Ray 200 Sundeck")
+        if ($boat['title'] && preg_match('/^(\d{4})\s+(.+)$/', $boat['title'], $m)) {
             $boat['year'] = intval($m[1]);
-            $boat['make'] = trim($m[2]);
-            $boat['model'] = trim($m[3]);
+            list($boat['make'], $boat['model']) = btSplitMakeModel(trim($m[2]));
         }
         return $boat;
     }
@@ -916,10 +944,11 @@ function scrapeBoatDetail($url) {
 
     libxml_clear_errors();
 
-    if ($boat['title'] && preg_match('/^(\d{4})\s+(\S+)\s+(.+)$/i', $boat['title'], $m)) {
+    if ($boat['title'] && preg_match('/^(\d{4})\s+(.+)$/', $boat['title'], $m)) {
+        list($mk, $md) = btSplitMakeModel(trim($m[2]));
         if (!$boat['year']) $boat['year'] = intval($m[1]);
-        if (!$boat['make']) $boat['make'] = trim($m[2]);
-        if (!$boat['model']) $boat['model'] = trim($m[3]);
+        if (!$boat['make']) $boat['make'] = $mk;
+        if (!$boat['model']) $boat['model'] = $md;
     }
 
     return $boat['title'] ? $boat : null;
