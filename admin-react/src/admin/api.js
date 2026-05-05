@@ -175,6 +175,21 @@ export function scrapeLink(url) {
   return request(`${API_BASE}/link_scraper.php?action=fetch&url=${encodeURIComponent(url)}`);
 }
 
+// Quotation (Cotizador)
+export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments) =>
+  request(`${API_BASE}/orders_api.php?action=admin_save_quote`, {
+    method: 'POST',
+    body: JSON.stringify({
+      link_id: linkId,
+      quote_data: quoteData,
+      quote_total_clp: totalClp,
+      quote_total_usd: totalUsd,
+      quote_payments: payments,
+    }),
+  });
+export const deleteQuote = (linkId) =>
+  request(`${API_BASE}/orders_api.php?action=admin_delete_quote`, { method: 'POST', body: JSON.stringify({ link_id: linkId }) });
+
 // Chat
 export const getChatConversations = (status = 'all', assigned = 'all') => {
   const params = new URLSearchParams({ action: 'admin_conversations', status, assigned });
