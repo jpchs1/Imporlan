@@ -1243,10 +1243,13 @@ function adminSaveQuote() {
     $totalClp = isset($input['quote_total_clp']) ? (float)$input['quote_total_clp'] : 0;
     $totalUsd = isset($input['quote_total_usd']) ? (float)$input['quote_total_usd'] : 0;
     $payments = $input['quote_payments'] ?? null;
+    $publishNow = !empty($input['publish_now']);
 
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
+        cotizadorEnsureOrderLinkColumns($pdo);
+        $publishedClause = $publishNow ? 'NOW()' : 'NULL';
         $stmt = $pdo->prepare("
             UPDATE order_links
             SET quote_data          = ?,
@@ -1254,7 +1257,7 @@ function adminSaveQuote() {
                 quote_total_usd     = ?,
                 quote_payments      = ?,
                 quote_calculated_at = NOW(),
-                quote_published_at  = NULL
+                quote_published_at  = $publishedClause
             WHERE id = ?
         ");
         $stmt->execute([
@@ -1264,11 +1267,41 @@ function adminSaveQuote() {
             $payments ? json_encode($payments, JSON_UNESCAPED_UNICODE) : null,
             $linkId,
         ]);
+
+        $emailed = false;
+        if ($publishNow) {
+            try {
+                $info = $pdo->prepare("
+                    SELECT ol.id, ol.year, ol.make, ol.model, ol.quote_total_clp, ol.quote_total_usd,
+                           o.customer_email, o.customer_name, o.order_number
+                    FROM order_links ol
+                    JOIN orders o ON o.id = ol.order_id
+                    WHERE ol.id = ?
+                    LIMIT 1
+                ");
+                $info->execute([$linkId]);
+                $row = $info->fetch(PDO::FETCH_ASSOC);
+                if ($row && !empty($row['customer_email'])) {
+                    cotizadorSendReadyEmail(
+                        $row['customer_email'],
+                        $row['customer_name'] ?? '',
+                        $row['order_number'] ?? '',
+                        $row
+                    );
+                    $emailed = true;
+                }
+            } catch (Exception $e) {
+                error_log('adminSaveQuote publish_now email failed: ' . $e->getMessage());
+            }
+        }
+
         echo json_encode([
             'success' => true,
             'quote_calculated_at' => date('c'),
+            'quote_published_at' => $publishNow ? date('c') : null,
             'quote_total_clp' => (int)round($totalClp),
             'quote_total_usd' => $totalUsd,
+            'emailed' => $emailed,
         ]);
     } catch (PDOException $e) {
         http_response_code(500);

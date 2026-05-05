@@ -1263,11 +1263,14 @@ function ensureRankingColumns($pdo) {
  *   quote_data: { ...full inputs (USD costs, CLP costs, percentages, fee, payments) ... },
  *   quote_total_clp: number,
  *   quote_total_usd: number,
- *   quote_payments: { p1_pct, p1_clp, p2_pct, p2_clp, p3_pct, p3_clp }
+ *   quote_payments: { p1_pct, p1_clp, p2_pct, p2_clp, p3_pct, p3_clp },
+ *   publish_now: bool   // optional: if true, skip the 24h delay and email the client immediately
  * }
  *
- * Resets quote_published_at to NULL so the 24h client-visibility delay starts
- * fresh on every recalculation. quote_calculated_at is set to NOW().
+ * By default sets quote_published_at = NULL so the configurable client-delay
+ * window starts fresh and cotizadorApplyClientVisibility / cron handles the
+ * email later. With publish_now=true, sets quote_published_at = NOW and fires
+ * the "tu cotización está lista" email synchronously.
  */
 function adminSaveQuote() {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -1286,10 +1289,13 @@ function adminSaveQuote() {
     $totalClp = isset($input['quote_total_clp']) ? (float)$input['quote_total_clp'] : 0;
     $totalUsd = isset($input['quote_total_usd']) ? (float)$input['quote_total_usd'] : 0;
     $payments = $input['quote_payments'] ?? null;
+    $publishNow = !empty($input['publish_now']);
 
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
+        cotizadorEnsureOrderLinkColumns($pdo);
+        $publishedClause = $publishNow ? 'NOW()' : 'NULL';
         $stmt = $pdo->prepare("
             UPDATE order_links
             SET quote_data          = ?,
@@ -1297,7 +1303,7 @@ function adminSaveQuote() {
                 quote_total_usd     = ?,
                 quote_payments      = ?,
                 quote_calculated_at = NOW(),
-                quote_published_at  = NULL
+                quote_published_at  = $publishedClause
             WHERE id = ?
         ");
         $stmt->execute([
@@ -1307,11 +1313,42 @@ function adminSaveQuote() {
             $payments ? json_encode($payments, JSON_UNESCAPED_UNICODE) : null,
             $linkId,
         ]);
+
+        $emailed = false;
+        if ($publishNow) {
+            // Fetch the link + customer info and fire the "ready" email synchronously.
+            try {
+                $info = $pdo->prepare("
+                    SELECT ol.id, ol.year, ol.make, ol.model, ol.quote_total_clp, ol.quote_total_usd,
+                           o.customer_email, o.customer_name, o.order_number
+                    FROM order_links ol
+                    JOIN orders o ON o.id = ol.order_id
+                    WHERE ol.id = ?
+                    LIMIT 1
+                ");
+                $info->execute([$linkId]);
+                $row = $info->fetch(PDO::FETCH_ASSOC);
+                if ($row && !empty($row['customer_email'])) {
+                    cotizadorSendReadyEmail(
+                        $row['customer_email'],
+                        $row['customer_name'] ?? '',
+                        $row['order_number'] ?? '',
+                        $row
+                    );
+                    $emailed = true;
+                }
+            } catch (Exception $e) {
+                error_log('adminSaveQuote publish_now email failed: ' . $e->getMessage());
+            }
+        }
+
         echo json_encode([
             'success' => true,
             'quote_calculated_at' => date('c'),
+            'quote_published_at' => $publishNow ? date('c') : null,
             'quote_total_clp' => (int)round($totalClp),
             'quote_total_usd' => $totalUsd,
+            'emailed' => $emailed,
         ]);
     } catch (PDOException $e) {
         http_response_code(500);

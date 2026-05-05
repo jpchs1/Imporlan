@@ -199,8 +199,9 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
 
   function set(k, v) { setQ(prev => ({ ...prev, [k]: v })); }
 
-  async function handleSave() {
+  async function handleSave(publishNow = false) {
     if (!q || !calc || !link?.id) return;
+    if (publishNow && !confirm('Esto publica la cotización al cliente AHORA (sin esperar las 24 hrs) y le envía un correo. ¿Confirmar?')) return;
     setSaving(true);
     try {
       const payments = {
@@ -208,8 +209,12 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
         p2_pct: calc.pagos.p2.pct, p2_clp: Math.round(calc.pagos.p2.clp),
         p3_pct: calc.pagos.p3.pct, p3_clp: Math.round(calc.pagos.p3.clp),
       };
-      await saveQuote(link.id, q, calc.totalClp, calc.totalUsd, payments);
-      showToast('Cotización guardada. El cliente la verá en 24 hrs.', 'success');
+      const res = await saveQuote(link.id, q, calc.totalClp, calc.totalUsd, payments, publishNow);
+      if (publishNow) {
+        showToast(res?.emailed ? 'Cotización enviada al cliente' : 'Cotización publicada (sin email)', 'success');
+      } else {
+        showToast('Cotización guardada. El cliente la verá en 24 hrs.', 'success');
+      }
       onSaved?.();
       onClose?.();
     } catch (e) {
@@ -412,15 +417,18 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
                 <>Última: {new Date(link.quote_calculated_at).toLocaleString('es-CL')}</>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
               {link?.quote_calculated_at && (
                 <Button variant="ghost" className="text-red-600" onClick={handleDelete} disabled={deleting || saving}>
                   {deleting ? 'Borrando...' : 'Borrar cotización'}
                 </Button>
               )}
               <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving || !calc}>
-                {saving ? 'Guardando...' : 'Guardar cotización'}
+              <Button onClick={() => handleSave(false)} disabled={saving || !calc}>
+                {saving ? 'Guardando...' : 'Guardar (24 hrs)'}
+              </Button>
+              <Button variant="accent" onClick={() => handleSave(true)} disabled={saving || !calc} title="Publica al cliente sin esperar las 24 hrs y envía email">
+                {saving ? 'Enviando...' : 'Guardar y enviar ahora'}
               </Button>
             </div>
           </div>
