@@ -176,7 +176,7 @@ export function scrapeLink(url) {
 }
 
 // Quotation (Cotizador)
-export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments) =>
+export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments, publishNow = false) =>
   request(`${API_BASE}/orders_api.php?action=admin_save_quote`, {
     method: 'POST',
     body: JSON.stringify({
@@ -185,6 +185,7 @@ export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments) =>
       quote_total_clp: totalClp,
       quote_total_usd: totalUsd,
       quote_payments: payments,
+      publish_now: publishNow,
     }),
   });
 export const deleteQuote = (linkId) =>
