@@ -1252,12 +1252,13 @@ function adminSaveQuote() {
         $publishedClause = $publishNow ? 'NOW()' : 'NULL';
         $stmt = $pdo->prepare("
             UPDATE order_links
-            SET quote_data          = ?,
-                quote_total_clp     = ?,
-                quote_total_usd     = ?,
-                quote_payments      = ?,
-                quote_calculated_at = NOW(),
-                quote_published_at  = $publishedClause
+            SET quote_data                  = ?,
+                quote_total_clp             = ?,
+                quote_total_usd             = ?,
+                quote_payments              = ?,
+                quote_calculated_at         = NOW(),
+                quote_published_at          = $publishedClause,
+                value_chile_negotiated_clp  = ?
             WHERE id = ?
         ");
         $stmt->execute([
@@ -1265,6 +1266,7 @@ function adminSaveQuote() {
             (int)round($totalClp),
             $totalUsd,
             $payments ? json_encode($payments, JSON_UNESCAPED_UNICODE) : null,
+            (int)round($totalClp),
             $linkId,
         ]);
 

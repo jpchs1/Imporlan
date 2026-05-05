@@ -262,7 +262,10 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
               parse={parseClp}
             />
           </Field>
-          <Field label="Negociado (CLP)">
+          <Field
+            label="Negociado (CLP)"
+            tooltip="Valor final a pagar en CLP después de una negociación positiva. Se autocompleta con el total del cotizador al guardar la cotización."
+          >
             <MoneyInput
               className={ci + ' text-right font-bold text-blue-600'}
               placeholder="$ 0"
@@ -283,7 +286,7 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
   );
 }
 
-function Field({ label, colSpan = 1, children }) {
+function Field({ label, colSpan = 1, tooltip, children }) {
   // Map colSpan number to a tailwind class. Defaults to 1 column wide.
   const span = {
     1: '',
@@ -292,8 +295,16 @@ function Field({ label, colSpan = 1, children }) {
     4: 'col-span-2 sm:col-span-3 lg:col-span-4',
   }[colSpan] || '';
   return (
-    <div className={span}>
-      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{label}</label>
+    <div className={span} title={tooltip || undefined}>
+      <label className={'flex items-center gap-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 ' + (tooltip ? 'cursor-help' : '')}>
+        {label}
+        {tooltip && (
+          <svg className="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4M12 8h.01" />
+          </svg>
+        )}
+      </label>
       {children}
     </div>
   );
