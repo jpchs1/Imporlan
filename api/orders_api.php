@@ -89,6 +89,14 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminChangeStatus();
             break;
+        case 'admin_save_quote':
+            requireAdminAuth();
+            adminSaveQuote();
+            break;
+        case 'admin_delete_quote':
+            requireAdminAuth();
+            adminDeleteQuote();
+            break;
         case 'save_ranking':
             saveRanking();
             break;
@@ -1238,6 +1246,104 @@ function ensureRankingColumns($pdo) {
         error_log("ensureRankingColumns: " . $e->getMessage());
     }
 }
+
+
+/**
+ * Save the per-link quotation snapshot.
+ *
+ * Body: {
+ *   link_id: int,
+ *   quote_data: { ...full inputs (USD costs, CLP costs, percentages, fee, payments) ... },
+ *   quote_total_clp: number,
+ *   quote_total_usd: number,
+ *   quote_payments: { p1_pct, p1_clp, p2_pct, p2_clp, p3_pct, p3_clp }
+ * }
+ *
+ * Resets quote_published_at to NULL so the 24h client-visibility delay starts
+ * fresh on every recalculation. quote_calculated_at is set to NOW().
+ */
+function adminSaveQuote() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $linkId = intval($input['link_id'] ?? 0);
+    if (!$linkId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta link_id']);
+        return;
+    }
+    $quoteData = $input['quote_data'] ?? null;
+    if (!is_array($quoteData)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta quote_data']);
+        return;
+    }
+    $totalClp = isset($input['quote_total_clp']) ? (float)$input['quote_total_clp'] : 0;
+    $totalUsd = isset($input['quote_total_usd']) ? (float)$input['quote_total_usd'] : 0;
+    $payments = $input['quote_payments'] ?? null;
+
+    $pdo = getDbConnection();
+    if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE order_links
+            SET quote_data          = ?,
+                quote_total_clp     = ?,
+                quote_total_usd     = ?,
+                quote_payments      = ?,
+                quote_calculated_at = NOW(),
+                quote_published_at  = NULL
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            json_encode($quoteData, JSON_UNESCAPED_UNICODE),
+            (int)round($totalClp),
+            $totalUsd,
+            $payments ? json_encode($payments, JSON_UNESCAPED_UNICODE) : null,
+            $linkId,
+        ]);
+        echo json_encode([
+            'success' => true,
+            'quote_calculated_at' => date('c'),
+            'quote_total_clp' => (int)round($totalClp),
+            'quote_total_usd' => $totalUsd,
+        ]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Clear the saved quote on a link (admin can re-cotize from scratch).
+ */
+function adminDeleteQuote() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $linkId = intval($input['link_id'] ?? 0);
+    if (!$linkId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta link_id']);
+        return;
+    }
+    $pdo = getDbConnection();
+    if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE order_links
+            SET quote_data = NULL,
+                quote_total_clp = NULL,
+                quote_total_usd = NULL,
+                quote_payments = NULL,
+                quote_calculated_at = NULL,
+                quote_published_at = NULL
+            WHERE id = ?
+        ");
+        $stmt->execute([$linkId]);
+        echo json_encode(['success' => true]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
 
 function saveRanking() {
     $input = json_decode(file_get_contents('php://input'), true);

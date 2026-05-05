@@ -6,6 +6,7 @@ import { PageHeader, Card, Badge, Button, Modal, Input, Select, Textarea, Spinne
 import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
 import LinkRow from '../components/LinkRow';
+import QuoteModal from '../components/QuoteModal';
 import ReportsSection from '../components/ReportsSection';
 import FilesSection from '../components/FilesSection';
 
@@ -38,6 +39,7 @@ export default function Orders() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cotizandoLink, setCotizandoLink] = useState(null);
 
   // Filters
   const [filters, setFilters] = useState({ status: '', service_type: '', agent: '', from_date: '', to_date: '', search: '' });
@@ -467,6 +469,7 @@ export default function Orders() {
                   onDelete={handleDeleteLink}
                   onImageUpload={handleImageUpload}
                   onScrapeResult={handleScrapeResult}
+                  onCotizar={lk.id ? setCotizandoLink : undefined}
                   dragHandlers={{
                     onDragStart: e => onDragStart(e, idx),
                     onDragOver,
@@ -494,6 +497,13 @@ export default function Orders() {
           <Button onClick={handleStatusChange} disabled={newStatus === detail?.status}>Aplicar</Button>
         </div>
       </Modal>
+
+      <QuoteModal
+        open={!!cotizandoLink}
+        link={cotizandoLink}
+        onClose={() => setCotizandoLink(null)}
+        onSaved={() => detail?.id && openDetail(detail.id)}
+      />
     </div>
   );
 }

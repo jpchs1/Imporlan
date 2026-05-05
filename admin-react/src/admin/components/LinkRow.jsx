@@ -41,7 +41,7 @@ function MoneyInput({ value, onChange, format, parse, prefix = '', className, st
 const parseUsd = v => (v || '').toString().replace(/[^0-9.]/g, '');
 const parseClp = v => stripDots(v);
 
-export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, onScrapeResult, dragHandlers }) {
+export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, onScrapeResult, onCotizar, dragHandlers }) {
   const fileRef = useRef(null);
   const lk = link;
   const [scraping, setScraping] = useState(false);
@@ -226,9 +226,32 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
       <td className="px-1 py-2"><input className={ci} style={{minWidth:160}} value={lk.comments||''} onChange={e=>set('comments',e.target.value)} placeholder="Comentario..."/></td>
       {/* 17. Acciones */}
       <td className="px-1 py-2 text-center">
-        <button onClick={()=>onDelete(lk.id)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Eliminar">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-        </button>
+        <div className="flex items-center justify-center gap-1">
+          {onCotizar && (
+            <button
+              onClick={() => onCotizar(lk)}
+              className={
+                'p-1.5 rounded-lg transition relative ' +
+                (lk.quote_calculated_at
+                  ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                  : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100')
+              }
+              title={lk.quote_calculated_at
+                ? `Cotizada el ${new Date(lk.quote_calculated_at).toLocaleString('es-CL')}`
+                : 'Cotizar este link'}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+              {lk.quote_calculated_at && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+              )}
+            </button>
+          )}
+          <button onClick={()=>onDelete(lk.id)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Eliminar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
       </td>
     </tr>
   );
