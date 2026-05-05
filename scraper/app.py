@@ -573,10 +573,13 @@ def _extract_specs_from_html(soup: BeautifulSoup) -> dict:
 
 
 def _find_in_specs(specs: dict, *keys) -> str | None:
-    """Find first value whose key contains any of the given key fragments (case-insensitive)."""
+    """Find first value whose key contains any of the given key fragments as a
+    whole word (case-insensitive). Whole-word matching avoids the bug where
+    "city" matches "capacity" — "fuel capacity: 18.5 gal" used to leak as the
+    location value."""
     for k in keys:
-        kl = k.lower()
+        pattern = re.compile(r"\b" + re.escape(k.lower()) + r"\b", re.I)
         for spec_key, val in specs.items():
-            if kl in spec_key:
+            if pattern.search(spec_key):
                 return val
     return None
