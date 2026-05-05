@@ -40,6 +40,46 @@ const CLP_FIELDS = [
   { key: 'honorarios_agencia_clp',      cot: 'cot_clp_honorarios_agencia',      label: 'Honorarios Agencia' },
 ];
 
+// Spreadsheet defaults (Planilla de Costos Importación Imporlan 2026, Servicio
+// FULL example). Used as a fallback when pricing_config doesn't have a value
+// for a given key — admin edits made via the Cotizador config tab still win
+// because they're persisted in pricing_config and read first.
+const SPREADSHEET_DEFAULTS = {
+  cot_usd_clp_rate: 920,
+  cot_usd_trailer: 0,
+  cot_usd_inspeccion_lancha: 850,
+  cot_usd_inland_usa: 2100,
+  cot_usd_transporte_roro: 8500,
+  cot_usd_certificado_fumigacion: 400,
+  cot_usd_seguro: 320,
+  cot_usd_gastos_locales_naviera: 450,
+  cot_usd_congestion_surcharge: 0,
+  cot_usd_thc: 160,
+  cot_usd_baf: 615,
+  cot_usd_wharfage: 252,
+  cot_usd_handling_chile: 150,
+  cot_usd_miami_admin_fee: 150,
+  cot_usd_escorte: 0,
+  cot_clp_fee_wire_transfer: 240000,
+  cot_clp_inland_puerto_santiago: 349000,
+  cot_clp_chequeo_mecanico: 209000,
+  cot_clp_pulido_tratamiento: 186400,
+  cot_clp_entrega_traslado: 0,
+  cot_clp_aduana_extra: 220018,
+  cot_clp_autorizaciones: 80000,
+  cot_clp_gastos_puerto: 400000,
+  cot_clp_agencia_aduana: 280000,
+  cot_clp_iva_servicios_linea: 100107,
+  cot_clp_gastos_despachos: 47924,
+  cot_clp_honorarios_agencia: 71951,
+  cot_pct_iva_aduanero: 19,
+  cot_pct_impuesto_lujo: 2,
+  cot_clp_fee_imporlan_default: 3000000,
+  cot_pago_1_pct: 7,
+  cot_pago_2_pct: 63,
+  cot_pago_3_pct: 30,
+};
+
 function fmtClp(n) {
   if (n === null || n === undefined || isNaN(n)) return '$ 0';
   return '$ ' + Math.round(n).toLocaleString('es-CL');
@@ -75,9 +115,14 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
   useEffect(() => {
     if (!open || loadingPricing) return;
     const cot = (k, fallback) => {
-      const v = pricing[k]?.value ?? pricing[k];
-      const n = parseFloat(v);
-      return isNaN(n) ? fallback : n;
+      const raw = pricing[k]?.value ?? pricing[k];
+      const n = parseFloat(raw);
+      if (!isNaN(n)) return n;
+      // Fall back to the spreadsheet default if the pricing_config row is
+      // missing or unparseable. Admin edits in the Cotizador tab still win
+      // because they persist in pricing_config and are checked first.
+      if (k in SPREADSHEET_DEFAULTS) return SPREADSHEET_DEFAULTS[k];
+      return fallback;
     };
     const saved = link?.quote_data
       ? (typeof link.quote_data === 'string' ? safeParse(link.quote_data) : link.quote_data)
@@ -197,8 +242,24 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
   return createPortal(
     <>
       <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
-      <div className="animate-scale-in" style={{ position: 'fixed', top: '5vh', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, width: 'min(1100px, calc(100% - 2rem))', maxHeight: '90vh' }}>
-        <div className="bg-white rounded-2xl shadow-2xl flex flex-col border border-slate-200/60 overflow-hidden" style={{ maxHeight: '90vh' }}>
+      <div
+        className="animate-scale-in"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          padding: '4vh 1rem',
+          overflowY: 'auto',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl flex flex-col border border-slate-200/60 overflow-hidden"
+          style={{ pointerEvents: 'auto', width: 'min(1080px, 100%)', maxHeight: '92vh' }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 bg-gradient-to-r from-indigo-50 to-cyan-50">
             <div>
@@ -214,9 +275,9 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
           {(!q || loadingPricing) ? (
             <div className="p-12 text-center text-slate-400 text-sm">Cargando datos del cotizador...</div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 flex-1 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 flex-1 min-h-0">
               {/* LEFT — inputs (admin only) */}
-              <div className="lg:col-span-2 overflow-y-auto px-6 py-5 space-y-5 bg-slate-50/30">
+              <div className="lg:col-span-2 overflow-y-auto px-6 py-5 space-y-5 bg-slate-50/30 min-w-0">
 
                 {/* Generales */}
                 <section>
@@ -314,7 +375,7 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
               </div>
 
               {/* RIGHT — preview cliente */}
-              <aside className="lg:col-span-1 overflow-y-auto px-5 py-5 bg-gradient-to-b from-slate-900 to-slate-950 text-white">
+              <aside className="lg:col-span-1 overflow-y-auto px-5 py-5 bg-gradient-to-b from-slate-900 to-slate-950 text-white min-w-0">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Lo que verá el cliente</div>
 
                 <div className="space-y-3 text-sm">
