@@ -157,6 +157,9 @@ function configMigrate() {
             $stmt->execute(['min_order_clp', '50000', 'Monto minimo de orden en CLP']);
         }
 
+        cotizadorSeedDefaults($pdo);
+        cotizadorEnsureOrderLinkColumns($pdo);
+
         echo json_encode(['success' => true, 'message' => 'Config tables created/updated']);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -352,6 +355,7 @@ function pricingGet() {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
+        try { cotizadorSeedDefaults($pdo); cotizadorEnsureOrderLinkColumns($pdo); } catch (PDOException $e) { /* ignore */ }
         $stmt = $pdo->query("SELECT * FROM pricing_config ORDER BY id ASC");
         $configs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $result = [];
@@ -385,21 +389,101 @@ function pricingGet() {
 
 function pricingUpdate() {
     $input = json_decode(file_get_contents('php://input'), true);
-    if (!$input || empty($input['configs'])) {
+    if (!$input) {
         http_response_code(400);
-        echo json_encode(['error' => 'Se requiere configs']);
+        echo json_encode(['error' => 'Body JSON invalido']);
         return;
+    }
+    $raw = $input['configs'] ?? $input;
+    if (!is_array($raw) || empty($raw)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'No hay valores para guardar']);
+        return;
+    }
+    $configs = [];
+    foreach ($raw as $k => $v) {
+        if (is_array($v) && isset($v['value'])) $v = $v['value'];
+        if ($v === null) continue;
+        $configs[$k] = (string)$v;
     }
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
-        $stmt = $pdo->prepare("UPDATE pricing_config SET config_value = ? WHERE config_key = ?");
-        foreach ($input['configs'] as $key => $value) {
-            $stmt->execute([$value, $key]);
+        $stmt = $pdo->prepare("
+            INSERT INTO pricing_config (config_key, config_value)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+        ");
+        foreach ($configs as $key => $value) {
+            $stmt->execute([$key, $value]);
         }
-        echo json_encode(['success' => true, 'message' => 'Configuracion actualizada']);
+        echo json_encode(['success' => true, 'updated' => count($configs)]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
+
+function cotizadorSeedDefaults(PDO $pdo): void {
+    $defaults = [
+        ['cot_usd_clp_rate', '920', 'Tipo de cambio USD a CLP (cotizador)'],
+        ['cot_usd_trailer', '0', 'Trailer (solo si no trae) - USD'],
+        ['cot_usd_inspeccion_lancha', '850', 'Revision Lancha USA - Inspeccion Tecnica - USD'],
+        ['cot_usd_inland_usa', '2100', 'Inland USA - Bodegaje y Entrega en Puerto - USD'],
+        ['cot_usd_transporte_roro', '8500', 'Transporte Maritimo (RORO) - USD'],
+        ['cot_usd_certificado_fumigacion', '400', 'Certificado de Fumigacion - USD'],
+        ['cot_usd_seguro', '320', 'Seguro / Insurance - USD'],
+        ['cot_usd_gastos_locales_naviera', '450', 'Gastos Locales Naviera - USD'],
+        ['cot_usd_congestion_surcharge', '0', 'Congestion Surcharge (Naviera) - USD'],
+        ['cot_usd_thc', '160', 'THC - USD'],
+        ['cot_usd_baf', '615', 'BAF (Impuesto) - USD'],
+        ['cot_usd_wharfage', '252', 'WHARFAGE - USD'],
+        ['cot_usd_handling_chile', '150', 'Handling Chile - USD'],
+        ['cot_usd_miami_admin_fee', '150', 'Miami Admin FEE - USD'],
+        ['cot_usd_escorte', '0', 'Escorte (Port Pass) - USD'],
+        ['cot_clp_fee_wire_transfer', '240000', 'FEE Wire Transferencia - CLP'],
+        ['cot_clp_inland_puerto_santiago', '349000', 'Inland Puerto - Santiago - CLP'],
+        ['cot_clp_chequeo_mecanico', '209000', 'Chequeo Mecanico Chile - CLP'],
+        ['cot_clp_pulido_tratamiento', '186400', 'Pulido y Tratamiento Chile - CLP'],
+        ['cot_clp_entrega_traslado', '0', 'Entrega / Traslado en Chile - CLP'],
+        ['cot_clp_aduana_extra', '220018', 'Aduana Asciende a M$1.2 + IVA - CLP'],
+        ['cot_clp_autorizaciones', '80000', 'Autorizaciones - CLP (gross)'],
+        ['cot_clp_gastos_puerto', '400000', 'Gastos de Puerto - CLP (gross)'],
+        ['cot_clp_agencia_aduana', '280000', 'Agencia de Aduana - CLP (gross)'],
+        ['cot_clp_iva_servicios_linea', '100107', 'IVA Servicios linea - CLP'],
+        ['cot_clp_gastos_despachos', '47924', 'Gastos de Despachos - CLP'],
+        ['cot_clp_honorarios_agencia', '71951', 'Honorarios Agencia - CLP'],
+        ['cot_pct_iva_aduanero', '19', 'IVA Aduanero (% sobre CIF)'],
+        ['cot_pct_impuesto_lujo', '2', 'Impuesto al Lujo (% sobre valor lancha cuando aplica)'],
+        ['cot_clp_fee_imporlan_default', '3000000', 'FEE Imporlan default - CLP'],
+        ['cot_pago_1_pct', '7', 'Pago 1 (%)'],
+        ['cot_pago_2_pct', '63', 'Pago 2 (%)'],
+        ['cot_pago_3_pct', '30', 'Pago 3 (%)'],
+        ['cot_client_delay_hours', '24', 'Horas de delay antes de mostrar cotizacion al cliente'],
+    ];
+    $stmt = $pdo->prepare("INSERT IGNORE INTO pricing_config (config_key, config_value, description) VALUES (?, ?, ?)");
+    foreach ($defaults as [$k, $v, $desc]) {
+        $stmt->execute([$k, $v, $desc]);
+    }
+}
+
+function cotizadorEnsureOrderLinkColumns(PDO $pdo): void {
+    $cols = [
+        'quote_data'           => 'JSON NULL',
+        'quote_total_clp'      => 'DECIMAL(15,0) NULL',
+        'quote_total_usd'      => 'DECIMAL(12,2) NULL',
+        'quote_payments'       => 'JSON NULL',
+        'quote_calculated_at'  => 'TIMESTAMP NULL',
+        'quote_published_at'   => 'TIMESTAMP NULL',
+    ];
+    $existing = $pdo->query("
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_links'
+    ")->fetchAll(PDO::FETCH_COLUMN);
+    $existingSet = array_flip($existing);
+    foreach ($cols as $col => $def) {
+        if (isset($existingSet[$col])) continue;
+        $pdo->exec("ALTER TABLE order_links ADD COLUMN `$col` $def");
     }
 }
