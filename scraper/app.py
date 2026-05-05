@@ -48,26 +48,19 @@ def health():
 
 @app.get("/debug")
 def debug(url: str = Query(...), bytes_: int = Query(2000, alias="bytes")):
-    """Diagnostic endpoint — fetches the URL and returns key extraction signals.
-
-    Useful to confirm whether the source page actually contains __NEXT_DATA__,
-    JSON-LD, og:meta or any spec table when the main /scrape comes back partial.
+    """Diagnostic endpoint — returns key extraction signals (og:meta, JSON-LD,
+    specs, scrape_result) so we can iterate the parser without redeploying with
+    print statements when a listing comes back partial.
     """
     if not _is_supported_url(url):
         raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
 
-    headers = _browser_headers()
-    try:
-        r = curl_requests.get(url, impersonate="chrome131", headers=headers, timeout=25, allow_redirects=True)
-    except Exception as e:
-        return {"error": f"fetch_failed: {e}"}
+    html, profile, last_err = _fetch_with_rotation(url)
+    if html is None:
+        return {"error": last_err, "profile": profile}
 
-    out: dict[str, Any] = {"http": r.status_code, "html_size": len(r.text or "")}
-    if r.status_code != 200 or not r.text:
-        out["excerpt"] = (r.text or "")[:bytes_]
-        return out
-
-    soup = BeautifulSoup(r.text, "lxml")
+    out: dict[str, Any] = {"http": 200, "html_size": len(html), "profile": profile}
+    soup = BeautifulSoup(html, "lxml")
     out["has_next_data"] = bool(soup.find("script", id="__NEXT_DATA__"))
     out["title_tag"] = (soup.title.string or "").strip() if soup.title else ""
     out["h1"] = (soup.h1.get_text(strip=True) if soup.h1 else "")
@@ -84,10 +77,37 @@ def debug(url: str = Query(...), bytes_: int = Query(2000, alias="bytes")):
         except Exception:
             out["json_ld_first_raw"] = (json_ld_scripts[0].string or "")[:500]
     specs = _extract_specs_from_html(soup)
-    # Limit specs to 30 entries to keep response reasonable
-    out["specs"] = dict(list(specs.items())[:30])
-    out["scrape_result"] = _parse(url, r.text)
+    # Cap specs to keep the response payload manageable
+    out["specs"] = dict(list(specs.items())[:40])
+    out["scrape_result"] = _parse(url, html)
     return out
+
+
+# Profile rotation order. "chrome" (latest) goes first because it has the highest
+# bypass rate against Cloudflare today; the named versions are increasingly
+# blacklisted but kept as fallbacks if "chrome" itself starts failing.
+_PROFILES = ("chrome", "chrome131", "chrome124", "chrome120")
+
+
+def _fetch_with_rotation(url: str):
+    """Fetch a URL, rotating through curl_cffi impersonation profiles.
+    Returns (html, profile_used, last_error). html is None on total failure.
+    """
+    headers = _browser_headers()
+    last_err = None
+    for profile in _PROFILES:
+        try:
+            r = curl_requests.get(url, impersonate=profile, headers=headers, timeout=25, allow_redirects=True)
+        except Exception as e:
+            log.warning("fetch %s failed: %s", profile, e)
+            last_err = f"fetch_failed_{profile}: {e}"
+            continue
+        if r.status_code == 200 and r.text and len(r.text) > 1000:
+            log.info("fetch ok with %s len=%d", profile, len(r.text))
+            return r.text, profile, None
+        log.warning("fetch %s http=%s len=%d", profile, r.status_code, len(r.text or ""))
+        last_err = f"http_{r.status_code}"
+    return None, None, last_err or "all_profiles_failed"
 
 
 def _browser_headers() -> dict:
@@ -118,31 +138,10 @@ def scrape(url: str = Query(..., description="boattrader.com or boats.com listin
         raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
 
     log.info("scrape url=%s", url)
-    headers = _browser_headers()
-
-    last_err = None
-    for profile in ("chrome131", "chrome124", "chrome120", "chrome"):
-        try:
-            r = curl_requests.get(
-                url,
-                impersonate=profile,
-                headers=headers,
-                timeout=25,
-                allow_redirects=True,
-            )
-        except Exception as e:
-            log.warning("fetch %s failed: %s", profile, e)
-            last_err = f"fetch_failed_{profile}: {e}"
-            continue
-
-        if r.status_code == 200 and r.text and len(r.text) > 1000:
-            log.info("fetch ok with %s len=%d", profile, len(r.text))
-            return _parse(url, r.text)
-
-        log.warning("fetch %s http=%s len=%d", profile, r.status_code, len(r.text or ""))
-        last_err = f"http_{r.status_code}"
-
-    return {"success": False, "error": last_err or "all_profiles_failed"}
+    html, _profile, last_err = _fetch_with_rotation(url)
+    if html is None:
+        return {"success": False, "error": last_err}
+    return _parse(url, html)
 
 
 def _is_supported_url(url: str) -> bool:
