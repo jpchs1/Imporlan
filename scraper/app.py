@@ -52,21 +52,50 @@ def scrape(url: str = Query(..., description="boattrader.com or boats.com listin
         raise HTTPException(status_code=400, detail="Only boattrader.com and boats.com URLs are supported")
 
     log.info("scrape url=%s", url)
-    try:
-        r = curl_requests.get(url, impersonate="chrome120", timeout=25, allow_redirects=True)
-    except Exception as e:
-        log.exception("fetch failed")
-        return {"success": False, "error": f"fetch_failed: {e}"}
 
-    if r.status_code != 200:
-        log.warning("fetch http=%s url=%s", r.status_code, url)
-        return {"success": False, "error": f"http_{r.status_code}"}
+    # Realistic browser headers — Cloudflare also fingerprints header order/content,
+    # not just the TLS layer. We rotate through a few impersonation profiles if the
+    # first one trips a 403/503.
+    headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "Referer": "https://www.google.com/",
+    }
 
-    html = r.text
-    if not html or len(html) < 500:
-        return {"success": False, "error": "empty_html"}
+    last_err = None
+    for profile in ("chrome131", "chrome124", "chrome120", "chrome"):
+        try:
+            r = curl_requests.get(
+                url,
+                impersonate=profile,
+                headers=headers,
+                timeout=25,
+                allow_redirects=True,
+            )
+        except Exception as e:
+            log.warning("fetch %s failed: %s", profile, e)
+            last_err = f"fetch_failed_{profile}: {e}"
+            continue
 
-    return _parse(url, html)
+        if r.status_code == 200 and r.text and len(r.text) > 1000:
+            log.info("fetch ok with %s len=%d", profile, len(r.text))
+            return _parse(url, r.text)
+
+        log.warning("fetch %s http=%s len=%d", profile, r.status_code, len(r.text or ""))
+        last_err = f"http_{r.status_code}"
+
+    return {"success": False, "error": last_err or "all_profiles_failed"}
 
 
 def _is_supported_url(url: str) -> bool:
