@@ -8,6 +8,39 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
     define('IMPORLAN_COTIZADOR_HELPERS_LOADED', true);
 
     /**
+     * Idempotently add the per-link quote columns to order_links. Lives here
+     * (not in settings_api.php) so the cron / lazy-publish path can self-heal
+     * without depending on the admin opening the Cotizador tab first.
+     */
+    function cotizadorEnsureOrderLinkColumns(PDO $pdo): void {
+        $cols = [
+            'quote_data'           => 'JSON NULL',
+            'quote_total_clp'      => 'DECIMAL(15,0) NULL',
+            'quote_total_usd'      => 'DECIMAL(12,2) NULL',
+            'quote_payments'       => 'JSON NULL',
+            'quote_calculated_at'  => 'TIMESTAMP NULL',
+            'quote_published_at'   => 'TIMESTAMP NULL',
+        ];
+        try {
+            $existing = $pdo->query("
+                SELECT COLUMN_NAME FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_links'
+            ")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (PDOException $e) {
+            return;  // table may not exist yet — skip gracefully
+        }
+        $existingSet = array_flip($existing);
+        foreach ($cols as $col => $def) {
+            if (isset($existingSet[$col])) continue;
+            try {
+                $pdo->exec("ALTER TABLE order_links ADD COLUMN `$col` $def");
+            } catch (PDOException $e) {
+                error_log('cotizadorEnsureOrderLinkColumns: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
      * Read the configurable delay (hours) before a saved quote is shown to
      * the client. Falls back to 24 if the row is missing.
      */
@@ -35,6 +68,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
      */
     function cotizadorApplyClientVisibility(PDO $pdo, array $links): array {
         if (empty($links)) return $links;
+        cotizadorEnsureOrderLinkColumns($pdo);  // self-heal in case migration hasn't run yet
         $delayHours = cotizadorClientDelayHours($pdo);
         $now = time();
         $orderCustomer = null;  // lazily loaded if we need to send an email
@@ -106,6 +140,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
      * published in this run.
      */
     function cotizadorPublishDue(PDO $pdo): int {
+        cotizadorEnsureOrderLinkColumns($pdo);  // self-heal: cron may run before admin opens Cotizador tab
         $delayHours = cotizadorClientDelayHours($pdo);
         $stmt = $pdo->prepare("
             SELECT ol.*, o.customer_email, o.customer_name, o.order_number

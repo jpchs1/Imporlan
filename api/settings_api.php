@@ -561,25 +561,8 @@ function cotizadorSeedDefaults(PDO $pdo): void {
 }
 
 /**
- * Add the per-link quotation columns to order_links if they don't already exist.
- * Idempotent — uses information_schema check so re-runs are no-ops.
+ * cotizadorEnsureOrderLinkColumns now lives in cotizador_helpers.php so the
+ * cron and lazy-publish paths can self-migrate without going through this
+ * file. Keep this stub for any old callers.
  */
-function cotizadorEnsureOrderLinkColumns(PDO $pdo): void {
-    $cols = [
-        'quote_data'           => 'JSON NULL',
-        'quote_total_clp'      => 'DECIMAL(15,0) NULL',
-        'quote_total_usd'      => 'DECIMAL(12,2) NULL',
-        'quote_payments'       => 'JSON NULL',
-        'quote_calculated_at'  => 'TIMESTAMP NULL',
-        'quote_published_at'   => 'TIMESTAMP NULL',
-    ];
-    $existing = $pdo->query("
-        SELECT COLUMN_NAME FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_links'
-    ")->fetchAll(PDO::FETCH_COLUMN);
-    $existingSet = array_flip($existing);
-    foreach ($cols as $col => $def) {
-        if (isset($existingSet[$col])) continue;
-        $pdo->exec("ALTER TABLE order_links ADD COLUMN `$col` $def");
-    }
-}
+require_once __DIR__ . '/cotizador_helpers.php';
