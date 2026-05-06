@@ -6,6 +6,40 @@ import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/co
 import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
 
+function relativeTime(ts) {
+  if (!ts) return '';
+  const ms = Date.now() - new Date(ts).getTime();
+  if (Number.isNaN(ms)) return '';
+  if (ms < 60_000) return 'hace unos segundos';
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h} hr${h > 1 ? 's' : ''}`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `hace ${d} dia${d > 1 ? 's' : ''}`;
+  return fmtDate(ts);
+}
+
+function avatarInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => p[0]).join('').toUpperCase();
+}
+
+function avatarColor(seed) {
+  const palette = [
+    'from-cyan-500 to-blue-600',
+    'from-emerald-500 to-teal-600',
+    'from-violet-500 to-purple-600',
+    'from-amber-500 to-orange-600',
+    'from-pink-500 to-rose-600',
+    'from-indigo-500 to-blue-700',
+  ];
+  let hash = 0;
+  for (let i = 0; i < (seed || '').length; i++) hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+  return palette[Math.abs(hash) % palette.length];
+}
+
 const STATUS_BANNERS = {
   new: {
     color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
@@ -764,21 +798,43 @@ function OrderDetail({ orderId, onBack }) {
 
 export default function Expedientes() {
   const toast = useToast();
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState('expedientes');
+  const [loadError, setLoadError] = useState('');
 
   const loadData = useCallback(async () => {
+    setLoadError('');
     try {
-      const [ordersRes, purchasesRes] = await Promise.all([
-        getMyOrders().catch(() => ({ orders: [] })),
-        getMyPurchases().catch(() => ({ plans: [], links: [] })),
+      const [ordersRes, purchasesRes] = await Promise.allSettled([
+        getMyOrders(),
+        getMyPurchases(),
       ]);
-      setOrders(ordersRes.success && ordersRes.orders ? ordersRes.orders : []);
-      setPlans(purchasesRes.plans || []);
+
+      if (ordersRes.status === 'fulfilled') {
+        const r = ordersRes.value || {};
+        const list = r.orders || r.data || (Array.isArray(r) ? r : []);
+        setOrders(Array.isArray(list) ? list : []);
+        if (r.error) setLoadError(String(r.error));
+      } else {
+        const msg = ordersRes.reason?.message || 'Error al cargar expedientes';
+        console.error('[Expedientes] getMyOrders failed:', ordersRes.reason);
+        setLoadError(msg);
+        setOrders([]);
+      }
+
+      if (purchasesRes.status === 'fulfilled') {
+        const r = purchasesRes.value || {};
+        setPlans(r.plans || r.data?.plans || []);
+      } else {
+        console.error('[Expedientes] getMyPurchases failed:', purchasesRes.reason);
+        setPlans([]);
+      }
     } catch (e) {
+      console.error('[Expedientes] loadData unexpected:', e);
       toast?.('Error al cargar expedientes', 'error');
     }
     setLoading(false);
@@ -808,10 +864,32 @@ export default function Expedientes() {
         <Spinner />
       ) : tab === 'expedientes' ? (
         orders.length === 0 ? (
-          <Card className="text-center py-16">
-            <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-            <p className="text-slate-500 font-medium">No tienes expedientes activos</p>
-            <p className="text-sm text-slate-400 mt-1">Cuando contrates un plan o cotizacion, aparecera aqui.</p>
+          <Card className="text-center py-12">
+            {loadError ? (
+              <>
+                <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-red-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+                <p className="text-slate-700 font-semibold">No pudimos cargar tus expedientes</p>
+                <p className="text-xs text-red-500 mt-1">{loadError}</p>
+                <p className="text-xs text-slate-400 mt-3">Cuenta consultada: <span className="font-mono text-slate-600">{user?.email || '-'}</span></p>
+                <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setLoading(true); loadData(); }}>Reintentar</Button>
+              </>
+            ) : (
+              <>
+                <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                <p className="text-slate-700 font-semibold">Aun no hay expedientes para esta cuenta</p>
+                <p className="text-sm text-slate-500 mt-1">Cuando contrates un plan o cotizacion aparecera aqui.</p>
+                <p className="text-[11px] text-slate-400 mt-3">Cuenta: <span className="font-mono text-slate-500">{user?.email || '-'}</span></p>
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+                  <Button variant="secondary" size="sm" onClick={() => { setLoading(true); loadData(); }}>Recargar</Button>
+                  <a href="https://wa.me/56940211459?text=Hola%2C%20no%20veo%20mis%20expedientes%20en%20el%20panel" target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                    Hablar con soporte
+                  </a>
+                </div>
+              </>
+            )}
           </Card>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
