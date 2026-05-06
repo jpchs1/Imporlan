@@ -193,13 +193,81 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             if (!$title) $title = 'tu embarcación';
             $subject = 'Tu cotización está lista — ' . $title;
             $panelUrl = 'https://www.imporlan.cl/panel/';
-            $totalClp = isset($link['quote_total_clp']) ? '$ ' . number_format((float)$link['quote_total_clp'], 0, ',', '.') : '';
+
+            // Decode the quote_data snapshot so we can render the same itemized
+            // breakdown the admin sees in the QuoteModal (Lancha, Servicio
+            // All-Inclusive, IVA, Lujo, Total + 3 pagos).
+            $qd = $link['quote_data'] ?? null;
+            if (is_string($qd)) { $qd = json_decode($qd, true); }
+            if (!is_array($qd)) $qd = [];
+            $payments = $link['quote_payments'] ?? null;
+            if (is_string($payments)) { $payments = json_decode($payments, true); }
+
+            $totalClpNum = isset($link['quote_total_clp']) ? (float)$link['quote_total_clp'] : 0;
+            $rate        = (float)($qd['usd_clp_rate'] ?? 920) ?: 1;
+            $lanchaUsd   = (float)($qd['valor_lancha_usd'] ?? 0);
+            $lanchaClp   = $lanchaUsd * $rate;
+            $transUsd    = (float)($qd['transporte_roro_usd'] ?? 0);
+            $cifClp      = $lanchaClp + $transUsd * $rate;
+            $ivaPct      = (float)($qd['iva_pct'] ?? 19);
+            $lujoPct     = (float)($qd['lujo_pct'] ?? 2);
+            $lujoAplica  = !empty($qd['lujo_aplica']);
+            $ivaClp      = $cifClp * ($ivaPct / 100);
+            $lujoClp     = $lujoAplica ? $lanchaClp * ($lujoPct / 100) : 0;
+            $allIncl     = $totalClpNum - $lanchaClp - $ivaClp - $lujoClp;
+
+            $fmt = fn($n) => '$ ' . number_format(max(0, round($n)), 0, ',', '.');
+
+            $row = function ($label, $value, $bold = false) {
+                $w = $bold ? '700' : '500';
+                $cl = $bold ? '#0f172a' : '#475569';
+                $valc = $bold ? '#1e40af' : '#0f172a';
+                return '<tr><td style="padding:8px 4px;color:' . $cl . ';font-weight:' . $w . ';font-size:13px">' . $label . '</td>'
+                    . '<td style="padding:8px 4px;text-align:right;color:' . $valc . ';font-weight:' . $w . ';font-size:13px;font-variant-numeric:tabular-nums">' . $value . '</td></tr>';
+            };
+
+            $breakdown = '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin:14px 0">'
+                . $row('Valor Lancha', $fmt($lanchaClp))
+                . $row('Servicio All-Inclusive', $fmt($allIncl))
+                . $row('IVA Aduanero (' . rtrim(rtrim(number_format($ivaPct, 2, '.', ''), '0'), '.') . '%)', $fmt($ivaClp))
+                . ($lujoAplica
+                    ? $row('Impuesto al Lujo', $fmt($lujoClp))
+                    : '<tr><td style="padding:8px 4px;color:#94a3b8;font-size:13px">Impuesto al Lujo</td><td style="padding:8px 4px;text-align:right;color:#94a3b8;font-size:13px">N/A</td></tr>')
+                . '<tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding:0"></td></tr>'
+                . $row('TOTAL', $fmt($totalClpNum), true)
+                . '</table>';
+
+            $pagosBlock = '';
+            if (is_array($payments) && !empty($payments['p1_clp'])) {
+                $pagosBlock = '<div style="margin:18px 0">'
+                    . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Plan de pagos</div>'
+                    . '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">';
+                foreach ([1, 2, 3] as $i) {
+                    $pct = $payments['p' . $i . '_pct'] ?? 0;
+                    $clp = $payments['p' . $i . '_clp'] ?? 0;
+                    if ($clp <= 0) continue;
+                    $pagosBlock .= '<tr><td style="padding:6px 0;color:#475569;font-size:12px">Pago ' . $i . ' <span style="color:#94a3b8">(' . $pct . '%)</span></td>'
+                        . '<td style="padding:6px 0;text-align:right;color:#0f172a;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums">' . $fmt($clp) . '</td></tr>';
+                }
+                $pagosBlock .= '</table></div>';
+            }
+
+            $ivaNote = '<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:6px;margin:18px 0">'
+                . '<div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Sobre el IVA Aduanero</div>'
+                . '<div style="color:#78350f;font-size:12px;line-height:1.55">Si lo prefieres, el IVA Aduanero (' . $fmt($ivaClp) . ') puedes pagarlo directamente a la Tesorería General de la República (TGR) — en ese caso queda fuera del monto que abonas a Imporlan. Avísanos al confirmar para ajustar el plan de pagos.</div>'
+                . '</div>';
+
             $html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:20px">'
-                . '<div style="max-width:540px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)">'
+                . '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)">'
                 . '<h2 style="color:#1e293b;margin:0 0 8px">Tu cotización está lista</h2>'
-                . '<p style="color:#475569;font-size:15px;line-height:1.6">Hola' . ($userName ? ' <strong>' . htmlspecialchars($userName) . '</strong>' : '') . ', ya terminamos el análisis de costos para <strong>' . htmlspecialchars($title) . '</strong> y la cotización está disponible en tu panel.</p>'
-                . ($totalClp ? '<div style="background:#f0f9ff;border-left:4px solid #3b82f6;padding:14px 18px;border-radius:8px;margin:18px 0"><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em">Total cotización</div><div style="font-size:24px;font-weight:700;color:#1e40af;margin-top:4px">' . $totalClp . '</div></div>' : '')
-                . '<div style="text-align:center;margin:24px 0"><a href="' . htmlspecialchars($panelUrl) . '" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600">Ver mi cotización</a></div>'
+                . '<p style="color:#475569;font-size:15px;line-height:1.6">Hola' . ($userName ? ' <strong>' . htmlspecialchars($userName) . '</strong>' : '') . ', ya terminamos el análisis de costos para <strong>' . htmlspecialchars($title) . '</strong>. Aquí va el resumen del valor final y el plan de pagos.</p>'
+                . '<div style="background:#f0f9ff;border:1px solid #bae6fd;padding:16px 18px;border-radius:10px;margin:18px 0">'
+                . '<div style="font-size:11px;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Resumen de costos</div>'
+                . $breakdown
+                . '</div>'
+                . $pagosBlock
+                . $ivaNote
+                . '<div style="text-align:center;margin:24px 0"><a href="' . htmlspecialchars($panelUrl) . '" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600">Ver detalle en mi panel</a></div>'
                 . '<p style="color:#94a3b8;font-size:12px;line-height:1.5">Si tienes dudas, contáctanos respondiendo este correo o por WhatsApp. Imporlan.</p>'
                 . '</div></body></html>';
             $svc->sendCustomEmail($userEmail, $subject, $html);
