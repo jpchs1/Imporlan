@@ -1,10 +1,67 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyPurchases } from '../api';
+import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyPurchases, getMyReports } from '../api';
 import { fmtDate, fmtCLP, statusColor, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
+
+const STATUS_BANNERS = {
+  new: {
+    color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
+    title: 'Expediente Nuevo',
+    message: 'Tu expediente ha sido creado y esta siendo revisado por nuestro equipo. Pronto comenzaremos a trabajar en tu busqueda.',
+    iconPath: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  },
+  pending_admin_fill: {
+    color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
+    title: 'Pendiente de Revision',
+    message: 'Tu expediente esta pendiente de revision. Nuestro equipo esta preparando tu busqueda personalizada.',
+    iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  },
+  in_progress: {
+    color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    title: 'En Proceso - Monitoreo Continuo',
+    message: 'Tu expediente esta en proceso con monitoreo continuo. Nuestro equipo esta buscando activamente las mejores opciones para ti y se iran agregando nuevas alternativas a medida que las encontremos.',
+    iconPath: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  },
+  completed: {
+    color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
+    title: 'Expediente Completado',
+    message: 'Tu expediente ha sido completado exitosamente. Todas las opciones han sido revisadas y entregadas. Si necesitas algo mas, no dudes en contactarnos.',
+    iconPath: 'M5 13l4 4L19 7',
+  },
+  expired: {
+    color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600',
+    title: 'Expediente Vencido',
+    message: 'Tu expediente ha vencido. Si deseas reactivar tu busqueda, contactanos y con gusto te ayudaremos.',
+    iconPath: 'M6 18L18 6M6 6l12 12',
+  },
+  canceled: {
+    color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200', iconBg: 'bg-slate-100', iconColor: 'text-slate-500',
+    title: 'Expediente Cancelado',
+    message: 'Tu expediente ha sido cancelado. Si tienes alguna consulta o deseas iniciar una nueva busqueda, estamos a tu disposicion.',
+    iconPath: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
+  },
+};
+
+function StatusBanner({ status }) {
+  const cfg = STATUS_BANNERS[status];
+  if (!cfg) return null;
+  return (
+    <div className={cn('mb-5 rounded-2xl border p-4 flex items-start gap-3', cfg.bg, cfg.border)}>
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', cfg.iconBg)}>
+        <svg className={cn('w-5 h-5', cfg.iconColor)} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d={cfg.iconPath} />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={cn('text-sm font-semibold', cfg.color)}>{cfg.title}</p>
+        <p className="text-xs text-slate-600 mt-1 leading-relaxed">{cfg.message}</p>
+      </div>
+    </div>
+  );
+}
 
 // --- List View ---
 
@@ -282,6 +339,7 @@ function OrderDetail({ orderId, onBack }) {
   const [order, setOrder] = useState(null);
   const [links, setLinks] = useState([]);
   const [files, setFiles] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState(false);
@@ -311,10 +369,25 @@ function OrderDetail({ orderId, onBack }) {
     } catch (e) { /* silent */ }
   }, [orderId]);
 
+  const loadReports = useCallback(async () => {
+    try {
+      const data = await getMyReports();
+      const all = data?.reports || [];
+      const matchById = (r) => String(r.order_id || r.expediente_id || '') === String(orderId);
+      const matchByNumber = (r) => order?.order_number && (r.order_number === order.order_number || r.expediente_number === order.order_number);
+      const filtered = all.filter(r => matchById(r) || matchByNumber(r));
+      setReports(filtered.length > 0 ? filtered : []);
+    } catch { /* silent */ }
+  }, [orderId, order?.order_number]);
+
   useEffect(() => {
     loadDetail();
     loadFiles();
   }, [loadDetail, loadFiles]);
+
+  useEffect(() => {
+    if (order) loadReports();
+  }, [order, loadReports]);
 
   // Polling for admin ranking updates (30s)
   useEffect(() => {
@@ -449,6 +522,9 @@ function OrderDetail({ orderId, onBack }) {
         )}
       </div>
 
+      {/* Status Banner */}
+      <StatusBanner status={order.status} />
+
       {/* Timeline */}
       <Timeline step={order.timeline_step || 1} />
 
@@ -549,6 +625,49 @@ function OrderDetail({ orderId, onBack }) {
           <svg className="w-10 h-10 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <p className="text-slate-500 font-medium">Tu agente esta buscando opciones</p>
           <p className="text-sm text-slate-400 mt-1">Cuando encuentre embarcaciones, apareceran aqui para que las priorices.</p>
+        </Card>
+      )}
+
+      {/* Reports section */}
+      {reports.length > 0 && (
+        <Card className="mb-5">
+          <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Mis Reportes ({reports.length})
+          </h2>
+          <div className="space-y-2">
+            {reports.map(r => {
+              const planLabel = r.plan_type || r.plan_name || 'Reporte';
+              const version = r.version ? `v${r.version}` : null;
+              const viewUrl = r.view_url || (r.id && r.access_token ? `/api/reports_api.php?action=view_report&report_id=${r.id}&token=${encodeURIComponent(r.access_token)}` : null);
+              const pdfUrl = r.pdf_url || (r.id && r.access_token ? `/api/reports_api.php?action=download_pdf&report_id=${r.id}&token=${encodeURIComponent(r.access_token)}` : null);
+              return (
+                <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50/50 transition">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{planLabel.toUpperCase()}{version ? ` ${version}` : ''}</p>
+                    <p className="text-[11px] text-slate-400">{r.created_at ? fmtDate(r.created_at) : ''}</p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    {viewUrl && (
+                      <a href={viewUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg bg-violet-100 text-violet-700 text-xs font-semibold hover:bg-violet-200 transition flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Ver
+                      </a>
+                    )}
+                    {pdfUrl && (
+                      <a href={pdfUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 transition flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        PDF
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </Card>
       )}
 

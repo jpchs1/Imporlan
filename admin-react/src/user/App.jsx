@@ -21,6 +21,8 @@ import Quotation from './pages/Quotation';
 import Alerts from './pages/Alerts';
 import Support from './pages/Support';
 import Deckeva from './pages/Deckeva';
+import ChatWidget from './components/ChatWidget';
+import PostPaymentPopup from './components/PostPaymentPopup';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -29,20 +31,24 @@ function ProtectedRoute({ children }) {
 
 function UserLayout() {
   return (
-    <Layout
-      navItems={NAV_ITEMS}
-      branding={BRANDING}
-      profilePath="/profile"
-      headerExtra={
-        <NotificationBell
-          getUnreadCount={getUnreadCount}
-          getNotifications={getNotifications}
-          markRead={markNotificationRead}
-          markAllRead={markAllNotificationsRead}
-          viewAllPath="/alerts"
-        />
-      }
-    />
+    <>
+      <Layout
+        navItems={NAV_ITEMS}
+        branding={BRANDING}
+        profilePath="/profile"
+        headerExtra={
+          <NotificationBell
+            getUnreadCount={getUnreadCount}
+            getNotifications={getNotifications}
+            markRead={markNotificationRead}
+            markAllRead={markAllNotificationsRead}
+            viewAllPath="/alerts"
+          />
+        }
+      />
+      <ChatWidget />
+      <PostPaymentPopup />
+    </>
   );
 }
 
