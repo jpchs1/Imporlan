@@ -408,6 +408,121 @@
     return '<div class="lc-hover-overlay" style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.45) 60%,transparent 100%);padding:28px 8px 6px;display:flex;flex-direction:column;gap:2px;opacity:0;transition:opacity .25s ease;pointer-events:none">' + lines.join('') + '</div>';
   }
 
+  /* ── Quote summary card (cliente) ────────────────────────────────────────
+   * Mirrors el preview oscuro del QuoteModal admin pero solo expone el
+   * resumen (no la planilla detallada). Si la cotización todavía no se libera
+   * (24 hrs por defecto desde quote_calculated_at), se muestra el badge
+   * "Cotización en análisis". Si está lista, se imprime el desglose
+   * (Lancha, Servicio All-Inclusive, IVA, Lujo) + plan de pagos + nota TGR.
+   */
+  function buildQuoteSummaryHtml(lk) {
+    if (!lk) return '';
+    if (lk.quote_pending) {
+      var availableTxt = '';
+      if (lk.quote_available_at) {
+        try { availableTxt = ' · Disponible ' + new Date(lk.quote_available_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+        catch (e) {}
+      }
+      return '<div title="Estamos terminando los cálculos. La cotización se libera 24 horas después de su carga." style="margin-top:12px;padding:10px 14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fcd34d;border-radius:10px;display:flex;align-items:center;gap:10px;cursor:help">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        '<div><div style="font-size:12px;color:#92400e;font-weight:700">Cotización en análisis</div>' +
+        '<div style="font-size:11px;color:#b45309">Estamos finalizando los cálculos. Estará lista en menos de 24 hrs.' + escapeHtml(availableTxt) + '</div></div></div>';
+    }
+    if (!lk.quote_calculated_at || !lk.quote_total_clp) return '';
+
+    // Decode JSON columns (PDO returns JSON columns as strings).
+    var qd = lk.quote_data;
+    if (typeof qd === 'string') { try { qd = JSON.parse(qd); } catch (e) { qd = {}; } }
+    if (!qd || typeof qd !== 'object') qd = {};
+
+    var pay = lk.quote_payments;
+    if (typeof pay === 'string') { try { pay = JSON.parse(pay); } catch (e) { pay = null; } }
+
+    var rate       = parseFloat(qd.usd_clp_rate) || 920;
+    var lanchaUsd  = parseFloat(qd.valor_lancha_usd) || 0;
+    var lanchaClp  = lanchaUsd * rate;
+    var transUsd   = parseFloat(qd.transporte_roro_usd) || 0;
+    var cifClp     = lanchaClp + transUsd * rate;
+    var ivaPct     = parseFloat(qd.iva_pct);   if (isNaN(ivaPct))  ivaPct  = 19;
+    var lujoPct    = parseFloat(qd.lujo_pct);  if (isNaN(lujoPct)) lujoPct = 2;
+    var lujoAplica = !!qd.lujo_aplica;
+    var ivaClp     = cifClp * (ivaPct / 100);
+    var lujoClp    = lujoAplica ? lanchaClp * (lujoPct / 100) : 0;
+    var totalClp   = parseFloat(lk.quote_total_clp) || 0;
+    var totalUsd   = parseFloat(lk.quote_total_usd) || (rate ? totalClp / rate : 0);
+    var allIncl    = totalClp - lanchaClp - ivaClp - lujoClp;
+    if (allIncl < 0) allIncl = 0;
+
+    function fmtClpVal(n) { return formatCurrency(Math.round(n), 'CLP') || '$0'; }
+    function fmtUsdVal(n) { return formatCurrency(Math.round(n), 'USD') || '$0'; }
+
+    function rowHtml(label, value, sub, opts) {
+      opts = opts || {};
+      var labelColor = opts.bold ? '#fff' : '#cbd5e1';
+      var labelWeight = opts.bold ? '700' : '500';
+      var labelSize = opts.bold ? '14px' : '13px';
+      var valColor = opts.bold ? '#fff' : (opts.muted ? '#64748b' : '#f1f5f9');
+      var valWeight = opts.bold ? '800' : '600';
+      var valSize = opts.bold ? '20px' : '14px';
+      var titleAttr = opts.title ? ' title="' + escapeHtml(opts.title) + '"' : '';
+      var cursorStyle = opts.title ? ';cursor:help' : '';
+      return '<div' + titleAttr + ' style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0' + cursorStyle + '">' +
+        '<div style="color:' + labelColor + ';font-weight:' + labelWeight + ';font-size:' + labelSize + '">' + escapeHtml(label) + '</div>' +
+        '<div style="text-align:right">' +
+        '<div style="color:' + valColor + ';font-weight:' + valWeight + ';font-size:' + valSize + ';font-variant-numeric:tabular-nums">' + escapeHtml(value) + '</div>' +
+        (sub ? '<div style="color:#64748b;font-size:10px;margin-top:1px">' + escapeHtml(sub) + '</div>' : '') +
+        '</div></div>';
+    }
+
+    var pagosHtml = '';
+    if (pay && typeof pay === 'object') {
+      var hasPayments = false;
+      var pagosRows = '';
+      for (var i = 1; i <= 3; i++) {
+        var pct = parseFloat(pay['p' + i + '_pct']) || 0;
+        var clp = parseFloat(pay['p' + i + '_clp']) || 0;
+        if (clp <= 0) continue;
+        hasPayments = true;
+        pagosRows += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 10px;background:rgba(255,255,255,.05);border-radius:6px;margin-bottom:4px">' +
+          '<div style="color:#cbd5e1;font-size:12px">Pago ' + i + ' <span style="color:#64748b">(' + pct + '%)</span></div>' +
+          '<div style="color:#f1f5f9;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums">' + escapeHtml(fmtClpVal(clp)) + '</div></div>';
+      }
+      if (hasPayments) {
+        pagosHtml = '<div style="margin-top:14px"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px">Plan de pagos</div>' + pagosRows + '</div>';
+      }
+    }
+
+    var ivaTooltip = 'IVA Aduanero. Si lo prefieres, puedes pagarlo directamente a la TGR (Tesorería General de la República) y ese monto queda fuera de lo que abonas a Imporlan.';
+    var ivaNote = '<div style="margin-top:14px;padding:10px 12px;background:rgba(245,158,11,.12);border-left:3px solid #f59e0b;border-radius:6px">' +
+      '<div style="color:#fcd34d;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Sobre el IVA Aduanero</div>' +
+      '<div style="color:#fde68a;font-size:11px;line-height:1.5">Puedes pagar el IVA Aduanero (' + escapeHtml(fmtClpVal(ivaClp)) + ') directamente a la <strong>TGR</strong> si lo prefieres — en ese caso queda fuera del monto que abonas a Imporlan. Avísanos al confirmar para ajustar el plan de pagos.</div>' +
+      '</div>';
+
+    var calcTxt = '';
+    if (lk.quote_calculated_at) {
+      try { calcTxt = 'Calculada el ' + new Date(lk.quote_calculated_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+      catch (e) {}
+    }
+
+    return '<div style="margin-top:14px;padding:16px 18px;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%);border-radius:12px;color:#fff;box-shadow:0 4px 14px rgba(15,23,42,.15)">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' +
+        '<div style="font-size:11px;color:#06b6d4;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Resumen Cotización</div>' +
+        (calcTxt ? '<div style="margin-left:auto;font-size:10px;color:#64748b">' + escapeHtml(calcTxt) + '</div>' : '') +
+      '</div>' +
+      rowHtml('Valor Lancha', fmtClpVal(lanchaClp), fmtUsdVal(lanchaUsd), { title: 'Valor del bote en CLP, calculado al tipo de cambio del día.' }) +
+      rowHtml('Servicio All-Inclusive', fmtClpVal(allIncl), null, { title: 'Logística completa de USA a Chile: inspección, transporte marítimo, seguro, agencia de aduanas, internación, traslado, chequeos, fee Imporlan, etc.' }) +
+      rowHtml('IVA Aduanero', fmtClpVal(ivaClp), ivaPct + '% sobre CIF', { title: ivaTooltip }) +
+      (lujoAplica
+        ? rowHtml('Impuesto al Lujo', fmtClpVal(lujoClp), lujoPct + '% sobre lancha', { title: 'Impuesto adicional para embarcaciones cuyo valor supera el umbral definido por el SII.' })
+        : rowHtml('Impuesto al Lujo', 'N/A', null, { muted: true, title: 'Esta embarcación no está afecta al Impuesto al Lujo.' })) +
+      '<div style="border-top:1px solid rgba(255,255,255,.1);margin:6px 0"></div>' +
+      rowHtml('TOTAL', fmtClpVal(totalClp), fmtUsdVal(totalUsd), { bold: true, title: 'Monto final que pagarías a Imporlan, todo incluido (a menos que pagues el IVA directamente a la TGR — ver nota más abajo).' }) +
+      pagosHtml +
+      ivaNote +
+      '</div>';
+  }
+
   /* ── Vessel card (for detail view) ── */
   function renderVesselCard(lk, idx) {
     var hasData = lk.url || lk.image_url || lk.value_usa_usd || lk.value_chile_clp;
@@ -443,9 +558,9 @@
     var locationHoursHtml = '';
     if (lk.location || lk.hours || lk.engine) {
       locationHoursHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
-      if (lk.location) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#15803d;font-weight:500">' + escapeHtml(lk.location) + '</span></div>';
-      if (lk.hours) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#a16207;font-weight:500">' + escapeHtml(lk.hours) + ' hrs</span></div>';
-      if (lk.engine) locationHoursHtml += '<div style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4"/><path d="M12 19v4"/><path d="M1 12h4"/><path d="M19 12h4"/></svg><span style="font-size:12px;color:#1d4ed8;font-weight:500">' + escapeHtml(lk.engine) + '</span></div>';
+      if (lk.location) locationHoursHtml += '<div title="Ubicación del vendedor en USA" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#15803d;font-weight:500">' + escapeHtml(lk.location) + '</span></div>';
+      if (lk.hours) locationHoursHtml += '<div title="Horas de uso del motor según el listing" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#a16207;font-weight:500">' + escapeHtml(lk.hours) + ' hrs</span></div>';
+      if (lk.engine) locationHoursHtml += '<div title="Motor instalado según el listing" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4"/><path d="M12 19v4"/><path d="M1 12h4"/><path d="M19 12h4"/></svg><span style="font-size:12px;color:#1d4ed8;font-weight:500">' + escapeHtml(lk.engine) + '</span></div>';
       locationHoursHtml += '</div>';
     }
 
@@ -454,12 +569,14 @@
     var vC = formatCurrency(lk.value_chile_clp, "CLP"); var vCN = formatCurrency(lk.value_chile_negotiated_clp, "CLP");
     if (vU || vN || vC || vCN) {
       valuesHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">';
-      if (vU) valuesHtml += '<div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:8px;padding:6px 12px"><span style="font-size:10px;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">USA</span><span style="font-size:14px;color:#047857;font-weight:700">' + vU + '</span></div>';
-      if (vN) valuesHtml += '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:8px;padding:6px 12px"><span style="font-size:10px;color:#b45309;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociar</span><span style="font-size:14px;color:#92400e;font-weight:700">' + vN + '</span></div>';
-      if (vC) valuesHtml += '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:6px 12px"><span style="font-size:10px;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Chile CLP</span><span style="font-size:14px;color:#1d4ed8;font-weight:700">' + vC + '</span></div>';
-      if (vCN) valuesHtml += '<div style="background:linear-gradient(135deg,#fdf4ff,#f5d0fe);border:1px solid #d8b4fe;border-radius:8px;padding:6px 12px"><span style="font-size:10px;color:#9333ea;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociado CLP</span><span style="font-size:14px;color:#7e22ce;font-weight:700">' + vCN + '</span></div>';
+      if (vU) valuesHtml += '<div title="Precio publicado del vendedor en USA" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">USA</span><span style="font-size:14px;color:#047857;font-weight:700">' + vU + '</span></div>';
+      if (vN) valuesHtml += '<div title="Precio objetivo USD que buscamos negociar con el vendedor" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#b45309;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociar</span><span style="font-size:14px;color:#92400e;font-weight:700">' + vN + '</span></div>';
+      if (vC) valuesHtml += '<div title="Equivalente del precio publicado en CLP al tipo de cambio del día" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Chile CLP</span><span style="font-size:14px;color:#1d4ed8;font-weight:700">' + vC + '</span></div>';
+      if (vCN) valuesHtml += '<div title="Valor final a pagar en CLP después de una negociación positiva. Se autocompleta con el total del cotizador al guardar la cotización." style="background:linear-gradient(135deg,#fdf4ff,#f5d0fe);border:1px solid #d8b4fe;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#9333ea;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociado CLP</span><span style="font-size:14px;color:#7e22ce;font-weight:700">' + vCN + '</span></div>';
       valuesHtml += '</div>';
     }
+
+    var quoteHtml = buildQuoteSummaryHtml(lk);
 
     var sourceName = '';
     if (lk.url) {
@@ -469,7 +586,7 @@
     var urlHtml = '';
     if (lk.url) {
       urlHtml = '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
-        (sourceName ? '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#64748b;font-weight:500"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' + escapeHtml(sourceName) + '</span>' : '') +
+        (sourceName ? '<span title="Marketplace de origen del listing" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;font-size:11px;color:#64748b;font-weight:500;cursor:help"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' + escapeHtml(sourceName) + '</span>' : '') +
         '<a href="' + escapeHtml(lk.url) + '" target="_blank" rel="noopener" style="color:#0891b2;text-decoration:none;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0f9ff;border-radius:6px;border:1px solid #bae6fd;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtml(lk.url) + '">' +
         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
         escapeHtml(truncateUrl(lk.url)) + '</a>' +
@@ -497,8 +614,8 @@
       imgHtml +
       '<div class="lc-card-text" style="flex:1;min-width:0">' +
       (lk.title ? '<h4 style="margin:0 0 4px;font-size:15px;font-weight:600;color:#1e293b">' + escapeHtml(lk.title) + '</h4>' : '') +
-      locationHoursHtml + urlHtml + valuesHtml + commentsHtml +
-      (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
+      locationHoursHtml + urlHtml + valuesHtml + quoteHtml + commentsHtml +
+      (lk.url ? '<div style="margin-top:12px"><button class="lc-inspect-btn" data-url="' + escapeHtml(lk.url) + '" data-idx="' + idx + '" title="Solicitar inspección técnica profesional en USA antes de la compra (revisión de casco, motor, sistema eléctrico, etc.)" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#b45309;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.48 0 2.88.36 4.11.99"/><path d="M21 3v4h-4"/></svg>Solicitar Inspeccion</button></div>' : '') +
       '</div></div></div></div>';
   }
 
