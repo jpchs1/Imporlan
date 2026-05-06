@@ -448,6 +448,7 @@ export default function Marketplace() {
   const [sort, setSort] = useState('recent');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [mineView, setMineView] = useState('cards');
 
   const load = useCallback(async () => {
     try {
@@ -569,18 +570,107 @@ export default function Marketplace() {
             </Button>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {myListings.map(item => (
-              <MyListingCard
-                key={item.id}
-                item={item}
-                onEdit={(it) => { setEditItem(it); setShowPublish(true); }}
-                onDelete={handleDelete}
-                onRenew={handleRenew}
-                onMarkSold={handleMarkSold}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-end mb-4">
+              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-medium">
+                <button
+                  onClick={() => setMineView('cards')}
+                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'cards' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                  title="Vista tarjetas"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                  Tarjetas
+                </button>
+                <button
+                  onClick={() => setMineView('table')}
+                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'table' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                  title="Vista tabla"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                  Tabla
+                </button>
+              </div>
+            </div>
+
+            {mineView === 'cards' ? (
+              <div className="space-y-3">
+                {myListings.map(item => (
+                  <MyListingCard
+                    key={item.id}
+                    item={item}
+                    onEdit={(it) => { setEditItem(it); setShowPublish(true); }}
+                    onDelete={handleDelete}
+                    onRenew={handleRenew}
+                    onMarkSold={handleMarkSold}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold">Embarcacion</th>
+                        <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                        <th className="text-right px-4 py-3 font-semibold">Precio</th>
+                        <th className="text-left px-4 py-3 font-semibold">Estado</th>
+                        <th className="text-left px-4 py-3 font-semibold">Publicada</th>
+                        <th className="text-right px-4 py-3 font-semibold">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {myListings.map(item => {
+                        const photos = parsePhotos(item.fotos);
+                        const st = STATUS_COLORS[item.status] || STATUS_COLORS.active;
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                                  {photos[0] ? <img src={photos[0]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-800 truncate">{item.nombre}</p>
+                                  <p className="text-[11px] text-slate-400">{item.ano || '-'}{item.eslora ? ` · ${item.eslora}` : ''}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{item.tipo || '-'}</td>
+                            <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">{fmtPrice(item.precio, item.moneda)}</td>
+                            <td className="px-4 py-3"><Badge className={cn(st, 'text-[10px]')}>{item.status === 'active' ? 'Activa' : item.status === 'sold' ? 'Vendida' : item.status === 'expired' ? 'Expirada' : item.status}</Badge></td>
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(item.created_at)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status === 'active' && (
+                                  <>
+                                    <button onClick={() => { setEditItem(item); setShowPublish(true); }} className="p-1.5 rounded-md text-cyan-600 hover:bg-cyan-50" title="Editar">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button onClick={() => handleMarkSold(item.id)} className="p-1.5 rounded-md text-amber-600 hover:bg-amber-50" title="Marcar vendido">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </button>
+                                  </>
+                                )}
+                                {(item.status === 'sold' || item.status === 'expired') && (
+                                  <button onClick={() => handleRenew(item.id)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50" title="Renovar">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                  </button>
+                                )}
+                                <button onClick={() => handleDelete(item.id, item.nombre)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50" title="Eliminar">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+          </>
         )
       )}
 

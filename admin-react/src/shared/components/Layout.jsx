@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Layout({ navItems, branding = {}, profilePath }) {
+export default function Layout({ navItems, branding = {}, profilePath, headerExtra = null }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -119,6 +119,7 @@ export default function Layout({ navItems, branding = {}, profilePath }) {
             <h2 className="text-[15px] font-semibold text-slate-800">{currentPage}</h2>
           </div>
           <div className="flex items-center gap-2">
+            {headerExtra}
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot"></span>
               Online

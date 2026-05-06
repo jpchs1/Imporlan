@@ -138,6 +138,11 @@ export default function Dashboard() {
   const activeVessels = vessels.filter(v => v.status === 'active');
   const pendingTotal = pendingPayments.reduce((sum, r) => sum + (r.amount_clp || 0), 0);
   const activeListings = myListings.filter(l => l.status === 'active');
+  const lastActivity = orders
+    .map(o => o.updated_at || o.created_at)
+    .filter(Boolean)
+    .sort()
+    .pop();
 
   if (loading) return (
     <div className="space-y-6">
@@ -153,11 +158,19 @@ export default function Dashboard() {
   return (
     <div>
       {/* Welcome */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          {greeting}, {name}
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">Resumen de tu actividad en Imporlan</p>
+      <div className="mb-6 flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            {greeting}, {name}
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">Resumen de tu actividad en Imporlan</p>
+        </div>
+        {lastActivity && (
+          <div className="text-right text-xs text-slate-400">
+            <p className="uppercase tracking-wider font-semibold text-[10px] text-slate-300">Ultima actualizacion</p>
+            <p className="text-slate-500 font-medium">{fmtDate(lastActivity)}</p>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
