@@ -1324,8 +1324,13 @@ function adminSaveQuote() {
         if ($publishNow) {
             // Fetch the link + customer info and fire the "ready" email synchronously.
             try {
+                // Include quote_data + quote_payments so cotizadorSendReadyEmail
+                // can render the itemized breakdown (Valor Lancha, All-Inclusive,
+                // IVA, Lujo, plan de pagos) — without these columns the email
+                // would compute zeros and dump the whole total into All-Inclusive.
                 $info = $pdo->prepare("
                     SELECT ol.id, ol.year, ol.make, ol.model, ol.quote_total_clp, ol.quote_total_usd,
+                           ol.quote_data, ol.quote_payments,
                            o.customer_email, o.customer_name, o.order_number
                     FROM order_links ol
                     JOIN orders o ON o.id = ol.order_id
