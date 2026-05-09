@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMyPaymentRequests, createWebPayTransaction, createMercadoPagoPreference, createPayPalOrder, capturePayPalOrder, getPayPalClientId } from '../api';
 import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
-import { PageHeader, Card, Badge, Button, Modal, Input, Spinner, StatCard } from '../../shared/components/UI';
+import { Card, Badge, Button, Modal, Input } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 const STATUS_MAP = {
@@ -20,48 +20,82 @@ function fmtUSD(amount) {
 function PaymentCard({ req, onPay }) {
   const st = STATUS_MAP[req.status] || STATUS_MAP.pending;
   const isPending = req.status === 'pending';
+  const isPaid = req.status === 'paid';
+  const isCancelled = req.status === 'cancelled';
   const meta = req.metadata || {};
 
   return (
-    <Card className={cn('relative', isPending && 'border-amber-200 shadow-amber-100/50')}>
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-800">{req.title}</p>
-          {req.description && <p className="text-xs text-slate-400 mt-0.5">{req.description}</p>}
-        </div>
-        <Badge className={st.color}>{st.label}</Badge>
-      </div>
-
-      {/* Amount */}
-      <div className="mb-3">
-        <p className="text-xl font-bold text-slate-900">{fmtCLP(req.amount_clp)}</p>
-        {req.amount_usd > 0 && (
-          <p className="text-sm text-slate-400">{fmtUSD(req.amount_usd)}</p>
-        )}
-      </div>
-
-      {/* Meta */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-        <span>{fmtDate(req.created_at)}</span>
-        {meta.boat_name && <span>{meta.boat_name}</span>}
-        {req.payment_method && req.status === 'paid' && (
-          <span className="capitalize">{req.payment_method.replace(/_/g, ' ')}</span>
-        )}
-        {req.paid_at && <span>Pagado: {fmtDate(req.paid_at)}</span>}
-      </div>
-
-      {req.status === 'cancelled' && req.cancelled_reason && (
-        <div className="mt-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600">
-          {req.cancelled_reason}
-        </div>
-      )}
-
+    <div className={cn(
+      'relative bg-white rounded-2xl border p-5 transition-all',
+      isPending && 'border-amber-200 shadow-sm shadow-amber-200/40 ring-1 ring-amber-100/50 hover:shadow-md',
+      isPaid && 'border-emerald-200/60 hover:border-emerald-300',
+      isCancelled && 'border-slate-200 opacity-80'
+    )}>
       {isPending && (
-        <Button variant="accent" size="sm" className="mt-4 w-full" onClick={() => onPay(req)}>
-          Pagar Ahora
-        </Button>
+        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-100 to-amber-50 rounded-bl-3xl opacity-50 pointer-events-none" />
       )}
-    </Card>
+      <div className="relative">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-800 leading-tight">{req.title}</p>
+            {req.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{req.description}</p>}
+          </div>
+          <Badge className={cn(st.color, 'shrink-0 text-[10px] uppercase tracking-wider font-bold')}>{st.label}</Badge>
+        </div>
+
+        {/* Amount */}
+        <div className="mb-3 pb-3 border-b border-slate-100">
+          <p className="text-2xl font-bold text-slate-900 leading-none">{fmtCLP(req.amount_clp)}</p>
+          {req.amount_usd > 0 && (
+            <p className="text-xs text-slate-400 mt-1">aprox {fmtUSD(req.amount_usd)} USD</p>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div className="space-y-1 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span>Creado el {fmtDate(req.created_at)}</span>
+          </div>
+          {meta.boat_name && (
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 2L2 12l10 10 10-10z"/></svg>
+              <span className="truncate">{meta.boat_name}</span>
+            </div>
+          )}
+          {isPaid && req.payment_method && (
+            <div className="flex items-center gap-1.5 text-emerald-700">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+              <span className="capitalize font-semibold">Pagado por {req.payment_method.replace(/_/g, ' ')}</span>
+            </div>
+          )}
+          {req.paid_at && (
+            <div className="flex items-center gap-1.5 text-emerald-700">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <span className="font-medium">{fmtDate(req.paid_at)}</span>
+            </div>
+          )}
+        </div>
+
+        {isCancelled && req.cancelled_reason && (
+          <div className="mt-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600">
+            {req.cancelled_reason}
+          </div>
+        )}
+
+        {isPending && (
+          <Button
+            variant="accent"
+            size="sm"
+            className="mt-4 w-full shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5"
+            onClick={() => onPay(req)}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+            Pagar ahora
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -342,6 +376,75 @@ function CustomPayForm({ onClose, toast, user }) {
 }
 
 // --- Main Page ---
+function StatTile({ label, value, sub, color, icon, active, onClick }) {
+  const colors = {
+    amber: 'from-amber-500/15 to-orange-500/10 text-amber-600',
+    emerald: 'from-emerald-500/15 to-teal-500/10 text-emerald-600',
+    rose: 'from-rose-500/15 to-red-500/10 text-rose-600',
+    cyan: 'from-cyan-500/15 to-blue-500/10 text-cyan-600',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+        active ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
+      )}
+    >
+      <div className={cn('w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center mb-2', colors[color])}>
+        {icon}
+      </div>
+      <p className="text-2xl font-bold text-slate-800 leading-none">{value}</p>
+      <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">{label}</p>
+      {sub && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sub}</p>}
+    </button>
+  );
+}
+
+function ProviderCard({ logo, name, sub, desc, badges, accent, onClick }) {
+  const colors = {
+    red: 'hover:border-red-300 hover:shadow-red-100/50',
+    cyan: 'hover:border-cyan-300 hover:shadow-cyan-100/50',
+    indigo: 'hover:border-indigo-300 hover:shadow-indigo-100/50',
+    emerald: 'hover:border-emerald-300 hover:shadow-emerald-100/50',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group relative bg-white border border-slate-200/70 rounded-2xl p-4 text-left transition-all hover:shadow-md hover:-translate-y-0.5',
+        colors[accent]
+      )}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className="h-12 w-16 flex items-center justify-center rounded-xl bg-slate-50 shrink-0 overflow-hidden">
+          {logo}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-slate-800 truncate">{name}</p>
+          <p className="text-[11px] text-slate-400 truncate">{sub}</p>
+        </div>
+        <svg className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+      <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {badges.map(b => (
+          <span key={b.label} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md uppercase tracking-wider" style={{ background: b.bg, color: b.color }}>{b.label}</span>
+        ))}
+      </div>
+    </button>
+  );
+}
+
+const TABS = [
+  { v: 'all', label: 'Todos' },
+  { v: 'pending', label: 'Pendientes' },
+  { v: 'paid', label: 'Pagados' },
+  { v: 'cancelled', label: 'Cancelados' },
+];
+
 export default function Payments() {
   const toast = useToast();
   const { user } = useAuth();
@@ -349,12 +452,13 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [payTarget, setPayTarget] = useState(null);
   const [showCustomPay, setShowCustomPay] = useState(false);
+  const [tab, setTab] = useState('all');
 
   const loadRequests = useCallback(async () => {
     try {
       const data = await getMyPaymentRequests('all');
       setRequests(data.requests || data.items || []);
-    } catch (e) {
+    } catch {
       toast?.('Error al cargar pagos', 'error');
     }
     setLoading(false);
@@ -362,177 +466,244 @@ export default function Payments() {
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
 
-  const pending = requests.filter(r => r.status === 'pending');
-  const paid = requests.filter(r => r.status === 'paid');
-  const cancelled = requests.filter(r => r.status === 'cancelled');
+  const pending = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
+  const paid = useMemo(() => requests.filter(r => r.status === 'paid'), [requests]);
+  const cancelled = useMemo(() => requests.filter(r => r.status === 'cancelled'), [requests]);
 
-  if (loading) return <Spinner />;
+  const pendingTotal = pending.reduce((s, r) => s + Number(r.amount_clp || 0), 0);
+  const paidTotal = paid.reduce((s, r) => s + Number(r.amount_clp || 0), 0);
+
+  // Auto-jump to pending tab when there's pending work
+  useEffect(() => {
+    if (!loading && pending.length > 0 && tab === 'all' && requests.length > 1) setTab('pending');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const visible = useMemo(() => {
+    if (tab === 'pending') return pending;
+    if (tab === 'paid') return paid;
+    if (tab === 'cancelled') return cancelled;
+    // 'all' -> show pending first, then paid, then cancelled
+    return [...pending, ...paid, ...cancelled];
+  }, [tab, pending, paid, cancelled]);
 
   return (
-    <div>
-      <PageHeader title="Pagos" subtitle="Gestiona tus pagos y facturas" action={
-        <Button variant="accent" size="sm" onClick={() => setShowCustomPay(true)} className="flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-          Realizar Pago
-        </Button>
-      } />
+    <div className="max-w-6xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 sm:p-7 overflow-hidden mb-5 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
+              <span className={cn('w-1.5 h-1.5 rounded-full', pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400')} />
+              {pending.length > 0 ? `${pending.length} pago${pending.length > 1 ? 's' : ''} pendiente${pending.length > 1 ? 's' : ''} (${fmtCLP(pendingTotal)})` : 'Estas al dia con tus pagos'}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pagos</h1>
+            <p className="text-sm text-slate-300 mt-1.5">Gestiona tus pagos, facturas y metodos disponibles</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setLoading(true); loadRequests(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
+              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Actualizar
+            </Button>
+            <Button onClick={() => setShowCustomPay(true)} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
+              Realizar pago
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      {/* Payment Method Card */}
-      <Card className="mb-6 p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+      {/* Premium Card + available methods */}
+      <Card className="mb-5 p-0 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl" />
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2 relative">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-            Metodo de Pago Preferido
+            Tu identidad de pago
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Visual Card */}
-            <div className="w-full sm:w-64 h-32 sm:h-40 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 p-3 sm:p-4 flex flex-col justify-between shrink-0">
+          <div className="flex flex-col sm:flex-row gap-4 relative">
+            <div className="w-full sm:w-64 h-32 sm:h-40 rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-600 p-3 sm:p-4 flex flex-col justify-between shrink-0 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div className="w-10 h-7 rounded bg-amber-400/80 flex items-center justify-center"><svg className="w-5 h-5 text-amber-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="2" y="5" width="20" height="14" rx="2"/></svg></div>
                 <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><svg className="w-3 h-3 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0"/></svg></div>
               </div>
               <div>
                 <p className="text-slate-400 text-xs font-mono tracking-widest">**** **** **** ****</p>
-                <div className="flex items-end justify-between mt-2">
-                  <div>
+                <div className="flex items-end justify-between mt-2 gap-2">
+                  <div className="min-w-0">
                     <p className="text-[10px] text-slate-500 uppercase">Titular</p>
-                    <p className="text-white text-sm font-semibold">{(user?.name || 'TITULAR').toUpperCase()}</p>
+                    <p className="text-white text-sm font-semibold truncate">{(user?.name || 'TITULAR').toUpperCase()}</p>
                   </div>
-                  <span className="text-white font-bold text-lg tracking-wider">VISA</span>
+                  <span className="text-white font-bold text-lg tracking-wider shrink-0">VISA</span>
                 </div>
               </div>
             </div>
-            {/* Available methods */}
             <div className="flex-1 flex flex-col justify-center">
               <p className="text-slate-400 text-xs mb-2">Metodos disponibles para ti</p>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>WebPay</span>
-                <span className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>MercadoPago</span>
-                <span className="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>PayPal</span>
-                <span className="px-3 py-1.5 rounded-lg bg-slate-500/20 text-slate-300 text-xs font-semibold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Transferencia</span>
+                <span className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1.5 ring-1 ring-red-500/20">WebPay</span>
+                <span className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 text-xs font-semibold flex items-center gap-1.5 ring-1 ring-blue-500/20">MercadoPago</span>
+                <span className="px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 ring-1 ring-indigo-500/20">PayPal</span>
+                <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 ring-1 ring-emerald-500/20">Transferencia</span>
               </div>
+              <p className="text-[11px] text-slate-500 mt-3">Click en cualquier proveedor abajo para iniciar un pago manual.</p>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Payment Providers */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {/* WebPay - Transbank */}
-        <Card className="border-[#E31837]/30 hover:border-[#E31837]/50 hover:shadow-red-100 transition">
-          <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="h-14 w-20 rounded-xl object-contain shrink-0" />
-            <div>
-              <p className="font-bold text-slate-800">WebPay</p>
-              <p className="text-[11px] text-slate-400">Transbank</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">Paga con tarjeta de credito o debito chilena</p>
-          <div className="flex gap-1.5">
-            <Badge className="text-[10px]" style={{ background: '#fef2f2', color: '#E31837' }}>Credito</Badge>
-            <Badge className="text-[10px]" style={{ background: '#fef2f2', color: '#E31837' }}>Debito</Badge>
-          </div>
-        </Card>
-
-        {/* MercadoPago */}
-        <Card className="border-[#00B1EA]/30 hover:border-[#00B1EA]/50 hover:shadow-blue-100 transition">
-          <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="h-14 w-20 rounded-xl object-contain shrink-0" />
-            <div>
-              <p className="font-bold text-slate-800">MercadoPago</p>
-              <p className="text-[11px] text-slate-400">Mercado Libre</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta o tarjeta via MercadoPago</p>
-          <div className="flex gap-1.5">
-            <Badge className="text-[10px]" style={{ background: '#e6f7fd', color: '#00B1EA' }}>Wallet</Badge>
-            <Badge className="text-[10px]" style={{ background: '#e6f7fd', color: '#00B1EA' }}>Tarjeta</Badge>
-          </div>
-        </Card>
-
-        {/* PayPal */}
-        <Card className="border-[#003087]/20 hover:border-[#003087]/40 hover:shadow-indigo-100 transition">
-          <div className="flex items-center gap-3 mb-3">
-            <img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="h-14 w-20 rounded-xl object-contain shrink-0" />
-            <div>
-              <p className="font-bold text-slate-800">PayPal</p>
-              <p className="text-[11px] text-slate-400">Internacional</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">Paga con tu cuenta PayPal de forma segura</p>
-          <div className="flex gap-1.5">
-            <Badge className="text-[10px]" style={{ background: '#e8eaf6', color: '#003087' }}>USD</Badge>
-            <Badge className="text-[10px]" style={{ background: '#e8eaf6', color: '#003087' }}>Internacional</Badge>
-          </div>
-        </Card>
-      </div>
-
-      {/* SLA Info */}
-      <div className="mb-6 px-5 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl flex items-center gap-3">
-        <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <p className="text-xs text-amber-700">Las solicitudes de pago son procesadas en un plazo de <strong>48-72 horas habiles</strong>. Para consultas sobre pagos, contacta a contacto@imporlan.cl</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Pendientes" value={pending.length} color="yellow"
-          icon={<svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
+      {/* Provider cards (clickeables -> abren CustomPayForm) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <ProviderCard
+          accent="red"
+          name="WebPay"
+          sub="Transbank · Chile"
+          desc="Tarjeta de credito o debito chilena, en pesos."
+          badges={[
+            { label: 'Credito', bg: '#fef2f2', color: '#E31837' },
+            { label: 'Debito', bg: '#fef2f2', color: '#E31837' },
+          ]}
+          logo={<img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          onClick={() => setShowCustomPay(true)}
         />
-        <StatCard label="Pagados" value={paid.length} color="green"
-          icon={<svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+        <ProviderCard
+          accent="cyan"
+          name="MercadoPago"
+          sub="Mercado Libre"
+          desc="Cuenta MercadoPago o cualquier tarjeta."
+          badges={[
+            { label: 'Wallet', bg: '#e6f7fd', color: '#00B1EA' },
+            { label: 'Tarjeta', bg: '#e6f7fd', color: '#00B1EA' },
+          ]}
+          logo={<img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          onClick={() => setShowCustomPay(true)}
         />
-        <StatCard label="Cancelados" value={cancelled.length} color="red"
-          icon={<svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+        <ProviderCard
+          accent="indigo"
+          name="PayPal"
+          sub="Internacional"
+          desc="Pago en USD desde tu cuenta PayPal."
+          badges={[
+            { label: 'USD', bg: '#e8eaf6', color: '#003087' },
+            { label: 'Internacional', bg: '#e8eaf6', color: '#003087' },
+          ]}
+          logo={<img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          onClick={() => setShowCustomPay(true)}
         />
-        <StatCard label="Total" value={requests.length} color="blue"
-          icon={<svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>}
+        <ProviderCard
+          accent="emerald"
+          name="Transferencia"
+          sub="Banco Santander"
+          desc="Transferencia directa CLP o USD. Comprobante a contacto@imporlan.cl."
+          badges={[
+            { label: 'CLP', bg: '#ecfdf5', color: '#059669' },
+            { label: 'USD', bg: '#ecfdf5', color: '#059669' },
+          ]}
+          logo={<svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>}
+          onClick={() => setShowCustomPay(true)}
         />
       </div>
 
-      {requests.length === 0 ? (
+      {/* SLA */}
+      <div className="mb-5 px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+          <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div className="flex-1 min-w-0 text-xs sm:text-sm">
+          <p className="font-semibold text-amber-900">Procesamiento de pagos</p>
+          <p className="text-amber-800/80 mt-0.5 leading-relaxed">Las solicitudes se procesan en <strong>48-72 hrs habiles</strong>. Para consultas escribinos a <a href="mailto:contacto@imporlan.cl" className="font-semibold underline decoration-amber-300 hover:decoration-amber-500">contacto@imporlan.cl</a> o por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 underline decoration-emerald-300 hover:decoration-emerald-500">WhatsApp</a>.</p>
+        </div>
+      </div>
+
+      {/* Stats clickeables como filtros */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <StatTile
+          label="Pendientes"
+          value={pending.length}
+          sub={pending.length > 0 ? fmtCLP(pendingTotal) : 'Al dia'}
+          color="amber"
+          active={tab === 'pending'}
+          onClick={() => setTab(tab === 'pending' ? 'all' : 'pending')}
+          icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
+        />
+        <StatTile
+          label="Pagados"
+          value={paid.length}
+          sub={paid.length > 0 ? fmtCLP(paidTotal) : 'Sin historial'}
+          color="emerald"
+          active={tab === 'paid'}
+          onClick={() => setTab(tab === 'paid' ? 'all' : 'paid')}
+          icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>}
+        />
+        <StatTile
+          label="Cancelados"
+          value={cancelled.length}
+          color="rose"
+          active={tab === 'cancelled'}
+          onClick={() => setTab(tab === 'cancelled' ? 'all' : 'cancelled')}
+          icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>}
+        />
+        <StatTile
+          label="Total"
+          value={requests.length}
+          color="cyan"
+          active={tab === 'all'}
+          onClick={() => setTab('all')}
+          icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>}
+        />
+      </div>
+
+      {/* Tab pills */}
+      {requests.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {TABS.map(t => {
+            const c = t.v === 'pending' ? pending.length : t.v === 'paid' ? paid.length : t.v === 'cancelled' ? cancelled.length : requests.length;
+            return (
+              <button
+                key={t.v}
+                onClick={() => setTab(t.v)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition',
+                  tab === t.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                )}
+              >
+                {t.label}
+                <span className={cn('text-[10px] tabular-nums', tab === t.v ? 'text-white/80' : 'text-slate-400')}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* List */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <div key={i} className="h-44 bg-slate-100 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : visible.length === 0 ? (
         <Card className="text-center py-16">
-          <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-          <p className="text-slate-500 font-medium">No tienes solicitudes de pago</p>
-          <p className="text-sm text-slate-400 mt-1">Cuando el equipo Imporlan genere una solicitud, aparecera aqui.</p>
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+          </div>
+          {requests.length === 0 ? (
+            <>
+              <p className="text-slate-700 font-semibold">No hay solicitudes de pago todavia</p>
+              <p className="text-sm text-slate-500 mt-1">Cuando el equipo Imporlan genere una solicitud aparecera aqui. Tambien podes iniciar un pago manual cuando quieras.</p>
+              <Button variant="accent" size="sm" className="mt-4" onClick={() => setShowCustomPay(true)}>Realizar pago manual</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-700 font-semibold">No hay {TABS.find(t => t.v === tab)?.label.toLowerCase()}</p>
+              <p className="text-sm text-slate-500 mt-1">Probá cambiar de pestaña.</p>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setTab('all')}>Ver todos</Button>
+            </>
+          )}
         </Card>
       ) : (
-        <div className="space-y-6">
-          {/* Pending */}
-          {pending.length > 0 && (
-            <div>
-              <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                Pendientes ({pending.length})
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pending.map(r => <PaymentCard key={r.id} req={r} onPay={setPayTarget} />)}
-              </div>
-            </div>
-          )}
-
-          {/* Paid */}
-          {paid.length > 0 && (
-            <div>
-              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">
-                Historial - Pagados ({paid.length})
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {paid.map(r => <PaymentCard key={r.id} req={r} onPay={setPayTarget} />)}
-              </div>
-            </div>
-          )}
-
-          {/* Cancelled */}
-          {cancelled.length > 0 && (
-            <div>
-              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">
-                Cancelados ({cancelled.length})
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {cancelled.map(r => <PaymentCard key={r.id} req={r} onPay={setPayTarget} />)}
-              </div>
-            </div>
-          )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {visible.map(r => <PaymentCard key={r.id} req={r} onPay={setPayTarget} />)}
         </div>
       )}
 
@@ -544,8 +715,8 @@ export default function Payments() {
         toast={toast}
       />
 
-      {/* Custom payment modal - matching production design */}
-      <Modal open={showCustomPay} onClose={() => setShowCustomPay(false)} title="Realizar Pago" size="md">
+      {/* Custom payment modal */}
+      <Modal open={showCustomPay} onClose={() => setShowCustomPay(false)} title="Realizar pago" size="md">
         <CustomPayForm
           onClose={() => setShowCustomPay(false)}
           toast={toast}
