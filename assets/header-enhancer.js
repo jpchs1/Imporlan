@@ -26,6 +26,11 @@
 
   if (window.__imporlanHeaderPRO) return;
   window.__imporlanHeaderPRO = true;
+  // Kill-switch: load page with ?noenh=1 (or ?noenh=header) to skip this enhancer.
+  try {
+    var __q = (location.search || '') + '|' + (location.hash || '');
+    if (/[?&#]noenh(=1|=all|=header)?(&|$|#|\|)/.test(__q)) return;
+  } catch (e) {}
 
   var HEADER_ID = 'imp-pro-header';
   var STYLE_ID = 'imp-pro-header-style';
