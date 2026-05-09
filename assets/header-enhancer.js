@@ -297,9 +297,8 @@
     actions.className = 'imp-h-actions';
     actions.innerHTML = ''
       + '<div class="imp-h-usd" id="imp-h-usd" title="Cotizacion del dolar"><span class="imp-h-usd-dot"></span><span class="imp-h-usd-label">USD</span><span class="imp-h-usd-val">--</span></div>'
-      + '<a href="/cotizador-importacion/" class="imp-h-cta imp-h-cta-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Cotizar gratis</a>'
       + '<a href="/panel/#/login" class="imp-h-cta imp-h-cta-ghost">Iniciar sesion</a>'
-      + '<a href="/panel/" class="imp-h-icon-btn" aria-label="Acceder al panel" title="Acceder al panel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></a>'
+      + '<a href="/panel/" class="imp-h-cta imp-h-cta-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Mi panel<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></a>'
       + '<button class="imp-h-hamb" id="imp-h-hamb" aria-label="Abrir menu" aria-expanded="false" aria-controls="' + DRAWER_ID + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>';
     wrap.appendChild(actions);
 
@@ -345,32 +344,92 @@
     body += '</div>';
 
     var foot = '<div class="imp-d-foot">'
-      + '<a href="/cotizador-importacion/" class="imp-d-cta imp-d-cta-primary">Cotizar gratis<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></a>'
+      + '<a href="/panel/" class="imp-d-cta imp-d-cta-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>Acceder al panel<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></a>'
       + '<a href="https://wa.me/56940211459" target="_blank" rel="noopener" class="imp-d-cta imp-d-cta-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg> WhatsApp</a>'
-      + '<div class="imp-d-foot-row"><span id="imp-h-usd-mob">USD --</span><a href="/panel/">Acceder al panel →</a></div>'
+      + '<div class="imp-d-foot-row"><span id="imp-h-usd-mob">USD --</span><a href="/panel/#/login">Iniciar sesion →</a></div>'
       + '</div>';
 
     d.innerHTML = head + body + foot;
     return [bd, d];
   }
 
+  // Heuristic to detect the React bundle's header even when its class names
+  // are minified ("_xX9aB"-style). Looks for an element that contains both
+  // the brand text ("IMPORLAN") and at least 2 of the known nav labels,
+  // sits within the first 200px of the viewport, and has a header-ish
+  // height (24-160px). Then climbs to the smallest such candidate.
+  var NAV_HINTS = ['Inicio', 'Servicios', 'Proceso', 'Contacto', 'Marketplace', 'Cotizar', 'Iniciar', 'Registrarse', 'Publicar'];
+
+  function looksLikeOldHeader(node) {
+    if (!node || !node.getBoundingClientRect) return false;
+    if (node.id === HEADER_ID) return false;
+    if (node.closest && (node.closest('#' + HEADER_ID) || node.closest('#' + DRAWER_ID))) return false;
+    if (node.tagName === 'BODY' || node.tagName === 'HTML' || node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return false;
+    var bb = node.getBoundingClientRect();
+    if (bb.height < 24 || bb.height > 200) return false;
+    if (bb.top < -10 || bb.top > 220) return false;
+    if (bb.width < 320) return false;
+    var text = (node.textContent || '').slice(0, 600);
+    if (!/IMPORLAN/i.test(text)) return false;
+    var hits = 0;
+    for (var i = 0; i < NAV_HINTS.length; i++) {
+      if (text.indexOf(NAV_HINTS[i]) >= 0) hits++;
+    }
+    return hits >= 2;
+  }
+
+  function findOldHeaders() {
+    var candidates = [];
+    // 1) Standard semantic candidates
+    var sem = document.querySelectorAll('header,[role="banner"],nav,[class*="Header"],[class*="-header"],[class*="Navbar"],[class*="navbar"]');
+    for (var i = 0; i < sem.length; i++) {
+      var n = sem[i];
+      if (n.id === HEADER_ID) continue;
+      if (n.closest && (n.closest('#' + HEADER_ID) || n.closest('#' + DRAWER_ID))) continue;
+      if (looksLikeOldHeader(n)) candidates.push(n);
+    }
+    // 2) Heuristic scan: walk first ~300 elements inside #root looking for the
+    //    smallest header-like container.
+    var root = document.getElementById('root') || document.body;
+    if (root) {
+      var stack = [root];
+      var visited = 0;
+      while (stack.length && visited < 600) {
+        var cur = stack.shift();
+        visited++;
+        if (cur && cur.children) {
+          for (var j = 0; j < cur.children.length; j++) {
+            var c = cur.children[j];
+            if (looksLikeOldHeader(c)) {
+              candidates.push(c);
+              // Don't dive deeper into a candidate, prefer outer-most match
+            } else {
+              stack.push(c);
+            }
+          }
+        }
+      }
+    }
+    // De-dup + keep smallest-by-height matches per ancestor branch
+    var seen = new Set ? new Set() : null;
+    var out = [];
+    for (var k = 0; k < candidates.length; k++) {
+      var c = candidates[k];
+      if (seen && seen.has(c)) continue;
+      if (seen) seen.add(c);
+      out.push(c);
+    }
+    return out;
+  }
+
   function hideOldHeader() {
-    // Hide bundle <header> / [class*=Header] / [class*=-header] / nav-like elements that aren't ours
-    var nodes = document.querySelectorAll(
-      'header:not(#' + HEADER_ID + '),' +
-      '[class*="Header"]:not(#' + HEADER_ID + '),' +
-      '[class*="-header"]:not(#' + HEADER_ID + '),' +
-      '[class*="Navbar"]:not(#' + HEADER_ID + '),' +
-      '[class*="navbar"]:not(#' + HEADER_ID + ')'
-    );
+    var nodes = findOldHeaders();
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i];
-      if (n.id === HEADER_ID) continue;
-      if (n.closest && n.closest('#' + HEADER_ID)) continue;
-      if (n.closest && n.closest('#' + DRAWER_ID)) continue;
       if (n.dataset && n.dataset.impKeep) continue;
       n.style.setProperty('display', 'none', 'important');
       n.setAttribute('aria-hidden', 'true');
+      n.classList.add('imp-h-hidden-by-enhancer');
     }
   }
 
@@ -571,6 +630,18 @@
         }
       }, 250);
     }
+
+    // Belt-and-braces: reapply hideOldHeader for the first 6 seconds in case
+    // the bundle mounts its header in batches the MutationObserver misses.
+    var hideTries = 0;
+    var hideIv = setInterval(function () {
+      hideTries++;
+      hideOldHeader();
+      if (hideTries > 24) clearInterval(hideIv);
+    }, 250);
+    // And once more after window load (when fonts/images are settled and
+    // any late layout pass has happened)
+    window.addEventListener('load', function () { setTimeout(hideOldHeader, 100); setTimeout(hideOldHeader, 600); });
   }
 
   if (document.readyState === 'loading') {
