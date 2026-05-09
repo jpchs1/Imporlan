@@ -10,6 +10,11 @@
   'use strict';
   if (typeof window === 'undefined' || window.__imporlanPlansPRO) return;
   window.__imporlanPlansPRO = true;
+  // Kill-switch: load page with ?noenh=1 (or ?noenh=plans) to skip this enhancer.
+  try {
+    var __q = (location.search || '') + '|' + (location.hash || '');
+    if (/[?&#]noenh(=1|=all|=plans)?(&|$|#|\|)/.test(__q)) return;
+  } catch (e) {}
 
   var STYLE_ID = 'imp-plans-pro-style';
   var SECTION_CLASS = 'imp-plans-pro';

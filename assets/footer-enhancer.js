@@ -28,6 +28,11 @@
 
   if (window.__imporlanFooterPRO) return;
   window.__imporlanFooterPRO = true;
+  // Kill-switch: load page with ?noenh=1 (or ?noenh=footer) to skip this enhancer.
+  try {
+    var __q = (location.search || '') + '|' + (location.hash || '');
+    if (/[?&#]noenh(=1|=all|=footer)?(&|$|#|\|)/.test(__q)) return;
+  } catch (e) {}
 
   var FOOTER_ID = 'imp-pro-footer';
   var STYLE_ID = 'imp-pro-footer-style';
