@@ -460,41 +460,68 @@
     if (mob) mob.textContent = 'USD ' + fmtClp(v);
   }
 
-  function readDolarFallback() {
-    // Various places dolar-updater.js could publish the value
-    if (window.__imporlanUsdClp && !isNaN(window.__imporlanUsdClp)) return Number(window.__imporlanUsdClp);
-    if (window.imporlanDolar && !isNaN(window.imporlanDolar)) return Number(window.imporlanDolar);
-    if (window.dolarValor && !isNaN(window.dolarValor)) return Number(window.dolarValor);
-    var el = document.querySelector('[data-dolar-clp],[data-usd-clp]');
-    if (el) {
-      var n = parseFloat((el.textContent || '').replace(/[^0-9.,]/g, '').replace(/\./g, '').replace(',', '.'));
-      if (!isNaN(n) && n > 100) return n;
+  // Reads any value already in the DOM (e.g. set by dolar-updater.js into
+  // the cards "Dolar Observado" / "Dolar Compra" $X) so the header stays
+  // in sync even before our fetch resolves.
+  function readDolarFromDom() {
+    // Strategy: find a node whose text starts with $ followed by 3-4 digits
+    // and which sits inside or next to a label "Observado"/"Imporlan"/
+    // "Compra"; prefer "Observado".
+    var labels = document.querySelectorAll('div, span, p, h2, h3');
+    var candidate = null;
+    for (var i = 0; i < labels.length && i < 4000; i++) {
+      var el = labels[i];
+      var t = (el.textContent || '').trim();
+      // Match a price like "$893" or "$1.005"
+      if (!/^\$\s*[0-9]{3,4}([.,][0-9]{3})?$/.test(t)) continue;
+      var n = parseFloat(t.replace(/[^0-9.,]/g, '').replace(/\./g, '').replace(',', '.'));
+      if (isNaN(n) || n < 200 || n > 5000) continue;
+      // Look for sibling/parent text matching the labels
+      var ctx = '';
+      try {
+        var p = el.parentNode;
+        ctx = p ? (p.textContent || '').slice(0, 200) : '';
+      } catch (e) { /* ignore */ }
+      if (/Observado/i.test(ctx)) return n; // strongest signal
+      if (!candidate && /(D[óo]lar|USD)/i.test(ctx)) candidate = n;
     }
-    return null;
+    return candidate;
   }
 
   function fetchDolar() {
-    // Use the same upstream dolar-updater.js uses; fall back to mindicador
-    fetch('https://mindicador.cl/api/dolar', { cache: 'no-store' })
+    // Use the same endpoint the bundle's dolar-updater.js uses so the
+    // header value matches exactly what the cards below show.
+    fetch('/api/dolar.php', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
-        if (!j || !j.serie || !j.serie.length) return;
-        var v = Number(j.serie[0].valor);
+        if (!j) return;
+        // Prefer dolar_observado (matches the "Dolar Observado" card).
+        // Accept several shapes just in case.
+        var v = j.dolar_observado || (j.data && j.data.dolar_observado) || j.observado || j.valor;
+        v = Number(v);
         if (!isNaN(v) && v > 0) {
           window.__imporlanUsdClp = v;
           setUsd(v);
         }
       })
-      .catch(function () { /* silent */ });
+      .catch(function () {
+        // Fallback to whatever the bundle already painted in the DOM
+        var v = readDolarFromDom();
+        if (v) setUsd(v);
+      });
   }
 
   function startUsdTicker() {
-    var existing = readDolarFallback();
+    // Try DOM first for instant render; the API call follows
+    var existing = readDolarFromDom();
     if (existing) setUsd(existing);
     fetchDolar();
+    // Refresh every 60s
     setInterval(fetchDolar, 60000);
-    // Also re-read periodically in case dolar-updater set it
-    setInterval(function () { var v = readDolarFallback(); if (v) setUsd(v); }, 5000);
+    // Re-sync from DOM periodically (catches the case where dolar-updater.js
+    // resolves *after* our first fetch, or values change while staying on
+    // the page)
+    setInterval(function () { var v = readDolarFromDom(); if (v) setUsd(v); }, 4000);
   }
 
   // ============================================
