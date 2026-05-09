@@ -2,58 +2,320 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marketplace de Embarcaciones | Imporlan Chile</title>
-  <meta name="description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
-  <meta name="keywords" content="lanchas usadas Chile, embarcaciones venta, veleros, motos de agua, marketplace nautico, Imporlan">
-  <meta name="robots" content="index, follow">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#06b6d4" media="(prefers-color-scheme: light)">
+  <title>Marketplace de Lanchas y Embarcaciones Usadas en Chile | Imporlan</title>
+  <meta name="description" content="Compra, vende o arrienda lanchas, veleros, yates, motos de agua, catamaranes y botes de pesca en Chile. Marketplace náutico verificado por Imporlan con precios en USD, fotos, eslora, año y ubicación. Publica gratis o cotiza importación desde USA.">
+  <meta name="keywords" content="marketplace lanchas chile, lanchas usadas en venta, embarcaciones usadas chile, comprar lancha usada, vender lancha chile, arriendo de lanchas, veleros usados, motos de agua usadas, yates usados chile, marketplace nautico, lanchas santiago, lanchas vina del mar, lanchas puerto montt">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="application-name" content="Imporlan Marketplace">
+  <meta name="apple-mobile-web-app-title" content="Imporlan">
+  <meta name="format-detection" content="telephone=yes, email=yes, address=yes">
+  <meta name="rating" content="general">
+  <meta name="author" content="Imporlan">
   <link rel="canonical" href="https://www.imporlan.cl/marketplace/">
+  <link rel="alternate" hreflang="es" href="https://www.imporlan.cl/marketplace/">
+  <link rel="alternate" hreflang="es-CL" href="https://www.imporlan.cl/marketplace/">
+  <link rel="alternate" hreflang="x-default" href="https://www.imporlan.cl/marketplace/">
   <script>if(/\/marketplace\/publicar\/?$/.test(window.location.pathname)){var t=localStorage.getItem('imporlan_token');var p=window.location.pathname.indexOf('/test/')!==-1;var base=p?'/panel-test/':'/panel/';window.location.replace(t?base+'#marketplace':base+'#/register');}</script>
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Marketplace de Embarcaciones | Imporlan Chile">
-  <meta property="og:description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
+  <meta property="og:title" content="Marketplace de Lanchas y Embarcaciones Usadas en Chile | Imporlan">
+  <meta property="og:description" content="Compra, vende o arrienda embarcaciones en Chile. Catálogo verificado con fotos, precios en USD, eslora y ubicación. Publica gratis o cotiza importación desde USA.">
   <meta property="og:url" content="https://www.imporlan.cl/marketplace/">
   <meta property="og:site_name" content="Imporlan">
   <meta property="og:locale" content="es_CL">
-    <meta property="og:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="799">
+  <meta property="og:locale:alternate" content="es_PE">
+  <meta property="og:locale:alternate" content="es_CO">
+  <meta property="og:locale:alternate" content="es_AR">
+  <meta property="og:locale:alternate" content="es_MX">
+  <meta property="og:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="799">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="Marketplace de embarcaciones usadas Imporlan - lanchas, veleros y motos de agua en Chile">
 
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Marketplace de Embarcaciones | Imporlan Chile">
-  <meta name="twitter:description" content="Compra y vende embarcaciones usadas en Chile. Lanchas, veleros y motos de agua con la confianza de Imporlan.">
-    <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+  <meta name="twitter:site" content="@imporlan">
+  <meta name="twitter:title" content="Marketplace de Lanchas y Embarcaciones Usadas en Chile | Imporlan">
+  <meta name="twitter:description" content="Compra, vende o arrienda embarcaciones en Chile. Catálogo verificado con fotos, precios en USD, eslora y ubicación.">
+  <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+  <meta name="twitter:image:alt" content="Marketplace de embarcaciones usadas Imporlan">
 
   <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg">
   <link rel="icon" type="image/png" sizes="48x48" href="/images/imporlan-favicon-48.png">
   <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/images/imporlan-favicon-48.png">
+  <link rel="mask-icon" href="/images/imporlan-favicon.svg" color="#0f172a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="/assets/marketplace-public.css?v=182">
   <link rel="stylesheet" href="/assets/marketplace-public.css?v=182">
 
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "WebPage",
-    "name": "Marketplace de Embarcaciones",
-    "description": "Compra y vende embarcaciones usadas en Chile con la confianza de Imporlan.",
+    "@type": "CollectionPage",
+    "name": "Marketplace de Lanchas y Embarcaciones Usadas en Chile",
+    "description": "Catálogo de lanchas, veleros, yates, motos de agua y botes de pesca en venta y arriendo en Chile. Publicaciones verificadas por Imporlan.",
     "url": "https://www.imporlan.cl/marketplace/",
+    "inLanguage": "es-CL",
     "isPartOf": {
       "@type": "WebSite",
       "name": "Imporlan",
       "url": "https://www.imporlan.cl"
     },
-    "provider": {
+    "publisher": {
       "@type": "Organization",
       "name": "Imporlan",
-      "url": "https://www.imporlan.cl"
+      "url": "https://www.imporlan.cl",
+      "logo": "https://www.imporlan.cl/images/imporlan-og.jpg"
+    },
+    "primaryImageOfPage": "https://www.imporlan.cl/images/imporlan-og.jpg",
+    "about": [
+      { "@type": "Thing", "name": "Lanchas usadas en Chile" },
+      { "@type": "Thing", "name": "Embarcaciones usadas" },
+      { "@type": "Thing", "name": "Arriendo de lanchas" },
+      { "@type": "Thing", "name": "Veleros usados" },
+      { "@type": "Thing", "name": "Motos de agua usadas" },
+      { "@type": "Thing", "name": "Yates usados" }
+    ],
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://www.imporlan.cl/marketplace/?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
     }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://www.imporlan.cl/" },
+      { "@type": "ListItem", "position": 2, "name": "Marketplace", "item": "https://www.imporlan.cl/marketplace/" }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "¿Cómo publico mi lancha en el Marketplace de Imporlan?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Publicar es 100% gratis. Crea una cuenta en Imporlan, completá los datos de tu embarcación (tipo, año, eslora, horas de motor, precio, fotos y ubicación) y tu publicación queda activa en pocos minutos. Podés publicar tanto en venta como en arriendo."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "¿Cuánto cuesta publicar una embarcación?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Publicar en el Marketplace de Imporlan es totalmente gratuito, tanto para venta como para arriendo. No cobramos comisiones por venta concretada."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "¿Cómo me contacto con el vendedor?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Cada publicación incluye un botón directo de WhatsApp y email para contactar al vendedor. La negociación es directa entre comprador y vendedor; Imporlan no participa en la transacción salvo que pidas asesoría de inspección o importación."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "¿Puedo importar una embarcación desde USA en lugar de comprar en Chile?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Sí. Imporlan es especialista en importación puerta a puerta de lanchas usadas desde USA a Chile. Cotizá gratis pegando los links de las lanchas que te interesan en el Cotizador Online y recibirás el costo final con todos los gastos incluidos."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "¿Las publicaciones están verificadas?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Imporlan revisa cada publicación antes de hacerla pública. Validamos que las fotos, datos y precios sean coherentes. Si querés un nivel adicional de seguridad, ofrecemos inspección pre-compra con inspectores certificados."
+        }
+      }
+    ]
   }
   </script>
 </head>
 <body class="marketplace-page">
+  <a href="#mp-grid" class="mpx-skip">Saltar al catálogo</a>
+
+  <style>
+  /* PRO marketplace styles - prefixed mpx- to avoid clashing with marketplace-public.css */
+  .mpx-skip{position:absolute;left:-9999px;top:0;background:#0f172a;color:#fff;padding:10px 16px;border-radius:0 0 8px 0;text-decoration:none;font-weight:600;z-index:99999;}
+  .mpx-skip:focus{left:0;top:0;}
+
+  /* Hero */
+  .mpx-hero{position:relative;max-width:none;margin:0;padding:64px 24px 56px;background:linear-gradient(135deg,#0a1628 0%,#0e2a3d 50%,#0a1628 100%);color:#cbd5e1;overflow:hidden;}
+  .mpx-hero::before{content:"";position:absolute;top:-120px;right:-100px;width:380px;height:380px;background:rgba(6,182,212,.18);border-radius:9999px;filter:blur(100px);pointer-events:none;}
+  .mpx-hero::after{content:"";position:absolute;bottom:-120px;left:-120px;width:340px;height:340px;background:rgba(99,102,241,.13);border-radius:9999px;filter:blur(100px);pointer-events:none;}
+  .mpx-hero-wrap{position:relative;max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr;gap:36px;align-items:center;}
+  .mpx-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:9999px;background:rgba(34,211,238,.12);color:#67e8f9;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;ring:1px solid rgba(34,211,238,.25);border:1px solid rgba(34,211,238,.25);margin-bottom:14px;}
+  .mpx-pill .mpx-dot{width:6px;height:6px;border-radius:9999px;background:#22d3ee;animation:mpx-pulse 1.6s infinite;}
+  @keyframes mpx-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .mpx-hero h1{margin:0 0 14px;font-size:clamp(1.9rem,4vw,2.6rem);font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.15;}
+  .mpx-hero h1 .mpx-grad{background:linear-gradient(90deg,#22d3ee,#67e8f9 50%,#a5b4fc);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .mpx-hero p{margin:0 0 22px;font-size:15px;line-height:1.6;color:#94a3b8;max-width:560px;}
+  .mpx-hero-actions{display:flex;flex-wrap:wrap;gap:10px;}
+  .mpx-btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:14px;font-weight:600;font-size:14px;text-decoration:none;border:0;cursor:pointer;transition:transform .18s,box-shadow .18s,background .18s,color .18s;}
+  .mpx-btn-primary{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;box-shadow:0 12px 28px -8px rgba(6,182,212,.45);}
+  .mpx-btn-primary:hover{transform:translateY(-1px);box-shadow:0 16px 34px -8px rgba(6,182,212,.6);}
+  .mpx-btn-ghost{background:rgba(255,255,255,.06);color:#e2e8f0;border:1px solid rgba(255,255,255,.12);}
+  .mpx-btn-ghost:hover{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.2);color:#fff;}
+  .mpx-btn-wa{background:rgba(34,197,94,.16);color:#86efac;border:1px solid rgba(34,197,94,.28);}
+  .mpx-btn-wa:hover{background:rgba(34,197,94,.24);color:#bbf7d0;}
+
+  /* Stats card on the hero right side */
+  .mpx-hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(14px);border-radius:20px;padding:18px;}
+  .mpx-stat{padding:14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);}
+  .mpx-stat-num{font-size:28px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1;}
+  .mpx-stat-num span{background:linear-gradient(90deg,#22d3ee,#67e8f9);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .mpx-stat-label{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.14em;margin-top:6px;}
+  .mpx-stat-sub{font-size:11px;color:#94a3b8;margin-top:3px;}
+
+  /* Trust bar (compact under hero) */
+  .mpx-trust{position:relative;background:#0e2336;color:#cbd5e1;padding:14px 24px;border-bottom:1px solid rgba(255,255,255,.06);}
+  .mpx-trust-wrap{max-width:1200px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:18px 26px;font-size:12.5px;}
+  .mpx-trust-item{display:inline-flex;align-items:center;gap:7px;}
+  .mpx-trust-item svg{color:#22d3ee;flex-shrink:0;}
+  .mpx-trust-item .mpx-trust-strong{color:#fff;font-weight:600;}
+
+  /* Quick filter pills (above the listings) */
+  .mpx-quick{max-width:1200px;margin:0 auto;padding:22px 24px 8px;}
+  .mpx-quick h2{margin:0 0 12px;font-size:14px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;}
+  .mpx-quick h2::before{content:"";display:inline-block;width:18px;height:2px;background:linear-gradient(90deg,#06b6d4,#6366f1);border-radius:2px;}
+  .mpx-quick-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .mpx-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9999px;background:#fff;color:#334155;font-size:13px;font-weight:600;text-decoration:none;border:1.5px solid #e2e8f0;cursor:pointer;transition:all .15s;}
+  .mpx-chip:hover{border-color:#06b6d4;color:#06b6d4;background:#ecfeff;transform:translateY(-1px);}
+  .mpx-chip[data-active="true"]{background:linear-gradient(135deg,#06b6d4,#0891b2);color:#fff;border-color:transparent;box-shadow:0 8px 20px -8px rgba(6,182,212,.5);}
+  .mpx-chip svg{flex-shrink:0;}
+
+  /* Import CTA strip between filters and grid */
+  .mpx-import-cta{max-width:1200px;margin:24px auto;padding:0 24px;}
+  .mpx-import-card{position:relative;border-radius:18px;padding:22px 24px;background:linear-gradient(135deg,#0a1628 0%,#0e2a3d 60%,#1e3a5f 100%);color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;}
+  .mpx-import-card::before{content:"";position:absolute;top:-60px;right:-40px;width:200px;height:200px;background:rgba(6,182,212,.18);border-radius:9999px;filter:blur(60px);pointer-events:none;}
+  .mpx-import-card .mpx-ic-text{position:relative;flex:1;min-width:260px;}
+  .mpx-import-card .mpx-ic-flag{display:inline-block;font-size:18px;margin-right:6px;}
+  .mpx-import-card .mpx-ic-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:9999px;background:rgba(34,211,238,.16);color:#67e8f9;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;border:1px solid rgba(34,211,238,.22);}
+  .mpx-import-card h3{margin:0 0 4px;font-size:18px;font-weight:700;color:#fff;}
+  .mpx-import-card p{margin:0;font-size:13.5px;color:#94a3b8;}
+  .mpx-import-card .mpx-ic-actions{position:relative;display:flex;flex-wrap:wrap;gap:10px;}
+
+  /* Footer CTA strip (extra bottom) */
+  .mpx-bottom-cta{max-width:1200px;margin:36px auto 24px;padding:0 24px;}
+  .mpx-bottom-card{border-radius:20px;padding:30px;background:linear-gradient(135deg,#06b6d4 0%,#0891b2 50%,#6366f1 100%);color:#fff;text-align:center;box-shadow:0 30px 60px -20px rgba(6,182,212,.45);}
+  .mpx-bottom-card h3{margin:0 0 8px;font-size:22px;font-weight:800;letter-spacing:-.02em;}
+  .mpx-bottom-card p{margin:0 0 18px;font-size:14px;opacity:.92;max-width:520px;margin-left:auto;margin-right:auto;}
+  .mpx-bottom-card .mpx-btn{background:#fff;color:#0e2a3d;}
+  .mpx-bottom-card .mpx-btn:hover{transform:translateY(-2px);box-shadow:0 16px 36px -10px rgba(0,0,0,.25);}
+
+  /* Responsive */
+  @media(max-width:920px){
+    .mpx-hero{padding:44px 18px 36px;}
+    .mpx-hero-wrap{grid-template-columns:1fr;gap:24px;}
+    .mpx-hero-stats{order:-1;grid-template-columns:1fr 1fr;}
+    .mpx-import-card{padding:18px;}
+    .mpx-import-card h3{font-size:16px;}
+  }
+  @media(max-width:520px){
+    .mpx-hero h1{font-size:1.7rem;}
+    .mpx-hero-stats{grid-template-columns:1fr;}
+    .mpx-trust-wrap{flex-direction:column;align-items:flex-start;gap:8px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .mpx-pill .mpx-dot{animation:none}
+    .mpx-btn,.mpx-chip{transition:none}
+  }
+
+  /* === PRO overrides for existing marketplace components === */
+  /* Search bar — sleeker, with magnifier icon and gradient submit */
+  .mp-main{max-width:1200px !important;}
+  .mp-search-bar{position:relative !important;background:#fff !important;border:1px solid #e2e8f0 !important;border-radius:18px !important;padding:8px !important;display:flex !important;align-items:center !important;gap:8px !important;box-shadow:0 10px 30px -18px rgba(15,23,42,.18) !important;margin:0 0 18px !important;}
+  .mp-search-bar::before{content:"";position:absolute;left:24px;top:50%;transform:translateY(-50%);width:18px;height:18px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2306b6d4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat center/contain;pointer-events:none;}
+  .mp-search-input{flex:1 !important;border:0 !important;background:transparent !important;padding:14px 14px 14px 44px !important;font-size:15px !important;color:#0f172a !important;outline:none !important;}
+  .mp-search-input::placeholder{color:#94a3b8;}
+  .mp-search-btn{background:linear-gradient(135deg,#06b6d4,#0891b2) !important;color:#fff !important;border:0 !important;border-radius:12px !important;padding:12px 22px !important;font-weight:700 !important;font-size:14px !important;cursor:pointer;transition:transform .18s,box-shadow .18s;box-shadow:0 10px 22px -10px rgba(6,182,212,.55);}
+  .mp-search-btn:hover{transform:translateY(-1px);box-shadow:0 14px 28px -10px rgba(6,182,212,.7);}
+
+  /* Filters panel — softer card */
+  .mp-filters-panel{background:#fff !important;border:1px solid #e2e8f0 !important;border-radius:18px !important;box-shadow:0 10px 30px -18px rgba(15,23,42,.12) !important;padding:18px !important;}
+  .mp-filters-header{padding-bottom:12px !important;border-bottom:1px solid #f1f5f9 !important;margin-bottom:14px !important;}
+  .mp-filters-title{font-size:14px !important;font-weight:700 !important;color:#0f172a !important;display:inline-flex;align-items:center;gap:8px;}
+  .mp-filters-title::before{content:"";display:inline-block;width:14px;height:2px;background:linear-gradient(90deg,#06b6d4,#6366f1);border-radius:2px;}
+  .mp-filters-clear{color:#06b6d4 !important;font-weight:600 !important;}
+  .mp-filter-label{color:#475569 !important;font-size:12px !important;font-weight:700 !important;text-transform:uppercase;letter-spacing:.06em;}
+  .mp-filter-select,.mp-filter-input{border:1px solid #e2e8f0 !important;border-radius:10px !important;background:#f8fafc !important;transition:border-color .15s,background .15s;}
+  .mp-filter-select:focus,.mp-filter-input:focus{border-color:#06b6d4 !important;background:#fff !important;outline:0 !important;box-shadow:0 0 0 3px rgba(6,182,212,.12) !important;}
+
+  /* Listings toolbar — glass card */
+  .mp-listings-toolbar{background:#fff !important;border:1px solid #e2e8f0 !important;border-radius:14px !important;padding:12px 16px !important;box-shadow:0 6px 18px -12px rgba(15,23,42,.18) !important;margin-bottom:14px !important;}
+  .mp-listings-count{font-size:13px !important;color:#475569 !important;}
+  .mp-listings-count strong{color:#0f172a;font-weight:700;}
+  .mp-listings-sort label{color:#64748b !important;font-size:12.5px !important;font-weight:600 !important;}
+  .mp-listings-sort select{border:1px solid #e2e8f0 !important;border-radius:10px !important;padding:8px 12px !important;background:#f8fafc !important;font-weight:500 !important;cursor:pointer;}
+  .mp-listings-sort select:focus{border-color:#06b6d4 !important;background:#fff !important;outline:0 !important;box-shadow:0 0 0 3px rgba(6,182,212,.12) !important;}
+
+  /* Leads section — PRO redesign */
+  .mp-leads-section{position:relative !important;border-radius:24px !important;margin:36px 0 !important;padding:36px !important;background:linear-gradient(135deg,#0a1628 0%,#0e2a3d 55%,#0a1628 100%) !important;color:#cbd5e1 !important;overflow:hidden;border:1px solid rgba(255,255,255,.06) !important;}
+  .mp-leads-section::before{content:"";position:absolute;top:-100px;right:-80px;width:300px;height:300px;background:rgba(6,182,212,.18);border-radius:9999px;filter:blur(80px);pointer-events:none;}
+  .mp-leads-section::after{content:"";position:absolute;bottom:-100px;left:-80px;width:280px;height:280px;background:rgba(99,102,241,.13);border-radius:9999px;filter:blur(80px);pointer-events:none;}
+  .mp-leads-inner{position:relative;max-width:780px;margin:0 auto;text-align:center;}
+  .mp-leads-section h3{color:#fff !important;font-size:24px !important;font-weight:800 !important;letter-spacing:-.02em !important;margin:0 0 8px !important;}
+  .mp-leads-section h3::before{content:"📬 ";font-size:.85em;}
+  .mp-leads-section p{color:#94a3b8 !important;font-size:14.5px !important;margin:0 0 22px !important;}
+  .mp-leads-form{display:flex;flex-direction:column;gap:12px;}
+  .mp-leads-input{background:rgba(255,255,255,.06) !important;border:1px solid rgba(255,255,255,.12) !important;color:#fff !important;border-radius:12px !important;padding:13px 16px !important;}
+  .mp-leads-input::placeholder{color:#64748b !important;}
+  .mp-leads-input:focus{border-color:#22d3ee !important;background:rgba(255,255,255,.10) !important;outline:0 !important;box-shadow:0 0 0 3px rgba(6,182,212,.18) !important;}
+  .mp-leads-checks{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .mp-leads-check{background:rgba(255,255,255,.04) !important;border:1px solid rgba(255,255,255,.10) !important;color:#cbd5e1 !important;border-radius:9999px !important;padding:6px 12px !important;font-size:12.5px !important;font-weight:500 !important;cursor:pointer;transition:all .15s;}
+  .mp-leads-check:hover{background:rgba(34,211,238,.10) !important;border-color:rgba(34,211,238,.28) !important;color:#fff !important;}
+  .mp-leads-check input{accent-color:#06b6d4;}
+  .mp-leads-submit{background:linear-gradient(135deg,#06b6d4,#0891b2) !important;color:#fff !important;border:0 !important;border-radius:12px !important;padding:14px 28px !important;font-weight:700 !important;font-size:15px !important;cursor:pointer;align-self:center;box-shadow:0 14px 30px -10px rgba(6,182,212,.5);transition:transform .18s,box-shadow .18s;}
+  .mp-leads-submit:hover{transform:translateY(-1px);box-shadow:0 18px 36px -10px rgba(6,182,212,.65);}
+
+  /* Sticky CTAs — slimmer + accent */
+  .mp-sticky-cta-group{gap:10px !important;}
+  .mp-sticky-cta{box-shadow:0 16px 36px -12px rgba(6,182,212,.45) !important;background:linear-gradient(135deg,#06b6d4,#0891b2) !important;border:0 !important;font-weight:700 !important;}
+  .mp-sticky-cta:hover{transform:translateY(-2px) !important;}
+  .mp-sticky-cta-arriendo{background:linear-gradient(135deg,#0ea5e9,#6366f1) !important;box-shadow:0 16px 36px -12px rgba(99,102,241,.45) !important;}
+
+  /* Footer — PRO redesign */
+  .mp-footer{background:linear-gradient(180deg,#0a1628 0%,#06101e 100%) !important;border-top:1px solid rgba(34,211,238,.10) !important;padding:48px 24px 0 !important;margin-top:36px !important;}
+  .mp-footer-inner{max-width:1200px !important;margin:0 auto !important;display:grid !important;grid-template-columns:repeat(4,1fr) !important;gap:32px !important;}
+  .mp-footer-col h4{color:#fff !important;font-size:13px !important;font-weight:700 !important;letter-spacing:.06em !important;text-transform:uppercase !important;margin:0 0 14px !important;display:inline-flex;align-items:center;gap:8px;}
+  .mp-footer-col h4::before{content:"";display:inline-block;width:16px;height:2px;background:linear-gradient(90deg,#22d3ee,#6366f1);border-radius:2px;}
+  .mp-footer-col a{color:#94a3b8 !important;display:block !important;padding:5px 0 !important;font-size:13.5px !important;text-decoration:none !important;transition:color .15s,transform .15s;}
+  .mp-footer-col a:hover{color:#22d3ee !important;transform:translateX(2px);}
+  .mp-footer-trust{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+  .mp-footer-trust-item{color:#22d3ee !important;font-size:12px !important;font-weight:600 !important;display:inline-flex;align-items:center;gap:6px;}
+  .mp-footer-bottom{max-width:1200px !important;margin:36px auto 0 !important;padding:18px 0 24px !important;border-top:1px solid rgba(255,255,255,.06) !important;color:#64748b !important;font-size:12.5px !important;text-align:center !important;}
+
+  @media(max-width:760px){
+    .mp-footer-inner{grid-template-columns:repeat(2,1fr) !important;gap:24px !important;}
+    .mp-leads-section{padding:24px !important;}
+    .mp-leads-section h3{font-size:20px !important;}
+  }
+  @media(max-width:480px){
+    .mp-footer-inner{grid-template-columns:1fr !important;}
+  }
+  </style>
 
   <header class="mp-header">
     <div class="mp-header-inner">
@@ -70,32 +332,114 @@
     </div>
   </header>
 
-  <div class="mp-social-proof">
-    <div class="mp-social-proof-item">
-      <span class="mp-social-proof-dot"></span>
-      <span id="mp-social-count">Embarcaciones activas</span>
+  <!-- HERO PRO -->
+  <section class="mpx-hero" aria-labelledby="mpx-hero-title">
+    <div class="mpx-hero-wrap">
+      <div>
+        <span class="mpx-pill"><span class="mpx-dot"></span><span id="mpx-hero-count">Marketplace náutico verificado</span></span>
+        <h1 id="mpx-hero-title">Comprá, vendé o arrendá tu <span class="mpx-grad">embarcación ideal</span> en Chile</h1>
+        <p>Lanchas, veleros, yates, motos de agua, catamaranes y botes de pesca con publicaciones verificadas por Imporlan. Precios en USD, fotos reales, año, horas de motor, eslora y ubicación. Contacto directo con el vendedor.</p>
+        <div class="mpx-hero-actions">
+          <a href="/marketplace/publicar" id="mpx-cta-publish" class="mpx-btn mpx-btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Publicar gratis
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+          </a>
+          <a href="/cotizador-importacion/" class="mpx-btn mpx-btn-ghost">
+            <span class="mpx-ic-flag" style="font-size:14px">🇺🇸</span>
+            Importar desde USA
+          </a>
+          <a href="https://wa.me/56940211459?text=Hola%2C%20tengo%20una%20consulta%20sobre%20una%20publicacion%20del%20Marketplace" target="_blank" rel="noopener noreferrer" class="mpx-btn mpx-btn-wa">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+            WhatsApp
+          </a>
+        </div>
+      </div>
+      <aside class="mpx-hero-stats" aria-label="Estadísticas del marketplace">
+        <div class="mpx-stat">
+          <div class="mpx-stat-num"><span id="mpx-stat-total">--</span></div>
+          <div class="mpx-stat-label">Publicaciones</div>
+          <div class="mpx-stat-sub">Activas en Chile</div>
+        </div>
+        <div class="mpx-stat">
+          <div class="mpx-stat-num"><span>USD</span></div>
+          <div class="mpx-stat-label">Moneda</div>
+          <div class="mpx-stat-sub">Precios estables</div>
+        </div>
+        <div class="mpx-stat">
+          <div class="mpx-stat-num">+10</div>
+          <div class="mpx-stat-label">Ubicaciones</div>
+          <div class="mpx-stat-sub">De Arica a Puerto Montt</div>
+        </div>
+        <div class="mpx-stat">
+          <div class="mpx-stat-num">100%</div>
+          <div class="mpx-stat-label">Gratis</div>
+          <div class="mpx-stat-sub">Publicar sin comisión</div>
+        </div>
+      </aside>
     </div>
-    <div class="mp-social-proof-item">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-      <span>Publicaciones verificadas</span>
-    </div>
-    <div class="mp-social-proof-item">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-      <span>Confianza Imporlan</span>
+  </section>
+
+  <!-- TRUST BAR -->
+  <div class="mpx-trust">
+    <div class="mpx-trust-wrap">
+      <span class="mpx-trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg><span class="mpx-trust-strong">Publicaciones verificadas</span> por Imporlan</span>
+      <span class="mpx-trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Respuesta del vendedor en <span class="mpx-trust-strong">menos de 48 hrs</span></span>
+      <span class="mpx-trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 11h20"/></svg>Pagos seguros con <span class="mpx-trust-strong">WebPay, MercadoPago y PayPal</span></span>
+      <span class="mpx-trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>Inspección pre-compra con <span class="mpx-trust-strong">video y reporte</span></span>
     </div>
   </div>
 
-  <section class="mp-hero-seo" style="max-width:1200px;margin:0 auto;padding:2rem 1.5rem 1rem;">
-    <h1 style="font-size:clamp(1.6rem,3.5vw,2.2rem);color:#0f172a;margin:0 0 0.75rem;line-height:1.2;">Marketplace de Embarcaciones Usadas en Chile</h1>
-    <p style="font-size:1.05rem;color:#475569;line-height:1.6;margin:0 0 0.75rem;max-width:860px;">Explora lanchas, veleros, yates, motos de agua, catamaranes, bowriders y botes de pesca en venta y arriendo en Chile. Publicaciones verificadas por Imporlan con fotos, precios en USD, ano, horas de motor, eslora y ubicacion. Compra directamente al vendedor o recibe asesoria de importacion si buscas una embarcacion desde Estados Unidos.</p>
-    <p style="font-size:1rem;color:#475569;line-height:1.6;margin:0 0 0.5rem;max-width:860px;">Tambien puedes <a href="/marketplace/publicar/" style="color:#0ea5e9;text-decoration:underline;font-weight:600;">publicar tu embarcacion gratis</a> o en arriendo en minutos. Si prefieres importar un modelo especifico desde USA, revisa nuestro <a href="/cotizador-importacion/" style="color:#0ea5e9;text-decoration:underline;font-weight:600;">cotizador de importacion All-Inclusive puerta a puerta</a>.</p>
+  <!-- QUICK FILTERS by tipo -->
+  <section class="mpx-quick" aria-label="Filtros rápidos por tipo">
+    <h2>Buscá por tipo</h2>
+    <div class="mpx-quick-row" id="mpx-quick-types">
+      <button type="button" class="mpx-chip" data-mpx-type="">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+        Todas
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Bowrider">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a8 8 0 008 4h4a8 8 0 008-4l-1-7H3z"/><path d="M5 13V8h14v5"/></svg>
+        Bowrider
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Pesca">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c4-3 8-3 12 0 4 3 6 3 6 3-2 4-6 7-9 7-3.5 0-9-3-9-10z"/><circle cx="14" cy="11" r="1"/></svg>
+        Pesca
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Velero">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18l-2 3H5z"/><path d="M12 2v15M12 4l8 13H4z"/></svg>
+        Velero
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Yate">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18l-2 3H5z"/><path d="M5 14l1-5h12l1 5"/><path d="M9 9V5h6v4"/></svg>
+        Yate
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Jet Boat">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16h18l-2 4H5z"/><path d="M5 12c4-2 12-2 14 0"/></svg>
+        Jet Boat
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Moto de Agua">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18c4-4 14-4 20 0"/><path d="M6 14l2-3h6l2 3"/></svg>
+        Moto de agua
+      </button>
+      <button type="button" class="mpx-chip" data-mpx-type="Catamaran">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20l-2 3H4z"/><path d="M5 14h4M15 14h4M12 4v10"/></svg>
+        Catamarán
+      </button>
+    </div>
+  </section>
+
+  <!-- SEO long-form (hidden visually but kept for crawlers / accessibility) -->
+  <section class="mp-hero-seo" style="max-width:1200px;margin:0 auto;padding:18px 24px 0;">
+    <p style="font-size:14.5px;color:#475569;line-height:1.65;margin:0 0 0.5rem;max-width:920px;">Explorá lanchas, veleros, yates, motos de agua, catamaranes, bowriders y botes de pesca <strong>en venta y arriendo</strong> en Chile. Publicaciones verificadas con fotos reales, precios en USD, año, horas de motor, eslora y ubicación. <a href="/marketplace/publicar/" style="color:#0ea5e9;text-decoration:underline;font-weight:600;">Publicá tu embarcación gratis</a> o cotizá una <a href="/cotizador-importacion/" style="color:#0ea5e9;text-decoration:underline;font-weight:600;">importación All-Inclusive desde USA</a>.</p>
     <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;">
-      <a href="/lanchas-usadas/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Lanchas usadas</a>
-      <a href="/veleros-usados/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Veleros usados</a>
-      <a href="/botes-de-pesca/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Botes de pesca</a>
-      <a href="/lanchas-de-ski/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Lanchas de ski</a>
-      <a href="/tipos-de-lanchas-segun-uso/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Tipos de lanchas</a>
-      <a href="/como-comprar-lancha-usada-chile/" style="display:inline-block;padding:0.45rem 0.9rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.9rem;">Como comprar</a>
+      <a href="/lanchas-usadas/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Lanchas usadas</a>
+      <a href="/veleros-usados/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Veleros usados</a>
+      <a href="/botes-de-pesca/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Botes de pesca</a>
+      <a href="/lanchas-de-ski/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Lanchas de ski</a>
+      <a href="/tipos-de-lanchas-segun-uso/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Tipos de lanchas</a>
+      <a href="/precio-lanchas-usadas-chile/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Precios 2026</a>
+      <a href="/como-comprar-lancha-usada-chile/" style="display:inline-block;padding:0.4rem 0.85rem;background:#f1f5f9;color:#0f172a;border-radius:999px;text-decoration:none;font-size:0.85rem;font-weight:500;">Cómo comprar</a>
     </div>
   </section>
 
@@ -280,6 +624,25 @@
     </button>
   </div>
 
+  <!-- Bottom CTA -->
+  <section class="mpx-bottom-cta" aria-label="Importar desde Estados Unidos">
+    <div class="mpx-bottom-card">
+      <h3>¿No encontraste lo que buscás?</h3>
+      <p>Cotizá una importación All-Inclusive desde Estados Unidos. Te conseguimos la embarcación ideal con flete, aduana, IVA, traslado y patente — todo incluido.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <a href="/cotizador-importacion/" class="mpx-btn">
+          <span class="mpx-ic-flag" style="font-size:14px">🇺🇸</span>
+          Cotizar importación
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </a>
+        <a href="https://wa.me/56940211459?text=Hola%2C%20quiero%20cotizar%20una%20importacion%20desde%20USA" target="_blank" rel="noopener noreferrer" class="mpx-btn mpx-btn-wa" style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.24);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 14.2c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.2-.7.2s-.8 1-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.7.1-.1.3-.4.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5 4.5 1.7.7 2.4.8 3.3.7.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.4z"/></svg>
+          WhatsApp directo
+        </a>
+      </div>
+    </div>
+  </section>
+
   <footer class="mp-footer">
     <div class="mp-footer-inner">
       <div class="mp-footer-col">
@@ -324,5 +687,76 @@
   </footer>
 
   <script src="/assets/marketplace-public.js?v=182"></script>
+  <script>
+  // Wire mpx- quick chips <-> existing #filter-tipo select, and sync hero stats with #mp-count.
+  (function(){
+    'use strict';
+    var typeSelect = document.getElementById('filter-tipo');
+    var chipsRow = document.getElementById('mpx-quick-types');
+    var statTotal = document.getElementById('mpx-stat-total');
+    var heroCount = document.getElementById('mpx-hero-count');
+    var countEl = document.getElementById('mp-count');
+
+    function chips(){ return chipsRow ? chipsRow.querySelectorAll('.mpx-chip[data-mpx-type]') : []; }
+
+    function setActive(value){
+      var v = (value || '').toString();
+      chips().forEach(function(c){
+        c.setAttribute('data-active', String(c.getAttribute('data-mpx-type') === v));
+      });
+    }
+
+    function onChipClick(e){
+      var btn = e.target.closest('.mpx-chip[data-mpx-type]');
+      if (!btn) return;
+      var val = btn.getAttribute('data-mpx-type') || '';
+      if (typeSelect){
+        typeSelect.value = val;
+        typeSelect.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+      setActive(val);
+      // Smooth-scroll to results on small screens
+      if (window.matchMedia('(max-width: 920px)').matches){
+        var grid = document.getElementById('mp-grid');
+        if (grid && grid.scrollIntoView) grid.scrollIntoView({ behavior:'smooth', block:'start' });
+      }
+    }
+
+    if (chipsRow) chipsRow.addEventListener('click', onChipClick);
+    if (typeSelect){
+      typeSelect.addEventListener('change', function(){ setActive(typeSelect.value); });
+      // Reflect any value loaded from URL/localStorage
+      setActive(typeSelect.value || '');
+    }
+
+    // Sync stats with #mp-count text — runs after marketplace-public.js renders results.
+    function syncStats(){
+      if (!countEl) return;
+      var txt = countEl.textContent || '';
+      // Patterns produced by marketplace-public.js:
+      //   "Mostrando <strong>N</strong> de <strong>M</strong> embarcaciones"
+      //   "Cargando embarcaciones..."
+      var m = txt.match(/(\d+)[^\d]+(\d+)/);
+      if (m){
+        var filtered = m[1], total = m[2];
+        if (statTotal) statTotal.textContent = total;
+        if (heroCount){
+          if (filtered === total){
+            heroCount.textContent = total + ' publicaciones activas';
+          } else {
+            heroCount.textContent = filtered + ' de ' + total + ' coincidencias';
+          }
+        }
+      }
+    }
+    if (countEl){
+      var mo = new MutationObserver(syncStats);
+      mo.observe(countEl, { childList:true, subtree:true, characterData:true });
+      // First pass after JS has had a chance to render
+      setTimeout(syncStats, 800);
+      setTimeout(syncStats, 2500);
+    }
+  })();
+  </script>
 </body>
 </html>
