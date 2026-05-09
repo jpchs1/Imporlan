@@ -267,11 +267,6 @@
           grid-template-columns: 1fr 1fr;\
           gap: 16px;\
         }\
-        @media (max-width: 480px) {\
-          .marketplace-grid {\
-            grid-template-columns: 1fr;\
-          }\
-        }\
         .marketplace-feature {\
           padding: 24px 20px;\
         }\
@@ -281,6 +276,29 @@
           width: 100%;\
           justify-content: center;\
         }\
+      }\
+      @media (max-width: 640px) {\
+        .marketplace-section { padding: 48px 14px; }\
+        .marketplace-header h2 { font-size: 1.5rem; line-height: 1.2; }\
+        .marketplace-header p, .marketplace-section p { font-size: 0.95rem; }\
+        .marketplace-grid { gap: 12px; }\
+        .marketplace-feature { padding: 18px 16px; }\
+        .marketplace-feature h3 { font-size: 1rem; }\
+        .marketplace-feature p { font-size: 0.9rem; }\
+        .marketplace-cta-btn { padding: 14px 22px; font-size: 0.95rem; min-height: 48px; }\
+      }\
+      @media (max-width: 480px) {\
+        .marketplace-grid { grid-template-columns: 1fr; }\
+        .marketplace-section { padding: 36px 12px; }\
+        .marketplace-header h2 { font-size: 1.3rem; }\
+        #home-carousel-track { padding: 4px 12px 16px !important; gap: 12px !important; }\
+      }\
+      /* Home carousel cards: stop fixed 240px overflowing on small screens */\
+      @media (max-width: 640px) {\
+        .home-carousel-card { flex: 0 0 200px !important; }\
+      }\
+      @media (max-width: 420px) {\
+        .home-carousel-card { flex: 0 0 170px !important; }\
       }\
     ';
     document.head.appendChild(style);

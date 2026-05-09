@@ -289,19 +289,32 @@
         .seo-pages-section {
           padding: 60px 16px;
         }
-        
+
         .seo-pages-section h2 {
           font-size: 1.75rem;
         }
-        
+
         .seo-pages-grid {
           grid-template-columns: 1fr;
           gap: 16px;
         }
-        
+
         .seo-page-card {
           padding: 20px 18px;
         }
+      }
+      @media (max-width: 640px) {
+        .seo-pages-section { padding: 48px 14px; }
+        .seo-pages-section h2 { font-size: 1.5rem; line-height: 1.2; }
+        .seo-pages-section p { font-size: 0.95rem; }
+        .seo-pages-grid { gap: 12px; }
+        .seo-page-card { padding: 16px 14px; }
+        .seo-page-card h3 { font-size: 1rem; }
+        .seo-page-card p { font-size: 0.88rem; }
+      }
+      @media (max-width: 420px) {
+        .seo-pages-section { padding: 36px 12px; }
+        .seo-pages-section h2 { font-size: 1.3rem; }
       }
     `;
     document.head.appendChild(style);

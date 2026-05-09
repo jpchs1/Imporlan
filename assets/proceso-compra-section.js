@@ -364,9 +364,34 @@
         }\
       }\
       @media (max-width: 480px) {\
+        .pc-section {\
+          padding: 44px 12px;\
+        }\
+        .pc-header h2 {\
+          font-size: 1.5rem;\
+          line-height: 1.2;\
+        }\
+        .pc-header p {\
+          font-size: 0.95rem;\
+        }\
         .pc-step {\
           flex: 0 0 100%;\
           max-width: 280px;\
+        }\
+        .pc-step-circle {\
+          width: 60px;\
+          height: 60px;\
+        }\
+        .pc-step-circle-inner {\
+          width: 48px;\
+          height: 48px;\
+          font-size: 16px;\
+        }\
+        .pc-step-title {\
+          font-size: 1rem;\
+        }\
+        .pc-step-desc {\
+          font-size: 0.85rem;\
         }\
       }\
     ';

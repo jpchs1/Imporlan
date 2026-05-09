@@ -240,20 +240,56 @@
         .seo-section {
           padding: 60px 16px;
         }
-        
+
         .seo-section h2 {
           font-size: 1.75rem;
         }
-        
+
         .guide-grid,
         .services-grid {
           grid-template-columns: 1fr;
           gap: 16px;
         }
-        
+
         .guide-card,
         .service-card {
           padding: 24px 20px;
+        }
+      }
+      @media (max-width: 640px) {
+        .seo-section {
+          padding: 48px 14px;
+        }
+        .seo-section h2 {
+          font-size: 1.5rem;
+          line-height: 1.2;
+        }
+        .seo-section p {
+          font-size: 0.95rem;
+        }
+        .guide-grid,
+        .services-grid {
+          gap: 12px;
+        }
+        .guide-card,
+        .service-card {
+          padding: 20px 16px;
+        }
+        .guide-card h3,
+        .service-card h3 {
+          font-size: 1.05rem;
+        }
+        .guide-card p,
+        .service-card p {
+          font-size: 0.9rem;
+        }
+      }
+      @media (max-width: 420px) {
+        .seo-section {
+          padding: 36px 12px;
+        }
+        .seo-section h2 {
+          font-size: 1.35rem;
         }
       }
     `;
@@ -667,6 +703,38 @@
           width: 100%;
           justify-content: center;
         }
+      }
+      @media (max-width: 640px) {
+        .lanchas-usadas-seo {
+          padding: 48px 14px;
+        }
+        .lanchas-usadas-seo h2 {
+          font-size: 1.4rem;
+          line-height: 1.25;
+        }
+        .lanchas-usadas-seo .section-intro,
+        .lanchas-usadas-seo p {
+          font-size: 0.95rem;
+        }
+        .lanchas-content-grid { gap: 16px; }
+        .lanchas-content-block { padding: 18px 16px; }
+        .lanchas-content-block h3 {
+          font-size: 1rem;
+          min-height: 44px;
+          padding: 4px 0;
+        }
+        .lanchas-faq-item {
+          padding: 16px;
+        }
+        .lanchas-faq-item h4 {
+          font-size: 0.95rem;
+          min-height: 44px;
+          padding-right: 24px;
+        }
+      }
+      @media (max-width: 420px) {
+        .lanchas-usadas-seo { padding: 36px 12px; }
+        .lanchas-usadas-seo h2 { font-size: 1.25rem; }
       }
     `;
     document.head.appendChild(style);

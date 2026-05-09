@@ -574,6 +574,31 @@
         .rp-stats-row {\
           gap: 20px;\
         }\
+        /* Disable 3D perspective on mobile: cheaper GPU, no overflow risk */\
+        .rp-panel,\
+        .rp-panel:hover {\
+          transform: none !important;\
+          perspective: none !important;\
+        }\
+      }\
+      @media (max-width: 640px) {\
+        .ranking-preview-section { padding: 48px 14px; }\
+        .ranking-preview-header h2 { font-size: 1.5rem; line-height: 1.2; }\
+        .ranking-preview-header .rp-subtitle { font-size: 0.95rem; }\
+        .rp-stats-row { gap: 14px; flex-wrap: wrap; }\
+        .rp-stat-num { font-size: 1.8rem; }\
+        .rp-stat-label { font-size: 0.78rem; }\
+        .rp-panel { padding: 18px 14px; }\
+        .rp-card { padding: 0; }\
+        .rp-card-img-wrap { width: 72px; height: 54px; }\
+        .rp-card-text h4 { font-size: 12.5px; }\
+        .rp-card-text .rp-card-meta { font-size: 11.5px; }\
+        .rp-cta-btn { padding: 14px 22px; min-height: 48px; }\
+      }\
+      @media (max-width: 420px) {\
+        .ranking-preview-section { padding: 36px 12px; }\
+        .ranking-preview-header h2 { font-size: 1.3rem; }\
+        .rp-stat-num { font-size: 1.55rem; }\
       }\
       @keyframes rp-float {\
         0%, 100% { transform: translateY(0px); }\

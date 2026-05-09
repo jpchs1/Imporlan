@@ -352,6 +352,23 @@
           padding-left: 20px;\
         }\
       }\
+      @media (max-width: 640px) {\
+        .inspeccion-precompra-home { padding: 48px 14px; }\
+        .inspeccion-precompra-home h2 { font-size: 1.5rem; line-height: 1.2; }\
+        .inspeccion-precompra-home p,\
+        .inspeccion-precompra-home .inspeccion-subtitle { font-size: 0.95rem; }\
+        .inspeccion-pricing-grid { gap: 14px; }\
+        .inspeccion-plan-card { padding: 22px 18px; }\
+        .inspeccion-plan-card h3, .plan-name { font-size: 1.05rem; }\
+        .plan-price { font-size: 1.6rem; }\
+        .plan-features li { font-size: 0.9rem; padding: 6px 0; }\
+        .plan-cta, .inspeccion-plan-card a { min-height: 48px; }\
+      }\
+      @media (max-width: 420px) {\
+        .inspeccion-precompra-home { padding: 36px 12px; }\
+        .inspeccion-precompra-home h2 { font-size: 1.3rem; }\
+        .plan-price { font-size: 1.45rem; }\
+      }\
       @media (min-width: 769px) and (max-width: 1024px) {\
         .inspeccion-pricing-grid {\
           grid-template-columns: 1fr 1fr;\
