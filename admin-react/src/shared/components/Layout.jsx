@@ -1,8 +1,71 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Layout({ navItems, branding = {}, profilePath, headerExtra = null }) {
+const ACCENT_BG = {
+  indigo: 'bg-indigo-500/15 text-indigo-300',
+  cyan: 'bg-cyan-500/15 text-cyan-300',
+  emerald: 'bg-emerald-500/15 text-emerald-300',
+  violet: 'bg-violet-500/15 text-violet-300',
+  amber: 'bg-amber-500/15 text-amber-300',
+  rose: 'bg-rose-500/15 text-rose-300',
+  teal: 'bg-teal-500/15 text-teal-300',
+};
+
+const ACCENT_ACTIVE_BG = {
+  indigo: 'bg-gradient-to-r from-indigo-600/95 to-indigo-500/80 shadow-lg shadow-indigo-600/20',
+  cyan: 'bg-gradient-to-r from-cyan-600/95 to-blue-500/80 shadow-lg shadow-cyan-600/20',
+  emerald: 'bg-gradient-to-r from-emerald-600/95 to-teal-500/80 shadow-lg shadow-emerald-600/20',
+  violet: 'bg-gradient-to-r from-violet-600/95 to-purple-500/80 shadow-lg shadow-violet-600/20',
+  amber: 'bg-gradient-to-r from-amber-600/95 to-orange-500/80 shadow-lg shadow-amber-600/20',
+  rose: 'bg-gradient-to-r from-rose-600/95 to-pink-500/80 shadow-lg shadow-rose-600/20',
+  teal: 'bg-gradient-to-r from-teal-600/95 to-cyan-500/80 shadow-lg shadow-teal-600/20',
+};
+
+function NavItem({ item, badge, onClick, animationDelay }) {
+  const accent = item.accent || 'indigo';
+  return (
+    <NavLink
+      to={item.to}
+      onClick={onClick}
+      style={{ animationDelay: `${animationDelay}ms` }}
+      className={({ isActive }) =>
+        `group relative flex items-center gap-3 pl-3 pr-2.5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 animate-slide-in ${
+          isActive
+            ? `${ACCENT_ACTIVE_BG[accent] || ACCENT_ACTIVE_BG.indigo} text-white`
+            : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {/* Active indicator pill on the left */}
+          <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r transition-all ${isActive ? 'bg-white/80' : 'bg-transparent group-hover:bg-white/20'}`} />
+          {/* Icon */}
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition ${
+            isActive ? 'bg-white/15' : `${ACCENT_BG[accent] || ACCENT_BG.indigo} group-hover:scale-110`
+          }`}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+            </svg>
+          </span>
+          <span className="flex-1 truncate">{item.label}</span>
+          {badge > 0 && (
+            <span className={`min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center tabular-nums shrink-0 ${
+              isActive
+                ? 'bg-white/20 text-white ring-1 ring-white/20'
+                : 'bg-rose-500 text-white shadow-md shadow-rose-500/30 animate-pulse-dot'
+            }`}>
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+export default function Layout({ navItems, navGroups, branding = {}, profilePath, headerExtra = null, badges = {} }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -11,123 +74,172 @@ export default function Layout({ navItems, branding = {}, profilePath, headerExt
   const { title = 'Imporlan', subtitle = 'Panel', accentColor = 'indigo' } = branding;
 
   const subtitleColors = {
-    indigo: 'text-indigo-400',
-    cyan: 'text-cyan-400',
-    emerald: 'text-emerald-400',
-    violet: 'text-violet-400',
+    indigo: 'text-indigo-300',
+    cyan: 'text-cyan-300',
+    emerald: 'text-emerald-300',
+    violet: 'text-violet-300',
   };
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const currentPage = navItems.find(n => location.pathname.startsWith(n.to))?.label || 'Dashboard';
 
+  // Group nav items if groups are provided
+  const groupedItems = useMemo(() => {
+    if (!navGroups || navGroups.length === 0) {
+      return [{ id: '_default', label: null, items: navItems }];
+    }
+    return navGroups.map(g => ({
+      ...g,
+      items: navItems.filter(n => n.group === g.id),
+    })).filter(g => g.items.length > 0);
+  }, [navItems, navGroups]);
+
+  let itemIndex = 0;
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden animate-fade-in" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-64 lg:w-[272px] bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#0f172a] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-72 lg:w-[280px] bg-gradient-to-b from-[#0a1628] via-[#0f172a] to-[#0a1628] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col border-r border-white/[0.04]`}>
+        {/* Decorative glow on top */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
+        <div className="absolute top-20 -right-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-indigo-500/30">
-            I
+        <div className="relative flex items-center gap-3 px-5 py-5">
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 rounded-2xl blur opacity-50 group-hover:opacity-80 transition" />
+            <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white font-bold text-base shadow-lg">
+              I
+            </div>
           </div>
-          <div>
-            <span className="text-white font-bold text-[15px] tracking-tight">{title}</span>
-            <span className={`${subtitleColors[accentColor] || 'text-indigo-400'} text-xs block -mt-0.5 font-medium`}>{subtitle}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-white font-bold text-[15px] tracking-tight">{title}</span>
+              <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 text-[9px] font-bold uppercase tracking-wider ring-1 ring-emerald-400/20">
+                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                Live
+              </span>
+            </div>
+            <span className={`${subtitleColors[accentColor] || 'text-cyan-300'} text-[11px] block font-semibold tracking-wide`}>{subtitle}</span>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06]"
+            aria-label="Cerrar menu"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
-          {navItems.map(({ to, label, icon }, i) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setSidebarOpen(false)}
-              style={{ animationDelay: `${i * 30}ms` }}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 group animate-slide-in ${
-                  isActive
-                    ? 'bg-gradient-to-r from-indigo-600/90 to-indigo-500/80 text-white shadow-lg shadow-indigo-600/20'
-                    : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
-                }`
-              }
-            >
-              <svg className="w-[18px] h-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-              </svg>
-              {label}
-            </NavLink>
+        <nav className="relative flex-1 overflow-y-auto py-2 px-3 space-y-4 scrollbar-thin">
+          {groupedItems.map(group => (
+            <div key={group.id} className="space-y-0.5">
+              {group.label && (
+                <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{group.label}</span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-white/[0.06] to-transparent" />
+                </div>
+              )}
+              {group.items.map(item => {
+                const idx = itemIndex++;
+                return (
+                  <NavItem
+                    key={item.to}
+                    item={item}
+                    badge={Number(badges[item.to] || 0)}
+                    animationDelay={idx * 25}
+                    onClick={() => setSidebarOpen(false)}
+                  />
+                );
+              })}
+            </div>
           ))}
         </nav>
 
-        {/* User */}
-        <div className="p-3 m-3 rounded-xl bg-white/[0.05] border border-white/[0.08]">
-          <div className="flex items-center gap-3">
-            {profilePath ? (
+        {/* User card */}
+        <div className="relative p-3">
+          <div className="rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] ring-1 ring-white/[0.08] p-3 backdrop-blur">
+            <div className="flex items-center gap-3">
+              {profilePath ? (
+                <button
+                  onClick={() => { navigate(profilePath); setSidebarOpen(false); }}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg -m-1 p-1 hover:bg-white/[0.04] transition-colors group"
+                  title="Editar perfil"
+                >
+                  <div className="relative shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold shadow-md overflow-hidden ring-2 ring-white/[0.08] group-hover:ring-white/[0.15] transition">
+                      {user?.avatar_url ? (
+                        <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        (user?.name || 'A')[0].toUpperCase()
+                      )}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0a1628]" title="Online" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{user?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{user?.email || (user?.role || '').replace(/_/g, ' ')}</p>
+                  </div>
+                </button>
+              ) : (
+                <>
+                  <div className="relative shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-white/[0.08]">
+                      {(user?.name || 'A')[0].toUpperCase()}
+                    </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0a1628]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{user?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-slate-400 truncate capitalize">{user?.role || ''}</p>
+                  </div>
+                </>
+              )}
               <button
-                onClick={() => { navigate(profilePath); setSidebarOpen(false); }}
-                className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg -m-1 p-1 hover:bg-white/[0.04] transition-colors"
-                title="Editar perfil"
+                onClick={handleLogout}
+                className="text-slate-500 hover:text-rose-400 transition-colors p-2 rounded-lg hover:bg-rose-500/10 shrink-0 ring-1 ring-transparent hover:ring-rose-500/20"
+                title="Cerrar sesion"
               >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white text-sm font-semibold shadow-md overflow-hidden shrink-0">
-                  {user?.avatar_url ? (
-                    <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    (user?.name || 'A')[0].toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{user?.name || 'Usuario'}</p>
-                  <p className="text-[11px] text-slate-500 truncate capitalize">{user?.role || ''}</p>
-                </div>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
               </button>
-            ) : (
-              <>
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white text-sm font-semibold shadow-md">
-                  {(user?.name || 'A')[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-semibold truncate">{user?.name || 'Usuario'}</p>
-                  <p className="text-[11px] text-slate-500 truncate capitalize">{user?.role || ''}</p>
-                </div>
-              </>
-            )}
-            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/[0.06] shrink-0" title="Cerrar sesion">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-4 lg:px-8 py-3.5 flex items-center gap-4 sticky top-0 z-10">
-          <button onClick={() => setSidebarOpen(true)} className="text-slate-500 hover:text-slate-800 lg:hidden transition-colors">
+        <header className="bg-white/85 backdrop-blur-xl border-b border-slate-200/60 px-4 lg:px-8 py-3 flex items-center gap-3 sticky top-0 z-10">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-slate-500 hover:text-slate-800 lg:hidden transition-colors p-1.5 rounded-lg hover:bg-slate-100"
+            aria-label="Abrir menu"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="flex-1">
-            <h2 className="text-[15px] font-semibold text-slate-800">{currentPage}</h2>
+          <div className="flex-1 min-w-0 flex items-center gap-2 text-[15px]">
+            <span className="hidden sm:inline text-slate-400 font-medium">{title}</span>
+            <svg className="hidden sm:block w-3.5 h-3.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
+            <h2 className="font-semibold text-slate-800 truncate">{currentPage}</h2>
           </div>
           <div className="flex items-center gap-2">
             {headerExtra}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot"></span>
-              Online
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full ring-1 ring-emerald-200/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />
+              <span className="font-semibold">Online</span>
             </div>
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="animate-fade-in">
             <Outlet />
