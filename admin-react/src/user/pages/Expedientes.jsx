@@ -184,48 +184,111 @@ function InspectionModal({ link, orderNumber, open, onClose }) {
 
 function OrderCard({ order, onClick }) {
   const svcLabel = order.service_type === 'cotizacion_link' ? 'Cotizacion' : 'Busqueda';
+  const isCotizacion = order.service_type === 'cotizacion_link';
+  const totalSteps = 5;
+  const step = Math.min(totalSteps, order.timeline_step || 1);
+  const pct = (step / totalSteps) * 100;
+  const status = order.status || '';
+  const isCompleted = status === 'completed';
+  const isCanceled = status === 'canceled' || status === 'expired';
+
   return (
-    <Card
-      className="card-hover cursor-pointer group"
+    <button
+      type="button"
       onClick={() => onClick(order.id)}
+      className={cn(
+        'group relative bg-white rounded-2xl border overflow-hidden text-left transition-all',
+        'hover:shadow-lg hover:-translate-y-0.5',
+        isCompleted ? 'border-emerald-200/60 hover:border-emerald-300' :
+        isCanceled ? 'border-slate-200 opacity-90 hover:opacity-100' :
+        'border-slate-200/70 hover:border-cyan-300'
+      )}
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <p className="text-xs text-slate-400 font-medium">Expediente</p>
-          <p className="text-base font-bold text-slate-800">#{order.order_number}</p>
-        </div>
-        <Badge className={statusColor(order.status)}>
-          {(order.status || '').replace(/_/g, ' ')}
-        </Badge>
-      </div>
+      {/* accent stripe */}
+      <div className={cn(
+        'h-1 bg-gradient-to-r',
+        isCompleted ? 'from-emerald-500 to-teal-500' :
+        isCanceled ? 'from-slate-300 to-slate-400' :
+        isCotizacion ? 'from-violet-500 to-purple-500' :
+        'from-cyan-500 to-blue-500'
+      )} />
 
-      <div className="space-y-1.5 text-sm text-slate-500">
-        {order.plan_name && (
-          <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            <span>{order.plan_name}</span>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider',
+                isCotizacion ? 'bg-violet-100 text-violet-700' : 'bg-cyan-100 text-cyan-700'
+              )}>
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  {isCotizacion ? <path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/> : <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>}
+                </svg>
+                {svcLabel}
+              </span>
+            </div>
+            <p className="font-bold text-slate-800 mt-1 font-mono text-sm">#{order.order_number}</p>
+          </div>
+          <Badge className={cn(statusColor(order.status), 'text-[10px] uppercase tracking-wider font-bold shrink-0')}>
+            {(order.status || '').replace(/_/g, ' ')}
+          </Badge>
+        </div>
+
+        <div className="space-y-1.5 text-sm text-slate-600 mb-4">
+          {order.plan_name && (
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              <span className="font-semibold text-slate-700 truncate">{order.plan_name}</span>
+            </div>
+          )}
+          {order.asset_name && (
+            <div className="flex items-center gap-2">
+              <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 13l4 4L19 5"/></svg>
+              <span className="truncate">{order.asset_name}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span>{fmtDate(order.created_at)}</span>
+            {order.agent_name && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className="truncate">Agente {order.agent_name}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Mini timeline */}
+        {!isCanceled && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between text-[10px] mb-1.5">
+              <span className="font-semibold text-slate-500 uppercase tracking-wider">Progreso</span>
+              <span className="text-slate-500 tabular-nums">Paso {step} / {totalSteps}</span>
+            </div>
+            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={cn('h-full bg-gradient-to-r transition-all', isCompleted ? 'from-emerald-500 to-teal-500' : 'from-cyan-500 to-blue-500')}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
           </div>
         )}
-        {order.asset_name && (
-          <div className="flex items-center gap-2">
-            <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <span>{order.asset_name}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-          <span>{fmtDate(order.created_at)}</span>
+
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+            {isCompleted ? 'Finalizado' : isCanceled ? status : 'En curso'}
+          </span>
+          <span className={cn(
+            'text-xs font-semibold flex items-center gap-1 transition-all group-hover:gap-1.5',
+            isCotizacion ? 'text-violet-600 group-hover:text-violet-700' : 'text-cyan-600 group-hover:text-cyan-700'
+          )}>
+            Ver detalle
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
         </div>
       </div>
-
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-        <span className="text-[11px] text-slate-400 font-medium uppercase">{svcLabel}</span>
-        <span className="text-xs font-semibold text-cyan-600 group-hover:text-cyan-700 flex items-center gap-1">
-          Ver detalle
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
-        </span>
-      </div>
-    </Card>
+    </button>
   );
 }
 
@@ -1234,6 +1297,8 @@ export default function Expedientes() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState('expedientes');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [loadError, setLoadError] = useState('');
 
   const loadData = useCallback(async () => {
@@ -1272,90 +1337,336 @@ export default function Expedientes() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const activeOrders = orders.filter(o => !['completed', 'canceled', 'expired'].includes(o.status));
+  const completedOrders = orders.filter(o => o.status === 'completed');
+  const cotizaciones = orders.filter(o => o.service_type === 'cotizacion_link');
+  const busquedas = orders.filter(o => o.service_type !== 'cotizacion_link');
+  const activePlan = plans.find(p => p.status === 'active');
+
+  const filteredOrders = orders.filter(o => {
+    if (statusFilter === 'active' && ['completed', 'canceled', 'expired'].includes(o.status)) return false;
+    if (statusFilter === 'completed' && o.status !== 'completed') return false;
+    if (statusFilter === 'cotizacion' && o.service_type !== 'cotizacion_link') return false;
+    if (statusFilter === 'busqueda' && o.service_type === 'cotizacion_link') return false;
+    const t = search.trim().toLowerCase();
+    if (t) {
+      const hay = `${o.order_number || ''} ${o.plan_name || ''} ${o.asset_name || ''} ${o.agent_name || ''} ${o.status || ''}`.toLowerCase();
+      if (!hay.includes(t)) return false;
+    }
+    return true;
+  });
+
   if (selectedId) {
     return <OrderDetail orderId={selectedId} onBack={() => { setSelectedId(null); loadData(); }} />;
   }
 
   return (
-    <div>
-      <PageHeader title="Mis Productos Contratados" subtitle="Expedientes y planes de busqueda" />
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
-        <button onClick={() => setTab('expedientes')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'expedientes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          Expedientes {orders.length > 0 && <span className="ml-1.5 text-xs bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full">{orders.length}</span>}
-        </button>
-        <button onClick={() => setTab('planes')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'planes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          Planes {plans.length > 0 && <span className="ml-1.5 text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">{plans.length}</span>}
-        </button>
+    <div className="max-w-7xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
+              <span className={cn('w-1.5 h-1.5 rounded-full', activeOrders.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
+              {activeOrders.length > 0
+                ? `${activeOrders.length} expediente${activeOrders.length > 1 ? 's' : ''} activo${activeOrders.length > 1 ? 's' : ''}`
+                : 'Sin expedientes activos'}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis productos contratados</h1>
+            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
+              Expedientes de busqueda, cotizaciones por links y planes de busqueda en un solo lugar.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setLoading(true); loadData(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
+              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Actualizar
+            </Button>
+            <a href="#/quotation" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-slate-900 font-semibold hover:bg-slate-100 transition">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
+              Nueva cotizacion
+            </a>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <Spinner />
-      ) : tab === 'expedientes' ? (
-        orders.length === 0 ? (
-          <Card className="text-center py-12">
-            {loadError ? (
-              <>
-                <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-red-100 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                </div>
-                <p className="text-slate-700 font-semibold">No pudimos cargar tus expedientes</p>
-                <p className="text-xs text-red-500 mt-1">{loadError}</p>
-                <p className="text-xs text-slate-400 mt-3">Cuenta consultada: <span className="font-mono text-slate-600">{user?.email || '-'}</span></p>
-                <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setLoading(true); loadData(); }}>Reintentar</Button>
-              </>
-            ) : (
-              <>
-                <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                <p className="text-slate-700 font-semibold">Aun no hay expedientes para esta cuenta</p>
-                <p className="text-sm text-slate-500 mt-1">Cuando contrates un plan o cotizacion aparecera aqui.</p>
-                <p className="text-[11px] text-slate-400 mt-3">Cuenta: <span className="font-mono text-slate-500">{user?.email || '-'}</span></p>
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
-                  <Button variant="secondary" size="sm" onClick={() => { setLoading(true); loadData(); }}>Recargar</Button>
-                  <a href="https://wa.me/56940211459?text=Hola%2C%20no%20veo%20mis%20expedientes%20en%20el%20panel" target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-                    Hablar con soporte
-                  </a>
-                </div>
-              </>
+      {/* Stat tiles - clickeables como filtros (solo en tab expedientes) */}
+      {tab === 'expedientes' && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={cn(
+              'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+              statusFilter === 'all' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
             )}
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {orders.map(order => <OrderCard key={order.id} order={order} onClick={setSelectedId} />)}
-          </div>
-        )
-      ) : (
-        plans.length === 0 ? (
-          <Card className="text-center py-16">
-            <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            <p className="text-slate-500 font-medium">No tienes planes contratados</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans.map((p, i) => (
-              <Card key={i} className={cn('relative overflow-hidden', p.status === 'active' && 'border-cyan-200')}>
-                {p.status === 'active' && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 to-teal-500" />}
-                <div className="flex items-start justify-between mb-3">
-                  <p className="font-bold text-slate-800">{p.planName || p.plan_name || 'Plan'}</p>
-                  <Badge className={p.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}>{p.status === 'active' ? 'Activo' : p.status}</Badge>
-                </div>
-                <div className="space-y-1.5 text-sm text-slate-500">
-                  {p.startDate && <div className="flex justify-between"><span>Inicio</span><span className="text-slate-700">{fmtDate(p.startDate)}</span></div>}
-                  {p.endDate && <div className="flex justify-between"><span>Vence</span><span className="text-slate-700">{fmtDate(p.endDate)}</span></div>}
-                  {p.days && <div className="flex justify-between"><span>Duracion</span><span className="text-slate-700">{p.days} dias</span></div>}
-                  {p.price && <div className="flex justify-between"><span>Precio</span><span className="font-bold text-slate-800">{fmtCLP(p.price)}</span></div>}
-                  {p.payment_method && <div className="flex justify-between"><span>Metodo</span><span className="text-slate-700 capitalize">{p.payment_method}</span></div>}
-                </div>
-                {p.proposalsTotal > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-100">
-                    <div className="flex justify-between text-xs text-slate-400 mb-1"><span>Propuestas</span><span>{p.proposalsReceived || 0}/{p.proposalsTotal}</span></div>
-                    <div className="h-2 bg-slate-100 rounded-full"><div className="h-full bg-cyan-500 rounded-full" style={{ width: `${Math.min(((p.proposalsReceived || 0) / p.proposalsTotal) * 100, 100)}%` }} /></div>
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 leading-none">{orders.length}</p>
+            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Expedientes</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">En tu cuenta</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('active')}
+            className={cn(
+              'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+              statusFilter === 'active' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
+            )}
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 leading-none">{activeOrders.length}</p>
+            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Activos</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{activeOrders.length > 0 ? 'En proceso' : 'Sin avance'}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('cotizacion')}
+            className={cn(
+              'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+              statusFilter === 'cotizacion' ? 'border-violet-300 ring-2 ring-violet-200/60' : 'border-slate-200/70 hover:border-slate-300'
+            )}
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 leading-none">{cotizaciones.length}</p>
+            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Cotizaciones</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Por links</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('completed')}
+            className={cn(
+              'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+              statusFilter === 'completed' ? 'border-emerald-300 ring-2 ring-emerald-200/60' : 'border-slate-200/70 hover:border-slate-300'
+            )}
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p className="text-2xl font-bold text-slate-800 leading-none">{completedOrders.length}</p>
+            <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Completados</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Finalizados</p>
+          </button>
+        </div>
+      )}
+
+      {/* Tabs pills */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5">
+          <button onClick={() => setTab('expedientes')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'expedientes' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            Expedientes
+            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'expedientes' ? 'bg-white/20 text-white' : 'bg-cyan-100 text-cyan-700')}>{orders.length}</span>
+          </button>
+          <button onClick={() => setTab('planes')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'planes' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            Planes
+            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'planes' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700')}>{plans.length}</span>
+          </button>
+        </div>
+        {activePlan && tab === 'expedientes' && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold ring-1 ring-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Plan activo: {activePlan.planName || activePlan.plan_name}
+          </span>
+        )}
+      </div>
+
+      {/* EXPEDIENTES tab */}
+      {tab === 'expedientes' && (
+        <>
+          {/* Toolbar (only when there's data) */}
+          {orders.length > 0 && (
+            <Card className="mb-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex-1 min-w-[220px] relative">
+                    <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Buscar # de expediente, plan, agente..."
+                      className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
+                    />
+                    {search && (
+                      <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    )}
                   </div>
-                )}
-              </Card>
-            ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {[
+                    { v: 'all', label: 'Todos', count: orders.length },
+                    { v: 'active', label: 'Activos', count: activeOrders.length },
+                    { v: 'completed', label: 'Completados', count: completedOrders.length },
+                    { v: 'busqueda', label: 'Busquedas', count: busquedas.length },
+                    { v: 'cotizacion', label: 'Cotizaciones', count: cotizaciones.length },
+                  ].map(t => (
+                    <button
+                      key={t.v}
+                      onClick={() => setStatusFilter(t.v)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition',
+                        statusFilter === t.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      {t.label}
+                      <span className={cn('text-[10px] tabular-nums', statusFilter === t.v ? 'text-white/80' : 'text-slate-400')}>{t.count}</span>
+                    </button>
+                  ))}
+                  {(search || statusFilter !== 'all') && (
+                    <button
+                      onClick={() => { setStatusFilter('all'); setSearch(''); }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 hover:text-slate-700"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                      Limpiar
+                    </button>
+                  )}
+                  <span className="ml-auto text-[11px] text-slate-400">
+                    Mostrando <strong className="text-slate-700 tabular-nums">{filteredOrders.length}</strong> de {orders.length}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => <div key={i} className="h-56 bg-slate-100 rounded-2xl animate-pulse" />)}
+            </div>
+          ) : orders.length === 0 ? (
+            <Card className="text-center py-12">
+              {loadError ? (
+                <>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-red-100 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  </div>
+                  <p className="text-slate-700 font-semibold">No pudimos cargar tus expedientes</p>
+                  <p className="text-xs text-red-500 mt-1">{loadError}</p>
+                  <p className="text-xs text-slate-400 mt-3">Cuenta consultada: <span className="font-mono text-slate-600">{user?.email || '-'}</span></p>
+                  <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setLoading(true); loadData(); }}>Reintentar</Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+                    <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                  </div>
+                  <p className="text-slate-700 font-semibold">Aun no hay expedientes en esta cuenta</p>
+                  <p className="text-sm text-slate-500 mt-1">Cuando contrates un plan o cotizacion aparecera aqui.</p>
+                  <p className="text-[11px] text-slate-400 mt-3">Cuenta: <span className="font-mono text-slate-500">{user?.email || '-'}</span></p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+                    <a href="#/quotation" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757"/></svg>
+                      Cotizar links
+                    </a>
+                    <a href="#/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                      Ver planes
+                    </a>
+                    <a href="https://wa.me/56940211459?text=Hola%2C%20no%20veo%20mis%20expedientes%20en%20el%20panel" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+                      Hablar con soporte
+                    </a>
+                  </div>
+                </>
+              )}
+            </Card>
+          ) : filteredOrders.length === 0 ? (
+            <Card className="text-center py-12">
+              <p className="text-slate-700 font-semibold">Sin coincidencias</p>
+              <p className="text-sm text-slate-500 mt-1">Probá ajustar los filtros o limpiar la busqueda.</p>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setStatusFilter('all'); setSearch(''); }}>Limpiar filtros</Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOrders.map(order => <OrderCard key={order.id} order={order} onClick={setSelectedId} />)}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* PLANES tab */}
+      {tab === 'planes' && (
+        loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2].map(i => <div key={i} className="h-48 bg-slate-100 rounded-2xl animate-pulse" />)}
+          </div>
+        ) : plans.length === 0 ? (
+          <Card className="text-center py-16">
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <p className="text-slate-700 font-semibold">No tenes planes contratados</p>
+            <p className="text-sm text-slate-500 mt-1">Contrata un plan de busqueda para que el equipo trabaje activamente en encontrar tu lancha.</p>
+            <a href="#/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition mt-4">
+              Ver planes disponibles
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {plans.map((p, i) => {
+              const isActive = p.status === 'active';
+              const isExpired = p.status === 'expired';
+              const proposalsTotal = Number(p.proposalsTotal || 0);
+              const proposalsReceived = Number(p.proposalsReceived || 0);
+              const pct = proposalsTotal > 0 ? Math.min(100, (proposalsReceived / proposalsTotal) * 100) : 0;
+              let daysLeft = null;
+              if (p.endDate) {
+                const ms = new Date(p.endDate).getTime() - Date.now();
+                daysLeft = Math.max(0, Math.ceil(ms / 86_400_000));
+              }
+              return (
+                <div key={i} className={cn('relative bg-white rounded-2xl border overflow-hidden', isActive ? 'border-cyan-200 shadow-sm' : 'border-slate-200')}>
+                  {isActive && <div className="h-1 bg-gradient-to-r from-cyan-500 to-teal-500" />}
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <p className="font-bold text-slate-800 truncate">{p.planName || p.plan_name || 'Plan'}</p>
+                      <Badge className={cn(
+                        'text-[10px] uppercase tracking-wider font-bold shrink-0',
+                        isActive ? 'bg-emerald-100 text-emerald-700' :
+                        isExpired ? 'bg-red-100 text-red-700' :
+                        'bg-slate-100 text-slate-600'
+                      )}>
+                        {isActive ? 'Activo' : isExpired ? 'Vencido' : p.status}
+                      </Badge>
+                    </div>
+                    {isActive && daysLeft !== null && (
+                      <p className="text-xs text-emerald-700 font-semibold mb-3 -mt-1">{daysLeft > 0 ? `${daysLeft} dias restantes` : 'Vence hoy'}</p>
+                    )}
+                    {proposalsTotal > 0 && (
+                      <div className="mb-4">
+                        <div className="flex justify-between text-[11px] mb-1.5">
+                          <span className="text-slate-500 font-semibold">Propuestas</span>
+                          <span className="text-slate-700 font-bold tabular-nums">{proposalsReceived} / {proposalsTotal}</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs pt-3 border-t border-slate-100">
+                      {p.startDate && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Inicio</p><p className="text-slate-700 font-medium">{fmtDate(p.startDate)}</p></div>}
+                      {p.endDate && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Vence</p><p className="text-slate-700 font-medium">{fmtDate(p.endDate)}</p></div>}
+                      {p.days && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Duracion</p><p className="text-slate-700 font-medium">{p.days} dias</p></div>}
+                      {p.price && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Inversion</p><p className="text-slate-700 font-bold">{fmtCLP(p.price)}</p></div>}
+                      {p.payment_method && <div className="col-span-2"><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Metodo de pago</p><p className="text-slate-700 font-medium capitalize">{p.payment_method.replace(/_/g, ' ')}</p></div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )
       )}
