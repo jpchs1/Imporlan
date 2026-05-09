@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMyOrders, getMyFiles, getMyReports } from '../api';
 import { fmtDate, cn } from '../../shared/lib/utils';
-import { PageHeader, Card, Badge, Spinner } from '../../shared/components/UI';
+import { Card, Badge, Button } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 const CATEGORIES = {
@@ -128,24 +128,23 @@ export default function Documents() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [lightbox, setLightbox] = useState(null);
+  const [sort, setSort] = useState('recent');
+  const [lightbox, setLightbox] = useState(null); // { list: string[], index: number } | null
 
   const loadDocuments = useCallback(async () => {
     try {
-      // Fetch orders and reports in parallel
       const [ordersRes, reportsRes] = await Promise.all([
         getMyOrders().catch(() => ({ orders: [] })),
         getMyReports().catch(() => ({ reports: [] })),
       ]);
 
-      const orders = ordersRes.success && ordersRes.orders ? ordersRes.orders : [];
-      const reports = reportsRes.reports || [];
+      const orders = ordersRes?.orders || ordersRes?.data || [];
+      const reports = reportsRes?.reports || [];
 
-      // Fetch files for each order in parallel
       const filesPromises = orders.map(async (order) => {
         try {
           const data = await getMyFiles(order.id);
-          const files = data.success && data.files ? data.files : [];
+          const files = data?.files || data?.data || [];
           return files.map(f => ({
             ...f,
             _category: f.category || 'other',
@@ -158,7 +157,6 @@ export default function Documents() {
       const filesArrays = await Promise.all(filesPromises);
       const allFiles = filesArrays.flat();
 
-      // Add reports as documents
       const reportDocs = reports.map(r => ({
         id: `report-${r.id}`,
         original_name: `Reporte v${r.version || 1} - ${r.order_number || ''}`,
@@ -173,7 +171,7 @@ export default function Documents() {
       }));
 
       setAllDocs([...allFiles, ...reportDocs]);
-    } catch (e) {
+    } catch {
       toast?.('Error al cargar documentos', 'error');
     }
     setLoading(false);
@@ -181,7 +179,7 @@ export default function Documents() {
 
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
-  // Filtered + searched docs
+  // Filtered + searched + sorted docs
   const filteredDocs = useMemo(() => {
     let docs = allDocs;
     if (filter !== 'all') {
@@ -195,27 +193,84 @@ export default function Documents() {
         (d.description || '').toLowerCase().includes(q)
       );
     }
-    return docs;
-  }, [allDocs, filter, search]);
+    const out = [...docs];
+    out.sort((a, b) => {
+      if (sort === 'name') return (a.original_name || '').localeCompare(b.original_name || '');
+      if (sort === 'oldest') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      // recent (default)
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+    return out;
+  }, [allDocs, filter, search, sort]);
 
-  // Counts
   const counts = useMemo(() => {
     const c = { all: allDocs.length, document: 0, image: 0, video: 0, report: 0, other: 0 };
     allDocs.forEach(d => { if (c[d._category] !== undefined) c[d._category]++; else c.other++; });
     return c;
   }, [allDocs]);
 
-  if (loading) return <Spinner />;
+  // Build a list of image URLs from the currently filtered docs to power
+  // the lightbox prev/next navigation
+  const filteredImages = useMemo(
+    () => filteredDocs.filter(d => d._category === 'image' && d.download_url).map(d => d.download_url),
+    [filteredDocs]
+  );
+
+  function openLightboxAt(url) {
+    const list = filteredImages.length > 0 ? filteredImages : [url];
+    const idx = list.indexOf(url);
+    setLightbox({ list, index: idx >= 0 ? idx : 0 });
+  }
+
+  function lightboxNav(dir) {
+    setLightbox(lb => {
+      if (!lb || !lb.list || lb.list.length === 0) return lb;
+      const next = (lb.index + dir + lb.list.length) % lb.list.length;
+      return { ...lb, index: next };
+    });
+  }
+
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e) {
+      if (e.key === 'Escape') setLightbox(null);
+      else if (e.key === 'ArrowRight') lightboxNav(1);
+      else if (e.key === 'ArrowLeft') lightboxNav(-1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
+  const filtersActive = filter !== 'all' || !!search.trim() || sort !== 'recent';
 
   return (
-    <div>
-      <PageHeader
-        title="Documentos"
-        subtitle="Todos tus archivos, reportes y documentos en un solo lugar"
-      />
+    <div className="max-w-7xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {counts.all > 0 ? `${counts.all} archivo${counts.all > 1 ? 's' : ''} disponible${counts.all > 1 ? 's' : ''}` : 'Aun sin archivos'}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Documentos</h1>
+            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
+              Todos tus archivos, reportes, fotos y videos en un solo lugar. Lo que tu agente suba a cualquier expediente aparece automaticamente aqui.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setLoading(true); loadDocuments(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
+              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Actualizar
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      {/* Stat tiles - clickeables como filtros */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         <StatCard
           label="Documentos" count={counts.document} color="blue" active={filter === 'document'}
           onClick={() => setFilter(filter === 'document' ? 'all' : 'document')}
@@ -243,50 +298,96 @@ export default function Documents() {
         />
       </div>
 
-      {/* Search + Filters */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <div className="flex-1 min-w-[200px] max-w-md relative">
-          <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar documentos..."
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none transition-all bg-white"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          )}
+      {/* Toolbar */}
+      <Card className="mb-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex-1 min-w-[220px] relative">
+              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, expediente, descripcion..."
+                className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+            <select
+              value={sort}
+              onChange={e => setSort(e.target.value)}
+              className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white w-44"
+              title="Ordenar"
+            >
+              <option value="recent">Mas recientes</option>
+              <option value="oldest">Mas antiguos</option>
+              <option value="name">Por nombre A-Z</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {[
+              { v: 'all', label: 'Todos', count: counts.all },
+              { v: 'document', label: 'Documentos', count: counts.document },
+              { v: 'image', label: 'Imagenes', count: counts.image },
+              { v: 'video', label: 'Videos', count: counts.video },
+              { v: 'report', label: 'Reportes', count: counts.report },
+            ].map(t => (
+              <button
+                key={t.v}
+                onClick={() => setFilter(t.v)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition',
+                  filter === t.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                )}
+              >
+                {t.label}
+                <span className={cn('text-[10px] tabular-nums', filter === t.v ? 'text-white/80' : 'text-slate-400')}>{t.count}</span>
+              </button>
+            ))}
+            {filtersActive && (
+              <button
+                onClick={() => { setFilter('all'); setSearch(''); setSort('recent'); }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 hover:text-slate-700"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                Limpiar
+              </button>
+            )}
+            <span className="ml-auto text-[11px] text-slate-400">
+              Mostrando <strong className="text-slate-700 tabular-nums">{filteredDocs.length}</strong> de {counts.all}
+            </span>
+          </div>
         </div>
-        <div className="flex gap-1.5">
-          {['all', 'document', 'image', 'video', 'report'].map(f => (
-            <button key={f} onClick={() => setFilter(f)} className={cn('px-3 py-2 rounded-lg text-xs font-semibold transition', filter === f ? 'bg-cyan-50 text-cyan-700 border border-cyan-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50')}>
-              {f === 'all' ? 'Todos' : CATEGORIES[f]?.label || f}
-            </button>
-          ))}
-        </div>
-      </div>
+      </Card>
 
       {/* Documents grid */}
-      {filteredDocs.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <div key={i} className="h-44 bg-slate-100 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : filteredDocs.length === 0 ? (
         <Card className="text-center py-16">
-          <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-          <p className="text-slate-500 font-medium">
-            {allDocs.length === 0 ? 'No tienes documentos todavia' : 'No se encontraron documentos'}
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          </div>
+          <p className="text-slate-700 font-semibold">
+            {allDocs.length === 0 ? 'No tenes documentos todavia' : 'Sin coincidencias'}
           </p>
-          <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
+          <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
             {allDocs.length === 0
-              ? 'Cuando tu agente suba archivos a tus expedientes, apareceran aqui.'
-              : 'Intenta con otro termino de busqueda o filtro.'}
+              ? 'Cuando tu agente suba archivos a tus expedientes apareceran aqui automaticamente.'
+              : 'Probá ajustar los filtros o limpiar la busqueda.'}
           </p>
-          {allDocs.length === 0 && (
+          {allDocs.length === 0 ? (
             <>
               <div className="grid grid-cols-3 gap-3 mt-6 max-w-md mx-auto">
                 <div className="bg-blue-50 rounded-xl p-3 text-center">
                   <svg className="w-6 h-6 text-blue-500 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                  <p className="text-[11px] font-semibold text-blue-700">PDFs y Docs</p>
+                  <p className="text-[11px] font-semibold text-blue-700">PDFs y docs</p>
                   <p className="text-[10px] text-blue-500">Contratos, facturas</p>
                 </div>
                 <div className="bg-violet-50 rounded-xl p-3 text-center">
@@ -300,28 +401,62 @@ export default function Documents() {
                   <p className="text-[10px] text-red-500">Test drives, recorridos</p>
                 </div>
               </div>
-              <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition">
+              <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
                 Contactar Soporte
               </a>
             </>
+          ) : (
+            <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setFilter('all'); setSearch(''); setSort('recent'); }}>
+              Limpiar filtros
+            </Button>
           )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredDocs.map(file => (
-            <FileCard key={file.id} file={file} onPreview={setLightbox} />
+            <FileCard key={file.id} file={file} onPreview={openLightboxAt} />
           ))}
         </div>
       )}
 
       {/* Lightbox */}
-      {lightbox && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer" onClick={() => setLightbox(null)}>
-          <img src={lightbox} alt="" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-          <button className="absolute top-4 right-4 text-white/70 hover:text-white transition" onClick={() => setLightbox(null)}>
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      {lightbox && lightbox.list && lightbox.list.length > 0 && (
+        <div className="fixed inset-0 z-[10001] bg-black/85 flex items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <img
+            src={lightbox.list[lightbox.index]}
+            alt=""
+            className="max-w-full max-h-[88vh] rounded-lg shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition"
+            onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
+            aria-label="Cerrar"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
+          {lightbox.list.length > 1 && (
+            <>
+              <button
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition"
+                onClick={(e) => { e.stopPropagation(); lightboxNav(-1); }}
+                aria-label="Anterior"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-2 rounded-full bg-black/40 hover:bg-black/60 transition"
+                onClick={(e) => { e.stopPropagation(); lightboxNav(1); }}
+                aria-label="Siguiente"
+              >
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/50 text-white text-xs font-medium">
+                {lightbox.index + 1} / {lightbox.list.length}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
