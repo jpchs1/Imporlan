@@ -426,10 +426,10 @@ function InspectionDetail({ report, onBack }) {
 }
 
 export default function Inspections() {
-  const toast = useToast();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -443,62 +443,170 @@ export default function Inspections() {
     load();
   }, []);
 
+  const realReports = reports.filter(r => !r._demo);
+  const onlyDemo = reports.length > 0 && reports.every(r => r._demo);
+
+  const term = search.trim().toLowerCase();
+  const filtered = reports.filter(r => {
+    if (!term) return true;
+    const hay = `${r.vessel_name || ''} ${r.brand || ''} ${r.model || ''} ${r.location || ''} ${r.inspector_name || ''}`.toLowerCase();
+    return hay.includes(term);
+  });
+
+  const avgScore = realReports.length > 0
+    ? (realReports.reduce((s, r) => s + Number(r.overall_score || 0), 0) / realReports.length).toFixed(1)
+    : null;
+
   if (selected) return <InspectionDetail report={selected} onBack={() => setSelected(null)} />;
-  if (loading) return <Spinner />;
 
   return (
-    <div>
-      {/* Header matching production */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Mis Inspecciones</h1>
-          <p className="text-sm text-slate-400">Tus reportes de inspeccion tecnica de embarcaciones</p>
+    <div className="max-w-6xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-emerald-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-semibold ring-1 ring-emerald-400/20 mb-3">
+              <span className={cn('w-1.5 h-1.5 rounded-full', realReports.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-violet-400')} />
+              {realReports.length > 0
+                ? `${realReports.length} inspeccion${realReports.length > 1 ? 'es' : ''} en tu cuenta`
+                : 'Sin inspecciones reales aun'}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis inspecciones</h1>
+            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
+              Reportes tecnicos pre-compra hechos por inspectores certificados. Estructura, motor, sistemas, fotos y video de prueba en agua.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20pre-compra" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+              Solicitar inspeccion
+            </a>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6" />
-
-      {reports.length === 0 ? (
-        <Card className="text-center py-16">
-          <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-          <p className="text-slate-500 font-medium">No tienes inspecciones</p>
-          <p className="text-sm text-slate-400 mt-1">Cuando solicites una inspeccion, aparecera aqui.</p>
-        </Card>
-      ) : (
-        <>
-          {reports.some(r => r._demo) && (
-            <div className="mb-4 px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl flex items-center gap-3">
-              <svg className="w-5 h-5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-              <div>
-                <p className="text-sm font-semibold text-violet-800">Inspeccion de ejemplo (informativo)</p>
-                <p className="text-xs text-violet-600">Este reporte es una muestra de como se ve una inspeccion completa. Cuando solicites una inspeccion real, aparecera aqui con los datos de tu embarcacion.</p>
-              </div>
-            </div>
-          )}
-          <div className="space-y-4">
-            {reports.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
+      {/* Stats tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
           </div>
-        </>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{realReports.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Reportes reales</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{realReports.length > 0 ? 'En tu cuenta' : 'Aun ninguno'}</p>
+        </div>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{avgScore || '-'}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Score promedio</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{avgScore ? 'Sobre 10' : 'Sin datos aun'}</p>
+        </div>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">48-72h</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Tiempo de entrega</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Reporte completo en PDF</p>
+        </div>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">USD 850+</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Costo referencial</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Segun eslora</p>
+        </div>
+      </div>
+
+      {/* Demo banner */}
+      {onlyDemo && (
+        <div className="mb-5 px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-violet-900">Inspeccion de ejemplo (informativo)</p>
+            <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
+              Este reporte es una muestra de como se ve una inspeccion completa. Cuando solicites una inspeccion real, aparecera aqui con los datos de tu embarcacion.
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* CTA: Request new inspection */}
-      <Card className="mt-6 text-center py-8 border-dashed border-2 border-slate-200">
-        <p className="font-bold text-slate-800">Necesitas otra inspeccion?</p>
-        <p className="text-sm text-slate-400 mt-1">Solicita una nueva inspeccion pre-compra en:</p>
-        <div className="flex justify-center gap-3 mt-4">
-          <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Chile" target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-teal-500 text-white text-sm font-semibold shadow-md hover:shadow-lg transition flex items-center gap-2">
-            <svg className="w-4 h-3 rounded-sm" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
-            Chile
-          </a>
-          <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Estados%20Unidos" target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-slate-800 to-slate-700 text-white text-sm font-semibold shadow-md hover:shadow-lg transition flex items-center gap-2">
-            <svg className="w-4 h-3 rounded-sm" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
-            Estados Unidos
-          </a>
+      {/* Search */}
+      {reports.length > 1 && (
+        <div className="mb-4 relative">
+          <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar embarcacion, marca, inspector..."
+            className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          )}
         </div>
-      </Card>
+      )}
+
+      {/* List */}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="text-center py-16">
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          </div>
+          {search ? (
+            <>
+              <p className="text-slate-700 font-semibold">Sin coincidencias</p>
+              <p className="text-sm text-slate-500 mt-1">Probá con otra palabra clave.</p>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setSearch('')}>Limpiar busqueda</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-700 font-semibold">Aun no tenes inspecciones</p>
+              <p className="text-sm text-slate-500 mt-1">Cuando solicites una, aparecera aqui con todo el detalle.</p>
+            </>
+          )}
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
+        </div>
+      )}
+
+      {/* Bottom CTA - request new inspection */}
+      <div className="mt-6 relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-7 overflow-hidden shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-emerald-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-md">
+            <h3 className="text-xl font-bold">Necesitas otra inspeccion?</h3>
+            <p className="text-sm text-slate-300 mt-1.5">Coordinamos inspectores certificados en USA y Chile. Recibis el reporte completo en 48-72 hrs habiles.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Chile" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow-md hover:bg-slate-100 transition">
+              <svg className="w-5 h-3.5 rounded-sm shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
+              En Chile
+            </a>
+            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Estados%20Unidos" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 ring-1 ring-white/20 text-white font-semibold hover:bg-white/20 transition">
+              <svg className="w-5 h-3.5 rounded-sm shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
+              En Estados Unidos
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
