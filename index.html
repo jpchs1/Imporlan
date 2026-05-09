@@ -349,26 +349,7 @@
     <script defer src="/assets/proceso-compra-section.js?v=20260330"></script>
     <script defer src="/assets/mobile-ux-optimizer.js?v=20260228"></script>
     <script defer src="/assets/text-reducer.js?v=20260304"></script>
-    <script>
-    /* Cross-domain backlinks SEO */
-    (function(){
-      function injectLinks(){
-        var footer=document.querySelector('footer,.footer,[class*=footer]');
-        if(!footer)return;
-        var existing=footer.querySelector('.cross-domain-links');
-        if(existing)return;
-        var div=document.createElement('div');
-        div.className='cross-domain-links';
-        div.style.cssText='padding:20px 0;border-top:1px solid rgba(255,255,255,0.1);margin-top:16px;display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:center;';
-        div.innerHTML='<span style="color:#94a3b8;font-size:0.85rem;width:100%;text-align:center;margin-bottom:4px;">Nuestras Empresas</span>'+
-          '<a href="https://www.deckeva.cl/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Deck EVA para embarcaciones</a>'+
-          '<a href="https://www.deckeva.com/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Deckeva Internacional</a>'+
-          '<a href="https://www.muelleflotante.cl/" target="_blank" rel="noopener" style="color:#64748b;text-decoration:none;font-size:0.85rem;">Muelles flotantes en Chile</a>';
-        footer.appendChild(div);
-      }
-      if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(injectLinks,2000);});}
-      else{setTimeout(injectLinks,2000);}
-    })();
-    </script>
+    <script defer src="/assets/footer-enhancer.js?v=20260509a"></script>
+    <!-- Cross-domain partner links are now rendered by footer-enhancer.js as part of the redesigned footer -->
   </body>
 </html>
