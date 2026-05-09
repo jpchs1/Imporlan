@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getMarketplaceListings, getMyListings, createListing, updateListing, deleteListing, renewListing, markListingSold, uploadListingPhoto } from '../api';
 import { fmtDate, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
-import { Card, Badge, Button, Modal, Input, Select, Textarea, Spinner, PageHeader } from '../../shared/components/UI';
+import { Card, Badge, Button, Modal, Input, Select, Textarea } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 const TIPOS = ['Bowrider', 'Pesca', 'Jet Boat', 'Yate', 'Velero', 'Moto de Agua', 'Catamaran', 'Otro'];
@@ -448,6 +448,8 @@ export default function Marketplace() {
   const [sort, setSort] = useState('recent');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [filterPub, setFilterPub] = useState('all'); // all | venta | arriendo
+  const [mineView, setMineView] = useState('cards');
 
   const load = useCallback(async () => {
     try {
@@ -457,7 +459,7 @@ export default function Marketplace() {
       ]);
       setListings(allRes.listings || allRes.data || []);
       setMyListingsState(myRes.listings || myRes.data || []);
-    } catch (e) {
+    } catch {
       toast?.('Error al cargar marketplace', 'error');
     }
     setLoading(false);
@@ -465,18 +467,26 @@ export default function Marketplace() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = listings.filter(item => {
-    if (search && !(`${item.nombre} ${item.tipo} ${item.ubicacion}`.toLowerCase().includes(search.toLowerCase()))) return false;
-    if (filterType && item.tipo !== filterType) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return listings.filter(item => {
+      if (term && !(`${item.nombre} ${item.tipo} ${item.ubicacion}`.toLowerCase().includes(term))) return false;
+      if (filterType && item.tipo !== filterType) return false;
+      if (filterPub === 'venta' && item.tipo_publicacion === 'arriendo') return false;
+      if (filterPub === 'arriendo' && item.tipo_publicacion !== 'arriendo') return false;
+      return true;
+    });
+  }, [listings, search, filterType, filterPub]);
 
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (sort === 'price_asc') return (a.precio || 0) - (b.precio || 0);
     if (sort === 'price_desc') return (b.precio || 0) - (a.precio || 0);
     if (sort === 'year') return (b.ano || 0) - (a.ano || 0);
     return new Date(b.created_at) - new Date(a.created_at);
-  });
+  }), [filtered, sort]);
+
+  const myActive = useMemo(() => myListings.filter(l => l.status === 'active'), [myListings]);
+  const mySold = useMemo(() => myListings.filter(l => l.status === 'sold'), [myListings]);
 
   async function handleDelete(id, nombre) {
     if (!confirm(`Eliminar "${nombre}"?`)) return;
@@ -484,7 +494,7 @@ export default function Marketplace() {
       const data = await deleteListing(id);
       if (data.success) { toast?.('Publicacion eliminada', 'success'); load(); }
       else toast?.(data.error || 'Error', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch { toast?.('Error de conexion', 'error'); }
   }
 
   async function handleRenew(id) {
@@ -492,7 +502,7 @@ export default function Marketplace() {
       const data = await renewListing(id);
       if (data.success) { toast?.('Publicacion renovada por 30 dias', 'success'); load(); }
       else toast?.(data.error || 'Error', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch { toast?.('Error de conexion', 'error'); }
   }
 
   async function handleMarkSold(id) {
@@ -501,51 +511,180 @@ export default function Marketplace() {
       const data = await markListingSold(id);
       if (data.success) { toast?.('Marcado como vendido', 'success'); load(); }
       else toast?.(data.error || 'Error', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch { toast?.('Error de conexion', 'error'); }
   }
 
-  if (loading) return <Spinner />;
+  function clearFilters() {
+    setSearch(''); setFilterType(''); setFilterPub('all'); setSort('recent');
+  }
+
+  const filtersActive = !!search || !!filterType || filterPub !== 'all' || sort !== 'recent';
 
   return (
-    <div>
-      <PageHeader
-        title="Marketplace"
-        subtitle={tab === 'browse' ? `${listings.length} publicaciones activas` : `${myListings.length} publicaciones tuyas`}
-        action={
-          <Button variant="accent" size="sm" onClick={() => { setEditItem(null); setShowPublish(true); }} className="flex items-center gap-1.5">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4"/></svg>
-            Publicar
-          </Button>
-        }
-      />
+    <div className="max-w-7xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {listings.length} publicaciones activas
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Marketplace</h1>
+            <p className="text-sm text-slate-300 mt-1.5 max-w-lg">Compra, vende o arrienda embarcaciones entre la comunidad Imporlan. Publicaciones verificadas y contacto directo.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setLoading(true); load(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
+              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Actualizar
+            </Button>
+            <Button onClick={() => { setEditItem(null); setShowPublish(true); }} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
+              Publicar embarcacion
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-100 rounded-xl p-1 w-fit">
-        <button onClick={() => setTab('browse')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'browse' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          Comprar
+      {/* Stats clickeables como tabs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <button
+          type="button"
+          onClick={() => setTab('browse')}
+          className={cn(
+            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+            tab === 'browse' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
+          )}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Comprar</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Activas en la comunidad</p>
         </button>
-        <button onClick={() => setTab('mine')} className={cn('px-4 py-2 rounded-lg text-sm font-medium transition', tab === 'mine' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          Mis Publicaciones
-          {myListings.length > 0 && <span className="ml-1.5 text-xs bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full">{myListings.length}</span>}
+        <button
+          type="button"
+          onClick={() => setTab('mine')}
+          className={cn(
+            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+            tab === 'mine' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
+          )}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{myListings.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Mis Publicaciones</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{myActive.length} activas, {mySold.length} vendidas</p>
         </button>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.filter(l => l.estado === 'Nueva').length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Nuevas</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Recien publicadas</p>
+        </div>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h18M3 12h18M3 21h18"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.filter(l => l.tipo_publicacion === 'arriendo').length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">En arriendo</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Para arrendar</p>
+        </div>
+      </div>
+
+      {/* Tabs pills */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5">
+          <button onClick={() => setTab('browse')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'browse' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+            Comprar
+            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'browse' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>{listings.length}</span>
+          </button>
+          <button onClick={() => setTab('mine')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'mine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            Mis Publicaciones
+            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'mine' ? 'bg-white/20 text-white' : 'bg-cyan-100 text-cyan-700')}>{myListings.length}</span>
+          </button>
+        </div>
       </div>
 
       {/* Browse tab */}
       {tab === 'browse' && (
         <>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="flex-1 min-w-[200px] relative">
-              <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar embarcaciones..." className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
+          {/* Toolbar */}
+          <Card className="mb-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[220px] relative">
+                  <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                  <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar marca, modelo, ubicacion..." className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  )}
+                </div>
+                <Select value={filterType} onChange={e => setFilterType(e.target.value)} options={[{ value: '', label: 'Todos los tipos' }, ...TIPOS.map(t => ({ value: t, label: t }))]} className="w-44" />
+                <Select value={sort} onChange={e => setSort(e.target.value)} options={[{ value: 'recent', label: 'Mas recientes' }, { value: 'price_asc', label: 'Menor precio' }, { value: 'price_desc', label: 'Mayor precio' }, { value: 'year', label: 'Mas nuevas' }]} className="w-44" />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { v: 'all', label: 'Todas' },
+                  { v: 'venta', label: 'En venta' },
+                  { v: 'arriendo', label: 'En arriendo' },
+                ].map(o => (
+                  <button
+                    key={o.v}
+                    onClick={() => setFilterPub(o.v)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition',
+                      filterPub === o.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    )}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+                {filtersActive && (
+                  <button onClick={clearFilters} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 hover:text-slate-700">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                    Limpiar filtros
+                  </button>
+                )}
+                <span className="ml-auto text-[11px] text-slate-400 self-center">
+                  Mostrando <strong className="text-slate-700 tabular-nums">{sorted.length}</strong> de {listings.length}
+                </span>
+              </div>
             </div>
-            <Select value={filterType} onChange={e => setFilterType(e.target.value)} options={[{ value: '', label: 'Todos los tipos' }, ...TIPOS.map(t => ({ value: t, label: t }))]} className="w-44" />
-            <Select value={sort} onChange={e => setSort(e.target.value)} options={[{ value: 'recent', label: 'Mas Recientes' }, { value: 'price_asc', label: 'Menor Precio' }, { value: 'price_desc', label: 'Mayor Precio' }, { value: 'year', label: 'Ano Descendente' }]} className="w-44" />
-          </div>
+          </Card>
 
-          {sorted.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-[400px] bg-slate-100 rounded-2xl animate-pulse" />)}
+            </div>
+          ) : sorted.length === 0 ? (
             <Card className="text-center py-16">
-              <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-              <p className="text-slate-500 font-medium">No hay publicaciones activas</p>
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+                <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+              </div>
+              {filtersActive ? (
+                <>
+                  <p className="text-slate-700 font-semibold">Sin coincidencias</p>
+                  <p className="text-sm text-slate-500 mt-1">Probá ajustar los filtros o limpiar la busqueda.</p>
+                  <Button variant="secondary" size="sm" className="mt-4" onClick={clearFilters}>Limpiar filtros</Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-slate-700 font-semibold">No hay publicaciones activas</p>
+                  <p className="text-sm text-slate-500 mt-1">Sé el primero en publicar una embarcacion.</p>
+                  <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>Publicar embarcacion</Button>
+                </>
+              )}
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -569,18 +708,107 @@ export default function Marketplace() {
             </Button>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {myListings.map(item => (
-              <MyListingCard
-                key={item.id}
-                item={item}
-                onEdit={(it) => { setEditItem(it); setShowPublish(true); }}
-                onDelete={handleDelete}
-                onRenew={handleRenew}
-                onMarkSold={handleMarkSold}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-end mb-4">
+              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-medium">
+                <button
+                  onClick={() => setMineView('cards')}
+                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'cards' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                  title="Vista tarjetas"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                  Tarjetas
+                </button>
+                <button
+                  onClick={() => setMineView('table')}
+                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'table' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
+                  title="Vista tabla"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                  Tabla
+                </button>
+              </div>
+            </div>
+
+            {mineView === 'cards' ? (
+              <div className="space-y-3">
+                {myListings.map(item => (
+                  <MyListingCard
+                    key={item.id}
+                    item={item}
+                    onEdit={(it) => { setEditItem(it); setShowPublish(true); }}
+                    onDelete={handleDelete}
+                    onRenew={handleRenew}
+                    onMarkSold={handleMarkSold}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card className="p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-semibold">Embarcacion</th>
+                        <th className="text-left px-4 py-3 font-semibold">Tipo</th>
+                        <th className="text-right px-4 py-3 font-semibold">Precio</th>
+                        <th className="text-left px-4 py-3 font-semibold">Estado</th>
+                        <th className="text-left px-4 py-3 font-semibold">Publicada</th>
+                        <th className="text-right px-4 py-3 font-semibold">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {myListings.map(item => {
+                        const photos = parsePhotos(item.fotos);
+                        const st = STATUS_COLORS[item.status] || STATUS_COLORS.active;
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                                  {photos[0] ? <img src={photos[0]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-800 truncate">{item.nombre}</p>
+                                  <p className="text-[11px] text-slate-400">{item.ano || '-'}{item.eslora ? ` · ${item.eslora}` : ''}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{item.tipo || '-'}</td>
+                            <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">{fmtPrice(item.precio, item.moneda)}</td>
+                            <td className="px-4 py-3"><Badge className={cn(st, 'text-[10px]')}>{item.status === 'active' ? 'Activa' : item.status === 'sold' ? 'Vendida' : item.status === 'expired' ? 'Expirada' : item.status}</Badge></td>
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(item.created_at)}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status === 'active' && (
+                                  <>
+                                    <button onClick={() => { setEditItem(item); setShowPublish(true); }} className="p-1.5 rounded-md text-cyan-600 hover:bg-cyan-50" title="Editar">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button onClick={() => handleMarkSold(item.id)} className="p-1.5 rounded-md text-amber-600 hover:bg-amber-50" title="Marcar vendido">
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </button>
+                                  </>
+                                )}
+                                {(item.status === 'sold' || item.status === 'expired') && (
+                                  <button onClick={() => handleRenew(item.id)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50" title="Renovar">
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                  </button>
+                                )}
+                                <button onClick={() => handleDelete(item.id, item.nombre)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50" title="Eliminar">
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+          </>
         )
       )}
 

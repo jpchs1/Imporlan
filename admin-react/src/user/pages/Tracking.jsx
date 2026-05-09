@@ -293,72 +293,248 @@ export default function Tracking() {
     setRefreshing(false);
   }
 
-  if (loading || !leafletLoaded) return <Spinner />;
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // all | active | arrived | other
 
-  if (vessels.length === 0) {
-    return (
-      <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Seguimiento</h1>
-          <p className="text-sm text-slate-400 mt-1">Rastrea tus envios en tiempo real</p>
-        </div>
-        <Card className="text-center py-16">
-          <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          <p className="text-lg font-bold text-slate-700">No hay envios en seguimiento</p>
-          <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">Cuando tu importacion este en camino, podras ver la ubicacion en tiempo real de tu embarcacion aqui.</p>
-        </Card>
-      </div>
-    );
-  }
+  const activeVessels = vessels.filter(v => (v.status || '').toLowerCase() === 'active' || (v.status || '').toLowerCase() === 'en route' || v.status === 'in_transit');
+  const arrivedVessels = vessels.filter(v => (v.status || '').toLowerCase() === 'arrived' || v.status === 'completed');
+
+  const filteredVessels = vessels.filter(v => {
+    if (filter === 'active' && !activeVessels.includes(v)) return false;
+    if (filter === 'arrived' && !arrivedVessels.includes(v)) return false;
+    if (filter === 'other' && (activeVessels.includes(v) || arrivedVessels.includes(v))) return false;
+    const t = search.trim().toLowerCase();
+    if (t) {
+      const hay = `${v.name || v.vessel_name || ''} ${v.client_name || ''} ${v.shipping_line || ''} ${v.origin_port || ''} ${v.destination_port || ''} ${v.imo || ''} ${v.mmsi || ''}`.toLowerCase();
+      if (!hay.includes(t)) return false;
+    }
+    return true;
+  });
+
+  const heroLoading = loading || !leafletLoaded;
 
   return (
-    <div>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Seguimiento</h1>
-        <p className="text-sm text-slate-400 mt-1">{vessels.length} envio{vessels.length !== 1 ? 's' : ''} activo{vessels.length !== 1 ? 's' : ''}</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-200px)]" style={{ minHeight: '400px' }}>
-        {/* Left: vessel list */}
-        <div className="lg:col-span-3 overflow-y-auto space-y-2">
-          {vessels.map(v => (
-            <VesselCard
-              key={v.id}
-              vessel={v}
-              selected={v.id === selectedId}
-              onClick={handleSelectVessel}
-            />
-          ))}
-        </div>
-
-        {/* Center: map */}
-        <div className="lg:col-span-6">
-          <VesselMap
-            vessels={vessels}
-            positions={positions}
-            selectedId={selectedId}
-            onSelectVessel={handleSelectVessel}
-          />
-        </div>
-
-        {/* Right: detail */}
-        <div className="lg:col-span-3">
-          <Card className="h-full">
-            {detail ? (
-              <VesselDetailPanel
-                vessel={detail}
-                onRefresh={handleRefresh}
-                refreshing={refreshing}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <svg className="w-8 h-8 text-slate-200 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                <p className="text-sm text-slate-400">Selecciona un envio</p>
-              </div>
+    <div className="max-w-7xl mx-auto pb-12">
+      {/* Hero */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
+              <span className={cn('w-1.5 h-1.5 rounded-full', activeVessels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
+              {activeVessels.length > 0
+                ? `${activeVessels.length} envio${activeVessels.length > 1 ? 's' : ''} en transito`
+                : vessels.length > 0 ? `${vessels.length} envio${vessels.length > 1 ? 's' : ''} en seguimiento` : 'Sin envios activos'}
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Seguimiento</h1>
+            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
+              Rastrea en tiempo real cada embarcacion en transito con datos de AIS: ruta, velocidad, ETA y posicion actual.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => { setLoading(true); loadVessels(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
+              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Actualizar todo
+            </Button>
+            {selectedId && (
+              <Button onClick={handleRefresh} disabled={refreshing} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
+                <svg className={cn('w-4 h-4', refreshing && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9"/></svg>
+                {refreshing ? 'Actualizando...' : 'Actualizar posicion'}
+              </Button>
             )}
-          </Card>
+          </div>
         </div>
       </div>
+
+      {/* Stat tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <button
+          type="button"
+          onClick={() => setFilter('all')}
+          className={cn(
+            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+            filter === 'all' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
+          )}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{vessels.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Total</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Embarcaciones</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('active')}
+          className={cn(
+            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+            filter === 'active' ? 'border-emerald-300 ring-2 ring-emerald-200/60' : 'border-slate-200/70 hover:border-slate-300'
+          )}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{activeVessels.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">En transito</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{activeVessels.length > 0 ? 'Navegando' : 'Sin movimiento'}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('arrived')}
+          className={cn(
+            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
+            filter === 'arrived' ? 'border-violet-300 ring-2 ring-violet-200/60' : 'border-slate-200/70 hover:border-slate-300'
+          )}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">{arrivedVessels.length}</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Arribados</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">En puerto destino</p>
+        </button>
+        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 leading-none">AIS</p>
+          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Tiempo real</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Datos satelitales</p>
+        </div>
+      </div>
+
+      {heroLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ minHeight: '480px' }}>
+          <div className="lg:col-span-3 space-y-2">
+            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />)}
+          </div>
+          <div className="lg:col-span-6 bg-slate-100 rounded-2xl animate-pulse" />
+          <div className="lg:col-span-3 bg-slate-100 rounded-2xl animate-pulse" />
+        </div>
+      ) : vessels.length === 0 ? (
+        <Card className="text-center py-16">
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
+            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <p className="text-slate-700 font-semibold">No hay envios en seguimiento</p>
+          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Cuando tu importacion este en camino podras ver la ubicacion en tiempo real con datos de AIS aqui.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+            <a href="#/expedientes" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
+              Ver expedientes
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <a href="https://wa.me/56940211459?text=Hola%2C%20no%20veo%20el%20seguimiento%20de%20mi%20envio" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+              Hablar con soporte
+            </a>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-340px)]" style={{ minHeight: '520px' }}>
+          {/* Left: vessel list with toolbar */}
+          <div className="lg:col-span-3 flex flex-col gap-2 min-h-0">
+            <Card className="p-3 shrink-0">
+              <div className="relative mb-2">
+                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar nave, naviera, puerto..."
+                  className="w-full pl-7 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { v: 'all', label: 'Todos', count: vessels.length },
+                  { v: 'active', label: 'En transito', count: activeVessels.length },
+                  { v: 'arrived', label: 'Arribados', count: arrivedVessels.length },
+                ].map(t => (
+                  <button
+                    key={t.v}
+                    onClick={() => setFilter(t.v)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition',
+                      filter === t.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                    )}
+                  >
+                    {t.label}
+                    <span className={cn('tabular-nums', filter === t.v ? 'text-white/80' : 'text-slate-400')}>{t.count}</span>
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <div className="flex-1 overflow-y-auto space-y-2 -mr-1 pr-1">
+              {filteredVessels.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  Sin coincidencias
+                  {(search || filter !== 'all') && (
+                    <button onClick={() => { setSearch(''); setFilter('all'); }} className="block mx-auto mt-2 text-cyan-600 font-semibold hover:text-cyan-700">Limpiar filtros</button>
+                  )}
+                </div>
+              ) : (
+                filteredVessels.map(v => (
+                  <VesselCard
+                    key={v.id}
+                    vessel={v}
+                    selected={v.id === selectedId}
+                    onClick={handleSelectVessel}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Center: map */}
+          <div className="lg:col-span-6 min-h-[360px] rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm relative">
+            <VesselMap
+              vessels={filteredVessels}
+              positions={positions}
+              selectedId={selectedId}
+              onSelectVessel={handleSelectVessel}
+            />
+            {/* Map overlay legend */}
+            <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur ring-1 ring-slate-200 rounded-xl px-3 py-2 text-[11px] flex items-center gap-3 shadow-sm pointer-events-none">
+              <span className="flex items-center gap-1 text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                En transito
+              </span>
+              <span className="flex items-center gap-1 text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-violet-500" />
+                Arribado
+              </span>
+            </div>
+          </div>
+
+          {/* Right: detail */}
+          <div className="lg:col-span-3 min-h-0">
+            <Card className="h-full overflow-y-auto">
+              {detail ? (
+                <VesselDetailPanel
+                  vessel={detail}
+                  onRefresh={handleRefresh}
+                  refreshing={refreshing}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+                    <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-700">Selecciona un envio</p>
+                  <p className="text-xs text-slate-400 mt-1">Eligi una embarcacion para ver detalles y posicion</p>
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

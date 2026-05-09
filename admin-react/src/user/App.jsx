@@ -1,8 +1,18 @@
+import { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider } from '../shared/components/Toast';
 import Layout from '../shared/components/Layout';
-import { STORAGE_KEYS, BRANDING, NAV_ITEMS } from './config';
+import NotificationBell from '../shared/components/NotificationBell';
+import {
+  getUnreadCount,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  getMyConversations,
+  getMyPaymentRequests,
+} from './api';
+import { STORAGE_KEYS, BRANDING, NAV_ITEMS, NAV_GROUPS } from './config';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Expedientes from './pages/Expedientes';
@@ -19,6 +29,8 @@ import Quotation from './pages/Quotation';
 import Alerts from './pages/Alerts';
 import Support from './pages/Support';
 import Deckeva from './pages/Deckeva';
+import ChatWidget from './components/ChatWidget';
+import PostPaymentPopup from './components/PostPaymentPopup';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -26,7 +38,63 @@ function ProtectedRoute({ children }) {
 }
 
 function UserLayout() {
-  return <Layout navItems={NAV_ITEMS} branding={BRANDING} />;
+  const { isAuth } = useAuth();
+  const [badges, setBadges] = useState({});
+
+  const refreshBadges = useCallback(async () => {
+    if (!isAuth) return;
+    const next = {};
+    const [convsRes, alertsRes, paysRes] = await Promise.allSettled([
+      getMyConversations(),
+      getUnreadCount(),
+      getMyPaymentRequests('all'),
+    ]);
+    if (convsRes.status === 'fulfilled') {
+      const list = convsRes.value?.conversations || [];
+      const unread = list.reduce((s, c) => s + Number(c.unread_count || 0), 0);
+      if (unread > 0) next['/messages'] = unread;
+    }
+    if (alertsRes.status === 'fulfilled') {
+      const n = Number(alertsRes.value?.unread_count || 0);
+      if (n > 0) next['/alerts'] = n;
+    }
+    if (paysRes.status === 'fulfilled') {
+      const list = paysRes.value?.requests || paysRes.value?.items || [];
+      const pending = list.filter(r => r.status === 'pending').length;
+      if (pending > 0) next['/payments'] = pending;
+    }
+    setBadges(next);
+  }, [isAuth]);
+
+  useEffect(() => {
+    if (!isAuth) return;
+    refreshBadges();
+    const id = setInterval(refreshBadges, 30000);
+    return () => clearInterval(id);
+  }, [isAuth, refreshBadges]);
+
+  return (
+    <>
+      <Layout
+        navItems={NAV_ITEMS}
+        navGroups={NAV_GROUPS}
+        branding={BRANDING}
+        profilePath="/profile"
+        badges={badges}
+        headerExtra={
+          <NotificationBell
+            getUnreadCount={getUnreadCount}
+            getNotifications={getNotifications}
+            markRead={markNotificationRead}
+            markAllRead={markAllNotificationsRead}
+            viewAllPath="/alerts"
+          />
+        }
+      />
+      <ChatWidget />
+      <PostPaymentPopup />
+    </>
+  );
 }
 
 function AppRoutes() {

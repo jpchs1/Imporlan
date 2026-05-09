@@ -1,5 +1,9 @@
-const isTest = window.location.pathname.includes('/test/');
-const API_BASE = isTest ? '/test/api' : '/api';
+// The panel can live at /panel/user/ (prod) or /test/panel/user/ (preview),
+// but auth (login, /auth/google) and the data endpoints all live at /api in
+// production. The /test/api/ proxy is a stub: it does NOT serve /auth/google
+// and most of the user data lives in the prod database. So we always talk
+// to /api regardless of where the panel HTML is hosted.
+const API_BASE = '/api';
 
 export { API_BASE };
 
