@@ -2,6 +2,91 @@ import { useState, useMemo } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const COUNTRY_MAP = {
+  CL: { flag: '🇨🇱', name: 'Chile' },
+  PE: { flag: '🇵🇪', name: 'Peru' },
+  CO: { flag: '🇨🇴', name: 'Colombia' },
+  MX: { flag: '🇲🇽', name: 'Mexico' },
+  AR: { flag: '🇦🇷', name: 'Argentina' },
+  BR: { flag: '🇧🇷', name: 'Brasil' },
+  EC: { flag: '🇪🇨', name: 'Ecuador' },
+  UY: { flag: '🇺🇾', name: 'Uruguay' },
+  PY: { flag: '🇵🇾', name: 'Paraguay' },
+  BO: { flag: '🇧🇴', name: 'Bolivia' },
+  VE: { flag: '🇻🇪', name: 'Venezuela' },
+  US: { flag: '🇺🇸', name: 'USA' },
+  ES: { flag: '🇪🇸', name: 'Espana' },
+};
+
+const TZ_TO_COUNTRY = {
+  'America/Santiago': 'CL',
+  'America/Punta_Arenas': 'CL',
+  'Pacific/Easter': 'CL',
+  'America/Lima': 'PE',
+  'America/Bogota': 'CO',
+  'America/Mexico_City': 'MX',
+  'America/Tijuana': 'MX',
+  'America/Cancun': 'MX',
+  'America/Argentina/Buenos_Aires': 'AR',
+  'America/Buenos_Aires': 'AR',
+  'America/Cordoba': 'AR',
+  'America/Sao_Paulo': 'BR',
+  'America/Fortaleza': 'BR',
+  'America/Manaus': 'BR',
+  'America/Guayaquil': 'EC',
+  'America/Montevideo': 'UY',
+  'America/Asuncion': 'PY',
+  'America/La_Paz': 'BO',
+  'America/Caracas': 'VE',
+  'Europe/Madrid': 'ES',
+  'America/New_York': 'US',
+  'America/Los_Angeles': 'US',
+  'America/Chicago': 'US',
+  'America/Denver': 'US',
+  'America/Phoenix': 'US',
+  'America/Anchorage': 'US',
+  'Pacific/Honolulu': 'US',
+};
+
+function detectCountry(user) {
+  // Priority 1: explicit user.country
+  const explicit = (user?.country || user?.country_code || '').toUpperCase();
+  if (explicit && COUNTRY_MAP[explicit]) {
+    return { code: explicit, ...COUNTRY_MAP[explicit] };
+  }
+
+  // Priority 2: cached
+  try {
+    const cached = localStorage.getItem('imporlan_country');
+    if (cached && COUNTRY_MAP[cached]) return { code: cached, ...COUNTRY_MAP[cached] };
+  } catch { /* ignore */ }
+
+  let detected = null;
+
+  // Priority 3: navigator.language (es-CL, en-US, etc.)
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    const m = navigator.language.match(/-([A-Z]{2})$/i);
+    if (m) {
+      const c = m[1].toUpperCase();
+      if (COUNTRY_MAP[c]) detected = c;
+    }
+  }
+
+  // Priority 4: timezone
+  if (!detected) {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const c = TZ_TO_COUNTRY[tz];
+      if (c && COUNTRY_MAP[c]) detected = c;
+    } catch { /* ignore */ }
+  }
+
+  if (!detected) detected = 'CL';
+
+  try { localStorage.setItem('imporlan_country', detected); } catch { /* ignore */ }
+  return { code: detected, ...COUNTRY_MAP[detected] };
+}
+
 const ACCENT_BG = {
   indigo: 'bg-indigo-500/15 text-indigo-300',
   cyan: 'bg-cyan-500/15 text-cyan-300',
@@ -70,6 +155,8 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const country = useMemo(() => detectCountry(user), [user]);
 
   const { title = 'Imporlan', subtitle = 'Panel', accentColor = 'indigo' } = branding;
 
@@ -182,7 +269,10 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
                     <span className="absolute -bottom-px -right-px w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a1628]" title="Online" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-[12px] font-semibold truncate leading-tight">{user?.name || 'Usuario'}</p>
+                    <p className="text-white text-[12px] font-semibold truncate leading-tight flex items-center gap-1.5">
+                      <span className="truncate">{user?.name || 'Usuario'}</span>
+                      <span className="text-[13px] leading-none shrink-0" title={country.name}>{country.flag}</span>
+                    </p>
                     <p className="text-[10px] text-slate-400 truncate leading-tight">{user?.email || (user?.role || '').replace(/_/g, ' ')}</p>
                   </div>
                 </button>
@@ -233,6 +323,10 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
           </div>
           <div className="flex items-center gap-2">
             {headerExtra}
+            <div className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-full ring-1 ring-slate-200/70" title={country.name}>
+              <span className="text-base leading-none">{country.flag}</span>
+              <span className="font-semibold">{country.name}</span>
+            </div>
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full ring-1 ring-emerald-200/60">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-dot" />
               <span className="font-semibold">Online</span>
