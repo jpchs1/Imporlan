@@ -192,6 +192,11 @@
       '  #' + FOOTER_ID + ' .imp-cta-actions{width:100%;}',
       '  #' + FOOTER_ID + ' .imp-cta-actions .imp-btn{flex:1;justify-content:center;}',
       '}',
+      // Mobile perf: drop the heavy blur layers entirely on phones
+      '@media (max-width: 760px){',
+      '  #' + FOOTER_ID + ' .imp-glow-a,#' + FOOTER_ID + ' .imp-glow-b{display:none !important;}',
+      '  #' + FOOTER_ID + ' .imp-cta-strip::before,#' + FOOTER_ID + ' .imp-cta-strip::after{display:none !important;}',
+      '}',
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -466,15 +471,32 @@
     setupNewsletter();
     setupBackToTop();
 
-    // Defensive: if React rerenders and removes our footer or re-adds the old one, fix it
+    // Defensive: if React rerenders and removes our footer or re-adds the old one, fix it.
+    // Throttled via rAF + ignores mutations originating inside our own footer to avoid feedback loops.
     if (window.MutationObserver) {
-      var ob = new MutationObserver(function () {
-        if (!document.getElementById(FOOTER_ID)) {
-          attach();
-          setupNewsletter();
-          setupBackToTop();
+      var pending = 0;
+      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+      var ob = new MutationObserver(function (mutations) {
+        var ours = document.getElementById(FOOTER_ID);
+        // Skip if every mutation came from inside our footer
+        if (ours) {
+          var allInternal = true;
+          for (var i = 0; i < mutations.length; i++) {
+            var t = mutations[i].target;
+            if (!t || (t !== ours && !ours.contains(t))) { allInternal = false; break; }
+          }
+          if (allInternal) return;
         }
-        hideOldFooter();
+        if (pending) return;
+        pending = raf(function () {
+          pending = 0;
+          if (!document.getElementById(FOOTER_ID)) {
+            attach();
+            setupNewsletter();
+            setupBackToTop();
+          }
+          hideOldFooter();
+        });
       });
       try {
         ob.observe(document.body, { childList: true, subtree: true });

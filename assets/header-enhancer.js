@@ -179,6 +179,11 @@
       '  #' + HEADER_ID + ' .imp-h-tag{display:none;}',
       '  #' + HEADER_ID + ' .imp-h-wrap{padding:0 14px;gap:12px;}',
       '}',
+      // Mobile perf: lighter backdrop-filter to keep scrolling smooth on phones
+      '@media (max-width: 760px){',
+      '  #' + HEADER_ID + '{background:rgba(8,17,33,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}',
+      '  #' + BACKDROP_ID + '{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;background:rgba(0,0,0,.65) !important;}',
+      '}',
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -632,14 +637,34 @@
     startUsdTicker();
 
     if (window.MutationObserver) {
-      var ob = new MutationObserver(function () {
-        if (!document.getElementById(HEADER_ID)) {
-          attach();
-          bindScroll();
-          bindDrawer();
-          bindDropdownClose();
+      var pending = 0;
+      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+      var ob = new MutationObserver(function (mutations) {
+        var ours = document.getElementById(HEADER_ID);
+        var drw = document.getElementById(DRAWER_ID);
+        var bd = document.getElementById(BACKDROP_ID);
+        // Skip if every mutation came from our own header / drawer / backdrop
+        if (ours) {
+          var allInternal = true;
+          for (var i = 0; i < mutations.length; i++) {
+            var t = mutations[i].target;
+            if (!t) continue;
+            var inside = (t === ours || ours.contains(t) || (drw && (t === drw || drw.contains(t))) || (bd && t === bd));
+            if (!inside) { allInternal = false; break; }
+          }
+          if (allInternal) return;
         }
-        hideOldHeader();
+        if (pending) return;
+        pending = raf(function () {
+          pending = 0;
+          if (!document.getElementById(HEADER_ID)) {
+            attach();
+            bindScroll();
+            bindDrawer();
+            bindDropdownClose();
+          }
+          hideOldHeader();
+        });
       });
       try { ob.observe(document.body, { childList: true, subtree: true }); } catch (e) { /* ignore */ }
     }
