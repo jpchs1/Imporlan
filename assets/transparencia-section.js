@@ -211,6 +211,23 @@
           gap: 16px;\
         }\
       }\
+      @media (max-width: 640px) {\
+        .transparencia-home { padding: 48px 14px; }\
+        .transparencia-home h2 { font-size: 1.5rem; line-height: 1.2; }\
+        .transparencia-home p, .transparencia-card p { font-size: 0.95rem; }\
+        .transparencia-card { padding: 24px 18px; }\
+        .transparencia-grid { gap: 20px; }\
+        .transparencia-fee-amount { font-size: 1.8rem; }\
+        .transparencia-fee-label { font-size: 0.78rem; }\
+        .transparencia-pillars { gap: 12px; }\
+        .transparencia-pillar { padding: 18px 16px; }\
+        .transparencia-pillar h3 { font-size: 1rem; }\
+      }\
+      @media (max-width: 420px) {\
+        .transparencia-home { padding: 36px 12px; }\
+        .transparencia-home h2 { font-size: 1.3rem; }\
+        .transparencia-fee-amount { font-size: 1.55rem; }\
+      }\
     ';
     document.head.appendChild(style);
   }

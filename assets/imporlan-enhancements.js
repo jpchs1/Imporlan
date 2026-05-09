@@ -7,6 +7,33 @@
   'use strict';
 
   // Wait for DOM to be ready
+  // Inject responsive polish for the Cotizador form + info text. The bundle
+  // renders form inputs with default styling and the info text is added via
+  // inline cssText, so we override with a high-specificity stylesheet using
+  // !important on the mobile media queries.
+  function injectMobilePolish() {
+    if (document.getElementById('imp-mobile-polish')) return;
+    var s = document.createElement('style');
+    s.id = 'imp-mobile-polish';
+    s.textContent = [
+      '@media (max-width: 640px){',
+      '  .cotizacion-info-text{font-size:13px !important;padding:10px 12px !important;line-height:1.55;}',
+      '  .cotizacion-info-text strong{font-size:13px;}',
+      // Generic form input polish — applies to any form input on the home
+      '  form input[type="url"],form input[type="email"],form input[type="tel"],form input[type="text"],form input[type="number"],form textarea,form select{',
+      '    min-height:48px;font-size:16px;padding:10px 14px;width:100%;',
+      '  }',
+      '  form button[type="submit"],form .submit,form .btn-primary{min-height:48px;width:100%;font-size:15px;}',
+      // Bundle hero CTAs may be small on mobile — bump to 48px tap target
+      '  a[role="button"],button{min-height:44px;}',
+      '}',
+      '@media (max-width: 420px){',
+      '  .cotizacion-info-text{font-size:12.5px !important;padding:9px 10px !important;}',
+      '}'
+    ].join('\n');
+    document.head.appendChild(s);
+  }
+
   function onReady(callback) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', callback);
@@ -663,6 +690,9 @@
   // ============================================
   
   onReady(function() {
+    // Inject mobile polish styles synchronously so React's first paint already
+    // honours the responsive rules.
+    injectMobilePolish();
     // Small delay to let React render
     setTimeout(function() {
       // Home page enhancements
