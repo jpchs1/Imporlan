@@ -33,10 +33,33 @@
       '  h1:has(> .gradient-text) + p{font-size:0.95rem !important;margin-bottom:20px !important;}',
       // Hero CTA pair (.gradient-cyan + sibling outline button): full-width on mobile
       '  .gradient-cyan{padding:14px 22px !important;font-size:0.95rem !important;width:100% !important;}',
+      // ===== HOME COTIZADOR ONLINE (#cotizar) =====
+      // Section vertical padding (py-24 = 96px) is too tall on phones.
+      '  section#cotizar{padding-top:56px !important;padding-bottom:56px !important;}',
+      // h2 "Cotiza tu Lancha" (text-3xl sm:text-4xl)
+      '  #cotizar h2{font-size:1.7rem !important;line-height:1.2 !important;}',
+      // h3 "Solicitar Cotizacion" (text-2xl)
+      '  #cotizar h3{font-size:1.2rem !important;}',
+      '  #cotizar p{font-size:0.95rem !important;}',
+      // White form panel: tighter padding so inputs have more horizontal room
+      '  #cotizar .glass-white{padding:20px !important;border-radius:18px !important;}',
+      // Stack the two-col rows in the FORM (Nombre+Email, Telefono+Pais).
+      // Selector is scoped to the form so the LEFT column "Portales" 2-col
+      // layout (icons + label) is preserved.
+      '  #cotizar form .grid.grid-cols-2{grid-template-columns:1fr !important;gap:12px !important;}',
+      // Submit "Solicitar Cotizacion" button: tighter than Tailwind py-6
+      '  #cotizar form button[type="submit"]{padding-top:14px !important;padding-bottom:14px !important;font-size:1rem !important;}',
+      // Reduce gap between left/right blocks (was gap-12 = 48px)
+      '  #cotizar .gap-12{gap:32px !important;}',
       '}',
       '@media (max-width: 420px){',
       '  .cotizacion-info-text{font-size:12.5px !important;padding:9px 10px !important;}',
       '  h1:has(> .gradient-text){font-size:1.55rem !important;}',
+      '  section#cotizar{padding-top:40px !important;padding-bottom:40px !important;}',
+      '  #cotizar h2{font-size:1.4rem !important;}',
+      '  #cotizar h3{font-size:1.1rem !important;}',
+      '  #cotizar .glass-white{padding:16px !important;border-radius:14px !important;}',
+      '  #cotizar form button[type="submit"]{font-size:0.95rem !important;}',
       '}'
     ].join('\n');
     document.head.appendChild(s);
