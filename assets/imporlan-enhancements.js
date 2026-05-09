@@ -26,9 +26,17 @@
       '  form button[type="submit"],form .submit,form .btn-primary{min-height:48px;width:100%;font-size:15px;}',
       // Bundle hero CTAs may be small on mobile — bump to 48px tap target
       '  a[role="button"],button{min-height:44px;}',
+      // Bundle hero ("Importa tu lancha ideal desde USA"): h1 keeps Tailwind
+      // text-4xl (2.25rem) by default, which wraps awkwardly on 360px phones.
+      // Target precisely via :has(.gradient-text) so we never hit other h1s.
+      '  h1:has(> .gradient-text){font-size:1.85rem !important;line-height:1.15 !important;margin-bottom:14px !important;}',
+      '  h1:has(> .gradient-text) + p{font-size:0.95rem !important;margin-bottom:20px !important;}',
+      // Hero CTA pair (.gradient-cyan + sibling outline button): full-width on mobile
+      '  .gradient-cyan{padding:14px 22px !important;font-size:0.95rem !important;width:100% !important;}',
       '}',
       '@media (max-width: 420px){',
       '  .cotizacion-info-text{font-size:12.5px !important;padding:9px 10px !important;}',
+      '  h1:has(> .gradient-text){font-size:1.55rem !important;}',
       '}'
     ].join('\n');
     document.head.appendChild(s);
