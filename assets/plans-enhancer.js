@@ -10,6 +10,17 @@
   'use strict';
   if (typeof window === 'undefined' || window.__imporlanPlansPRO) return;
   window.__imporlanPlansPRO = true;
+  // Self-heal: previous version (v=20260509c/d) could mistakenly add the
+  // "imp-plans-pro" class to <html> on mobile, which set overflow:hidden and
+  // locked page scroll. Strip it from the page roots if a cached browser is
+  // still running the broken version.
+  try {
+    var SELF_HEAL = ['imp-plans-pro'];
+    [document.documentElement, document.body].forEach(function (n) {
+      if (!n) return;
+      SELF_HEAL.forEach(function (c) { n.classList.remove(c); });
+    });
+  } catch (e) {}
   // Kill-switch: load page with ?noenh=1 (or ?noenh=plans) to skip this enhancer.
   try {
     var __q = (location.search || '') + '|' + (location.hash || '');
@@ -25,7 +36,11 @@
     var s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = [
-      '.imp-plans-pro{position:relative;isolation:isolate;padding:56px 16px 64px !important;background:linear-gradient(180deg,#06101e 0%,#0a1628 50%,#06101e 100%) !important;overflow:hidden;}',
+      '.imp-plans-pro{position:relative;isolation:isolate;padding:56px 16px 64px !important;background:linear-gradient(180deg,#06101e 0%,#0a1628 50%,#06101e 100%) !important;overflow:visible;}',
+      // Glow blobs are clipped via a dedicated wrapper so we never need to
+      // set overflow:hidden on the section itself (which on a wrong target
+      // could lock page scroll).
+      '.imp-plans-pro::before,.imp-plans-pro::after{contain:strict;}',
       '.imp-plans-pro::before{content:"";position:absolute;top:-160px;left:-120px;width:420px;height:420px;background:rgba(6,182,212,.16);border-radius:9999px;filter:blur(110px);pointer-events:none;z-index:0;will-change:auto;}',
       '.imp-plans-pro::after{content:"";position:absolute;bottom:-160px;right:-120px;width:380px;height:380px;background:rgba(99,102,241,.14);border-radius:9999px;filter:blur(110px);pointer-events:none;z-index:0;will-change:auto;}',
       '.imp-plans-pro > *{position:relative;z-index:1;}',
@@ -91,13 +106,33 @@
   }
 
   function findSectionFromHeading(h) {
-    var node = h;
-    for (var i = 0; i < 8 && node; i++) {
-      if (!node.parentElement) return node;
+    // Walk up looking for a section-sized ancestor. NEVER return <html>, <body>
+    // or #root — adding `imp-plans-pro` (which has overflow:hidden) to those
+    // would lock page scroll on mobile, where the original `width > 600`
+    // threshold can never be met. Use a per-axis threshold instead.
+    function isPageRoot(n) {
+      if (!n) return true;
+      if (n === document.documentElement || n === document.body) return true;
+      if (n.id === 'root' || n.id === 'app') return true;
+      var tag = n.tagName;
+      return tag === 'HTML' || tag === 'BODY';
+    }
+    var vw = (window.innerWidth || document.documentElement.clientWidth || 360);
+    var minWidth = Math.min(560, Math.max(280, vw - 40));
+    var node = h.parentElement;
+    for (var i = 0; i < 6 && node; i++) {
+      if (isPageRoot(node)) break;
       var rect = node.getBoundingClientRect();
-      if (rect.height > 320 && rect.width > 600) return node;
+      if (rect.height > 320 && rect.width >= minWidth) return node;
       node = node.parentElement;
     }
+    // Fallback: closest <section> / <div> ancestor that isn't a page root
+    var n = h.parentElement;
+    while (n && !isPageRoot(n)) {
+      if (n.tagName === 'SECTION') return n;
+      n = n.parentElement;
+    }
+    // Last resort: the heading's immediate parent (small wrapper, harmless)
     return h.parentElement;
   }
 
@@ -241,6 +276,12 @@
     if (!heading) return false;
     var section = findSectionFromHeading(heading);
     if (!section) return false;
+    // Belt-and-braces: never style <html>, <body>, or a page-root container.
+    if (section === document.documentElement || section === document.body ||
+        section.id === 'root' || section.id === 'app' ||
+        section.tagName === 'HTML' || section.tagName === 'BODY') {
+      return false;
+    }
     section.classList.add(SECTION_CLASS);
     injectStyle();
     ensureHeroPill(section, heading);
