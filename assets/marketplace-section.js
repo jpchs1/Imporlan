@@ -475,31 +475,59 @@
 
   function startCarouselAutoScroll(track) {
     if (!track || !track.children.length) return;
+    // Disable auto-scroll on touch devices: it causes scroll-jank, and users
+    // already swipe horizontally. Visibility-pause + rAF on desktop only.
+    var isTouch = (window.matchMedia && window.matchMedia('(hover: none)').matches) ||
+                  ('ontouchstart' in window && (!window.matchMedia || !window.matchMedia('(hover: hover)').matches));
+    if (isTouch) return;
+
     var paused = false;
+    var visible = true;
     var direction = 1;
+    var rafId = 0;
+    var lastTs = 0;
+    // 1px every ~20ms ≈ 50px/s. Use time-based delta so the speed is identical
+    // regardless of frame rate, and the work is bounded by display refresh.
+    var pxPerSecond = 50;
 
     track.style.scrollBehavior = 'auto';
 
-    track.addEventListener('mouseenter', function() { paused = true; });
-    track.addEventListener('mouseleave', function() { paused = false; });
-    track.addEventListener('touchstart', function() { paused = true; }, {passive: true});
-    track.addEventListener('touchend', function() {
-      setTimeout(function() { paused = false; }, 3000);
+    track.addEventListener('mouseenter', function () { paused = true; });
+    track.addEventListener('mouseleave', function () { paused = false; });
+
+    if (window.IntersectionObserver) {
+      var io = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) visible = entries[i].isIntersecting;
+      }, { threshold: 0.1 });
+      io.observe(track);
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { visible = false; } else if (window.IntersectionObserver) {
+        // re-evaluate on next frame via the IO entry already scheduled
+      } else { visible = true; }
     });
 
-    setInterval(function() {
-      if (paused) return;
-      var maxScroll = track.scrollWidth - track.clientWidth;
-      if (maxScroll <= 0) return;
-
-      track.scrollLeft += direction;
-
-      if (track.scrollLeft >= maxScroll - 1) {
-        direction = -1;
-      } else if (track.scrollLeft <= 0) {
-        direction = 1;
+    var maxScroll = 0;
+    function tick(ts) {
+      if (!paused && visible) {
+        if (lastTs) {
+          var dt = ts - lastTs;
+          maxScroll = track.scrollWidth - track.clientWidth;
+          if (maxScroll > 0) {
+            var step = direction * (pxPerSecond * dt / 1000);
+            var next = track.scrollLeft + step;
+            if (next >= maxScroll - 1) { direction = -1; next = maxScroll; }
+            else if (next <= 0) { direction = 1; next = 0; }
+            track.scrollLeft = next;
+          }
+        }
+        lastTs = ts;
+      } else {
+        lastTs = 0;
       }
-    }, 20);
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
   }
 
   onReady(function() {
