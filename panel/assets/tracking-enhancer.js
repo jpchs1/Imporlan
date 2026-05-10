@@ -13,11 +13,161 @@
   var mapInstance = null;
   var markers = {};
   var routeLine = null;
+  var routeLines = [];
   var selectedVesselId = null;
   var leafletLoaded = false;
   var moduleHidden = false;
   var isRendering = false;
   var currentHash = "";
+
+  // ============================================
+  // USA -> Chile Route Engine
+  // ----------------------------------------------
+  // The /tracking_api.php?action=featured endpoint returns the raw AIS
+  // position of the real-world ship. For some vessels the booked route is
+  // USA -> Chile but the physical ship is currently sailing somewhere else
+  // (e.g. CMA CGM Thalassa appearing off Portugal). We always want the map
+  // to show the USA -> Chile transit, so we:
+  //
+  //   1. Resolve origin + destination ports from the labels.
+  //   2. Build a polyline (via Panama Canal for East/Gulf coast origins).
+  //   3. If the AIS position is on/near the route, plot at AIS.
+  //   4. Otherwise fall back to a computed position along the route based
+  //      on how much of the ETA window has elapsed.
+  //   5. If AIS is within ARRIVED_KM of the destination port, mark the
+  //      vessel as "Arribado" and render it at the destination.
+  // ============================================
+  var PORT_COORDS = {
+    // USA East Coast
+    'miami':           { lat: 25.7741, lon: -80.1918 },
+    'fort lauderdale': { lat: 26.0928, lon: -80.1244 },
+    'jacksonville':    { lat: 30.3322, lon: -81.6557 },
+    'savannah':        { lat: 32.0809, lon: -81.0912 },
+    'charleston':      { lat: 32.7765, lon: -79.9311 },
+    'norfolk':         { lat: 36.8508, lon: -76.2859 },
+    'baltimore':       { lat: 39.2904, lon: -76.6122 },
+    'new york':        { lat: 40.6892, lon: -74.0445 },
+    'philadelphia':    { lat: 39.9526, lon: -75.1652 },
+    // USA Gulf Coast
+    'houston':         { lat: 29.7269, lon: -95.0409 },
+    'galveston':       { lat: 29.3013, lon: -94.7977 },
+    'new orleans':     { lat: 29.9511, lon: -90.0715 },
+    'mobile':          { lat: 30.6954, lon: -88.0399 },
+    'tampa':           { lat: 27.9506, lon: -82.4572 },
+    // USA West Coast (no Panama transit)
+    'long beach':      { lat: 33.7701, lon: -118.1937 },
+    'los angeles':     { lat: 33.7406, lon: -118.2769 },
+    'oakland':         { lat: 37.8044, lon: -122.2711 },
+    'san francisco':   { lat: 37.7749, lon: -122.4194 },
+    'seattle':         { lat: 47.6062, lon: -122.3321 },
+    // Chile
+    'san antonio':     { lat: -33.5953, lon: -71.6086 },
+    'valparaiso':      { lat: -33.0472, lon: -71.6127 }
+  };
+  // Strategic transit waypoint: Pacific entrance of the Panama Canal.
+  var PANAMA_CANAL = { lat: 8.4503, lon: -79.4506 };
+  var OFF_ROUTE_KM = 800;
+  var ARRIVED_KM = 80;
+
+  function normalizePortLabel(label) {
+    if (!label) return null;
+    var first = String(label).split(',')[0].trim().toLowerCase();
+    // strip accents (Valparaiso vs Valparaíso)
+    first = first.normalize ? first.normalize('NFD').replace(/[̀-ͯ]/g, '') : first;
+    return PORT_COORDS[first] ? first : null;
+  }
+  function getPortCoords(label) {
+    var key = normalizePortLabel(label);
+    return key ? PORT_COORDS[key] : null;
+  }
+  function buildRouteWaypoints(origin, destination) {
+    if (!origin || !destination) return null;
+    // East / Gulf coast (lon > -100) goes via Panama Canal.
+    if (origin.lon > -100) return [origin, PANAMA_CANAL, destination];
+    return [origin, destination];
+  }
+  function haversineKm(a, b) {
+    var R = 6371, toRad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * toRad;
+    var dLon = (b.lon - a.lon) * toRad;
+    var lat1 = a.lat * toRad, lat2 = b.lat * toRad;
+    var s = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+  function routeLengthKm(pts) {
+    var t = 0;
+    for (var i = 1; i < pts.length; i++) t += haversineKm(pts[i-1], pts[i]);
+    return t;
+  }
+  function positionAtFraction(pts, f) {
+    var total = routeLengthKm(pts);
+    var target = Math.max(0, Math.min(1, f)) * total;
+    var acc = 0;
+    for (var i = 1; i < pts.length; i++) {
+      var seg = haversineKm(pts[i-1], pts[i]);
+      if (acc + seg >= target) {
+        var t = seg === 0 ? 0 : (target - acc) / seg;
+        return {
+          lat: pts[i-1].lat + (pts[i].lat - pts[i-1].lat) * t,
+          lon: pts[i-1].lon + (pts[i].lon - pts[i-1].lon) * t
+        };
+      }
+      acc += seg;
+    }
+    return pts[pts.length - 1];
+  }
+  function distanceToPolyline(pts, p) {
+    // Approximate: closest endpoint distance across all segments.
+    var min = Infinity;
+    for (var i = 0; i < pts.length; i++) {
+      var d = haversineKm(pts[i], p);
+      if (d < min) min = d;
+    }
+    return min;
+  }
+  function timeProgress(vessel) {
+    var startStr = vessel.last_position_update || vessel.created_at;
+    var endStr = vessel.eta_manual || vessel.pos_eta;
+    var start = startStr ? new Date(startStr.replace(' ', 'T') + 'Z').getTime() : null;
+    var end = endStr ? new Date(endStr.replace(' ', 'T') + 'Z').getTime() : null;
+    if (!start || !end || end <= start) return 0.5;
+    var now = Date.now();
+    if (now <= start) return 0.05;
+    if (now >= end) return 0.95;
+    return (now - start) / (end - start);
+  }
+  // Returns { lat, lon, projected, arrived, route } or null if we can't
+  // resolve the route (unknown ports).
+  function resolveVesselPosition(vessel) {
+    var origin = getPortCoords(vessel.origin_label);
+    var destination = getPortCoords(vessel.destination_label);
+    var route = buildRouteWaypoints(origin, destination);
+    if (!route) return null;
+
+    var aisLat = parseFloat(vessel.lat);
+    var aisLon = parseFloat(vessel.lon);
+    var hasAIS = !isNaN(aisLat) && !isNaN(aisLon);
+    var ais = hasAIS ? { lat: aisLat, lon: aisLon } : null;
+
+    if (ais && haversineKm(ais, destination) <= ARRIVED_KM) {
+      return { lat: destination.lat, lon: destination.lon,
+               projected: false, arrived: true, route: route,
+               origin: origin, destination: destination };
+    }
+    if (ais && distanceToPolyline(route, ais) <= OFF_ROUTE_KM) {
+      return { lat: ais.lat, lon: ais.lon,
+               projected: false, arrived: false, route: route,
+               origin: origin, destination: destination };
+    }
+    // AIS missing or off-route: snap onto the route by time-progress.
+    var pt = positionAtFraction(route, timeProgress(vessel));
+    return { lat: pt.lat, lon: pt.lon,
+             projected: true, arrived: false, route: route,
+             origin: origin, destination: destination };
+  }
+
 
   function getUserData() {
     try {
@@ -46,7 +196,7 @@
 
   var STATUS_COLORS = {
     active: { bg: "#10b981", text: "#ffffff", label: "Navegando" },
-    arrived: { bg: "#3b82f6", text: "#ffffff", label: "Arribado" },
+    arrived: { bg: "#a855f7", text: "#ffffff", label: "Arribado" },
     scheduled: { bg: "#f59e0b", text: "#ffffff", label: "Programado" },
     inactive: { bg: "#64748b", text: "#ffffff", label: "Inactivo" }
   };
@@ -148,7 +298,8 @@
     var container = document.getElementById("tracking-map-container");
     if (!container) return;
     if (mapInstance) { mapInstance.remove(); mapInstance = null; }
-    mapInstance = L.map(container, { zoomControl: true, attributionControl: false }).setView([-15, -100], 3);
+    // Initial view spans USA East coast -> Chile through the Pacific corridor.
+    mapInstance = L.map(container, { zoomControl: true, attributionControl: false }).setView([-5, -85], 3);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
       attribution: '&copy; OpenStreetMap'
@@ -163,27 +314,66 @@
       delete markers[k];
     });
     if (routeLine) { mapInstance.removeLayer(routeLine); routeLine = null; }
+    routeLines.forEach(function (rl) {
+      try { mapInstance.removeLayer(rl); } catch (e) {}
+    });
+    routeLines = [];
 
     var bounds = [];
     vessels.forEach(function (v) {
-      if (!v.lat || !v.lon) return;
-      var lat = parseFloat(v.lat);
-      var lon = parseFloat(v.lon);
-      if (isNaN(lat) || isNaN(lon)) return;
+      var resolved = resolveVesselPosition(v);
+      if (!resolved) return;
 
+      // Draw the route polyline (origin -> [Panama] -> destination).
+      var latlngs = resolved.route.map(function (p) { return [p.lat, p.lon]; });
+      var isSelected = (v.id == selectedVesselId);
+      var color = resolved.arrived ? '#a855f7' : '#3b82f6';
+      var poly = L.polyline(latlngs, {
+        color: color,
+        weight: isSelected ? 4 : 2.5,
+        opacity: isSelected ? 0.9 : 0.55,
+        dashArray: resolved.projected ? '6, 8' : null,
+        smoothFactor: 1
+      }).addTo(mapInstance);
+      routeLines.push(poly);
+
+      // Endpoint port dots so the user always sees origin + destination.
+      var originDot = L.circleMarker([resolved.origin.lat, resolved.origin.lon], {
+        radius: 5, color: '#fff', weight: 2, fillColor: '#3b82f6', fillOpacity: 1
+      }).addTo(mapInstance);
+      var destDot = L.circleMarker([resolved.destination.lat, resolved.destination.lon], {
+        radius: 5, color: '#fff', weight: 2, fillColor: '#a855f7', fillOpacity: 1
+      }).addTo(mapInstance);
+      routeLines.push(originDot, destDot);
+
+      var lat = resolved.lat, lon = resolved.lon;
       var labelName = v.client_name || v.display_name;
+      var bgColor = resolved.arrived ? '#7e22ce' : (isSelected ? '#1e40af' : '#0f172a');
+      var dotColor = resolved.arrived ? '#a855f7' : (isSelected ? '#3b82f6' : '#10b981');
       var shipIcon = L.divIcon({
         className: "tracking-ship-icon",
-        html: '<div style="display:flex;flex-direction:column;align-items:center"><div style="background:' + (v.id == selectedVesselId ? '#1e40af' : '#0f172a') + ';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,.3);max-width:120px;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(labelName) + '</div><div style="width:32px;height:32px;background:' + (v.id == selectedVesselId ? '#3b82f6' : '#0f172a') + ';border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg></div></div>',
-        iconSize: [120, 52],
-        iconAnchor: [60, 52]
+        html: '<div style="display:flex;flex-direction:column;align-items:center">' +
+              '<div style="background:' + bgColor + ';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,.3);max-width:140px;overflow:hidden;text-overflow:ellipsis">' +
+              escapeHtml(labelName) +
+              (resolved.arrived ? ' &middot; Arribado' : (resolved.projected ? ' &middot; estimado' : '')) +
+              '</div>' +
+              '<div style="width:32px;height:32px;background:' + dotColor + ';border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 1v4"/></svg>' +
+              '</div></div>',
+        iconSize: [140, 52],
+        iconAnchor: [70, 52]
       });
 
+      var popupHtml = '<strong>' + escapeHtml(v.display_name) + '</strong><br>' +
+        (v.shipping_line ? escapeHtml(v.shipping_line) + '<br>' : '') +
+        escapeHtml(v.origin_label || '') + ' &rarr; ' + escapeHtml(v.destination_label || '') + '<br>' +
+        'Lat: ' + lat.toFixed(4) + ', Lon: ' + lon.toFixed(4) +
+        (v.speed && parseFloat(v.speed) > 0 ? '<br>Velocidad: ' + v.speed + ' kn' : '') +
+        (resolved.arrived ? '<br><strong style="color:#a855f7">ARRIBADO</strong>'
+                          : (resolved.projected ? '<br><em style="color:#64748b">Posicion estimada en ruta (AIS fuera del corredor USA-Chile)</em>' : ''));
+
       var marker = L.marker([lat, lon], { icon: shipIcon })
-        .bindPopup('<strong>' + escapeHtml(v.display_name) + '</strong><br>' +
-          (v.shipping_line ? escapeHtml(v.shipping_line) + '<br>' : '') +
-          'Lat: ' + lat.toFixed(4) + ', Lon: ' + lon.toFixed(4) +
-          (v.speed ? '<br>Velocidad: ' + v.speed + ' kn' : ''))
+        .bindPopup(popupHtml)
         .addTo(mapInstance);
 
       marker.on("click", function () {
@@ -193,11 +383,12 @@
       });
 
       markers[v.id] = marker;
-      bounds.push([lat, lon]);
+      // Bound to the WHOLE route so the map always frames USA -> Chile.
+      resolved.route.forEach(function (p) { bounds.push([p.lat, p.lon]); });
     });
 
     if (bounds.length > 0) {
-      mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+      mapInstance.fitBounds(bounds, { padding: [40, 40], maxZoom: 5 });
     }
   }
 
@@ -209,6 +400,13 @@
         // Sort vessels by date descending (newest first)
         data.vessels.sort(function (a, b) {
           return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
+        });
+        // Promote vessels whose AIS position is at the destination port to
+        // "arrived" so the status badge + sidebar reflect reality even when
+        // the backend still has them flagged as "active".
+        data.vessels.forEach(function (v) {
+          var r = resolveVesselPosition(v);
+          if (r && r.arrived) v.status = 'arrived';
         });
         renderVesselList(data.vessels);
         updateMapMarkers(data.vessels);
