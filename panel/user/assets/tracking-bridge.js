@@ -145,16 +145,57 @@
 
   function fixVessel(v) {
     if (!v || typeof v !== 'object') return;
+    // vessel_detail responses don't carry top-level lat/lon -- only inside
+    // current_position. Hoist them so the resolver sees the real AIS point;
+    // otherwise it always falls through to the time-projection branch and
+    // drags MSC Pamela / Maersk Seletar (already on route) off into Chile.
+    if ((v.lat == null || v.lat === '') && v.current_position && v.current_position.lat != null) {
+      v.lat = v.current_position.lat;
+    }
+    if ((v.lon == null || v.lon === '') && v.current_position && v.current_position.lon != null) {
+      v.lon = v.current_position.lon;
+    }
     var r = resolveVesselPosition(v);
     if (!r) return; // unknown ports, leave as-is
     v.lat = String(r.lat);
     v.lon = String(r.lon);
     if (r.arrived) v.status = 'arrived';
-    // vessel_detail also has a current_position object
     if (v.current_position && typeof v.current_position === 'object') {
       v.current_position.lat = r.lat;
       v.current_position.lon = r.lon;
     }
+  }
+
+  // ============================================
+  // vessel_positions track history filter
+  // ----------------------------------------------
+  // The AIS feed returns the ship's full historical track. For some vessels
+  // that includes Europe/Africa coordinates from before/after the booked
+  // USA -> Chile transit (MSC Pamela has Hamburg/Antwerp positions; CMA CGM
+  // Thalassa has positions off Portugal). The /panel/user/ React bundle
+  // draws a polyline through the entire track, producing visible Atlantic
+  // crossings on the map.
+  //
+  // We constrain the polyline to the Americas + Pacific corridor by dropping
+  // any position whose (lat, lon) falls outside a generous bounding box that
+  // still covers every plausible US-port-to-Chile route.
+  // ============================================
+  var CORRIDOR_LON_MIN = -135;  // West coast US (~-122) with margin
+  var CORRIDOR_LON_MAX = -65;   // East coast US (~-74) with margin
+  var CORRIDOR_LAT_MIN = -40;   // South of Valparaiso (-33)
+  var CORRIDOR_LAT_MAX = 52;    // North of New York (40) / Seattle (47)
+  function inCorridor(lat, lon) {
+    return lon >= CORRIDOR_LON_MIN && lon <= CORRIDOR_LON_MAX &&
+           lat >= CORRIDOR_LAT_MIN && lat <= CORRIDOR_LAT_MAX;
+  }
+  function filterPositions(positions) {
+    if (!Array.isArray(positions)) return positions;
+    return positions.filter(function (p) {
+      var lat = parseFloat(p.lat);
+      var lon = parseFloat(p.lon != null ? p.lon : p.lng);
+      if (isNaN(lat) || isNaN(lon)) return false;
+      return inCorridor(lat, lon);
+    });
   }
 
   function shouldIntercept(url) {
@@ -163,7 +204,8 @@
     }
     if (url.indexOf('tracking_api.php') === -1) return false;
     return url.indexOf('action=featured') !== -1 ||
-           url.indexOf('action=vessel_detail') !== -1;
+           url.indexOf('action=vessel_detail') !== -1 ||
+           url.indexOf('action=vessel_positions') !== -1;
   }
 
   // ============================================
@@ -186,6 +228,9 @@
           if (data && data.success) {
             if (Array.isArray(data.vessels)) data.vessels.forEach(fixVessel);
             if (data.vessel) fixVessel(data.vessel);
+            if (Array.isArray(data.positions)) {
+              data.positions = filterPositions(data.positions);
+            }
           }
         } catch (e) { return resp; }
         return new Response(JSON.stringify(data), {
