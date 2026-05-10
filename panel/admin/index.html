@@ -5,6 +5,9 @@
     <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Imporlan - Panel Admin</title>
+    <!-- Tracking bridge: must run BEFORE the admin React module so
+         window.fetch is patched before any /api/tracking_api.php call. -->
+    <script src="/panel/admin/assets/tracking-bridge.js?v=20260510a"></script>
     <script type="module" crossorigin src="/panel/admin/assets/admin-poSdhtP4.js"></script>
     <link rel="stylesheet" crossorigin href="/panel/admin/assets/admin-RHnCo1OK.css">
   </head>
