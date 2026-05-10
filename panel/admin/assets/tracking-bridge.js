@@ -1,26 +1,21 @@
 /**
- * Tracking Bridge - /panel/user/ (React bundle)
+ * Tracking Bridge - /panel/admin/ (React bundle)
  *
- * The /panel/user/ Vite + React app fetches /api/tracking_api.php?action=featured
- * and renders ship markers at whatever lat/lon the backend returns. The
- * backend forwards the ship's raw AIS position, which for some vessels is
- * physically OUT of the booked USA -> Chile route (e.g. CMA CGM Thalassa
- * appearing off Portugal). The legacy panel had a tracking-enhancer.js with
- * a route engine; the React panel had nothing.
+ * Admin parallel to /panel/user/assets/tracking-bridge.js. Same route
+ * engine, adapted to the admin endpoints:
  *
- * This script monkey-patches window.fetch BEFORE the React bundle runs.
- * For every tracking_api.php response we:
- *   1. Resolve origin + destination ports from the vessel labels.
- *   2. If the AIS position is within OFF_ROUTE_KM (800 km) of the route
- *      polyline (origin -> Panama Canal -> destination, or direct for
- *      West-coast origins) -> keep the AIS lat/lon.
- *   3. If the AIS position is within ARRIVED_KM (80 km) of the destination
- *      port -> snap to destination + flip status to "arrived".
- *   4. Otherwise -> project a position along the route based on elapsed
- *      time vs ETA, so the marker always sits on the USA -> Chile corridor.
+ *   action=admin_list_vessels   -> response shape {success, vessels|items}
+ *   action=vessel_positions     -> filter to USA-Chile corridor bounding box
  *
- * Ships whose origin/destination we can't resolve are passed through
- * untouched.
+ * Admin CRUD endpoints (admin_create_vessel / admin_update_vessel /
+ * admin_delete_vessel) are NOT intercepted -- those are admin write actions
+ * that must pass through unchanged.
+ *
+ * Behaviour identical to the user bridge: resolve origin + destination
+ * ports, snap to AIS when within 800 km of the corridor, snap to
+ * destination + flip status='arrived' when within 80 km, otherwise project
+ * a position along the route based on elapsed time vs ETA. Speed/course
+ * = -1 (AIS unknown sentinel) is sanitised to null so the UI hides them.
  */
 (function () {
   'use strict';
@@ -222,7 +217,7 @@
       if (url && url.url) url = url.url; else return false;
     }
     if (url.indexOf('tracking_api.php') === -1) return false;
-    return url.indexOf('action=featured') !== -1 ||
+    return url.indexOf('action=admin_list_vessels') !== -1 ||
            url.indexOf('action=vessel_detail') !== -1 ||
            url.indexOf('action=vessel_positions') !== -1;
   }
@@ -244,8 +239,10 @@
       try { cloned = resp.clone(); } catch (e) { return resp; }
       return cloned.json().then(function (data) {
         try {
-          if (data && data.success) {
+          if (data && (data.success || data.vessels || data.items)) {
+            // admin_list_vessels may return either {vessels:[...]} or {items:[...]}
             if (Array.isArray(data.vessels)) data.vessels.forEach(fixVessel);
+            if (Array.isArray(data.items))   data.items.forEach(fixVessel);
             if (data.vessel) fixVessel(data.vessel);
             if (Array.isArray(data.positions)) {
               data.positions = filterPositions(data.positions);
