@@ -143,6 +143,20 @@
     return { lat: pt.lat, lon: pt.lon, arrived: false, projected: true };
   }
 
+  // Vessel cache (id -> {origin_label, destination_label}) populated whenever
+  // we see a vessel in featured / vessel_detail. Drives the planned-route
+  // overlay below; survives across map re-renders.
+  var vesselCache = {};
+  function cacheVesselRoute(v) {
+    if (!v || v.id == null) return;
+    if (!v.origin_label || !v.destination_label) return;
+    vesselCache[v.id] = {
+      id: v.id,
+      origin_label: v.origin_label,
+      destination_label: v.destination_label
+    };
+  }
+
   function fixVessel(v) {
     if (!v || typeof v !== 'object') return;
     // vessel_detail responses don't carry top-level lat/lon -- only inside
@@ -157,6 +171,7 @@
     }
     var r = resolveVesselPosition(v);
     if (!r) return; // unknown ports, leave as-is
+    cacheVesselRoute(v);
     v.lat = String(r.lat);
     v.lon = String(r.lon);
     if (r.arrived) v.status = 'arrived';
@@ -260,4 +275,105 @@
       }).catch(function () { return resp; });
     });
   };
+
+  // ============================================
+  // Planned-route overlay
+  // ----------------------------------------------
+  // The React bundle only draws the SELECTED vessel's track history. We
+  // additionally drop a faint dashed overlay onto the map for EVERY cached
+  // vessel showing its planned USA -> Chile corridor (origin port -> Panama
+  // Canal -> destination port for East/Gulf coast US origins, or origin ->
+  // destination for West Coast US origins). This is what the user originally
+  // asked for: that the map always communicates "these ships are coming to
+  // Chile".
+  //
+  // We monkey-patch window.L.map: every time the React effect creates a new
+  // map instance, we drop our overlay 100 ms later (after the bundle has
+  // finished its synchronous setup). On subsequent re-renders the bundle
+  // calls map.remove() and creates a new instance; our patch fires again on
+  // that new instance, so the overlay is always present.
+  // ============================================
+  var ROUTE_COLOR_PLANNED = '#2563eb';
+  var ROUTE_COLOR_ARRIVE  = '#a855f7';
+
+  function addPlannedRoutes(mapInst) {
+    var L = window.L;
+    if (!L || !mapInst) return;
+    var routesDrawn = {};
+    var portsToDraw = {};
+    Object.keys(vesselCache).forEach(function (id) {
+      var v = vesselCache[id];
+      var origin = getPortCoords(v.origin_label);
+      var destination = getPortCoords(v.destination_label);
+      if (!origin || !destination) return;
+      var route = buildRouteWaypoints(origin, destination);
+      if (!route) return;
+      var key = v.origin_label + '|' + v.destination_label;
+      if (!routesDrawn[key]) {
+        routesDrawn[key] = true;
+        var latlngs = route.map(function (p) { return [p.lat, p.lon]; });
+        try {
+          L.polyline(latlngs, {
+            color: ROUTE_COLOR_PLANNED,
+            weight: 2,
+            opacity: 0.4,
+            dashArray: '8 6',
+            smoothFactor: 1,
+            interactive: false
+          }).addTo(mapInst);
+        } catch (e) {}
+      }
+      portsToDraw['o:' + v.origin_label]      = { coords: origin,      isDest: false };
+      portsToDraw['d:' + v.destination_label] = { coords: destination, isDest: true  };
+    });
+    Object.keys(portsToDraw).forEach(function (k) {
+      var p = portsToDraw[k];
+      try {
+        L.circleMarker([p.coords.lat, p.coords.lon], {
+          radius: p.isDest ? 5 : 4,
+          color: '#fff',
+          weight: 1.5,
+          fillColor: p.isDest ? ROUTE_COLOR_ARRIVE : ROUTE_COLOR_PLANNED,
+          fillOpacity: 0.85,
+          interactive: false
+        }).addTo(mapInst);
+      } catch (e) {}
+    });
+  }
+
+  function patchLeafletMap(LeafletNs) {
+    if (!LeafletNs || LeafletNs._impMapPatched) return;
+    LeafletNs._impMapPatched = true;
+    var origMap = LeafletNs.map;
+    LeafletNs.map = function () {
+      var inst = origMap.apply(this, arguments);
+      setTimeout(function () {
+        try { addPlannedRoutes(inst); } catch (e) {}
+      }, 100);
+      return inst;
+    };
+  }
+
+  // If Leaflet is already loaded (rare race), patch immediately. Otherwise
+  // intercept the moment the bundle assigns window.L. Defining a setter via
+  // Object.defineProperty is bulletproof: Leaflet's IIFE ends with
+  // `window.L = L` which fires our setter before any other code touches it.
+  if (window.L) {
+    patchLeafletMap(window.L);
+  } else {
+    try {
+      var realL;
+      Object.defineProperty(window, 'L', {
+        configurable: true,
+        enumerable: true,
+        get: function () { return realL; },
+        set: function (val) { realL = val; patchLeafletMap(val); }
+      });
+    } catch (e) {
+      var iv = setInterval(function () {
+        if (window.L) { clearInterval(iv); patchLeafletMap(window.L); }
+      }, 25);
+      setTimeout(function () { clearInterval(iv); }, 30000);
+    }
+  }
 })();
