@@ -4,6 +4,12 @@ set -euo pipefail
 # ============================================
 #  IMPORLAN - Auto Deploy from GitHub
 #  Runs via cron, pulls latest and deploys
+#
+#  Safety: this script REFUSES to deploy on top of $PUBLIC_HTML unless it
+#  can confirm the target is an Imporlan doc-root (sentinel + index.html
+#  marker fallback). The doc-root is shared with tourevo.cl on this hosting
+#  account, so a blind cp -Rf could wipe out Tourevo content if the
+#  identity check is skipped. See DEPLOY-SAFETY.md.
 # ============================================
 
 REPO_DIR="/home/wwimpo/imporlan-staging"
@@ -11,11 +17,14 @@ PUBLIC_HTML="/home/wwimpo/public_html"
 BACKUP_DIR="/home/wwimpo/backups"
 LOGFILE="/home/wwimpo/auto-deploy.log"
 LOCKFILE="/home/wwimpo/.deploy.lock"
+SENTINEL="$PUBLIC_HTML/.imporlan_docroot"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
+
+log() { echo "[$TIMESTAMP] $*" >> "$LOGFILE"; }
 
 # Prevent concurrent runs
 if [ -f "$LOCKFILE" ]; then
-  echo "[$TIMESTAMP] Deploy already running, skipping." >> "$LOGFILE"
+  log "Deploy already running, skipping."
   exit 0
 fi
 trap 'rm -f "$LOCKFILE"' EXIT
@@ -23,7 +32,7 @@ touch "$LOCKFILE"
 
 # Clone repo if it doesn't exist yet
 if [ ! -d "$REPO_DIR/.git" ]; then
-  echo "[$TIMESTAMP] Cloning repository..." >> "$LOGFILE"
+  log "Cloning repository..."
   git clone https://github.com/jpchs1/Imporlan.git "$REPO_DIR" >> "$LOGFILE" 2>&1
 fi
 
@@ -36,13 +45,35 @@ LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
-  # No changes, nothing to deploy
   exit 0
 fi
 
-echo "[$TIMESTAMP] New changes detected. Deploying..." >> "$LOGFILE"
-echo "  Local:  $LOCAL" >> "$LOGFILE"
-echo "  Remote: $REMOTE" >> "$LOGFILE"
+log "New changes detected. Deploying..."
+log "  Local:  $LOCAL"
+log "  Remote: $REMOTE"
+
+# ---------------------------------------------------------------------------
+# IDENTITY CHECK: confirm $PUBLIC_HTML is an Imporlan doc-root before writing.
+# Refuses to deploy if it looks like another site's content is currently
+# living there. See deploy-prod.sh for the manual override (FORCE=1).
+# ---------------------------------------------------------------------------
+IDENTITY_OK=0
+if [ -f "$SENTINEL" ]; then
+  IDENTITY_OK=1
+elif [ -f "$PUBLIC_HTML/index.html" ] && \
+     grep -qiE 'imporlan|Importaci[oó]n de Lanchas' "$PUBLIC_HTML/index.html"; then
+  IDENTITY_OK=1
+fi
+if [ "$IDENTITY_OK" -eq 0 ]; then
+  log "ABORT: $PUBLIC_HTML does not look like an Imporlan doc-root."
+  log "       No sentinel ($SENTINEL) and index.html has no Imporlan markers."
+  log "       Refusing to overwrite — would clobber another site."
+  mkdir -p "$BACKUP_DIR"
+  UNKNOWN_SNAPSHOT="$BACKUP_DIR/unknown_docroot_${TIMESTAMP}"
+  cp -a "$PUBLIC_HTML" "$UNKNOWN_SNAPSHOT" 2>/dev/null && \
+    log "       Defensive snapshot saved at $UNKNOWN_SNAPSHOT."
+  exit 2
+fi
 
 git checkout main >> "$LOGFILE" 2>&1
 git pull origin main >> "$LOGFILE" 2>&1
@@ -51,6 +82,9 @@ git pull origin main >> "$LOGFILE" 2>&1
 mkdir -p "$BACKUP_DIR/pre_deploy_$TIMESTAMP"
 [ -f "$PUBLIC_HTML/api/db_config.php" ] && cp "$PUBLIC_HTML/api/db_config.php" "$BACKUP_DIR/pre_deploy_$TIMESTAMP/db_config.php"
 [ -d "$PUBLIC_HTML/api/marketplace_photos" ] && cp -a "$PUBLIC_HTML/api/marketplace_photos" "$BACKUP_DIR/pre_deploy_$TIMESTAMP/marketplace_photos"
+
+# --- Pre-deploy: snapshot current index.html for emergency rollback ---
+[ -f "$PUBLIC_HTML/index.html" ] && cp "$PUBLIC_HTML/index.html" "$BACKUP_DIR/pre_deploy_$TIMESTAMP/index.html.before"
 
 # --- Deploy root files ---
 for f in index.html marketplace.html robots.txt sitemap.xml favicon.ico .htaccess; do
@@ -85,11 +119,38 @@ done
 [ -f "$BACKUP_DIR/pre_deploy_$TIMESTAMP/db_config.php" ] && cp "$BACKUP_DIR/pre_deploy_$TIMESTAMP/db_config.php" "$PUBLIC_HTML/api/db_config.php"
 [ -d "$BACKUP_DIR/pre_deploy_$TIMESTAMP/marketplace_photos" ] && cp -a "$BACKUP_DIR/pre_deploy_$TIMESTAMP/marketplace_photos" "$PUBLIC_HTML/api/marketplace_photos"
 
+# --- Refresh sentinel (timestamp + commit) ---
+cat > "$SENTINEL" <<SENTINEL_EOF
+This directory is the Imporlan production doc-root.
+Last deploy: $TIMESTAMP
+Commit:      $(git rev-parse HEAD)
+Do not delete this file -- deploy scripts check for it before writing.
+SENTINEL_EOF
+chmod 644 "$SENTINEL"
+
 # --- Set permissions ---
 find "$PUBLIC_HTML" -type d -exec chmod 755 {} +
 find "$PUBLIC_HTML" -type f -exec chmod 644 {} +
 
+# --- Post-deploy verification (catches overwrites by other deploys) ---
+# Probe https://www.imporlan.cl/ and require the response to contain an
+# Imporlan-identifying string. If not, restore the previous index.html
+# and exit with error -- so the cron logs scream instead of leaving the
+# site silently broken.
+sleep 2
+LIVE_BODY=$(curl -fsSL --max-time 15 -H 'Cache-Control: no-cache' "https://www.imporlan.cl/?cb=$TIMESTAMP" 2>/dev/null || true)
+if echo "$LIVE_BODY" | grep -qiE 'imporlan|Importaci[oó]n de Lanchas'; then
+  log "Verification OK: imporlan.cl serves Imporlan content."
+else
+  log "ALERT: imporlan.cl did NOT return Imporlan content after deploy."
+  if [ -f "$BACKUP_DIR/pre_deploy_$TIMESTAMP/index.html.before" ]; then
+    cp "$BACKUP_DIR/pre_deploy_$TIMESTAMP/index.html.before" "$PUBLIC_HTML/index.html"
+    log "       Restored previous index.html from snapshot."
+  fi
+  exit 3
+fi
+
 # --- Cleanup old backups (keep last 10) ---
 cd "$BACKUP_DIR" && ls -dt pre_deploy_* 2>/dev/null | tail -n +11 | xargs rm -rf 2>/dev/null || true
 
-echo "[$TIMESTAMP] Deploy complete. Now at $(git rev-parse --short HEAD)" >> "$LOGFILE"
+log "Deploy complete. Now at $(git rev-parse --short HEAD)"
