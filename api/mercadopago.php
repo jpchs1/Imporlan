@@ -263,7 +263,12 @@ function handleWebhook() {
                 'payment_method' => 'mercadopago',
                 'payment_id' => $paymentId,
                 'order_id' => $externalRef,
-                'status' => 'pending'
+                // This branch only runs when MercadoPago already confirmed
+                // payment.status === 'approved' (see the if-guard ~30 lines
+                // above). The local record must reflect that as 'paid';
+                // previously hardcoded to 'pending' which left the admin
+                // Compras page showing paid orders perpetually as PENDING.
+                'status' => 'paid'
             ]);
             
             if (empty($purchase['_duplicate'])) {
