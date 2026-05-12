@@ -96,6 +96,19 @@ IMPORLAN_DIRS=(
   transporte-logistica-embarcaciones-chile
   veleros-usados
   veleros-usados-a-la-venta-en-chile-o-usa
+  # Server-side runtime dirs (NOT in the github repo, but written by
+  # Imporlan PHP at runtime and required for /panel/admin and the
+  # cotizador image cache to keep working after the doc-root switch):
+  #   .admin_profiles    - written by api/admin_profile.php + api/admin_avatar.php
+  #                        (admin user profiles + avatar images)
+  #   .admin_reset_tokens - written by api/admin_forgot_password.php +
+  #                         api/admin_reset_password.php (password reset)
+  #   uploads            - written by api/image_cache.php +
+  #                        api/link_scraper.php (cached boat photos served
+  #                        from https://www.imporlan.cl/uploads/order_images/)
+  .admin_profiles
+  .admin_reset_tokens
+  uploads
 )
 
 IMPORLAN_FILES=(
