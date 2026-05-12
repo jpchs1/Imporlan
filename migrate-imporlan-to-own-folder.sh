@@ -126,17 +126,42 @@ if [ "$MODE" = "apply" ]; then
   mkdir -p "$DST"
 fi
 
-# -------- rsync --------
-EXCLUDE_ARGS=()
-for x in "${EXCLUDES[@]}"; do EXCLUDE_ARGS+=(--exclude="$x"); done
+# -------- copy: prefer rsync, fall back to tar --------
+# Shared hosting often doesn't ship rsync; tar is universally available
+# and supports --exclude patterns the same way.
+echo ""
+echo "[2/4] Copying files (mode: $MODE) ..."
+echo "      Logging to $LOG"
 
-echo ""
-echo "[2/4] rsyncing files (mode: $MODE) ..."
-echo "      tee'ing output to $LOG"
-echo ""
-rsync -av $RSYNC_FLAG \
-  "${EXCLUDE_ARGS[@]}" \
-  "$SRC/" "$DST/" 2>&1 | tee "$LOG" | tail -40
+if command -v rsync >/dev/null 2>&1; then
+  echo "      Using rsync"
+  EXCLUDE_ARGS=()
+  for x in "${EXCLUDES[@]}"; do EXCLUDE_ARGS+=(--exclude="$x"); done
+  rsync -av $RSYNC_FLAG \
+    "${EXCLUDE_ARGS[@]}" \
+    "$SRC/" "$DST/" 2>&1 | tee "$LOG" | tail -40
+else
+  echo "      rsync not available, using tar"
+  TAR_EXCLUDES=()
+  for x in "${EXCLUDES[@]}"; do
+    # tar wants ./pattern relative to the source CWD and no trailing slash
+    TAR_EXCLUDES+=(--exclude="./${x%/}")
+  done
+  if [ "$MODE" = "dry-run" ]; then
+    # tar can't really dry-run a copy, but we can list what it WOULD
+    # archive (excludes applied), which mirrors what would be copied.
+    ( cd "$SRC" && tar -cvf /dev/null "${TAR_EXCLUDES[@]}" . ) 2>&1 \
+      | tee "$LOG" | tail -40
+    echo "      (dry-run: nothing was written to $DST)"
+  else
+    # Stream tar from SRC into tar -x at DST. Preserves perms + times.
+    # Status is written to stderr; ignore non-fatal warnings about
+    # the .htaccess file changing during read etc.
+    ( cd "$SRC" && tar -cf - "${TAR_EXCLUDES[@]}" . ) \
+      | ( cd "$DST" && tar -xf - ) 2>>"$LOG"
+    echo "      tar copy complete (see $LOG for any warnings)"
+  fi
+fi
 echo ""
 
 # -------- post-copy validation (only when applied) --------
