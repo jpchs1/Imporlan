@@ -19,105 +19,140 @@
 #    3. Add to crontab (crontab -e):
 #         * * * * * /home/wwimpo/imporlan-watchdog.sh >/dev/null 2>&1
 #
+#  WATCHED PAGES
+#    /          -> restored from STAGING/index.html
+#    /pago/     -> restored from STAGING/pago/index.html
+#
 #  EXIT CODES
-#    0  -> site is healthy, no action taken
-#    0  -> pisado detected, auto-restored successfully (logged)
-#    1  -> pisado detected, restore failed (logged + flag file written)
+#    0  -> all watched pages healthy OR auto-restored successfully (logged)
+#    1  -> at least one page is clobbered AND restore failed
+#          (logged + per-page flag file written, 10-min backoff)
 # ============================================
 set -uo pipefail
 
 PUBLIC_HTML="/home/wwimpo/public_html"
 STAGING="/home/wwimpo/imporlan-staging"
 LOG="/home/wwimpo/imporlan-watchdog.log"
-FLAG="/home/wwimpo/.imporlan-watchdog-incident"
-URL="https://www.imporlan.cl/"
+FLAG_DIR="/home/wwimpo"
+BASE_URL="https://www.imporlan.cl"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 log() { echo "[$TIMESTAMP] $*" >> "$LOG"; }
 
-# Fetch the live home, look for Imporlan-identifying markers.
-# Timeout aggressively so we don't pile up under CDN slowdown.
-BODY=$(curl -fsSL --max-time 12 -H 'Cache-Control: no-cache' \
-              "${URL}?wd=$(date +%s)" 2>/dev/null || true)
+# --------------------------------------------------------------------
+# Watched pages
+# --------------------------------------------------------------------
+#   path|file_inside_repo|markers_regex
+# - path: URL path probed under $BASE_URL (must end in /)
+# - file_inside_repo: file copied from $STAGING/<file> to $PUBLIC_HTML/<file>
+#                     when the page is detected as clobbered
+# - markers_regex: case-insensitive regex; if AT LEAST ONE marker is
+#                  present in the live response, the page is healthy
+#
+# Tourevo (the other site on this shared hosting account) has clobbered
+# /index.html in the past, and on 2026-05 it also clobbered /pago/index.html
+# with its own Tourevo payment portal. Both need to be monitored.
+# --------------------------------------------------------------------
+WATCHED=(
+  "/|index.html|imporlan|Importaci[oó]n de Lanchas|/assets/imporlan-enhancements\\.js"
+  "/pago/|pago/index.html|imporlan|Pago Seguro \\| Imporlan|Importacion de Lanchas y Embarcaciones"
+)
 
-# If curl fails outright (network blip, CF 522, etc.) just skip this tick;
-# we'd rather miss a beat than restore based on a transient error.
-if [ -z "$BODY" ]; then
-  exit 0
-fi
+OVERALL_EXIT=0
 
-# Match a fairly tolerant set of Imporlan markers. We don't want false
-# positives during a legitimate deploy (where the title may briefly be
-# missing) so we require AT LEAST ONE of these to be present.
-if echo "$BODY" | grep -qiE 'imporlan|Importaci[oó]n de Lanchas|/assets/imporlan-enhancements\.js'; then
-  # Healthy. Clear any previous incident flag.
-  [ -f "$FLAG" ] && {
-    log "Recovery detected. Clearing incident flag."
-    rm -f "$FLAG"
-  }
-  exit 0
-fi
+for entry in "${WATCHED[@]}"; do
+  IFS='|' read -r WPATH WFILE WMARKERS <<< "$entry"
+  URL="${BASE_URL}${WPATH}"
+  FLAG="${FLAG_DIR}/.imporlan-watchdog-incident$(echo "$WPATH" | tr '/' '_')"
 
-# ----- PISADO DETECTED -----
-# Capture what's currently being served so we can identify the offending deploy.
-FOREIGN_TITLE=$(echo "$BODY" | grep -oE '<title>[^<]+</title>' | head -1)
-log "ALERT: imporlan.cl is NOT serving Imporlan content."
-log "       Foreign title: $FOREIGN_TITLE"
+  # Fetch the live page with cache-buster. Timeout aggressively so we
+  # don't pile up under CDN slowdown.
+  BODY=$(curl -fsSL --max-time 12 -H 'Cache-Control: no-cache' \
+                "${URL}?wd=$(date +%s)" 2>/dev/null || true)
 
-# If we've already alerted in the last 10 min without recovery, don't keep restoring.
-# Some other cron / human is probably doing manual recovery -- back off.
-if [ -f "$FLAG" ]; then
-  FLAG_AGE=$(( $(date +%s) - $(stat -c %Y "$FLAG" 2>/dev/null || echo 0) ))
-  if [ "$FLAG_AGE" -lt 600 ]; then
-    log "       Recent restore failed less than 10 min ago. Backing off."
-    exit 1
+  # If curl fails outright (network blip, CF 522, etc.) just skip this
+  # tick for this URL; we'd rather miss a beat than restore based on a
+  # transient error.
+  if [ -z "$BODY" ]; then
+    continue
   fi
-fi
 
-# Save a forensic copy of whatever is currently at index.html
-FORENSIC_DIR="/home/wwimpo/backups/watchdog_pisado_$(date +%Y-%m-%d_%H%M%S)"
-mkdir -p "$FORENSIC_DIR"
-[ -f "$PUBLIC_HTML/index.html" ] && cp "$PUBLIC_HTML/index.html" "$FORENSIC_DIR/index.html.foreign"
-log "       Forensic snapshot saved to $FORENSIC_DIR/"
+  if echo "$BODY" | grep -qiE "$WMARKERS"; then
+    # Healthy. Clear any previous incident flag for this page.
+    [ -f "$FLAG" ] && {
+      log "Recovery detected for ${WPATH}. Clearing incident flag."
+      rm -f "$FLAG"
+    }
+    continue
+  fi
 
-# Make sure the staging repo has the latest main before we copy from it
-if [ ! -d "$STAGING/.git" ]; then
-  log "       ERROR: staging repo not found at $STAGING. Cannot restore."
-  date > "$FLAG"
-  exit 1
-fi
-( cd "$STAGING" && git fetch --depth=1 origin main >/dev/null 2>&1 && \
-                   git reset --hard origin/main >/dev/null 2>&1 ) || {
-  log "       WARNING: could not pull latest main, using whatever HEAD has."
-}
+  # ----- PISADO DETECTED for $WPATH -----
+  FOREIGN_TITLE=$(echo "$BODY" | grep -oE '<title>[^<]+</title>' | head -1)
+  log "ALERT: ${URL} is NOT serving Imporlan content."
+  log "       Foreign title: $FOREIGN_TITLE"
 
-# Restore index.html (the most common clobber target)
-if [ -f "$STAGING/index.html" ]; then
-  cp "$STAGING/index.html" "$PUBLIC_HTML/index.html"
-  log "       Restored $PUBLIC_HTML/index.html from staging"
-else
-  log "       ERROR: $STAGING/index.html missing"
-  date > "$FLAG"
-  exit 1
-fi
+  # Back off if we've already failed a restore for THIS page in the last 10 min.
+  if [ -f "$FLAG" ]; then
+    FLAG_AGE=$(( $(date +%s) - $(stat -c %Y "$FLAG" 2>/dev/null || echo 0) ))
+    if [ "$FLAG_AGE" -lt 600 ]; then
+      log "       Recent restore failed less than 10 min ago for ${WPATH}. Backing off."
+      OVERALL_EXIT=1
+      continue
+    fi
+  fi
 
-# Re-write the sentinel so other deploys' guard checks recognise this doc-root again
-cat > "$PUBLIC_HTML/.imporlan_docroot" <<SENTINEL_EOF
+  # Forensic snapshot of whatever the offending file currently is
+  FORENSIC_DIR="/home/wwimpo/backups/watchdog_pisado_$(date +%Y-%m-%d_%H%M%S)$(echo "$WPATH" | tr '/' '_')"
+  mkdir -p "$FORENSIC_DIR"
+  [ -f "$PUBLIC_HTML/$WFILE" ] && cp "$PUBLIC_HTML/$WFILE" "$FORENSIC_DIR/$(basename "$WFILE").foreign"
+  log "       Forensic snapshot saved to $FORENSIC_DIR/"
+
+  # Make sure the staging repo has the latest main before we copy from it
+  if [ ! -d "$STAGING/.git" ]; then
+    log "       ERROR: staging repo not found at $STAGING. Cannot restore ${WPATH}."
+    date > "$FLAG"
+    OVERALL_EXIT=1
+    continue
+  fi
+  ( cd "$STAGING" && git fetch --depth=1 origin main >/dev/null 2>&1 && \
+                     git reset --hard origin/main >/dev/null 2>&1 ) || {
+    log "       WARNING: could not pull latest main, using whatever HEAD has."
+  }
+
+  if [ ! -f "$STAGING/$WFILE" ]; then
+    log "       ERROR: $STAGING/$WFILE missing"
+    date > "$FLAG"
+    OVERALL_EXIT=1
+    continue
+  fi
+
+  mkdir -p "$(dirname "$PUBLIC_HTML/$WFILE")"
+  cp "$STAGING/$WFILE" "$PUBLIC_HTML/$WFILE"
+  log "       Restored $PUBLIC_HTML/$WFILE from staging"
+
+  # Re-write the sentinel only when restoring the home; per-subpath
+  # clobbers don't invalidate the doc-root identity.
+  if [ "$WPATH" = "/" ]; then
+    cat > "$PUBLIC_HTML/.imporlan_docroot" <<SENTINEL_EOF
 Imporlan doc-root, auto-restored by watchdog at $TIMESTAMP
 Foreign title that was clobbering: $FOREIGN_TITLE
 Forensic snapshot: $FORENSIC_DIR
 SENTINEL_EOF
-chmod 644 "$PUBLIC_HTML/.imporlan_docroot"
+    chmod 644 "$PUBLIC_HTML/.imporlan_docroot"
+  fi
 
-# Verify the restore actually worked
-sleep 3
-BODY2=$(curl -fsSL --max-time 12 -H 'Cache-Control: no-cache' \
-              "${URL}?wd_verify=$(date +%s)" 2>/dev/null || true)
-if echo "$BODY2" | grep -qiE 'imporlan|Importaci[oó]n de Lanchas'; then
-  log "       OK Restore verified: imporlan.cl is serving Imporlan again."
-  rm -f "$FLAG"
-else
-  log "       ALERT: restore did not take effect (CDN cache? CF?). Manual review needed."
-  date > "$FLAG"
-  exit 1
-fi
+  # Verify the restore actually worked
+  sleep 3
+  BODY2=$(curl -fsSL --max-time 12 -H 'Cache-Control: no-cache' \
+                "${URL}?wd_verify=$(date +%s)" 2>/dev/null || true)
+  if echo "$BODY2" | grep -qiE "$WMARKERS"; then
+    log "       OK Restore verified: ${URL} is serving Imporlan again."
+    rm -f "$FLAG"
+  else
+    log "       ALERT: restore of ${WPATH} did not take effect (CDN cache? CF?). Manual review needed."
+    date > "$FLAG"
+    OVERALL_EXIT=1
+  fi
+done
+
+exit "$OVERALL_EXIT"
