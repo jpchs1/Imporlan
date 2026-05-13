@@ -2,739 +2,1515 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a1628">
     <title>Pago Seguro | Imporlan - Importacion de Lanchas y Embarcaciones</title>
     <meta name="description" content="Realiza tu pago de forma segura para servicios de importacion de lanchas y embarcaciones de lujo. WebPay, MercadoPago, PayPal y transferencia bancaria.">
+    <meta name="robots" content="noindex, nofollow">
     <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg">
     <link rel="icon" type="image/png" sizes="48x48" href="/images/imporlan-favicon-48.png">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
+            --navy-darker: #060f1c;
             --navy-dark: #0a1628;
             --navy: #0f2140;
             --navy-mid: #162d50;
             --navy-light: #1e3a5f;
             --gold: #c9a84c;
-            --gold-light: #e0c76a;
+            --gold-light: #e6cf7a;
             --gold-dark: #a8893d;
             --silver: #c0c8d4;
+            --silver-mid: #8a93a3;
             --white: #f4f6f8;
-            --blue-accent: #4a90d9;
+            --blue: #4a90d9;
+            --blue-light: #6fb1ff;
             --success: #2ecc71;
+            --success-light: #7dffb5;
             --error: #e74c3c;
-            --shadow: 0 20px 60px rgba(0,0,0,0.4);
+            --error-light: #ff9090;
+            --info: #4a90d9;
+            --shadow-lg: 0 30px 80px rgba(0,0,0,0.45);
+            --shadow-md: 0 14px 40px rgba(0,0,0,0.35);
+            --shadow-sm: 0 4px 14px rgba(0,0,0,0.25);
+            --radius-lg: 22px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: var(--navy-dark);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--navy-darker);
             color: var(--white);
             min-height: 100vh;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: 'cv11', 'ss01';
         }
 
-        /* Animated ocean background */
+        /* ===== ANIMATED OCEAN BACKDROP ===== */
         .ocean-bg {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 0;
-            overflow: hidden;
+            position: fixed; inset: 0;
+            z-index: 0; overflow: hidden; pointer-events: none;
         }
-
         .ocean-bg::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            content: ''; position: absolute; inset: 0;
             background:
-                radial-gradient(ellipse at 20% 50%, rgba(74,144,217,0.08) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, rgba(201,168,76,0.05) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 80%, rgba(74,144,217,0.06) 0%, transparent 50%),
-                linear-gradient(180deg, var(--navy-dark) 0%, #0c1e38 50%, var(--navy-dark) 100%);
+                radial-gradient(ellipse 80% 60% at 20% 20%, rgba(74,144,217,0.10) 0%, transparent 60%),
+                radial-gradient(ellipse 70% 50% at 85% 15%, rgba(201,168,76,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 90% 70% at 50% 90%, rgba(74,144,217,0.08) 0%, transparent 60%),
+                linear-gradient(180deg, var(--navy-darker) 0%, var(--navy-dark) 50%, var(--navy-darker) 100%);
         }
-
+        .ocean-bg::after {
+            content: ''; position: absolute; inset: 0;
+            background-image:
+                radial-gradient(1px 1px at 18% 22%, rgba(255,255,255,0.20) 50%, transparent 51%),
+                radial-gradient(1px 1px at 73% 38%, rgba(255,255,255,0.15) 50%, transparent 51%),
+                radial-gradient(1px 1px at 42% 71%, rgba(255,255,255,0.18) 50%, transparent 51%),
+                radial-gradient(1px 1px at 88% 82%, rgba(255,255,255,0.12) 50%, transparent 51%),
+                radial-gradient(1.5px 1.5px at 9% 55%, rgba(255,255,255,0.18) 50%, transparent 51%);
+            opacity: 0.4;
+        }
         .wave {
-            position: absolute;
-            bottom: 0;
-            width: 200%;
-            height: 200px;
-            opacity: 0.03;
-            background: repeating-linear-gradient(
-                90deg,
-                transparent,
-                transparent 40px,
-                rgba(74,144,217,0.3) 40px,
-                rgba(74,144,217,0.3) 42px
-            );
-            animation: wave 20s linear infinite;
+            position: absolute; bottom: 0; width: 200%; height: 200px;
+            opacity: 0.04;
+            background: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(74,144,217,0.4) 40px, rgba(74,144,217,0.4) 42px);
+            animation: wave 24s linear infinite;
         }
+        .wave:nth-child(2) { height: 150px; opacity: 0.025; animation-duration: 18s; animation-direction: reverse; }
+        @keyframes wave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-        .wave:nth-child(2) {
-            height: 150px;
-            opacity: 0.02;
-            animation-duration: 15s;
-            animation-direction: reverse;
+        /* ===== TOP BAR ===== */
+        .topbar {
+            position: relative; z-index: 2;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 28px;
+            border-bottom: 1px solid rgba(201,168,76,0.08);
+            backdrop-filter: blur(8px);
         }
-
-        @keyframes wave {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
+        .brand {
+            display: flex; align-items: center; gap: 12px;
+            text-decoration: none; color: inherit;
         }
+        .brand img {
+            width: 40px; height: 40px; border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(201,168,76,0.25);
+        }
+        .brand-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem; font-weight: 700; letter-spacing: 2px;
+            line-height: 1;
+        }
+        .brand-text .impor { color: var(--silver); }
+        .brand-text .lan { color: var(--white); }
+        .brand-sub {
+            font-size: 0.65rem; color: var(--silver-mid);
+            letter-spacing: 2.5px; text-transform: uppercase; margin-top: 4px;
+        }
+        .top-actions {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.85rem;
+        }
+        .top-actions a {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: var(--silver); text-decoration: none;
+            padding: 8px 14px; border-radius: 999px;
+            border: 1px solid rgba(201,168,76,0.15);
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .top-actions a:hover {
+            border-color: rgba(201,168,76,0.4);
+            color: var(--gold-light);
+            background: rgba(201,168,76,0.06);
+        }
+        .top-actions svg { width: 14px; height: 14px; }
+        .top-actions .wa-btn {
+            background: rgba(37,211,102,0.10);
+            border-color: rgba(37,211,102,0.30);
+            color: #7be39d;
+        }
+        .top-actions .wa-btn:hover { background: rgba(37,211,102,0.16); color: #a5f3bc; }
 
-        /* Main container */
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 580px;
+        /* ===== MAIN LAYOUT ===== */
+        .page {
+            position: relative; z-index: 1;
+            max-width: 1180px;
             margin: 0 auto;
-            padding: 30px 20px 60px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 36px 24px 120px;
         }
 
-        /* Header / Logo */
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            width: 100%;
+        .page-header { text-align: center; margin-bottom: 36px; }
+        .page-eyebrow {
+            display: inline-block;
+            font-size: 0.72rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--gold);
+            padding: 6px 14px;
+            border: 1px solid rgba(201,168,76,0.25);
+            border-radius: 999px;
+            background: rgba(201,168,76,0.05);
+            margin-bottom: 18px;
+        }
+        .page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--white) 0%, var(--gold-light) 50%, var(--white) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .page-subtitle {
+            font-size: 1rem;
+            color: var(--silver);
+            max-width: 540px;
+            margin: 0 auto;
+            opacity: 0.85;
         }
 
-        .logo-container {
+        /* ===== STEPPER ===== */
+        .stepper {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 14px;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin: 28px auto 0;
+            max-width: 560px;
+            flex-wrap: wrap;
         }
-
-        .logo-container img {
-            width: 56px;
-            height: 56px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(201,168,76,0.2);
-        }
-
-        .logo-text {
-            font-family: 'Playfair Display', serif;
-            font-size: 2rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-        }
-
-        .logo-text .impor { color: var(--silver); }
-        .logo-text .lan { color: var(--white); }
-
-        .header-tagline {
-            font-size: 0.85rem;
-            color: var(--silver);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            opacity: 0.7;
-        }
-
-        .header-divider {
-            width: 80px;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--gold), transparent);
-            margin: 16px auto 0;
-        }
-
-        /* Payment Card */
-        .payment-card {
-            width: 100%;
-            background: linear-gradient(145deg, rgba(22,45,80,0.9), rgba(15,33,64,0.95));
+        .step {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px;
             border: 1px solid rgba(201,168,76,0.15);
-            border-radius: 20px;
-            padding: 36px 32px;
-            backdrop-filter: blur(20px);
-            box-shadow: var(--shadow);
+            border-radius: 999px;
+            font-size: 0.78rem; color: var(--silver-mid);
+            background: rgba(10,22,40,0.4);
+            transition: all 0.3s ease;
+        }
+        .step.active {
+            border-color: var(--gold);
+            color: var(--white);
+            background: rgba(201,168,76,0.08);
+            box-shadow: 0 0 18px rgba(201,168,76,0.12);
+        }
+        .step.done {
+            border-color: rgba(46,204,113,0.4);
+            color: var(--success-light);
+            background: rgba(46,204,113,0.06);
+        }
+        .step-num {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: rgba(201,168,76,0.15);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.72rem; color: var(--gold-light);
+        }
+        .step.active .step-num { background: var(--gold); color: var(--navy-dark); }
+        .step.done .step-num { background: var(--success); color: var(--navy-dark); }
+        .step-sep {
+            width: 28px; height: 1px;
+            background: linear-gradient(90deg, rgba(201,168,76,0.3), rgba(201,168,76,0.05));
+        }
+
+        /* ===== GRID LAYOUT (2 cols on desktop) ===== */
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 28px;
+            align-items: start;
+        }
+
+        /* ===== PANEL (reusable card) ===== */
+        .panel {
+            background: linear-gradient(160deg, rgba(22,45,80,0.85) 0%, rgba(15,33,64,0.92) 100%);
+            border: 1px solid rgba(201,168,76,0.12);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             position: relative;
             overflow: hidden;
         }
+        .panel + .panel { margin-top: 20px; }
 
-        .payment-card::before {
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+            opacity: 0.6;
+        }
+
+        .panel-head {
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 22px;
+        }
+        .panel-head-icon {
+            width: 38px; height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.05));
+            border: 1px solid rgba(201,168,76,0.25);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--gold-light);
+            flex-shrink: 0;
+        }
+        .panel-head-icon svg { width: 18px; height: 18px; }
+        .panel-head-text { flex: 1; min-width: 0; }
+        .panel-head-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--white);
+            line-height: 1.2;
+        }
+        .panel-head-sub {
+            font-size: 0.8rem;
+            color: var(--silver-mid);
+            margin-top: 3px;
+        }
+
+        /* ===== FORMS ===== */
+        .form-grid { display: grid; gap: 18px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+        .field { position: relative; }
+        .field label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--gold-light);
+            margin-bottom: 8px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+        .field label .opt {
+            color: var(--silver-mid);
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0.3px;
+            margin-left: 6px;
+        }
+        .field input,
+        .field textarea,
+        .field select {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(10,22,40,0.65);
+            border: 1px solid rgba(201,168,76,0.18);
+            border-radius: var(--radius-sm);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            transition: all 0.25s ease;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .field input:hover,
+        .field textarea:hover,
+        .field select:hover {
+            border-color: rgba(201,168,76,0.3);
+        }
+        .field input:focus,
+        .field textarea:focus,
+        .field select:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 4px rgba(201,168,76,0.10);
+            background: rgba(10,22,40,0.85);
+        }
+        .field input::placeholder,
+        .field textarea::placeholder {
+            color: rgba(192,200,212,0.35);
+        }
+        .field textarea {
+            resize: vertical;
+            min-height: 76px;
+            line-height: 1.5;
+        }
+        .field-with-icon {
+            position: relative;
+        }
+        .field-with-icon input {
+            padding-left: 44px;
+        }
+        .field-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--silver-mid);
+            width: 18px; height: 18px;
+            pointer-events: none;
+        }
+
+        /* ===== AMOUNT INPUT (hero field) ===== */
+        .amount-block {
+            background: rgba(10,22,40,0.5);
+            border: 1px solid rgba(201,168,76,0.20);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+        .amount-block .field label { margin-bottom: 12px; }
+        .amount-wrapper { position: relative; }
+        .amount-wrapper .currency {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: 'Playfair Display', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+        .amount-wrapper input {
+            padding: 18px 16px 18px 44px !important;
+            font-family: 'Playfair Display', serif !important;
+            font-size: 1.9rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.5px !important;
+            background: rgba(10,22,40,0.9) !important;
+            border: 1px solid rgba(201,168,76,0.25) !important;
+        }
+        .amount-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 12px;
+            font-size: 0.78rem;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .amount-hint {
+            color: var(--silver-mid);
+        }
+        .amount-usd {
+            color: var(--gold-light);
+            font-weight: 500;
+            opacity: 0.85;
+        }
+        .amount-usd .usd-value { color: var(--white); font-weight: 700; margin-left: 4px; }
+
+        /* ===== QUICK AMOUNT CHIPS ===== */
+        .chips {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-top: 14px;
+        }
+        .chip {
+            padding: 8px 14px;
+            background: rgba(10,22,40,0.7);
+            border: 1px solid rgba(201,168,76,0.15);
+            border-radius: 999px;
+            color: var(--silver);
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .chip:hover {
+            border-color: rgba(201,168,76,0.4);
+            color: var(--gold-light);
+            background: rgba(201,168,76,0.06);
+            transform: translateY(-1px);
+        }
+        .chip:active { transform: translateY(0); }
+
+        /* ===== PAYMENT METHODS ===== */
+        .methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .method {
+            position: relative;
+            padding: 18px 16px;
+            border: 1.5px solid rgba(201,168,76,0.15);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(10,22,40,0.5);
+            display: flex; flex-direction: column;
+            gap: 10px;
+            overflow: hidden;
+            text-align: left;
+        }
+        .method::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(201,168,76,0.08) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .method:hover {
+            border-color: rgba(201,168,76,0.4);
+            background: rgba(10,22,40,0.7);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        }
+        .method:hover::before { opacity: 1; }
+        .method.selected {
+            border-color: var(--gold);
+            background: rgba(201,168,76,0.08);
+            box-shadow: 0 0 0 4px rgba(201,168,76,0.10), 0 12px 32px rgba(0,0,0,0.3);
+        }
+        .method.selected::before { opacity: 1; }
+        .method-check {
+            position: absolute;
+            top: 12px; right: 12px;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(201,168,76,0.3);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .method.selected .method-check {
+            background: var(--gold);
+            border-color: var(--gold);
+            box-shadow: 0 0 14px rgba(201,168,76,0.5);
+        }
+        .method-check svg {
+            width: 12px; height: 12px;
+            color: var(--navy-dark);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .method.selected .method-check svg { opacity: 1; }
+        .method-top {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .method-logo {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.05);
+            flex-shrink: 0;
+        }
+        .method-logo svg { width: 28px; height: 28px; }
+        .method-body { flex: 1; min-width: 0; padding-right: 26px; }
+        .method-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1.15;
+        }
+        .method-tagline {
+            font-size: 0.75rem;
+            color: var(--silver-mid);
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+        .method.selected .method-tagline { color: var(--silver); }
+        .method-tags {
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .method-tag {
+            font-size: 0.66rem;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(74,144,217,0.10);
+            color: var(--blue-light);
+            border: 1px solid rgba(74,144,217,0.20);
+            white-space: nowrap;
+        }
+        .method-tag.gold {
+            background: rgba(201,168,76,0.10);
+            color: var(--gold-light);
+            border-color: rgba(201,168,76,0.25);
+        }
+        .method-tag.success {
+            background: rgba(46,204,113,0.08);
+            color: var(--success-light);
+            border-color: rgba(46,204,113,0.20);
+        }
+
+        /* ===== SEPARATOR ===== */
+        .sep {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 26px 0 18px;
+        }
+        .sep::before, .sep::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(201,168,76,0.25), transparent);
+        }
+        .sep span {
+            font-size: 0.72rem;
+            color: var(--gold);
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        /* ===== BANK TRANSFER PANEL ===== */
+        .bank-info {
+            display: none;
+            background: rgba(10,22,40,0.5);
+            border: 1px solid rgba(201,168,76,0.18);
+            border-radius: var(--radius-md);
+            padding: 22px;
+            margin-top: 16px;
+            animation: fadeUp 0.4s ease;
+        }
+        .bank-info.visible { display: block; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .bank-info h4 {
+            font-family: 'Playfair Display', serif;
+            color: var(--gold-light);
+            margin-bottom: 14px;
+            font-size: 1.05rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .bank-info h4 svg { width: 18px; height: 18px; }
+        .bank-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(201,168,76,0.08);
+            font-size: 0.85rem;
+        }
+        .bank-row:last-of-type { border-bottom: none; }
+        .bank-label { color: var(--silver-mid); }
+        .bank-value {
+            color: var(--white);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+        }
+        .bank-copy {
+            background: rgba(201,168,76,0.10);
+            border: 1px solid rgba(201,168,76,0.25);
+            color: var(--gold-light);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .bank-copy:hover {
+            background: rgba(201,168,76,0.20);
+            color: var(--white);
+        }
+        .bank-copy.copied {
+            background: rgba(46,204,113,0.15);
+            border-color: rgba(46,204,113,0.35);
+            color: var(--success-light);
+        }
+        .bank-copy svg { width: 12px; height: 12px; }
+        .bank-note {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(201,168,76,0.07);
+            border-left: 3px solid var(--gold);
+            border-radius: 0 8px 8px 0;
+            font-size: 0.82rem;
+            color: var(--silver);
+            line-height: 1.55;
+        }
+        .bank-note strong { color: var(--gold-light); }
+        .bank-note.blue {
+            background: rgba(74,144,217,0.07);
+            border-color: var(--blue);
+            margin-top: 10px;
+        }
+        .bank-note.blue strong { color: var(--blue-light); }
+
+        /* ===== STATUS MESSAGE ===== */
+        .status-message {
+            display: none;
+            padding: 14px 18px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 18px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            border: 1px solid transparent;
+            animation: fadeUp 0.3s ease;
+        }
+        .status-message.success {
+            display: flex; gap: 10px; align-items: flex-start;
+            background: rgba(46,204,113,0.10);
+            border-color: rgba(46,204,113,0.30);
+            color: var(--success-light);
+        }
+        .status-message.error {
+            display: flex; gap: 10px; align-items: flex-start;
+            background: rgba(231,76,60,0.10);
+            border-color: rgba(231,76,60,0.30);
+            color: var(--error-light);
+        }
+        .status-message.info {
+            display: flex; gap: 10px; align-items: flex-start;
+            background: rgba(74,144,217,0.10);
+            border-color: rgba(74,144,217,0.30);
+            color: var(--blue-light);
+        }
+
+        /* ===== PAY BUTTON ===== */
+        .pay-btn {
+            width: 100%;
+            padding: 17px 20px;
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-light) 100%);
+            color: var(--navy-dark);
+            border: none;
+            border-radius: var(--radius-md);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(201,168,76,0.2);
+        }
+        .pay-btn::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        .pay-btn:hover:not(:disabled)::before { transform: translateX(100%); }
+        .pay-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 36px rgba(201,168,76,0.35);
+        }
+        .pay-btn:active:not(:disabled) {
+            transform: translateY(0);
+            box-shadow: 0 6px 18px rgba(201,168,76,0.25);
+        }
+        .pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .pay-btn .btn-content {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            position: relative;
+        }
+        .pay-btn svg { width: 18px; height: 18px; }
+        .pay-btn .spinner {
+            display: none;
+            width: 20px; height: 20px;
+            border: 2.5px solid rgba(10,22,40,0.25);
+            border-top-color: var(--navy-dark);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        .pay-btn.loading .spinner { display: inline-block; }
+        .pay-btn.loading .btn-text,
+        .pay-btn.loading .btn-icon { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== SECURITY MICRO ===== */
+        .security-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+            font-size: 0.78rem;
+            color: var(--silver-mid);
+        }
+        .security-row svg { width: 14px; height: 14px; color: var(--gold); }
+
+        /* ===== ORDER SUMMARY (right column) ===== */
+        .summary-col {
+            position: sticky;
+            top: 24px;
+        }
+        .summary {
+            background: linear-gradient(165deg, rgba(22,45,80,0.95) 0%, rgba(10,22,40,0.95) 100%);
+            border: 1px solid rgba(201,168,76,0.18);
+            border-radius: var(--radius-lg);
+            padding: 26px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .summary::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
             background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light), var(--gold));
         }
-
-        .card-title {
+        .summary::after {
+            content: '';
+            position: absolute;
+            top: -40px; right: -40px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(201,168,76,0.10) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .summary-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 22px;
+            position: relative;
+            z-index: 1;
+        }
+        .summary-title {
             font-family: 'Playfair Display', serif;
-            font-size: 1.5rem;
-            text-align: center;
-            margin-bottom: 6px;
-            color: var(--white);
-        }
-
-        .card-subtitle {
-            text-align: center;
-            font-size: 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 600;
             color: var(--silver);
-            margin-bottom: 28px;
-            opacity: 0.7;
-        }
-
-        /* Form styles */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--gold-light);
-            margin-bottom: 7px;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
         }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(10,22,40,0.6);
-            border: 1px solid rgba(201,168,76,0.2);
-            border-radius: 10px;
-            color: var(--white);
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
-            outline: none;
+        .summary-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.68rem;
+            color: var(--success-light);
+            background: rgba(46,204,113,0.10);
+            border: 1px solid rgba(46,204,113,0.25);
+            padding: 4px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-weight: 600;
         }
-
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
-            background: rgba(10,22,40,0.8);
-        }
-
-        .form-group input::placeholder,
-        .form-group textarea::placeholder {
-            color: rgba(192,200,212,0.4);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 70px;
-        }
-
-        .form-group select option {
-            background: var(--navy);
-            color: var(--white);
-        }
-
-        /* Amount input special styling */
-        .amount-wrapper {
+        .summary-badge svg { width: 10px; height: 10px; }
+        .summary-amount-block {
+            text-align: center;
+            padding: 18px 0;
+            border-bottom: 1px dashed rgba(201,168,76,0.18);
+            margin-bottom: 18px;
             position: relative;
+            z-index: 1;
         }
-
-        .amount-wrapper .currency-symbol {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--gold);
-        }
-
-        .amount-wrapper input {
-            padding-left: 32px;
-            font-size: 1.4rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        .amount-hint {
-            font-size: 0.75rem;
-            color: var(--silver);
-            opacity: 0.5;
-            margin-top: 5px;
-        }
-
-        /* Two columns */
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-        }
-
-        /* Separator */
-        .separator {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            margin: 28px 0;
-        }
-
-        .separator::before,
-        .separator::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(201,168,76,0.2), transparent);
-        }
-
-        .separator span {
-            font-size: 0.75rem;
-            color: var(--gold);
+        .summary-amount-label {
+            font-size: 0.7rem;
             letter-spacing: 2px;
             text-transform: uppercase;
-            white-space: nowrap;
+            color: var(--silver-mid);
+            margin-bottom: 8px;
         }
-
-        /* Payment methods */
-        .payment-methods {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 24px;
+        .summary-amount {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.4rem;
+            font-weight: 800;
+            line-height: 1.05;
+            background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+            word-break: break-all;
         }
-
-        .payment-method {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            padding: 18px 12px;
-            border: 1px solid rgba(201,168,76,0.15);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(10,22,40,0.4);
-            position: relative;
+        .summary-amount-currency {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--silver-mid);
+            margin-left: 4px;
+            -webkit-text-fill-color: var(--silver-mid);
         }
-
-        .payment-method:hover {
-            border-color: rgba(201,168,76,0.4);
-            background: rgba(10,22,40,0.6);
-            transform: translateY(-2px);
-        }
-
-        .payment-method.selected {
-            border-color: var(--gold);
-            background: rgba(201,168,76,0.08);
-            box-shadow: 0 0 20px rgba(201,168,76,0.1);
-        }
-
-        .payment-method.selected::after {
-            content: '';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 8px;
-            height: 8px;
-            background: var(--gold);
-            border-radius: 50%;
-            box-shadow: 0 0 6px var(--gold);
-        }
-
-        .payment-method-icon {
-            font-size: 1.8rem;
-            line-height: 1;
-        }
-
-        .payment-method-name {
+        .summary-usd {
             font-size: 0.78rem;
-            font-weight: 500;
-            color: var(--silver);
-            text-align: center;
+            color: var(--silver-mid);
+            margin-top: 6px;
         }
+        .summary-usd .usd-amt { color: var(--gold-light); font-weight: 600; }
+        .summary-list {
+            position: relative;
+            z-index: 1;
+        }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 14px;
+            padding: 10px 0;
+            font-size: 0.85rem;
+        }
+        .summary-row + .summary-row { border-top: 1px solid rgba(201,168,76,0.06); }
+        .summary-row .label {
+            color: var(--silver-mid);
+            flex-shrink: 0;
+            font-size: 0.78rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .summary-row .value {
+            color: var(--white);
+            font-weight: 600;
+            text-align: right;
+            word-break: break-word;
+            max-width: 60%;
+        }
+        .summary-row .value.muted {
+            color: var(--silver-mid);
+            font-weight: 400;
+            font-style: italic;
+        }
+        .summary-row .value-method {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .summary-row .value-method svg { width: 14px; height: 14px; color: var(--gold-light); }
 
-        .payment-method.selected .payment-method-name {
+        /* ===== TRUST PANEL ===== */
+        .trust-panel {
+            margin-top: 16px;
+            padding: 18px;
+            border: 1px solid rgba(201,168,76,0.12);
+            border-radius: var(--radius-md);
+            background: rgba(10,22,40,0.55);
+        }
+        .trust-panel-title {
+            font-size: 0.72rem;
             color: var(--gold-light);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            text-align: center;
+            font-weight: 600;
         }
+        .trust-features {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .trust-feature {
+            display: flex; align-items: flex-start; gap: 10px;
+            font-size: 0.82rem;
+            color: var(--silver);
+            line-height: 1.4;
+        }
+        .trust-feature-icon {
+            width: 28px; height: 28px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(46,204,113,0.15), rgba(46,204,113,0.05));
+            border: 1px solid rgba(46,204,113,0.25);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--success-light);
+        }
+        .trust-feature-icon svg { width: 14px; height: 14px; }
+        .trust-feature strong { color: var(--white); display: block; font-size: 0.85rem; }
 
-        /* Pay button */
-        .pay-btn {
-            width: 100%;
-            padding: 16px;
+        /* ===== TRUST BADGES STRIP (under summary) ===== */
+        .badges-strip {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px 14px;
+            opacity: 0.75;
+        }
+        .badge-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.7rem;
+            color: var(--silver-mid);
+            padding: 6px 10px;
+            border: 1px solid rgba(201,168,76,0.10);
+            background: rgba(10,22,40,0.5);
+            border-radius: 999px;
+            letter-spacing: 0.3px;
+        }
+        .badge-chip svg { width: 12px; height: 12px; color: var(--gold); }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            margin-top: 50px;
+            padding: 24px 24px 0;
+            text-align: center;
+            font-size: 0.78rem;
+            color: var(--silver-mid);
+            line-height: 1.7;
+            border-top: 1px solid rgba(201,168,76,0.08);
+        }
+        .footer a {
+            color: var(--gold-light);
+            text-decoration: none;
+            opacity: 0.85;
+            transition: opacity 0.2s ease;
+        }
+        .footer a:hover { opacity: 1; }
+        .footer-row { margin-bottom: 4px; }
+
+        /* ===== MOBILE STICKY CTA ===== */
+        .mobile-cta {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+            background: linear-gradient(180deg, rgba(10,22,40,0.6) 0%, var(--navy-darker) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(201,168,76,0.15);
+            z-index: 50;
+        }
+        .mobile-cta-inner {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+        .mobile-cta-amount {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--gold-light);
+            line-height: 1.1;
+        }
+        .mobile-cta-amount small {
+            display: block;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.62rem;
+            color: var(--silver-mid);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        .mobile-cta-btn {
+            padding: 12px 22px;
             background: linear-gradient(135deg, var(--gold-dark), var(--gold), var(--gold-light));
             color: var(--navy-dark);
             border: none;
-            border-radius: 12px;
-            font-family: 'Inter', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
+            border-radius: 10px;
+            font-weight: 800;
+            font-size: 0.78rem;
             letter-spacing: 1px;
             text-transform: uppercase;
             cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
         }
 
-        .pay-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(201,168,76,0.3);
-        }
-
-        .pay-btn:active:not(:disabled) {
-            transform: translateY(0);
-        }
-
-        .pay-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .pay-btn .btn-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .pay-btn .spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(10,22,40,0.3);
-            border-top-color: var(--navy-dark);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .pay-btn.loading .spinner { display: inline-block; }
-        .pay-btn.loading .btn-text { display: none; }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Security badge */
-        .security-badge {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-top: 16px;
-            font-size: 0.75rem;
-            color: var(--silver);
-            opacity: 0.5;
-        }
-
-        .security-badge svg {
-            width: 14px;
-            height: 14px;
-            fill: currentColor;
-        }
-
-        /* Bank transfer info */
-        .bank-info {
-            display: none;
-            background: rgba(10,22,40,0.5);
-            border: 1px solid rgba(201,168,76,0.15);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .bank-info.visible { display: block; }
-
-        .bank-info h4 {
-            font-family: 'Playfair Display', serif;
-            color: var(--gold-light);
-            margin-bottom: 12px;
-            font-size: 1rem;
-        }
-
-        .bank-info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(201,168,76,0.08);
-            font-size: 0.85rem;
-        }
-
-        .bank-info-row:last-child { border: none; }
-        .bank-info-label { color: var(--silver); opacity: 0.7; }
-        .bank-info-value { color: var(--white); font-weight: 500; }
-
-        .bank-info-note {
-            margin-top: 12px;
-            padding: 10px 14px;
-            background: rgba(201,168,76,0.06);
-            border-left: 3px solid var(--gold);
-            border-radius: 0 8px 8px 0;
-            font-size: 0.8rem;
-            color: var(--silver);
-            line-height: 1.5;
-        }
-
-        /* Status messages */
-        .status-message {
-            display: none;
-            padding: 14px 18px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 0.88rem;
-            line-height: 1.5;
-        }
-
-        .status-message.success {
-            display: block;
-            background: rgba(46,204,113,0.1);
-            border: 1px solid rgba(46,204,113,0.3);
-            color: #7dffb5;
-        }
-
-        .status-message.error {
-            display: block;
-            background: rgba(231,76,60,0.1);
-            border: 1px solid rgba(231,76,60,0.3);
-            color: #ff9090;
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--silver);
-            opacity: 0.4;
-            line-height: 1.6;
-        }
-
-        .footer a {
-            color: var(--gold);
-            text-decoration: none;
-            opacity: 0.8;
-        }
-
-        .footer a:hover { opacity: 1; }
-
-        /* Responsive */
-        @media (max-width: 600px) {
-            .container { padding: 20px 16px 40px; }
-            .payment-card { padding: 28px 20px; border-radius: 16px; }
-            .logo-text { font-size: 1.7rem; }
-            .logo-container img { width: 46px; height: 46px; }
-            .card-title { font-size: 1.3rem; }
-            .form-row { grid-template-columns: 1fr; }
-            .payment-methods { grid-template-columns: 1fr 1fr; gap: 10px; }
-            .amount-wrapper input { font-size: 1.2rem; }
-        }
-
-        /* --- PayPal Smart Buttons Container --- */
+        /* ===== PAYPAL ===== */
         #paypal-button-container {
             display: none;
             margin-top: 16px;
             margin-bottom: 8px;
             min-height: 55px;
         }
-
-        /* --- PayPal Loading Spinner --- */
         .paypal-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px 0;
-            gap: 12px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 28px 0;
+            gap: 14px;
+            background: rgba(255,255,255,0.97);
+            border-radius: var(--radius-md);
         }
-
         .paypal-loading .paypal-spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid #e0e0e0;
+            width: 36px; height: 36px;
+            border: 3px solid #e3e3e3;
             border-top-color: #0070ba;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-
         .paypal-loading .paypal-loading-text {
-            font-size: 14px;
-            color: #666;
-            font-weight: 500;
+            font-size: 14px; color: #555; font-weight: 500;
         }
 
-        /* Anchor icon for yacht feel */
-        .yacht-icon {
-            display: block;
-            margin: 0 auto 8px;
-            opacity: 0.12;
-            width: 40px;
-            height: 40px;
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .layout { grid-template-columns: 1fr; }
+            .summary-col { position: static; }
+        }
+        @media (max-width: 720px) {
+            .topbar { padding: 14px 18px; }
+            .brand img { width: 36px; height: 36px; }
+            .brand-text { font-size: 1.15rem; letter-spacing: 1.5px; }
+            .brand-sub { font-size: 0.6rem; letter-spacing: 2px; }
+            .top-actions .label-desktop { display: none; }
+            .top-actions a { padding: 7px 10px; }
+            .page { padding: 24px 16px 130px; }
+            .page-title { font-size: 1.85rem; }
+            .page-subtitle { font-size: 0.92rem; }
+            .panel { padding: 22px 18px; border-radius: 16px; }
+            .panel-head { gap: 10px; margin-bottom: 18px; }
+            .panel-head-title { font-size: 1.05rem; }
+            .panel-head-sub { font-size: 0.75rem; }
+            .form-row { grid-template-columns: 1fr; gap: 12px; }
+            .methods { grid-template-columns: 1fr; gap: 10px; }
+            .method { padding: 14px; }
+            .method-logo { width: 38px; height: 38px; }
+            .method-logo svg { width: 22px; height: 22px; }
+            .amount-block { padding: 16px; }
+            .amount-wrapper input {
+                padding: 14px 14px 14px 38px !important;
+                font-size: 1.5rem !important;
+            }
+            .amount-wrapper .currency { left: 14px; font-size: 1.3rem; }
+            .summary { padding: 22px 18px; }
+            .summary-amount { font-size: 2rem; }
+            .stepper { gap: 4px; }
+            .step { padding: 6px 10px; font-size: 0.7rem; }
+            .step-sep { width: 14px; }
+            .step .step-label { display: none; }
+            .mobile-cta { display: block; }
+            .page-eyebrow { font-size: 0.65rem; padding: 5px 12px; letter-spacing: 2px; }
+        }
+        @media (max-width: 420px) {
+            .topbar { padding: 12px 14px; }
+            .top-actions .phone-btn { display: none; }
+            .panel { padding: 18px 16px; }
+            .panel-head-icon { width: 32px; height: 32px; }
+            .summary-amount { font-size: 1.7rem; }
+        }
+
+        /* ===== ACCESSIBILITY ===== */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+        :focus-visible {
+            outline: 2px solid var(--gold);
+            outline-offset: 2px;
         }
     </style>
 </head>
 <body>
-    <div class="ocean-bg">
+    <div class="ocean-bg" aria-hidden="true">
         <div class="wave"></div>
         <div class="wave"></div>
     </div>
 
-    <div class="container">
-        <header class="header">
-            <div class="logo-container">
-                <img src="/images/imporlan-logo-square.png" alt="Imporlan" onerror="this.style.display='none'">
-                <div class="logo-text">
-                    <span class="impor">IMPOR</span><span class="lan">LAN</span>
-                </div>
+    <header class="topbar">
+        <a href="/" class="brand" aria-label="Imporlan inicio">
+            <img src="/images/imporlan-logo-square.png" alt="" onerror="this.style.display='none'">
+            <div>
+                <div class="brand-text"><span class="impor">IMPOR</span><span class="lan">LAN</span></div>
+                <div class="brand-sub">Embarcaciones de Lujo</div>
             </div>
-            <div class="header-tagline">Embarcaciones de Lujo</div>
-            <div class="header-divider"></div>
-        </header>
+        </a>
+        <div class="top-actions">
+            <a href="tel:+56940211459" class="phone-btn" aria-label="Llamar a Imporlan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span class="label-desktop">+56 9 4021 1459</span>
+            </a>
+            <a href="https://wa.me/56940211459?text=Hola%20Imporlan%2C%20tengo%20una%20duda%20sobre%20el%20pago" class="wa-btn" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.2-1.4-.8-.7-1.4-1.6-1.5-1.9-.2-.3 0-.4.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.7-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4 0 1.4 1 2.8 1.2 3 .1.2 2 3.1 4.8 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3zM12 22a10 10 0 0 1-5.1-1.4L2 22l1.4-4.8A10 10 0 1 1 12 22z"/></svg>
+                <span class="label-desktop">WhatsApp</span>
+            </a>
+        </div>
+    </header>
 
-        <div class="payment-card">
-            <svg class="yacht-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 18h18v2H3v-2zm18.51-3.52l-6.35-6.36C14.79 7.75 14.3 7.5 13.77 7.5h-3.54c-.53 0-1.02.25-1.39.62L2.49 14.48c-.56.56-.56 1.47 0 2.03l.01.01c.28.28.65.43 1.02.43h17.97c.37 0 .73-.15 1.01-.43l.01-.01c.56-.56.56-1.47 0-2.03zM12 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
-            </svg>
-            <h2 class="card-title">Pago Seguro</h2>
-            <p class="card-subtitle">Complete los datos para procesar su pago</p>
+    <main class="page">
+        <div class="page-header">
+            <span class="page-eyebrow">Portal de Pago Imporlan</span>
+            <h1 class="page-title">Realiza tu pago de forma segura</h1>
+            <p class="page-subtitle">Procesamos tu pago con tecnología bancaria líder. Cifrado SSL de 256 bits, sin almacenar tus datos de tarjeta.</p>
+            <nav class="stepper" aria-label="Pasos del pago">
+                <span class="step active" id="step1">
+                    <span class="step-num">1</span>
+                    <span class="step-label">Datos del pago</span>
+                </span>
+                <span class="step-sep"></span>
+                <span class="step" id="step2">
+                    <span class="step-num">2</span>
+                    <span class="step-label">Método</span>
+                </span>
+                <span class="step-sep"></span>
+                <span class="step" id="step3">
+                    <span class="step-num">3</span>
+                    <span class="step-label">Confirmación</span>
+                </span>
+            </nav>
+        </div>
 
-            <div id="statusMessage" class="status-message"></div>
+        <div class="layout">
+            <!-- ============ LEFT: FORM ============ -->
+            <div class="form-col">
+                <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
 
-            <form id="paymentForm" onsubmit="return false;">
-                <!-- Amount -->
-                <div class="form-group">
-                    <label>Monto a Pagar (CLP)</label>
-                    <div class="amount-wrapper">
-                        <span class="currency-symbol">$</span>
-                        <input type="text" id="amount" inputmode="numeric" placeholder="0" required autocomplete="off">
-                    </div>
-                    <div class="amount-hint">Ingrese el monto en pesos chilenos</div>
-                </div>
-
-                <!-- Description -->
-                <div class="form-group">
-                    <label>Concepto / Descripcion</label>
-                    <textarea id="description" placeholder="Ej: Cotizacion importacion lancha, Pago plan de busqueda..." required></textarea>
-                </div>
-
-                <!-- Customer info -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Nombre</label>
-                        <input type="text" id="payerName" placeholder="Su nombre completo" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="payerEmail" placeholder="correo@email.com" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Telefono (opcional)</label>
-                    <input type="tel" id="payerPhone" placeholder="+56 9 XXXX XXXX">
-                </div>
-
-                <div class="separator">
-                    <span>Metodo de Pago</span>
-                </div>
-
-                <!-- Payment method selection -->
-                <div class="payment-methods">
-                    <div class="payment-method selected" data-method="webpay" onclick="selectMethod(this)">
-                        <div class="payment-method-icon">
-                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="4" y="8" width="28" height="20" rx="3" stroke="#c9a84c" stroke-width="1.5"/><rect x="4" y="13" width="28" height="4" fill="rgba(201,168,76,0.3)"/><rect x="8" y="21" width="8" height="2" rx="1" fill="rgba(201,168,76,0.5)"/></svg>
+                <form id="paymentForm" onsubmit="return false;" novalidate>
+                    <!-- Panel 1: Monto + Concepto -->
+                    <section class="panel" aria-labelledby="panel-monto-title">
+                        <div class="panel-head">
+                            <div class="panel-head-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            </div>
+                            <div class="panel-head-text">
+                                <h2 class="panel-head-title" id="panel-monto-title">Monto y concepto</h2>
+                                <div class="panel-head-sub">Indica cuánto vas a pagar y por qué servicio</div>
+                            </div>
                         </div>
-                        <div class="payment-method-name">WebPay<br><small style="opacity:0.6">Debito / Credito</small></div>
-                    </div>
-                    <div class="payment-method" data-method="mercadopago" onclick="selectMethod(this)">
-                        <div class="payment-method-icon">
-                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="12" stroke="#4a90d9" stroke-width="1.5"/><path d="M12 18c0-3.31 2.69-6 6-6s6 2.69 6 6" stroke="#4a90d9" stroke-width="1.5" stroke-linecap="round"/><circle cx="18" cy="20" r="2" fill="rgba(74,144,217,0.5)"/></svg>
+
+                        <div class="amount-block">
+                            <div class="field">
+                                <label for="amount">Monto a pagar <span class="opt">(pesos chilenos)</span></label>
+                                <div class="amount-wrapper">
+                                    <span class="currency">$</span>
+                                    <input type="text" id="amount" inputmode="numeric" placeholder="0" required autocomplete="off" aria-describedby="amountHint">
+                                </div>
+                                <div class="amount-meta">
+                                    <span class="amount-hint" id="amountHint">Mínimo $100 CLP</span>
+                                    <span class="amount-usd" id="amountUsd" hidden>≈ USD <span class="usd-value" id="amountUsdValue">0.00</span></span>
+                                </div>
+                                <div class="chips" role="group" aria-label="Montos rápidos">
+                                    <button type="button" class="chip" data-amount="50000">$50.000</button>
+                                    <button type="button" class="chip" data-amount="100000">$100.000</button>
+                                    <button type="button" class="chip" data-amount="250000">$250.000</button>
+                                    <button type="button" class="chip" data-amount="500000">$500.000</button>
+                                    <button type="button" class="chip" data-amount="1000000">$1.000.000</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="payment-method-name">MercadoPago<br><small style="opacity:0.6">Multiples medios</small></div>
-                    </div>
-                    <div class="payment-method" data-method="paypal" onclick="selectMethod(this)">
-                        <div class="payment-method-icon">
-                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M13 28l2-12h5c4 0 7 2 6.5 6S22 28 18 28h-5z" stroke="#4a90d9" stroke-width="1.5" fill="rgba(74,144,217,0.1)"/><path d="M15 24l1.5-8h4c3 0 5 1.5 4.5 4.5S21.5 24 18.5 24H15z" stroke="#c9a84c" stroke-width="1.5" fill="rgba(201,168,76,0.1)"/></svg>
+
+                        <div class="field" style="margin-top:18px;">
+                            <label for="description">Concepto / Descripción</label>
+                            <textarea id="description" placeholder="Ej: Cotización importación lancha, Pago plan de búsqueda, Anticipo de servicio..." required></textarea>
                         </div>
-                        <div class="payment-method-name">Tarjeta / PayPal<br><small style="opacity:0.6">Internacional</small></div>
-                    </div>
-                    <div class="payment-method" data-method="transfer" onclick="selectMethod(this)">
-                        <div class="payment-method-icon">
-                            <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect x="6" y="10" width="24" height="16" rx="2" stroke="#c9a84c" stroke-width="1.5"/><path d="M6 15h24M11 20h6M11 23h4" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg>
+                    </section>
+
+                    <!-- Panel 2: Datos del pagador -->
+                    <section class="panel" aria-labelledby="panel-datos-title">
+                        <div class="panel-head">
+                            <div class="panel-head-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                            <div class="panel-head-text">
+                                <h2 class="panel-head-title" id="panel-datos-title">Tus datos</h2>
+                                <div class="panel-head-sub">Para enviarte el comprobante y confirmar tu pago</div>
+                            </div>
                         </div>
-                        <div class="payment-method-name">Transferencia<br><small style="opacity:0.6">Bancaria</small></div>
+
+                        <div class="form-grid">
+                            <div class="form-row">
+                                <div class="field">
+                                    <label for="payerName">Nombre completo</label>
+                                    <div class="field-with-icon">
+                                        <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <input type="text" id="payerName" placeholder="Tu nombre completo" required autocomplete="name">
+                                    </div>
+                                </div>
+                                <div class="field">
+                                    <label for="payerEmail">Email</label>
+                                    <div class="field-with-icon">
+                                        <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                        <input type="email" id="payerEmail" placeholder="correo@email.com" required autocomplete="email">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="payerPhone">Teléfono <span class="opt">opcional</span></label>
+                                <div class="field-with-icon">
+                                    <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                    <input type="tel" id="payerPhone" placeholder="+56 9 XXXX XXXX" autocomplete="tel">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Panel 3: Método de pago -->
+                    <section class="panel" aria-labelledby="panel-metodo-title">
+                        <div class="panel-head">
+                            <div class="panel-head-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                            </div>
+                            <div class="panel-head-text">
+                                <h2 class="panel-head-title" id="panel-metodo-title">Elige tu método de pago</h2>
+                                <div class="panel-head-sub">Todas las opciones son 100% seguras</div>
+                            </div>
+                        </div>
+
+                        <div class="methods" role="radiogroup" aria-label="Método de pago">
+                            <!-- WebPay -->
+                            <div class="method selected" data-method="webpay" onclick="selectMethod(this)" role="radio" aria-checked="true" tabindex="0">
+                                <div class="method-check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                                </div>
+                                <div class="method-top">
+                                    <div class="method-logo">
+                                        <svg viewBox="0 0 32 32" fill="none">
+                                            <rect x="3" y="7" width="26" height="18" rx="3" fill="#fff"/>
+                                            <rect x="3" y="11" width="26" height="4" fill="#e30613"/>
+                                            <rect x="6" y="19" width="6" height="2" rx="1" fill="#0f2140"/>
+                                            <rect x="14" y="19" width="3" height="2" rx="1" fill="#0f2140"/>
+                                        </svg>
+                                    </div>
+                                    <div class="method-body">
+                                        <div class="method-name">WebPay Plus</div>
+                                        <div class="method-tagline">Débito y crédito · Cuotas</div>
+                                    </div>
+                                </div>
+                                <div class="method-tags">
+                                    <span class="method-tag gold">Transbank</span>
+                                    <span class="method-tag">3D Secure</span>
+                                </div>
+                            </div>
+
+                            <!-- MercadoPago -->
+                            <div class="method" data-method="mercadopago" onclick="selectMethod(this)" role="radio" aria-checked="false" tabindex="0">
+                                <div class="method-check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                                </div>
+                                <div class="method-top">
+                                    <div class="method-logo">
+                                        <svg viewBox="0 0 32 32" fill="none">
+                                            <ellipse cx="16" cy="16" rx="12" ry="9" fill="#009ee3"/>
+                                            <path d="M8 17c2-3 5-5 8-5s6 2 8 5" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+                                            <circle cx="16" cy="17" r="2" fill="#fff"/>
+                                        </svg>
+                                    </div>
+                                    <div class="method-body">
+                                        <div class="method-name">Mercado Pago</div>
+                                        <div class="method-tagline">Tarjetas, cuotas, Khipu</div>
+                                    </div>
+                                </div>
+                                <div class="method-tags">
+                                    <span class="method-tag">Multimedio</span>
+                                    <span class="method-tag success">Hasta 12 cuotas</span>
+                                </div>
+                            </div>
+
+                            <!-- PayPal / Tarjeta Internacional -->
+                            <div class="method" data-method="paypal" onclick="selectMethod(this)" role="radio" aria-checked="false" tabindex="0">
+                                <div class="method-check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                                </div>
+                                <div class="method-top">
+                                    <div class="method-logo">
+                                        <svg viewBox="0 0 32 32" fill="none">
+                                            <path d="M11 25l1.8-11.5h5C22 13.5 24.5 16 24 19.5S20.5 25 16.5 25H11z" fill="#003087"/>
+                                            <path d="M13 22l1.5-9.5h4c3 0 5 1.5 4.5 4.5S20.5 22 17.5 22H13z" fill="#0070ba"/>
+                                            <path d="M15 19l1-6.5h3c2 0 3 1 2.7 3S20 19 18 19h-3z" fill="#009cde"/>
+                                        </svg>
+                                    </div>
+                                    <div class="method-body">
+                                        <div class="method-name">Tarjeta Internacional</div>
+                                        <div class="method-tagline">USD · Sin necesidad de PayPal</div>
+                                    </div>
+                                </div>
+                                <div class="method-tags">
+                                    <span class="method-tag">Visa</span>
+                                    <span class="method-tag">Mastercard</span>
+                                    <span class="method-tag gold">Amex</span>
+                                </div>
+                            </div>
+
+                            <!-- Transferencia -->
+                            <div class="method" data-method="transfer" onclick="selectMethod(this)" role="radio" aria-checked="false" tabindex="0">
+                                <div class="method-check">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                                </div>
+                                <div class="method-top">
+                                    <div class="method-logo">
+                                        <svg viewBox="0 0 32 32" fill="none">
+                                            <rect x="5" y="9" width="22" height="14" rx="2" fill="#fff"/>
+                                            <rect x="5" y="13" width="22" height="3" fill="#c9a84c"/>
+                                            <path d="M5 9l11-5 11 5" stroke="#c9a84c" stroke-width="2" fill="none"/>
+                                            <rect x="8" y="18" width="3" height="3" fill="#0f2140"/>
+                                            <rect x="13" y="18" width="3" height="3" fill="#0f2140"/>
+                                            <rect x="18" y="18" width="3" height="3" fill="#0f2140"/>
+                                        </svg>
+                                    </div>
+                                    <div class="method-body">
+                                        <div class="method-name">Transferencia</div>
+                                        <div class="method-tagline">Banco Santander · CLP/USD</div>
+                                    </div>
+                                </div>
+                                <div class="method-tags">
+                                    <span class="method-tag success">Sin comisiones</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bank transfer info panel -->
+                        <div id="bankInfo" class="bank-info" aria-live="polite">
+                            <h4>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
+                                Datos para transferencia
+                            </h4>
+                            <div class="bank-row">
+                                <span class="bank-label">Banco</span>
+                                <span class="bank-value">Banco Santander</span>
+                                <span></span>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Cuenta Corriente (CLP)</span>
+                                <span class="bank-value" data-copy="74233813">74233813</span>
+                                <button type="button" class="bank-copy" data-copy-target="74233813" aria-label="Copiar cuenta CLP">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Cuenta Corriente (USD)</span>
+                                <span class="bank-value" data-copy="5100369305">5100369305</span>
+                                <button type="button" class="bank-copy" data-copy-target="5100369305" aria-label="Copiar cuenta USD">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Código SWIFT</span>
+                                <span class="bank-value">BSCHCLRM</span>
+                                <button type="button" class="bank-copy" data-copy-target="BSCHCLRM" aria-label="Copiar SWIFT">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Razón Social</span>
+                                <span class="bank-value">Imporlan SpA</span>
+                                <span></span>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">RUT</span>
+                                <span class="bank-value">76.914.409-9</span>
+                                <button type="button" class="bank-copy" data-copy-target="76914409-9" aria-label="Copiar RUT">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Email</span>
+                                <span class="bank-value">contacto@imporlan.cl</span>
+                                <span></span>
+                            </div>
+                            <div class="bank-note">
+                                Envía el comprobante a <strong>contacto@imporlan.cl</strong> indicando tu nombre y el concepto del pago para activar tu servicio.
+                            </div>
+                            <div class="bank-note blue">
+                                <strong>PayPal manual:</strong> contacto@imporlan.cl
+                            </div>
+                        </div>
+
+                        <div id="paypal-button-container" aria-live="polite"></div>
+
+                        <button type="submit" class="pay-btn" id="payBtn" onclick="processPayment()">
+                            <span class="btn-content">
+                                <span class="spinner"></span>
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                <span class="btn-text">Pagar con WebPay</span>
+                            </span>
+                        </button>
+
+                        <div class="security-row">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                            <span>Pago 100% seguro con cifrado SSL de 256 bits</span>
+                        </div>
+                    </section>
+                </form>
+            </div>
+
+            <!-- ============ RIGHT: SUMMARY ============ -->
+            <aside class="summary-col">
+                <div class="summary" role="complementary" aria-label="Resumen del pago">
+                    <div class="summary-head">
+                        <span class="summary-title">Resumen</span>
+                        <span class="summary-badge">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                            Seguro
+                        </span>
+                    </div>
+                    <div class="summary-amount-block">
+                        <div class="summary-amount-label">Total a pagar</div>
+                        <div class="summary-amount" id="summaryAmount">$0<span class="summary-amount-currency"> CLP</span></div>
+                        <div class="summary-usd" id="summaryUsd" hidden>≈ <span class="usd-amt" id="summaryUsdValue">USD 0.00</span></div>
+                    </div>
+                    <div class="summary-list">
+                        <div class="summary-row">
+                            <span class="label">Concepto</span>
+                            <span class="value muted" id="summaryConcept">Sin especificar</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="label">Método</span>
+                            <span class="value">
+                                <span class="value-method">
+                                    <svg id="summaryMethodIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                                    <span id="summaryMethod">WebPay Plus</span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="label">Cliente</span>
+                            <span class="value muted" id="summaryName">Sin especificar</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Bank transfer info panel -->
-                <div id="bankInfo" class="bank-info">
-                    <h4>Datos para Transferencia</h4>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Banco</span>
-                        <span class="bank-info-value">Banco Santander</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Cuenta Corriente (CLP)</span>
-                        <span class="bank-info-value">74233813</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Cuenta Corriente (USD)</span>
-                        <span class="bank-info-value">5100369305</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Codigo SWIFT</span>
-                        <span class="bank-info-value">BSCHCLRM</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Razon Social</span>
-                        <span class="bank-info-value">Imporlan SpA</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">RUT</span>
-                        <span class="bank-info-value">76.914.409-9</span>
-                    </div>
-                    <div class="bank-info-row">
-                        <span class="bank-info-label">Email</span>
-                        <span class="bank-info-value">contacto@imporlan.cl</span>
-                    </div>
-                    <div class="bank-info-note">
-                        Envia el comprobante de transferencia a <strong>contacto@imporlan.cl</strong> indicando tu nombre y el concepto del pago para activar tu servicio.
-                    </div>
-                    <div style="margin-top:14px; padding:10px 14px; background:rgba(74,144,217,0.06); border-left:3px solid #4a90d9; border-radius:0 8px 8px 0; font-size:0.8rem; color:var(--silver); line-height:1.5;">
-                        <strong style="color:#4a90d9;">PayPal:</strong> contacto@imporlan.cl
+                <div class="trust-panel">
+                    <div class="trust-panel-title">Garantías de Imporlan</div>
+                    <div class="trust-features">
+                        <div class="trust-feature">
+                            <div class="trust-feature-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                            </div>
+                            <div><strong>Pago verificado al instante</strong>Recibes confirmación automática por email.</div>
+                        </div>
+                        <div class="trust-feature">
+                            <div class="trust-feature-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            </div>
+                            <div><strong>No almacenamos tarjetas</strong>Procesado por Transbank, MercadoPago o PayPal.</div>
+                        </div>
+                        <div class="trust-feature">
+                            <div class="trust-feature-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                            </div>
+                            <div><strong>Empresa formal en Chile</strong>Imporlan SpA · RUT 76.914.409-9</div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="paypal-button-container"></div>
-
-                <button type="submit" class="pay-btn" id="payBtn" onclick="processPayment()">
-                    <span class="btn-content">
-                        <span class="spinner"></span>
-                        <span class="btn-text">Pagar con WebPay</span>
-                    </span>
-                </button>
-
-                <div class="security-badge">
-                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-                    <span>Pago 100% seguro con encriptacion SSL</span>
+                <div class="badges-strip">
+                    <span class="badge-chip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>SSL 256-bit</span>
+                    <span class="badge-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>PCI DSS</span>
+                    <span class="badge-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>3D Secure</span>
                 </div>
-            </form>
+            </aside>
         </div>
 
         <footer class="footer">
-            <p>Imporlan &copy; 2026 - Importacion de Lanchas y Embarcaciones de Lujo</p>
-            <p><a href="https://www.imporlan.cl">www.imporlan.cl</a> &middot; <a href="mailto:contacto@imporlan.cl">contacto@imporlan.cl</a></p>
+            <div class="footer-row">Imporlan &copy; 2026 · Importación de Lanchas y Embarcaciones de Lujo</div>
+            <div class="footer-row"><a href="https://www.imporlan.cl">www.imporlan.cl</a> &middot; <a href="mailto:contacto@imporlan.cl">contacto@imporlan.cl</a> &middot; <a href="tel:+56940211459">+56 9 4021 1459</a></div>
         </footer>
+    </main>
+
+    <!-- Mobile sticky CTA -->
+    <div class="mobile-cta" aria-hidden="true">
+        <div class="mobile-cta-inner">
+            <div>
+                <div class="mobile-cta-amount" id="mobileCtaAmount">$0 CLP<small>Total a pagar</small></div>
+            </div>
+            <button type="button" class="mobile-cta-btn" onclick="document.getElementById('payBtn').scrollIntoView({behavior:'smooth',block:'center'}); document.getElementById('payBtn').focus();">Pagar</button>
+        </div>
     </div>
 
     <script>
     // ==============================
-    // Imporlan Payment Page
+    // Imporlan Payment Page - PRO
     // ==============================
     const API_BASE = '/api';
+    const USD_RATE = 950; // CLP per USD (approx, only for display)
     let selectedMethod = 'webpay';
 
-    // Format amount with thousands separator
+    const METHOD_INFO = {
+        webpay:      { label: 'WebPay Plus',          btn: 'Pagar con WebPay',         step3Hint: 'Te redirigiremos a Transbank' },
+        mercadopago: { label: 'Mercado Pago',         btn: 'Pagar con Mercado Pago',   step3Hint: 'Te redirigiremos a Mercado Pago' },
+        paypal:      { label: 'Tarjeta Internacional', btn: 'Pagar con Tarjeta',        step3Hint: 'Procesado por PayPal en USD' },
+        transfer:    { label: 'Transferencia bancaria',btn: 'Confirmar transferencia',  step3Hint: 'Envíanos el comprobante' }
+    };
+
+    // ===== Amount input: thousands separator + live summary =====
     const amountInput = document.getElementById('amount');
     amountInput.addEventListener('input', function() {
         let val = this.value.replace(/\D/g, '');
@@ -742,15 +1518,110 @@
             val = parseInt(val, 10).toLocaleString('es-CL');
         }
         this.value = val;
+        updateSummary();
     });
 
     function getRawAmount() {
         return parseInt(amountInput.value.replace(/\D/g, ''), 10) || 0;
     }
 
+    // ===== Quick amount chips =====
+    document.querySelectorAll('.chip[data-amount]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const v = parseInt(chip.dataset.amount, 10);
+            amountInput.value = v.toLocaleString('es-CL');
+            updateSummary();
+            amountInput.focus();
+        });
+    });
+
+    // ===== Live summary updates =====
+    const summaryAmount = document.getElementById('summaryAmount');
+    const summaryUsd = document.getElementById('summaryUsd');
+    const summaryUsdValue = document.getElementById('summaryUsdValue');
+    const summaryConcept = document.getElementById('summaryConcept');
+    const summaryName = document.getElementById('summaryName');
+    const summaryMethod = document.getElementById('summaryMethod');
+    const amountUsd = document.getElementById('amountUsd');
+    const amountUsdValue = document.getElementById('amountUsdValue');
+    const mobileCtaAmount = document.getElementById('mobileCtaAmount');
+
+    function updateSummary() {
+        const raw = getRawAmount();
+        const formatted = raw > 0 ? '$' + raw.toLocaleString('es-CL') : '$0';
+        summaryAmount.innerHTML = formatted + '<span class="summary-amount-currency"> CLP</span>';
+        mobileCtaAmount.innerHTML = formatted + ' CLP<small>Total a pagar</small>';
+
+        if (raw > 0) {
+            const usd = (raw / USD_RATE).toFixed(2);
+            summaryUsdValue.textContent = 'USD ' + usd;
+            summaryUsd.hidden = false;
+            amountUsdValue.textContent = usd;
+            amountUsd.hidden = false;
+        } else {
+            summaryUsd.hidden = true;
+            amountUsd.hidden = true;
+        }
+
+        const desc = document.getElementById('description').value.trim();
+        if (desc) {
+            summaryConcept.textContent = desc.length > 60 ? desc.slice(0, 57) + '…' : desc;
+            summaryConcept.classList.remove('muted');
+        } else {
+            summaryConcept.textContent = 'Sin especificar';
+            summaryConcept.classList.add('muted');
+        }
+
+        const name = document.getElementById('payerName').value.trim();
+        if (name) {
+            summaryName.textContent = name.length > 32 ? name.slice(0, 30) + '…' : name;
+            summaryName.classList.remove('muted');
+        } else {
+            summaryName.textContent = 'Sin especificar';
+            summaryName.classList.add('muted');
+        }
+
+        summaryMethod.textContent = METHOD_INFO[selectedMethod].label;
+
+        updateStepper();
+    }
+
+    // ===== Stepper progression =====
+    function updateStepper() {
+        const s1 = document.getElementById('step1');
+        const s2 = document.getElementById('step2');
+        const s3 = document.getElementById('step3');
+        [s1, s2, s3].forEach(s => s.classList.remove('active', 'done'));
+
+        const hasBasics = getRawAmount() >= 100
+            && document.getElementById('description').value.trim()
+            && document.getElementById('payerName').value.trim()
+            && document.getElementById('payerEmail').value.trim().includes('@');
+
+        if (!hasBasics) {
+            s1.classList.add('active');
+        } else if (!selectedMethod) {
+            s1.classList.add('done');
+            s2.classList.add('active');
+        } else {
+            s1.classList.add('done');
+            s2.classList.add('done');
+            s3.classList.add('active');
+        }
+    }
+
+    ['description', 'payerName', 'payerEmail'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateSummary);
+    });
+
+    // ===== Method selection =====
     function selectMethod(el) {
-        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
+        document.querySelectorAll('.payment-method, .method').forEach(m => {
+            m.classList.remove('selected');
+            m.setAttribute('aria-checked', 'false');
+        });
         el.classList.add('selected');
+        el.setAttribute('aria-checked', 'true');
         selectedMethod = el.dataset.method;
 
         const bankInfo = document.getElementById('bankInfo');
@@ -762,7 +1633,6 @@
             bankInfo.classList.add('visible');
             payBtn.style.display = '';
             ppContainer.style.display = 'none';
-            btnText.textContent = 'Confirmar Transferencia';
         } else if (selectedMethod === 'paypal') {
             bankInfo.classList.remove('visible');
             payBtn.style.display = 'none';
@@ -772,36 +1642,66 @@
             bankInfo.classList.remove('visible');
             payBtn.style.display = '';
             ppContainer.style.display = 'none';
-            const names = {
-                webpay: 'Pagar con WebPay',
-                mercadopago: 'Pagar con MercadoPago'
-            };
-            btnText.textContent = names[selectedMethod] || 'Pagar';
         }
 
+        btnText.textContent = METHOD_INFO[selectedMethod].btn;
         hideStatus();
+        updateSummary();
     }
 
+    // Keyboard support for method radios
+    document.querySelectorAll('.method').forEach(m => {
+        m.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectMethod(m);
+            }
+        });
+    });
+
+    // ===== Bank copy buttons =====
+    document.querySelectorAll('.bank-copy').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const text = btn.dataset.copyTarget;
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                    document.body.appendChild(ta); ta.select();
+                    document.execCommand('copy'); document.body.removeChild(ta);
+                }
+                btn.classList.add('copied');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg> Copiado';
+                setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 1800);
+            } catch (e) { /* ignore */ }
+        });
+    });
+
+    // ===== Status helpers =====
     function showStatus(msg, type) {
         const el = document.getElementById('statusMessage');
-        el.textContent = msg;
+        const iconMap = {
+            success: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><polyline points="20,6 9,17 4,12"/></svg>',
+            error:   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+            info:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+        el.innerHTML = (iconMap[type] || '') + '<span>' + msg + '</span>';
         el.className = 'status-message ' + type;
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-
     function hideStatus() {
         const el = document.getElementById('statusMessage');
         el.className = 'status-message';
+        el.innerHTML = '';
     }
 
     function setLoading(loading) {
         const btn = document.getElementById('payBtn');
-        if (loading) {
-            btn.classList.add('loading');
-            btn.disabled = true;
-        } else {
-            btn.classList.remove('loading');
-            btn.disabled = false;
-        }
+        if (loading) { btn.classList.add('loading'); btn.disabled = true; }
+        else { btn.classList.remove('loading'); btn.disabled = false; }
     }
 
     function validateForm() {
@@ -811,19 +1711,23 @@
         const email = document.getElementById('payerEmail').value.trim();
 
         if (!amount || amount < 100) {
-            showStatus('Ingrese un monto valido (minimo $100 CLP)', 'error');
+            showStatus('Ingresa un monto válido (mínimo $100 CLP)', 'error');
+            amountInput.focus();
             return false;
         }
         if (!description) {
-            showStatus('Ingrese el concepto o descripcion del pago', 'error');
+            showStatus('Ingresa el concepto o descripción del pago', 'error');
+            document.getElementById('description').focus();
             return false;
         }
         if (!name) {
-            showStatus('Ingrese su nombre', 'error');
+            showStatus('Ingresa tu nombre', 'error');
+            document.getElementById('payerName').focus();
             return false;
         }
-        if (!email || !email.includes('@')) {
-            showStatus('Ingrese un email valido', 'error');
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showStatus('Ingresa un email válido', 'error');
+            document.getElementById('payerEmail').focus();
             return false;
         }
         return { amount, description, name, email };
@@ -842,13 +1746,12 @@
             } else if (selectedMethod === 'mercadopago') {
                 await payWithMercadoPago(data);
             } else if (selectedMethod === 'paypal') {
-                /* PayPal is handled by Smart Buttons inline, not this flow */
                 return;
             } else if (selectedMethod === 'transfer') {
                 handleTransfer(data);
             }
         } catch (err) {
-            showStatus('Error al procesar el pago: ' + (err.message || 'Intente nuevamente'), 'error');
+            showStatus('Error al procesar el pago: ' + (err.message || 'Intenta nuevamente'), 'error');
             setLoading(false);
         }
     }
@@ -879,7 +1782,7 @@
         if (result.success && result.redirect_url) {
             window.location.href = result.redirect_url;
         } else {
-            throw new Error(result.error || 'Error al crear transaccion WebPay');
+            throw new Error(result.error || 'Error al crear transacción WebPay');
         }
     }
 
@@ -911,7 +1814,7 @@
         }
     }
 
-    // ---- PayPal Smart Buttons (Guest Checkout with Card) ----
+    // ---- PayPal Smart Buttons ----
     var paypalButtonsRendered = false;
 
     function showPayPalLoader() {
@@ -959,17 +1862,11 @@
         paypalButtonsRendered = true;
 
         paypal.Buttons({
-            style: {
-                layout: 'vertical',
-                color: 'gold',
-                shape: 'rect',
-                label: 'paypal',
-                tagline: false
-            },
+            style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
             createOrder: function(data, actions) {
                 var formData = validateForm();
                 if (!formData) return Promise.reject(new Error('Datos inválidos'));
-                var usdAmount = Math.max(1, Math.round(formData.amount / 950 * 100) / 100).toFixed(2);
+                var usdAmount = Math.max(1, Math.round(formData.amount / USD_RATE * 100) / 100).toFixed(2);
                 var phone = document.getElementById('payerPhone').value.trim();
                 return fetch(API_BASE + '/paypal.php?action=create_order', {
                     method: 'POST',
@@ -985,9 +1882,7 @@
                         type: 'link'
                     })
                 }).then(function(res) { return res.json(); }).then(function(result) {
-                    if (result.success && result.order_id) {
-                        return result.order_id;
-                    }
+                    if (result.success && result.order_id) return result.order_id;
                     throw new Error(result.error || 'Error al crear orden PayPal');
                 });
             },
@@ -1005,12 +1900,10 @@
                     }
                 });
             },
-            onCancel: function() {
-                showStatus('Pago cancelado. Puedes intentar nuevamente.', 'error');
-            },
+            onCancel: function() { showStatus('Pago cancelado. Puedes intentar nuevamente.', 'error'); },
             onError: function(err) {
                 console.error('PayPal Buttons error:', err);
-                showStatus('Error al procesar el pago con PayPal: ' + (err.message || 'Intente nuevamente'), 'error');
+                showStatus('Error al procesar el pago con PayPal: ' + (err.message || 'Intenta nuevamente'), 'error');
             }
         }).render('#paypal-button-container');
     }
@@ -1019,26 +1912,25 @@
     function handleTransfer(data) {
         const amount = getRawAmount().toLocaleString('es-CL');
         showStatus(
-            'Realice la transferencia por $' + amount + ' CLP a los datos indicados arriba. ' +
-            'Envia el comprobante a contacto@imporlan.cl indicando: ' + data.name + ' - ' + data.description,
+            'Realiza la transferencia por $' + amount + ' CLP a los datos indicados arriba. ' +
+            'Envía el comprobante a contacto@imporlan.cl indicando: ' + data.name + ' - ' + data.description,
             'success'
         );
         setLoading(false);
     }
 
-    // Check for payment result from URL params
-    (function checkPaymentResult() {
+    // ===== URL params: prefill + payment result =====
+    (function init() {
         const params = new URLSearchParams(window.location.search);
         const payment = params.get('payment');
         if (payment === 'success') {
-            showStatus('Pago procesado exitosamente. Recibiras un email de confirmacion en breve.', 'success');
+            showStatus('Pago procesado exitosamente. Recibirás un email de confirmación en breve.', 'success');
         } else if (payment === 'cancelled') {
             showStatus('El pago fue cancelado. Puedes intentar nuevamente.', 'error');
         } else if (payment === 'rejected' || payment === 'error') {
-            showStatus('El pago no pudo ser procesado. Por favor intenta con otro metodo de pago.', 'error');
+            showStatus('El pago no pudo ser procesado. Por favor intenta con otro método de pago.', 'error');
         }
 
-        // Pre-fill from URL params
         const amt = params.get('monto') || params.get('amount');
         if (amt) {
             const val = parseInt(amt, 10);
@@ -1050,6 +1942,8 @@
         if (name) document.getElementById('payerName').value = decodeURIComponent(name);
         const email = params.get('email');
         if (email) document.getElementById('payerEmail').value = decodeURIComponent(email);
+
+        updateSummary();
     })();
     </script>
 </body>
