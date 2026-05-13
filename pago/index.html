@@ -313,7 +313,7 @@
             border-radius: var(--radius-sm);
             color: var(--white);
             font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
+            font-size: 16px; /* >=16px prevents iOS Safari auto-zoom on focus */
             font-weight: 400;
             transition: all 0.25s ease;
             outline: none;
@@ -1028,17 +1028,22 @@
             .layout { grid-template-columns: 1fr; }
             .summary-col { position: static; }
         }
+        @media (max-width: 880px) {
+            .amount-wrapper input { font-size: 1.7rem !important; }
+        }
         @media (max-width: 720px) {
             .topbar { padding: 14px 18px; }
             .brand img { width: 36px; height: 36px; }
             .brand-text { font-size: 1.15rem; letter-spacing: 1.5px; }
             .brand-sub { font-size: 0.6rem; letter-spacing: 2px; }
+            .top-actions { gap: 8px; }
             .top-actions .label-desktop { display: none; }
-            .top-actions a { padding: 7px 10px; }
+            .top-actions a { padding: 9px 11px; min-height: 38px; }
             .page { padding: 24px 16px 130px; }
-            .page-title { font-size: 1.85rem; }
+            .page-title { font-size: clamp(1.6rem, 6vw, 1.95rem); }
             .page-subtitle { font-size: 0.92rem; }
             .panel { padding: 22px 18px; border-radius: 16px; }
+            .panel + .panel { margin-top: 16px; }
             .panel-head { gap: 10px; margin-bottom: 18px; }
             .panel-head-title { font-size: 1.05rem; }
             .panel-head-sub { font-size: 0.75rem; }
@@ -1047,27 +1052,112 @@
             .method { padding: 14px; }
             .method-logo { width: 38px; height: 38px; }
             .method-logo svg { width: 22px; height: 22px; }
+            .method-tags { gap: 5px; }
+            .method-tag { font-size: 0.62rem; padding: 3px 7px; }
             .amount-block { padding: 16px; }
             .amount-wrapper input {
                 padding: 14px 14px 14px 38px !important;
                 font-size: 1.5rem !important;
             }
             .amount-wrapper .currency { left: 14px; font-size: 1.3rem; }
+            .amount-meta { font-size: 0.74rem; }
             .summary { padding: 22px 18px; }
             .summary-amount { font-size: 2rem; }
             .stepper { gap: 4px; }
-            .step { padding: 6px 10px; font-size: 0.7rem; }
+            .step { padding: 7px 11px; font-size: 0.7rem; }
+            .step-num { width: 20px; height: 20px; font-size: 0.7rem; }
             .step-sep { width: 14px; }
             .step .step-label { display: none; }
             .mobile-cta { display: block; }
             .page-eyebrow { font-size: 0.65rem; padding: 5px 12px; letter-spacing: 2px; }
+
+            /* Larger touch targets for chips */
+            .chip { padding: 10px 14px; font-size: 0.85rem; min-height: 38px; }
+
+            /* Stack bank-row from 3-col grid to clean vertical layout */
+            .bank-row {
+                grid-template-columns: 1fr;
+                gap: 4px;
+                padding: 12px 0;
+                align-items: stretch;
+            }
+            .bank-label {
+                font-size: 0.72rem;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+                color: var(--silver-mid);
+            }
+            .bank-value {
+                text-align: left;
+                font-size: 0.98rem;
+                word-break: break-all;
+            }
+            .bank-copy {
+                justify-self: flex-start;
+                margin-top: 4px;
+                padding: 7px 12px;
+                font-size: 0.72rem;
+                min-height: 32px;
+            }
+
+            /* Footer items wrap nicely */
+            .footer { padding: 22px 12px 0; font-size: 0.76rem; }
         }
-        @media (max-width: 420px) {
+        @media (max-width: 480px) {
             .topbar { padding: 12px 14px; }
-            .top-actions .phone-btn { display: none; }
-            .panel { padding: 18px 16px; }
+            .brand-sub { font-size: 0.55rem; letter-spacing: 1.8px; }
+            .top-actions a span:not(.sr-only) { display: none; }
+            .top-actions a { padding: 9px; }
+            .top-actions svg { width: 16px; height: 16px; }
+            .panel { padding: 18px 14px; }
             .panel-head-icon { width: 32px; height: 32px; }
-            .summary-amount { font-size: 1.7rem; }
+            .panel-head-icon svg { width: 16px; height: 16px; }
+            .page-title { font-size: 1.55rem; }
+            .page-subtitle { font-size: 0.88rem; }
+            .summary { padding: 20px 16px; }
+            .summary-amount { font-size: 1.8rem; }
+            .summary-row .label { font-size: 0.72rem; }
+            .summary-row .value { font-size: 0.82rem; max-width: 65%; }
+            .amount-block { padding: 14px; }
+            .amount-wrapper input {
+                padding: 13px 12px 13px 34px !important;
+                font-size: 1.35rem !important;
+            }
+            .amount-wrapper .currency { left: 12px; font-size: 1.2rem; }
+            .mobile-cta-inner { gap: 10px; }
+            .mobile-cta-amount { font-size: 1.05rem; }
+            .mobile-cta-amount small { font-size: 0.58rem; }
+            .mobile-cta-btn { padding: 11px 18px; font-size: 0.72rem; }
+            .badges-strip { gap: 6px 10px; }
+            .badge-chip { font-size: 0.66rem; padding: 5px 9px; }
+            .trust-feature { font-size: 0.78rem; }
+        }
+        @media (max-width: 360px) {
+            .topbar { padding: 10px 12px; }
+            .brand img { width: 32px; height: 32px; }
+            .brand-text { font-size: 1.05rem; letter-spacing: 1.2px; }
+            .brand-sub { display: none; }
+            .page { padding: 20px 12px 130px; }
+            .panel { padding: 16px 12px; border-radius: 14px; }
+            .page-title { font-size: 1.35rem; }
+            .page-subtitle { font-size: 0.84rem; }
+            .summary-amount { font-size: 1.55rem; }
+            .amount-wrapper input { font-size: 1.2rem !important; }
+            .chip { padding: 9px 11px; font-size: 0.78rem; }
+            .method-tag { font-size: 0.6rem; padding: 2px 6px; }
+            .step { padding: 6px 9px; font-size: 0.66rem; }
+            .step-num { width: 18px; height: 18px; font-size: 0.66rem; }
+            .stepper { gap: 3px; }
+            .step-sep { width: 8px; }
+            .footer { font-size: 0.72rem; }
+            .footer a { display: inline-block; margin: 0 2px; }
+        }
+
+        /* Landscape on phones — keep CTA from eating the form */
+        @media (max-height: 480px) and (orientation: landscape) {
+            .mobile-cta { position: relative; margin-top: 20px; }
+            .page { padding-bottom: 40px; }
+            .summary-col { position: static !important; }
         }
 
         /* ===== ACCESSIBILITY ===== */
