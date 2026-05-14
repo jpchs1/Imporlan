@@ -1329,7 +1329,8 @@ function adminSaveQuote() {
                 // IVA, Lujo, plan de pagos) — without these columns the email
                 // would compute zeros and dump the whole total into All-Inclusive.
                 $info = $pdo->prepare("
-                    SELECT ol.id, ol.year, ol.make, ol.model, ol.quote_total_clp, ol.quote_total_usd,
+                    SELECT ol.id, ol.year, ol.make, ol.model, ol.image_url, ol.url,
+                           ol.quote_total_clp, ol.quote_total_usd,
                            ol.quote_data, ol.quote_payments,
                            o.customer_email, o.customer_name, o.order_number
                     FROM order_links ol
