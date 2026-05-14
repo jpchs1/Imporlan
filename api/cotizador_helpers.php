@@ -194,6 +194,21 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             $subject = 'Tu cotización está lista — ' . $title;
             $panelUrl = 'https://www.imporlan.cl/panel/';
 
+            // Hero image — the main listing image scraped/uploaded for this link.
+            // Wrapped in an anchor to the original listing URL when present so the
+            // client can jump back to the source ad. Skipped silently if either is
+            // missing or fails URL validation.
+            $imageUrl = trim((string)($link['image_url'] ?? ''));
+            $listingUrl = trim((string)($link['url'] ?? ''));
+            $imageBlock = '';
+            if ($imageUrl !== '' && filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                $img = '<img src="' . htmlspecialchars($imageUrl) . '" alt="' . htmlspecialchars($title) . '" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;border-radius:10px;object-fit:cover" />';
+                if ($listingUrl !== '' && filter_var($listingUrl, FILTER_VALIDATE_URL)) {
+                    $img = '<a href="' . htmlspecialchars($listingUrl) . '" target="_blank" style="text-decoration:none;color:inherit">' . $img . '</a>';
+                }
+                $imageBlock = '<div style="margin:0 0 18px;border-radius:10px;overflow:hidden">' . $img . '</div>';
+            }
+
             // Decode the quote_data snapshot so we can render the same itemized
             // breakdown the admin sees in the QuoteModal (Lancha, Servicio
             // All-Inclusive, IVA, Lujo, Total + 3 pagos).
@@ -259,7 +274,8 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
 
             $html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:20px">'
                 . '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)">'
-                . '<h2 style="color:#1e293b;margin:0 0 8px">Tu cotización está lista</h2>'
+                . '<h2 style="color:#1e293b;margin:0 0 16px">Tu cotización está lista</h2>'
+                . $imageBlock
                 . '<p style="color:#475569;font-size:15px;line-height:1.6">Hola' . ($userName ? ' <strong>' . htmlspecialchars($userName) . '</strong>' : '') . ', ya terminamos el análisis de costos para <strong>' . htmlspecialchars($title) . '</strong>. Aquí va el resumen del valor final y el plan de pagos.</p>'
                 . '<div style="background:#f0f9ff;border:1px solid #bae6fd;padding:16px 18px;border-radius:10px;margin:18px 0">'
                 . '<div style="font-size:11px;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Resumen de costos</div>'
