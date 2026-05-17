@@ -2,7 +2,7 @@
 set -euo pipefail
 
 STAGING_REPO="/home/wwimpo/imporlan-staging"
-PUBLIC_HTML="/home/wwimpo/public_html"
+PUBLIC_HTML="/home/wwimpo/imporlan.cl"
 BACKUP_DIR="/home/wwimpo/backups"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M)
 
@@ -109,17 +109,17 @@ echo "[7/8] Validating deployment..."
 VALID=true
 
 if [ ! -f "$PUBLIC_HTML/panel-test/index.html" ]; then
-  echo "  ERROR: Missing /home/wwimpo/public_html/panel-test/index.html"
+  echo "  ERROR: Missing $PUBLIC_HTML/panel-test/index.html"
   VALID=false
 fi
 
 if [ ! -f "$PUBLIC_HTML/panel-test/admin/index.html" ]; then
-  echo "  ERROR: Missing /home/wwimpo/public_html/panel-test/admin/index.html"
+  echo "  ERROR: Missing $PUBLIC_HTML/panel-test/admin/index.html"
   VALID=false
 fi
 
 if [ ! -f "$PUBLIC_HTML/test/index.html" ]; then
-  echo "  ERROR: Missing /home/wwimpo/public_html/test/index.html"
+  echo "  ERROR: Missing $PUBLIC_HTML/test/index.html"
   VALID=false
 fi
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 STAGING_REPO="/home/wwimpo/imporlan-staging"
-PUBLIC_HTML="/home/wwimpo/public_html"
+PUBLIC_HTML="/home/wwimpo/imporlan.cl"
 BACKUP_DIR="/home/wwimpo/backups"
 TIMESTAMP=$(date +%Y-%m-%d_%H%M)
 SENTINEL="$PUBLIC_HTML/.imporlan_docroot"

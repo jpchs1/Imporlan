@@ -33,8 +33,8 @@ define('REPO_URL', 'https://github.com/jpchs1/Imporlan.git');
 define('BRANCH', 'main');
 
 // Rutas
-define('PATH_TEST', '/home/wwimpo/public_html/test');
-define('PATH_PROD', '/home/wwimpo/public_html');
+define('PATH_TEST', '/home/wwimpo/imporlan.cl/test');
+define('PATH_PROD', '/home/wwimpo/imporlan.cl');
 
 // Archivos protegidos (no se sobrescriben)
 $protectedFiles = [

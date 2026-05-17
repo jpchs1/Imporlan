@@ -4,14 +4,14 @@
 # ============================================
 #  Runs every minute via cron. Detects if imporlan.cl is serving
 #  non-Imporlan content (typically: another site's deploy clobbered
-#  ~/public_html/index.html) and auto-restores it from the staging
+#  ~/imporlan.cl/index.html) and auto-restores it from the staging
 #  repo within ~60 seconds.
 #
 #  This is defence in depth -- the primary protection lives in
 #  auto-deploy.sh and deploy-guard.sh, which prevent Imporlan's own
 #  deploys from running on the wrong doc-root. The watchdog catches
 #  the case where ANOTHER site's deploy (Tourevo, etc.) writes into
-#  /public_html/ by mistake.
+#  ~/imporlan.cl/ by mistake.
 #
 #  INSTALL
 #    1. Place this file at /home/wwimpo/imporlan-watchdog.sh
@@ -30,7 +30,7 @@
 # ============================================
 set -uo pipefail
 
-PUBLIC_HTML="/home/wwimpo/public_html"
+PUBLIC_HTML="/home/wwimpo/imporlan.cl"
 STAGING="/home/wwimpo/imporlan-staging"
 LOG="/home/wwimpo/imporlan-watchdog.log"
 FLAG_DIR="/home/wwimpo"

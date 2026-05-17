@@ -96,7 +96,7 @@ Authorization: Bearer {admin_token}
 
 Ejecuta diariamente a las 2 AM:
 ```
-0 2 * * * /usr/bin/php /home/wwimpo/public_html/api/cron/rotate_featured_vessels.php
+0 2 * * * /usr/bin/php /home/wwimpo/imporlan.cl/api/cron/rotate_featured_vessels.php
 ```
 
 Funciones:

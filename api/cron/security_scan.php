@@ -6,7 +6,7 @@
  * Scans for suspicious files, unauthorized changes, and known malware patterns.
  *
  * Usage (cPanel cron, run daily):
- *   php /home/wwimpo/public_html/api/cron/security_scan.php
+ *   php /home/wwimpo/imporlan.cl/api/cron/security_scan.php
  *
  * Or via URL with token:
  *   GET /api/cron/security_scan.php?token=YOUR_DEPLOY_TOKEN
@@ -39,7 +39,7 @@ require_once dirname(__DIR__) . '/security_alerts.php';
 
 $alerts = new SecurityAlerts();
 $findings = [];
-$basePath = '/home/wwimpo/public_html';
+$basePath = '/home/wwimpo/imporlan.cl';
 
 // Adjust base path if not on production server
 if (!is_dir($basePath)) {

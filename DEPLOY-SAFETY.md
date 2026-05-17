@@ -1,20 +1,27 @@
 # Deploy Safety — Imporlan + Tourevo Shared Hosting
 
-## The problem we keep hitting
+## Status
+
+**Doc-root migration completed on 2026-05-17.** Imporlan now serves from
+its own physical directory `~/imporlan.cl/` (see "Long-term permanent fix"
+below — that section is now history, not a TODO). The mitigations
+documented below (sentinel, watchdog, guard) still apply as defence in
+depth.
+
+## Historical context — why this doc exists
 
 `imporlan.cl` and `tourevo.cl` live on the **same cPanel account**
-(`wwimpo@single-4020.banahosting.com`). Imporlan is configured as the
-**primary domain** of that account, so its doc-root is the bare
-`~/public_html/`. Tourevo is an addon/alias on the same account.
+(`wwimpo@single-4020.banahosting.com`). Until 2026-05-17, Imporlan was
+the **primary domain** of that account, so its doc-root was the bare
+`~/public_html/`. Tourevo was an addon/alias sharing the same physical
+directory tree.
 
-The two domains end up sharing the same physical directory tree on the
-server. Apache picks which content to serve via Host-aware rewrite rules
-in `.htaccess`, but at the filesystem level **both sites can write to
-the same path**.
-
-Concretely: a `cp -Rf` from a Tourevo build into `~/public_html/` will
-overwrite Imporlan's `index.html`, and vice versa. We've seen this in
-production multiple times (incidents on 2026-04-19 and 2026-05-11).
+That meant Apache picked which content to serve via Host-aware rewrite
+rules in `.htaccess`, but at the filesystem level **both sites could
+write to the same path**. A `cp -Rf` from a Tourevo build into
+`~/public_html/` would overwrite Imporlan's `index.html`, and vice versa.
+We hit this in production multiple times (incidents on 2026-04-19 and
+2026-05-11) which is what drove the migration.
 
 ## Short-term mitigations (this repo)
 
@@ -24,7 +31,7 @@ After every successful deploy, `auto-deploy.sh` and `deploy-prod.sh`
 write a sentinel marker:
 
 ```
-~/public_html/.imporlan_docroot
+~/imporlan.cl/.imporlan_docroot
 ```
 
 Before the next deploy, both scripts check that:
@@ -34,7 +41,7 @@ Before the next deploy, both scripts check that:
   (`imporlan` or `Importación de Lanchas`).
 
 If neither is true the deploy aborts with exit code 2 and takes a
-**defensive snapshot** of whatever was at `~/public_html/` into
+**defensive snapshot** of whatever was at `~/imporlan.cl/` into
 `~/backups/unknown_docroot_<timestamp>` so we can recover it if it
 turns out to be another site's content.
 
@@ -75,19 +82,21 @@ And after a successful deploy Tourevo should write its own sentinel:
 echo "Tourevo doc-root, last deploy: $(date)" > /home/wwimpo/tourevo/.tourevo_docroot
 ```
 
-## Long-term permanent fix (cPanel restructure)
+## Long-term permanent fix (cPanel restructure) — DONE 2026-05-17
 
-The short-term mitigations make accidental overwrites loud instead of
-silent, but the structural problem is the **shared doc-root**. The
-proper fix is to give each domain its own physical directory:
+The short-term mitigations made accidental overwrites loud instead of
+silent, but the structural problem was the **shared doc-root**. The
+proper fix was to give each domain its own physical directory:
 
 ```
-/home/wwimpo/imporlan.cl/        <- new Imporlan doc-root
-/home/wwimpo/tourevo.cl/         <- new Tourevo doc-root
-/home/wwimpo/public_html/        <- only a parking page (or empty)
+/home/wwimpo/imporlan.cl/        <- Imporlan doc-root (active)
+/home/wwimpo/tourevo.cl/         <- Tourevo doc-root
+/home/wwimpo/public_html/        <- now serves wwimpo-default.com (parking)
 ```
 
-### Steps (perform once, requires hosting admin access)
+The steps below are kept as a record of how the migration was performed.
+
+### Steps (performed once, required hosting admin access)
 
 1. **In cPanel: change Imporlan's primary doc-root.**
 
@@ -145,15 +154,15 @@ curl -fsSL https://www.imporlan.cl/ | grep -oE '<title>[^<]+</title>'
 # 2. Restore the home page from the latest main:
 TMP=~/imporlan-restore-$(date +%s)
 git clone --depth=1 https://github.com/jpchs1/Imporlan.git "$TMP"
-cp ~/public_html/index.html ~/public_html/index.html.foreign-backup-$(date +%s)
-cp -a "$TMP/index.html" ~/public_html/index.html
+cp ~/imporlan.cl/index.html ~/imporlan.cl/index.html.foreign-backup-$(date +%s)
+cp -a "$TMP/index.html" ~/imporlan.cl/index.html
 rm -rf "$TMP"
 
 # 3. Refresh the sentinel so the next auto-deploy won't trip the guard:
-cat > ~/public_html/.imporlan_docroot <<EOF
+cat > ~/imporlan.cl/.imporlan_docroot <<EOF
 Imporlan doc-root, restored manually $(date)
 EOF
-chmod 644 ~/public_html/.imporlan_docroot
+chmod 644 ~/imporlan.cl/.imporlan_docroot
 
 # 4. Cloudflare -> Purge Everything.
 # 5. Investigate auto-deploy.log + look at the .foreign-backup-* file to

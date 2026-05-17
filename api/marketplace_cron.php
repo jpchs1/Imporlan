@@ -7,7 +7,7 @@
  *   2. Auto-expire listings past their expires_at date
  * 
  * Run via cPanel cron (once daily, e.g. 08:00 Chile time):
- *   php /home/wwimpo/public_html/api/marketplace_cron.php
+ *   php /home/wwimpo/imporlan.cl/api/marketplace_cron.php
  * 
  * Or via HTTP with secret key:
  *   GET /api/marketplace_cron.php?key=YOUR_CRON_KEY

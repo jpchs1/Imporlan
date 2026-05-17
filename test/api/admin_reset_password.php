@@ -17,7 +17,7 @@ $tokenFile = $tokenDir . '/token.json';
 
 $cpanelConfigFile = '/home/wwimpo/credentials_config.php';
 // From test/api/ the production secret file lives at ../../api/.admin_password
-$rootDir = dirname(dirname(__DIR__)); // public_html root
+$rootDir = dirname(dirname(__DIR__)); // imporlan.cl docroot
 $persistentSecretFile = $rootDir . '/api/.admin_password';
 
 // Handle POST (password update)
