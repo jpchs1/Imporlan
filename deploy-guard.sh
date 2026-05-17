@@ -6,10 +6,12 @@
 #
 #  PURPOSE
 #  -------
-#  imporlan.cl and tourevo.cl share the same cPanel account
-#  (/home/wwimpo/public_html). Any naive `cp -Rf` from a Tourevo build
-#  into $PUBLIC_HTML will obliterate Imporlan content (this has happened).
-#  Conversely a Tourevo-deployed `index.html` will replace Imporlan's.
+#  imporlan.cl and tourevo.cl share the same cPanel account but now live
+#  in separate docroots (~/imporlan.cl/ and ~/tourevo.cl/ respectively).
+#  This guard remains as defence in depth: any naive `cp -Rf` aimed at
+#  the wrong path could still obliterate the other site's content.
+#  Pre-2026-05-17, both sites shared ~/public_html/, which is what
+#  motivated this script.
 #
 #  This script must be sourced (or called) by every deploy script before
 #  it writes a single byte into the target directory. It checks:
@@ -24,7 +26,7 @@
 #  ------------------------------
 #  Call directly:
 #    bash /path/to/deploy-guard.sh \
-#         --target /home/wwimpo/public_html \
+#         --target /home/wwimpo/imporlan.cl \
 #         --site imporlan \
 #         --marker 'imporlan|Importaci[oó]n de Lanchas' \
 #         --backup-dir /home/wwimpo/backups

@@ -7,7 +7,7 @@ deployment:
     # ============================================
 
     # --- Variables ---
-    - export DEPLOYPATH=/home/wwimpo/public_html
+    - export DEPLOYPATH=/home/wwimpo/imporlan.cl
     - export BACKUPDIR=/home/wwimpo/backups
     - export TIMESTAMP=$(date +%Y-%m-%d_%H%M%S)
 

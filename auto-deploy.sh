@@ -13,7 +13,7 @@ set -euo pipefail
 # ============================================
 
 REPO_DIR="/home/wwimpo/imporlan-staging"
-PUBLIC_HTML="/home/wwimpo/public_html"
+PUBLIC_HTML="/home/wwimpo/imporlan.cl"
 BACKUP_DIR="/home/wwimpo/backups"
 LOGFILE="/home/wwimpo/auto-deploy.log"
 LOCKFILE="/home/wwimpo/.deploy.lock"

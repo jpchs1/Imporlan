@@ -33,7 +33,7 @@ header('X-LiteSpeed-Purge: *');
 
 // Also try to clear LiteSpeed cache directory if it exists
 $results = [];
-$publicPath = '/home/wwimpo/public_html';
+$publicPath = '/home/wwimpo/imporlan.cl';
 
 // Clear lscache directory
 $lscachePath = $publicPath . '/lscache';

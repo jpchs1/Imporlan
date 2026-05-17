@@ -1,10 +1,10 @@
 # Deployment to IMPORLAN Servers
 
 ## Server Structure
-- **Test**: `https://www.imporlan.cl/panel-test/admin/` (files at `/public_html/panel-test/`)
-- **Production**: `https://www.imporlan.cl/panel/admin/` (files at `/public_html/panel/`)
-- **API (test)**: `https://www.imporlan.cl/test/api/` (files at `/public_html/test/api/`)
-- **API (prod)**: `https://www.imporlan.cl/api/` (files at `/public_html/api/`)
+- **Test**: `https://www.imporlan.cl/panel-test/admin/` (files at `/imporlan.cl/panel-test/`)
+- **Production**: `https://www.imporlan.cl/panel/admin/` (files at `/imporlan.cl/panel/`)
+- **API (test)**: `https://www.imporlan.cl/test/api/` (files at `/imporlan.cl/test/api/`)
+- **API (prod)**: `https://www.imporlan.cl/api/` (files at `/imporlan.cl/api/`)
 
 ## Deployment Method
 
@@ -20,7 +20,7 @@ url = "https://imporlan.cl:2083/execute/Fileman/upload_files"
 
 params = {
     'api.version': '1',
-    'dir': '/public_html/panel/admin/assets',  # target directory
+    'dir': '/imporlan.cl/panel/admin/assets',  # target directory
     'overwrite': '1',  # REQUIRED for existing files
 }
 with open('local/path/to/file.js', 'rb') as f:

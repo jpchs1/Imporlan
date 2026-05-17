@@ -13,10 +13,10 @@
  * email goes out promptly even if the client doesn't actively check.
  *
  * cPanel cron entry (run hourly):
- *   0 * * * * /usr/bin/php /home/wwimpo/public_html/api/cron/cotizador_publish.php >/dev/null 2>&1
+ *   0 * * * * /usr/bin/php /home/wwimpo/imporlan.cl/api/cron/cotizador_publish.php >/dev/null 2>&1
  *
  * To trigger manually for testing:
- *   php /home/wwimpo/public_html/api/cron/cotizador_publish.php
+ *   php /home/wwimpo/imporlan.cl/api/cron/cotizador_publish.php
  *
  * Output goes to stdout when run from CLI, or is suppressed under HTTP unless
  * the CRON_DEBUG env var is set.
