@@ -34,19 +34,34 @@ switch ($action) {
 
 function fetchLinkMetadata() {
     $url = $_GET['url'] ?? '';
+    $result = scrapeLinkData($url);
+    if (isset($result['_http_code'])) {
+        http_response_code($result['_http_code']);
+        unset($result['_http_code']);
+    }
+    echo json_encode($result);
+}
 
+/**
+ * Reusable server-side scrape entry point.
+ *
+ * Returns the same array shape `fetchLinkMetadata()` echoes to clients, but
+ * without writing to stdout. Used by orders_api.php (createOrderFromQuotation)
+ * and migrations/recover_quotation_links.php so the customer's expediente
+ * arrives pre-populated with images and specs the moment the payment
+ * confirms, removing the need for the admin to click "re-scrape" per row.
+ *
+ * On invalid URL, returns ['error' => '...', '_http_code' => 400].
+ */
+function scrapeLinkData($url) {
     if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'URL invalida']);
-        return;
+        return ['error' => 'URL invalida', '_http_code' => 400];
     }
 
     $allowedSchemes = ['http', 'https'];
     $parsedUrl = parse_url($url);
     if (!isset($parsedUrl['scheme']) || !in_array($parsedUrl['scheme'], $allowedSchemes)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Solo se permiten URLs HTTP/HTTPS']);
-        return;
+        return ['error' => 'Solo se permiten URLs HTTP/HTTPS', '_http_code' => 400];
     }
 
     $result = [
@@ -120,7 +135,7 @@ function fetchLinkMetadata() {
         }
     }
 
-    echo json_encode($result);
+    return $result;
 }
 
 function directFetch($url) {

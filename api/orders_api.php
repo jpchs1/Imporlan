@@ -1727,9 +1727,84 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
             error_log("Failed to create quotation_ready notifications for order #{$orderNumber}: " . $e->getMessage());
         }
 
+        // Auto-scrape each URL via the existing link_scraper.php so the
+        // expediente arrives pre-populated with title, image, year/make/model,
+        // engine, location, hours and value_usa_usd. Best-effort: any scrape
+        // failure is logged but doesn't abort the order. Reuses the exact same
+        // logic the admin's "re-scrape" button (LinkRow.jsx) triggers when a
+        // URL is pasted into a row.
+        if (!empty($storedLinks)) {
+            try {
+                $urls = array_map(function ($l) {
+                    return is_array($l) ? ($l['url'] ?? $l['link'] ?? '') : (string) $l;
+                }, $storedLinks);
+                autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls);
+            } catch (\Throwable $e) {
+                error_log("auto-scrape failed for order #{$orderNumber}: " . $e->getMessage());
+            }
+        }
+
         return $orderId;
     } catch (PDOException $e) {
         error_log("Error creating order from quotation: " . $e->getMessage());
         return null;
+    }
+}
+
+/**
+ * Run the existing link_scraper.php server-side for every URL on the order,
+ * and UPDATE the matching order_links row with the resulting title, image,
+ * year/make/model, engine, location, hours and USA value.
+ *
+ * Best-effort: per-URL failures are caught and logged but don't abort the
+ * loop. The scraper itself has cURL timeouts (12s direct, up to 30s with
+ * Plan B), so the worst case for N links is roughly 30 * N seconds — for
+ * typical 1-5 link quotations this stays well within webhook windows.
+ *
+ * Mirrors the exact same call the admin React panel (LinkRow.jsx) makes
+ * when an admin pastes a URL into a row, so the auto-scrape on creation
+ * is functionally identical to a manual paste.
+ */
+function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
+    require_once __DIR__ . '/link_scraper.php';
+
+    foreach ($urls as $index => $url) {
+        $url = trim((string) $url);
+        if ($url === '' || !preg_match('/^https?:\/\//i', $url)) continue;
+
+        try {
+            $data = scrapeLinkData($url);
+            if (!is_array($data) || !empty($data['error'])) continue;
+
+            // Build column list dynamically — only update fields the scraper
+            // actually returned non-empty so we never overwrite a value with
+            // NULL when the scraper couldn't extract that piece.
+            $map = [
+                'title'         => $data['title']         ?? null,
+                'image_url'     => $data['image_url']     ?? null,
+                'location'      => $data['location']      ?? null,
+                'hours'         => $data['hours']         ?? null,
+                'engine'        => $data['engine']        ?? null,
+                'make'          => $data['make']          ?? null,
+                'model'         => $data['model']         ?? null,
+                'year'          => isset($data['year']) ? intval($data['year']) : null,
+                'value_usa_usd' => isset($data['value_usa_usd']) ? floatval($data['value_usa_usd']) : null,
+            ];
+            $sets = [];
+            $params = [];
+            foreach ($map as $col => $val) {
+                if ($val === null || $val === '' || $val === 0 || $val === 0.0) continue;
+                $sets[] = "{$col} = ?";
+                $params[] = $val;
+            }
+            if (empty($sets)) continue;
+
+            $params[] = $orderId;
+            $params[] = $index + 1;
+            $sql = "UPDATE order_links SET " . implode(', ', $sets) . " WHERE order_id = ? AND row_index = ?";
+            $pdo->prepare($sql)->execute($params);
+        } catch (\Throwable $e) {
+            error_log("autoScrapeAndUpdateOrderLinks: failed for url={$url}: " . $e->getMessage());
+        }
     }
 }
