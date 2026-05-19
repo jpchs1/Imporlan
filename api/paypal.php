@@ -162,13 +162,31 @@ function createOrder() {
         'payment_request_id' => $input['payment_request_id'] ?? null
     ];
     file_put_contents($pendingDir . '/' . $order['id'] . '.json', json_encode($pendingInfo));
-    
+
+    // Persistent audit log shared across gateways. WARN when links_count=0
+    // in a non-payment-request flow so frontend regressions surface early.
+    $logFile = __DIR__ . '/quotation_links.log';
+    $boatLinksLog = $input['boat_links'] ?? [];
+    $payerEmailLog = $input['payer_email'] ?? null;
+    $payReqLog = $input['payment_request_id'] ?? null;
+    $level = (count($boatLinksLog) === 0 && empty($payReqLog)) ? 'WARN' : 'INFO';
+    @file_put_contents($logFile, sprintf(
+        "%s [%s] [PAYPAL] ext_ref=%s email=%s links=%d payment_request_id=%s source=%s\n",
+        date('Y-m-d H:i:s'),
+        $level,
+        $order['id'],
+        $payerEmailLog ?? 'NULL',
+        count($boatLinksLog),
+        $payReqLog ?? '',
+        $input['source'] ?? ''
+    ), FILE_APPEND);
+
     echo json_encode([
         'success' => true,
         'order_id' => $order['id'],
         'status' => $order['status']
     ]);
-    
+
     // Only send cotización email for actual link quotation payments (must have boat_links and valid email)
     $paymentRequestId = $input['payment_request_id'] ?? null;
     $boatLinksPp = $input['boat_links'] ?? [];
