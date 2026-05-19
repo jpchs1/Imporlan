@@ -1670,6 +1670,63 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
             'links_count' => count($storedLinks)
         ]);
 
+        // Fan-out bell notifications: one row per admin recipient, plus one
+        // for the customer. The admin React panel and the user React panel
+        // both poll /api/notifications_api.php and render a bell from the
+        // same `notifications` table — see NotificationBell.jsx.
+        try {
+            $linksCount = count($storedLinks);
+            $linkLabel = $linksCount === 1 ? 'link' : 'links';
+            $customerEmail = $purchase['user_email'] ?? $purchase['customer_email'] ?? '';
+
+            // Notify the customer
+            if (!empty($customerEmail)) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO notifications (user_email, type, title, message, link)
+                    VALUES (?, 'quotation_ready', ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $customerEmail,
+                    'Tu Cotizacion por Links esta lista',
+                    "Cargamos {$linksCount} {$linkLabel} en tu expediente #{$orderNumber}. Nuestro equipo arranca a cotizar y te avisamos cuando este listo.",
+                    "/panel/#/expedientes"
+                ]);
+            }
+
+            // Notify each admin recipient. We read the list lazily from
+            // EmailService::$adminEmails to keep a single source of truth.
+            $adminEmails = [];
+            if (class_exists('EmailService')) {
+                try {
+                    $emailServiceRef = new \ReflectionClass('EmailService');
+                    $prop = $emailServiceRef->getProperty('adminEmails');
+                    $prop->setAccessible(true);
+                    $svc = new \EmailService();
+                    $adminEmails = (array) $prop->getValue($svc);
+                } catch (\Throwable $e) { /* fall through to default */ }
+            }
+            if (empty($adminEmails)) {
+                $adminEmails = ['contacto@imporlan.cl'];
+            }
+
+            $adminStmt = $pdo->prepare("
+                INSERT INTO notifications (user_email, type, title, message, link)
+                VALUES (?, 'admin_new_quotation', ?, ?, ?)
+            ");
+            $adminTitle = 'Nueva Cotizacion por Links';
+            $adminMsg = ($customerEmail ?: 'Cliente') . " pago {$linksCount} {$linkLabel} (expediente #{$orderNumber}). Listo para investigar.";
+            // The admin React app routes /orders to the list view. The new
+            // order shows up at the top with status='pending_admin_fill', so
+            // a deep-link to /orders is sufficient. Adding the order number
+            // as a hash fragment for future use (the page can pick it up).
+            $adminLink = "/panel/admin/#/orders?new={$orderNumber}";
+            foreach ($adminEmails as $adminEmail) {
+                $adminStmt->execute([$adminEmail, $adminTitle, $adminMsg, $adminLink]);
+            }
+        } catch (\Throwable $e) {
+            error_log("Failed to create quotation_ready notifications for order #{$orderNumber}: " . $e->getMessage());
+        }
+
         return $orderId;
     } catch (PDOException $e) {
         error_log("Error creating order from quotation: " . $e->getMessage());
