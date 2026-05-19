@@ -10,26 +10,32 @@
 
 require_once __DIR__ . '/auth_helper.php';
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Content-Type: application/json');
+// The block below is the HTTP entry point. Skip it when this file is being
+// included by another script (e.g. orders_api.php's autoScrapeAndUpdateOrderLinks
+// or migrations/recover_quotation_links.php) so we just load the function
+// definitions without echoing 'Accion no valida' for the empty $_GET.
+if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Content-Type: application/json');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit();
+    }
 
-$action = $_GET['action'] ?? '';
+    $action = $_GET['action'] ?? '';
 
-switch ($action) {
-    case 'fetch':
-        requireAdminAuthShared();
-        fetchLinkMetadata();
-        break;
-    default:
-        http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida']);
+    switch ($action) {
+        case 'fetch':
+            requireAdminAuthShared();
+            fetchLinkMetadata();
+            break;
+        default:
+            http_response_code(400);
+            echo json_encode(['error' => 'Accion no valida']);
+    }
 }
 
 function fetchLinkMetadata() {
