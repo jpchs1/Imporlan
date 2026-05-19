@@ -115,6 +115,17 @@ try {
     exit(1);
 }
 
+// Auto-scrape each URL using the same helper createOrderFromQuotation() now
+// uses, so a manually recovered expediente arrives with title/image/specs
+// already populated, just like the auto-created ones. Best-effort.
+echo "Running auto-scrape on " . count($links) . " link(s)... (this can take ~15-30s per link)\n";
+try {
+    autoScrapeAndUpdateOrderLinks($pdo, $orderId, $links);
+    echo "Auto-scrape finished. The expediente now has title/image/specs where the scraper could extract them.\n";
+} catch (Throwable $e) {
+    fwrite(STDERR, "WARNING: auto-scrape raised an error but the URLs were still saved. " . $e->getMessage() . "\n");
+}
+
 $purchasesFile = __DIR__ . '/../purchases.json';
 if (file_exists($purchasesFile)) {
     $raw = file_get_contents($purchasesFile);
