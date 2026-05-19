@@ -97,9 +97,14 @@ function createPreference() {
             ]
         ],
         'back_urls' => [
-            'success' => 'https://www.imporlan.cl/panel/#myproducts',
-            'failure' => 'https://www.imporlan.cl/panel/#myproducts',
-            'pending' => 'https://www.imporlan.cl/panel/#myproducts'
+            // Land the customer on their Expedientes view so they immediately
+            // see the order we just created (with their links pre-loaded).
+            // The PostPaymentPopup detects payment=success and shows the
+            // confirmation overlay. just_created=1 hints to the popup that
+            // this is a fresh creation (vs the user revisiting).
+            'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
+            'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
+            'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
         ],
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
@@ -158,7 +163,19 @@ function createPreference() {
     ];
     $extRef = $preferenceData['external_reference'] ?? '';
     file_put_contents($pendingDir . '/' . md5($extRef) . '.json', json_encode($pendingInfo));
-    
+
+    // Persistent audit log: every Cotizacion por Links preference creation is
+    // recorded with its boat_links count. Empty count for non-payment-request
+    // flows is logged as WARN so operators can spot frontend extraction bugs
+    // (like the jaze50@gmail.com 2026-05-18 incident) in real time.
+    logQuotationLinks('MERCADOPAGO', [
+        'ext_ref' => $extRef,
+        'email' => $payerEmail ?? null,
+        'payment_request_id' => $paymentRequestId,
+        'links_count' => count($input['boat_links'] ?? []),
+        'source' => $input['source'] ?? null,
+    ]);
+
     echo json_encode([
         'success' => true,
         'preference_id' => $preference['id'],
@@ -292,6 +309,13 @@ function handleWebhook() {
                     unlink($pendingFile);
                 }
                 $purchase['boat_links'] = $pendingBoatLinks;
+
+                // Persist boat_links into purchases.json (the in-memory $purchase
+                // here already has them, but savePurchase() above wrote the record
+                // BEFORE we read the pending file, so the row on disk is missing
+                // the field). This second pass keeps purchases.json consistent
+                // with WebPay's behavior and provides an audit trail.
+                persistBoatLinksOnPurchase($purchase['id'] ?? null, $pendingBoatLinks);
 
                 sendMercadoPagoConfirmationEmail($purchase, $payment);
                 createPaymentNotificationMessage($purchase, $payment);
@@ -563,19 +587,77 @@ function savePurchase($purchaseData) {
         'days' => intval($purchaseData['days'] ?? 7),
         'proposals_total' => intval($purchaseData['proposals_total'] ?? 5),
         'proposals_received' => 0,
+        'boat_links' => $purchaseData['boat_links'] ?? [],
         'date' => date('d M Y'),
         'timestamp' => date('Y-m-d H:i:s')
     ];
-    
+
     if ($purchase['type'] === 'plan') {
         $purchase['end_date'] = date('d M Y', strtotime('+' . $purchase['days'] . ' days'));
     }
-    
+
     $data['purchases'][] = $purchase;
-    
+
     file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
-    
+
     return $purchase;
+}
+
+/**
+ * Re-open purchases.json and write boat_links into the row that matches
+ * $purchaseId. Used by the MercadoPago webhook handler after it reads the
+ * pending file (which is only available after savePurchase() has already
+ * written the initial row without boat_links).
+ */
+function persistBoatLinksOnPurchase($purchaseId, $boatLinks) {
+    if (empty($purchaseId)) return;
+    $purchasesFile = __DIR__ . '/purchases.json';
+    if (!file_exists($purchasesFile)) return;
+
+    $raw = @file_get_contents($purchasesFile);
+    $data = json_decode($raw, true);
+    if (!is_array($data) || !isset($data['purchases']) || !is_array($data['purchases'])) return;
+
+    $changed = false;
+    foreach ($data['purchases'] as &$p) {
+        if (($p['id'] ?? null) === $purchaseId) {
+            $p['boat_links'] = array_values(array_filter(array_map('strval', $boatLinks ?: []), 'strlen'));
+            $changed = true;
+            break;
+        }
+    }
+    unset($p);
+
+    if ($changed) {
+        @file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    }
+}
+
+/**
+ * Persistent audit log for Cotizacion por Links payment attempts.
+ *
+ * Writes one line per preference/transaction creation across all gateways
+ * to api/quotation_links.log. Lines with links_count=0 (in a non-payment-
+ * request flow) are tagged as WARN so they can be discovered quickly with
+ * `grep WARN`. Used to detect frontend extraction failures in real time.
+ */
+function logQuotationLinks($gateway, $info) {
+    $logFile = __DIR__ . '/quotation_links.log';
+    $linksCount = intval($info['links_count'] ?? 0);
+    $isPaymentRequest = !empty($info['payment_request_id']);
+    $level = ($linksCount === 0 && !$isPaymentRequest) ? 'WARN' : 'INFO';
+    $line = sprintf(
+        "%s [%s] [%s] ext_ref=%s email=%s links=%d payment_request_id=%s source=%s\n",
+        date('Y-m-d H:i:s'),
+        $level,
+        $gateway,
+        $info['ext_ref'] ?? '',
+        $info['email'] ?? 'NULL',
+        $linksCount,
+        $info['payment_request_id'] ?? '',
+        $info['source'] ?? ''
+    );
+    @file_put_contents($logFile, $line, FILE_APPEND);
 }
 
 /**

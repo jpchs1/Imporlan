@@ -32,6 +32,10 @@
       var links = data.links.filter(function (s) { return typeof s === 'string' && s.trim(); });
       if (!links.length) return null;
       data.links = links;
+      // Persist a defensive copy in sessionStorage so payment-override's
+      // extractBoatLinksFromPage() has a fallback if the React inputs are
+      // not in the DOM at the exact moment the user clicks pay.
+      try { sessionStorage.setItem('imporlan_boat_links', JSON.stringify(links)); } catch (e) {}
       return data;
     } catch (e) {
       return null;
@@ -41,6 +45,9 @@
   function clearPayload() {
     try { localStorage.removeItem(KEY); } catch (e) {}
     try { sessionStorage.removeItem(KEY); } catch (e) {}
+    // NOTE: we intentionally do NOT remove imporlan_boat_links here.
+    // It must survive until the payment flow completes so it can serve
+    // as fallback in payment-override.js.
   }
 
   function isAuthed() {

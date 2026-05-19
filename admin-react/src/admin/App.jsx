@@ -2,6 +2,13 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider } from '../shared/components/Toast';
 import Layout from '../shared/components/Layout';
+import NotificationBell from '../shared/components/NotificationBell';
+import {
+  getUnreadCount,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from './api';
 import { STORAGE_KEYS, BRANDING, NAV_ITEMS } from './config';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -25,7 +32,22 @@ function ProtectedRoute({ children }) {
 }
 
 function AdminLayout() {
-  return <Layout navItems={NAV_ITEMS} branding={BRANDING} profilePath="/profile" />;
+  return (
+    <Layout
+      navItems={NAV_ITEMS}
+      branding={BRANDING}
+      profilePath="/profile"
+      headerExtra={
+        <NotificationBell
+          getUnreadCount={getUnreadCount}
+          getNotifications={getNotifications}
+          markRead={markNotificationRead}
+          markAllRead={markAllNotificationsRead}
+          viewAllPath="/orders"
+        />
+      }
+    />
+  );
 }
 
 function AppRoutes() {

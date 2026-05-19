@@ -23,6 +23,7 @@ function readParams(search, hash) {
     plan: q.get('plan') || h.get('plan'),
     order: q.get('order') || h.get('order'),
     source: q.get('source') || h.get('source'),
+    justCreated: (q.get('just_created') || h.get('just_created')) === '1',
   };
 }
 
@@ -55,7 +56,22 @@ export default function PostPaymentPopup() {
       url.searchParams.delete('plan');
       url.searchParams.delete('order');
       url.searchParams.delete('source');
-      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      url.searchParams.delete('just_created');
+      // Also strip these params from inside the hash (HashRouter places
+      // query params after the hash route, e.g. #/expedientes?payment=success).
+      let cleanHash = url.hash;
+      if (cleanHash.includes('?')) {
+        const [route, qs] = cleanHash.split('?');
+        const hp = new URLSearchParams(qs);
+        ['payment', 'plan', 'order', 'source', 'just_created',
+         'collection_id', 'collection_status', 'payment_id', 'status',
+         'external_reference', 'payment_type', 'merchant_order_id',
+         'preference_id', 'site_id', 'processing_mode', 'merchant_account_id',
+         'token'].forEach(k => hp.delete(k));
+        const remaining = hp.toString();
+        cleanHash = remaining ? `${route}?${remaining}` : route;
+      }
+      window.history.replaceState({}, '', url.pathname + url.search + cleanHash);
     } catch { /* empty */ }
     setTimeout(() => { closingRef.current = false; }, 100);
   }, []);
@@ -81,10 +97,16 @@ export default function PostPaymentPopup() {
   const planName = PLAN_NAMES[params.plan] || params.plan || 'tu plan';
   const isBusqueda = isPlanDeBusqueda(params.plan);
   const isAlmirante = params.plan === 'almirante';
-  const title = isBusqueda ? 'Tu Plan de Busqueda ya esta activo!' : 'Tu Cotizacion por Links ya esta activa!';
+  const title = isBusqueda
+    ? 'Tu Plan de Busqueda ya esta activo!'
+    : (params.justCreated
+        ? 'Tu Cotizacion por Links esta lista!'
+        : 'Tu Cotizacion por Links ya esta activa!');
   const message = isBusqueda
     ? 'Nuestro equipo ya comenzo a trabajar en tu busqueda personalizada. Revisa tu panel para ver el estado de tu plan.'
-    : 'Ya puedes gestionar tus embarcaciones desde tu panel. Revisa tus productos contratados para ver los detalles.';
+    : (params.justCreated
+        ? 'Cargamos tus links en un nuevo expediente. Nuestro equipo arranca a cotizar y te avisaremos por email cuando este listo.'
+        : 'Ya puedes gestionar tus embarcaciones desde tu panel. Revisa tus productos contratados para ver los detalles.');
   const pct = (remaining / AUTO_CLOSE_MS) * 100;
 
   return (
@@ -137,7 +159,7 @@ export default function PostPaymentPopup() {
           onClick={goToProducts}
           className="mt-4 w-full px-7 py-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:scale-[1.02] transition"
         >
-          Ver Mis Productos Contratados
+          {isBusqueda ? 'Ver Mi Plan Contratado' : (params.justCreated ? 'Ver Mi Expediente' : 'Ver Mis Productos Contratados')}
         </button>
 
         <div className="mt-5 flex items-center gap-2">

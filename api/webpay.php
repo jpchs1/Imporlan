@@ -133,6 +133,18 @@ function createTransaction($data) {
     $boatLinksWp = $data['boat_links'] ?? [];
     $payerEmailWp = $data['user_email'] ?? '';
     $sourceWp = $data['source'] ?? '';
+
+    // Persistent audit log: every Cotizacion por Links transaction creation
+    // is recorded with its boat_links count. WARN when count is 0 in a
+    // non-payment-request flow to spot frontend extraction bugs early.
+    logQuotationLinksWp([
+        'ext_ref' => $buyOrder,
+        'email' => $payerEmailWp,
+        'payment_request_id' => $paymentRequestId,
+        'links_count' => count($boatLinksWp),
+        'source' => $sourceWp,
+    ]);
+
     if (!$paymentRequestId && !empty($boatLinksWp) && !empty($payerEmailWp) && $sourceWp !== 'panel_pagos') {
         try {
             $emailService = new EmailService();
@@ -202,7 +214,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=cancelled');
+        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=cancelled');
         exit();
     }
     
@@ -210,7 +222,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=no_token');
+        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=error&message=no_token');
         exit();
     }
     
@@ -238,7 +250,7 @@ function handleCallback() {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=error&message=commit_failed');
+        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=error&message=commit_failed');
         exit();
     }
     
@@ -257,12 +269,12 @@ function handleCallback() {
         // Clear any previously set headers and redirect
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=success&order=' . urlencode($buyOrder));
+        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1&order=' . urlencode($buyOrder));
     } else {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#myproducts?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
     }
     exit();
 }
@@ -718,5 +730,30 @@ function logWebpay($event, $data) {
     $logFile = __DIR__ . '/webpay.log';
     $logEntry = date('Y-m-d H:i:s') . ' [' . $event . '] ' . json_encode($data) . "\n";
     file_put_contents($logFile, $logEntry, FILE_APPEND);
+}
+
+/**
+ * Persistent audit log for Cotizacion por Links payment attempts via WebPay.
+ *
+ * Writes one line per transaction creation to api/quotation_links.log
+ * (shared with MercadoPago / PayPal logs). Lines with links_count=0 in a
+ * non-payment-request flow are tagged WARN.
+ */
+function logQuotationLinksWp($info) {
+    $logFile = __DIR__ . '/quotation_links.log';
+    $linksCount = intval($info['links_count'] ?? 0);
+    $isPaymentRequest = !empty($info['payment_request_id']);
+    $level = ($linksCount === 0 && !$isPaymentRequest) ? 'WARN' : 'INFO';
+    $line = sprintf(
+        "%s [%s] [WEBPAY] ext_ref=%s email=%s links=%d payment_request_id=%s source=%s\n",
+        date('Y-m-d H:i:s'),
+        $level,
+        $info['ext_ref'] ?? '',
+        $info['email'] ?? 'NULL',
+        $linksCount,
+        $info['payment_request_id'] ?? '',
+        $info['source'] ?? ''
+    );
+    @file_put_contents($logFile, $line, FILE_APPEND);
 }
 ?>

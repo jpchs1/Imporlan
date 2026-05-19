@@ -1,7 +1,7 @@
 import { createApiClient } from '../shared/lib/api-client';
 import { STORAGE_KEYS } from './config';
 
-const { request, uploadFile, getToken, API_BASE } = createApiClient(STORAGE_KEYS);
+const { request, uploadFile, getToken, getUserEmail, API_BASE } = createApiClient(STORAGE_KEYS);
 
 // Auth
 export const login = (email, password) =>
@@ -216,3 +216,26 @@ export async function uploadLinkImage(orderId, linkId, file) {
   fd.append('image', file);
   return uploadFile(`${API_BASE}/expediente_files_api.php?action=upload_link_image`, fd);
 }
+
+// Notifications (admin bell). Backed by the same `notifications` table the
+// user panel uses; the row's user_email is the admin's email, which the
+// backend writes to from createOrderFromQuotation() (orders_api.php).
+export const getNotifications = (limit = 30) => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=list&user_email=${encodeURIComponent(email)}&limit=${limit}`)
+    .catch(() => ({ notifications: [] }));
+};
+
+export const getUnreadCount = () => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=unread_count&user_email=${encodeURIComponent(email)}`)
+    .catch(() => ({ unread_count: 0 }));
+};
+
+export const markNotificationRead = (id) =>
+  request(`${API_BASE}/notifications_api.php?action=mark_read`, { method: 'POST', body: JSON.stringify({ id }) });
+
+export const markAllNotificationsRead = () => {
+  const email = getUserEmail();
+  return request(`${API_BASE}/notifications_api.php?action=mark_all_read`, { method: 'POST', body: JSON.stringify({ user_email: email }) });
+};
