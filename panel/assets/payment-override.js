@@ -34,6 +34,62 @@
     return links;
   }
 
+  // Returns true when the current payment flow is a "Cotizacion por Links"
+  // (i.e. the user is paying per-link, not for a search Plan/Plan de Busqueda).
+  // This is used to decide whether boat_links is mandatory before allowing
+  // the payment to proceed.
+  function isQuotationByLinksFlow(amount, description) {
+    var desc = (description || '').toLowerCase();
+    var amt = Number(amount) || 0;
+    if (desc.indexOf('plan') !== -1 || desc.indexOf('fragata') !== -1 ||
+        desc.indexOf('capitan') !== -1 || desc.indexOf('almirante') !== -1) {
+      return false;
+    }
+    if (amt >= 25000) return false;
+    return true;
+  }
+
+  function showMissingLinksModal() {
+    var existing = document.getElementById('po-missing-links-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'po-missing-links-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px';
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:16px;width:100%;max-width:440px;box-shadow:0 25px 60px rgba(0,0,0,.25);overflow:hidden">' +
+      '<div style="background:linear-gradient(135deg,#dc2626,#f59e0b);padding:18px 22px;color:#fff">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+      '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>' +
+      '<h3 style="margin:0;font-size:16px;font-weight:700">No detectamos links a cotizar</h3>' +
+      '</div></div>' +
+      '<div style="padding:20px 22px;color:#1e293b;font-size:14px;line-height:1.55">' +
+      '<p style="margin:0 0 12px">Para procesar tu Cotizacion por Links necesitamos al menos un enlace de embarcacion en el formulario.</p>' +
+      '<p style="margin:0 0 16px;color:#64748b;font-size:13px">Volve al cotizador, agrega los links que queres cotizar y luego presiona pagar.</p>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+      '<button id="po-ml-cancel" style="padding:10px 16px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#475569;font-weight:600;cursor:pointer;font-size:13px">Cancelar</button>' +
+      '<button id="po-ml-go" style="padding:10px 16px;border-radius:8px;border:none;background:#0ea5e9;color:#fff;font-weight:600;cursor:pointer;font-size:13px">Volver al cotizador</button>' +
+      '</div></div></div>';
+    document.body.appendChild(overlay);
+
+    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+    document.getElementById('po-ml-cancel').addEventListener('click', close);
+    document.getElementById('po-ml-go').addEventListener('click', function () {
+      close();
+      try {
+        if (window.location.hash.indexOf('quotation') === -1) {
+          window.location.hash = '#quotation';
+        }
+        var firstInput = document.querySelector('input[placeholder*="boattrader.com"]');
+        if (firstInput && firstInput.scrollIntoView) {
+          firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(function () { try { firstInput.focus(); } catch (e) {} }, 400);
+        }
+      } catch (e) {}
+    });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+  }
+
   function extractUserInfo() {
     var info = { email: '', name: '', phone: '' };
 
@@ -207,6 +263,14 @@
 
   async function processRealWebPay(amount, description) {
     if (_webpayProcessing) return;
+
+    var boatLinksPreCheck = extractBoatLinksFromPage();
+    if (isQuotationByLinksFlow(amount, description) && boatLinksPreCheck.length === 0) {
+      console.warn('WebPay: blocked — Cotizacion por Links flow without any boat_links');
+      showMissingLinksModal();
+      return;
+    }
+
     _webpayProcessing = true;
 
     try {
@@ -215,7 +279,7 @@
       var userInfo = extractUserInfo();
       var userEmail = userInfo.email;
       var userName = userInfo.name;
-      var boatLinks = extractBoatLinksFromPage();
+      var boatLinks = boatLinksPreCheck;
 
       var buyOrder = 'ORD_' + Date.now();
       var sessionId = 'panel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -322,9 +386,15 @@
   };
 
   async function processRealMercadoPago(amount, description) {
+    var boatLinks = extractBoatLinksFromPage();
+    if (isQuotationByLinksFlow(amount, description) && boatLinks.length === 0) {
+      console.warn('MercadoPago: blocked — Cotizacion por Links flow without any boat_links');
+      showMissingLinksModal();
+      return;
+    }
+
     try {
       var userInfo = extractUserInfo();
-      var boatLinks = extractBoatLinksFromPage();
       console.log('Processing MercadoPago payment:', { amount: amount, description: description, boatLinks: boatLinks });
 
       showLoadingOverlay('Procesando pago con MercadoPago...');
@@ -364,6 +434,17 @@
 
     var userInfo = extractUserInfo();
     var boatLinks = extractBoatLinksFromPage();
+
+    // PayPal is priced in USD but the underlying flow is still
+    // "Cotizacion por Links". The amount threshold check uses CLP
+    // semantics for the other gateways; for USD we estimate a single
+    // link is well under USD $50, so any small amount + missing links
+    // is still suspicious in this flow.
+    if (isQuotationByLinksFlow(parsedAmount * 900, description) && boatLinks.length === 0) {
+      console.warn('PayPal: blocked — Cotizacion por Links flow without any boat_links');
+      showMissingLinksModal();
+      return;
+    }
 
     // Show modal with Smart Buttons instead of redirect
     var existing = document.getElementById('po-paypal-modal');
