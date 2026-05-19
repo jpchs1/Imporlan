@@ -16,6 +16,29 @@ RedirectMatch 301 ^/lanchas-usadas-en-chile-2(/.*)?$ /lanchas-usadas/
 
 RewriteBase /
 
+# ============================================
+# 410 GONE: Old pages removed from site (GSC 404 cleanup)
+# ============================================
+
+# 410 Gone: Old individual boat listing sub-pages under /lanchas-usadas/
+# The /lanchas-usadas/ index page itself is valid; only sub-paths are gone
+RewriteCond %{REQUEST_URI} ^/lanchas-usadas/.+ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ - [G,L]
+
+# 410 Gone: Legacy /inventory/ page (no longer exists)
+RewriteRule ^inventory/?$ - [G,L]
+
+# 410 Gone: Legacy WordPress taxonomy feed URLs
+RewriteCond %{QUERY_STRING} ^taxonomy= [NC]
+RewriteRule ^$ - [G,L]
+
+# 410 Gone: Old inspección-USA page
+RewriteRule ^inspecci\xc3\xb3n-USA/?$ - [G,L]
+
+# ============================================
+
 # 301 Redirects: TOUREVO pages moved to tourevo.cl
 RewriteRule ^en(/.*)?$ https://tourevo.cl/en$1 [R=301,L]
 RewriteRule ^br(/.*)?$ https://tourevo.cl/br$1 [R=301,L]
