@@ -321,6 +321,12 @@ function captureOrder() {
         }
         $purchaseRecord['boat_links'] = $pendingBoatLinks;
 
+        // Persist boat_links into purchases.json (the in-memory $purchaseRecord
+        // already has them, but savePurchase() above wrote the row BEFORE we
+        // read the pending file). Keeps purchases.json consistent with WebPay
+        // and MercadoPago's behavior, and provides an audit trail.
+        persistBoatLinksOnPurchasePp($purchaseRecord['id'] ?? null, $pendingBoatLinks);
+
         sendPayPalConfirmationEmails($purchaseRecord, $userEmail);
         createPayPalPaymentNotificationMessage($purchaseRecord, $userEmail);
 
@@ -553,17 +559,49 @@ function savePurchase($purchaseData) {
         'days' => intval($purchaseData['days'] ?? 7),
         'proposals_total' => intval($purchaseData['proposals_total'] ?? 5),
         'proposals_received' => 0,
+        'boat_links' => $purchaseData['boat_links'] ?? [],
         'date' => date('d M Y'),
         'timestamp' => date('Y-m-d H:i:s')
     ];
-    
+
     if ($purchase['type'] === 'plan') {
         $purchase['end_date'] = date('d M Y', strtotime('+' . $purchase['days'] . ' days'));
     }
-    
+
     $data['purchases'][] = $purchase;
-    
+
     file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
-    
+
     return $purchase;
+}
+
+/**
+ * Re-open purchases.json and write boat_links into the row that matches
+ * $purchaseId. Mirrors the same helper in mercadopago.php and is used
+ * after the capture handler reads the pending file (which is only
+ * available after savePurchase() has already written the initial row
+ * without boat_links).
+ */
+function persistBoatLinksOnPurchasePp($purchaseId, $boatLinks) {
+    if (empty($purchaseId)) return;
+    $purchasesFile = __DIR__ . '/purchases.json';
+    if (!file_exists($purchasesFile)) return;
+
+    $raw = @file_get_contents($purchasesFile);
+    $data = json_decode($raw, true);
+    if (!is_array($data) || !isset($data['purchases']) || !is_array($data['purchases'])) return;
+
+    $changed = false;
+    foreach ($data['purchases'] as &$p) {
+        if (($p['id'] ?? null) === $purchaseId) {
+            $p['boat_links'] = array_values(array_filter(array_map('strval', $boatLinks ?: []), 'strlen'));
+            $changed = true;
+            break;
+        }
+    }
+    unset($p);
+
+    if ($changed) {
+        @file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    }
 }
