@@ -114,7 +114,7 @@ function createOrder() {
             'brand_name' => 'Imporlan',
             'landing_page' => 'NO_PREFERENCE',
             'user_action' => 'PAY_NOW',
-            'return_url' => 'https://www.imporlan.cl/panel/#myproducts',
+            'return_url' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
             'cancel_url' => 'https://www.imporlan.cl/panel/#myproducts'
         ]
     ];

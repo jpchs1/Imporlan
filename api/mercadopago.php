@@ -97,9 +97,14 @@ function createPreference() {
             ]
         ],
         'back_urls' => [
-            'success' => 'https://www.imporlan.cl/panel/#myproducts',
-            'failure' => 'https://www.imporlan.cl/panel/#myproducts',
-            'pending' => 'https://www.imporlan.cl/panel/#myproducts'
+            // Land the customer on their Expedientes view so they immediately
+            // see the order we just created (with their links pre-loaded).
+            // The PostPaymentPopup detects payment=success and shows the
+            // confirmation overlay. just_created=1 hints to the popup that
+            // this is a fresh creation (vs the user revisiting).
+            'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
+            'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
+            'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
         ],
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
