@@ -1016,7 +1016,7 @@ function adminDeleteOrder() {
 
 function adminSendClientUpdate() {
     $input = json_decode(file_get_contents('php://input'), true);
-    $orderId = intval($input['id'] ?? 0);
+    $orderId = intval($input['order_id'] ?? $input['id'] ?? 0);
 
     if (!$orderId) {
         http_response_code(400);
