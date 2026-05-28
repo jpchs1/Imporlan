@@ -219,6 +219,20 @@ if [ -f "$STAGING_REPO/.htaccess" ]; then
   echo "  -> .htaccess deployed."
 fi
 
+# Deploy robots.txt
+if [ -f "$STAGING_REPO/robots.txt" ]; then
+  cp "$STAGING_REPO/robots.txt" "$PUBLIC_HTML/robots.txt"
+  chmod 644 "$PUBLIC_HTML/robots.txt"
+  echo "  -> robots.txt deployed."
+fi
+
+# Deploy llms.txt (AI crawlers: ChatGPT, Claude, Perplexity, etc.)
+if [ -f "$STAGING_REPO/llms.txt" ]; then
+  cp "$STAGING_REPO/llms.txt" "$PUBLIC_HTML/llms.txt"
+  chmod 644 "$PUBLIC_HTML/llms.txt"
+  echo "  -> llms.txt deployed."
+fi
+
 echo ""
 echo "[7/9] Setting permissions..."
 find "$PUBLIC_HTML/assets" -type d -exec chmod 755 {} \;
