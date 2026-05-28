@@ -324,32 +324,32 @@
     
     section.innerHTML = `
       <div class="seo-section-container">
-        <h2>Guia de Importacion</h2>
-        <p class="section-subtitle">Todo lo que necesitas saber antes de importar tu embarcacion</p>
+        <h2>Guía de Importación</h2>
+        <p class="section-subtitle">Todo lo que necesitas saber antes de importar tu embarcación</p>
         
         <div class="guide-grid">
           <a href="/cuanto-cuesta-importar-una-lancha-a-chile/" class="guide-card">
             <div class="card-icon-wrapper icon-orange">${icons.money}</div>
-            <h3>¿Cuanto cuesta importar?</h3>
-            <p>Conoce los costos detallados de importar tu lancha o embarcacion desde USA</p>
+            <h3>¿Cuánto cuesta importar?</h3>
+            <p>Conoce los costos detallados de importar tu lancha o embarcación desde USA</p>
           </a>
           
           <a href="/requisitos-importar-embarcaciones-chile/" class="guide-card">
             <div class="card-icon-wrapper icon-green">${icons.clipboard}</div>
-            <h3>Requisitos de Importacion</h3>
-            <p>Documentos y tramites necesarios para importar legalmente</p>
+            <h3>Requisitos de Importación</h3>
+            <p>Documentos y trámites necesarios para importar legalmente</p>
           </a>
           
           <a href="/casos-de-importacion/" class="guide-card">
             <div class="card-icon-wrapper icon-purple">${icons.trophy}</div>
-            <h3>Casos de Exito</h3>
+            <h3>Casos de Éxito</h3>
             <p>Conoce importaciones reales que hemos realizado</p>
           </a>
           
           <a href="/cotizar-importacion/" class="guide-card highlight">
             <div class="card-icon-wrapper icon-blue">${icons.quote}</div>
-            <h3>Cotizar Importacion</h3>
-            <p>Solicita tu cotizacion personalizada gratis</p>
+            <h3>Cotizar Importación</h3>
+            <p>Solicita tu cotización personalizada gratis</p>
           </a>
         </div>
       </div>
@@ -370,13 +370,13 @@
     
     section.innerHTML = `
       <div class="seo-section-container">
-        <h2>Nuestros Servicios de Importacion</h2>
-        <p class="section-subtitle">Especialistas en traer tu embarcacion ideal desde Estados Unidos a Chile</p>
+        <h2>Nuestros Servicios de Importación</h2>
+        <p class="section-subtitle">Especialistas en traer tu embarcación ideal desde Estados Unidos a Chile</p>
         
         <div class="services-grid">
           <a href="/importacion-lanchas-chile/" class="service-card">
             <div class="card-icon-wrapper icon-blue">${icons.boat}</div>
-            <h3>Importacion de Lanchas</h3>
+            <h3>Importación de Lanchas</h3>
             <p>Lanchas nuevas y usadas desde USA con servicio integral</p>
             <span class="card-arrow">→</span>
           </a>
@@ -384,28 +384,28 @@
           <a href="/importacion-embarcaciones-usa-chile/" class="service-card">
             <div class="card-icon-wrapper icon-cyan">${icons.globe}</div>
             <h3>Embarcaciones desde USA</h3>
-            <p>Servicio completo de importacion USA-Chile</p>
+            <p>Servicio completo de importación USA-Chile</p>
             <span class="card-arrow">→</span>
           </a>
           
           <a href="/importacion-veleros-chile/" class="service-card">
             <div class="card-icon-wrapper icon-green">${icons.sailboat}</div>
-            <h3>Importacion de Veleros</h3>
+            <h3>Importación de Veleros</h3>
             <p>Veleros de crucero y regata desde Estados Unidos</p>
             <span class="card-arrow">→</span>
           </a>
           
           <a href="/logistica-maritima-importacion/" class="service-card">
             <div class="card-icon-wrapper icon-purple">${icons.ship}</div>
-            <h3>Logistica Maritima</h3>
-            <p>Transporte, documentacion y tramites aduaneros</p>
+            <h3>Logística Marítima</h3>
+            <p>Transporte, documentación y trámites aduaneros</p>
             <span class="card-arrow">→</span>
           </a>
           
           <a href="/servicios/" class="service-card">
             <div class="card-icon-wrapper icon-red">${icons.anchor}</div>
             <h3>Todos los Servicios</h3>
-            <p>Conoce todos nuestros servicios de importacion nautica</p>
+            <p>Conoce todos nuestros servicios de importación náutica</p>
             <span class="card-arrow">→</span>
           </a>
         </div>
@@ -753,12 +753,12 @@
 
     section.innerHTML = `
       <div class="lanchas-usadas-container">
-        <h2><span class="kw-highlight">Lanchas Usadas</span> en Chile: Compra, Venta e <span class="kw-highlight">Importacion de Lanchas</span></h2>
+        <h2><span class="kw-highlight">Lanchas Usadas</span> en Chile: Compra, Venta e <span class="kw-highlight">Importación de Lanchas</span></h2>
         <p class="section-intro">
-          <span itemprop="name">Imporlan</span> es la plataforma lider en Chile para encontrar <strong>lanchas usadas en venta</strong> y realizar la <strong>importacion de lanchas</strong> desde Estados Unidos. 
-          Conectamos compradores con las mejores oportunidades del mercado nautico nacional e internacional.
+          <span itemprop="name">Imporlan</span> es la plataforma líder en Chile para encontrar <strong>lanchas usadas en venta</strong> y realizar la <strong>importación de lanchas</strong> desde Estados Unidos. 
+          Conectamos compradores con las mejores oportunidades del mercado náutico nacional e internacional.
         </p>
-        <meta itemprop="serviceType" content="Importacion de lanchas y venta de lanchas usadas en Chile">
+        <meta itemprop="serviceType" content="Importación de lanchas y venta de lanchas usadas en Chile">
         <meta itemprop="areaServed" content="Chile">
         
         <div class="lanchas-content-grid">
@@ -769,8 +769,8 @@
               <span class="block-toggle">${chevronDown}</span>
             </h3>
             <div class="block-body">
-              <p>En nuestro <strong>marketplace de lanchas usadas</strong> encontraras embarcaciones verificadas publicadas por particulares y dealers en todo Chile. Desde <strong>lanchas de pesca usadas</strong>, lanchas deportivas, hasta cabinadas y pontones.</p>
-              <p>Comprar una <strong>lancha usada</strong> es la forma mas inteligente de acceder a la navegacion recreativa. En Imporlan te ayudamos a encontrar la lancha perfecta al mejor precio del mercado.</p>
+              <p>En nuestro <strong>marketplace de lanchas usadas</strong> encontrarás embarcaciones verificadas publicadas por particulares y dealers en todo Chile. Desde <strong>lanchas de pesca usadas</strong>, lanchas deportivas, hasta cabinadas y pontones.</p>
+              <p>Comprar una <strong>lancha usada</strong> es la forma más inteligente de acceder a la navegación recreativa. En Imporlan te ayudamos a encontrar la lancha perfecta al mejor precio del mercado.</p>
               <ul>
                 <li>Lanchas de pesca usadas desde $3.000.000</li>
                 <li>Lanchas deportivas y wakeboard usadas</li>
@@ -784,17 +784,17 @@
           <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-cyan">${icons.globe}</span>
-              Importacion de Lanchas desde USA
+              Importación de Lanchas desde USA
               <span class="block-toggle">${chevronDown}</span>
             </h3>
             <div class="block-body">
-              <p>Somos expertos en la <strong>importacion de lanchas</strong> desde Estados Unidos a Chile. Nuestro servicio integral cubre todo el proceso: busqueda, inspeccion, compra, transporte maritimo, internacion aduanera y entrega en tu puerto.</p>
+              <p>Somos expertos en la <strong>importación de lanchas</strong> desde Estados Unidos a Chile. Nuestro servicio integral cubre todo el proceso: búsqueda, inspección, compra, transporte marítimo, internación aduanera y entrega en tu puerto.</p>
               <p><strong>Importar una lancha usada</strong> desde USA te permite acceder a embarcaciones de alta calidad a precios significativamente menores que en el mercado local, con ahorros de hasta un 40%.</p>
               <ul>
-                <li>Cotizacion gratuita y sin compromiso</li>
-                <li>Busqueda personalizada en BoatTrader y YachtWorld</li>
-                <li>Inspeccion pre-compra profesional</li>
-                <li>Transporte maritimo y tramites aduaneros</li>
+                <li>Cotización gratuita y sin compromiso</li>
+                <li>Búsqueda personalizada en BoatTrader y YachtWorld</li>
+                <li>Inspección pre-compra profesional</li>
+                <li>Transporte marítimo y trámites aduaneros</li>
                 <li>Entrega puerta a puerta en Chile</li>
               </ul>
             </div>
@@ -807,7 +807,7 @@
               <span class="block-toggle">${chevronDown}</span>
             </h3>
             <div class="block-body">
-              <p>Ya sea que busques <strong>lanchas usadas</strong> para pesca, paseo familiar o deportes acuaticos, en Imporlan tenemos opciones para todos los presupuestos y necesidades.</p>
+              <p>Ya sea que busques <strong>lanchas usadas</strong> para pesca, paseo familiar o deportes acuáticos, en Imporlan tenemos opciones para todos los presupuestos y necesidades.</p>
               <ul>
                 <li><strong>Lanchas de pesca:</strong> Center console, bass boats y walkaround</li>
                 <li><strong>Lanchas deportivas:</strong> Bowrider, runabout y ski boats</li>
@@ -821,36 +821,36 @@
           <div class="lanchas-content-block" data-collapsible>
             <h3>
               <span class="block-icon icon-orange">${icons.anchor}</span>
-              Por que Elegir Imporlan para tu Lancha
+              Por qué Elegir Imporlan para tu Lancha
               <span class="block-toggle">${chevronDown}</span>
             </h3>
             <div class="block-body">
-              <p>Con anos de experiencia en la <strong>importacion de lanchas</strong> y <strong>venta de lanchas usadas</strong>, Imporlan se ha posicionado como el referente del mercado nautico en Chile.</p>
+              <p>Con años de experiencia en la <strong>importación de lanchas</strong> y <strong>venta de lanchas usadas</strong>, Imporlan se ha posicionado como el referente del mercado náutico en Chile.</p>
               <ul>
                 <li><strong>+200 embarcaciones</strong> importadas exitosamente</li>
                 <li>Servicio integral <strong>puerta a puerta</strong></li>
                 <li>Precios transparentes sin costos ocultos</li>
                 <li>Marketplace con <strong>lanchas usadas verificadas</strong></li>
-                <li>Asesoria nautica profesional gratuita</li>
-                <li>Financiamiento y seguros nauticos</li>
+                <li>Asesoría náutica profesional gratuita</li>
+                <li>Financiamiento y seguros náuticos</li>
               </ul>
             </div>
           </div>
         </div>
         
         <div class="lanchas-faq-section" itemscope itemtype="https://schema.org/FAQPage">
-          <h3>Preguntas Frecuentes sobre Lanchas Usadas e Importacion</h3>
+          <h3>Preguntas Frecuentes sobre Lanchas Usadas e Importación</h3>
           <div class="lanchas-faq-grid">
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
-              <h4 itemprop="name">¿Cuanto cuesta una lancha usada en Chile? <span class="faq-toggle">${chevronDown}</span></h4>
+              <h4 itemprop="name">¿Cuánto cuesta una lancha usada en Chile? <span class="faq-toggle">${chevronDown}</span></h4>
               <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                <p itemprop="text">Las <strong>lanchas usadas</strong> en Chile tienen precios desde $3.000.000 CLP para modelos basicos de pesca, hasta $80.000.000+ para lanchas cabinadas premium. El precio depende del tamano, marca, motor y estado general.</p>
+                <p itemprop="text">Las <strong>lanchas usadas</strong> en Chile tienen precios desde $3.000.000 CLP para modelos básicos de pesca, hasta $80.000.000+ para lanchas cabinadas premium. El precio depende del tamaño, marca, motor y estado general.</p>
               </div>
             </div>
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
-              <h4 itemprop="name">¿Cuanto cuesta importar una lancha desde USA? <span class="faq-toggle">${chevronDown}</span></h4>
+              <h4 itemprop="name">¿Cuánto cuesta importar una lancha desde USA? <span class="faq-toggle">${chevronDown}</span></h4>
               <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                <p itemprop="text">La <strong>importación de lanchas</strong> desde USA tiene costos que incluyen: precio de compra, transporte marítimo ($4.000-$8.000 USD), internación aduanera (6% arancel | No se paga gracias al TLC ) solo se paga el 19% IVA sobre el valor CIF) y logística local. Normalmente una importación puede llegar a costar sumando todos los costos entre $14.000.000 a $20.000.000 app. Cotiza vía Cotizador Online y Planes de Búsqueda con Imporlan.</p>
+                <p itemprop="text">La <strong>importación de lanchas</strong> desde USA tiene costos que incluyen: precio de compra, transporte marítimo ($4.000-$8.000 USD) e internación aduanera (el 6% de arancel no se paga gracias al TLC con USA; solo se aplica el 19% de IVA sobre el valor CIF), además de la logística local. Normalmente, sumando todos los costos, una importación puede llegar a costar entre $14.000.000 y $20.000.000 aprox. Cotiza con el Cotizador Online y los Planes de Búsqueda de Imporlan.</p>
               </div>
             </div>
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
@@ -860,9 +860,9 @@
               </div>
             </div>
             <div class="lanchas-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question" data-faq>
-              <h4 itemprop="name">¿Que documentos necesito para importar una lancha? <span class="faq-toggle">${chevronDown}</span></h4>
+              <h4 itemprop="name">¿Qué documentos necesito para importar una lancha? <span class="faq-toggle">${chevronDown}</span></h4>
               <div class="faq-answer" itemprop="acceptedAnswer" itemscope itemtype="https://schema.org/Answer">
-                <p itemprop="text">Para la <strong>importacion de lanchas</strong> necesitas: Bill of Sale, titulo de propiedad, factura comercial, Bill of Lading y documentos aduaneros. Imporlan gestiona todos los tramites por ti.</p>
+                <p itemprop="text">Para la <strong>importación de lanchas</strong> necesitas: Bill of Sale, título de propiedad, factura comercial, Bill of Lading y documentos aduaneros. Imporlan gestiona todos los trámites por ti.</p>
               </div>
             </div>
           </div>
