@@ -23,6 +23,8 @@ deployment:
     - /bin/cp sitemap.xml $DEPLOYPATH/
     - /bin/cp favicon.ico $DEPLOYPATH/
     - /bin/test -f .htaccess && /bin/cp .htaccess $DEPLOYPATH/ || true
+    - /bin/test -f llms.txt && /bin/cp llms.txt $DEPLOYPATH/ || true
+    - /bin/test -f llms-full.txt && /bin/cp llms-full.txt $DEPLOYPATH/ || true
 
     # --- Deploy core directories ---
     - /bin/cp -Rf assets $DEPLOYPATH/

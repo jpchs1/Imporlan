@@ -10,6 +10,8 @@ Allow: /wp-includes/*.css
 Allow: /wp-includes/*.js
 Allow: /assets/*.css
 Allow: /assets/*.js
+Allow: /llms.txt
+Allow: /llms-full.txt
 
 # Bienvenida explicita a motores de IA (ChatGPT, Claude, Perplexity, Gemini, etc.)
 User-agent: GPTBot
