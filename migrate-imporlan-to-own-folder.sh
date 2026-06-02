@@ -61,6 +61,7 @@ IMPORLAN_DIRS=(
   embarcaciones
   embarcaciones-usadas
   images
+  importacion-de-lanchas
   importacion-embarcaciones-usa-chile
   importacion-lanchas-chile
   importacion-veleros-chile

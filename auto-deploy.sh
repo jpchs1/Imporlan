@@ -99,7 +99,7 @@ DIRS=(
   lanchas lanchas-usadas lanchas-usadas-en-chile-2 lanchas-de-pesca-usadas lanchas-de-ski
   veleros-usados veleros-usados-a-la-venta-en-chile-o-usa
   botes-de-pesca
-  importacion-lanchas-chile importacion-veleros-chile importacion-embarcaciones-usa-chile
+  importacion-de-lanchas importacion-lanchas-chile importacion-veleros-chile importacion-embarcaciones-usa-chile
   importar-embarcaciones-usa importar-motos-de-agua-desde-usa importaciones
   requisitos-importar-embarcaciones-chile cuanto-cuesta-importar-una-lancha-a-chile
   comprar-lanchas-usadas-en-chile-o-en-usa como-comprar-lancha-usada-chile

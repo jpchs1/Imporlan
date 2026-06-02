@@ -51,6 +51,7 @@ deployment:
     - /bin/cp -Rf veleros-usados $DEPLOYPATH/
     - /bin/cp -Rf veleros-usados-a-la-venta-en-chile-o-usa $DEPLOYPATH/
     - /bin/cp -Rf botes-de-pesca $DEPLOYPATH/
+    - /bin/cp -Rf importacion-de-lanchas $DEPLOYPATH/
     - /bin/cp -Rf importacion-lanchas-chile $DEPLOYPATH/
     - /bin/cp -Rf importacion-veleros-chile $DEPLOYPATH/
     - /bin/cp -Rf importacion-embarcaciones-usa-chile $DEPLOYPATH/
