@@ -136,7 +136,22 @@ $jsVersion = '183';
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?php echo $basePath; ?>/assets/marketplace-public.css?v=<?php echo $cssVersion; ?>">
 
-<?php if ($listingId > 0 && isset($listing) && $listing): ?>
+<?php if ($listingId > 0 && isset($listing) && $listing):
+  // Build additionalProperty array from listing specs (eslora, tipo, condicion)
+  $additionalProperties = [];
+  if (!empty($listing['eslora'])) {
+    $additionalProperties[] = ['@type' => 'PropertyValue', 'name' => 'Eslora', 'value' => $listing['eslora']];
+  }
+  if (!empty($listing['tipo'])) {
+    $additionalProperties[] = ['@type' => 'PropertyValue', 'name' => 'Tipo de embarcación', 'value' => $listing['tipo']];
+  }
+  if (!empty($listing['condicion'])) {
+    $additionalProperties[] = ['@type' => 'PropertyValue', 'name' => 'Condición', 'value' => $listing['condicion']];
+  }
+  if (!empty($listing['ubicacion'])) {
+    $additionalProperties[] = ['@type' => 'PropertyValue', 'name' => 'Ubicación', 'value' => $listing['ubicacion']];
+  }
+?>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -145,16 +160,28 @@ $jsVersion = '183';
     "description": <?php echo json_encode(mb_substr($listing['descripcion'] ?: $ogDescription, 0, 300), JSON_UNESCAPED_UNICODE); ?>,
     "image": <?php echo json_encode($ogImage, JSON_UNESCAPED_UNICODE); ?>,
     "url": <?php echo json_encode($canonicalUrl, JSON_UNESCAPED_UNICODE); ?>,
+    "sku": <?php echo json_encode('IMP-' . $listingId); ?>,
+    "category": <?php echo json_encode($listing['tipo'] ?: 'Embarcación'); ?>,
     "brand": {
       "@type": "Organization",
       "name": "Imporlan"
-    },
+    }<?php if (!empty($listing['ano'])): ?>,
+    "productionDate": <?php echo json_encode(strval($listing['ano'])); ?>,
+    "model": <?php echo json_encode(trim(($listing['nombre'] ?: '') . ' ' . $listing['ano'])); ?><?php endif; ?><?php if (!empty($additionalProperties)): ?>,
+    "additionalProperty": <?php echo json_encode($additionalProperties, JSON_UNESCAPED_UNICODE); ?><?php endif; ?>,
     "offers": {
       "@type": "Offer",
       "price": <?php echo json_encode(strval(floatval($listing['precio']))); ?>,
       "priceCurrency": <?php echo json_encode($listing['moneda'] ?: 'USD'); ?>,
       "availability": "https://schema.org/InStock",
-      "itemCondition": <?php echo json_encode($listing['estado'] === 'Nueva' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'); ?>
+      "itemCondition": <?php echo json_encode($listing['estado'] === 'Nueva' ? 'https://schema.org/NewCondition' : 'https://schema.org/UsedCondition'); ?>,
+      "url": <?php echo json_encode($canonicalUrl, JSON_UNESCAPED_UNICODE); ?>,
+      "seller": {
+        "@type": "Organization",
+        "name": "Imporlan",
+        "url": "https://www.imporlan.cl"
+      }<?php if (!empty($listing['ubicacion'])): ?>,
+      "areaServed": <?php echo json_encode($listing['ubicacion'], JSON_UNESCAPED_UNICODE); ?><?php endif; ?>
     }
   }
   </script>
