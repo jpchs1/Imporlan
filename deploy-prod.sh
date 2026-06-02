@@ -182,6 +182,7 @@ SEO_PAGES=(
   "cuanto-cuesta-importar-una-lancha-a-chile"
   "documentos-tramites-vender-embarcacion-chile"
   "importacion-de-lanchas"
+  "calculadora-importacion-lanchas"
   "importacion-embarcaciones-usa-chile"
   "importacion-lanchas-chile"
   "importacion-veleros-chile"

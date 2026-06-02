@@ -49,6 +49,7 @@ IMPORLAN_DIRS=(
   api
   assets
   botes-de-pesca
+  calculadora-importacion-lanchas
   casos-de-importacion
   como-comprar-lancha-usada-chile
   como-vender-moto-de-agua-chile
