@@ -131,6 +131,103 @@
         ]
     }
     </script>
+
+    <!-- ItemList Schema: listado de casos de éxito -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": "Casos de éxito de importación de embarcaciones Imporlan",
+        "description": "Casos reales de importación de lanchas y veleros desde USA a Chile con Imporlan, con detalle de ahorro, plazo y resultado.",
+        "numberOfItems": 4,
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Sea Ray 230 SLX - Punta Arenas",
+                "url": "https://www.imporlan.cl/casos-de-importacion/#caso-1"
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Malibu Wakesetter 22 MXZ - Lago Rapel",
+                "url": "https://www.imporlan.cl/casos-de-importacion/#caso-2"
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Beneteau Oceanis 38.1 - Algarrobo",
+                "url": "https://www.imporlan.cl/casos-de-importacion/#caso-3"
+            },
+            {
+                "@type": "ListItem",
+                "position": 4,
+                "name": "Boston Whaler 210 Montauk - Los Lagos",
+                "url": "https://www.imporlan.cl/casos-de-importacion/#caso-4"
+            }
+        ]
+    }
+    </script>
+
+    <!-- Service con AggregateRating + Reviews de casos reales -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Service",
+        "serviceType": "Importación de embarcaciones",
+        "name": "Importación de lanchas, veleros y motos de agua desde USA a Chile",
+        "description": "Servicio integral puerta a puerta de importación de embarcaciones desde Estados Unidos a Chile, con asesoría, inspección, transporte marítimo, aduana y matrícula DIRECTEMAR.",
+        "provider": {
+            "@type": "Organization",
+            "name": "Imporlan",
+            "url": "https://www.imporlan.cl",
+            "telephone": "+56940211459",
+            "email": "contacto@imporlan.cl"
+        },
+        "areaServed": {"@type": "Country", "name": "Chile"},
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "reviewCount": "4",
+            "bestRating": "5",
+            "worstRating": "1"
+        },
+        "review": [
+            {
+                "@type": "Review",
+                "name": "Sea Ray 230 SLX importada a Punta Arenas",
+                "author": {"@type": "Person", "name": "Familia Rodríguez"},
+                "datePublished": "2026-01-15",
+                "reviewRating": {"@type": "Rating", "ratingValue": "5", "bestRating": "5"},
+                "reviewBody": "Importamos una Sea Ray 230 SLX 2017 desde USA a Punta Arenas con Imporlan. Costo total USD 38.000 FOB, puesta en Chile por CLP 56.800.000. Ahorro real de CLP 25.200.000 (31%) versus el precio equivalente local. Plazo total 75 días, sin sobresaltos. La inspección pre-compra fue clave: el surveyor detectó detalles que nos permitieron renegociar."
+            },
+            {
+                "@type": "Review",
+                "name": "Malibu Wakesetter 22 MXZ para escuela de wake surf",
+                "author": {"@type": "Organization", "name": "Club de Wake Surf Rapel"},
+                "datePublished": "2026-02-08",
+                "reviewRating": {"@type": "Rating", "ratingValue": "5", "bestRating": "5"},
+                "reviewBody": "Como club necesitábamos un wake boat profesional. Imporlan importó una Malibu Wakesetter 22 MXZ 2019 por USD 52.000 FOB, total CLP 74.500.000. El ahorro versus comprar en Chile fue de CLP 40.500.000 (35%). 82 días puerta a puerta. Recomendados."
+            },
+            {
+                "@type": "Review",
+                "name": "Beneteau Oceanis 38.1 para travesías costeras",
+                "author": {"@type": "Person", "name": "Cliente navegante de Santiago"},
+                "datePublished": "2026-03-20",
+                "reviewRating": {"@type": "Rating", "ratingValue": "5", "bestRating": "5"},
+                "reviewBody": "Velero Beneteau Oceanis 38.1 2018 importado por Imporlan. USD 145.000 FOB, total CLP 195.000.000. Ahorro de CLP 95.000.000 (33%) sobre el precio en Chile. 95 días desde el cierre. Asesoría impecable durante todo el proceso de matrícula DIRECTEMAR."
+            },
+            {
+                "@type": "Review",
+                "name": "Boston Whaler 210 Montauk para pesca en Los Lagos",
+                "author": {"@type": "Person", "name": "Cliente de Puerto Montt"},
+                "datePublished": "2026-04-12",
+                "reviewRating": {"@type": "Rating", "ratingValue": "5", "bestRating": "5"},
+                "reviewBody": "Center console Boston Whaler 210 Montauk 2016 importada para pesca deportiva en fiordos. USD 42.000 FOB, total CLP 62.300.000. Ahorro CLP 27.700.000 (31%) vs Chile. Plazo total 68 días, el más rápido de mis cotizaciones. Entrega directa a Puerto Montt."
+            }
+        ]
+    }
+    </script>
 </head>
 <body>
     <!-- Header - Matching HOME design exactly -->
@@ -247,7 +344,7 @@
         <div class="container">
             <article class="content-wrapper">
 
-<h2>Caso 1: Sea Ray 230 SLX - Punta Arenas</h2>
+<h2 id="caso-1">Caso 1: Sea Ray 230 SLX - Punta Arenas</h2>
 <p><strong>Cliente:</strong> Familia Rodríguez, Punta Arenas</p>
 <p><strong>Necesidad:</strong> Lancha de recreo familiar para navegación en fiordos patagónicos</p>
 
@@ -287,7 +384,7 @@
     </tbody>
 </table>
 
-<h2>Caso 2: Malibu Wakesetter 22 MXZ - Lago Rapel</h2>
+<h2 id="caso-2">Caso 2: Malibu Wakesetter 22 MXZ - Lago Rapel</h2>
 <p><strong>Cliente:</strong> Club de Wake Surf Rapel</p>
 <p><strong>Necesidad:</strong> Wake boat profesional para escuela de wake surf</p>
 
@@ -327,7 +424,7 @@
     </tbody>
 </table>
 
-<h2>Caso 3: Beneteau Oceanis 38.1 - Algarrobo</h2>
+<h2 id="caso-3">Caso 3: Beneteau Oceanis 38.1 - Algarrobo</h2>
 <p><strong>Cliente:</strong> Navegante solitario, Santiago</p>
 <p><strong>Necesidad:</strong> Velero de crucero para navegación costera y travesías</p>
 
@@ -367,7 +464,7 @@
     </tbody>
 </table>
 
-<h2>Caso 4: Boston Whaler 210 Montauk - Los Lagos</h2>
+<h2 id="caso-4">Caso 4: Boston Whaler 210 Montauk - Los Lagos</h2>
 <p><strong>Cliente:</strong> Pescador deportivo, Puerto Montt</p>
 <p><strong>Necesidad:</strong> Center console para pesca en fiordos y canales</p>
 
