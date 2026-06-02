@@ -42,3 +42,22 @@
 - [Precio de lanchas usadas en Chile](https://www.imporlan.cl/precio-lanchas-usadas-chile/)
 - [Marcas de lanchas usadas](https://www.imporlan.cl/lanchas-usadas-marcas/)
 - [Lanchas usadas por región (Santiago, Viña, Concepción, Puerto Montt)](https://www.imporlan.cl/lanchas-usadas-santiago/)
+
+## Preguntas frecuentes
+
+- [FAQ general de embarcaciones usadas](https://www.imporlan.cl/preguntas-frecuentes-embarcaciones-usadas/): 12 respuestas sobre documentación, licencias, mantención, seguros y financiamiento.
+- [FAQ de lanchas usadas en Chile](https://www.imporlan.cl/lanchas-usadas/#faq): 8 respuestas sobre precios, marcas, horas de motor y compra vs. importación.
+
+## Por qué Imporlan
+
+- Bróker especializado (no clasificado abierto): cada operación tiene asesor responsable y respaldo escrito.
+- Inspección pre-compra profesional por marine surveyor certificado.
+- Servicio integral puerta a puerta para importación desde USA (45-90 días).
+- Cobertura nacional: entrega en Santiago, Viña del Mar, Algarrobo, lagos centrales (Rapel, Colbún, Vichuquén), sur (Villarrica, Llanquihue) y Patagonia.
+- Marketplace náutico con publicación gratuita para particulares.
+
+## Documentación extendida
+
+Para una referencia más detallada (precios por tipo de embarcación, costos de importación, FAQ consolidado, glosario náutico y guía completa de compra), ver:
+
+- [Documentación completa para asistentes de IA](https://www.imporlan.cl/llms-full.txt)

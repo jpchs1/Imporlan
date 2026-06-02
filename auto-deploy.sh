@@ -87,7 +87,7 @@ mkdir -p "$BACKUP_DIR/pre_deploy_$TIMESTAMP"
 [ -f "$PUBLIC_HTML/index.html" ] && cp "$PUBLIC_HTML/index.html" "$BACKUP_DIR/pre_deploy_$TIMESTAMP/index.html.before"
 
 # --- Deploy root files ---
-for f in index.html marketplace.html robots.txt sitemap.xml favicon.ico .htaccess; do
+for f in index.html marketplace.html robots.txt sitemap.xml favicon.ico .htaccess llms.txt llms-full.txt; do
   [ -f "$REPO_DIR/$f" ] && cp "$REPO_DIR/$f" "$PUBLIC_HTML/"
 done
 

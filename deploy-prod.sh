@@ -226,11 +226,16 @@ if [ -f "$STAGING_REPO/robots.txt" ]; then
   echo "  -> robots.txt deployed."
 fi
 
-# Deploy llms.txt (AI crawlers: ChatGPT, Claude, Perplexity, etc.)
+# Deploy llms.txt + llms-full.txt (AI crawlers: ChatGPT, Claude, Perplexity, etc.)
 if [ -f "$STAGING_REPO/llms.txt" ]; then
   cp "$STAGING_REPO/llms.txt" "$PUBLIC_HTML/llms.txt"
   chmod 644 "$PUBLIC_HTML/llms.txt"
   echo "  -> llms.txt deployed."
+fi
+if [ -f "$STAGING_REPO/llms-full.txt" ]; then
+  cp "$STAGING_REPO/llms-full.txt" "$PUBLIC_HTML/llms-full.txt"
+  chmod 644 "$PUBLIC_HTML/llms-full.txt"
+  echo "  -> llms-full.txt deployed."
 fi
 
 echo ""
