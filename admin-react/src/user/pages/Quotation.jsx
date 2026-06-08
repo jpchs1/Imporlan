@@ -107,6 +107,7 @@ export default function Quotation() {
           plan_name: 'Cotizacion por Links',
           description: desc,
           type: 'cotizacion_link',
+          boat_links: validLinks,
           return_url: window.location.href,
         });
         if (data.success && data.url && data.token) {
@@ -126,6 +127,8 @@ export default function Quotation() {
           payer_name: fullName,
           payer_phone: form.phone,
           country: form.country,
+          type: 'cotizacion_link',
+          boat_links: validLinks,
         });
         if (data.success && data.init_point) {
           window.location.href = data.init_point;
