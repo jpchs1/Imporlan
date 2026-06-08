@@ -431,7 +431,79 @@ BASE64;
 
         return ['success' => $anySuccess, 'results' => $results];
     }
-    
+
+    /**
+     * Red de seguridad: email al admin cuando se crea un expediente de
+     * "Cotizacion por Links". Lo envia createOrderFromQuotation siempre que
+     * se crea un expediente nuevo, asegurando que el admin reciba al menos
+     * UN email focalizado con el numero de expediente y los links del
+     * cliente (o un aviso si los links no llegaron), independiente del path
+     * de pago. Complementa (no reemplaza) los emails de sendQuotationFormEmail.
+     */
+    public function sendNewExpedienteAdminEmail($orderNumber, $customerName, $customerEmail, $boatLinks = []) {
+        if (empty($this->adminEmails)) {
+            return ['success' => false, 'error' => 'No admin recipients configured'];
+        }
+
+        $items = [];
+        if (!empty($boatLinks) && is_array($boatLinks)) {
+            foreach ($boatLinks as $link) {
+                $url = is_array($link) ? ($link['url'] ?? $link['link'] ?? '') : (string) $link;
+                $url = trim($url);
+                if ($url === '') continue;
+                $safe = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+                $items[] = '<li style="margin:6px 0;"><a href="' . $safe . '" style="color:#0891b2;word-break:break-all;">' . $safe . '</a></li>';
+            }
+        }
+
+        if (!empty($items)) {
+            $linksHtml = '<p style="margin:18px 0 6px;font-weight:600;color:#0f172a;">Links a cotizar (' . count($items) . '):</p>'
+                       . '<ol style="margin:0;padding-left:20px;">' . implode('', $items) . '</ol>';
+        } else {
+            $linksHtml = '<div style="margin:18px 0;padding:14px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;">'
+                       . '<strong style="color:#92400e;">Atencion:</strong> '
+                       . '<span style="color:#92400e;">No se recibieron links del cliente en este expediente. '
+                       . 'Revisa <code>api/quotation_requests.json</code> y <code>api/purchases.json</code> en el servidor '
+                       . 'para localizarlos manualmente.</span>'
+                       . '</div>';
+        }
+
+        $safeName  = htmlspecialchars($customerName ?: 'Cliente', ENT_QUOTES, 'UTF-8');
+        $safeEmail = htmlspecialchars($customerEmail ?: '(sin email)', ENT_QUOTES, 'UTF-8');
+        $safeOrder = htmlspecialchars($orderNumber ?: '', ENT_QUOTES, 'UTF-8');
+        $panelUrl  = 'https://www.imporlan.cl/panel/admin/#/orders';
+
+        $content = '
+            <h2 style="margin:0 0 6px;color:#0f172a;font-size:20px;">Nuevo expediente: ' . $safeOrder . '</h2>
+            <p style="margin:0 0 18px;color:#64748b;font-size:14px;">Cotizacion por Links - pendiente de revision</p>
+            <table style="border-collapse:collapse;width:100%;margin-bottom:6px;">
+                <tr><td style="padding:6px 0;color:#64748b;width:120px;">Cliente:</td><td style="padding:6px 0;color:#0f172a;font-weight:600;">' . $safeName . '</td></tr>
+                <tr><td style="padding:6px 0;color:#64748b;">Email:</td><td style="padding:6px 0;color:#0f172a;">' . $safeEmail . '</td></tr>
+                <tr><td style="padding:6px 0;color:#64748b;">Servicio:</td><td style="padding:6px 0;color:#0f172a;">Cotizacion por Links</td></tr>
+            </table>
+            ' . $linksHtml . '
+            <p style="margin:28px 0 0;">
+                <a href="' . $panelUrl . '" style="display:inline-block;background:#0891b2;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;">Abrir en el panel admin</a>
+            </p>';
+
+        $html = $this->getBaseTemplate($content, 'Nuevo expediente ' . $safeOrder . ' - Imporlan');
+        $subject = 'Nuevo expediente ' . $safeOrder . ' - Cotizacion por Links (' . ($customerEmail ?: 'sin email') . ')';
+
+        $anySuccess = false;
+        $results = [];
+        foreach ($this->adminEmails as $adminEmail) {
+            $r = $this->sendEmail($adminEmail, $subject, $html, 'admin_new_expediente', [
+                'order_number'   => $orderNumber,
+                'customer_email' => $customerEmail,
+                'customer_name'  => $customerName,
+                'links_count'    => count($items),
+            ]);
+            $results[] = $r;
+            if (!empty($r['success'])) $anySuccess = true;
+        }
+        return ['success' => $anySuccess, 'results' => $results];
+    }
+
     /**
      * Send email notification to user when they receive a chat reply
      */
