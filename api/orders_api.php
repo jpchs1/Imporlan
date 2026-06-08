@@ -1625,8 +1625,34 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
         return null;
     }
 
+    // Defensa en profundidad: si el caller no nos paso links pero el cliente
+    // envio antes el formulario, los recuperamos de quotation_requests.json.
+    // Esto evita expedientes con 10 filas vacias cuando el path de pago
+    // no propago boat_links correctamente.
+    $customerEmailForLookup = $purchase['user_email'] ?? $purchase['customer_email'] ?? '';
+    if (empty($storedLinks) && $customerEmailForLookup) {
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $svcLookup = new EmailService();
+            $recovered = $svcLookup->getStoredQuotationLinks($customerEmailForLookup);
+            if (!empty($recovered)) {
+                $storedLinks = $recovered;
+                error_log("createOrderFromQuotation: recovered " . count($recovered) . " link(s) from quotation_requests.json for {$customerEmailForLookup}");
+            }
+        } catch (\Throwable $e) {
+            error_log("createOrderFromQuotation: fallback lookup error: " . $e->getMessage());
+        }
+    }
+    if (empty($storedLinks)) {
+        error_log("createOrderFromQuotation: WARNING - no links found for '{$customerEmailForLookup}' (purchase=" . ($purchase['id'] ?? 'n/a') . "). El expediente se creara con filas vacias.");
+    }
+
     try {
         $orderNumber = generateOrderNumber($pdo);
+
+        // empty() trata "" como faltante: si plan_name viene como string vacio,
+        // usamos el default. El "??" solo cae al default cuando es null.
+        $planName = !empty($purchase['plan_name']) ? $purchase['plan_name'] : 'Cotizacion por Links';
 
         $stmt = $pdo->prepare("
             INSERT INTO orders (order_number, customer_id, customer_email, customer_name, customer_phone,
@@ -1639,7 +1665,7 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
             $purchase['user_email'] ?? $purchase['customer_email'] ?? '',
             $purchase['customer_name'] ?? explode('@', $purchase['user_email'] ?? '')[0],
             $purchase['customer_phone'] ?? null,
-            $purchase['plan_name'] ?? 'Cotizacion por Links',
+            $planName,
             $purchase['description'] ?? '',
             $purchase['id'] ?? $purchase['purchase_id'] ?? null
         ]);
@@ -1725,6 +1751,25 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
             }
         } catch (\Throwable $e) {
             error_log("Failed to create quotation_ready notifications for order #{$orderNumber}: " . $e->getMessage());
+        }
+
+        // Red de seguridad: enviar email al admin con el numero de expediente
+        // y los links del cliente. Garantiza que el admin siempre se entera de
+        // un nuevo expediente con links (o de uno que llego sin links),
+        // independiente de que path de pago lo creo.
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $svcExp = new EmailService();
+            if (method_exists($svcExp, 'sendNewExpedienteAdminEmail')) {
+                $svcExp->sendNewExpedienteAdminEmail(
+                    $orderNumber,
+                    $purchase['customer_name'] ?? '',
+                    $customerEmail ?? $customerEmailForLookup ?? '',
+                    $storedLinks
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log("Failed to send admin new-expediente email for #{$orderNumber}: " . $e->getMessage());
         }
 
         // Auto-scrape each URL via the existing link_scraper.php so the
