@@ -88,6 +88,11 @@ function scrapeLinkData($url) {
 
     if ($html) {
         parseHtml($html, $url, $parsedUrl, $result);
+        // Llena los gaps con datos estructurados (JSON-LD Product, JSON inline
+        // con city/subdivision, patron "X $ (Y€)" para USD nativo, engine desde
+        // la description). parseHtml ya corrio asi que og:image/meta toman
+        // prioridad; aqui solo agregamos lo que falte.
+        extractFromStructuredData($html, $result);
     }
 
     if ($result['image_url'] && !isUsefulImage($result['image_url'])) {
@@ -1075,6 +1080,120 @@ function extractBoatIdentity(&$result) {
                     break;
                 }
             }
+        }
+    }
+}
+
+/**
+ * Extract structured data embedded in HTML:
+ * - JSON-LD Product schema (schema.org): image, brand/make, description, price, title
+ * - Patron "X $ (Y€)" para precio USD nativo (yachtworld.es / boatsgroup.com)
+ * - JSON inline "city":"X","subdivision":"YY" para ubicacion
+ * - Regex sobre description para motor ("9.8 hp Tohatsu...")
+ *
+ * Se llama despues de parseHtml() para que og:image/meta description tengan
+ * prioridad; solo llena campos vacios (excepto value_usa_usd, que el patron
+ * "$ (€)" sobrescribe porque es el precio USD original del vendedor y siempre
+ * gana sobre cualquier conversion aproximada de EUR).
+ */
+function extractFromStructuredData($html, &$result) {
+    if (!$html) return;
+
+    // ---- JSON-LD Product schema ----
+    if (preg_match_all('/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/i', $html, $matches)) {
+        foreach ($matches[1] as $jsonText) {
+            $ld = @json_decode(trim($jsonText), true);
+            if (!is_array($ld)) continue;
+            $candidates = isset($ld['@type']) ? [$ld] : ($ld['@graph'] ?? []);
+            foreach ($candidates as $node) {
+                if (!is_array($node)) continue;
+                $type = $node['@type'] ?? '';
+                $isProduct = false;
+                if (is_string($type)) {
+                    $isProduct = (stripos($type, 'Product') !== false);
+                } elseif (is_array($type)) {
+                    foreach ($type as $t) {
+                        if (stripos((string)$t, 'Product') !== false) { $isProduct = true; break; }
+                    }
+                }
+                if (!$isProduct) continue;
+
+                if (empty($result['image_url']) && !empty($node['image'])) {
+                    $img = $node['image'];
+                    if (is_string($img)) {
+                        $result['image_url'] = $img;
+                    } elseif (is_array($img)) {
+                        $first = $img[0] ?? null;
+                        if (is_string($first)) $result['image_url'] = $first;
+                        elseif (is_array($first) && !empty($first['url'])) $result['image_url'] = $first['url'];
+                    }
+                }
+                if (empty($result['make']) && !empty($node['brand'])) {
+                    $brand = $node['brand'];
+                    $brandName = is_string($brand) ? $brand : ($brand['name'] ?? '');
+                    if ($brandName) $result['make'] = $brandName;
+                }
+                if (empty($result['description']) && !empty($node['description'])) {
+                    $result['description'] = $node['description'];
+                }
+                if (empty($result['title']) && !empty($node['name'])) {
+                    $result['title'] = $node['name'];
+                }
+                if (empty($result['value_usa_usd']) && !empty($node['offers']['price'])) {
+                    $price = floatval($node['offers']['price']);
+                    $currency = strtoupper($node['offers']['priceCurrency'] ?? 'USD');
+                    if ($price > 0) {
+                        if ($currency === 'USD') {
+                            $result['value_usa_usd'] = round($price, 2);
+                        } elseif ($currency === 'EUR') {
+                            // Conversion aproximada EUR->USD ~1.08; lo refinamos abajo
+                            // si el HTML expone el USD original del vendedor.
+                            $result['value_usa_usd'] = round($price * 1.08, 2);
+                        }
+                    }
+                }
+                break 2;
+            }
+        }
+    }
+
+    // ---- USD nativo del patron "11.500 $ (9.972€)" (yachtworld.es) ----
+    // Sobrescribe cualquier conversion EUR aproximada hecha arriba: este es
+    // el precio USD original del vendedor en la pagina.
+    if (preg_match('/(\d[\d.,]*)\s*\$\s*\(\s*\d[\d.,]*\s*€/u', $html, $pm)) {
+        // Formato espanol: "11.500" -> 11500. Soporta tambien "11,500.50" formato US.
+        $raw = $pm[1];
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/', $raw) || preg_match('/^\d+,\d{1,2}$/', $raw)) {
+            // Formato europeo: . como millares, , como decimal
+            $num = str_replace('.', '', $raw);
+            $num = str_replace(',', '.', $num);
+        } else {
+            // Formato US o numero plano: , como millares
+            $num = str_replace(',', '', $raw);
+        }
+        $val = floatval($num);
+        if ($val > 100) {
+            $result['value_usa_usd'] = round($val, 2);
+        }
+    }
+
+    // ---- Location: "city":"X" + "subdivision":"YY" en JSON inline ----
+    if (empty($result['location'])) {
+        if (preg_match('/"city"\s*:\s*"([^"]{1,80})"[^}]{0,400}?"subdivision"\s*:\s*"([A-Za-z]{2,40})"/', $html, $lm)) {
+            $city = trim($lm[1]);
+            $state = strtoupper(trim($lm[2]));
+            if ($city) $result['location'] = $city . ', ' . $state;
+        }
+    }
+
+    // ---- Engine desde el texto de description ----
+    if (empty($result['engine']) && !empty($result['description'])) {
+        $desc = $result['description'];
+        // Patron: "9.8 hp Tohatsu", "150 hp Mercury Verado", etc.
+        if (preg_match('/(\d+(?:\.\d+)?)\s*hp\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)/u', $desc, $em)) {
+            $result['engine'] = trim($em[2]) . ' ' . $em[1] . 'hp';
+        } elseif (preg_match('/([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\s+(\d+(?:\.\d+)?)\s*hp/u', $desc, $em)) {
+            $result['engine'] = trim($em[1]) . ' ' . $em[2] . 'hp';
         }
     }
 }
