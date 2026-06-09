@@ -1370,9 +1370,18 @@ function buildFacebookCookieString($config) {
  * to bypass blocks from sites like Facebook.
  */
 function planBScrapingBee($url, &$result, $apiKey, $config = []) {
-    // Only use premium proxies for domains that block basic requests (Facebook, etc.)
+    // Only use premium proxies for domains that block basic requests.
+    // - Facebook/Instagram/Craigslist: cuentas + bot detection agresivo
+    // - Yachtworld (.com/.es/.it/...), BoatTrader, Boats.com, boatsgroup.com:
+    //   protegidos con Cloudflare. La IP del datacenter de Banahosting
+    //   recibe 403 desde el directFetch; sin premium_proxy, ScrapingBee
+    //   tambien sale por proxies datacenter y recibe el mismo bloqueo.
+    //   El premium_proxy usa IPs residenciales que pasan la verificacion.
     $isFacebook = (bool) preg_match('/facebook\.com/i', $url);
-    $usePremium = $isFacebook || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
+    $isHardBlockedBoatSite = (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
+    $usePremium = $isFacebook
+        || $isHardBlockedBoatSite
+        || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
 
     $params = [
         'api_key' => $apiKey,
@@ -1452,6 +1461,12 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     // Parse the rendered HTML with existing extraction functions
     $parsedUrl = parse_url($url);
     parseHtml($html, $url, $parsedUrl, $result);
+
+    // Tambien correr el extractor de datos estructurados sobre el HTML de
+    // ScrapingBee: si la pagina expone JSON-LD Product o el patron "$ (€)"
+    // (yachtworld.es, etc.), aqui es donde vamos a sacar image/brand/price/
+    // location/engine que parseHtml por si solo no toca.
+    extractFromStructuredData($html, $result);
 
     // Restore existing data if it was good and new data is generic/empty/worse
     if ($existing['title'] && (!$result['title'] || preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', $result['title'] ?? ''))) {
