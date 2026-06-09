@@ -1083,16 +1083,34 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
     $host = strtolower($parsedUrl['host'] ?? '');
     $path = $parsedUrl['path'] ?? '';
 
-    $boatSites = ['boattrader.com', 'boats.com', 'yachtworld.com', 'boat-alert.com', 'smartmarineguide.com', 'popyachts.com', 'boatcrazy.com'];
+    // "yachtworld." (con punto final) matchea todos los TLDs internacionales:
+    // yachtworld.com, yachtworld.es, yachtworld.it, yachtworld.de, yachtworld.fr,
+    // yachtworld.co.uk, etc. Todos comparten layout y patron de URL year-make-model.
+    $boatSites = ['boattrader.com', 'boats.com', 'yachtworld.', 'boat-alert.com', 'smartmarineguide.com', 'popyachts.com', 'boatcrazy.com'];
     $isBoatSite = false;
     foreach ($boatSites as $site) {
         if (strpos($host, $site) !== false) { $isBoatSite = true; break; }
     }
 
+    $matchedPattern = false;
     if ($isBoatSite && preg_match('/(\d{4})-([a-z][\w-]*)-([a-z][\w-]*)/', $path, $m)) {
         $year = $m[1];
         $make = ucfirst(str_replace('-', ' ', $m[2]));
         $model = ucfirst(str_replace('-', ' ', $m[3]));
+        $matchedPattern = true;
+    }
+    // Fallback para modelos NUMERICOS (ej. Catalina 250, Bayliner 175):
+    // patron "year-make-model_numerico-listing_id" donde listing_id son 5+ digitos al final.
+    // Catalina 250 fail con el patron 1 porque "250" no empieza con [a-z]; aqui lo anclamos
+    // al listing_id obligatorio para que el split year/make/model sea correcto.
+    elseif ($isBoatSite && preg_match('/(\d{4})-([a-z][\w-]*?)-([a-z0-9][\w-]*?)-(\d{5,})(?=[\/]|$)/', $path, $m)) {
+        $year = $m[1];
+        $make = ucfirst(str_replace('-', ' ', $m[2]));
+        $model = ucfirst(str_replace('-', ' ', $m[3]));
+        $matchedPattern = true;
+    }
+
+    if ($matchedPattern) {
         $urlTitle = "$year $make $model";
         // Always prefer URL-extracted title for boat sites: Microlink may return
         // wrong titles from redirected search pages when Cloudflare blocks access.
