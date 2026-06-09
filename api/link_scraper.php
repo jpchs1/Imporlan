@@ -112,6 +112,16 @@ function scrapeLinkData($url) {
     $isBoatTraderUrl = (strpos($host, 'boattrader.com') !== false || strpos($host, 'boats.com') !== false);
 
     $hasUsefulData = $result['image_url'] || $result['location'] || $result['hours'] || $result['value_usa_usd'];
+
+    // Jina Reader: gratis, sin API key, bypasses Cloudflare. Es nuestro primer
+    // fallback cuando directFetch no extrajo nada util. Mucho mejor que
+    // Microlink para sitios bloqueados (yachtworld.es 403 desde la IP de
+    // Banahosting). Si Jina trae datos, ahorramos creditos de ScrapingBee.
+    if (!$hasUsefulData) {
+        fetchViaJinaReader($url, $result);
+        $hasUsefulData = $result['image_url'] || $result['location'] || $result['hours'] || $result['value_usa_usd'];
+    }
+
     if (!$hasUsefulData && !$isBoatTraderUrl) {
         fetchViaMicrolink($url, $result);
     }
@@ -1193,6 +1203,104 @@ function extractFromStructuredData($html, &$result) {
         if (preg_match('/(\d+(?:\.\d+)?)\s*hp\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)/u', $desc, $em)) {
             $result['engine'] = trim($em[2]) . ' ' . $em[1] . 'hp';
         } elseif (preg_match('/([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\s+(\d+(?:\.\d+)?)\s*hp/u', $desc, $em)) {
+            $result['engine'] = trim($em[1]) . ' ' . $em[2] . 'hp';
+        }
+    }
+}
+
+/**
+ * Fetch a URL through Jina Reader (r.jina.ai) and parse the markdown result.
+ * Jina Reader is free, no API key required, and bypasses Cloudflare protection
+ * by rendering pages on its own infrastructure. Becomes our first fallback when
+ * directFetch is blocked (yachtworld.es, etc.) — much better than Microlink for
+ * Cloudflare-protected boat sites, and cheaper than ScrapingBee premium proxy.
+ *
+ * Rate limit (free tier, no key): 20 requests/minute. Suficiente para nuestro
+ * volumen tipico de cotizaciones (1 scrape por link ~= unos por dia).
+ *
+ * Llena image_url, location, value_usa_usd, title y engine cuando estos campos
+ * estan vacios. Idempotente y seguro.
+ */
+function fetchViaJinaReader($url, &$result) {
+    $jinaUrl = 'https://r.jina.ai/' . $url;
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $jinaUrl,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 25,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Imporlan-Scraper/1.0)',
+        CURLOPT_HTTPHEADER => ['Accept: text/plain, text/markdown'],
+    ]);
+    $md = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200 || !$md || strlen($md) < 300) return;
+
+    extractFromJinaMarkdown($md, $result);
+}
+
+/**
+ * Parse the markdown returned by Jina Reader and fill empty result fields.
+ * Reusa el patron "$ (€)" del extractor de structured data y agrega heuristicas
+ * propias del formato markdown.
+ */
+function extractFromJinaMarkdown($md, &$result) {
+    if (empty($result['title']) && preg_match('/^Title:\s*(.+)$/m', $md, $m)) {
+        $t = trim($m[1]);
+        // Limpiar sufijos comunes del sitio
+        $t = preg_replace('/\s+-\s+(YachtWorld|BoatTrader|Boats\.com|Boat\s+Trader).*$/i', '', $t);
+        if ($t) $result['title'] = $t;
+    }
+
+    // Imagen: primer ![alt](url) cuya URL es de un CDN de barcos conocido
+    if (empty($result['image_url'])) {
+        if (preg_match('/!\[[^\]]*\]\((https?:\/\/(?:images\.boatsgroup\.com|images\.boattrader\.com|images\.yachtworld\.com|images\.boats\.com)\/[^\s)]+)/u', $md, $m)) {
+            $imgUrl = $m[1];
+            // Quitar query string (Jina suele agregar ?w=200 que reduce calidad)
+            if (strpos($imgUrl, '?') !== false) $imgUrl = explode('?', $imgUrl)[0];
+            $result['image_url'] = $imgUrl;
+        }
+    }
+
+    // Precio USD del patron dual "11.500 $ (9.972€)"
+    if (empty($result['value_usa_usd']) && preg_match('/(\d[\d.,]*)\s*\$\s*\(\s*\d[\d.,]*\s*€/u', $md, $pm)) {
+        $raw = $pm[1];
+        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/', $raw) || preg_match('/^\d+,\d{1,2}$/', $raw)) {
+            $num = str_replace('.', '', $raw);
+            $num = str_replace(',', '.', $num);
+        } else {
+            $num = str_replace(',', '', $raw);
+        }
+        $val = floatval($num);
+        if ($val > 100) $result['value_usa_usd'] = round($val, 2);
+    }
+
+    // Ubicacion: "City, State" en su propia linea (Jina lo deja asi)
+    if (empty($result['location']) && preg_match('/^([A-Z][a-zA-ZáéíóúñÁÉÍÓÚÑ]+(?:\s+[A-Z][a-zA-ZáéíóúñÁÉÍÓÚÑ]+){0,2}),\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)$/mu', $md, $lm)) {
+        $result['location'] = trim($lm[1]) . ', ' . trim($lm[2]);
+    }
+
+    // Motor: Jina formatea como "### Motor\n\nTohatsu 9.8 Electric Start".
+    // Tambien soporta el formato key-value de los detalles tecnicos en .es.
+    if (empty($result['engine'])) {
+        if (preg_match('/###\s+Motor\s*\n+([^\n]{2,80})/u', $md, $em)) {
+            $line = trim($em[1]);
+            // Ignorar lineas no utiles (vacias, "-", referencias a imagenes)
+            if ($line && $line !== '-' && stripos($line, '![') === false && stripos($line, 'image') === false) {
+                $result['engine'] = $line;
+            }
+        }
+        if (empty($result['engine']) && preg_match('/(?:Marca del motor|Engine\s+make)\s*:\s*([A-Z][A-Za-z]+)/iu', $md, $em)) {
+            $result['engine'] = trim($em[1]);
+        }
+        // Patrones genericos "9.8 hp Tohatsu" / "Tohatsu de 9.8 hp"
+        if (empty($result['engine']) && preg_match('/(\d+(?:\.\d+)?)\s*hp\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)/u', $md, $em)) {
+            $result['engine'] = trim($em[2]) . ' ' . $em[1] . 'hp';
+        }
+        if (empty($result['engine']) && preg_match('/([A-Z][A-Za-z]+)\s+de\s+(\d+(?:\.\d+)?)\s*hp/u', $md, $em)) {
             $result['engine'] = trim($em[1]) . ' ' . $em[2] . 'hp';
         }
     }
