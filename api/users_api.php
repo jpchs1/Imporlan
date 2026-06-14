@@ -532,6 +532,96 @@ function usersGetSecondaryEmail() {
     }
 }
 
+/**
+ * Helper: Make HTTP request to Fly.io backend
+ */
+function flyApiRequest($baseUrl, $method, $path, $body = null, $token = null) {
+    $ch = curl_init($baseUrl . $path);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+    $headers = ['Content-Type: application/json'];
+    if ($token) $headers[] = 'Authorization: Bearer ' . $token;
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    if ($body) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $resp = curl_exec($ch);
+    $err = curl_error($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($err) error_log("flyApiRequest error: $method $path - $err");
+    return ['code' => $code, 'body' => json_decode($resp, true), 'raw' => $resp];
+}
+
+/**
+ * Helper: Reset password on a Fly.io backend for a given user email.
+ * Returns ['success' => bool, 'temp_password' => string|null, 'error' => string|null]
+ */
+function resetFlyBackendPassword($flyBaseUrl, $loginPath, $usersListPath, $userEmail, $adminEmail, $adminPass, $newPassword = null, $resetEndpointTemplate = null) {
+    // Step 1: Login as admin
+    $loginResp = flyApiRequest($flyBaseUrl, 'POST', $loginPath, [
+        'email' => $adminEmail,
+        'password' => $adminPass
+    ]);
+    if ($loginResp['code'] !== 200 || !isset($loginResp['body']['access_token'])) {
+        return ['success' => false, 'temp_password' => null, 'error' => 'Cannot login to auth service'];
+    }
+    $adminToken = $loginResp['body']['access_token'];
+
+    // Step 2: Find user by email
+    $listResp = flyApiRequest($flyBaseUrl, 'GET', $usersListPath, null, $adminToken);
+    $flyUserId = null;
+    if ($listResp['code'] === 200) {
+        $users = $listResp['body']['users'] ?? $listResp['body'] ?? [];
+        if (is_array($users)) {
+            foreach ($users as $u) {
+                if (isset($u['email']) && strtolower($u['email']) === strtolower($userEmail)) {
+                    $flyUserId = $u['id'];
+                    break;
+                }
+            }
+        }
+    }
+    if (!$flyUserId) {
+        return ['success' => false, 'temp_password' => null, 'error' => 'User not found on auth service'];
+    }
+
+    // Step 3: Try dedicated reset-password endpoint (admin backend has this)
+    if ($resetEndpointTemplate && $newPassword) {
+        $resetPath = str_replace('{user_id}', $flyUserId, $resetEndpointTemplate);
+        $resetResp = flyApiRequest($flyBaseUrl, 'POST', $resetPath, [
+            'new_password' => $newPassword
+        ], $adminToken);
+        if ($resetResp['code'] === 200) {
+            return ['success' => true, 'temp_password' => $newPassword, 'error' => null];
+        }
+    }
+
+    // Step 4: Try reset_password action (user backend uses this)
+    $actionResp = flyApiRequest($flyBaseUrl, 'PUT', $usersListPath . '/' . $flyUserId . '/action', [
+        'action' => 'reset_password',
+        'reason' => 'Admin password reset'
+    ], $adminToken);
+    if ($actionResp['code'] === 200 && isset($actionResp['body']['message'])) {
+        // Extract temp password from response message if available
+        $msg = $actionResp['body']['message'];
+        if (preg_match('/temporal:\s*(\S+)/', $msg, $m)) {
+            $tempPw = $m[1];
+        } else {
+            $tempPw = 'temp123456'; // Default temp password from Fly backend
+        }
+        // Ensure user is active (unblock if needed)
+        flyApiRequest($flyBaseUrl, 'PUT', $usersListPath . '/' . $flyUserId . '/action', [
+            'action' => 'unblock',
+            'reason' => 'Password reset - ensure active'
+        ], $adminToken);
+        return ['success' => true, 'temp_password' => $tempPw, 'error' => null];
+    }
+
+    return ['success' => false, 'temp_password' => null, 'error' => 'Failed to reset password on auth service'];
+}
+
 function usersSendPasswordReset() {
     $input = json_decode(file_get_contents('php://input'), true);
     $id = intval($input['id'] ?? 0);
@@ -551,12 +641,12 @@ function usersSendPasswordReset() {
     }
 
     try {
-        // Find user
+        // Find user in local database
         if ($id) {
-            $stmt = $pdo->prepare("SELECT id, name, email FROM admin_users WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT id, name, email, role FROM admin_users WHERE id = ?");
             $stmt->execute([$id]);
         } else {
-            $stmt = $pdo->prepare("SELECT id, name, email FROM admin_users WHERE LOWER(email) = LOWER(?)");
+            $stmt = $pdo->prepare("SELECT id, name, email, role FROM admin_users WHERE LOWER(email) = LOWER(?)");
             $stmt->execute([$email]);
         }
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -567,29 +657,92 @@ function usersSendPasswordReset() {
             return;
         }
 
-        // Generate temporary password (12 chars, alphanumeric + special)
-        $chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+        // Fly.io backend configuration
+        $FLY_USER = 'https://app-bxlfgnkv.fly.dev';
+        $FLY_ADMIN = 'https://app-hbgmmbqj.fly.dev';
+        $FLY_ADMIN_EMAIL = 'admin@imporlan.cl';
+        $FLY_ADMIN_PASS = 'admin123';
+
+        // Generate temporary password (12 chars, alphanumeric)
+        $chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $tempPassword = '';
         for ($i = 0; $i < 12; $i++) {
             $tempPassword .= $chars[random_int(0, strlen($chars) - 1)];
         }
 
-        // Update password in database
+        $flyResetResults = [];
+        $flyTempPassword = null;
+
+        // Reset password on Fly.io admin backend (has dedicated reset-password endpoint)
+        $adminResult = resetFlyBackendPassword(
+            $FLY_ADMIN,
+            '/api/test/auth/login',
+            '/api/test/admin/users',
+            $user['email'],
+            $FLY_ADMIN_EMAIL,
+            $FLY_ADMIN_PASS,
+            $tempPassword,
+            '/api/test/admin/users/{user_id}/reset-password'
+        );
+        $flyResetResults['admin_backend'] = $adminResult['success'];
+
+        // Reset password on Fly.io user backend (uses reset_password action)
+        $userResult = resetFlyBackendPassword(
+            $FLY_USER,
+            '/api/auth/login-json',
+            '/api/admin/users',
+            $user['email'],
+            $FLY_ADMIN_EMAIL,
+            $FLY_ADMIN_PASS,
+            $tempPassword,
+            null
+        );
+        $flyResetResults['user_backend'] = $userResult['success'];
+
+        // Determine which password to use in email
+        if ($adminResult['success'] && $adminResult['temp_password']) {
+            $flyTempPassword = $adminResult['temp_password'];
+        }
+        if ($userResult['success'] && $userResult['temp_password']) {
+            // User backend password takes priority since that's where panel login goes
+            $flyTempPassword = $userResult['temp_password'];
+        }
+
+        // Use Fly temp password if available, otherwise use our generated one
+        $finalPassword = $flyTempPassword ?? $tempPassword;
+
+        // Update password in local admin_users database for consistency
         $stmtUpdate = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
-        $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
+        $stmtUpdate->execute([password_hash($finalPassword, PASSWORD_DEFAULT), $user['id']]);
 
         // Send email with temporary password
         require_once __DIR__ . '/email_service.php';
         $emailService = new EmailService();
-        $result = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $tempPassword);
+        $result = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $finalPassword);
+
+        $responseMsg = 'Contrasena restablecida';
+        if ($flyResetResults['user_backend']) {
+            $responseMsg .= ' (panel usuario actualizado)';
+        }
+        if ($result['success']) {
+            $responseMsg .= ' y email enviado a ' . $user['email'];
+        }
 
         if ($result['success']) {
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email']]);
+            echo json_encode([
+                'success' => true,
+                'message' => $responseMsg,
+                'fly_reset' => $flyResetResults
+            ]);
         } else {
-            // Password was updated but email failed - still report success with warning
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido'), 'email_error' => true]);
+            echo json_encode([
+                'success' => true,
+                'message' => $responseMsg . '. Error email: ' . ($result['error'] ?? 'Error desconocido'),
+                'email_error' => true,
+                'fly_reset' => $flyResetResults
+            ]);
         }
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al resetear contrasena: ' . $e->getMessage()]);
     }
