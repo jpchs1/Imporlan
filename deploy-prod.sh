@@ -123,6 +123,11 @@ fi
 cp -a "$STAGING_REPO/assets/." "$PUBLIC_HTML/assets/"
 echo "  -> Assets deployed."
 
+# Deploy images (logos, OG, boat photos, etc.)
+mkdir -p "$PUBLIC_HTML/images"
+cp -a "$STAGING_REPO/images/." "$PUBLIC_HTML/images/"
+echo "  -> Images deployed."
+
 # Deploy API (preserve db_config.php and server-only files)
 # Backup server-only files before overwrite
 if [ -f "$PUBLIC_HTML/api/db_config.php" ]; then
@@ -247,6 +252,8 @@ echo ""
 echo "[7/9] Setting permissions..."
 find "$PUBLIC_HTML/assets" -type d -exec chmod 755 {} \;
 find "$PUBLIC_HTML/assets" -type f -exec chmod 644 {} \;
+find "$PUBLIC_HTML/images" -type d -exec chmod 755 {} \; 2>/dev/null || true
+find "$PUBLIC_HTML/images" -type f -exec chmod 644 {} \; 2>/dev/null || true
 find "$PUBLIC_HTML/api" -type d -exec chmod 755 {} \;
 find "$PUBLIC_HTML/api" -type f -exec chmod 644 {} \;
 find "$PUBLIC_HTML/panel" -type d -exec chmod 755 {} \;
