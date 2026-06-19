@@ -62,7 +62,20 @@
       '  body.imp-uxpro-cta-on{padding-bottom:70px;}',
       '  body.imp-uxpro-cta-on #imp-pro-totop{bottom:84px !important;}',
       '}',
-      '@media (prefers-reduced-motion: reduce){#imp-uxpro-cta{transition:none;}}'
+      '@media (prefers-reduced-motion: reduce){#imp-uxpro-cta{transition:none;}}',
+
+      /* ---- Phase 3 polish ---- */
+      /* Anchor offset so in-page nav (#proceso, #contacto, ...) and scrollIntoView never hide under the fixed header */
+      'html{scroll-padding-top:72px;}',
+      '[id]{scroll-margin-top:72px;}',
+      /* Branded text selection + crisper rendering */
+      '::selection{background:rgba(34,211,238,.28);color:#fff;}',
+      'body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}',
+      'a,button{-webkit-tap-highlight-color:transparent;}',
+      /* Accessible keyboard focus rings (only on keyboard nav) */
+      'a:focus-visible,button:focus-visible,[tabindex]:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #22d3ee;outline-offset:2px;border-radius:5px;}',
+      /* Subtle section delineation for visual rhythm (only on tagged top-level sections; never the hero) */
+      'html.imp-uxpro-on .imp-uxpro-reveal{border-top:1px solid rgba(255,255,255,.045);}'
     ].join('\n');
     document.head.appendChild(s);
   }
