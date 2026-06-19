@@ -63,11 +63,12 @@ fi
 echo "  -> Doc-root identity check passed."
 
 echo ""
-echo "[1/9] Pulling latest changes from GitHub (main)..."
+echo "[1/9] Syncing to latest GitHub main (hard sync — staging is a deploy mirror)..."
 cd "$STAGING_REPO"
-git checkout main
-git pull origin main
-echo "  -> Pull complete."
+git fetch origin main
+git checkout -f main 2>/dev/null || git checkout -B main
+git reset --hard origin/main
+echo "  -> Synced to $(git rev-parse --short HEAD)."
 
 echo ""
 echo "[2/9] Creating backup directory..."
