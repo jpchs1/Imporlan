@@ -36,6 +36,9 @@
     var s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = [
+      /* Fix pre-existing horizontal overflow caused by the off-canvas mobile drawer
+         (and any off-screen decoration): clip the x-axis without affecting vertical scroll. */
+      'html,body{overflow-x:hidden;max-width:100%;}',
       /* Scroll progress bar */
       '#imp-uxpro-progress{position:fixed;top:0;left:0;height:3px;width:100%;transform:scaleX(0);transform-origin:0 50%;background:linear-gradient(90deg,#22d3ee,#6366f1 60%,#a855f7);z-index:10000;pointer-events:none;will-change:transform;transition:transform .08s linear;}',
       '#imp-uxpro-progress::after{content:"";position:absolute;right:0;top:0;height:100%;width:60px;background:linear-gradient(90deg,transparent,rgba(168,85,247,.65));}',
