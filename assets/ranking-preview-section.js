@@ -616,7 +616,7 @@
       hours: '120 hrs',
       priceUsd: '$185,000',
       priceClp: '$173.900.000',
-      img: 'https://cobaltboats.com/wp-content/uploads/2022/06/A29_6931.jpg'
+      img: '/images/rank-cobalt-a29.jpg'
     },
     {
       title: 'MasterCraft X26 2021',
@@ -624,7 +624,7 @@
       hours: '85 hrs',
       priceUsd: '$52,000',
       priceClp: '$48.880.000',
-      img: 'https://www.mastercraft.com/media/1bep1g5l/dt-1-1.webp'
+      img: '/images/rank-mastercraft-x26.webp'
     },
     {
       title: 'Cobalt CS23 2020',
@@ -632,7 +632,7 @@
       hours: '65 hrs',
       priceUsd: '$98,500',
       priceClp: '$92.590.000',
-      img: 'https://cobaltboats.com/wp-content/uploads/CS23ii_6350-1.jpg'
+      img: '/images/rank-cobalt-cs23.jpg'
     }
   ];
 
@@ -645,7 +645,7 @@
       '<div class="rp-boat-card-row">' +
       '<div class="rp-drag-handle"><svg width="14" height="14" viewBox="0 0 24 24" fill="#94a3b8"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg></div>' +
       '<div class="rp-card-body">' +
-      '<div class="rp-card-img-wrap"><img class="rp-card-img" src="' + boat.img + '" alt="' + boat.title + '" referrerpolicy="no-referrer" loading="lazy"></div>' +
+      '<div class="rp-card-img-wrap"><img class="rp-card-img" src="' + boat.img + '" alt="' + boat.title + '" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\'/images/BOATIMPORLAN.jpg\'"></div>' +
       '<div class="rp-card-text">' +
       '<h4>' + boat.title + '</h4>' +
       '<div class="rp-card-meta">' +
