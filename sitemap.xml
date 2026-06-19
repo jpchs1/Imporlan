@@ -328,6 +328,21 @@
         <priority>0.6</priority>
     </url>
 
+    <!-- Legal pages -->
+    <url>
+        <loc>https://www.imporlan.cl/terminos-y-condiciones/</loc>
+        <lastmod>2026-06-19</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+
+    <url>
+        <loc>https://www.imporlan.cl/politica-de-privacidad/</loc>
+        <lastmod>2026-06-19</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.3</priority>
+    </url>
+
     <!-- TOUREVO pages (en/ and br/) moved to tourevo.cl - 301 redirects active in .htaccess -->
 
 </urlset>

@@ -192,6 +192,8 @@ SEO_PAGES=(
   "logistica-maritima-importacion"
   "preguntas-frecuentes-embarcaciones-usadas"
   "casos-de-importacion"
+  "terminos-y-condiciones"
+  "politica-de-privacidad"
 )
 for PAGE in "${SEO_PAGES[@]}"; do
   if [ -d "$STAGING_REPO/$PAGE" ]; then

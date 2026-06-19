@@ -76,6 +76,10 @@ deployment:
     - /bin/cp -Rf preguntas-frecuentes-embarcaciones-usadas $DEPLOYPATH/
     - /bin/cp -Rf tipos-de-lanchas-segun-uso $DEPLOYPATH/
 
+    # --- Deploy legal pages ---
+    - /bin/cp -Rf terminos-y-condiciones $DEPLOYPATH/
+    - /bin/cp -Rf politica-de-privacidad $DEPLOYPATH/
+
     # --- Post-deploy: restore server-only files ---
     - /bin/test -f $BACKUPDIR/pre_deploy_$TIMESTAMP/db_config.php && /bin/cp $BACKUPDIR/pre_deploy_$TIMESTAMP/db_config.php $DEPLOYPATH/api/db_config.php || true
     - /bin/test -d $BACKUPDIR/pre_deploy_$TIMESTAMP/marketplace_photos && /bin/cp -a $BACKUPDIR/pre_deploy_$TIMESTAMP/marketplace_photos $DEPLOYPATH/api/marketplace_photos || true
