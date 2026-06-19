@@ -44,6 +44,10 @@
       'html.imp-uxpro-on .imp-uxpro-reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1);will-change:opacity,transform;}',
       'html.imp-uxpro-on .imp-uxpro-reveal.imp-uxpro-in{opacity:1;transform:none;}',
       '@media (prefers-reduced-motion: reduce){html.imp-uxpro-on .imp-uxpro-reveal{opacity:1 !important;transform:none !important;transition:none !important;}}',
+      /* Card stagger (opacity-only so it never clobbers existing card transforms) */
+      'html.imp-uxpro-on .imp-uxpro-card{opacity:0;transition:opacity .55s ease;will-change:opacity;}',
+      'html.imp-uxpro-on .imp-uxpro-card.imp-uxpro-card-in{opacity:1;}',
+      '@media (prefers-reduced-motion: reduce){html.imp-uxpro-on .imp-uxpro-card{opacity:1 !important;transition:none !important;}}',
 
       /* Sticky mobile conversion bar */
       '#imp-uxpro-cta{position:fixed;left:0;right:0;bottom:0;z-index:9989;display:none;gap:10px;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:rgba(7,15,28,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(34,211,238,.18);box-shadow:0 -10px 30px -12px rgba(0,0,0,.6);transform:translateY(120%);transition:transform .35s cubic-bezier(.16,1,.3,1);}',
@@ -131,17 +135,20 @@
     io = new IntersectionObserver(function (entries) {
       for (var i = 0; i < entries.length; i++) {
         if (entries[i].isIntersecting) {
-          entries[i].target.classList.add('imp-uxpro-in');
-          io.unobserve(entries[i].target);
+          var t = entries[i].target;
+          t.classList.add(t.classList.contains('imp-uxpro-card') ? 'imp-uxpro-card-in' : 'imp-uxpro-in');
+          io.unobserve(t);
         }
       }
     }, { root: null, rootMargin: '0px 0px -8% 0px', threshold: 0.04 });
 
     tagSections();
+    tagCards();
     var tries = 0;
     var iv = setInterval(function () {
       tries++;
       tagSections();
+      tagCards();
       if (tries >= 12) clearInterval(iv); // ~8.4s: covers late-injected sections
     }, 700);
 
@@ -149,7 +156,31 @@
     setTimeout(function () {
       var hidden = document.querySelectorAll('.imp-uxpro-reveal:not(.imp-uxpro-in)');
       for (var i = 0; i < hidden.length; i++) hidden[i].classList.add('imp-uxpro-in');
+      var hc = document.querySelectorAll('.imp-uxpro-card:not(.imp-uxpro-card-in)');
+      for (var j = 0; j < hc.length; j++) hc[j].classList.add('imp-uxpro-card-in');
     }, 2600);
+  }
+
+  // Stagger card grids (opacity-only). Excludes .seo-page-card (it has its own
+  // show/hide toggle) and never touches card transforms.
+  var CARD_SEL = '.nuevas-lineas-card,.marketplace-feature,.imp-etapas-card,.rp-feature-item,.pc-step,[data-imp-plan-card],.benefit-card,.service-card,.eeat-card';
+  function tagCards() {
+    if (!hasIO) return;
+    var cards = document.querySelectorAll(CARD_SEL);
+    var vh = window.innerHeight || document.documentElement.clientHeight || 800;
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if (c.classList.contains('imp-uxpro-card') || c.classList.contains('imp-uxpro-cseen')) continue;
+      var r = c.getBoundingClientRect();
+      if (r.height < 40) continue;
+      if (r.top < vh * 0.92) { c.classList.add('imp-uxpro-cseen'); continue; } // already visible: leave as-is
+      // stagger index = number of matching cards before it under the same parent
+      var idx = 0, sib = c.previousElementSibling;
+      while (sib) { if (sib.matches && sib.matches(CARD_SEL)) idx++; sib = sib.previousElementSibling; }
+      c.classList.add('imp-uxpro-card');
+      c.style.transitionDelay = (Math.min(idx, 6) * 70) + 'ms';
+      io.observe(c);
+    }
   }
 
   /* ---------- scroll handler (progress + CTA visibility) ---------- */
