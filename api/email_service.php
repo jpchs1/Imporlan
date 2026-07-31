@@ -638,6 +638,28 @@ BASE64;
     }
 
     /**
+     * Email de entrega del programa "Importa tu mismo": confirma el pago y
+     * entrega los links de descarga del material incluido en el plan.
+     */
+    public function sendImportaTuMismoEmail($userEmail, $firstName, $purchaseData) {
+        $planName = $purchaseData['diy_plan_name'] ?? 'Importa tu mismo';
+        $subject = 'Tu material de ' . $planName . ' ya esta disponible - Imporlan';
+        $htmlContent = $this->getImportaTuMismoTemplate($firstName, $purchaseData);
+
+        $this->sendInternalNotification('importa_tu_mismo', [
+            'user_email' => $userEmail,
+            'user_name' => $firstName,
+            'plan_name' => $planName,
+            'amount' => number_format($purchaseData['price'] ?? 0, 0, ',', '.'),
+            'payment_method' => $purchaseData['payment_method'] ?? '',
+            'payment_reference' => $purchaseData['payment_reference'] ?? 'N/A',
+            'purchase_date' => $purchaseData['purchase_date'] ?? date('d/m/Y')
+        ]);
+
+        return $this->sendEmail($userEmail, $subject, $htmlContent, 'importa_tu_mismo', $purchaseData);
+    }
+
+    /**
      * Send "Cotizacion por Links" activation email
      */
     public function sendCotizacionPorLinksEmail($userEmail, $firstName, $purchaseData) {
@@ -2279,6 +2301,126 @@ BASE64;
      * Template for Pago Directo (from /pago/ page)
      * Clean, modern payment confirmation email
      */
+    /**
+     * Plantilla de entrega del programa "Importa tu mismo".
+     */
+    private function getImportaTuMismoTemplate($firstName, $purchaseData) {
+        $c = $this->colors;
+        $planName = htmlspecialchars($purchaseData['diy_plan_name'] ?? 'Importa tu mismo');
+        $documents = $purchaseData['diy_documents'] ?? [];
+        $thanksUrl = $purchaseData['diy_thanks_url'] ?? 'https://www.imporlan.cl/importa-tu-mismo/';
+        $hasAdvisory = !empty($purchaseData['diy_has_advisory']);
+        $amount = $purchaseData['price'] ?? 0;
+        $paymentRef = $purchaseData['payment_reference'] ?? '';
+        $purchaseDate = $purchaseData['purchase_date'] ?? date('d/m/Y');
+
+        $rows = '';
+        foreach ($documents as $doc) {
+            $title = htmlspecialchars($doc['title'] ?? '');
+            $url = htmlspecialchars($doc['url'] ?? '');
+            $meta = (!empty($doc['kind']) && $doc['kind'] === 'csv')
+                ? 'Planilla CSV / Excel'
+                : ((!empty($doc['pages']) ? $doc['pages'] . ' paginas' : '') . ' PDF');
+            if (!$url) continue;
+            $rows .= '
+                <tr>
+                    <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+                        <p style="margin: 0 0 2px 0; color: ' . $c['text_dark'] . '; font-size: 14px; font-weight: 600; line-height: 1.4;">' . $title . '</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 12px;">' . htmlspecialchars(trim($meta)) . '</p>
+                    </td>
+                    <td align="right" style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">
+                        <a href="' . $url . '" style="display: inline-block; padding: 8px 16px; background: ' . $c['primary'] . '; color: #ffffff; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none;">Descargar</a>
+                    </td>
+                </tr>';
+        }
+
+        $docsTable = $rows
+            ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;">' . $rows . '</table>'
+            : '';
+
+        $advisoryBlock = $hasAdvisory ? '
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0 0 6px 0; color: ' . $c['primary'] . '; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Tu plan incluye asesoria</p>
+                        <p style="margin: 0; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;">
+                            Escribenos por WhatsApp al <strong>+56 9 4021 1459</strong> para agendar tu videollamada
+                            y enviarnos los links de las embarcaciones que quieres que revisemos.
+                        </p>
+                    </td>
+                </tr>
+            </table>' : '';
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                    <tr>
+                        <td align="center" style="padding: 14px 26px; background: linear-gradient(135deg, ' . $c['success'] . ' 0%, #16a34a 100%); border-radius: 50px;">
+                            <span style="color: white; font-size: 24px; line-height: 1;">&#10003;</span>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <h2 style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 26px; font-weight: 700; text-align: center; letter-spacing: -0.5px;">
+                Tu material esta listo
+            </h2>
+            <p style="margin: 0 0 8px 0; color: ' . $c['success'] . '; font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 1.5px;">
+                ' . $planName . '
+            </p>
+            <p style="margin: 0 0 28px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', gracias por sumarte al programa Importa tu mismo.
+                Aqui tienes todo el material de tu plan.
+            </p>
+
+            <p style="margin: 0 0 12px 0; color: ' . $c['text_dark'] . '; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                Material incluido en tu plan
+            </p>
+            ' . $docsTable . '
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0;">
+                <tr>
+                    <td align="center">
+                        <a href="' . htmlspecialchars($thanksUrl) . '" style="display: inline-block; padding: 15px 34px; background: linear-gradient(135deg, ' . $c['bg_dark'] . ' 0%, ' . $c['bg_gradient_end'] . ' 100%); color: #ffffff; border-radius: 12px; font-size: 15px; font-weight: 700; text-decoration: none;">
+                            Ver todas mis descargas
+                        </a>
+                        <p style="margin: 10px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 12px;">Guarda este enlace: puedes volver a descargar tu material cuando quieras.</p>
+                    </td>
+                </tr>
+            </table>
+
+            ' . $advisoryBlock . '
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 25px 0; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius: 12px; border: 1px solid #bbf7d0;">
+                <tr>
+                    <td style="padding: 20px;">
+                        <p style="margin: 0 0 6px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 600;">Por donde empezar</p>
+                        <p style="margin: 0; color: ' . $c['text_muted'] . '; font-size: 14px; line-height: 1.7;">
+                            1. Lee el <strong>Manual Maestro</strong> completo para entender el mapa del proceso.<br>
+                            2. Imprime el <strong>Checklist de 70 puntos</strong> y tenlo a mano.<br>
+                            3. Abre la <strong>planilla de costos</strong> con el precio de la embarcacion que estas mirando.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            ' . $this->getInfoCard('Detalles de tu compra', array_filter([
+                'Plan' => $planName,
+                'Monto' => '$' . number_format($amount, 0, ',', '.') . ' CLP',
+                'Metodo de pago' => $purchaseData['payment_method'] ?? null,
+                'Referencia' => !empty($paymentRef) ? $paymentRef : null,
+                'Fecha' => $purchaseDate
+            ])) . '
+
+            <p style="margin: 22px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.7; text-align: center;">
+                Si tienes cualquier duda sobre el material, responde este correo o escribenos por WhatsApp al
+                <strong>+56 9 4021 1459</strong>.
+            </p>
+        ';
+
+        return $this->getBaseTemplate($content, 'Tu material de ' . $planName . ' - Imporlan');
+    }
+
     private function getPagoDirectoTemplate($firstName, $purchaseData) {
         $c = $this->colors;
         $description = htmlspecialchars($purchaseData['description'] ?? 'Pago Imporlan');

@@ -49,6 +49,40 @@ function getPublicKey() {
 /**
  * Crear una preferencia de pago en MercadoPago
  */
+/**
+ * Construye las back_urls de la preferencia.
+ *
+ * Por defecto el comprador vuelve a su panel de expedientes. Si el frontend
+ * envía `success_redirect` y apunta al propio sitio (https e imporlan.cl),
+ * se usa esa página como destino de retorno. Cualquier URL externa se ignora.
+ */
+function mpBackUrls($successRedirect = null) {
+    $default = [
+        // Land the customer on their Expedientes view so they immediately
+        // see the order we just created (with their links pre-loaded).
+        // The PostPaymentPopup detects payment=success and shows the
+        // confirmation overlay. just_created=1 hints to the popup that
+        // this is a fresh creation (vs the user revisiting).
+        'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
+        'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
+        'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
+    ];
+
+    if (!$successRedirect || !is_string($successRedirect)) return $default;
+
+    $parts = parse_url($successRedirect);
+    if (!$parts || ($parts['scheme'] ?? '') !== 'https') return $default;
+    $host = strtolower($parts['host'] ?? '');
+    if (!in_array($host, ['www.imporlan.cl', 'imporlan.cl'], true)) return $default;
+
+    $glue = (strpos($successRedirect, '?') !== false) ? '&' : '?';
+    return [
+        'success' => $successRedirect . $glue . 'payment=success',
+        'failure' => $successRedirect . $glue . 'payment=failure',
+        'pending' => $successRedirect . $glue . 'payment=pending'
+    ];
+}
+
 function createPreference() {
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -96,16 +130,7 @@ function createPreference() {
                 'unit_price' => $amount
             ]
         ],
-        'back_urls' => [
-            // Land the customer on their Expedientes view so they immediately
-            // see the order we just created (with their links pre-loaded).
-            // The PostPaymentPopup detects payment=success and shows the
-            // confirmation overlay. just_created=1 hints to the popup that
-            // this is a fresh creation (vs the user revisiting).
-            'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
-            'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
-            'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
-        ],
+        'back_urls' => mpBackUrls($input['success_redirect'] ?? null),
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',
@@ -256,8 +281,19 @@ function handleWebhook() {
             $purchaseType = 'link';
             $planName = '';
             $planDays = 7;
-            
-            if (stripos($externalRef, 'plan') !== false || stripos($description, 'plan') !== false) {
+
+            // "Importa tu mismo" se evalua primero: su descripcion contiene la
+            // palabra "Plan" y la heuristica de abajo lo confundiria con un
+            // Plan de Busqueda, creando un expediente que no corresponde.
+            require_once __DIR__ . '/diy_catalog.php';
+            $diyPlanId = diyPlanIdFromLabel($description . ' ' . $externalRef);
+            $looksDiy = (stripos($description, 'Importa') !== false || stripos($externalRef, 'Importa') !== false);
+
+            if ($looksDiy && $diyPlanId) {
+                $purchaseType = 'pago_directo';
+                $planName = $description;
+                $planDays = 365;
+            } else if (stripos($externalRef, 'plan') !== false || stripos($description, 'plan') !== false) {
                 $purchaseType = 'plan';
                 $planName = $description;
                 if (stripos($description, 'capitan') !== false || stripos($description, 'navio') !== false) {
@@ -329,7 +365,12 @@ function handleWebhook() {
                         $payerName = trim(($payment['payer']['first_name'] ?? '') . ' ' . ($payment['payer']['last_name'] ?? ''));
                         if (empty($payerName)) $payerName = explode('@', $userEmail)[0];
                         $purchase['customer_name'] = $payerName;
-                        if ($purchaseType === 'plan') {
+                        require_once __DIR__ . '/diy_catalog.php';
+                        if (diyIsProgramPurchase($purchase)) {
+                            // "Importa tu mismo" es un infoproducto: la entrega es
+                            // el material descargable, no un expediente.
+                            file_put_contents(__DIR__ . '/mp_webhooks.log', date('Y-m-d H:i:s') . " - ORDER_SKIPPED_DIY\n", FILE_APPEND);
+                        } else if ($purchaseType === 'plan') {
                             createOrderFromPurchase($purchase);
                         } else {
                             require_once __DIR__ . '/email_service.php';
@@ -435,13 +476,31 @@ function sendMercadoPagoConfirmationEmail($purchase, $payment) {
         ];
         
         if ($purchaseType === 'pago_directo') {
-            $emailService->sendPagoDirectoEmail(
-                $purchase['user_email'],
-                $payerName,
-                $commonData
-            );
+            require_once __DIR__ . '/diy_catalog.php';
             $logFile = __DIR__ . '/mp_webhooks.log';
-            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=pago_directo\n", FILE_APPEND);
+
+            if (diyIsProgramPurchase($purchase)) {
+                // "Importa tu mismo": el email entrega los links de descarga.
+                $diyPlanId = diyPlanIdFromLabel(($purchase['plan_name'] ?? '') . ' ' . ($purchase['description'] ?? ''));
+                $diyPlans = diyPlans();
+                $commonData['diy_plan_name'] = $diyPlans[$diyPlanId]['name'] ?? 'Importa tu mismo';
+                $commonData['diy_documents'] = diyDeliverables($purchase);
+                $commonData['diy_thanks_url'] = diyThanksUrl($diyPlanId, diyPurchaseToken($purchase));
+                $commonData['diy_has_advisory'] = ($diyPlanId !== 'navegante');
+                $emailService->sendImportaTuMismoEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+                file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=importa_tu_mismo\n", FILE_APPEND);
+            } else {
+                $emailService->sendPagoDirectoEmail(
+                    $purchase['user_email'],
+                    $payerName,
+                    $commonData
+                );
+                file_put_contents($logFile, date('Y-m-d H:i:s') . ' - EMAIL_SENT: to=' . $purchase['user_email'] . ', order=' . $purchase['order_id'] . ", emails=pago_directo\n", FILE_APPEND);
+            }
         } else {
             $emailService->sendQuotationLinksPaidEmail(
                 $purchase['user_email'],

@@ -36,6 +36,7 @@ deployment:
     - /bin/cp -Rf images $DEPLOYPATH/
 
     # --- Deploy tool/app directories ---
+    - /bin/cp -Rf importa-tu-mismo $DEPLOYPATH/
     - /bin/cp -Rf cotizador-importacion $DEPLOYPATH/
     - /bin/cp -Rf cotizar-importacion $DEPLOYPATH/
     - /bin/cp -Rf simulacion-cotizacion $DEPLOYPATH/

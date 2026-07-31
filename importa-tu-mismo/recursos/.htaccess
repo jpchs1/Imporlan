@@ -1,0 +1,15 @@
+# Material del programa "Importa tú mismo".
+#
+# La mini-guía (00-...) es gratuita y se sirve directamente.
+# El resto del material es de pago y se entrega a través de
+# /api/diy_downloads.php, que valida la compra antes de enviar el archivo.
+
+<FilesMatch "^(0[1-9]-.*\.pdf|calculadora-.*\.csv)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

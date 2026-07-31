@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#050d1a">
+<title>Tu material está listo | Importa tú mismo · Imporlan</title>
+<meta name="description" content="Descarga el material del programa Importa tú mismo de Imporlan.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:radial-gradient(120% 80% at 50% -10%,#0d2f52 0%,#0a1a30 45%,#050d1a 100%);
+     min-height:100vh;color:#e2e8f0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+     -webkit-font-smoothing:antialiased;line-height:1.65;padding:40px 18px 70px;}
+.wrap{max-width:840px;margin:0 auto;}
+.brand{display:block;text-align:center;font-weight:900;font-size:1.15rem;letter-spacing:-.02em;color:#fff;text-decoration:none;margin-bottom:34px;}
+.brand span{background:linear-gradient(105deg,#67e8f9,#a855f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.card{padding:38px 34px;border-radius:26px;border:1px solid rgba(255,255,255,.10);
+      background:linear-gradient(180deg,rgba(17,36,60,.92),rgba(9,20,36,.97));box-shadow:0 30px 70px -30px rgba(0,0,0,.85);}
+.badge{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:999px;font-size:11.5px;font-weight:800;
+       letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px;}
+.badge--ok{background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.34);color:#6ee7b7;}
+.badge--wait{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.34);color:#93c5fd;}
+.badge--err{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.32);color:#fca5a5;}
+h1{font-size:clamp(1.6rem,4.4vw,2.4rem);font-weight:900;color:#fff;letter-spacing:-.03em;line-height:1.14;margin-bottom:12px;}
+.sub{color:#a8b6c8;font-size:1rem;line-height:1.7;margin-bottom:26px;}
+.sub b{color:#fff;}
+.docs{list-style:none;display:grid;gap:11px;margin-bottom:26px;}
+.docs a{display:flex;align-items:center;gap:14px;padding:15px 17px;border-radius:15px;text-decoration:none;color:#e2e8f0;
+        background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);transition:border-color .2s,background .2s,transform .2s;}
+.docs a:hover{border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.07);transform:translateX(3px);}
+.docs .ico{width:40px;height:40px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+           background:linear-gradient(135deg,rgba(34,211,238,.2),rgba(99,102,241,.2));color:#67e8f9;font-weight:900;font-size:11px;}
+.docs .t{font-size:14.2px;font-weight:700;color:#f1f5f9;}
+.docs .m{font-size:11.6px;color:#8fa0b5;}
+.docs .dl{margin-left:auto;font-size:12px;font-weight:800;color:#67e8f9;white-space:nowrap;}
+.note{padding:16px 18px;border-radius:15px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+      font-size:13.4px;line-height:1.7;color:#a8b6c8;margin-bottom:14px;}
+.note b{color:#fff;}
+.actions{display:flex;flex-wrap:wrap;gap:11px;margin-top:22px;}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:14px 22px;border-radius:13px;font-size:14px;font-weight:800;text-decoration:none;transition:transform .2s,background .2s;}
+.btn-primary{background:linear-gradient(135deg,#0891b2,#2563eb 60%,#7c3aed);color:#fff;}
+.btn-wa{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#86efac;}
+.btn-ghost{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);color:#e2e8f0;}
+.btn:hover{transform:translateY(-2px);}
+.loading{color:#8fa0b5;font-size:14px;}
+.foot{margin-top:26px;text-align:center;color:#64748b;font-size:12px;line-height:1.75;}
+.foot a{color:#7dd3fc;text-decoration:none;}
+@media(max-width:600px){.card{padding:26px 20px;}.docs .dl{display:none;}}
+@media(prefers-reduced-motion:reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="brand" href="/">IMPOR<span>LAN</span></a>
+
+  <div class="card">
+    <span class="badge badge--wait" id="badge">Procesando</span>
+    <h1 id="title">Estamos confirmando tu pago…</h1>
+    <p class="sub" id="subtitle">Un momento, estamos verificando la transacción con la pasarela de pago.</p>
+
+    <div id="content"><p class="loading">Cargando tu material…</p></div>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="/importa-tu-mismo/">Volver a Importa tú mismo</a>
+      <a class="btn btn-wa" id="wa" href="https://wa.me/56940211459?text=Hola%2C%20compr%C3%A9%20un%20plan%20Importa%20t%C3%BA%20mismo%20y%20necesito%20ayuda%20con%20la%20descarga" target="_blank" rel="noopener noreferrer">Ayuda por WhatsApp</a>
+      <a class="btn btn-ghost" href="/">Ir al inicio</a>
+    </div>
+  </div>
+
+  <p class="foot">
+    ¿Problemas con la descarga? Escríbenos a <a href="mailto:contacto@imporlan.cl">contacto@imporlan.cl</a> o al <a href="tel:+56940211459">+56&nbsp;9&nbsp;4021&nbsp;1459</a>.<br>
+    Guarda esta página en favoritos: puedes volver a descargar tu material desde este mismo enlace.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(window.location.search);
+  var payment = params.get('payment') || params.get('collection_status') || params.get('status');
+  var order = params.get('order') || params.get('buy_order') || '';
+  var paymentId = params.get('payment_id') || params.get('collection_id') || '';
+
+  var badge = document.getElementById('badge');
+  var title = document.getElementById('title');
+  var subtitle = document.getElementById('subtitle');
+  var content = document.getElementById('content');
+
+  function apiBase() {
+    return (window.location.pathname.indexOf('/test/') === 0) ? '/test/api' : '/api';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function setState(kind, h, sub) {
+    badge.className = 'badge badge--' + kind;
+    badge.textContent = kind === 'ok' ? 'Pago confirmado' : (kind === 'err' ? 'Atención' : 'Procesando');
+    title.textContent = h;
+    subtitle.innerHTML = sub;
+  }
+
+  function fallbackNote(extra) {
+    content.innerHTML =
+      '<div class="note"><b>Tu material también va por email.</b> Enviamos los accesos de descarga al correo que registraste en la compra. ' +
+      'Revisa también la carpeta de spam o promociones.</div>' +
+      (extra ? '<div class="note">' + extra + '</div>' : '');
+  }
+
+  if (payment && /reject|failure|error|cancel/i.test(payment)) {
+    setState('err', 'El pago no se completó', 'La transacción fue rechazada o cancelada y no se realizó ningún cobro. Puedes intentar nuevamente con otro medio de pago.');
+    content.innerHTML = '<div class="note">Si crees que se trata de un error, escríbenos por WhatsApp y lo revisamos contigo. También puedes pagar por transferencia bancaria desde la página del plan.</div>';
+    return;
+  }
+
+  if (!order && !paymentId) {
+    setState('wait', 'Tu material está en camino', 'No pudimos identificar tu compra desde este enlace, pero eso no afecta tu pedido.');
+    fallbackNote('Si ya pagaste y no recibes el correo en unos minutos, escríbenos indicando tu nombre y el plan que compraste y te lo reenviamos de inmediato.');
+    return;
+  }
+
+  var qs = order ? ('order=' + encodeURIComponent(order)) : ('payment_id=' + encodeURIComponent(paymentId));
+
+  fetch(apiBase() + '/diy_downloads.php?action=list&' + qs)
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (!res || !res.success || !res.documents || !res.documents.length) {
+        setState('wait', 'Estamos confirmando tu pago', 'Algunas pasarelas tardan unos minutos en confirmar la transacción.');
+        fallbackNote('Recarga esta página en unos minutos. Si el pago ya aparece cobrado y aquí no se muestra el material, escríbenos y lo resolvemos al instante.');
+        return;
+      }
+
+      setState('ok', '¡Listo! Tu material está disponible',
+        'Compraste el <b>' + esc(res.plan_name) + '</b>. Descarga cada documento haciendo clic. También te enviamos los accesos a <b>' + esc(res.buyer_email || 'tu email') + '</b>.');
+
+      var html = '<ul class="docs">';
+      for (var i = 0; i < res.documents.length; i++) {
+        var d = res.documents[i];
+        var meta = d.kind === 'csv' ? 'Planilla CSV · Excel / Sheets' : (d.pages ? d.pages + ' páginas · PDF' : 'PDF');
+        var num = d.kind === 'csv' ? 'XLS' : String(i + 1).padStart(2, '0');
+        html += '<li><a href="' + esc(d.url) + '">' +
+                '<span class="ico">' + esc(num) + '</span>' +
+                '<span><span class="t">' + esc(d.title) + '</span><br><span class="m">' + esc(meta) + '</span></span>' +
+                '<span class="dl">Descargar</span></a></li>';
+      }
+      html += '</ul>';
+      html += '<div class="note"><b>Sugerencia de lectura.</b> Parte por el Manual Maestro para entender el mapa completo, ' +
+              'imprime el Checklist de 70 puntos y abre la planilla de costos con el precio de la embarcación que estás mirando.</div>';
+
+      if (res.plan_id && res.plan_id !== 'navegante') {
+        html += '<div class="note"><b>Tu plan incluye asesoría.</b> Escríbenos por WhatsApp para agendar tu videollamada ' +
+                'y enviarnos los links de las embarcaciones que quieres que revisemos.</div>';
+      }
+
+      content.innerHTML = html;
+    })
+    .catch(function () {
+      setState('wait', 'Tu material está en camino', 'No pudimos cargar la lista de descargas en este momento.');
+      fallbackNote('Revisa tu email: ahí van los accesos. Si no llega, escríbenos por WhatsApp y te lo reenviamos.');
+    });
+})();
+</script>
+</body>
+</html>
