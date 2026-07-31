@@ -45,7 +45,7 @@
 
 ## Importa tú mismo (autogestión)
 
-- [Importa tú mismo](https://www.imporlan.cl/importa-tu-mismo/): programa para importar una embarcación desde USA a Chile por cuenta propia. Incluye material descargable (manual maestro, checklist de 70 puntos, guía de costos e impuestos, planilla de cálculo, formularios y modelos, trámites DIRECTEMAR, logística y seguros, errores frecuentes) y 3 planes con compra online: Plan Navegante ($49.900 CLP), Plan Timonel ($149.900 CLP) y Plan Patrón de Nave ($349.900 CLP).
+- [Importa tú mismo](https://www.imporlan.cl/importa-tu-mismo/): programa para importar una embarcación desde USA a Chile por cuenta propia. Incluye material descargable (manual maestro, checklist de 70 puntos, guía de costos e impuestos, planilla de cálculo, formularios y modelos, trámites DIRECTEMAR, logística y seguros, errores frecuentes) y 3 planes con compra online: Plan Navegante ($149.900 CLP), Plan Timonel ($249.900 CLP) y Plan Patrón de Nave ($449.900 CLP).
 - [Mini-guía gratuita en PDF](https://www.imporlan.cl/importa-tu-mismo/recursos/00-mini-guia-gratis-importar-embarcacion-usa-chile.pdf): el proceso completo en 8 pasos y los 10 errores más caros.
 - Referencias de costos: arancel 6% sobre CIF (0% si aplica el TLC Chile-EE.UU. y se acredita el origen), IVA 19% sobre CIF más arancel, agente de aduana obligatorio sobre USD 3.000 FOB, proceso total de 45 a 90 días.
 
