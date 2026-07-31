@@ -82,6 +82,23 @@ switch ($action) {
 }
 
 /**
+ * Valida una URL de redirección post-pago.
+ *
+ * Sólo se aceptan URLs https del propio dominio, para evitar que un tercero
+ * use el callback de WebPay como redirector abierto. Cualquier otra cosa
+ * devuelve null y el flujo cae al destino por defecto (panel de expedientes).
+ */
+function sanitizeSuccessRedirect($url) {
+    if (!$url || !is_string($url)) return null;
+    $parts = parse_url($url);
+    if (!$parts || ($parts['scheme'] ?? '') !== 'https') return null;
+    $host = strtolower($parts['host'] ?? '');
+    $allowed = ['www.imporlan.cl', 'imporlan.cl'];
+    if (!in_array($host, $allowed, true)) return null;
+    return $url;
+}
+
+/**
  * Create a new WebPay Plus transaction
  */
 function createTransaction($data) {
@@ -105,7 +122,10 @@ function createTransaction($data) {
         'days' => $data['days'] ?? 7,
         'amount' => $amount,
         'boat_links' => $data['boat_links'] ?? [],
-        'payment_request_id' => $data['payment_request_id'] ?? null
+        'payment_request_id' => $data['payment_request_id'] ?? null,
+        // Redirección opcional post-pago. Sólo se acepta si apunta al propio
+        // sitio; si viene vacía o es externa, se usa el destino por defecto.
+        'success_redirect' => sanitizeSuccessRedirect($data['success_redirect'] ?? null)
     ];
     
     // Save purchase info to a temporary file for retrieval in callback
@@ -257,24 +277,45 @@ function handleCallback() {
     // Check if transaction was approved
     $approved = isset($result['response_code']) && $result['response_code'] === 0;
     
+    // Get the buy_order to retrieve purchase info
+    $buyOrder = $result['buy_order'] ?? null;
+
+    // Read the optional post-payment redirect BEFORE saving the purchase:
+    // savePurchaseFromWebpay() consumes (and deletes) the pending file.
+    $successRedirect = null;
+    if ($buyOrder) {
+        $pendingPath = __DIR__ . '/webpay_pending/' . $buyOrder . '.json';
+        if (file_exists($pendingPath)) {
+            $pendingInfo = json_decode(file_get_contents($pendingPath), true);
+            $successRedirect = sanitizeSuccessRedirect($pendingInfo['success_redirect'] ?? null);
+        }
+    }
+
     if ($approved) {
-        // Get the buy_order to retrieve purchase info
-        $buyOrder = $result['buy_order'] ?? null;
-        
         // Save purchase to purchases.json with full information
         savePurchaseFromWebpay($result, $buyOrder);
-        
+
         // Discard any output that may have been generated during processing
         if (ob_get_level()) ob_end_clean();
         // Clear any previously set headers and redirect
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1&order=' . urlencode($buyOrder));
+        if ($successRedirect) {
+            $glue = (strpos($successRedirect, '?') !== false) ? '&' : '?';
+            header('Location: ' . $successRedirect . $glue . 'payment=success&order=' . urlencode($buyOrder));
+        } else {
+            header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1&order=' . urlencode($buyOrder));
+        }
     } else {
         if (ob_get_level()) ob_end_clean();
         header_remove('Content-Type');
         http_response_code(302);
-        header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        if ($successRedirect) {
+            $glue = (strpos($successRedirect, '?') !== false) ? '&' : '?';
+            header('Location: ' . $successRedirect . $glue . 'payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        } else {
+            header('Location: https://www.imporlan.cl/panel/#/expedientes?payment=rejected&code=' . ($result['response_code'] ?? 'unknown'));
+        }
     }
     exit();
 }

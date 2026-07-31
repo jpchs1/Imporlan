@@ -49,6 +49,40 @@ function getPublicKey() {
 /**
  * Crear una preferencia de pago en MercadoPago
  */
+/**
+ * Construye las back_urls de la preferencia.
+ *
+ * Por defecto el comprador vuelve a su panel de expedientes. Si el frontend
+ * envía `success_redirect` y apunta al propio sitio (https e imporlan.cl),
+ * se usa esa página como destino de retorno. Cualquier URL externa se ignora.
+ */
+function mpBackUrls($successRedirect = null) {
+    $default = [
+        // Land the customer on their Expedientes view so they immediately
+        // see the order we just created (with their links pre-loaded).
+        // The PostPaymentPopup detects payment=success and shows the
+        // confirmation overlay. just_created=1 hints to the popup that
+        // this is a fresh creation (vs the user revisiting).
+        'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
+        'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
+        'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
+    ];
+
+    if (!$successRedirect || !is_string($successRedirect)) return $default;
+
+    $parts = parse_url($successRedirect);
+    if (!$parts || ($parts['scheme'] ?? '') !== 'https') return $default;
+    $host = strtolower($parts['host'] ?? '');
+    if (!in_array($host, ['www.imporlan.cl', 'imporlan.cl'], true)) return $default;
+
+    $glue = (strpos($successRedirect, '?') !== false) ? '&' : '?';
+    return [
+        'success' => $successRedirect . $glue . 'payment=success',
+        'failure' => $successRedirect . $glue . 'payment=failure',
+        'pending' => $successRedirect . $glue . 'payment=pending'
+    ];
+}
+
 function createPreference() {
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -96,16 +130,7 @@ function createPreference() {
                 'unit_price' => $amount
             ]
         ],
-        'back_urls' => [
-            // Land the customer on their Expedientes view so they immediately
-            // see the order we just created (with their links pre-loaded).
-            // The PostPaymentPopup detects payment=success and shows the
-            // confirmation overlay. just_created=1 hints to the popup that
-            // this is a fresh creation (vs the user revisiting).
-            'success' => 'https://www.imporlan.cl/panel/#/expedientes?payment=success&just_created=1',
-            'failure' => 'https://www.imporlan.cl/panel/#/expedientes?payment=failure',
-            'pending' => 'https://www.imporlan.cl/panel/#/expedientes?payment=pending'
-        ],
+        'back_urls' => mpBackUrls($input['success_redirect'] ?? null),
         'auto_return' => 'approved',
         'notification_url' => 'https://www.imporlan.cl/api/mercadopago.php?action=webhook',
         'statement_descriptor' => 'IMPORLAN',

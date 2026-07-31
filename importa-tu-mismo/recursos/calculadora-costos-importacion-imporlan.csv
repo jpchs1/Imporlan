@@ -1,0 +1,49 @@
+Calculadora de costos de importacion de embarcaciones USA -> Chile,,,
+"Imporlan SpA - Programa ""Importa tu mismo""",,,
+Instrucciones: completa solo las filas [EDITAR]. Las filas [FORMULA] se recalculan al abrir en Excel / Google Sheets / Numbers.,,,
+Valores referenciales. Confirma siempre con tu agente de aduana y con el Servicio Nacional de Aduanas.,,,
+,,,
+BLOQUE,CONCEPTO,VALOR (USD),NOTA
+PARAMETROS,Tipo de cambio CLP/USD [EDITAR],950,Usa un valor conservador por sobre el spot del dia
+PARAMETROS,Aplica arancel preferencial TLC? 1=Si 0=No [EDITAR],0,Confirmar el origen con el agente de aduana
+PARAMETROS,Tasa arancel general,0.06,6% sobre CIF
+PARAMETROS,Tasa IVA,0.19,19% sobre CIF mas arancel
+,,,
+1. ADQUISICION,Precio de compra FOB [EDITAR],45000,Precio negociado con el vendedor
+1. ADQUISICION,Inspeccion pre-compra / survey [EDITAR],900,Marine surveyor independiente mas sea trial
+1. ADQUISICION,Traslado interno en USA [EDITAR],800,Marina o dealer hasta el puerto de embarque
+1. ADQUISICION,Cradle / cuna y estiba [EDITAR],1200,Madera tratada certificada mas trincado
+1. ADQUISICION,Otros gastos en origen [EDITAR],0,Lavado de casco / desmontaje / almacenaje
+1. ADQUISICION,Subtotal adquisicion [FORMULA],=SUM(C12:C16),
+,,,
+2. INTERNACIONAL,Flete maritimo [EDITAR],6500,Contenedor / RoRo / flat rack
+2. INTERNACIONAL,Seguro de carga [EDITAR],600,Aprox. 1% a 1.5% del valor asegurado
+2. INTERNACIONAL,Recargos y documentacion [EDITAR],0,Recargo de combustible / emision B/L
+2. INTERNACIONAL,Subtotal internacional [FORMULA],=SUM(C19:C21),
+,,,
+BASE IMPONIBLE,Valor CIF [FORMULA],=C17+C22,Costo mas seguro mas flete
+,,,
+3. NACIONALIZACION,Arancel aduanero [FORMULA],"=IF(C8=1,0,C24*C9)",Cero si aplica el beneficio del TLC
+3. NACIONALIZACION,IVA de importacion [FORMULA],=(C24+C26)*C10,19% sobre CIF mas arancel
+3. NACIONALIZACION,Gastos portuarios y THC [EDITAR],700,Manipulacion en terminal
+3. NACIONALIZACION,Almacenaje [EDITAR],0,Solo si se superan los dias libres
+3. NACIONALIZACION,Gate out / movilizacion [EDITAR],250,Salida del recinto
+3. NACIONALIZACION,Aforo fisico [EDITAR],0,Solo si Aduana lo determina
+3. NACIONALIZACION,Honorarios agente de aduana [EDITAR],600,0.5% a 1% del CIF con minimos
+3. NACIONALIZACION,Grua y montaje [EDITAR],400,Segun peso y eslora
+3. NACIONALIZACION,Transporte terrestre en Chile [EDITAR],800,Segun region de destino
+3. NACIONALIZACION,Permiso de sobredimension [EDITAR],0,Solo si excede medidas maximas
+3. NACIONALIZACION,Matricula y tramites maritimos [EDITAR],0,Autoridad Maritima
+3. NACIONALIZACION,Subtotal nacionalizacion [FORMULA],=SUM(C26:C36),
+,,,
+RESULTADO,COSTO TOTAL PUESTO EN CHILE (USD) [FORMULA],=C17+C22+C37,
+RESULTADO,COSTO TOTAL PUESTO EN CHILE (CLP) [FORMULA],=C39*C7,
+RESULTADO,Factor sobre precio de compra [FORMULA],=C39/C12,Referencia habitual: 1.45 a 1.60
+RESULTADO,Contingencia sugerida 10% (USD) [FORMULA],=C39*0.1,Reserva recomendada
+RESULTADO,PRESUPUESTO RECOMENDADO (USD) [FORMULA],=C39+C42,
+,,,
+COMPARACION,Precio del mismo modelo en Chile (USD) [EDITAR],0,Busca el mismo modelo y ano en el mercado local
+COMPARACION,Ahorro estimado (USD) [FORMULA],=C45-C39,
+COMPARACION,Ahorro estimado (%) [FORMULA],"=IF(C45=0,0,(C45-C39)/C45)",Bajo 15% la operacion no compensa el riesgo
+,,,
+Imporlan SpA - contacto@imporlan.cl - +56 9 4021 1459 - www.imporlan.cl,,,
