@@ -183,7 +183,7 @@
         'Todo lo del Plan Timonel',
         '3 videollamadas en los hitos críticos: compra, embarque y aduana',
         'Revisión documental completa (Bill of Sale, Title, HBL, factura y seguro)',
-        'Revisión de embarcaciones candidatas sin límite durante la vigencia',
+        'Revisión de hasta 10 embarcaciones candidatas (links o fichas)',
         'Acompañamiento en la coordinación con tu agente de aduana',
         'Guía de puesta en marcha en Chile y post-importación',
         'Soporte prioritario por WhatsApp durante 90 días',
