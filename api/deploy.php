@@ -232,7 +232,28 @@ try {
     }
     $log[] = ['step' => 'backup', 'files' => array_keys($backups)];
     
+    // Estado de runtime que vive sólo en el servidor. Sin estos excludes,
+    // el `rsync --delete` de más abajo borraría el historial de compras
+    // (api/purchases.json), las transacciones en curso y las fotos del
+    // marketplace en cada deploy. api/purchases.json además es lo que valida
+    // las descargas del programa "Importa tu mismo".
+    $runtimeState = [
+        'api/purchases.json',
+        'api/payment_requests.json',
+        'api/quotation_requests.json',
+        'api/email_log.json',
+        'api/dolar_cache.json',
+        'api/webpay_pending',
+        'api/mp_pending',
+        'api/paypal_pending',
+        'api/marketplace_photos',
+        'api/*.log',
+    ];
+
     $excludes = "--exclude='.git' --exclude='api/config.php' --exclude='api/db_config.php'";
+    foreach ($runtimeState as $path) {
+        $excludes .= " --exclude=" . escapeshellarg($path);
+    }
     if ($env === 'prod') {
         // Exclude root-level test dirs but keep api/test/ (used by admin panel proxy)
         $excludes .= " --exclude='/test' --exclude='/panel-test'";
