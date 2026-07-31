@@ -439,7 +439,12 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
                 require_once $dbConfig;
                 require_once __DIR__ . '/orders_api.php';
                 $purchase['customer_name'] = $purchaseInfo['payer_name'] ?? explode('@', $userEmail)[0];
-                if ($purchaseType === 'plan') {
+                require_once __DIR__ . '/diy_catalog.php';
+                if (diyIsProgramPurchase($purchase)) {
+                    // "Importa tu mismo" es un infoproducto: la entrega es el
+                    // material descargable, no un expediente de cotizacion.
+                    logWebpay('ORDER_SKIPPED_DIY', ['order' => $purchase['order_id'] ?? '']);
+                } else if ($purchaseType === 'plan') {
                     createOrderFromPurchase($purchase);
                 } else {
                     require_once __DIR__ . '/email_service.php';
@@ -520,14 +525,32 @@ function sendPurchaseConfirmationEmail($purchase) {
         ];
         
         if ($purchaseType === 'pago_directo') {
-            // Pago Directo from /pago/ page - single confirmation email
             $commonData['payer_phone'] = $purchase['payer_phone'] ?? '';
-            $emailService->sendPagoDirectoEmail(
-                $purchase['user_email'],
-                $purchase['payer_name'] ?: $payerName,
-                $commonData
-            );
-            logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'pago_directo']);
+
+            require_once __DIR__ . '/diy_catalog.php';
+            if (diyIsProgramPurchase($purchase)) {
+                // "Importa tu mismo": el email entrega los links de descarga.
+                $diyPlanId = diyPlanIdFromLabel(($purchase['plan_name'] ?? '') . ' ' . ($purchase['description'] ?? ''));
+                $diyPlans = diyPlans();
+                $commonData['diy_plan_name'] = $diyPlans[$diyPlanId]['name'] ?? 'Importa tu mismo';
+                $commonData['diy_documents'] = diyDeliverables($purchase);
+                $commonData['diy_thanks_url'] = diyThanksUrl($diyPlanId, diyPurchaseToken($purchase));
+                $commonData['diy_has_advisory'] = ($diyPlanId !== 'navegante');
+                $emailService->sendImportaTuMismoEmail(
+                    $purchase['user_email'],
+                    $purchase['payer_name'] ?: $payerName,
+                    $commonData
+                );
+                logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'importa_tu_mismo']);
+            } else {
+                // Pago Directo from /pago/ page - single confirmation email
+                $emailService->sendPagoDirectoEmail(
+                    $purchase['user_email'],
+                    $purchase['payer_name'] ?: $payerName,
+                    $commonData
+                );
+                logWebpay('EMAIL_SENT', ['to' => $purchase['user_email'], 'order' => $purchase['order_id'], 'emails' => 'pago_directo']);
+            }
         } else {
             $emailService->sendQuotationLinksPaidEmail(
                 $purchase['user_email'],

@@ -147,7 +147,7 @@ h1{font-size:clamp(1.6rem,4.4vw,2.4rem);font-weight:900;color:#fff;letter-spacin
       for (var i = 0; i < res.documents.length; i++) {
         var d = res.documents[i];
         var meta = d.kind === 'csv' ? 'Planilla CSV · Excel / Sheets' : (d.pages ? d.pages + ' páginas · PDF' : 'PDF');
-        var num = d.kind === 'csv' ? 'XLS' : String(i).padStart(2, '0');
+        var num = d.kind === 'csv' ? 'XLS' : String(i + 1).padStart(2, '0');
         html += '<li><a href="' + esc(d.url) + '">' +
                 '<span class="ico">' + esc(num) + '</span>' +
                 '<span><span class="t">' + esc(d.title) + '</span><br><span class="m">' + esc(meta) + '</span></span>' +

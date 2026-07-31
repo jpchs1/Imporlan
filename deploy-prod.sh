@@ -168,6 +168,7 @@ echo "  -> Simulacion cotizacion deployed."
 
 # Deploy SEO content pages (landing pages)
 SEO_PAGES=(
+  "importa-tu-mismo"
   "lanchas-usadas"
   "lanchas-usadas-baratas-chile"
   "mejores-lanchas-usadas-chile"

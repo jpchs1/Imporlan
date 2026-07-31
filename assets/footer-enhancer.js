@@ -297,6 +297,7 @@
       + '      <h3 class="imp-col-h">Servicios</h3>'
       + '      <ul class="imp-list">'
       + '        <li><a href="/marketplace/">Marketplace de lanchas' + ARROW + '</a></li>'
+      + '        <li><a href="/importa-tu-mismo/">Importa tú mismo<span class="imp-badge-hot">Nuevo</span>' + ARROW + '</a></li>'
       + '        <li><a href="/cotizador-importacion/">Cotizador online<span class="imp-badge-hot">Hot</span>' + ARROW + '</a></li>'
       + '        <li><a href="/cotizar-importacion/">Cotizar importación' + ARROW + '</a></li>'
       + '        <li><a href="/inspeccion-precompra-embarcaciones/">Inspección pre-compra' + ARROW + '</a></li>'

@@ -42,7 +42,7 @@
       id: 'mini-guia',
       file: RECURSOS + '00-mini-guia-gratis-importar-embarcacion-usa-chile.pdf',
       title: 'Mini-guía gratis: importar una embarcación en 8 pasos',
-      pages: 6,
+      pages: 8,
       free: true,
       desc: 'Resumen del proceso completo, los 10 errores más caros y el orden real de los trámites.'
     },
@@ -50,7 +50,7 @@
       id: 'manual',
       file: RECURSOS + '01-manual-maestro-importacion-usa-chile.pdf',
       title: 'Manual Maestro de Importación USA → Chile',
-      pages: 12,
+      pages: 13,
       desc: 'Las 12 etapas del proceso, plazos reales, actores involucrados y qué hacer en cada una.'
     },
     {
@@ -64,7 +64,7 @@
       id: 'costos',
       file: RECURSOS + '03-guia-costos-aranceles-impuestos.pdf',
       title: 'Guía de Costos, Aranceles e Impuestos',
-      pages: 8,
+      pages: 10,
       desc: 'Cómo se arma el CIF, arancel, IVA, gastos portuarios y honorarios. Con ejemplos numéricos.'
     },
     {
@@ -79,14 +79,14 @@
       id: 'documentos',
       file: RECURSOS + '04-documentos-formularios-y-plantillas.pdf',
       title: 'Documentos, formularios y plantillas',
-      pages: 6,
+      pages: 8,
       desc: 'Bill of Sale, Title, HBL, packing list, DIN, mandato al agente de aduana y modelos listos.'
     },
     {
       id: 'directemar',
       file: RECURSOS + '05-tramites-directemar-y-matricula.pdf',
       title: 'Trámites DIRECTEMAR y matrícula en Chile',
-      pages: 5,
+      pages: 7,
       desc: 'Inscripción, matrícula, numeral, seguros obligatorios y licencias para navegar legalmente.'
     },
     {
@@ -100,14 +100,14 @@
       id: 'errores',
       file: RECURSOS + '07-errores-costosos-y-como-evitarlos.pdf',
       title: '25 errores costosos y cómo evitarlos',
-      pages: 6,
+      pages: 7,
       desc: 'Los errores que hemos visto pagar caro a importadores primerizos, con su antídoto.'
     },
     {
       id: 'directorio',
       file: RECURSOS + '08-directorio-proveedores-y-negociacion.pdf',
       title: 'Directorio de proveedores + guion de negociación',
-      pages: 6,
+      pages: 8,
       desc: 'Tipos de contraparte en USA, cómo evaluarlas y plantillas de correo en inglés listas para enviar.'
     },
     {

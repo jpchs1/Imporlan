@@ -21,29 +21,10 @@ setCorsHeadersSecure();
 
 $RESOURCE_DIR = dirname(__DIR__) . '/importa-tu-mismo/recursos/';
 
-/* Catálogo de documentos. Debe mantenerse alineado con LIBRARY en
-   assets/importa-tu-mismo-checkout.js */
-$DOCS = [
-    'mini-guia'   => ['file' => '00-mini-guia-gratis-importar-embarcacion-usa-chile.pdf', 'title' => 'Mini-guía: importar en 8 pasos', 'pages' => 6,  'free' => true],
-    'manual'      => ['file' => '01-manual-maestro-importacion-usa-chile.pdf',            'title' => 'Manual Maestro de Importación USA a Chile', 'pages' => 12],
-    'checklist'   => ['file' => '02-checklist-maestro-70-puntos.pdf',                     'title' => 'Checklist Maestro de 70 puntos', 'pages' => 6],
-    'costos'      => ['file' => '03-guia-costos-aranceles-impuestos.pdf',                 'title' => 'Guía de Costos, Aranceles e Impuestos', 'pages' => 8],
-    'calculadora' => ['file' => 'calculadora-costos-importacion-imporlan.csv',            'title' => 'Planilla de cálculo de costos', 'pages' => 0],
-    'documentos'  => ['file' => '04-documentos-formularios-y-plantillas.pdf',             'title' => 'Documentos, formularios y plantillas', 'pages' => 6],
-    'directemar'  => ['file' => '05-tramites-directemar-y-matricula.pdf',                 'title' => 'Trámites DIRECTEMAR y matrícula en Chile', 'pages' => 5],
-    'logistica'   => ['file' => '06-logistica-fletes-seguro-e-inspeccion.pdf',            'title' => 'Logística, fletes, seguro e inspección', 'pages' => 7],
-    'errores'     => ['file' => '07-errores-costosos-y-como-evitarlos.pdf',               'title' => '25 errores costosos y cómo evitarlos', 'pages' => 6],
-    'directorio'  => ['file' => '08-directorio-proveedores-y-negociacion.pdf',            'title' => 'Directorio de proveedores y negociación', 'pages' => 6],
-    'post'        => ['file' => '09-post-importacion-en-chile.pdf',                       'title' => 'Después de importar: puesta en marcha', 'pages' => 6],
-];
+require_once __DIR__ . '/diy_catalog.php';
 
-$BASE_DOCS = ['manual', 'checklist', 'costos', 'calculadora', 'documentos', 'directemar', 'logistica', 'errores'];
-
-$PLANS = [
-    'navegante' => ['name' => 'Plan Navegante',       'docs' => $BASE_DOCS],
-    'timonel'   => ['name' => 'Plan Timonel',         'docs' => array_merge($BASE_DOCS, ['directorio'])],
-    'patron'    => ['name' => 'Plan Patrón de Nave',  'docs' => array_merge($BASE_DOCS, ['directorio', 'post'])],
-];
+$DOCS = diyDocs();
+$PLANS = diyPlans();
 
 /**
  * Busca una compra pagada del programa por order_id o payment_id.
@@ -64,8 +45,7 @@ function findDiyPurchase($order, $paymentId) {
         $status = strtolower($p['status'] ?? '');
         if (!in_array($status, ['paid', 'approved', 'completed'], true)) continue;
 
-        $label = ($p['plan_name'] ?? '') . ' ' . ($p['description'] ?? '');
-        if (stripos($label, 'Importa') === false) continue;
+        if (!diyIsProgramPurchase($p)) continue;
 
         return $p;
     }
@@ -73,12 +53,11 @@ function findDiyPurchase($order, $paymentId) {
 }
 
 /** Deduce el id de plan a partir del nombre guardado en la compra. */
-function planIdFromPurchase($purchase, $plans) {
-    $label = strtolower(($purchase['plan_name'] ?? '') . ' ' . ($purchase['description'] ?? ''));
-    if (strpos($label, 'patr') !== false) return 'patron';
-    if (strpos($label, 'timonel') !== false) return 'timonel';
-    if (strpos($label, 'navegante') !== false) return 'navegante';
-    return 'navegante';
+function planIdFromPurchase($purchase) {
+    // findDiyPurchase() ya garantiza que el plan es reconocible; el null
+    // defensivo evita entregar material si eso cambiara en el futuro.
+    $label = ($purchase['plan_name'] ?? '') . ' ' . ($purchase['description'] ?? '');
+    return diyPlanIdFromLabel($label);
 }
 
 $action = $_GET['action'] ?? 'list';
@@ -110,8 +89,8 @@ if ($action === 'file') {
             echo json_encode(['success' => false, 'error' => 'Compra no encontrada o no pagada']);
             exit;
         }
-        $planId = planIdFromPurchase($purchase, $PLANS);
-        $allowed = in_array($docId, $PLANS[$planId]['docs'], true);
+        $planId = planIdFromPurchase($purchase);
+        $allowed = $planId && in_array($docId, $PLANS[$planId]['docs'], true);
     }
 
     if (!$allowed) {
@@ -151,7 +130,11 @@ if (!$purchase) {
     exit;
 }
 
-$planId = planIdFromPurchase($purchase, $PLANS);
+$planId = planIdFromPurchase($purchase);
+if (!$planId) {
+    echo json_encode(['success' => false, 'error' => 'No pudimos identificar el plan de esa compra.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 $tokenParam = $order ? ('order=' . rawurlencode($order)) : ('payment_id=' . rawurlencode($paymentId));
 
 $items = [];
