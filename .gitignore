@@ -20,6 +20,7 @@ api/tracking/ais_config.php
 api/scraper_config.php
 api/image_cache_config.php
 credentials_config.php
+api/ai/whatsapp_config.php
 .jwt_secret
 .admin_password
 .support_password
@@ -50,8 +51,12 @@ backup_temp/
 # Build artifacts
 *.zip
 
-# Test scripts
-send_*.php
-test_*.php
-check_*.php
-get_*.php
+# Test scripts (root/api level only, not subdirectories)
+/send_*.php
+/api/send_*.php
+/test_*.php
+/api/test_*.php
+/check_*.php
+/api/check_*.php
+/get_*.php
+/api/get_*.php
