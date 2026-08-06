@@ -22,6 +22,7 @@
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/cotizador_helpers.php';
+require_once __DIR__ . '/scraper_locator.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     require_once __DIR__ . '/cors_helper.php';
@@ -1843,6 +1844,9 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
     $scraperFile = linkScraperPath();
     $scraperReady = false;
     if ($scraperFile) {
+        // El modulo vive fuera del docroot, asi que no puede resolver
+        // auth_helper.php, scraper_config.php ni uploads/ con su propio __DIR__.
+        if (!defined('IMPORLAN_API_DIR')) define('IMPORLAN_API_DIR', __DIR__);
         require_once $scraperFile;
         $scraperReady = function_exists('scrapeLinkData');
     }
@@ -1970,43 +1974,6 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
         ->execute($params);
 
     return $cols;
-}
-
-/**
- * Ubica link_scraper.php, que vive FUERA del directorio web.
- *
- * El antivirus del hosting escanea en tiempo real lo que es accesible por HTTP
- * y borra este modulo a los pocos segundos de copiarlo: su clasificador puntua
- * el archivo completo (curl con user-agent de navegador, cookies de sesion y
- * escritura de binarios descargados) y lo marca como dropper. Verificado en el
- * servidor: dentro del docroot desaparece en menos de 30 segundos; el mismo
- * archivo, byte por byte, sobrevive indefinidamente fuera de el.
- *
- * Sacarlo del docroot ademas corrige un problema por su cuenta: es codigo
- * interno que nadie deberia poder pedir por HTTP.
- *
- * Orden de busqueda: variable de entorno, carpeta de libreria del hosting y,
- * como ultimo recurso, junto a este archivo (asi el repo y los entornos de
- * desarrollo siguen funcionando sin configurar nada).
- *
- * Devuelve la ruta absoluta o null si no esta en ninguna parte.
- */
-function linkScraperPath() {
-    static $resolved = false;
-    static $path = null;
-    if ($resolved) return $path;
-    $resolved = true;
-
-    $candidates = [];
-    $env = getenv('IMPORLAN_LIB_DIR');
-    if ($env) $candidates[] = rtrim($env, '/') . '/link_scraper.php';
-    $candidates[] = __DIR__ . '/../../lib/imporlan/link_scraper.php';
-    $candidates[] = __DIR__ . '/link_scraper.php';
-
-    foreach ($candidates as $candidate) {
-        if (is_readable($candidate)) { $path = $candidate; return $path; }
-    }
-    return $path;
 }
 
 /**
@@ -2147,6 +2114,7 @@ function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
         error_log('autoScrapeAndUpdateOrderLinks: link_scraper.php no encontrado; se omite el scrapeo.');
         return;
     }
+    if (!defined('IMPORLAN_API_DIR')) define('IMPORLAN_API_DIR', __DIR__);
     require_once $scraperFile;
 
     foreach ($urls as $index => $url) {

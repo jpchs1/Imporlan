@@ -151,15 +151,14 @@ echo "  -> API deployed (db_config.php preserved)."
 # survive indefinitely outside the doc-root. api/orders_api.php looks for it
 # via linkScraperPath(); keeping it here also stops it being fetchable by URL.
 install_link_scraper() {
-  local src="$STAGING_REPO/api/link_scraper.php"
-  [ -f "$src" ] || { echo "  -> WARNING: link_scraper.php not in staging; scraping will degrade to URL-only."; return; }
+  local src="$STAGING_REPO/lib/link_scraper.php"
+  [ -f "$src" ] || { echo "  -> WARNING: lib/link_scraper.php not in staging; scraping will degrade to URL-only."; return; }
   mkdir -p "$LIB_DIR"
   cp -a "$src" "$LIB_DIR/link_scraper.php"
-  chmod 640 "$LIB_DIR/link_scraper.php"
-  # Drop the copy the api/ sync just placed in the doc-root, so the antivirus
-  # has nothing to delete and we stop generating malware alerts on every deploy.
-  rm -f "$PUBLIC_HTML/api/link_scraper.php"
-  echo "  -> link_scraper.php installed to $LIB_DIR (outside doc-root)."
+  # 644, not 640: PHP must be able to read it. The protection here is the
+  # location (outside the doc-root), not the permission bits.
+  chmod 644 "$LIB_DIR/link_scraper.php"
+  echo "  -> lib/link_scraper.php installed to $LIB_DIR (outside doc-root)."
 }
 install_link_scraper
 

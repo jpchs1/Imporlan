@@ -29,6 +29,13 @@ deployment:
     # --- Deploy core directories ---
     - /bin/cp -Rf assets $DEPLOYPATH/
     - /bin/cp -Rf api $DEPLOYPATH/
+
+    # --- Scraper library: must live OUTSIDE the doc-root ---
+    # The host's real-time antivirus deletes it within ~30s of it appearing in a
+    # web-accessible path. api/link_scraper.php is only the HTTP endpoint; the
+    # module itself is resolved by linkScraperPath() (api/scraper_locator.php).
+    - /bin/mkdir -p /home/wwimpo/lib/imporlan
+    - /bin/test -f lib/link_scraper.php && /bin/cp lib/link_scraper.php /home/wwimpo/lib/imporlan/link_scraper.php || true
     - /bin/cp -Rf admin $DEPLOYPATH/
     - /bin/cp -Rf panel $DEPLOYPATH/
     - /bin/cp -Rf marketplace $DEPLOYPATH/
