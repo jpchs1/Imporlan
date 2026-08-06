@@ -15,6 +15,9 @@ set -euo pipefail
 REPO_DIR="/home/wwimpo/imporlan-staging"
 PUBLIC_HTML="/home/wwimpo/imporlan.cl"
 BACKUP_DIR="/home/wwimpo/backups"
+# Server-side library dir, deliberately outside $PUBLIC_HTML. Must match the
+# candidate path in linkScraperPath() (api/orders_api.php).
+LIB_DIR="/home/wwimpo/lib/imporlan"
 LOGFILE="/home/wwimpo/auto-deploy.log"
 LOCKFILE="/home/wwimpo/.deploy.lock"
 SENTINEL="$PUBLIC_HTML/.imporlan_docroot"
@@ -115,6 +118,19 @@ DIRS=(
 for dir in "${DIRS[@]}"; do
   [ -d "$REPO_DIR/$dir" ] && cp -Rf "$REPO_DIR/$dir" "$PUBLIC_HTML/"
 done
+
+# --- link_scraper.php lives OUTSIDE the doc-root (see deploy-prod.sh) -------
+# The host's real-time antivirus deletes it within ~30s of it appearing in a
+# web-accessible path. api/orders_api.php resolves it via linkScraperPath().
+if [ -f "$REPO_DIR/api/link_scraper.php" ]; then
+  mkdir -p "$LIB_DIR"
+  cp -a "$REPO_DIR/api/link_scraper.php" "$LIB_DIR/link_scraper.php"
+  chmod 640 "$LIB_DIR/link_scraper.php"
+  rm -f "$PUBLIC_HTML/api/link_scraper.php"
+  log "link_scraper.php installed to $LIB_DIR (outside doc-root)."
+else
+  log "WARNING: link_scraper.php not in repo; scraping degrades to URL-only."
+fi
 
 # --- Post-deploy: restore server-only files ---
 [ -f "$BACKUP_DIR/pre_deploy_$TIMESTAMP/db_config.php" ] && cp "$BACKUP_DIR/pre_deploy_$TIMESTAMP/db_config.php" "$PUBLIC_HTML/api/db_config.php"
