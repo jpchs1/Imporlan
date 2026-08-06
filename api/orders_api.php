@@ -727,18 +727,17 @@ function adminUpdateLinks() {
             logOrderEvent($pdo, $orderId, 'updated_cell', ['cells' => $updatedCells], $input['admin_user_id'] ?? null);
         }
 
+        echo json_encode(['success' => true, 'message' => 'Links actualizados']);
+
         // Los links pegados a mano en el panel nunca pasaban por el scraper del
         // servidor: solo createOrderFromQuotation() lo invocaba. Aqui cubrimos
-        // esa via, pero solo para las filas que jamas se scrapearon (sin titulo
-        // ni imagen) y con un tope, para no arriesgar el guardado por timeout.
-        // El resto se resuelve con el boton "Rescrapear expediente".
-        $scraped = scrapePendingOrderLinks($pdo, $orderId, 3);
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Links actualizados',
-            'scraped' => $scraped
-        ]);
+        // esa via, pero DESPUES de contestar: con Plan B un solo link puede
+        // tardar minutos y el guardado no puede quedar esperando eso.
+        // Solo se procesan filas con URL que jamas se scrapearon.
+        finishRequestEarly();
+        @set_time_limit(300);
+        scrapePendingOrderLinks($pdo, $orderId, 5);
+        return;
     } catch (PDOException $e) {
         $pdo->rollBack();
         error_log("Error updating links: " . $e->getMessage());
@@ -1836,11 +1835,16 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  *                         sincronas del panel usan un tope bajo.
  * @return array Resumen por fila, apto para devolver al panel.
  */
-function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0) {
+function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null) {
     require_once __DIR__ . '/link_scraper.php';
 
     $sql = "SELECT row_index, url, title, image_url FROM order_links
             WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
+    $args = [$orderId];
+    if ($rowIndex !== null) {
+        $sql .= " AND row_index = ?";
+        $args[] = $rowIndex;
+    }
     if ($onlyEmpty) {
         $sql .= " AND (title IS NULL OR TRIM(title) = '')
                   AND (image_url IS NULL OR TRIM(image_url) = '')";
@@ -1848,7 +1852,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0) {
     $sql .= " ORDER BY row_index";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$orderId]);
+    $stmt->execute($args);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $results = [];
@@ -1933,6 +1937,22 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
     return $cols;
 }
 
+/**
+ * Cierra la respuesta HTTP y deja el proceso seguir trabajando.
+ *
+ * Permite contestarle al panel de inmediato y scrapear despues, sin que el
+ * servidor web corte la peticion por tiempo. Si el SAPI no lo soporta,
+ * simplemente vacia los buffers y el flujo sigue siendo correcto.
+ */
+function finishRequestEarly() {
+    if (function_exists('fastcgi_finish_request')) { @fastcgi_finish_request(); return true; }
+    if (function_exists('litespeed_finish_request')) { @litespeed_finish_request(); return true; }
+    @ignore_user_abort(true);
+    while (ob_get_level() > 0) { @ob_end_flush(); }
+    @flush();
+    return false;
+}
+
 /** Atajo para las vias sincronas del panel: solo lo pendiente y con tope. */
 function scrapePendingOrderLinks($pdo, $orderId, $limit = 3) {
     try {
@@ -1952,6 +1972,12 @@ function adminRescrapeLinks() {
     $input = json_decode(file_get_contents('php://input'), true);
     $orderId = intval($input['order_id'] ?? 0);
     $onlyEmpty = !empty($input['only_empty']);
+    // El panel manda row_index para procesar UNA fila por peticion. Con Plan B
+    // un link puede tardar minutos (Jina + ScrapingBee + Vision) y el servidor
+    // web corta la peticion mucho antes que PHP, devolviendo un 500 en HTML
+    // que el cliente ni siquiera puede parsear. Una fila por llamada mantiene
+    // cada peticion corta y ademas permite mostrar progreso.
+    $rowIndex = isset($input['row_index']) ? intval($input['row_index']) : null;
 
     if (!$orderId) {
         http_response_code(400);
@@ -1966,11 +1992,10 @@ function adminRescrapeLinks() {
         return;
     }
 
-    // El scraping con Plan B puede tardar ~30s por link.
     @set_time_limit(300);
 
     try {
-        $results = scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty, 0);
+        $results = scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty, 0, $rowIndex);
     } catch (\Throwable $e) {
         error_log("adminRescrapeLinks: " . $e->getMessage());
         http_response_code(500);
