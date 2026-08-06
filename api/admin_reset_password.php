@@ -67,7 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $log = [];
-        $effectiveUpdate = false;
+        $cpanelDefines = false;  // ¿credentials_config.php define la constante?
+        $cpanelUpdated = false;  // ¿se reescribió ahí la contraseña?
 
         // 1) cPanel-level credentials_config.php — this is what credentials.php
         // pulls the password from in production (outside web root).
@@ -87,8 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $count
                 );
                 if ($count > 0) {
+                    $cpanelDefines = true;
                     if (@file_put_contents($cpanelConfigFile, $newContent) !== false) {
-                        $effectiveUpdate = true;
+                        $cpanelUpdated = true;
                         $log[] = 'credentials_config.php actualizado';
                     } else {
                         $log[] = 'credentials_config.php: sin permisos de escritura';
@@ -103,19 +105,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // _loadPersistentSecret() when neither (1) nor the env var defines the
         // constant. Always refresh it so the new password sticks if the
         // production setup ever drops back to the fallback path.
-        if (@file_put_contents($persistentSecretFile, $newPassword) !== false) {
+        $fallbackWritten = (@file_put_contents($persistentSecretFile, $newPassword) !== false);
+        if ($fallbackWritten) {
             @chmod($persistentSecretFile, 0600);
             $log[] = '.admin_password actualizado';
-            // Only count as effective if cPanel config didn't already win.
-            if (!$effectiveUpdate && !file_exists($cpanelConfigFile)) {
-                $effectiveUpdate = true;
-            }
         } else {
             $log[] = '.admin_password: sin permisos de escritura';
         }
 
+        // credentials.php resuelve la contraseña en este orden:
+        //   1) credentials_config.php  2) variable de entorno  3) api/.admin_password
+        // El fallback sólo es efectivo si ninguna de las dos primeras la define.
+        $envPassword = getenv('IMPORLAN_ADMIN_PASSWORD');
+        $envDefines = ($envPassword !== false && $envPassword !== '');
+        if ($envDefines) {
+            $log[] = 'la variable de entorno IMPORLAN_ADMIN_PASSWORD tiene prioridad';
+        }
+
+        $effectiveUpdate = $cpanelUpdated || ($fallbackWritten && !$cpanelDefines && !$envDefines);
+
         if (!$effectiveUpdate) {
-            throw new Exception('No se pudo actualizar la contrasena. ' . implode('; ', $log));
+            $hint = 'No se pudo actualizar la contrasena.';
+            if ($envDefines) {
+                $hint .= ' La contrasena viene de la variable de entorno IMPORLAN_ADMIN_PASSWORD:'
+                       . ' hay que cambiarla ahi (cPanel > Setup Node/PHP App o el .htaccess correspondiente).';
+            } elseif ($cpanelDefines && !$cpanelUpdated) {
+                $hint .= ' ' . $cpanelConfigFile . ' no tiene permisos de escritura para PHP.'
+                       . ' Edita ahi IMPORLAN_ADMIN_PASSWORD a mano, o dale permisos de escritura al usuario del sitio.';
+            }
+            throw new Exception($hint . ' Detalle: ' . implode('; ', $log));
         }
 
         @unlink($tokenFile);
@@ -380,6 +398,15 @@ header('Content-Type: text/html; charset=UTF-8');
             }
         }
 
+        /* El display se fija en línea porque un estilo en línea previo
+           (display:none) gana sobre el display:block de las clases. */
+        function showMessage(type, text) {
+            var box = document.getElementById('messageBox');
+            box.className = 'message-box' + (type ? ' ' + type : '');
+            box.textContent = text;
+            box.style.display = text ? 'block' : 'none';
+        }
+
         document.getElementById('resetForm').addEventListener('submit', function(e) {
             e.preventDefault();
             var pw = document.getElementById('newPassword').value;
@@ -388,43 +415,43 @@ header('Content-Type: text/html; charset=UTF-8');
             var btn = document.getElementById('submitBtn');
 
             if (pw !== cpw) {
-                msgBox.className = 'message-box error';
-                msgBox.textContent = 'Las contrasenas no coinciden.';
+                showMessage('error', 'Las contrasenas no coinciden.');
                 return;
             }
             if (pw.length < 6) {
-                msgBox.className = 'message-box error';
-                msgBox.textContent = 'La contrasena debe tener al menos 6 caracteres.';
+                showMessage('error', 'La contrasena debe tener al menos 6 caracteres.');
                 return;
             }
 
             btn.disabled = true;
             btn.textContent = 'Actualizando...';
-            msgBox.className = 'message-box';
-            msgBox.style.display = 'none';
+            showMessage('', '');
 
             fetch(window.location.pathname, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: token, new_password: pw })
             })
-            .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+            .then(function(r) {
+                return r.json()
+                    .catch(function() { return { error: 'Respuesta invalida del servidor (HTTP ' + r.status + ').' }; })
+                    .then(function(d) { return { ok: r.ok, status: r.status, data: d }; });
+            })
             .then(function(res) {
                 if (res.data.success) {
-                    msgBox.className = 'message-box success';
-                    msgBox.textContent = res.data.message;
+                    showMessage('success', res.data.message);
                     document.getElementById('resetForm').style.display = 'none';
                     document.getElementById('backLink').style.display = 'block';
                 } else {
-                    msgBox.className = 'message-box error';
-                    msgBox.textContent = res.data.error || 'Error al actualizar la contrasena.';
+                    // Se muestra el detalle del servidor: sin esto un 500 se veia
+                    // exactamente igual que "no pasa nada".
+                    showMessage('error', res.data.error || ('Error al actualizar la contrasena (HTTP ' + res.status + ').'));
                     btn.disabled = false;
                     btn.textContent = 'Actualizar Contrasena';
                 }
             })
-            .catch(function() {
-                msgBox.className = 'message-box error';
-                msgBox.textContent = 'Error de conexion. Intenta nuevamente.';
+            .catch(function(err) {
+                showMessage('error', 'Error de conexion: ' + (err && err.message ? err.message : 'intenta nuevamente') + '.');
                 btn.disabled = false;
                 btn.textContent = 'Actualizar Contrasena';
             });
