@@ -1373,10 +1373,22 @@ function parseUrlPatterns($url, $parsedUrl, &$result) {
     }
 
     $matchedPattern = false;
-    if ($isBoatSite && preg_match('/(\d{4})-([a-z][\w-]*)-([a-z][\w-]*)/', $path, $m)) {
+    // Marca perezosa y modelo que puede empezar con digito ("258ss", "224fs"):
+    // con el patron codicioso anterior la marca se comia medio modelo
+    // ("Monterey 258ss super" / modelo "Sport"). No se notaba porque
+    // extractBoatIdentity() suele corregirlo con su lista de fabricantes, pero
+    // fallaba para cualquier marca que no este en esa lista.
+    if ($isBoatSite && preg_match('/(\d{4})-([a-z][\w-]*?)-([a-z0-9][\w-]*)/', $path, $m)) {
         $year = $m[1];
         $make = ucfirst(str_replace('-', ' ', $m[2]));
-        $model = ucfirst(str_replace('-', ' ', $m[3]));
+        // El patron es codicioso y se lleva el id del aviso pegado al modelo:
+        // ".../2016-monterey-258ss-super-sport-9831580/" daba el modelo
+        // "258ss super sport 9831580", y ese numero terminaba en la ficha del
+        // cliente. Se recorta aqui y no antes del preg_match porque el patron
+        // numerico de mas abajo (Catalina 250, Bayliner 175) necesita el id
+        // para anclar el corte entre marca y modelo.
+        $rawModel = preg_replace('/-\d{5,}$/', '', $m[3]);
+        $model = ucfirst(str_replace('-', ' ', $rawModel));
         $matchedPattern = true;
     }
     // Fallback para modelos NUMERICOS (ej. Catalina 250, Bayliner 175):
