@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLinks, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
+import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
 import { fmtDate, statusColor } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Modal, Input, Select, Textarea, Spinner } from '../../shared/components/UI';
@@ -49,6 +49,7 @@ export default function Orders() {
 
   // Estado del boton "Rescrapear Expediente"
   const [rescraping, setRescraping] = useState(false);
+  const [rescrapeProgress, setRescrapeProgress] = useState('');
 
   // Create form
   const [createForm, setCreateForm] = useState({
@@ -159,26 +160,42 @@ export default function Orders() {
   // unsaved local edits (scrape data the admin hadn't hit Save on yet).
   // Persist current edits first, then append the new empty row to the
   // local state without re-fetching — no flicker, no data loss.
-  // Rescrapea todas las filas con URL del expediente. Los links pegados a mano
-  // nunca pasaban por el scraper del servidor, asi que este boton es la via
-  // para recuperar imagen, titulo y ficha de un expediente ya armado.
+  // Rescrapea el expediente fila por fila. Los links pegados a mano nunca
+  // pasaban por el scraper del servidor, asi que este boton es la via para
+  // recuperar imagen, titulo y ficha de un expediente ya armado.
+  //
+  // Se hace una peticion por fila a proposito: con Plan B (ScrapingBee +
+  // Vision) un solo link puede tardar minutos, y una peticion que las procese
+  // todas juntas la corta el servidor web antes de terminar.
   async function handleRescrapeLinks() {
     if (!detail || rescraping) return;
-    const total = links.filter(l => (l.url || '').trim()).length;
-    if (!total) { alert('Este expediente no tiene links con URL.'); return; }
-    if (!confirm(`Rescrapear ${total} link(s)? Puede tardar hasta 30 segundos por link.`)) return;
+    const pend = links.filter(l => (l.url || '').trim());
+    if (!pend.length) { alert('Este expediente no tiene links con URL.'); return; }
+    if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.`)) return;
 
     setRescraping(true);
+    let updated = 0, withImage = 0, failed = 0;
     try {
-      const res = await rescrapeOrderLinks(detail.id, false);
+      for (let i = 0; i < pend.length; i++) {
+        setRescrapeProgress(`${i + 1} de ${pend.length}`);
+        try {
+          const res = await rescrapeOrderLink(detail.id, pend[i].row_index ?? (i + 1));
+          const r = (res.results || [])[0];
+          if (r?.status === 'updated') updated++;
+          if (r?.image) withImage++;
+          if (r && r.status !== 'updated' && r.status !== 'no_data') failed++;
+        } catch {
+          failed++;
+        }
+      }
       const o = await getOrderDetail(detail.id);
       setDetail(o);
       setLinks(o.links || []);
-      alert(`Listo: ${res.updated || 0} de ${res.processed || 0} link(s) actualizados, ${res.with_image || 0} con imagen.`);
-    } catch (err) {
-      alert('Error al rescrapear: ' + (err?.message || 'intenta nuevamente'));
+      alert(`Listo: ${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.` +
+            (failed ? `\n${failed} fallaron; revisa los creditos de ScrapingBee.` : ''));
     } finally {
       setRescraping(false);
+      setRescrapeProgress('');
     }
   }
 
@@ -508,7 +525,7 @@ export default function Orders() {
             </Button>
             <Button variant="secondary" onClick={handleRescrapeLinks} disabled={rescraping} className="flex items-center gap-1.5 !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" title="Vuelve a extraer imagen, titulo y ficha desde los links de este expediente">
               <svg className={'w-3.5 h-3.5' + (rescraping ? ' animate-spin' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-              {rescraping ? 'Rescrapeando...' : 'Rescrapear Expediente'}
+              {rescraping ? `Rescrapeando ${rescrapeProgress}...` : 'Rescrapear Expediente'}
             </Button>
             <Button variant="secondary" onClick={handleAddLink} className="flex items-center gap-1.5 !border-cyan-300 !text-cyan-700 hover:!bg-cyan-50">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila
