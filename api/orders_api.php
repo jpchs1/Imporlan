@@ -1836,21 +1836,15 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  * @return array Resumen por fila, apto para devolver al panel.
  */
 function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null) {
-    // Un require de un archivo ausente es un fatal: el servidor devuelve un 500
-    // en HTML que el panel ni siquiera puede parsear, y el usuario ve un error
-    // generico sin pista de la causa. Preferimos una excepcion con nombre.
+    // Un require de un archivo ausente es un fatal: el servidor devolveria un 500
+    // en HTML que el panel ni siquiera puede parsear. Por eso el modulo pesado es
+    // opcional: si el antivirus del hosting lo borro, igual guardamos lo deducible
+    // de la URL y lo informamos fila por fila, en vez de tirar abajo la operacion.
     $scraperFile = __DIR__ . '/link_scraper.php';
-    if (!file_exists($scraperFile)) {
-        throw new \RuntimeException(
-            'Falta api/link_scraper.php en el servidor. Es el modulo que extrae los datos ' .
-            'de cada link; sin el no se puede scrapear. Revisa si el antivirus del hosting ' .
-            'lo puso en cuarentena y vuelve a desplegar.'
-        );
-    }
-    require_once $scraperFile;
-
-    if (!function_exists('scrapeLinkData')) {
-        throw new \RuntimeException('api/link_scraper.php existe pero no define scrapeLinkData().');
+    $scraperReady = false;
+    if (file_exists($scraperFile)) {
+        require_once $scraperFile;
+        $scraperReady = function_exists('scrapeLinkData');
     }
 
     $sql = "SELECT row_index, url, title, image_url FROM order_links
@@ -1887,21 +1881,29 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         }
 
         // Primero guardamos lo que se deduce de la URL misma (año, marca,
-        // modelo, titulo). No usa red, es instantaneo y garantiza que la fila
-        // nunca quede en blanco si despues falla el Plan B o el servidor corta
-        // la peticion por tiempo.
-        if (function_exists('parseUrlPatterns')) {
-            try {
-                $quick = [
-                    'image_url' => null, 'location' => null, 'hours' => null,
-                    'value_usa_usd' => null, 'title' => null, 'description' => null,
-                    'engine' => null, 'make' => null, 'model' => null, 'year' => null,
-                ];
-                parseUrlPatterns($url, parse_url($url), $quick);
+        // modelo, titulo). No usa red ni depende de link_scraper.php, asi que
+        // la fila nunca queda en blanco aunque falte el modulo o el servidor
+        // corte la peticion por tiempo.
+        $quick = [];
+        try {
+            $quick = deriveLinkDataFromUrl($url);
+            if ($quick) {
                 applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick);
-            } catch (\Throwable $e) {
-                error_log("scrapeOrderLinkRows: parseUrlPatterns fallo en {$url}: " . $e->getMessage());
             }
+        } catch (\Throwable $e) {
+            error_log("scrapeOrderLinkRows: deriveLinkDataFromUrl fallo en {$url}: " . $e->getMessage());
+        }
+
+        if (!$scraperReady) {
+            $results[] = [
+                'row_index' => intval($row['row_index']),
+                'status' => $quick ? 'partial_no_scraper' : 'no_scraper',
+                'fields' => $quick ? array_keys($quick) : [],
+                'image' => false,
+                'error' => 'Falta api/link_scraper.php en el servidor (el antivirus del hosting '
+                         . 'lo pone en cuarentena). Se guardaron solo los datos deducibles de la URL.',
+            ];
+            continue;
         }
 
         try {
@@ -1968,6 +1970,57 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
         ->execute($params);
 
     return $cols;
+}
+
+/**
+ * Deduce año, marca, modelo y título a partir del path del anuncio.
+ *
+ * Réplica autónoma de la parte de parseUrlPatterns() que NO usa la red. Vive
+ * aquí a propósito: Imunify360 borra link_scraper.php del servidor (falso
+ * positivo por el uso de cURL con cookies) y sin esta copia un expediente
+ * quedaba completamente en blanco. Sin cURL ni cookies, nada que un antivirus
+ * pueda objetar.
+ *
+ * Devuelve [] si la URL no es de un sitio náutico conocido o no calza el patrón.
+ */
+function deriveLinkDataFromUrl($url) {
+    $parts = parse_url($url);
+    if (!$parts) return [];
+    $host = strtolower($parts['host'] ?? '');
+    $path = $parts['path'] ?? '';
+
+    $boatSites = ['boattrader.com', 'boats.com', 'yachtworld.', 'boat-alert.com',
+                  'smartmarineguide.com', 'popyachts.com', 'boatcrazy.com'];
+    $isBoatSite = false;
+    foreach ($boatSites as $site) {
+        if (strpos($host, $site) !== false) { $isBoatSite = true; break; }
+    }
+    if (!$isBoatSite) return [];
+
+    // Ultimo segmento: "2016-monterey-238ss-super-sport-10199100"
+    $slug = basename(rtrim($path, '/'));
+    if ($slug === '') return [];
+
+    // Fuera el id del aviso del final (5 o mas digitos).
+    $slug = preg_replace('/-\d{5,}$/', '', $slug);
+
+    if (!preg_match('/^(\d{4})-(.+)$/', $slug, $m)) return [];
+    $year = intval($m[1]);
+    if ($year < 1900 || $year > intval(date('Y')) + 2) return [];
+
+    $tokens = array_values(array_filter(explode('-', $m[2]), function ($t) { return $t !== ''; }));
+    if (count($tokens) < 2) return [];
+
+    // Primer token = marca; el resto = modelo completo ("238ss super sport").
+    $make = ucfirst(array_shift($tokens));
+    $model = implode(' ', array_map('ucfirst', $tokens));
+
+    return [
+        'year'  => $year,
+        'make'  => $make,
+        'model' => $model,
+        'title' => trim($year . ' ' . $make . ' ' . $model),
+    ];
 }
 
 /**

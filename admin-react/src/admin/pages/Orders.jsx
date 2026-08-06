@@ -174,7 +174,7 @@ export default function Orders() {
     if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.`)) return;
 
     setRescraping(true);
-    let updated = 0, withImage = 0, failed = 0;
+    let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0;
     try {
       for (let i = 0; i < pend.length; i++) {
         setRescrapeProgress(`${i + 1} de ${pend.length}`);
@@ -183,7 +183,11 @@ export default function Orders() {
           const r = (res.results || [])[0];
           if (r?.status === 'updated') updated++;
           if (r?.image) withImage++;
-          if (r && r.status !== 'updated' && r.status !== 'no_data') failed++;
+          // Sin el modulo de scraping el servidor igual deduce año, marca y
+          // modelo desde la URL: eso no es un fallo, es un resultado parcial.
+          else if (r?.status === 'partial_no_scraper') partial++;
+          else if (r?.status === 'no_scraper') noScraper++;
+          else if (r && r.status !== 'updated' && r.status !== 'no_data') failed++;
         } catch {
           failed++;
         }
@@ -191,8 +195,16 @@ export default function Orders() {
       const o = await getOrderDetail(detail.id);
       setDetail(o);
       setLinks(o.links || []);
-      alert(`Listo: ${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.` +
-            (failed ? `\n${failed} fallaron; revisa los creditos de ScrapingBee.` : ''));
+      const parts = [`Listo: ${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.`];
+      if (partial || noScraper) {
+        parts.push(
+          `\nFalta api/link_scraper.php en el servidor (el antivirus del hosting lo pone en cuarentena).` +
+          (partial ? ` Se guardaron año, marca y modelo de ${partial} link(s) desde la URL, pero no las imagenes.` : '') +
+          `\nRestauralo desde cPanel > ImunifyAV > Cuarentena y marcalo como falso positivo.`
+        );
+      }
+      if (failed) parts.push(`\n${failed} fallaron; revisa los creditos de ScrapingBee.`);
+      alert(parts.join(''));
     } finally {
       setRescraping(false);
       setRescrapeProgress('');
