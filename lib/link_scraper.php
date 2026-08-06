@@ -1281,6 +1281,18 @@ function extractFromJinaMarkdown($md, &$result) {
         $t = trim($m[1]);
         // Limpiar sufijos comunes del sitio
         $t = preg_replace('/\s+-\s+(YachtWorld|BoatTrader|Boats\.com|Boat\s+Trader).*$/i', '', $t);
+
+        // BoatTrader titula "Used 2022 Monterey 224FS, 27517 Chapel Hill": el
+        // codigo postal y la ciudad van pegados al nombre. Sin separarlos, el
+        // modelo terminaba siendo "224FS, 27517" en la ficha del cliente y la
+        // ubicacion quedaba vacia teniendo el dato ahi mismo.
+        if (preg_match('/^(.*?),\s*(\d{5})\s+(.+)$/u', $t, $lm)) {
+            $t = trim($lm[1]);
+            if (empty($result['location'])) $result['location'] = trim($lm[3]);
+        }
+        // "Used"/"New" son estado, no parte del nombre de la embarcacion.
+        $t = preg_replace('/^(Used|New)\s+/i', '', $t);
+
         if ($t) $result['title'] = $t;
     }
 
