@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
+import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLinks, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
 import { fmtDate, statusColor } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Modal, Input, Select, Textarea, Spinner } from '../../shared/components/UI';
@@ -46,6 +46,9 @@ export default function Orders() {
 
   // Form fields for detail
   const [form, setForm] = useState({});
+
+  // Estado del boton "Rescrapear Expediente"
+  const [rescraping, setRescraping] = useState(false);
 
   // Create form
   const [createForm, setCreateForm] = useState({
@@ -156,6 +159,29 @@ export default function Orders() {
   // unsaved local edits (scrape data the admin hadn't hit Save on yet).
   // Persist current edits first, then append the new empty row to the
   // local state without re-fetching — no flicker, no data loss.
+  // Rescrapea todas las filas con URL del expediente. Los links pegados a mano
+  // nunca pasaban por el scraper del servidor, asi que este boton es la via
+  // para recuperar imagen, titulo y ficha de un expediente ya armado.
+  async function handleRescrapeLinks() {
+    if (!detail || rescraping) return;
+    const total = links.filter(l => (l.url || '').trim()).length;
+    if (!total) { alert('Este expediente no tiene links con URL.'); return; }
+    if (!confirm(`Rescrapear ${total} link(s)? Puede tardar hasta 30 segundos por link.`)) return;
+
+    setRescraping(true);
+    try {
+      const res = await rescrapeOrderLinks(detail.id, false);
+      const o = await getOrderDetail(detail.id);
+      setDetail(o);
+      setLinks(o.links || []);
+      alert(`Listo: ${res.updated || 0} de ${res.processed || 0} link(s) actualizados, ${res.with_image || 0} con imagen.`);
+    } catch (err) {
+      alert('Error al rescrapear: ' + (err?.message || 'intenta nuevamente'));
+    } finally {
+      setRescraping(false);
+    }
+  }
+
   async function handleAddLink() {
     if (!detail) return;
     try {
@@ -479,6 +505,10 @@ export default function Orders() {
             )}
             <Button variant="secondary" onClick={handleNotifyRanking} className="flex items-center gap-1.5 !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Notificar Ranking
+            </Button>
+            <Button variant="secondary" onClick={handleRescrapeLinks} disabled={rescraping} className="flex items-center gap-1.5 !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" title="Vuelve a extraer imagen, titulo y ficha desde los links de este expediente">
+              <svg className={'w-3.5 h-3.5' + (rescraping ? ' animate-spin' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              {rescraping ? 'Rescrapeando...' : 'Rescrapear Expediente'}
             </Button>
             <Button variant="secondary" onClick={handleAddLink} className="flex items-center gap-1.5 !border-cyan-300 !text-cyan-700 hover:!bg-cyan-50">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila

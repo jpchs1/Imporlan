@@ -70,6 +70,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminDeleteLink();
             break;
+        case 'admin_rescrape_links':
+            requireAdminAuth();
+            adminRescrapeLinks();
+            break;
         case 'admin_reorder_links':
             requireAdminAuth();
             adminReorderLinks();
@@ -723,7 +727,18 @@ function adminUpdateLinks() {
             logOrderEvent($pdo, $orderId, 'updated_cell', ['cells' => $updatedCells], $input['admin_user_id'] ?? null);
         }
 
-        echo json_encode(['success' => true, 'message' => 'Links actualizados']);
+        // Los links pegados a mano en el panel nunca pasaban por el scraper del
+        // servidor: solo createOrderFromQuotation() lo invocaba. Aqui cubrimos
+        // esa via, pero solo para las filas que jamas se scrapearon (sin titulo
+        // ni imagen) y con un tope, para no arriesgar el guardado por timeout.
+        // El resto se resuelve con el boton "Rescrapear expediente".
+        $scraped = scrapePendingOrderLinks($pdo, $orderId, 3);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Links actualizados',
+            'scraped' => $scraped
+        ]);
     } catch (PDOException $e) {
         $pdo->rollBack();
         error_log("Error updating links: " . $e->getMessage());
@@ -1810,6 +1825,175 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  * when an admin pastes a URL into a row, so the auto-scrape on creation
  * is functionally identical to a manual paste.
  */
+/**
+ * Scrapea las filas de un expediente que tienen URL y actualiza order_links.
+ *
+ * @param bool $onlyEmpty  true  = solo filas que nunca se scrapearon
+ *                                 (sin titulo y sin imagen).
+ *                         false = todas las filas con URL.
+ * @param int  $limit      Tope de filas a procesar (0 = sin tope). Con Plan B
+ *                         cada link puede tardar hasta 30s, asi que las vias
+ *                         sincronas del panel usan un tope bajo.
+ * @return array Resumen por fila, apto para devolver al panel.
+ */
+function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0) {
+    require_once __DIR__ . '/link_scraper.php';
+
+    $sql = "SELECT row_index, url, title, image_url FROM order_links
+            WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
+    if ($onlyEmpty) {
+        $sql .= " AND (title IS NULL OR TRIM(title) = '')
+                  AND (image_url IS NULL OR TRIM(image_url) = '')";
+    }
+    $sql .= " ORDER BY row_index";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$orderId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $results = [];
+    $processed = 0;
+
+    foreach ($rows as $row) {
+        if ($limit > 0 && $processed >= $limit) {
+            $results[] = ['row_index' => intval($row['row_index']), 'status' => 'skipped_limit'];
+            continue;
+        }
+        $processed++;
+
+        $url = trim((string) $row['url']);
+        if (!preg_match('/^https?:\/\//i', $url)) {
+            $results[] = ['row_index' => intval($row['row_index']), 'status' => 'invalid_url'];
+            continue;
+        }
+
+        try {
+            $data = scrapeLinkData($url);
+        } catch (\Throwable $e) {
+            error_log("scrapeOrderLinkRows: excepcion en {$url}: " . $e->getMessage());
+            $results[] = ['row_index' => intval($row['row_index']), 'status' => 'exception'];
+            continue;
+        }
+
+        if (!is_array($data) || !empty($data['error'])) {
+            $results[] = [
+                'row_index' => intval($row['row_index']),
+                'status' => 'error',
+                'error' => is_array($data) ? ($data['error'] ?? 'desconocido') : 'respuesta invalida'
+            ];
+            continue;
+        }
+
+        $fields = applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $data);
+        $results[] = [
+            'row_index' => intval($row['row_index']),
+            'status' => $fields ? 'updated' : 'no_data',
+            'fields' => $fields,
+            'image' => !empty($data['image_url']),
+        ];
+    }
+
+    return $results;
+}
+
+/**
+ * Escribe en order_links solo los campos que el scraper devolvio con valor,
+ * para no pisar con NULL lo que ya estaba cargado a mano.
+ * Devuelve la lista de columnas efectivamente actualizadas.
+ */
+function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
+    $map = [
+        'title'         => $data['title']         ?? null,
+        'image_url'     => $data['image_url']     ?? null,
+        'location'      => $data['location']      ?? null,
+        'hours'         => $data['hours']         ?? null,
+        'engine'        => $data['engine']        ?? null,
+        'make'          => $data['make']          ?? null,
+        'model'         => $data['model']         ?? null,
+        'year'          => isset($data['year']) ? intval($data['year']) : null,
+        'value_usa_usd' => isset($data['value_usa_usd']) ? floatval($data['value_usa_usd']) : null,
+    ];
+
+    $sets = [];
+    $params = [];
+    $cols = [];
+    foreach ($map as $col => $val) {
+        if ($val === null || $val === '' || $val === 0 || $val === 0.0) continue;
+        $sets[] = "{$col} = ?";
+        $params[] = $val;
+        $cols[] = $col;
+    }
+    if (empty($sets)) return [];
+
+    $params[] = $orderId;
+    $params[] = $rowIndex;
+    $pdo->prepare("UPDATE order_links SET " . implode(', ', $sets) . " WHERE order_id = ? AND row_index = ?")
+        ->execute($params);
+
+    return $cols;
+}
+
+/** Atajo para las vias sincronas del panel: solo lo pendiente y con tope. */
+function scrapePendingOrderLinks($pdo, $orderId, $limit = 3) {
+    try {
+        return scrapeOrderLinkRows($pdo, $orderId, true, $limit);
+    } catch (\Throwable $e) {
+        error_log("scrapePendingOrderLinks: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Endpoint del boton "Rescrapear expediente" del panel admin.
+ * Por defecto reprocesa todas las filas con URL; con only_empty=true
+ * solo las que nunca se scrapearon.
+ */
+function adminRescrapeLinks() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $orderId = intval($input['order_id'] ?? 0);
+    $onlyEmpty = !empty($input['only_empty']);
+
+    if (!$orderId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Se requiere order_id']);
+        return;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database connection failed']);
+        return;
+    }
+
+    // El scraping con Plan B puede tardar ~30s por link.
+    @set_time_limit(300);
+
+    try {
+        $results = scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty, 0);
+    } catch (\Throwable $e) {
+        error_log("adminRescrapeLinks: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al rescrapear: ' . $e->getMessage()]);
+        return;
+    }
+
+    $updated = 0;
+    $withImage = 0;
+    foreach ($results as $r) {
+        if (($r['status'] ?? '') === 'updated') $updated++;
+        if (!empty($r['image'])) $withImage++;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'processed' => count($results),
+        'updated' => $updated,
+        'with_image' => $withImage,
+        'results' => $results,
+    ]);
+}
+
 function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
     require_once __DIR__ . '/link_scraper.php';
 
