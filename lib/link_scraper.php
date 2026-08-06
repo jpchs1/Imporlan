@@ -1210,7 +1210,38 @@ function extractFromStructuredData($html, &$result) {
  * Llena image_url, location, value_usa_usd, title y engine cuando estos campos
  * estan vacios. Idempotente y seguro.
  */
+/**
+ * ¿La respuesta de Jina es en realidad el muro de Cloudflare?
+ *
+ * Cuando el sitio destino bloquea, Jina igual responde HTTP 200 — el 403 va
+ * adentro del cuerpo. Sin este chequeo guardabamos "Just a moment..." como
+ * titulo de la embarcacion en la ficha del cliente.
+ */
+function jinaBlockedByChallenge($md) {
+    if (!$md) return true;
+    if (stripos($md, 'Target URL returned error 403') !== false) return true;
+    if (preg_match('/^Title:\s*Just a moment/mi', $md)) return true;
+    if (preg_match('/^Title:\s*(Attention Required|Access denied|Cloudflare)/mi', $md)) return true;
+    return false;
+}
+
 function fetchViaJinaReader($url, &$result) {
+    // Jina pasa Cloudflare de forma intermitente: en las pruebas contra los tres
+    // links del mismo expediente, uno paso y dos dieron 403. Reintentar sube
+    // bastante la tasa de exito y es gratis; el costo es un par de segundos.
+    $intentos = 3;
+    for ($i = 1; $i <= $intentos; $i++) {
+        $md = jinaFetchOnce($url);
+        if ($md !== null) {
+            extractFromJinaMarkdown($md, $result);
+            return;
+        }
+        if ($i < $intentos) sleep($i); // 1s, luego 2s
+    }
+}
+
+/** Un intento contra Jina. Devuelve el markdown, o null si no sirve. */
+function jinaFetchOnce($url) {
     $jinaUrl = 'https://r.jina.ai/' . $url;
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -1221,14 +1252,23 @@ function fetchViaJinaReader($url, &$result) {
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Imporlan-Scraper/1.0)',
-        CURLOPT_HTTPHEADER => ['Accept: text/plain, text/markdown'],
+        // Sin X-With-Images-Summary, Jina devuelve SOLO texto y descarta todas
+        // las imagenes: por eso los expedientes traian ficha completa pero
+        // ninguna foto. Con la cabecera, el mismo anuncio pasa de 2.476 bytes
+        // sin imagenes a 46.059 con 146 URLs de images.boattrader.com.
+        CURLOPT_HTTPHEADER => [
+            'Accept: text/plain, text/markdown',
+            'X-With-Images-Summary: true',
+        ],
     ]);
     $md = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    if ($code !== 200 || !$md || strlen($md) < 300) return;
 
-    extractFromJinaMarkdown($md, $result);
+    if ($code !== 200 || !$md || strlen($md) < 300) return null;
+    if (jinaBlockedByChallenge($md)) return null;
+
+    return $md;
 }
 
 /**
@@ -1244,13 +1284,25 @@ function extractFromJinaMarkdown($md, &$result) {
         if ($t) $result['title'] = $t;
     }
 
-    // Imagen: primer ![alt](url) cuya URL es de un CDN de barcos conocido
+    // Imagen: de todas las del anuncio, la portada.
+    //
+    // Jina no respeta el orden del carrusel — en las pruebas la primera que
+    // aparecia era la -5 (interior de cabina). Los CDN de Boats Group numeran
+    // las fotos con un sufijo "-N.jpg", asi que ordenamos por ese indice y nos
+    // quedamos con la mas baja, que es la que el anuncio usa de portada.
     if (empty($result['image_url'])) {
-        if (preg_match('/!\[[^\]]*\]\((https?:\/\/(?:images\.boatsgroup\.com|images\.boattrader\.com|images\.yachtworld\.com|images\.boats\.com)\/[^\s)]+)/u', $md, $m)) {
-            $imgUrl = $m[1];
-            // Quitar query string (Jina suele agregar ?w=200 que reduce calidad)
-            if (strpos($imgUrl, '?') !== false) $imgUrl = explode('?', $imgUrl)[0];
-            $result['image_url'] = $imgUrl;
+        $cdn = '(?:images\.boatsgroup\.com|images\.boattrader\.com|images\.yachtworld\.com|images\.boats\.com)';
+        if (preg_match_all('/!\[[^\]]*\]\((https?:\/\/' . $cdn . '\/[^\s)]+)/u', $md, $mm)) {
+            $urls = array_values(array_unique($mm[1]));
+            $indice = function ($u) {
+                return preg_match('/-(\d+)\.(?:jpg|jpeg|png|webp)/i', $u, $x) ? intval($x[1]) : PHP_INT_MAX;
+            };
+            usort($urls, function ($a, $b) use ($indice) { return $indice($a) <=> $indice($b); });
+
+            // Sin query string el CDN entrega el JPEG original; los parametros
+            // del srcset (w=429&format=webp) solo lo reescalan hacia abajo.
+            $imgUrl = explode('?', $urls[0])[0];
+            if (isUsefulImage($imgUrl)) $result['image_url'] = $imgUrl;
         }
     }
 
