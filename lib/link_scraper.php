@@ -1248,7 +1248,12 @@ function fetchViaJinaReader($url, &$result) {
     // bastante la tasa de exito y es gratis; el costo es un par de segundos.
     $intentos = 3;
     for ($i = 1; $i <= $intentos; $i++) {
-        $md = jinaFetchOnce($url);
+        // Del segundo intento en adelante se pide sin cache. Jina guarda la
+        // respuesta fallida: cuando el primer intento recibe el muro de
+        // Cloudflare, los reintentos leen ese mismo 403 del cache y el link
+        // queda condenado. La propia respuesta lo avisa ("This is a cached
+        // snapshot of the original page, consider retry with caching opt-out").
+        $md = jinaFetchOnce($url, $i > 1);
         if ($md !== null) {
             extractFromJinaMarkdown($md, $result);
             return;
@@ -1258,7 +1263,7 @@ function fetchViaJinaReader($url, &$result) {
 }
 
 /** Un intento contra Jina. Devuelve el markdown, o null si no sirve. */
-function jinaFetchOnce($url) {
+function jinaFetchOnce($url, $sinCache = false) {
     $jinaUrl = 'https://r.jina.ai/' . $url;
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -1273,10 +1278,10 @@ function jinaFetchOnce($url) {
         // las imagenes: por eso los expedientes traian ficha completa pero
         // ninguna foto. Con la cabecera, el mismo anuncio pasa de 2.476 bytes
         // sin imagenes a 46.059 con 146 URLs de images.boattrader.com.
-        CURLOPT_HTTPHEADER => [
+        CURLOPT_HTTPHEADER => array_merge([
             'Accept: text/plain, text/markdown',
             'X-With-Images-Summary: true',
-        ],
+        ], $sinCache ? ['x-no-cache: true'] : []),
     ]);
     $md = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -1293,6 +1298,26 @@ function jinaFetchOnce($url) {
  * Reusa el patron "$ (€)" del extractor de structured data y agrega heuristicas
  * propias del formato markdown.
  */
+/**
+ * Recorta la calculadora de credito que BoatTrader intercala en la ficha.
+ *
+ * Ese bloque contiene "TOTAL LOAN AMOUNT" y la cuota mensual, cifras que un
+ * extractor generico confunde con el precio de la embarcacion. Se corta desde
+ * el encabezado de la calculadora hasta el aviso legal que la cierra.
+ */
+function jinaStripFinancingBlock($md) {
+    $patrones = [
+        '/Here is what your monthly payment might look like.*?(?:See Important Disclosure[^\n]*)/su',
+        '/(?:ESTIMATED\s+)?MONTHLY\s+PAYMENT.*?(?:See Important Disclosure[^\n]*)/sui',
+        '/TOTAL\s+LOAN\s+AMOUNT\s*\n+\s*\$[\d,]+/ui',
+    ];
+    foreach ($patrones as $p) {
+        $limpio = preg_replace($p, ' ', $md);
+        if ($limpio !== null) $md = $limpio;
+    }
+    return $md;
+}
+
 function extractFromJinaMarkdown($md, &$result) {
     if (empty($result['title']) && preg_match('/^Title:\s*(.+)$/m', $md, $m)) {
         $t = trim($m[1]);
@@ -1373,6 +1398,33 @@ function extractFromJinaMarkdown($md, &$result) {
         if (empty($result['engine']) && preg_match('/([A-Z][A-Za-z]+)\s+de\s+(\d+(?:\.\d+)?)\s*hp/u', $md, $em)) {
             $result['engine'] = trim($em[1]) . ' ' . $em[2] . 'hp';
         }
+    }
+
+    // Precio de venta, NO el del simulador de financiamiento.
+    //
+    // BoatTrader intercala una calculadora de credito en la misma pagina:
+    //
+    //     Iuka, MS 38852
+    //     $49,500              <- precio de venta
+    //     ...
+    //     TOTAL LOAN AMOUNT
+    //     $44,550              <- 90% del precio, con pie de 10%
+    //     $338.48              <- cuota mensual
+    //
+    // El extractor generico tomaba el monto del prestamo y lo guardaba como
+    // valor de la embarcacion, que es el numero con el que despues se calcula
+    // toda la cotizacion de importacion del cliente. Se corta ese bloque antes
+    // de buscar cualquier cifra.
+    $md = jinaStripFinancingBlock($md);
+
+    if (empty($result['value_usa_usd']) && preg_match_all('/\$\s?(\d{1,3}(?:,\d{3})+)(?!\.\d)/', $md, $pm)) {
+        $candidatos = [];
+        foreach ($pm[1] as $raw) {
+            $val = floatval(str_replace(',', '', $raw));
+            // Piso alto a proposito: descarta cuotas, accesorios y comisiones.
+            if ($val >= 3000 && $val <= 5000000) $candidatos[] = $val;
+        }
+        if ($candidatos) $result['value_usa_usd'] = $candidatos[0];
     }
 
     // Lo que queda, sacarlo de la descripcion en prosa.
