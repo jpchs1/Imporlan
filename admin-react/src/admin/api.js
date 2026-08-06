@@ -74,6 +74,8 @@ export const deleteOrderLink = (orderId, linkId) =>
   request(`${API_BASE}/orders_api.php?action=admin_delete_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId, link_id: linkId }) });
 export const updateOrderLinks = (orderId, links) =>
   request(`${API_BASE}/orders_api.php?action=admin_update_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, links }) });
+export const rescrapeOrderLinks = (orderId, onlyEmpty = false) =>
+  request(`${API_BASE}/orders_api.php?action=admin_rescrape_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, only_empty: onlyEmpty }) });
 export const reorderOrderLinks = (orderId, linkIds, authorName) =>
   request(`${API_BASE}/orders_api.php?action=admin_reorder_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: authorName, author_role: 'admin' }) });
 export const changeOrderStatus = (data) =>
