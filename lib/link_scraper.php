@@ -1305,6 +1305,34 @@ function jinaFetchOnce($url, $sinCache = false) {
  * extractor generico confunde con el precio de la embarcacion. Se corta desde
  * el encabezado de la calculadora hasta el aviso legal que la cierra.
  */
+/**
+ * Precio de venta desde el payload publicitario de BoatTrader.
+ *
+ * BoatTrader no escribe el precio en el texto de la ficha — lo pinta con
+ * JavaScript, asi que el lector de Jina no lo ve — pero SI lo manda, ya
+ * estructurado, en los pixeles de seguimiento que inyecta en la pagina:
+ *
+ *   _abdk_json={"class":"bowrider","price":"49500","zip_code":"27517",...}
+ *
+ * Es la fuente mas confiable que tenemos: un campo con nombre, no una cifra
+ * suelta que haya que distinguir de la cuota del credito o de un accesorio.
+ */
+function extractBoatTraderAdPrice($md, &$result) {
+    if (!empty($result['value_usa_usd'])) return;
+    if (!preg_match_all('/_abdk_json=([^;)\s\]]+)/', $md, $mm)) return;
+
+    foreach ($mm[1] as $raw) {
+        $json = json_decode(urldecode($raw), true);
+        if (!is_array($json) || !isset($json['price'])) continue;
+
+        $precio = floatval(preg_replace('/[^\d.]/', '', (string) $json['price']));
+        if ($precio >= 1000 && $precio <= 5000000) {
+            $result['value_usa_usd'] = $precio;
+            return;
+        }
+    }
+}
+
 function jinaStripFinancingBlock($md) {
     $patrones = [
         '/Here is what your monthly payment might look like.*?(?:See Important Disclosure[^\n]*)/su',
@@ -1416,6 +1444,10 @@ function extractFromJinaMarkdown($md, &$result) {
     // toda la cotizacion de importacion del cliente. Se corta ese bloque antes
     // de buscar cualquier cifra.
     $md = jinaStripFinancingBlock($md);
+
+    // Fuente preferida: el payload de publicidad de BoatTrader, que lleva el
+    // precio como dato estructurado y no como texto suelto.
+    extractBoatTraderAdPrice($md, $result);
 
     if (empty($result['value_usa_usd']) && preg_match_all('/\$\s?(\d{1,3}(?:,\d{3})+)(?!\.\d)/', $md, $pm)) {
         $candidatos = [];
