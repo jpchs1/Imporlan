@@ -393,7 +393,11 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
     }
     if (!$result['hours']) {
         // Priority 2: "with X hours" pattern (common in FB descriptions)
-        if (preg_match('/(?:with|has|only|approximately|approx|about)\s+(\d[\d,\.]*)\s*(?:hours?|hrs?|horas?)/i', $bodyText, $m)) {
+        // Los calificadores entre el numero y "hours" son la norma en los
+        // anuncios ("93 freshwater hours", "200 original engine hours"), y sin
+        // admitirlos el dato se perdia. Se limitan a dos palabras para no
+        // saltar a una cifra de otra frase.
+        if (preg_match('/(?:with|has|only|approximately|approx|about)\s+~?\s*(\d[\d,\.]*)\s*(?:[a-z]+\s+){0,2}(?:hours?|hrs?|horas?)/i', $bodyText, $m)) {
             $val = (int) preg_replace('/[,\.]/', '', $m[1]);
             if ($val >= 10 && $val <= 30000) $result['hours'] = (string) $val;
         }
@@ -433,8 +437,12 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
         $enginePatterns = [
             // "4.3 MPI 220 hp motor" - specs before the word motor/engine (require 2+ digit hp to avoid false matches)
             '/((?:[\w\.\-]+\s+){0,4}\d{2,}\s*(?:hp|HP|cv|CV|kw|KW))\s+(?:motor|engine|outboard|inboard)\b/i',
-            // "engine: Mercruiser 4.5L 220hp" - labeled with hp/L
-            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI)))/i',
+            // "engine: Mercruiser 4.5L 220hp" - labeled with hp/L.
+            // La coma va en la clase a proposito: BoatTrader redacta "Powered by
+            // a MerCruiser V6, 4.5L, 250HP" y sin ella el patron cortaba en la
+            // primera coma, fallaba, y el anuncio terminaba con el motor
+            // "Mercury prop" sacado de la lista de accesorios.
+            '/(?:engine|motor|propulsion|power(?:ed)?\s*by)[:\s]+([A-Z][\w\s\.\,\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L|ci|CI)))/i',
             // "Twin Mercury 300hp" - configuration + brand + power
             '/((?:twin|single|triple|quad|inboard|outboard|sterndrive|I\/O)\s+[A-Z][\w\s\.\-\/]+(?:\d+\s*(?:hp|HP|cv|CV|L)))/i',
             // Known brand names
@@ -460,6 +468,15 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
                 // Truncate at sentence boundaries more aggressively
                 $engineVal = preg_replace('/\.\s+.*$/', '', $engineVal);
                 $engineVal = rtrim($engineVal, ' .,;:-');
+                // "Mercury prop", "Yamaha propeller": son accesorios de la lista
+                // de extras del anuncio, no el motor. Sin este descarte el
+                // patron de marcas conocidas los tomaba como motor.
+                // Se busca en cualquier posicion, no solo al final: los anuncios
+                // encadenan extras ("extra Mercury prop and dock lines") y una
+                // ficha de motor de verdad nunca menciona helices ni amarras.
+                if (preg_match('/\b(?:prop|props|propeller|propellers|helice|helices|dock\s+lines?|fenders?|anchor|cover|trailer|kit)\b/i', $engineVal)) {
+                    continue;
+                }
                 if (strlen($engineVal) >= 3 && strlen($engineVal) <= 60) {
                     $result['engine'] = $engineVal;
                     break;
@@ -1356,6 +1373,19 @@ function extractFromJinaMarkdown($md, &$result) {
         if (empty($result['engine']) && preg_match('/([A-Z][A-Za-z]+)\s+de\s+(\d+(?:\.\d+)?)\s*hp/u', $md, $em)) {
             $result['engine'] = trim($em[1]) . ' ' . $em[2] . 'hp';
         }
+    }
+
+    // Lo que queda, sacarlo de la descripcion en prosa.
+    //
+    // BoatTrader no expone al lector de Jina ni el precio ni una tabla de
+    // especificaciones — lo pinta con JavaScript — pero motor, horas y eslora
+    // sí aparecen redactados dentro del texto del anuncio ("Powered by a
+    // MerCruiser V6, 4.5L, 250HP with only 93 freshwater hours"). Reusamos el
+    // extractor de prosa que ya existe para el camino HTML en vez de duplicar
+    // heuristicas; funciona sin DOM porque cada uso de $xpath esta guardado.
+    $texto = explode('Images:', $md)[0];
+    if (strlen($texto) > 200) {
+        extractFieldsFromText($texto, null, $result);
     }
 }
 
