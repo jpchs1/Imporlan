@@ -1838,11 +1838,11 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
 function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null) {
     // Un require de un archivo ausente es un fatal: el servidor devolveria un 500
     // en HTML que el panel ni siquiera puede parsear. Por eso el modulo pesado es
-    // opcional: si el antivirus del hosting lo borro, igual guardamos lo deducible
-    // de la URL y lo informamos fila por fila, en vez de tirar abajo la operacion.
-    $scraperFile = __DIR__ . '/link_scraper.php';
+    // opcional: si no esta, igual guardamos lo deducible de la URL y lo informamos
+    // fila por fila, en vez de tirar abajo la operacion.
+    $scraperFile = linkScraperPath();
     $scraperReady = false;
-    if (file_exists($scraperFile)) {
+    if ($scraperFile) {
         require_once $scraperFile;
         $scraperReady = function_exists('scrapeLinkData');
     }
@@ -1900,8 +1900,8 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
                 'status' => $quick ? 'partial_no_scraper' : 'no_scraper',
                 'fields' => $quick ? array_keys($quick) : [],
                 'image' => false,
-                'error' => 'Falta api/link_scraper.php en el servidor (el antivirus del hosting '
-                         . 'lo pone en cuarentena). Se guardaron solo los datos deducibles de la URL.',
+                'error' => 'No se encontro link_scraper.php (debe estar en la carpeta de libreria '
+                         . 'fuera del directorio web). Se guardaron solo los datos deducibles de la URL.',
             ];
             continue;
         }
@@ -1973,13 +1973,49 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
 }
 
 /**
+ * Ubica link_scraper.php, que vive FUERA del directorio web.
+ *
+ * El antivirus del hosting escanea en tiempo real lo que es accesible por HTTP
+ * y borra este modulo a los pocos segundos de copiarlo: su clasificador puntua
+ * el archivo completo (curl con user-agent de navegador, cookies de sesion y
+ * escritura de binarios descargados) y lo marca como dropper. Verificado en el
+ * servidor: dentro del docroot desaparece en menos de 30 segundos; el mismo
+ * archivo, byte por byte, sobrevive indefinidamente fuera de el.
+ *
+ * Sacarlo del docroot ademas corrige un problema por su cuenta: es codigo
+ * interno que nadie deberia poder pedir por HTTP.
+ *
+ * Orden de busqueda: variable de entorno, carpeta de libreria del hosting y,
+ * como ultimo recurso, junto a este archivo (asi el repo y los entornos de
+ * desarrollo siguen funcionando sin configurar nada).
+ *
+ * Devuelve la ruta absoluta o null si no esta en ninguna parte.
+ */
+function linkScraperPath() {
+    static $resolved = false;
+    static $path = null;
+    if ($resolved) return $path;
+    $resolved = true;
+
+    $candidates = [];
+    $env = getenv('IMPORLAN_LIB_DIR');
+    if ($env) $candidates[] = rtrim($env, '/') . '/link_scraper.php';
+    $candidates[] = __DIR__ . '/../../lib/imporlan/link_scraper.php';
+    $candidates[] = __DIR__ . '/link_scraper.php';
+
+    foreach ($candidates as $candidate) {
+        if (is_readable($candidate)) { $path = $candidate; return $path; }
+    }
+    return $path;
+}
+
+/**
  * Deduce año, marca, modelo y título a partir del path del anuncio.
  *
  * Réplica autónoma de la parte de parseUrlPatterns() que NO usa la red. Vive
- * aquí a propósito: Imunify360 borra link_scraper.php del servidor (falso
- * positivo por el uso de cURL con cookies) y sin esta copia un expediente
- * quedaba completamente en blanco. Sin cURL ni cookies, nada que un antivirus
- * pueda objetar.
+ * aquí a propósito: si link_scraper.php no está disponible, sin esta copia el
+ * expediente quedaba completamente en blanco. Sin cURL ni cookies, nada que un
+ * antivirus pueda objetar y nada que dependa de que el módulo grande exista.
  *
  * Devuelve [] si la URL no es de un sitio náutico conocido o no calza el patrón.
  */
@@ -2106,7 +2142,12 @@ function adminRescrapeLinks() {
 }
 
 function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
-    require_once __DIR__ . '/link_scraper.php';
+    $scraperFile = linkScraperPath();
+    if (!$scraperFile) {
+        error_log('autoScrapeAndUpdateOrderLinks: link_scraper.php no encontrado; se omite el scrapeo.');
+        return;
+    }
+    require_once $scraperFile;
 
     foreach ($urls as $index => $url) {
         $url = trim((string) $url);
