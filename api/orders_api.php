@@ -1836,7 +1836,22 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  * @return array Resumen por fila, apto para devolver al panel.
  */
 function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null) {
-    require_once __DIR__ . '/link_scraper.php';
+    // Un require de un archivo ausente es un fatal: el servidor devuelve un 500
+    // en HTML que el panel ni siquiera puede parsear, y el usuario ve un error
+    // generico sin pista de la causa. Preferimos una excepcion con nombre.
+    $scraperFile = __DIR__ . '/link_scraper.php';
+    if (!file_exists($scraperFile)) {
+        throw new \RuntimeException(
+            'Falta api/link_scraper.php en el servidor. Es el modulo que extrae los datos ' .
+            'de cada link; sin el no se puede scrapear. Revisa si el antivirus del hosting ' .
+            'lo puso en cuarentena y vuelve a desplegar.'
+        );
+    }
+    require_once $scraperFile;
+
+    if (!function_exists('scrapeLinkData')) {
+        throw new \RuntimeException('api/link_scraper.php existe pero no define scrapeLinkData().');
+    }
 
     $sql = "SELECT row_index, url, title, image_url FROM order_links
             WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
@@ -1869,6 +1884,24 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         if (!preg_match('/^https?:\/\//i', $url)) {
             $results[] = ['row_index' => intval($row['row_index']), 'status' => 'invalid_url'];
             continue;
+        }
+
+        // Primero guardamos lo que se deduce de la URL misma (año, marca,
+        // modelo, titulo). No usa red, es instantaneo y garantiza que la fila
+        // nunca quede en blanco si despues falla el Plan B o el servidor corta
+        // la peticion por tiempo.
+        if (function_exists('parseUrlPatterns')) {
+            try {
+                $quick = [
+                    'image_url' => null, 'location' => null, 'hours' => null,
+                    'value_usa_usd' => null, 'title' => null, 'description' => null,
+                    'engine' => null, 'make' => null, 'model' => null, 'year' => null,
+                ];
+                parseUrlPatterns($url, parse_url($url), $quick);
+                applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick);
+            } catch (\Throwable $e) {
+                error_log("scrapeOrderLinkRows: parseUrlPatterns fallo en {$url}: " . $e->getMessage());
+            }
         }
 
         try {
