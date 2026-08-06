@@ -1888,11 +1888,14 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         // modelo, titulo). No usa red ni depende de link_scraper.php, asi que
         // la fila nunca queda en blanco aunque falte el modulo o el servidor
         // corte la peticion por tiempo.
+        //
+        // Va con soloVacios: es un relleno de emergencia y no debe pisar lo que
+        // un scrapeo anterior ya obtuvo, que siempre es de mejor calidad.
         $quick = [];
         try {
             $quick = deriveLinkDataFromUrl($url);
             if ($quick) {
-                applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick);
+                applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick, true);
             }
         } catch (\Throwable $e) {
             error_log("scrapeOrderLinkRows: deriveLinkDataFromUrl fallo en {$url}: " . $e->getMessage());
@@ -1944,7 +1947,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
  * para no pisar con NULL lo que ya estaba cargado a mano.
  * Devuelve la lista de columnas efectivamente actualizadas.
  */
-function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
+function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios = false) {
     $map = [
         'title'         => $data['title']         ?? null,
         'image_url'     => $data['image_url']     ?? null,
@@ -1957,11 +1960,27 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data) {
         'value_usa_usd' => isset($data['value_usa_usd']) ? floatval($data['value_usa_usd']) : null,
     ];
 
+    // Con $soloVacios no se pisa nada que ya tenga valor. Lo usa el respaldo que
+    // deduce datos de la URL: es de peor calidad que un scrapeo real ("238ss
+    // super sport" contra "238SS Super Sport"), y como corre en cada pasada,
+    // sin esta guarda degradaba la ficha cada vez que se apretaba el boton.
+    $actuales = [];
+    if ($soloVacios) {
+        $st = $pdo->prepare("SELECT * FROM order_links WHERE order_id = ? AND row_index = ?");
+        $st->execute([$orderId, $rowIndex]);
+        $actuales = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
     $sets = [];
     $params = [];
     $cols = [];
     foreach ($map as $col => $val) {
         if ($val === null || $val === '' || $val === 0 || $val === 0.0) continue;
+        if ($soloVacios && array_key_exists($col, $actuales)) {
+            $actual = $actuales[$col];
+            $ocupado = !($actual === null || trim((string) $actual) === '' || (is_numeric($actual) && floatval($actual) == 0));
+            if ($ocupado) continue;
+        }
         $sets[] = "{$col} = ?";
         $params[] = $val;
         $cols[] = $col;
