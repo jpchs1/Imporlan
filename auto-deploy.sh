@@ -122,14 +122,13 @@ done
 # --- link_scraper.php lives OUTSIDE the doc-root (see deploy-prod.sh) -------
 # The host's real-time antivirus deletes it within ~30s of it appearing in a
 # web-accessible path. api/orders_api.php resolves it via linkScraperPath().
-if [ -f "$REPO_DIR/api/link_scraper.php" ]; then
+if [ -f "$REPO_DIR/lib/link_scraper.php" ]; then
   mkdir -p "$LIB_DIR"
-  cp -a "$REPO_DIR/api/link_scraper.php" "$LIB_DIR/link_scraper.php"
-  chmod 640 "$LIB_DIR/link_scraper.php"
-  rm -f "$PUBLIC_HTML/api/link_scraper.php"
-  log "link_scraper.php installed to $LIB_DIR (outside doc-root)."
+  cp -a "$REPO_DIR/lib/link_scraper.php" "$LIB_DIR/link_scraper.php"
+  chmod 644 "$LIB_DIR/link_scraper.php"
+  log "lib/link_scraper.php installed to $LIB_DIR (outside doc-root)."
 else
-  log "WARNING: link_scraper.php not in repo; scraping degrades to URL-only."
+  log "WARNING: lib/link_scraper.php not in repo; scraping degrades to URL-only."
 fi
 
 # --- Post-deploy: restore server-only files ---
