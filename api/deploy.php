@@ -241,6 +241,7 @@ try {
         'api/purchases.json',
         'api/payment_requests.json',
         'api/quotation_requests.json',
+        'api/simulaciones.json',
         'api/email_log.json',
         'api/dolar_cache.json',
         'api/webpay_pending',
