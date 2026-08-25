@@ -555,24 +555,55 @@
         '<div class="lc-card-number" style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,.3);border-radius:6px;padding:2px 8px;font-size:11px;color:#fff;font-weight:600">#' + (idx + 1) + '</div></div>';
     }
 
+    // Antes cada especificacion tenia su propio color (verde la ubicacion,
+    // amarillo las horas, azul el motor). Tres colores para tres datos del
+    // mismo rango hacen que ninguno destaque y que la tarjeta compita con lo
+    // unico que el cliente necesita mirar, que son los precios.
     var locationHoursHtml = '';
-    if (lk.location || lk.hours || lk.engine) {
-      locationHoursHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
-      if (lk.location) locationHoursHtml += '<div title="Ubicación del vendedor en USA" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:12px;color:#15803d;font-weight:500">' + escapeHtml(lk.location) + '</span></div>';
-      if (lk.hours) locationHoursHtml += '<div title="Horas de uso del motor según el listing" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:12px;color:#a16207;font-weight:500">' + escapeHtml(lk.hours) + ' hrs</span></div>';
-      if (lk.engine) locationHoursHtml += '<div title="Motor instalado según el listing" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;cursor:help"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4"/><path d="M12 19v4"/><path d="M1 12h4"/><path d="M19 12h4"/></svg><span style="font-size:12px;color:#1d4ed8;font-weight:500">' + escapeHtml(lk.engine) + '</span></div>';
+    var specs = [];
+    if (lk.location) specs.push(['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z\" /><circle cx=\"12\" cy=\"10\" r=\"3', lk.location, 'Ubicacion del vendedor en USA']);
+    if (lk.hours) specs.push(['M12 6v6l4 2\" /><circle cx=\"12\" cy=\"12\" r=\"10', lk.hours + ' hrs', 'Horas de uso del motor segun el anuncio']);
+    if (lk.engine) specs.push(['M12 1v4\" /><path d=\"M12 19v4\" /><path d=\"M1 12h4\" /><path d=\"M19 12h4\" /><circle cx=\"12\" cy=\"12\" r=\"3', lk.engine, 'Motor instalado segun el anuncio']);
+    if (specs.length) {
+      locationHoursHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">';
+      for (var si = 0; si < specs.length; si++) {
+        locationHoursHtml += '<span title="' + specs[si][2] + '" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569;font-weight:500;cursor:help">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + specs[si][0] + '" /></svg>' +
+          escapeHtml(String(specs[si][1])) + '</span>';
+      }
       locationHoursHtml += '</div>';
     }
 
+    // Los cuatro montos no son cuatro datos sueltos: son dos monedas por dos
+    // escenarios. Mostrados como chips de colores distintos, el cliente tenia
+    // que restar mentalmente para ver cuanto le ahorra la negociacion, que es
+    // justamente lo que paga. Aca esa resta esta hecha y es la linea final.
     var valuesHtml = '';
     var vU = formatCurrency(lk.value_usa_usd, "USD"); var vN = formatCurrency(lk.value_to_negotiate_usd, "USD");
     var vC = formatCurrency(lk.value_chile_clp, "CLP"); var vCN = formatCurrency(lk.value_chile_negotiated_clp, "CLP");
     if (vU || vN || vC || vCN) {
-      valuesHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">';
-      if (vU) valuesHtml += '<div title="Precio publicado del vendedor en USA" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">USA</span><span style="font-size:14px;color:#047857;font-weight:700">' + vU + '</span></div>';
-      if (vN) valuesHtml += '<div title="Precio objetivo USD que buscamos negociar con el vendedor" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#b45309;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociar</span><span style="font-size:14px;color:#92400e;font-weight:700">' + vN + '</span></div>';
-      if (vC) valuesHtml += '<div title="Equivalente del precio publicado en CLP al tipo de cambio del día" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Chile CLP</span><span style="font-size:14px;color:#1d4ed8;font-weight:700">' + vC + '</span></div>';
-      if (vCN) valuesHtml += '<div title="Valor final a pagar en CLP después de una negociación positiva. Se autocompleta con el total del cotizador al guardar la cotización." style="background:linear-gradient(135deg,#fdf4ff,#f5d0fe);border:1px solid #d8b4fe;border-radius:8px;padding:6px 12px;cursor:help"><span style="font-size:10px;color:#9333ea;font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block">Negociado CLP</span><span style="font-size:14px;color:#7e22ce;font-weight:700">' + vCN + '</span></div>';
+      var celda = function (valor, fuerte, destacado) {
+        var color = destacado ? '#4338ca' : (fuerte ? '#0f172a' : '#475569');
+        if (!valor) return '<span style="text-align:right;font-size:12px;color:#cbd5e1">Sin dato</span>';
+        return '<span style="text-align:right;font-size:' + (fuerte || destacado ? '14px' : '13px') + ';font-weight:' + (fuerte || destacado ? '700' : '600') + ';color:' + color + '">' + valor + '</span>';
+      };
+      valuesHtml = '<div style="margin-top:12px;padding:12px 14px;background:#f8fafc;border:1px solid #f1f5f9;border-radius:12px">' +
+        '<div style="display:grid;grid-template-columns:76px 1fr 1fr;gap:7px 12px;align-items:center">' +
+        '<span></span>' +
+        '<span style="text-align:right;font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">En USA</span>' +
+        '<span style="text-align:right;font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Puesto en Chile</span>' +
+        '<span style="font-size:11px;font-weight:600;color:#64748b">Publicado</span>' + celda(vU, true) + celda(vC, true) +
+        '<span style="font-size:11px;font-weight:600;color:#64748b">Negociado</span>' + celda(vN, false) + celda(vCN, false, true) +
+        '</div>';
+
+      var sinNeg = parseFloat(lk.value_chile_clp);
+      var conNeg = parseFloat(lk.value_chile_negotiated_clp);
+      if (!isNaN(sinNeg) && !isNaN(conNeg) && conNeg > 0 && conNeg < sinNeg) {
+        valuesHtml += '<div style="height:1px;background:#e2e8f0;margin:10px 0"></div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between">' +
+          '<span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em">Ahorro conseguido</span>' +
+          '<span style="font-size:15px;font-weight:700;color:#059669">' + formatCurrencyCLP(sinNeg - conNeg) + '</span></div>';
+      }
       valuesHtml += '</div>';
     }
 
