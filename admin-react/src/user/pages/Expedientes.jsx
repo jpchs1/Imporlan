@@ -420,8 +420,56 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
   // nunca vienen. Ignorarlo dejaba todas las tarjetas diciendo "Embarcacion",
   // que es la unica cosa que el cliente ya sabe.
   const armado = [link.make, link.model, link.year].filter(Boolean).join(' ');
-  const title = (link.title || '').trim() || armado || (link.engine || '').trim() || 'Embarcacion sin identificar';
+  const motor = (link.engine || '').trim();
+  const title = (link.title || '').trim() || armado || motor || 'Embarcación sin identificar';
+  // Cuando lo unico que hay del anuncio es el motor, ese texto termina siendo
+  // el titulo. Repetirlo abajo como spec no agrega nada y hace ver la ficha
+  // mas vacia de lo que ya esta.
+  const mostrarMotor = motor && motor !== title;
   const fuente = sourceName(link.url);
+
+  const ACCIONES = (
+    <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+      {link.url && (
+        <>
+          <button onClick={openUrl} className="px-2.5 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-[12px] font-semibold hover:bg-cyan-100 transition flex items-center gap-1.5" title="Ver el anuncio original">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Ver anuncio
+          </button>
+          <button
+            onClick={copyUrl}
+            className={cn(
+              'px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition flex items-center gap-1.5',
+              copied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            )}
+            title="Copiar el link del anuncio"
+          >
+            {copied ? (
+              <>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+                Copiado
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copiar
+              </>
+            )}
+          </button>
+          <a href={`https://wa.me/?text=${encodeURIComponent(link.url)}`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-semibold hover:bg-emerald-100 transition flex items-center gap-1.5" title="Compartir por WhatsApp">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+            Compartir
+          </a>
+        </>
+        )}
+        {!isSold && onRequestInspection && (
+        <button onClick={() => onRequestInspection(link)} className="px-2.5 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-[12px] font-semibold hover:bg-violet-100 transition flex items-center gap-1.5" title="Solicitar inspección técnica">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Inspección
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -500,86 +548,77 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
         </span>
       </div>
 
-      {/* Content */}
+      {/* Content: en pantalla ancha la ficha y los precios van lado a lado. En
+          una sola columna la tabla de precios se estiraba a todo el ancho de la
+          tarjeta y los montos quedaban a un palmo de su etiqueta. */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h4 className="font-semibold text-slate-900 text-[15px] leading-snug line-clamp-3 sm:line-clamp-2" title={title}>{title}</h4>
-            {fuente && (
-              <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-slate-400">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
-                {fuente}
-              </span>
+        {/* Grilla en vez de dos columnas sueltas: los precios ocupan la columna
+            derecha entera y los botones suben a llenar el hueco que quedaba
+            bajo el titulo. El orden del codigo es ficha, precios, botones, que
+            es tambien el orden correcto cuando la grilla se desarma en movil. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-5 lg:items-start">
+          <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h4 className="font-semibold text-slate-900 text-[15px] leading-snug line-clamp-3 sm:line-clamp-2" title={title}>{title}</h4>
+                {fuente && (
+                  <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-slate-400">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                    {fuente}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1.5 shrink-0 lg:hidden">
+                {isSold && (
+                  <Badge className="bg-red-100 text-red-700">
+                    {link.link_status === 'sold' ? 'Vendido' : 'No disponible'}
+                  </Badge>
+                )}
+                {link.selection_order && (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500 whitespace-nowrap"
+                    title="Orden en que el equipo Imporlan agregó esta opción a tu expediente"
+                  >
+                    Selección #{link.selection_order}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {(link.year || link.location || link.hours || mostrarMotor) && (
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {link.year && <SpecChip icon="year" title="Año del modelo">{link.year}</SpecChip>}
+                {link.location && <SpecChip icon="location" title="Ubicación del vendedor en USA">{link.location}</SpecChip>}
+                {link.hours && <SpecChip icon="hours" title="Horas de uso del motor según el anuncio">{link.hours} hrs</SpecChip>}
+                {mostrarMotor && <SpecChip icon="engine" title="Motor instalado según el anuncio">{motor}</SpecChip>}
+              </div>
             )}
           </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {isSold && (
-              <Badge className="bg-red-100 text-red-700">
-                {link.link_status === 'sold' ? 'Vendido' : 'No disponible'}
-              </Badge>
-            )}
-            {/* Antes era un circulo naranjo sin explicacion en la esquina. */}
-            {link.selection_order && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500 whitespace-nowrap"
-                title="Orden en que el equipo Imporlan agrego esta opcion a tu expediente"
-              >
-                Selección #{link.selection_order}
-              </span>
-            )}
+
+          <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <PriceMatrix link={link} fmtUsd={fmtUsd} fmtClp={fmtClp} />
+          </div>
+
+          <div className="lg:col-start-1 lg:row-start-2 lg:self-end">
+            {ACCIONES}
           </div>
         </div>
 
-        {(link.year || link.location || link.hours || link.engine) && (
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {link.year && <SpecChip icon="year" title="Año del modelo">{link.year}</SpecChip>}
-            {link.location && <SpecChip icon="location" title="Ubicación del vendedor en USA">{link.location}</SpecChip>}
-            {link.hours && <SpecChip icon="hours" title="Horas de uso del motor según el anuncio">{link.hours} hrs</SpecChip>}
-            {link.engine && <SpecChip icon="engine" title="Motor instalado según el anuncio">{link.engine}</SpecChip>}
-          </div>
-        )}
-
-        <PriceMatrix link={link} fmtUsd={fmtUsd} fmtClp={fmtClp} />
-
-        {/* Actions + Comments */}
-        <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-          {link.url && (
-            <>
-              <button onClick={openUrl} className="px-2.5 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-[12px] font-semibold hover:bg-cyan-100 transition flex items-center gap-1.5" title="Ver el anuncio original">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                Ver anuncio
-              </button>
-              <button
-                onClick={copyUrl}
-                className={cn(
-                  'px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition flex items-center gap-1.5',
-                  copied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-                )}
-                title="Copiar el link del anuncio"
-              >
-                {copied ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
-                    Copiado
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                    Copiar
-                  </>
-                )}
-              </button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(link.url)}`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-semibold hover:bg-emerald-100 transition flex items-center gap-1.5" title="Compartir por WhatsApp">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-                Compartir
-              </a>
-            </>
+        {/* Insignias que en pantalla ancha van a la esquina de la tarjeta. */}
+        <div className="hidden lg:flex absolute top-3 right-4 items-center gap-1.5">
+          {isSold && (
+            <Badge className="bg-red-100 text-red-700">
+              {link.link_status === 'sold' ? 'Vendido' : 'No disponible'}
+            </Badge>
           )}
-          {!isSold && onRequestInspection && (
-            <button onClick={() => onRequestInspection(link)} className="px-2.5 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-[12px] font-semibold hover:bg-violet-100 transition flex items-center gap-1.5" title="Solicitar inspección técnica">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-              Inspección
-            </button>
+          {/* Antes era un circulo naranjo sin explicacion en la esquina. */}
+          {link.selection_order && (
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500 whitespace-nowrap"
+              title="Orden en que el equipo Imporlan agregó esta opción a tu expediente"
+            >
+              Selección #{link.selection_order}
+            </span>
           )}
         </div>
 
