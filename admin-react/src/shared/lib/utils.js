@@ -34,6 +34,27 @@ export function statusColor(status) {
   return map[status] || 'bg-gray-100 text-gray-600';
 }
 
+/**
+ * Nombre del estado en castellano. Sin esto la insignia mostraba la clave cruda
+ * de la base ("in_progress" con los guiones cambiados por espacios), que es
+ * jerga interna en ingles justo en la parte mas visible del expediente.
+ */
+export function statusLabel(status) {
+  const map = {
+    new: 'Nuevo',
+    active: 'Activo',
+    paid: 'Pagado',
+    completed: 'Completado',
+    in_progress: 'En proceso',
+    pending: 'Pendiente',
+    pending_admin_fill: 'En revisión',
+    suspended: 'Suspendido',
+    expired: 'Vencido',
+    canceled: 'Cancelado',
+  };
+  return map[status] || (status || '').replace(/_/g, ' ');
+}
+
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
