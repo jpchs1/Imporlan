@@ -83,20 +83,47 @@ echo "    2. Aprieta F12 y anda a la pestana Application (o Almacenamiento).\n";
 echo "    3. En el panel izquierdo: Cookies → https://www.facebook.com\n";
 echo "    4. Busca las filas llamadas c_user y xs, y copia su columna Value.\n\n";
 
-$cUser = leerVisible('  Valor de la cookie "c_user" (un numero largo, tipo 100064321987654): ');
+echo "  Atajo: si prefieres, pega aca la cabecera Cookie completa (Network → una\n";
+echo "  peticion a facebook.com → Request Headers → cookie) y saco las tres solo.\n\n";
+
+$cUser = leerVisible('  Valor de "c_user", o la cabecera Cookie completa: ');
+
+// Cazar las tres de una cabecera pegada entera ahorra dos idas y vueltas a la
+// tabla de cookies, que es donde se pierde la gente. Se reconoce por el "=".
+$xs = '';
+$datr = '';
+if (strpos($cUser, 'c_user=') !== false) {
+    $pegado = $cUser;
+    preg_match('/(?:^|[;\s])c_user=([^;\s]+)/', $pegado, $m1);
+    preg_match('/(?:^|[;\s])xs=([^;\s]+)/', $pegado, $m2);
+    preg_match('/(?:^|[;\s])datr=([^;\s]+)/', $pegado, $m3);
+    $cUser = $m1[1] ?? '';
+    $xs = isset($m2[1]) ? urldecode($m2[1]) : '';
+    $datr = $m3[1] ?? '';
+    if (!$cUser || !$xs) {
+        exit("\n  Pegaste una cabecera pero no encontre c_user y xs adentro.\n"
+           . "  Revisa que este completa. No se cambio nada.\n\n");
+    }
+    echo "  Encontradas en lo que pegaste: c_user, xs" . ($datr ? ', datr' : '') . "\n";
+}
+
 if (!preg_match('/^\d{5,}$/', $cUser)) {
     exit("\n  Eso no parece el valor de c_user: tiene que ser solo numeros.\n"
        . "  Si escribiste tu correo o tu nombre, no es eso — es la columna Value\n"
        . "  de la fila c_user en la tabla de cookies. No se cambio nada.\n\n");
 }
 
-$xs = leerOculto('  Valor de la cookie "xs" (no se muestra al escribir): ');
+if (!$xs) {
+    $xs = leerOculto('  Valor de la cookie "xs" (no se muestra al escribir): ');
+}
 if (strlen($xs) < 10) {
     exit("\n  El valor de xs parece incompleto. Suele ser largo y empezar con\n"
        . "  numeros seguidos de dos puntos, tipo 36:AbCd... No se cambio nada.\n\n");
 }
 
-$datr = leerVisible('  Valor de la cookie "datr" (opcional, Enter para omitir): ');
+if (!$datr) {
+    $datr = leerVisible('  Valor de la cookie "datr" (opcional, Enter para omitir): ');
+}
 
 // Respaldo antes de escribir: el archivo tiene la llave de ScrapingBee y otras
 // cosas que no queremos perder por un error de este script.
