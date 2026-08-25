@@ -103,8 +103,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     header('Content-Type: application/json; charset=UTF-8');
     header('Cache-Control: no-cache, no-store, must-revalidate');
 
+    // El endpoint es publico y manda correo a la direccion que le pasen. Sin
+    // limite, cualquiera podia usar el servidor de Imporlan para bombardear a
+    // un tercero; el dano no es para el que recibe, es que contacto@imporlan.cl
+    // termine en listas negras y despues no lleguen los correos de expedientes
+    // ni de pagos.
+    require_once __DIR__ . '/../api/antispam.php';
+    imporlan_rate_limit_strict('simulacion');
+
     $nombre = trim($_POST['nombre'] ?? '');
     $email  = trim($_POST['email'] ?? '');
+
+    // Trampa para bots: el campo va oculto por CSS, una persona nunca lo llena.
+    if (trim($_POST['website'] ?? '') !== '') {
+        imporlan_log_spam('honeypot_simulacion', 'IP: ' . imporlan_get_client_ip());
+        // Se responde como si hubiera salido bien: si el bot supiera que lo
+        // detectamos, probaria otra via.
+        echo json_encode(['success' => true, 'message' => 'Simulacion enviada exitosamente a ' . $email]);
+        exit;
+    }
 
     if (!$nombre || !$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         echo json_encode(['success' => false, 'message' => 'Por favor ingrese un nombre y email valido.']);
@@ -125,11 +142,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $sent = mail($email, $subject, $emailHtml, $headers);
 
+    // El lead se guarda ANTES de depender del correo. Hasta ahora el unico
+    // registro de que alguien pidio una simulacion era la copia oculta que
+    // llegaba a la bandeja: si se perdia entre el spam o se borraba, el
+    // contacto desaparecia y no habia forma de recuperarlo.
+    guardarLeadSimulacion($nombre, $email, $sent);
+
     echo json_encode([
         'success' => $sent,
         'message' => $sent ? 'Simulacion enviada exitosamente a ' . $email : 'Error al enviar el correo. Intente nuevamente.'
     ]);
     exit;
+}
+
+/**
+ * Deja registro del lead en api/simulaciones.json.
+ *
+ * Se elige un archivo y no la base de datos porque es el mismo patron que ya
+ * usan quotation_requests.json y payment_requests.json, y porque el simulador
+ * tiene que seguir funcionando aunque la base este caida: perder el lead es
+ * peor que no poder consultarlo desde el panel.
+ */
+function guardarLeadSimulacion($nombre, $email, $correoEnviado) {
+    try {
+        $archivo = __DIR__ . '/../api/simulaciones.json';
+
+        $leads = [];
+        if (is_readable($archivo)) {
+            $prev = json_decode((string) @file_get_contents($archivo), true);
+            if (is_array($prev)) $leads = $prev;
+        }
+
+        $ip = 'desconocida';
+        if (function_exists('imporlan_get_client_ip')) {
+            $ip = imporlan_get_client_ip();
+        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+            $ip = $_SERVER['REMOTE_ADDR'];
+        }
+
+        $leads[] = [
+            'fecha'           => date('c'),
+            'nombre'          => mb_substr($nombre, 0, 120),
+            'email'           => mb_substr($email, 0, 160),
+            'correo_enviado'  => (bool) $correoEnviado,
+            'ip'              => $ip,
+            'origen'          => 'simulacion-cotizacion',
+        ];
+
+        // Tope defensivo: sin esto el archivo crece sin limite y termina
+        // costando memoria en cada envio.
+        if (count($leads) > 5000) {
+            $leads = array_slice($leads, -5000);
+        }
+
+        @file_put_contents($archivo, json_encode($leads, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    } catch (\Throwable $e) {
+        // Nunca romper el envio por no poder registrar el lead.
+        error_log('guardarLeadSimulacion: ' . $e->getMessage());
+    }
 }
 
 // ── Format number helper ──
@@ -613,6 +683,13 @@ $year = date('Y');
                 <label class="sc-label" for="email">Email del Cliente</label>
                 <input type="email" id="email" name="email" class="sc-input" placeholder="Ej: cliente@email.com" required>
             </div>
+            <!-- Trampa para bots: oculta a la vista y fuera del recorrido del
+                 teclado. Una persona no puede llenarla; los formularios
+                 automaticos completan todo lo que encuentran. -->
+            <div style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true">
+                <label for="website">No completar</label>
+                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
             <button type="submit" class="sc-btn" id="btnEnviar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 <span id="btnText">Enviar Simulacion por Email</span>
@@ -670,6 +747,8 @@ async function enviarSimulacion(e) {
         formData.append('action', 'enviar_simulacion');
         formData.append('nombre', nombre);
         formData.append('email', email);
+        // Se manda vacio a proposito: si llega con algo, lo llenó un bot.
+        formData.append('website', document.getElementById('website').value);
 
         const response = await fetch(window.location.href, {
             method: 'POST',
@@ -679,7 +758,9 @@ async function enviarSimulacion(e) {
         const data = await response.json();
 
         resultado.className = 'sc-result ' + (data.success ? 'success' : 'error');
-        resultado.textContent = data.message;
+        // El limite de envios responde con {error}, no con {message}: sin este
+        // respaldo el cliente veia "undefined" en vez del motivo.
+        resultado.textContent = data.message || data.error || 'No se pudo enviar la simulacion.';
 
         if (data.success) {
             document.getElementById('simulacionForm').reset();
