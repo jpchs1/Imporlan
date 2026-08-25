@@ -7,14 +7,14 @@ import { useToast } from '../../shared/components/Toast';
 const DEMO_INSPECTION = {
   id: 'demo-1',
   _demo: true,
-  vessel_name: 'Bayliner VR5 Bowrider 2021',
-  name: 'Bayliner VR5 Bowrider 2021',
-  brand: 'Bayliner',
-  model: 'VR5',
+  vessel_name: 'Cobalt CS23 Bowrider 2021',
+  name: 'Cobalt CS23 Bowrider 2021',
+  brand: 'Cobalt',
+  model: 'CS23',
   vessel_year: 2021,
   vessel_type: 'Bowrider',
   location: 'Miami, Florida',
-  length_ft: '19.50',
+  length_ft: '23.25',
   hull_material: 'Fibra de Vidrio',
   engine_brand: 'Mercury',
   engine_model: 'MerCruiser 4.5L',
@@ -31,7 +31,6 @@ const DEMO_INSPECTION = {
   overall_summary: 'Embarcacion en muy buen estado general. Motor con bajo horaje y buen mantenimiento. Se recomienda revision de tapiceria por desgaste menor.',
   sent_at: '2026-04-07',
   created_at: '2026-04-07',
-  listing_url: 'https://www.boattrader.com/boat/2021-bayliner-vr5/',
   recommendations: 'La embarcacion se encuentra en muy buen estado general para su ano. El motor Mercury MerCruiser presenta un funcionamiento optimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapiceria del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar anodos de zinc en la proxima temporada\n4. Verificar tension de la correa del alternador\n\nEn general, es una excelente opcion de compra con muy buena relacion precio-calidad.',
   section_details: {
     hull: { rating: 8.5, fields: { 'Estado del gelcoat': 'Buen estado', 'Linea de flotacion': 'Sin osmosis', 'Quilla': 'Sin danos', 'Obra viva': 'Antifouling vigente', 'Cubierta': 'Buen estado general' }, notes: 'Casco en buen estado. Se recomienda aplicar cera protectora.' },
@@ -44,13 +43,21 @@ const DEMO_INSPECTION = {
     test_drive: { rating: 8.0, fields: { 'Aceleracion': 'Respuesta normal', 'Velocidad maxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rapido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcacion responde bien en todas las pruebas.' },
   },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
-  // Aca habia nueve listas de fotos apuntando a /panel/user/assets/gallery/,
-  // una carpeta que no existe en el servidor. El reporte de ejemplo —el que ve
-  // todo cliente que aun no tiene una inspeccion— salia con 14 imagenes rotas,
-  // justo la pagina que tiene que mostrar como se ve un informe PREMIUM. Las
-  // secciones sin fotos no se dibujan (photoSections filtra por largo), asi que
-  // vaciarlas deja el ejemplo limpio: calificaciones, radar, fichas por seccion,
-  // recomendaciones y el video. Si aparecen las fotos originales, vuelven aca.
+  // Las fotos originales de este ejemplo apuntaban a una carpeta que no existe
+  // en el servidor, asi que el reporte —el que ve todo cliente que aun no tiene
+  // una inspeccion— salia con 14 imagenes rotas. En su lugar van dos fotos del
+  // Cobalt CS23 que ya estaban en el sitio, y la embarcacion del ejemplo pasa a
+  // ser ese mismo modelo: un informe cuyas fotos no son del barco que describe
+  // se nota, aunque diga "ejemplo". El 4.5L MerCruiser de la ficha es el motor
+  // real del CS23, asi que los datos siguen siendo coherentes.
+  //
+  // Solo va la seccion General: son tomas del barco completo. Ponerlas bajo
+  // "Motor" o "Electrica" seria peor que no tener foto. Las secciones sin
+  // fotos no se dibujan, asi que el resto queda limpio.
+  photos_general: [
+    '/images/rank-cobalt-cs23.jpg',
+    '/panel/assets/cobalt-cs23.jpg',
+  ],
   videos_test_drive: ['https://www.youtube.com/watch?v=qAuCVrVybIQ'],
 };
 
