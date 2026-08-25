@@ -1894,28 +1894,36 @@ function buildFacebookCookieString($config) {
  * to bypass blocks from sites like Facebook.
  */
 function planBScrapingBee($url, &$result, $apiKey, $config = []) {
-    // Only use premium proxies for domains that block basic requests.
-    // - Facebook/Instagram/Craigslist: cuentas + bot detection agresivo
+    // No todos los bloqueos se levantan con la misma llave, y cada nivel cuesta
+    // mas caro, asi que se pide el mas barato que efectivamente pase.
+    //
+    // - Facebook/Instagram/Craigslist: bot detection agresivo, pero ceden con
+    //   IPs residenciales (premium_proxy).
     // - Yachtworld (.com/.es/.it/...), BoatTrader, Boats.com, boatsgroup.com:
-    //   protegidos con Cloudflare. La IP del datacenter de Banahosting
-    //   recibe 403 desde el directFetch; sin premium_proxy, ScrapingBee
-    //   tambien sale por proxies datacenter y recibe el mismo bloqueo.
-    //   El premium_proxy usa IPs residenciales que pasan la verificacion.
+    //   Cloudflare. Aca premium_proxy NO alcanza, y eso esta medido, no
+    //   supuesto: contra un anuncio vivo de BoatTrader, premium devolvio el
+    //   desafio con y sin navegador, y stealth_proxy trajo la ficha completa
+    //   con titulo, precio y foto. Mientras el codigo pedia premium, estos
+    //   dominios no entregaban nada y el gasto era igual.
     $isFacebook = (bool) preg_match('/facebook\.com/i', $url);
     $isHardBlockedBoatSite = (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
-    $usePremium = $isFacebook
-        || $isHardBlockedBoatSite
-        || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
+    $usePremium = $isFacebook || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
 
     $params = [
         'api_key' => $apiKey,
         'url' => $url,
         'render_js' => 'true',
-        'premium_proxy' => $usePremium ? 'true' : 'false',
         'block_ads' => 'true',
         'block_resources' => 'false',
         'wait' => '3000',
     ];
+    // Los dos modos son excluyentes: stealth ya trae proxy propio y mandarlos
+    // juntos hace que la API rechace la peticion.
+    if ($isHardBlockedBoatSite) {
+        $params['stealth_proxy'] = 'true';
+    } else {
+        $params['premium_proxy'] = $usePremium ? 'true' : 'false';
+    }
 
     // Pass Facebook session cookies for authenticated access to Marketplace
     if ($isFacebook) {
@@ -1931,7 +1939,12 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     curl_setopt_array($ch, [
         CURLOPT_URL => $sbUrl,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 45,
+        // Resolver un desafio de Cloudflare con navegador tarda mucho mas que
+        // una peticion normal: en las pruebas contra BoatTrader, 70 segundos no
+        // alcanzaron. Cortar antes de tiempo es lo peor de los dos mundos,
+        // porque el credito se cobra igual y no llega nada. Quien llama corre
+        // con set_time_limit(300), asi que 120 cabe con margen.
+        CURLOPT_TIMEOUT => $isHardBlockedBoatSite ? 120 : 45,
         CURLOPT_CONNECTTIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_ENCODING => '',
@@ -2068,6 +2081,7 @@ function planBScreenshotAI($url, &$result, $config) {
  */
 function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
     $isFacebook = (bool) preg_match('/facebook\.com/i', $url);
+    $isHardBlockedBoatSite = (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
     $usePremium = $isFacebook || (bool) preg_match('/instagram\.com|craigslist\.org/i', $url);
 
     $params = [
@@ -2076,11 +2090,19 @@ function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
         'screenshot' => 'true',
         'screenshot_full_page' => 'false',
         'render_js' => 'true',
-        'premium_proxy' => $usePremium ? 'true' : 'false',
         'wait' => '3000',
         'window_width' => '1280',
         'window_height' => '900',
     ];
+    // Mismo criterio que planBScrapingBee. Aca importa todavia mas: sin
+    // stealth, la foto que se le manda a la IA es la pantalla de "Just a
+    // moment..." de Cloudflare, y una IA mirando eso no dice "no pude", inventa
+    // una ficha. Esos datos terminan en el expediente del cliente.
+    if ($isHardBlockedBoatSite) {
+        $params['stealth_proxy'] = 'true';
+    } else {
+        $params['premium_proxy'] = $usePremium ? 'true' : 'false';
+    }
 
     // Pass Facebook session cookies for authenticated screenshots
     if ($isFacebook) {
@@ -2096,7 +2118,7 @@ function getScrapingBeeScreenshot($url, $apiKey, $config = []) {
     curl_setopt_array($ch, [
         CURLOPT_URL => $sbUrl,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 45,
+        CURLOPT_TIMEOUT => $isHardBlockedBoatSite ? 120 : 45,
         CURLOPT_CONNECTTIMEOUT => 15,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
