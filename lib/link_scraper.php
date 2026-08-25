@@ -469,24 +469,75 @@ function limpiarTextoDeFicha($texto) {
     return trim(preg_replace('/\s+/', ' ', (string) $texto));
 }
 
+/**
+ * Valida lo que va despues de la coma en una ubicacion.
+ *
+ * Sin esta lista, cualquier par de mayusculas pasaba por estado: un anuncio de
+ * Rightboat con la frase "Outdrives, AC" en la descripcion termino con eso como
+ * ubicacion de la lancha. Un estado inventado manda al cliente a mirar el mapa
+ * equivocado, asi que se acepta solo lo que existe.
+ */
+function estadoValido($txt) {
+    $t = trim($txt);
+    static $siglas = [
+        'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+        'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+        'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC','PR','VI','GU',
+    ];
+    static $nombres = [
+        'alabama','alaska','arizona','arkansas','california','colorado','connecticut','delaware','florida',
+        'georgia','hawaii','idaho','illinois','indiana','iowa','kansas','kentucky','louisiana','maine',
+        'maryland','massachusetts','michigan','minnesota','mississippi','missouri','montana','nebraska',
+        'nevada','new hampshire','new jersey','new mexico','new york','north carolina','north dakota','ohio',
+        'oklahoma','oregon','pennsylvania','rhode island','south carolina','south dakota','tennessee','texas',
+        'utah','vermont','virginia','washington','west virginia','wisconsin','wyoming',
+        'district of columbia','puerto rico',
+    ];
+    if (strlen($t) === 2) return in_array(strtoupper($t), $siglas, true);
+    return in_array(mb_strtolower($t), $nombres, true);
+}
+
 function pareceUbicacion($texto) {
     $t = limpiarTextoDeFicha($texto);
     if (strlen($t) < 3 || strlen($t) > 100) return false;
     // Estado y condicion viven en la misma tabla que la ubicacion y se cuelan.
     if (preg_match('/^(new|used|nuevo|usado|sale|for sale|price|precio|condition|condicion|location|ubicacion)$/i', $t)) return false;
-    // Un lugar trae coma ("St. Michaels, Maryland") o al menos dos palabras.
+    // Con coma se exige que la segunda parte sea un estado que exista: "AC" no
+    // lo es, y sin ese filtro "Outdrives, AC" pasaba por ubicacion.
+    if (strpos($t, ',') !== false) {
+        $partes = explode(',', $t);
+        return estadoValido(trim(end($partes)));
+    }
     // Preferimos dejarlo vacio antes que escribir cualquier cosa: un chip en
     // blanco no confunde a nadie, uno que dice "Used" si.
-    return strpos($t, ',') !== false || str_word_count($t) >= 2;
+    return str_word_count($t) >= 2;
 }
 
 function limpiarMotor($texto) {
     $t = limpiarTextoDeFicha($texto);
     // Arrastre tipico de la fila siguiente en la tabla de especificaciones.
     $t = preg_replace('/\s*\d*\s*(engine\s+hours?|hrs?\.?|hours?)\s*$/i', '', $t);
+    // Los anuncios describen el motor en prosa ("powered by a pair of
+    // Mercruiser 496 Mag HO engines with..."), asi que el patron se lleva el
+    // conector del final. Colgando no dice nada y se ve a medio escribir.
+    $t = preg_replace('/\s+(with|and|plus|y|de|del|por)\s*$/i', '', $t);
     $t = trim($t, " \t\n\r\0\x0B-:|·•");
     if (strlen($t) < 3) return null;
     if (preg_match('/^(engine|motor|propulsion|engines|motores)$/i', $t)) return null;
+    // "pair of", "twin": cuantifican el motor pero no lo nombran.
+    if (preg_match('/^(a\s+)?(pair|set|couple)\s+of$/i', $t)) return null;
+    if (preg_match('/^(twin|single|dual|pair|par)$/i', $t)) return null;
+
+    // Ultimo filtro: que se parezca a un motor. Descartar el relleno dejaba
+    // pasar al siguiente candidato de la lista, y en un anuncio ese siguiente
+    // era "triple axle", que describe el trailer. Se exige una marca conocida o
+    // una cifra de potencia o cilindrada; sin ninguna de las dos, lo que quedo
+    // no es una ficha de motor sino una frase suelta del anuncio.
+    $marcas = '/\b(mercury|mercruiser|yamaha|honda|suzuki|evinrude|johnson|volvo|penta|caterpillar|cummins|'
+        . 'yanmar|tohatsu|verado|optimax|ilmor|indmar|pcm|crusader|nanni|steyr|seven\s*marine|rotax)\b/i';
+    $potencia = '/(\d+\s*(?:hp|cv|kw)\b|\d\.\d\s*l\b|\bv[68]\b|\b\d{3,4}\s*mag\b)/i';
+    if (!preg_match($marcas, $t) && !preg_match($potencia, $t)) return null;
+
     return $t;
 }
 
@@ -516,7 +567,11 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
         // dejaria calzar con cualquier palabra suelta.
         if (preg_match('/(?i:for\s+sale\s+in|located?\s*(?:in|at|:)?|location\s*:?)[ \t]+(' . $ciudad . '),[ \t]*(' . $estado . ')/', $conAncla, $m)) {
             $estadoTxt = trim($m[2]);
-            $result['location'] = trim($m[1]) . ', ' . (strlen($estadoTxt) === 2 ? strtoupper($estadoTxt) : $estadoTxt);
+            // Tener ancla no basta: la frase puede seguir con otra cosa y
+            // dejarnos un "estado" que no existe.
+            if (estadoValido($estadoTxt)) {
+                $result['location'] = trim($m[1]) . ', ' . (strlen($estadoTxt) === 2 ? strtoupper($estadoTxt) : $estadoTxt);
+            }
         }
     }
     if (!$result['location']) {
