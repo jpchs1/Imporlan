@@ -48,9 +48,12 @@ require_once $lib;
 
 $urls = array_slice($argv, 1);
 if (!$urls) {
+    // Un anuncio retirado devuelve una pagina valida sin datos, o sea el mismo
+    // sintoma que un scraper roto. Si los links de prueba se mueren, el
+    // diagnostico empieza a mentir; conviene revisarlos de vez en cuando.
     $urls = [
         'https://www.boattrader.com/boat/2019-cobalt-r5-surf-8625998/',
-        'https://www.facebook.com/marketplace/item/1801380614070000/',
+        'https://www.facebook.com/marketplace/item/1743225483679861/',
     ];
 }
 
@@ -108,6 +111,7 @@ foreach ($urls as $url) {
     $t = microtime(true);
     $html = directFetch($url);
     $ms = round((microtime(true) - $t) * 1000);
+    $bloqueadoDirecto = !$html || diagEsDesafio($html);
     if (!$html) {
         $estado = 'BLOQUEADO — sin respuesta util (403 o vacio)';
     } elseif (diagEsDesafio($html)) {
@@ -122,7 +126,8 @@ foreach ($urls as $url) {
         // ninguna, con el mismo peso y el mismo HTTP 200. La diferencia esta
         // adentro: Facebook escribe USER_ID en cero cuando no reconoce a nadie.
         diagLinea('sesion', sesionFacebookRechazada($html)
-            ? 'RECHAZADA — las cookies estan vencidas; hay que sacar c_user y xs de nuevo'
+            ? 'vencida — Facebook ignora las cookies guardadas (mira el veredicto:'
+              . ' la mayoria de los anuncios entrega datos igual sin sesion)'
             : 'aceptada — Facebook reconoce la sesion');
     }
     diagLinea('tiempo', $ms . ' ms');
@@ -167,10 +172,22 @@ foreach ($urls as $url) {
     // dos que deciden.
     $foto = !empty($r['image_url']);
     $precio = !empty($r['value_usa_usd']);
+
+    // Un anuncio retirado responde una pagina perfectamente valida y sin datos:
+    // desde afuera se ve igual que un scraper roto, y ese parecido ya costo una
+    // tarde de diagnostico equivocado. El titulo generico del sitio es la
+    // senal — si llegamos a la pagina y ni siquiera tiene titulo propio, no hay
+    // nada que extraer porque no queda nada publicado.
+    $tituloGenerico = preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', (string) ($r['title'] ?? ''));
+    $llegamos = !$bloqueadoDirecto || $md;
+
     if ($foto && $precio) {
         $veredicto = 'COMPLETA — foto y precio';
     } elseif ($foto || $precio) {
         $veredicto = 'PARCIAL — ' . ($foto ? 'tiene foto, falta precio' : 'tiene precio, falta foto');
+    } elseif ($llegamos && $tituloGenerico) {
+        $veredicto = 'ANUNCIO NO DISPONIBLE — la pagina carga pero no tiene contenido propio;'
+            . ' lo mas probable es que el vendedor lo haya retirado. No es falla del scraper.';
     } else {
         $veredicto = 'INSERVIBLE — sin foto ni precio; solo lo que se deduce de la URL';
     }

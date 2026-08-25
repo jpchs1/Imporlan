@@ -218,8 +218,11 @@ function directFetch($url) {
         return null;
     }
     if ($cookies && sesionFacebookRechazada($html)) {
-        error_log('link_scraper: Facebook rechazo la sesion de scraper_config.php (c_user/xs vencidos);'
-            . ' el anuncio va a quedar sin precio, ubicacion ni fotos — ' . $url);
+        // Sin sesion la mayoria de los anuncios de Marketplace igual entrega
+        // titulo, foto, precio y motor en las meta y en el JSON incrustado, asi
+        // que esto no condena el scrapeo: es un aviso de que las cookies
+        // guardadas ya no valen y conviene renovarlas o sacarlas.
+        error_log('link_scraper: Facebook ignoro las cookies de scraper_config.php (sesion vencida) — ' . $url);
     }
     return $html;
 }
