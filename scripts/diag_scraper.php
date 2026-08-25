@@ -181,7 +181,12 @@ foreach ($urls as $url) {
     $tituloGenerico = preg_match('/^\s*(Facebook|Marketplace|Facebook\s+Marketplace|Log\s+in)\s*$/i', (string) ($r['title'] ?? ''));
     $llegamos = !$bloqueadoDirecto || $md;
 
-    if ($foto && $precio) {
+    if (!empty($r['anuncio_retirado'])) {
+        // El sitio nos redirigio a la categoria: no hay duda posible.
+        $veredicto = 'ANUNCIO RETIRADO — el sitio redirige al listado, o sea que el aviso ya no existe.'
+            . ' El scraper lo detecto y no extrajo nada, que es lo correcto: los datos de esa'
+            . ' pagina son del listado completo, no de este anuncio.';
+    } elseif ($foto && $precio) {
         $veredicto = 'COMPLETA — foto y precio';
     } elseif ($foto || $precio) {
         $veredicto = 'PARCIAL — ' . ($foto ? 'tiene foto, falta precio' : 'tiene precio, falta foto');
