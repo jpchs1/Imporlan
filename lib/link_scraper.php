@@ -167,6 +167,18 @@ function cookiesParaUrl($url) {
     return buildFacebookCookieString(loadScraperConfig());
 }
 
+/**
+ * Facebook responde 200 y una pagina de 440 KB tanto si la sesion vale como si
+ * esta vencida; lo que cambia es que la version publica no trae ni precio ni
+ * ubicacion ni fotos. Sin esta comprobacion una sesion caducada degrada en
+ * silencio todos los anuncios de Marketplace y el sintoma es identico al de un
+ * anuncio borrado. USER_ID en cero es la marca de que no hay sesion.
+ */
+function sesionFacebookRechazada($html) {
+    if (!$html) return false;
+    return (bool) preg_match('/"(?:USER_ID|ACCOUNT_ID)":"0"/', $html);
+}
+
 function directFetch($url) {
     $cookies = cookiesParaUrl($url);
     $ch = curl_init();
@@ -204,6 +216,10 @@ function directFetch($url) {
 
     if ($httpCode >= 400 || !$html) {
         return null;
+    }
+    if ($cookies && sesionFacebookRechazada($html)) {
+        error_log('link_scraper: Facebook rechazo la sesion de scraper_config.php (c_user/xs vencidos);'
+            . ' el anuncio va a quedar sin precio, ubicacion ni fotos — ' . $url);
     }
     return $html;
 }
