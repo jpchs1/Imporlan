@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyPurchases, getMyReports } from '../api';
-import { fmtDate, fmtCLP, statusColor, cn } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, statusColor, statusLabel, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -16,7 +16,7 @@ function relativeTime(ts) {
   const h = Math.floor(m / 60);
   if (h < 24) return `hace ${h} hr${h > 1 ? 's' : ''}`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `hace ${d} dia${d > 1 ? 's' : ''}`;
+  if (d < 7) return `hace ${d} día${d > 1 ? 's' : ''}`;
   return fmtDate(ts);
 }
 
@@ -44,37 +44,37 @@ const STATUS_BANNERS = {
   new: {
     color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
     title: 'Expediente Nuevo',
-    message: 'Tu expediente ha sido creado y esta siendo revisado por nuestro equipo. Pronto comenzaremos a trabajar en tu busqueda.',
+    message: 'Tu expediente fue creado y nuestro equipo ya lo está revisando. En breve comenzamos a trabajar en tu búsqueda.',
     iconPath: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   pending_admin_fill: {
     color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
-    title: 'Pendiente de Revision',
-    message: 'Tu expediente esta pendiente de revision. Nuestro equipo esta preparando tu busqueda personalizada.',
+    title: 'Pendiente de Revisión',
+    message: 'Tu expediente está pendiente de revisión. Nuestro equipo está preparando tu búsqueda personalizada.',
     iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   in_progress: {
     color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
     title: 'En Proceso - Monitoreo Continuo',
-    message: 'Tu expediente esta en proceso con monitoreo continuo. Nuestro equipo esta buscando activamente las mejores opciones para ti y se iran agregando nuevas alternativas a medida que las encontremos.',
+    message: 'Tu expediente está en proceso con monitoreo continuo. Estamos buscando activamente las mejores opciones y se irán sumando nuevas alternativas a medida que las encontremos.',
     iconPath: 'M22 12h-4l-3 9L9 3l-3 9H2',
   },
   completed: {
     color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
     title: 'Expediente Completado',
-    message: 'Tu expediente ha sido completado exitosamente. Todas las opciones han sido revisadas y entregadas. Si necesitas algo mas, no dudes en contactarnos.',
+    message: 'Tu expediente se completó. Todas las opciones fueron revisadas y entregadas. Si necesitas algo más, escríbenos.',
     iconPath: 'M5 13l4 4L19 7',
   },
   expired: {
     color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600',
     title: 'Expediente Vencido',
-    message: 'Tu expediente ha vencido. Si deseas reactivar tu busqueda, contactanos y con gusto te ayudaremos.',
+    message: 'Tu expediente venció. Si quieres reactivar tu búsqueda, escríbenos y lo retomamos.',
     iconPath: 'M6 18L18 6M6 6l12 12',
   },
   canceled: {
     color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200', iconBg: 'bg-slate-100', iconColor: 'text-slate-500',
     title: 'Expediente Cancelado',
-    message: 'Tu expediente ha sido cancelado. Si tienes alguna consulta o deseas iniciar una nueva busqueda, estamos a tu disposicion.',
+    message: 'Tu expediente fue cancelado. Si tienes alguna consulta o quieres iniciar una nueva búsqueda, estamos a tu disposición.',
     iconPath: 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z',
   },
 };
@@ -100,21 +100,21 @@ function StatusBanner({ status }) {
 const INSPECTION_PRICES = [
   { range: 'Hasta 25 ft', price: 'USD 850' },
   { range: '26 a 30 ft', price: 'USD 1.200' },
-  { range: '31 ft o mas', price: 'USD 1.800' },
+  { range: '31 ft o más', price: 'USD 1.800' },
 ];
 
 const INSPECTION_INCLUDES = [
-  'Inspeccion visual de casco, cubierta y estructura',
-  'Pruebas de motor (compresion, presion, fugas)',
-  'Sistema electrico, baterias e instrumentacion',
-  'Equipamiento de seguridad y navegacion',
-  'Galeria fotografica completa con fechas y notas',
+  'Inspección visual de casco, cubierta y estructura',
+  'Pruebas de motor (compresión, presión, fugas)',
+  'Sistema eléctrico, baterías e instrumentación',
+  'Equipamiento de seguridad y navegación',
+  'Galería fotográfica completa con fechas y notas',
   'Reporte detallado en PDF entregado en 48-72 hrs',
 ];
 
 function InspectionModal({ link, orderNumber, open, onClose }) {
   if (!open || !link) return null;
-  const title = [link.make, link.model, link.year].filter(Boolean).join(' ') || 'la embarcacion';
+  const title = [link.make, link.model, link.year].filter(Boolean).join(' ') || 'la embarcación';
   const wapText = encodeURIComponent(
     `Hola, quiero solicitar una inspeccion tecnica para ${title}` +
     (orderNumber ? ` del expediente #${orderNumber}` : '') +
@@ -128,7 +128,7 @@ function InspectionModal({ link, orderNumber, open, onClose }) {
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold">Solicitar Inspeccion Tecnica</p>
+            <p className="font-bold">Solicitar Inspección Técnica</p>
             <p className="text-xs text-white/80 truncate">{title}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10" aria-label="Cerrar">
@@ -161,7 +161,7 @@ function InspectionModal({ link, orderNumber, open, onClose }) {
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-slate-400 mt-2">El costo final puede variar segun ubicacion del barco y eslora exacta. Te confirmamos por WhatsApp antes de coordinar.</p>
+            <p className="text-[11px] text-slate-400 mt-2">El costo final puede variar según ubicación del barco y eslora exacta. Te confirmamos por WhatsApp antes de coordinar.</p>
           </div>
           <a
             href={`https://wa.me/56940211459?text=${wapText}`}
@@ -183,7 +183,7 @@ function InspectionModal({ link, orderNumber, open, onClose }) {
 // --- List View ---
 
 function OrderCard({ order, onClick }) {
-  const svcLabel = order.service_type === 'cotizacion_link' ? 'Cotizacion' : 'Busqueda';
+  const svcLabel = order.service_type === 'cotizacion_link' ? 'Cotización' : 'Búsqueda';
   const isCotizacion = order.service_type === 'cotizacion_link';
   const totalSteps = 5;
   const step = Math.min(totalSteps, order.timeline_step || 1);
@@ -294,6 +294,93 @@ function OrderCard({ order, onClick }) {
 
 // --- Vessel Card ---
 
+/** Marketplace de origen, deducido del dominio del anuncio. */
+function sourceName(url) {
+  if (!url) return '';
+  try {
+    const host = new URL(url.startsWith('http') ? url : 'https://' + url).hostname;
+    if (/facebook|fbcdn|fb\.com/.test(host)) return 'Facebook';
+    if (host.includes('boattrader')) return 'BoatTrader';
+    if (host.includes('boats.com')) return 'Boats.com';
+    if (host.includes('yachtworld')) return 'YachtWorld';
+    return host.replace(/^www\./, '').split('.')[0];
+  } catch { return ''; }
+}
+
+/**
+ * Los cuatro montos no son cuatro datos sueltos: son dos monedas por dos
+ * escenarios. Como cuatro chips sueltos el cliente tenia que restar de cabeza
+ * para ver cuanto le ahorra la negociacion, que es justamente lo que paga.
+ * Aca la resta esta hecha y es la ultima linea.
+ */
+function PriceMatrix({ link, fmtUsd, fmtClp }) {
+  const vU = link.value_usa_usd > 0 ? fmtUsd(link.value_usa_usd) : '';
+  const vN = link.value_to_negotiate_usd > 0 ? fmtUsd(link.value_to_negotiate_usd) : '';
+  const vC = link.value_chile_clp > 0 ? fmtClp(link.value_chile_clp) : '';
+  const vCN = link.value_chile_negotiated_clp > 0 ? fmtClp(link.value_chile_negotiated_clp) : '';
+  if (!vU && !vN && !vC && !vCN) return null;
+
+  const sinNeg = parseFloat(link.value_chile_clp);
+  const conNeg = parseFloat(link.value_chile_negotiated_clp);
+  const ahorro = !isNaN(sinNeg) && !isNaN(conNeg) && conNeg > 0 && conNeg < sinNeg ? sinNeg - conNeg : null;
+
+  const Celda = ({ valor, fuerte, destacado }) => (
+    <span className={cn(
+      'text-right tabular-nums',
+      !valor ? 'text-[13px] text-slate-300' :
+      destacado ? 'text-[15px] font-bold text-indigo-700' :
+      fuerte ? 'text-[15px] font-bold text-slate-900' : 'text-[14px] font-semibold text-slate-600'
+    )}>
+      {valor || 'Sin dato'}
+    </span>
+  );
+
+  return (
+    <div className="mt-3 rounded-xl bg-slate-50/80 border border-slate-100 px-3.5 py-3">
+      <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-2 items-center">
+        <span />
+        <span className="text-right text-[9px] font-semibold uppercase tracking-[0.06em] text-slate-400">En USA</span>
+        <span className="text-right text-[9px] font-semibold uppercase tracking-[0.06em] text-slate-400">Puesto en Chile</span>
+
+        <span className="text-[11px] font-semibold text-slate-500">Publicado</span>
+        <Celda valor={vU} fuerte />
+        <Celda valor={vC} fuerte />
+
+        <span className="text-[11px] font-semibold text-slate-500">Negociado</span>
+        <Celda valor={vN} />
+        <Celda valor={vCN} destacado />
+      </div>
+      {ahorro !== null && (
+        <>
+          <div className="h-px bg-slate-200 my-2.5" />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-400">Ahorro conseguido</span>
+            <span className="text-[15px] font-bold text-emerald-600 tabular-nums">{fmtClp(ahorro)}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const SPEC_ICONS = {
+  year: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
+  location: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></>,
+  hours: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
+  engine: <><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" /></>,
+};
+
+function SpecChip({ icon, children, title }) {
+  return (
+    <span title={title} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[12px] font-medium text-slate-600">
+      <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        {SPEC_ICONS[icon]}
+      </svg>
+      <span className="truncate max-w-[190px]">{children}</span>
+    </span>
+  );
+}
+
 function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMoveDown, onRequestInspection, onPreviewImage }) {
   const [imgError, setImgError] = useState(false);
   const [imgRetry, setImgRetry] = useState(0);
@@ -329,21 +416,25 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
     }
   }
 
-  const title = [link.make, link.model, link.year].filter(Boolean).join(' ') || 'Embarcacion';
-  const hasOverlayInfo = link.year || link.location || link.hours || link.engine || link.value_usa_usd > 0;
+  // El scraper guarda el titulo del anuncio en link.title; make/model/year casi
+  // nunca vienen. Ignorarlo dejaba todas las tarjetas diciendo "Embarcacion",
+  // que es la unica cosa que el cliente ya sabe.
+  const armado = [link.make, link.model, link.year].filter(Boolean).join(' ');
+  const title = (link.title || '').trim() || armado || (link.engine || '').trim() || 'Embarcacion sin identificar';
+  const fuente = sourceName(link.url);
 
   return (
     <div
       draggable={!!dragHandlers}
       className={cn(
-        'flex gap-3 sm:gap-4 p-3 sm:p-4 bg-white border border-slate-200 rounded-xl transition-all group relative',
-        isSold && 'opacity-60 grayscale',
-        'hover:shadow-md hover:border-slate-300'
+        'flex flex-col sm:flex-row gap-3 sm:gap-4 p-3.5 sm:p-4 bg-white border rounded-2xl transition-all group relative',
+        isSold ? 'opacity-60 grayscale border-slate-200' : 'border-slate-200/70 hover:border-slate-300 hover:shadow-[0_1px_2px_rgba(15,23,42,.04),0_10px_28px_-12px_rgba(15,23,42,.18)]'
       )}
       {...dragHandlers}
     >
-      {/* Drag handle (desktop) + up/down (mobile) */}
-      <div className="flex flex-col items-center justify-center gap-1 shrink-0">
+      {/* Reordenar: columna a la izquierda en escritorio, franja al pie en
+          movil, donde una columna vertical robaria todo el ancho util. */}
+      <div className="flex flex-row sm:flex-col items-center justify-center sm:justify-start gap-1 shrink-0 order-last sm:order-first sm:pt-0.5">
         <button
           type="button"
           onClick={onMoveUp}
@@ -369,90 +460,102 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
         </button>
       </div>
 
-      {/* Number */}
-      <div className={cn('shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-sm self-start',
-        index === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600' :
-        index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-500' :
-        index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-600' :
-        'bg-gradient-to-br from-cyan-500 to-cyan-600'
-      )}>
-        {index + 1}
-      </div>
-
-      {/* Image with hover overlay */}
-      <div className="shrink-0 w-20 sm:w-28 h-16 sm:h-20 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 relative cursor-pointer" onClick={() => link.image_url && !imgError && onPreviewImage?.(link.image_url)}>
+      {/* Foto, con el numero de ranking encima: el podio se lee de un vistazo
+          y la tarjeta gana el ancho que antes ocupaba una columna aparte. */}
+      <div
+        className={cn(
+          'shrink-0 w-full sm:w-[188px] h-[132px] sm:h-[124px] rounded-xl overflow-hidden bg-slate-100 border border-slate-200/80 relative',
+          link.image_url && !imgError && 'cursor-zoom-in'
+        )}
+        onClick={() => link.image_url && !imgError && onPreviewImage?.(link.image_url)}
+      >
         {link.image_url && !imgError ? (
-          <>
-            <img key={imgRetry} src={link.image_url + (imgRetry ? `?r=${imgRetry}` : '')} alt="" className="w-full h-full object-cover" onError={handleImgError} loading="lazy" />
-            {hasOverlayInfo && (
-              <div className="absolute inset-0 bg-black/70 text-white text-[10px] leading-tight p-1.5 opacity-0 group-hover:opacity-100 transition flex flex-col justify-center items-center text-center">
-                {link.year && <span className="font-bold text-cyan-300">{link.year}</span>}
-                {link.location && <span className="truncate w-full">{link.location}</span>}
-                {link.value_usa_usd > 0 && <span className="text-emerald-300 font-semibold mt-0.5">{fmtUsd(link.value_usa_usd)}</span>}
-              </div>
-            )}
-          </>
+          <img
+            key={imgRetry}
+            src={link.image_url + (imgRetry ? `?r=${imgRetry}` : '')}
+            alt={title}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            onError={handleImgError}
+            loading="lazy"
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          // Un icono suelto sobre gris parecia una imagen rota. Decirlo con
+          // palabras evita que el cliente crea que el panel fallo.
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-slate-50">
+            <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+            </svg>
+            <span className="text-[10px] font-medium text-slate-400">Sin foto disponible</span>
           </div>
         )}
+
+        <span className={cn(
+          'absolute top-2 left-2 min-w-[26px] h-[26px] px-1.5 rounded-lg flex items-center justify-center text-white text-[13px] font-bold shadow-sm ring-1 ring-black/5',
+          index === 0 ? 'bg-gradient-to-br from-amber-400 to-amber-600' :
+          index === 1 ? 'bg-gradient-to-br from-slate-400 to-slate-600' :
+          index === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600' :
+          'bg-slate-900/85'
+        )} title={`Puesto ${index + 1} en tu ranking`}>
+          {index + 1}
+        </span>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-semibold text-slate-800 text-sm truncate">{title}</p>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-slate-400">
-              {link.location && <span className="truncate max-w-[180px]">{link.location}</span>}
-              {link.hours && <span>{link.hours} hrs</span>}
-              {link.engine && <span className="truncate max-w-[120px]">{link.engine}</span>}
-            </div>
+            <h4 className="font-semibold text-slate-900 text-[15px] leading-snug line-clamp-3 sm:line-clamp-2" title={title}>{title}</h4>
+            {fuente && (
+              <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-slate-400">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                {fuente}
+              </span>
+            )}
           </div>
-          {isSold && (
-            <Badge className="bg-red-100 text-red-700 shrink-0">
-              {link.link_status === 'sold' ? 'Vendido' : 'No disponible'}
-            </Badge>
-          )}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {isSold && (
+              <Badge className="bg-red-100 text-red-700">
+                {link.link_status === 'sold' ? 'Vendido' : 'No disponible'}
+              </Badge>
+            )}
+            {/* Antes era un circulo naranjo sin explicacion en la esquina. */}
+            {link.selection_order && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500 whitespace-nowrap"
+                title="Orden en que el equipo Imporlan agrego esta opcion a tu expediente"
+              >
+                Selección #{link.selection_order}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Prices */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-          {link.value_usa_usd > 0 && (
-            <span className="text-xs font-semibold text-emerald-600">{fmtUsd(link.value_usa_usd)} USA</span>
-          )}
-          {link.value_to_negotiate_usd > 0 && (
-            <span className="text-xs text-emerald-500">Neg: {fmtUsd(link.value_to_negotiate_usd)}</span>
-          )}
-          {link.value_chile_clp > 0 && (
-            <span className="text-xs font-semibold text-blue-600">{fmtClp(link.value_chile_clp)} CLP</span>
-          )}
-          {link.value_chile_negotiated_clp > 0 && (
-            <span className="text-xs text-blue-500">Neg: {fmtClp(link.value_chile_negotiated_clp)}</span>
-          )}
-        </div>
-
-        {/* Selection order */}
-        {link.selection_order && (
-          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-400 text-white text-[10px] font-bold flex items-center justify-center" title={`Seleccion #${link.selection_order}`}>{link.selection_order}</span>
+        {(link.year || link.location || link.hours || link.engine) && (
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            {link.year && <SpecChip icon="year" title="Año del modelo">{link.year}</SpecChip>}
+            {link.location && <SpecChip icon="location" title="Ubicación del vendedor en USA">{link.location}</SpecChip>}
+            {link.hours && <SpecChip icon="hours" title="Horas de uso del motor según el anuncio">{link.hours} hrs</SpecChip>}
+            {link.engine && <SpecChip icon="engine" title="Motor instalado según el anuncio">{link.engine}</SpecChip>}
+          </div>
         )}
+
+        <PriceMatrix link={link} fmtUsd={fmtUsd} fmtClp={fmtClp} />
 
         {/* Actions + Comments */}
         <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
           {link.url && (
             <>
-              <button onClick={openUrl} className="px-2 py-1 rounded-lg bg-cyan-50 text-cyan-700 text-[11px] font-semibold hover:bg-cyan-100 transition flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                Abrir
+              <button onClick={openUrl} className="px-2.5 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-[12px] font-semibold hover:bg-cyan-100 transition flex items-center gap-1.5" title="Ver el anuncio original">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Ver anuncio
               </button>
               <button
                 onClick={copyUrl}
                 className={cn(
-                  'px-2 py-1 rounded-lg text-[11px] font-semibold transition flex items-center gap-1',
+                  'px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition flex items-center gap-1.5',
                   copied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                 )}
-                title="Copiar link"
+                title="Copiar el link del anuncio"
               >
                 {copied ? (
                   <>
@@ -466,24 +569,30 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
                   </>
                 )}
               </button>
-              <a href={`https://wa.me/?text=${encodeURIComponent(link.url)}`} target="_blank" rel="noreferrer" className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-100 transition flex items-center gap-1" title="Compartir por WhatsApp">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
+              <a href={`https://wa.me/?text=${encodeURIComponent(link.url)}`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-[12px] font-semibold hover:bg-emerald-100 transition flex items-center gap-1.5" title="Compartir por WhatsApp">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
                 Compartir
               </a>
             </>
           )}
           {!isSold && onRequestInspection && (
-            <button onClick={() => onRequestInspection(link)} className="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 text-[11px] font-semibold hover:bg-violet-100 transition flex items-center gap-1" title="Solicitar inspeccion tecnica">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-              Inspeccion
+            <button onClick={() => onRequestInspection(link)} className="px-2.5 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-[12px] font-semibold hover:bg-violet-100 transition flex items-center gap-1.5" title="Solicitar inspección técnica">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              Inspección
             </button>
           )}
-          {link.comments && (
-            <span className="text-[11px] text-slate-500 italic truncate max-w-[120px] sm:max-w-[200px] basis-full sm:basis-auto" title={link.comments}>
-              "{link.comments}"
-            </span>
-          )}
         </div>
+
+        {/* La nota del agente venia truncada a 120px entre los botones, asi que
+            se perdia justo la parte que explica por que vale la pena mirarla. */}
+        {link.comments && (
+          <div className="mt-2.5 flex items-start gap-2 rounded-lg bg-amber-50/70 border border-amber-100 px-3 py-2">
+            <svg className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+            <p className="text-[12px] text-slate-600 leading-relaxed">{link.comments}</p>
+          </div>
+        )}
 
         <QuoteSummary link={link} />
       </div>
@@ -847,7 +956,7 @@ function OrderDetail({ orderId, onBack }) {
             <p className="text-sm text-slate-300 mt-0.5">{title}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={cn(statusColor(order.status), 'text-xs')}>{(order.status || '').replace(/_/g, ' ')}</Badge>
+            <Badge className={cn(statusColor(order.status), 'text-xs')}>{statusLabel(order.status)}</Badge>
             <button
               onClick={handlePrint}
               className="print:hidden px-3 py-1.5 rounded-lg bg-white/10 text-slate-100 text-xs font-medium hover:bg-white/20 transition flex items-center gap-1"
@@ -865,7 +974,7 @@ function OrderDetail({ orderId, onBack }) {
         {/* Stats bar */}
         {activeLinks.length > 0 && (
           <div className="flex gap-4 mt-3 pt-3 border-t border-white/10 text-xs">
-            <span className="text-slate-400">{activeLinks.length} embarcacion{activeLinks.length !== 1 ? 'es' : ''}</span>
+            <span className="text-slate-400">{activeLinks.length} embarcación{activeLinks.length !== 1 ? 'es' : ''}</span>
             <span className="text-slate-400">{activeLinks.filter(l => l.image_url).length} con foto</span>
             <span className="text-slate-400">{activeLinks.filter(l => l.value_usa_usd > 0 || l.value_chile_clp > 0).length} con precio</span>
           </div>
@@ -890,7 +999,7 @@ function OrderDetail({ orderId, onBack }) {
           {order.service_type && (
             <div>
               <p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p>
-              <p className="text-slate-700 font-medium">{order.service_type === 'cotizacion_link' ? 'Cotizacion' : 'Busqueda'}</p>
+              <p className="text-slate-700 font-medium">{order.service_type === 'cotizacion_link' ? 'Cotización' : 'Búsqueda'}</p>
             </div>
           )}
           {order.agent_name && (
@@ -929,7 +1038,7 @@ function OrderDetail({ orderId, onBack }) {
                 Ranking de Embarcaciones
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Arrastra las tarjetas para ordenar tu preferencia. {activeLinks.length} embarcacion{activeLinks.length !== 1 ? 'es' : ''}.
+                Arrastra las tarjetas para ordenar tu preferencia. {activeLinks.length} embarcación{activeLinks.length !== 1 ? 'es' : ''}.
               </p>
             </div>
             <div className="flex gap-2">
@@ -952,7 +1061,7 @@ function OrderDetail({ orderId, onBack }) {
             <div className="mb-3 px-3 py-2 bg-slate-50 rounded-lg text-xs text-slate-500 flex items-center gap-2 flex-wrap">
               <svg className="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               <span>
-                Ultimo cambio por <span className="font-semibold text-slate-700">{order.ranking_author_name}</span> ({order.ranking_author_role === 'admin' ? 'Equipo Imporlan' : 'Tu'})
+                Último cambio por <span className="font-semibold text-slate-700">{order.ranking_author_name}</span> ({order.ranking_author_role === 'admin' ? 'Equipo Imporlan' : 'Tú'})
               </span>
               {order.ranking_updated_at && <span className="text-slate-400">- {relativeTime(order.ranking_updated_at)}</span>}
             </div>
@@ -966,7 +1075,7 @@ function OrderDetail({ orderId, onBack }) {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar marca, modelo, ubicacion..."
+                placeholder="Buscar marca, modelo, ubicación..."
                 className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
               />
             </div>
@@ -979,8 +1088,8 @@ function OrderDetail({ orderId, onBack }) {
               <option value="rank">Mi Ranking</option>
               <option value="price_asc">Precio menor</option>
               <option value="price_desc">Precio mayor</option>
-              <option value="year_desc">Mas nuevas</option>
-              <option value="year_asc">Mas antiguas</option>
+              <option value="year_desc">Más nuevas</option>
+              <option value="year_asc">Más antiguas</option>
             </select>
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-medium">
               <button
@@ -1030,7 +1139,7 @@ function OrderDetail({ orderId, onBack }) {
             if (displayed.length === 0) {
               return (
                 <div className="text-center py-10 text-sm text-slate-400">
-                  Ninguna embarcacion coincide con los filtros.
+                  Ninguna embarcación coincide con los filtros.
                 </div>
               );
             }
@@ -1074,7 +1183,7 @@ function OrderDetail({ orderId, onBack }) {
                                   </a>
                                 )}
                                 {!isSold && (
-                                  <button onClick={() => setInspectionLink(l)} className="p-1.5 rounded-md text-violet-600 hover:bg-violet-50" title="Inspeccion">
+                                  <button onClick={() => setInspectionLink(l)} className="p-1.5 rounded-md text-violet-600 hover:bg-violet-50" title="Inspección">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                                   </button>
                                 )}
@@ -1124,7 +1233,7 @@ function OrderDetail({ orderId, onBack }) {
         <Card className="mb-5 text-center py-12">
           <svg className="w-10 h-10 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <p className="text-slate-500 font-medium">Tu agente esta buscando opciones</p>
-          <p className="text-sm text-slate-400 mt-1">Cuando encuentre embarcaciones, apareceran aqui para que las priorices.</p>
+          <p className="text-sm text-slate-400 mt-1">Cuando encuentre embarcaciones, aparecerán aquí para que las priorices.</p>
         </Card>
       )}
 
@@ -1509,7 +1618,7 @@ export default function Expedientes() {
                     { v: 'all', label: 'Todos', count: orders.length },
                     { v: 'active', label: 'Activos', count: activeOrders.length },
                     { v: 'completed', label: 'Completados', count: completedOrders.length },
-                    { v: 'busqueda', label: 'Busquedas', count: busquedas.length },
+                    { v: 'busqueda', label: 'Búsquedas', count: busquedas.length },
                     { v: 'cotizacion', label: 'Cotizaciones', count: cotizaciones.length },
                   ].map(t => (
                     <button
