@@ -532,14 +532,19 @@ switch (true) {
         // dolar.php responde en espanol (dolar_observado) y el panel lee los
         // nombres en ingles del backend viejo, asi que hay que traducirlos: si
         // no, el campo llega undefined y el panel se queda con su valor fijo.
-        ob_start();
+        //
+        // La traduccion va en un callback de buffer y no despues del require
+        // porque dolar.php termina con exit() cuando sirve desde cache: con un
+        // ob_get_clean() posterior, el caso mas frecuente se saltaba la
+        // conversion y seguia devolviendo los nombres en espanol.
+        ob_start(function ($salida) {
+            $d = json_decode($salida, true);
+            if (!is_array($d)) return $salida;
+            $d['dollar_observado'] = $d['dolar_observado'] ?? null;
+            $d['dollar_compra']    = $d['dolar_compra'] ?? null;
+            return json_encode($d);
+        });
         require __DIR__ . '/dolar.php';
-        $dolarRaw = json_decode(ob_get_clean(), true) ?: [];
-        echo json_encode([
-            'success'          => !empty($dolarRaw['success']),
-            'dollar_observado' => $dolarRaw['dolar_observado'] ?? null,
-            'dollar_compra'    => $dolarRaw['dolar_compra'] ?? null,
-        ]);
         break;
 
     // Auth endpoints - handled locally (no Fly.dev dependency)
