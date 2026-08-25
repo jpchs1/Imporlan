@@ -51,13 +51,16 @@ function sbSaldo($llave) {
     return is_array($r) ? ($r['used_api_credit'] ?? null) : null;
 }
 
-function sbPedir($llave, $url, $premium, $conJs) {
+function sbPedir($llave, $url, $proxy, $conJs) {
     $params = [
         'api_key' => $llave,
         'url' => $url,
         'render_js' => $conJs ? 'true' : 'false',
     ];
-    if ($premium) $params['premium_proxy'] = 'true';
+    // premium usa IPs residenciales; stealth es el modo que ScrapingBee reserva
+    // para los sitios que ni asi ceden, y BoatTrader resulto ser uno de esos.
+    if ($proxy === 'premium') $params['premium_proxy'] = 'true';
+    if ($proxy === 'stealth') $params['stealth_proxy'] = 'true';
     // block_ads, block_resources y wait solo existen con navegador detras.
     // Mandarlos con render_js apagado hace que la API rechace la peticion
     // entera, y el 500 se lee como si hubiera fallado el sitio.
@@ -67,10 +70,18 @@ function sbPedir($llave, $url, $premium, $conJs) {
     }
 
     $ch = curl_init('https://app.scrapingbee.com/api/v1/?' . http_build_query($params));
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 70, CURLOPT_ENCODING => '']);
+    // Resolver el desafio de Cloudflare con navegador toma mucho mas que una
+    // peticion normal. Con 70 segundos la prueba expiraba y devolvia HTTP 0,
+    // que se leia como un fallo del sitio cuando en realidad nunca supimos el
+    // resultado — y el credito igual se cobro.
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180, CURLOPT_ENCODING => '']);
     $html = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $errCurl = curl_error($ch);
     curl_close($ch);
+    // HTTP 0 significa que la peticion no llego a completarse; sin el texto de
+    // cURL el motivo queda invisible.
+    if ($code === 0 && $errCurl) return [0, 'La peticion no se completo: ' . $errCurl];
     return [$code, (string) $html];
 }
 
@@ -102,16 +113,17 @@ echo "  " . str_repeat('=', 64) . "\n";
 echo "  Creditos usados al empezar: $saldo\n\n";
 
 $etapas = [
-    ['Basico            ', $urlTrivial, false, false, 'la cuenta responde'],
-    ['Premium proxy     ', $urlTrivial, true,  false, 'el plan permite IPs residenciales'],
-    ['Navegador (JS)    ', $urlTrivial, false, true,  'el plan permite render_js'],
-    ['Anuncio + premium ', $urlAnuncio, true,  false, 'la variante barata sirve para el anuncio'],
-    ['Anuncio + todo    ', $urlAnuncio, true,  true,  'la variante cara sirve para el anuncio'],
+    ['Basico              ', $urlTrivial, 'ninguno', false, 'la cuenta responde'],
+    ['Premium proxy       ', $urlTrivial, 'premium', false, 'el plan permite IPs residenciales'],
+    ['Navegador (JS)      ', $urlTrivial, 'ninguno', true,  'el plan permite render_js'],
+    ['Anuncio premium     ', $urlAnuncio, 'premium', false, 'la variante mas barata'],
+    ['Anuncio premium+JS  ', $urlAnuncio, 'premium', true,  'residencial con navegador'],
+    ['Anuncio stealth+JS  ', $urlAnuncio, 'stealth', true,  'el modo mas caro, para sitios que no ceden'],
 ];
 
 $res = [];
-foreach ($etapas as $i => [$nombre, $url, $premium, $conJs, $queMide]) {
-    [$code, $html] = sbPedir($llave, $url, $premium, $conJs);
+foreach ($etapas as $i => [$nombre, $url, $proxy, $conJs, $queMide]) {
+    [$code, $html] = sbPedir($llave, $url, $proxy, $conJs);
     $nuevo = sbSaldo($llave);
     $costo = ($nuevo !== null) ? $nuevo - $saldo : null;
     $saldo = $nuevo ?? $saldo;
@@ -151,22 +163,33 @@ if (!$res[1]['ok']) {
     exit(1);
 }
 
-$barato = $res[3];
-$caro = $res[4];
+$barato  = $res[3];   // premium, sin navegador
+$medio   = $res[4];   // premium con navegador
+$stealth = $res[5];   // stealth con navegador
+
+$costo = function ($e) { return $e['costo'] === null ? '?' : $e['costo']; };
 
 if ($barato['ok']) {
-    echo "  RECOMENDACION: apagar render_js para BoatTrader.\n";
-    if ($barato['costo'] && $caro['costo']) {
-        $veces = round($caro['costo'] / max(1, $barato['costo']), 1);
-        echo "  Trae foto y precio igual, y cuesta {$barato['costo']} contra {$caro['costo']} creditos:\n";
-        echo "  el mismo plan rinde {$veces} veces mas anuncios.\n";
-    }
-} elseif ($caro['ok']) {
-    echo "  RECOMENDACION: dejar render_js encendido, que es como esta hoy.\n";
-    echo "  Sin el la pagina no entrega foto ni precio, asi que no hay ahorro.\n";
+    echo "  RECOMENDACION: premium_proxy sin render_js.\n";
+    echo "  Trae foto y precio, y es la combinacion mas barata (" . $costo($barato) . " creditos).\n";
+    echo "  Hay que apagar render_js para este dominio en planBScrapingBee().\n";
+} elseif ($medio['ok']) {
+    echo "  RECOMENDACION: premium_proxy con render_js, que es como esta hoy.\n";
+    echo "  Sin navegador el sitio devuelve el desafio de Cloudflare, asi que no\n";
+    echo "  hay ahorro posible. Costo por anuncio: " . $costo($medio) . " creditos.\n";
+} elseif ($stealth['ok']) {
+    echo "  RECOMENDACION: cambiar a stealth_proxy con render_js.\n";
+    echo "  Es lo unico que atraviesa este Cloudflare, y cuesta " . $costo($stealth) . " creditos\n";
+    echo "  por anuncio. Con eso hay que dimensionar el plan: divide los creditos\n";
+    echo "  mensuales por " . $costo($stealth) . " y eso son los anuncios que rinde.\n";
 } else {
-    echo "  El plan permite todo, pero de ese anuncio no sale ficha por ninguna\n";
-    echo "  de las dos vias. Lo mas probable es que ya no exista: pruebalo con\n";
-    echo "  otro pasando la URL como argumento.\n";
+    echo "  Ninguna combinacion trajo la ficha, y el plan permite todas.\n";
+    echo "  Quedan dos explicaciones: que el anuncio ya no exista —pruebalo\n";
+    echo "  pasando otra URL como argumento— o que este Cloudflare no ceda ni\n";
+    echo "  con stealth. Si es lo segundo, BoatTrader no es viable a ningun\n";
+    echo "  precio y conviene apoyarse en Facebook Marketplace y Rightboat.\n";
 }
+
+echo "\n  Nota: el contador de creditos de ScrapingBee se actualiza con retraso,\n";
+echo "  asi que un costo en 0 puede ser eso y no una peticion gratis.\n";
 echo "\n";
