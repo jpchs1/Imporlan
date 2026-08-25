@@ -18,6 +18,7 @@ import Plans from './pages/Plans';
 import Payments from './pages/Payments';
 import Orders from './pages/Orders';
 import Inspections from './pages/Inspections';
+import Leads from './pages/Leads';
 import Tracking from './pages/Tracking';
 import Content from './pages/Content';
 import Config from './pages/Config';
@@ -63,6 +64,7 @@ function AppRoutes() {
         <Route path="/payments" element={<Payments />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/inspections" element={<Inspections />} />
+        <Route path="/leads" element={<Leads />} />
         <Route path="/tracking" element={<Tracking />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/content" element={<Content />} />

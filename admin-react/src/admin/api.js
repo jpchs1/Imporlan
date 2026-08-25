@@ -243,3 +243,24 @@ export const markAllNotificationsRead = () => {
   const email = getUserEmail();
   return request(`${API_BASE}/notifications_api.php?action=mark_all_read`, { method: 'POST', body: JSON.stringify({ user_email: email }) });
 };
+
+// Leads del simulador de costos
+export const getLeadsSimulador = () => request(`${API_BASE}/leads_api.php?action=list`);
+// Se descarga con fetch y no con un <a href>: el endpoint exige la cabecera
+// Authorization, y meter el token en la URL lo dejaría escrito en los logs
+// del servidor y en el historial del navegador.
+export async function descargarLeadsSimulador() {
+  const res = await fetch(`${API_BASE}/leads_api.php?action=export`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error('No se pudo exportar el listado');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `leads-simulador-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
