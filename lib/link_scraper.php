@@ -148,7 +148,27 @@ function scrapeLinkData($url) {
     return $result;
 }
 
+/**
+ * Cookies de sesion que corresponden a este dominio, si hay alguna guardada.
+ *
+ * Marketplace no nos bloquea: entrega la pagina entera, pero sin sesion no
+ * incluye ni precio, ni ubicacion, ni fotos. Las cookies para eso existen en
+ * scraper_config.php desde hace tiempo, solo que se pasaban unicamente a
+ * ScrapingBee — y ScrapingBee esta sin creditos desde abril. O sea que en la
+ * practica no se estaban usando nunca, y todo anuncio de Facebook terminaba
+ * con el titulo generico y nada mas. Enviarlas tambien en las peticiones
+ * propias es lo que hace que la sesion sirva de algo sin depender de un
+ * servicio pago.
+ */
+function cookiesParaUrl($url) {
+    if (!preg_match('/(^|\.)facebook\.com$/i', parse_url($url, PHP_URL_HOST) ?? '')) {
+        return null;
+    }
+    return buildFacebookCookieString(loadScraperConfig());
+}
+
 function directFetch($url) {
+    $cookies = cookiesParaUrl($url);
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => $url,
@@ -174,6 +194,9 @@ function directFetch($url) {
             'Cache-Control: max-age=0',
         ],
     ]);
+    if ($cookies) {
+        curl_setopt($ch, CURLOPT_COOKIE, $cookies);
+    }
 
     $html = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -688,6 +711,7 @@ function downloadImageViaScrapingBee($imageUrl) {
 
 function fetchFacebookMobile($url, &$result) {
     $mobileUrl = str_replace('www.facebook.com', 'm.facebook.com', $url);
+    $cookies = cookiesParaUrl($url);
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL => $mobileUrl,
@@ -704,6 +728,9 @@ function fetchFacebookMobile($url, &$result) {
             'Accept-Language: en-US,en;q=0.9',
         ],
     ]);
+    if ($cookies) {
+        curl_setopt($ch, CURLOPT_COOKIE, $cookies);
+    }
     $html = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
@@ -1703,7 +1730,15 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    if ($httpCode !== 200 || !$html || strlen($html) < 500) return;
+    if ($httpCode !== 200 || !$html || strlen($html) < 500) {
+        // Sin esto el fallo es invisible: el diagnostico decia "recupero 0
+        // campos", que se lee como "la pagina no traia nada", cuando lo que
+        // pasa es que ScrapingBee contesto 402 por creditos agotados o 401 por
+        // llave invalida. Son problemas distintos con arreglos distintos.
+        error_log('link_scraper: ScrapingBee HTTP ' . $httpCode . ' para ' . $url
+            . ' — ' . substr(strip_tags((string) $html), 0, 200));
+        return;
+    }
 
     // For Facebook URLs, extract price/location from embedded JSON BEFORE parseHtml.
     // This is critical because:

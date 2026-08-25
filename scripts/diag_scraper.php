@@ -79,6 +79,28 @@ $fb = buildFacebookCookieString($cfg);
 diagLinea('Cookies Facebook', $fb ? 'configuradas' : 'NO configuradas (Marketplace no va a entregar datos)');
 diagLinea('Libreria', $lib);
 
+// "Configurado" no es lo mismo que "funciona": la llave puede estar puesta y
+// la cuenta sin creditos. La libreria se traga ese error y el sintoma final es
+// identico al de una pagina vacia, asi que hay que preguntarle a ScrapingBee.
+if ($bee) {
+    $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($bee));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $u = json_decode((string) $resp, true);
+    if ($code === 200 && is_array($u)) {
+        $usados = $u['used_api_credit'] ?? '?';
+        $total  = $u['max_api_credit'] ?? '?';
+        $quedan = (is_numeric($usados) && is_numeric($total)) ? ($total - $usados) : null;
+        diagLinea('  creditos', $usados . ' de ' . $total . ' usados'
+            . ($quedan !== null ? ' — quedan ' . max(0, $quedan) : '')
+            . ($quedan !== null && $quedan <= 0 ? '  ← AGOTADA, Plan B no puede funcionar' : ''));
+    } else {
+        diagLinea('  creditos', 'no se pudo consultar (HTTP ' . $code . ') — ' . substr(strip_tags((string) $resp), 0, 90));
+    }
+}
+
 foreach ($urls as $url) {
     echo "\n  " . str_repeat('-', 74) . "\n  $url\n\n";
 
@@ -95,6 +117,12 @@ foreach ($urls as $url) {
     }
     echo "  [1] Directo, IP del hosting\n";
     diagLinea('resultado', $estado);
+    if (function_exists('cookiesParaUrl') && cookiesParaUrl($url)) {
+        // Una sesion vencida devuelve la misma pagina publica que no tener
+        // ninguna, asi que conviene decir si se enviaron y dejar que el
+        // resultado de [3] muestre si sirvieron.
+        diagLinea('sesion', 'cookies enviadas con la peticion');
+    }
     diagLinea('tiempo', $ms . ' ms');
 
     // ── 2. Jina Reader, desde la IP de Jina ──
