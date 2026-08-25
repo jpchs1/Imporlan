@@ -1889,6 +1889,41 @@ function buildFacebookCookieString($config) {
 }
 
 /**
+ * Cache en disco del HTML que devuelve el modo stealth.
+ *
+ * Una peticion stealth cuesta 75 creditos — medido, no estimado: el contador de
+ * la cuenta paso de 380 a 455 con un solo anuncio de BoatTrader. Sin cache, el
+ * boton "Rescrapear Expediente" del panel vuelve a pedir cada link cada vez que
+ * se aprieta, asi que un expediente de seis lanchas cuesta 450 creditos por
+ * click y repetirlo dos veces se come el plan entero.
+ *
+ * Seis horas es corto para que un cambio de precio no quede congelado, y largo
+ * para cubrir la jornada en que se revisa un expediente varias veces.
+ *
+ * Va en el temporal del sistema y no en uploads/ a proposito: uploads/ se sirve
+ * por web, y ahi adentro queda la pagina completa del anuncio.
+ */
+function stealthCacheRuta($url) {
+    $dir = sys_get_temp_dir() . '/imporlan_stealth';
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    if (!is_dir($dir) || !is_writable($dir)) return null;
+    return $dir . '/' . sha1($url) . '.html';
+}
+
+function stealthCacheLeer($url, $horas = 6) {
+    $f = stealthCacheRuta($url);
+    if (!$f || !is_readable($f)) return null;
+    if ((time() - (int) @filemtime($f)) > $horas * 3600) return null;
+    $html = @file_get_contents($f);
+    return ($html && strlen($html) > 500) ? $html : null;
+}
+
+function stealthCacheGuardar($url, $html) {
+    $f = stealthCacheRuta($url);
+    if ($f) @file_put_contents($f, $html, LOCK_EX);
+}
+
+/**
  * Plan B Level 1: Use ScrapingBee to render the page with a real headless browser.
  * ScrapingBee handles JavaScript rendering, cookies, and can use premium proxies
  * to bypass blocks from sites like Facebook.
@@ -1933,6 +1968,13 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
         }
     }
 
+    // Antes de gastar 75 creditos, mirar si ya pedimos esta misma pagina hoy.
+    $html = $isHardBlockedBoatSite ? stealthCacheLeer($url) : null;
+    if ($html !== null) {
+        planBScrapingBeeProcesar($html, $url, $result, $isFacebook);
+        return;
+    }
+
     $sbUrl = 'https://app.scrapingbee.com/api/v1/?' . http_build_query($params);
 
     $ch = curl_init();
@@ -1963,6 +2005,19 @@ function planBScrapingBee($url, &$result, $apiKey, $config = []) {
         return;
     }
 
+    if ($isHardBlockedBoatSite) stealthCacheGuardar($url, $html);
+
+    planBScrapingBeeProcesar($html, $url, $result, $isFacebook);
+}
+
+/**
+ * Que se hace con el HTML una vez conseguido, venga de ScrapingBee o del cache.
+ *
+ * Estaba dentro de planBScrapingBee(); se separo para que el camino del cache
+ * pase por los mismos pasos y no por una copia que se desincroniza en el
+ * proximo arreglo.
+ */
+function planBScrapingBeeProcesar($html, $url, &$result, $isFacebook) {
     // For Facebook URLs, extract price/location from embedded JSON BEFORE parseHtml.
     // This is critical because:
     // 1) Plan A's directFetch may return a login page (HTTP 200, 400KB+) which
