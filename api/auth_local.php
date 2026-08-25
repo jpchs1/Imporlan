@@ -593,8 +593,15 @@ function handleGoogleAuth() {
     echo json_encode(buildUserResponse($user, $token));
 }
 
-function handleRegister() {
-    $input = json_decode(file_get_contents('php://input'), true);
+/**
+ * @param array|null $input Datos ya decodificados. Lo usa register-proxy.php,
+ *   que lee el cuerpo antes de delegar aqui: asi no dependemos de que
+ *   php://input se pueda releer.
+ */
+function handleRegister($input = null) {
+    if (!is_array($input)) {
+        $input = json_decode(file_get_contents('php://input'), true);
+    }
     $email = trim($input['email'] ?? '');
     $password = $input['password'] ?? '';
     $name = trim($input['name'] ?? $input['full_name'] ?? '');
@@ -603,6 +610,16 @@ function handleRegister() {
     if (empty($email) || empty($password)) {
         http_response_code(400);
         echo json_encode(['detail' => 'Email y contrasena son requeridos']);
+        return;
+    }
+
+    // Sin esta validacion se creaban cuentas con cualquier texto como correo.
+    // El costo real no es la basura en la tabla: un cliente que escribe mal su
+    // email queda con una cuenta activa a la que nunca le llega el aviso de su
+    // expediente ni el correo de su compra, y no hay forma de contactarlo.
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['detail' => 'El correo no tiene un formato valido.']);
         return;
     }
 
