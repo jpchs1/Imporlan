@@ -171,7 +171,17 @@ export default function Orders() {
     if (!detail || rescraping) return;
     const pend = links.filter(l => (l.url || '').trim());
     if (!pend.length) { alert('Este expediente no tiene links con URL.'); return; }
-    if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.`)) return;
+
+    // BoatTrader, boats.com y YachtWorld estan detras de Cloudflare y solo se
+    // pueden pedir en el modo mas caro de ScrapingBee: 75 creditos por link,
+    // medido. Un expediente de seis lanchas cuesta 450 creditos por click, y
+    // este boton no daba ninguna senal de eso. El servidor cachea seis horas,
+    // asi que repetirlo el mismo dia no vuelve a cobrar.
+    const caros = pend.filter(l => /yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i.test(l.url || '')).length;
+    const aviso = caros
+      ? `\n\n${caros} de ellos son de sitios con Cloudflare y cuestan ~75 creditos de ScrapingBee cada uno (~${caros * 75} en total). Si ya los rescrapeaste hoy, salen del cache y no cobran.`
+      : '';
+    if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.${aviso}`)) return;
 
     setRescraping(true);
     let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0;
