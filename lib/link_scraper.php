@@ -73,7 +73,19 @@ function scrapeLinkData($url) {
         'year' => null,
     ];
 
-    $html = directFetch($url);
+    $html = directFetch($url, $anuncioRetirado);
+
+    // Si el propio sitio nos mando a la categoria, el anuncio ya no existe y no
+    // hay nada que buscar. Seguir preguntandole a Jina o a Microlink no lo
+    // resucita: los dos siguen la misma redireccion y traen el listado completo,
+    // del que se extraen un precio y una foto que no son de este anuncio. Jina
+    // ademas informa como origen la URL pedida, no donde termino, asi que alli
+    // el enredo es indetectable. Este es el unico punto donde consta.
+    if ($anuncioRetirado) {
+        parseUrlPatterns($url, $parsedUrl, $result);
+        $result['anuncio_retirado'] = true;
+        return $result;
+    }
 
     if ($html) {
         parseHtml($html, $url, $parsedUrl, $result);
@@ -174,12 +186,47 @@ function cookiesParaUrl($url) {
  * silencio todos los anuncios de Marketplace y el sintoma es identico al de un
  * anuncio borrado. USER_ID en cero es la marca de que no hay sesion.
  */
+/**
+ * El identificador del anuncio dentro de la URL, si se puede reconocer.
+ *
+ * Es el ultimo tramo de la ruta cuando trae algun digito: "rb499217",
+ * "1743225483679861", "2019-cobalt-r5-surf-8625998". Si no lo trae devuelve
+ * null y no se exige nada, porque no hay nada que comparar.
+ */
+function identificadorDeAnuncio($url) {
+    $ruta = (string) parse_url($url, PHP_URL_PATH);
+    $tramos = array_values(array_filter(explode('/', $ruta), 'strlen'));
+    if (!$tramos) return null;
+    $ultimo = end($tramos);
+    if (strlen($ultimo) < 4 || !preg_match('/\d/', $ultimo)) return null;
+    return $ultimo;
+}
+
+/**
+ * Detecta que nos mandaron a otra pagina en vez del anuncio pedido.
+ *
+ * Cuando un aviso se da de baja, varios sitios no contestan 404: redirigen a
+ * la categoria y devuelven 200. Rightboat lo hace, y el scraper tomaba de esa
+ * pagina el titulo, la foto y el precio como si fueran del anuncio — dos
+ * avisos distintos y ya borrados terminaron con la misma ficha y un precio de
+ * USD 64.900 que no era de ninguno de los dos. Un dato inventado en un
+ * expediente es peor que un campo vacio: el cliente no tiene como saber que
+ * esta mal.
+ */
+function redirigidoFueraDelAnuncio($pedida, $efectiva) {
+    if (!$efectiva || $efectiva === $pedida) return false;
+    $id = identificadorDeAnuncio($pedida);
+    if ($id === null) return false;
+    return stripos($efectiva, $id) === false;
+}
+
 function sesionFacebookRechazada($html) {
     if (!$html) return false;
     return (bool) preg_match('/"(?:USER_ID|ACCOUNT_ID)":"0"/', $html);
 }
 
-function directFetch($url) {
+function directFetch($url, &$anuncioRetirado = false) {
+    $anuncioRetirado = false;
     $cookies = cookiesParaUrl($url);
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -212,9 +259,15 @@ function directFetch($url) {
 
     $html = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $efectiva = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
     curl_close($ch);
 
     if ($httpCode >= 400 || !$html) {
+        return null;
+    }
+    if (redirigidoFueraDelAnuncio($url, $efectiva)) {
+        $anuncioRetirado = true;
+        error_log('link_scraper: el anuncio ya no existe, el sitio redirige a ' . $efectiva . ' — ' . $url);
         return null;
     }
     if ($cookies && sesionFacebookRechazada($html)) {
@@ -572,7 +625,18 @@ function callMicrolink($url, $extraParams = '') {
     if ($httpCode !== 200 || !$resp) return null;
     $data = @json_decode($resp, true);
     if (!$data || ($data['status'] ?? '') !== 'success') return null;
-    return $data['data'] ?? [];
+    $datos = $data['data'] ?? [];
+
+    // Microlink tambien sigue las redirecciones, y devuelve en 'url' donde
+    // termino. Sin esta guarda, un anuncio dado de baja que redirige a la
+    // categoria entra igual por aca con el titulo, la foto y el precio del
+    // listado completo.
+    if (!empty($datos['url']) && redirigidoFueraDelAnuncio($url, $datos['url'])) {
+        error_log('link_scraper: Microlink termino en ' . $datos['url'] . ', el anuncio ya no existe — ' . $url);
+        return null;
+    }
+
+    return $datos;
 }
 
 function isVideoUrl($url) {
@@ -1335,6 +1399,16 @@ function jinaFetchOnce($url, $sinCache = false) {
 
     if ($code !== 200 || !$md || strlen($md) < 300) return null;
     if (jinaBlockedByChallenge($md)) return null;
+
+    // Jina sigue las redirecciones igual que nosotros y anota donde termino en
+    // su cabecera "URL Source". Si el anuncio se dio de baja y el sitio mando a
+    // la categoria, lo que viene es el listado entero: sin esta guarda el
+    // scraper extrae de ahi un precio y una foto que no son del anuncio.
+    if (preg_match('/^URL Source:\s*(\S+)/mi', $md, $m)
+        && redirigidoFueraDelAnuncio($url, $m[1])) {
+        error_log('link_scraper: Jina termino en ' . $m[1] . ', el anuncio ya no existe — ' . $url);
+        return null;
+    }
 
     return $md;
 }
