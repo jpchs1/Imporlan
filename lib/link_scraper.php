@@ -1900,14 +1900,40 @@ function buildFacebookCookieString($config) {
  * Seis horas es corto para que un cambio de precio no quede congelado, y largo
  * para cubrir la jornada en que se revisa un expediente varias veces.
  *
- * Va en el temporal del sistema y no en uploads/ a proposito: uploads/ se sirve
- * por web, y ahi adentro queda la pagina completa del anuncio.
+ * No va en uploads/ a proposito: esa carpeta se sirve por web, y adentro del
+ * archivo queda la pagina completa del anuncio.
+ *
+ * Tampoco va en el temporal del sistema. El hosting le da a cada usuario un
+ * temporal propio, y nada garantiza que el PHP de consola y el que sirve el
+ * panel resuelvan la misma ruta; si difieren, cada lado guarda su copia y el
+ * rescrapeo del panel vuelve a pagar lo que el diagnostico ya bajo. Al colgarlo
+ * de la carpeta de la libreria la ruta es la misma para los dos, y sigue fuera
+ * del docroot. El temporal queda solo de respaldo por si esa carpeta no fuera
+ * escribible.
  */
+function stealthCacheDir() {
+    foreach ([__DIR__ . '/../.cache_stealth', sys_get_temp_dir() . '/imporlan_stealth'] as $dir) {
+        if (!is_dir($dir)) @mkdir($dir, 0700, true);
+        if (is_dir($dir) && is_writable($dir)) return $dir;
+    }
+    return null;
+}
+
 function stealthCacheRuta($url) {
-    $dir = sys_get_temp_dir() . '/imporlan_stealth';
-    if (!is_dir($dir)) @mkdir($dir, 0700, true);
-    if (!is_dir($dir) || !is_writable($dir)) return null;
-    return $dir . '/' . sha1($url) . '.html';
+    $dir = stealthCacheDir();
+    return $dir ? $dir . '/' . sha1($url) . '.html' : null;
+}
+
+/**
+ * Media hoja de HTML por anuncio se acumula rapido y nadie va a acordarse de
+ * limpiar. Se barre lo vencido al guardar, que es la unica vez que hace falta.
+ */
+function stealthCachePodar($horas = 24) {
+    $dir = stealthCacheDir();
+    if (!$dir) return;
+    foreach ((array) @glob($dir . '/*.html') as $f) {
+        if ((time() - (int) @filemtime($f)) > $horas * 3600) @unlink($f);
+    }
 }
 
 function stealthCacheLeer($url, $horas = 6) {
@@ -1920,7 +1946,9 @@ function stealthCacheLeer($url, $horas = 6) {
 
 function stealthCacheGuardar($url, $html) {
     $f = stealthCacheRuta($url);
-    if ($f) @file_put_contents($f, $html, LOCK_EX);
+    if (!$f) return;
+    @file_put_contents($f, $html, LOCK_EX);
+    stealthCachePodar();
 }
 
 /**

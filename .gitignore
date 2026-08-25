@@ -46,6 +46,9 @@ backup_temp/
 # Cache files
 *.cache
 *_cache.json
+# HTML de anuncios bajados con stealth_proxy (75 creditos cada uno); en el
+# servidor cuelga de /home/wwimpo/lib/, fuera del docroot.
+.cache_stealth/
 
 # Build artifacts
 *.zip

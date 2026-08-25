@@ -82,6 +82,17 @@ $fb = buildFacebookCookieString($cfg);
 diagLinea('Cookies Facebook', $fb ? 'configuradas' : 'NO configuradas (Marketplace no va a entregar datos)');
 diagLinea('Libreria', $lib);
 
+// Sin esto no hay forma de saber si una corrida cobro o salio del cache: el
+// veredicto se ve identico en los dos casos y el contador de ScrapingBee va
+// con retraso. La ruta ademas confirma que consola y web comparten carpeta.
+if (function_exists('stealthCacheDir')) {
+    $dirCache = stealthCacheDir();
+    $guardados = $dirCache ? count((array) glob($dirCache . '/*.html')) : 0;
+    diagLinea('Cache stealth', $dirCache
+        ? $dirCache . ' (' . $guardados . ' anuncio(s) guardados)'
+        : 'sin carpeta escribible — cada peticion va a cobrar de nuevo');
+}
+
 // "Configurado" no es lo mismo que "funciona": la llave puede estar puesta y
 // la cuenta sin creditos. La libreria se traga ese error y el sintoma final es
 // identico al de una pagina vacia, asi que hay que preguntarle a ScrapingBee.
