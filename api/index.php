@@ -523,6 +523,25 @@ switch (true) {
         ]);
         break;
     
+    // El panel compilado pide el dolar a /settings/dollar-observado (heredado
+    // del backend de Fly.dev). Esa ruta no existia y devolvia 404, asi que el
+    // panel caia a sus valores por defecto y mostraba 985/1005 fijos cuando el
+    // real ronda 913/933: al cliente le aparecian precios convertidos con un
+    // tipo de cambio ~8% mas alto. Se sirve desde la misma fuente que dolar.php.
+    case preg_match('#^(/api)?/settings/dollar-observado$#', $uriPath):
+        // dolar.php responde en espanol (dolar_observado) y el panel lee los
+        // nombres en ingles del backend viejo, asi que hay que traducirlos: si
+        // no, el campo llega undefined y el panel se queda con su valor fijo.
+        ob_start();
+        require __DIR__ . '/dolar.php';
+        $dolarRaw = json_decode(ob_get_clean(), true) ?: [];
+        echo json_encode([
+            'success'          => !empty($dolarRaw['success']),
+            'dollar_observado' => $dolarRaw['dolar_observado'] ?? null,
+            'dollar_compra'    => $dolarRaw['dolar_compra'] ?? null,
+        ]);
+        break;
+
     // Auth endpoints - handled locally (no Fly.dev dependency)
     case preg_match('#^(/api)?/auth/#', $uriPath):
         require_once __DIR__ . '/auth_local.php';

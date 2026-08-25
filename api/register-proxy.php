@@ -23,25 +23,20 @@ if (!$input || empty($input['email']) || empty($input['password'])) {
     exit();
 }
 
-$FLY_ADMIN = 'https://app-hbgmmbqj.fly.dev';
-$FLY_USER = 'https://app-bxlfgnkv.fly.dev';
-
-function proxyRegister($url, $path, $data) {
-    $ch = curl_init($url . $path);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    $resp = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($err) error_log("register-proxy error: $url$path - $err");
-    return ['code' => $code, 'body' => json_decode($resp, true), 'raw' => $resp];
-}
+// El registro se resuelve LOCALMENTE.
+//
+// Este archivo reenviaba a dos backends en Fly.io que ya no existen: los hosts
+// ni siquiera resuelven por DNS. Cada registro gastaba 20 segundos en dos
+// timeouts de conexion y terminaba devolviendo 500, asi que ningun cliente
+// podia crear su cuenta desde el panel. El log lo mostraba en cada intento:
+//
+//   register-proxy error: https://app-bxlfgnkv.fly.dev/... - Could not resolve host
+//
+// handleRegister() de auth_local.php ya hace todo lo necesario —valida, detecta
+// duplicados, crea el usuario, emite el JWT y manda el correo de bienvenida— y
+// es lo que /api/auth/register usa desde hace tiempo. Aqui solo se delega y se
+// agrega el aviso interno al equipo, que esa funcion no envia.
+require_once __DIR__ . '/auth_local.php';
 
 $registrationData = [
     'email' => $input['email'],
@@ -50,52 +45,22 @@ $registrationData = [
     'phone' => $input['phone'] ?? null
 ];
 
-$adminResult = proxyRegister($FLY_ADMIN, '/api/test/auth/register', $registrationData);
+// Se captura la salida para poder decidir si notificar al equipo sin alterar
+// la respuesta que recibe el panel.
+ob_start();
+handleRegister($input);
+$body = ob_get_clean();
 
-$userResult = proxyRegister($FLY_USER, '/api/auth/register', $registrationData);
-
-$primaryResult = null;
-if ($userResult['code'] >= 200 && $userResult['code'] < 300) {
-    $primaryResult = $userResult;
-} elseif ($adminResult['code'] >= 200 && $adminResult['code'] < 300) {
-    $primaryResult = $adminResult;
-}
-
-if (!$primaryResult) {
-    $errorBody = $userResult['body'] ?? $adminResult['body'] ?? ['detail' => 'Error al registrar usuario'];
-    http_response_code($userResult['code'] ?: 500);
-    echo json_encode($errorBody);
-    exit();
-}
-
-try {
-    sendRegistrationNotification($registrationData);
-} catch (Exception $e) {
-    error_log("register-proxy email error: " . $e->getMessage());
-}
-
-try {
-    require_once __DIR__ . '/db_config.php';
-    $pdo = getDbConnection();
-    if ($pdo) {
-        $check = $pdo->prepare("SELECT id FROM admin_users WHERE email = ?");
-        $check->execute([strtolower($registrationData['email'])]);
-        if (!$check->fetch()) {
-            $stmt = $pdo->prepare("INSERT INTO admin_users (name, email, password_hash, role, status, phone) VALUES (?, ?, ?, 'user', 'active', ?)");
-            $stmt->execute([
-                $registrationData['name'] ?? explode('@', $registrationData['email'])[0],
-                strtolower($registrationData['email']),
-                password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT),
-                $registrationData['phone'] ?? null
-            ]);
-        }
+$code = http_response_code();
+if ($code >= 200 && $code < 300) {
+    try {
+        sendRegistrationNotification($registrationData);
+    } catch (Exception $e) {
+        error_log("register-proxy email error: " . $e->getMessage());
     }
-} catch (Exception $e) {
-    error_log("register-proxy db insert error: " . $e->getMessage());
 }
 
-http_response_code($primaryResult['code']);
-echo $primaryResult['raw'];
+echo $body;
 
 function sendRegistrationNotification($data) {
     $emailServiceFile = __DIR__ . '/email_service.php';
