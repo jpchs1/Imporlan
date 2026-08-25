@@ -458,23 +458,80 @@ function extractFacebookJsonData($html, &$result) {
     }
 }
 
+/**
+ * Los respaldos por clase CSS toman el primer elemento que mencione "location"
+ * o "engine" y se quedan con todo su texto. En una ficha armada como tabla eso
+ * arrastra la etiqueta de la fila siguiente o el valor de otra fila: en un
+ * anuncio de Rightboat la ubicacion salio "Used" y el motor "Volvo Penta Engine
+ * Hours". Estas funciones son el filtro de esos dos respaldos.
+ */
+function limpiarTextoDeFicha($texto) {
+    return trim(preg_replace('/\s+/', ' ', (string) $texto));
+}
+
+function pareceUbicacion($texto) {
+    $t = limpiarTextoDeFicha($texto);
+    if (strlen($t) < 3 || strlen($t) > 100) return false;
+    // Estado y condicion viven en la misma tabla que la ubicacion y se cuelan.
+    if (preg_match('/^(new|used|nuevo|usado|sale|for sale|price|precio|condition|condicion|location|ubicacion)$/i', $t)) return false;
+    // Un lugar trae coma ("St. Michaels, Maryland") o al menos dos palabras.
+    // Preferimos dejarlo vacio antes que escribir cualquier cosa: un chip en
+    // blanco no confunde a nadie, uno que dice "Used" si.
+    return strpos($t, ',') !== false || str_word_count($t) >= 2;
+}
+
+function limpiarMotor($texto) {
+    $t = limpiarTextoDeFicha($texto);
+    // Arrastre tipico de la fila siguiente en la tabla de especificaciones.
+    $t = preg_replace('/\s*\d*\s*(engine\s+hours?|hrs?\.?|hours?)\s*$/i', '', $t);
+    $t = trim($t, " \t\n\r\0\x0B-:|·•");
+    if (strlen($t) < 3) return null;
+    if (preg_match('/^(engine|motor|propulsion|engines|motores)$/i', $t)) return null;
+    return $t;
+}
+
 function extractFieldsFromText($bodyText, $xpath, &$result) {
     if (!$result['location']) {
-        if (preg_match('/(?:for\s+sale\s+in|located?\s*(?:in|at|:)?|location\s*:?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})(?:\s+\d{5})?/i', $bodyText, $m)) {
-            $result['location'] = trim($m[1]) . ', ' . strtoupper($m[2]);
+        // El separador entre palabras del nombre es [ \t]+ y no \s+ a proposito:
+        // un nombre de ciudad no cruza saltos de linea. Con \s+ el patron unia
+        // una celda con la siguiente de la tabla de especificaciones, y en un
+        // anuncio de Rightboat la ubicacion salio "Used ... Madison, WI".
+        // Este patron tiene ancla ("for sale in ...") y por eso es el confiable:
+        // el de mas abajo se queda con la primera "Ciudad, ST" que aparezca en
+        // la pagina, que suele ser la del corredor o la de otro anuncio del
+        // listado. Se acepta el estado escrito completo ademas de la sigla,
+        // porque titulos como "for Sale in St. Michaels, Maryland" quedaban
+        // fuera y cedian el turno al patron suelto, que respondia "Madison, WI"
+        // para una lancha que estaba en Maryland. Tambien se admite el punto de
+        // las abreviaturas ("St. Michaels").
+        $ciudad = '(?:[A-Z][a-z]+\.?)(?:[ \t]+(?:[A-Z][a-z]+\.?)){0,3}';
+        $estado = '(?:[A-Z]{2}\b|[A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+)?)';
+        // El titulo va primero y aparte: en varios sitios la frase con ancla
+        // vive solo ahi ("2000 Cobalt 206 for Sale in St. Michaels, Maryland"),
+        // y $bodyText sale del <body>, asi que por si solo nunca la ve.
+        $conAncla = trim((string) ($result['title'] ?? '')) . "\n" . $bodyText;
+        // El ancla va en un grupo (?i:) y no con el modificador /i de toda la
+        // expresion: los nombres de ciudad y estado se reconocen justamente por
+        // ir en mayuscula inicial, y hacer insensible el patron entero los
+        // dejaria calzar con cualquier palabra suelta.
+        if (preg_match('/(?i:for\s+sale\s+in|located?\s*(?:in|at|:)?|location\s*:?)[ \t]+(' . $ciudad . '),[ \t]*(' . $estado . ')/', $conAncla, $m)) {
+            $estadoTxt = trim($m[2]);
+            $result['location'] = trim($m[1]) . ', ' . (strlen($estadoTxt) === 2 ? strtoupper($estadoTxt) : $estadoTxt);
         }
     }
     if (!$result['location']) {
-        if (preg_match('/([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]+)*),\s*([A-Z]{2})(?:\s+\d{5})?/', $bodyText, $m)) {
+        if (preg_match('/([A-Z][a-z]{2,}(?:[ \t]+[A-Z][a-z]+)*),[ \t]*([A-Z]{2})(?:[ \t]+\d{5})?/', $bodyText, $m)
+            && pareceUbicacion($m[1] . ', ' . $m[2])) {
             $result['location'] = $m[1] . ', ' . $m[2];
         }
     }
     if (!$result['location'] && $xpath) {
         $locationEls = $xpath->query('//*[contains(@class,"location") or contains(@class,"city") or contains(@class,"address") or contains(@data-test,"location")]');
-        if ($locationEls->length > 0) {
-            $locText = trim($locationEls->item(0)->textContent);
-            if (strlen($locText) < 100 && strlen($locText) > 2) {
+        foreach ($locationEls as $el) {
+            $locText = limpiarTextoDeFicha($el->textContent);
+            if (pareceUbicacion($locText)) {
                 $result['location'] = $locText;
+                break;
             }
         }
     }
@@ -519,10 +576,11 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
         // Try structured elements first
         if ($xpath) {
             $engineEls = $xpath->query('//*[contains(@class,"engine") or contains(@class,"motor") or contains(@class,"propulsion") or contains(@data-test,"engine")]');
-            if ($engineEls->length > 0) {
-                $eText = trim($engineEls->item(0)->textContent);
-                if (strlen($eText) > 2 && strlen($eText) < 300) {
+            foreach ($engineEls as $el) {
+                $eText = limpiarMotor($el->textContent);
+                if ($eText !== null && strlen($eText) < 300) {
                     $result['engine'] = $eText;
+                    break;
                 }
             }
         }
@@ -572,7 +630,11 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
                 if (preg_match('/\b(?:prop|props|propeller|propellers|helice|helices|dock\s+lines?|fenders?|anchor|cover|trailer|kit)\b/i', $engineVal)) {
                     continue;
                 }
-                if (strlen($engineVal) >= 3 && strlen($engineVal) <= 60) {
+                // Las fichas en tabla dejan pegada la etiqueta de la fila
+                // siguiente: "Volvo Penta" mas "Engine Hours" del renglon de
+                // abajo. limpiarMotor() corta ese arrastre.
+                $engineVal = limpiarMotor($engineVal);
+                if ($engineVal !== null && strlen($engineVal) >= 3 && strlen($engineVal) <= 60) {
                     $result['engine'] = $engineVal;
                     break;
                 }
