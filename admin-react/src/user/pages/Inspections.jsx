@@ -44,41 +44,13 @@ const DEMO_INSPECTION = {
     test_drive: { rating: 8.0, fields: { 'Aceleracion': 'Respuesta normal', 'Velocidad maxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rapido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcacion responde bien en todas las pruebas.' },
   },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
-  photos_hull: [
-    '/panel/user/assets/gallery/3.jpg',
-    '/panel/user/assets/gallery/5.jpg',
-    '/panel/user/assets/gallery/10.jpg',
-  ],
-  photos_engine: [
-    '/panel/user/assets/gallery/6.jpg',
-    '/panel/user/assets/gallery/9.jpg',
-  ],
-  photos_electrical: [
-    '/panel/user/assets/gallery/8.jpg',
-  ],
-  photos_interior: [
-    '/panel/user/assets/gallery/1.jpg',
-    '/panel/user/assets/gallery/4.jpg',
-  ],
-  photos_trailer: [
-    '/panel/user/assets/gallery/2.jpg',
-  ],
-  photos_navigation: [
-    '/panel/user/assets/gallery/2.jpeg',
-  ],
-  photos_safety: [
-    '/panel/user/assets/gallery/11.png',
-  ],
-  photos_general: [
-    '/panel/user/assets/gallery/1.jpg',
-    '/panel/user/assets/gallery/3.jpg',
-    '/panel/user/assets/gallery/5.jpg',
-    '/panel/user/assets/gallery/4.jpg',
-  ],
-  photos_test_drive: [
-    '/panel/user/assets/gallery/12.png',
-    '/panel/user/assets/gallery/13.png',
-  ],
+  // Aca habia nueve listas de fotos apuntando a /panel/user/assets/gallery/,
+  // una carpeta que no existe en el servidor. El reporte de ejemplo —el que ve
+  // todo cliente que aun no tiene una inspeccion— salia con 14 imagenes rotas,
+  // justo la pagina que tiene que mostrar como se ve un informe PREMIUM. Las
+  // secciones sin fotos no se dibujan (photoSections filtra por largo), asi que
+  // vaciarlas deja el ejemplo limpio: calificaciones, radar, fichas por seccion,
+  // recomendaciones y el video. Si aparecen las fotos originales, vuelven aca.
   videos_test_drive: ['https://www.youtube.com/watch?v=qAuCVrVybIQ'],
 };
 
