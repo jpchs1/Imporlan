@@ -85,6 +85,15 @@ function sbPedir($llave, $url, $proxy, $conJs) {
     return [$code, (string) $html];
 }
 
+/**
+ * BoatTrader responde HTTP 200 con su propia pagina de error cuando el anuncio
+ * ya no existe, y adentro deja el estado real. Distinguirlo importa: llegar a
+ * un 404 significa que el proxy funciono y que el unico problema es el link.
+ */
+function sbAnuncioBorrado($html) {
+    return (bool) preg_match('/"statusCode"\s*:\s*404|status code 404/i', $html);
+}
+
 /** Reusa el extractor de produccion: interesa la ficha, no que la pagina llegue. */
 function sbFicha($html, $url) {
     static $cargado = false;
@@ -135,6 +144,15 @@ foreach ($etapas as $i => [$nombre, $url, $proxy, $conJs, $queMide]) {
 
     if (!$ok) {
         printf("      HTTP %d: %s\n", $code, trim(preg_replace('/\s+/', ' ', strip_tags($html))));
+    } elseif ($url === $urlAnuncio && sbAnuncioBorrado($html)) {
+        // Atravesar Cloudflare y encontrar un 404 es un exito tecnico con
+        // resultado vacio. Sin separarlo, la conclusion culpaba a la
+        // configuracion cuando el problema era el link.
+        printf("      La pagina llego, pero el anuncio ya no existe (404 del sitio).\n");
+        $ok = false;
+        $res[$i] = ['ok' => false, 'costo' => $costo, 'borrado' => true];
+        echo "\n";
+        continue;
     } elseif ($url === $urlAnuncio) {
         $f = sbFicha($html, $url);
         printf("      titulo: %s\n", $f['title'] ?: '—');
@@ -182,6 +200,11 @@ if ($barato['ok']) {
     echo "  Es lo unico que atraviesa este Cloudflare, y cuesta " . $costo($stealth) . " creditos\n";
     echo "  por anuncio. Con eso hay que dimensionar el plan: divide los creditos\n";
     echo "  mensuales por " . $costo($stealth) . " y eso son los anuncios que rinde.\n";
+} elseif (!empty($barato['borrado']) || !empty($medio['borrado']) || !empty($stealth['borrado'])) {
+    echo "  El anuncio de prueba ya no existe: el sitio devolvio su pagina de 404.\n";
+    echo "  Eso NO es un fallo del proxy — llegar al 404 significa que pasamos\n";
+    echo "  Cloudflare. Repite con un anuncio vivo:\n";
+    echo "    php " . __DIR__ . "/buscar_boattrader.php\n";
 } else {
     echo "  Ninguna combinacion trajo la ficha, y el plan permite todas.\n";
     echo "  Quedan dos explicaciones: que el anuncio ya no exista —pruebalo\n";
