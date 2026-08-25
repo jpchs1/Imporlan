@@ -119,9 +119,11 @@ foreach ($urls as $url) {
     diagLinea('resultado', $estado);
     if (function_exists('cookiesParaUrl') && cookiesParaUrl($url)) {
         // Una sesion vencida devuelve la misma pagina publica que no tener
-        // ninguna, asi que conviene decir si se enviaron y dejar que el
-        // resultado de [3] muestre si sirvieron.
-        diagLinea('sesion', 'cookies enviadas con la peticion');
+        // ninguna, con el mismo peso y el mismo HTTP 200. La diferencia esta
+        // adentro: Facebook escribe USER_ID en cero cuando no reconoce a nadie.
+        diagLinea('sesion', sesionFacebookRechazada($html)
+            ? 'RECHAZADA — las cookies estan vencidas; hay que sacar c_user y xs de nuevo'
+            : 'aceptada — Facebook reconoce la sesion');
     }
     diagLinea('tiempo', $ms . ' ms');
 
