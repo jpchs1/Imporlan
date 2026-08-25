@@ -72,17 +72,31 @@ if (!empty($previas['c_user'])) {
     echo "  Sesion actual: c_user " . $previas['c_user'] . " (se va a reemplazar)\n\n";
 }
 
-$cUser = leerVisible('  c_user (solo numeros): ');
+// Los nombres c_user y xs se leen como si pidieran un usuario y una clave, y
+// no es eso: son dos filas de la tabla de cookies del navegador, y lo que hay
+// que pegar aca es la columna "Value" de cada una.
+echo "  Esto NO pide tu correo ni tu contrasena.\n";
+echo "  Facebook guarda la sesion en cookies, y necesito el VALOR de dos de ellas.\n\n";
+echo "  Donde estan:\n";
+echo "    1. Abre facebook.com en el navegador, con la cuenta que vas a usar.\n";
+echo "    2. Aprieta F12 y anda a la pestana Application (o Almacenamiento).\n";
+echo "    3. En el panel izquierdo: Cookies → https://www.facebook.com\n";
+echo "    4. Busca las filas llamadas c_user y xs, y copia su columna Value.\n\n";
+
+$cUser = leerVisible('  Valor de la cookie "c_user" (un numero largo, tipo 100064321987654): ');
 if (!preg_match('/^\d{5,}$/', $cUser)) {
-    exit("\n  c_user deberia ser solo numeros. No se cambio nada.\n\n");
+    exit("\n  Eso no parece el valor de c_user: tiene que ser solo numeros.\n"
+       . "  Si escribiste tu correo o tu nombre, no es eso — es la columna Value\n"
+       . "  de la fila c_user en la tabla de cookies. No se cambio nada.\n\n");
 }
 
-$xs = leerOculto('  xs (no se muestra al escribir): ');
+$xs = leerOculto('  Valor de la cookie "xs" (no se muestra al escribir): ');
 if (strlen($xs) < 10) {
-    exit("\n  El valor de xs parece incompleto. No se cambio nada.\n\n");
+    exit("\n  El valor de xs parece incompleto. Suele ser largo y empezar con\n"
+       . "  numeros seguidos de dos puntos, tipo 36:AbCd... No se cambio nada.\n\n");
 }
 
-$datr = leerVisible('  datr (opcional, Enter para omitir): ');
+$datr = leerVisible('  Valor de la cookie "datr" (opcional, Enter para omitir): ');
 
 // Respaldo antes de escribir: el archivo tiene la llave de ScrapingBee y otras
 // cosas que no queremos perder por un error de este script.
