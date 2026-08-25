@@ -7,14 +7,17 @@
  * experimento.
  *
  * La primera es si la cuenta permite lo que el scraper necesita. BoatTrader,
- * boats.com y YachtWorld estan detras de Cloudflare y solo pasan con
- * premium_proxy, que en varios planes viene capado; si no esta disponible, la
- * cuenta no sirve para esos sitios por mucho credito que tenga.
+ * boats.com y YachtWorld estan detras de Cloudflare, y ahi ni siquiera basta
+ * premium_proxy: hay que llegar a stealth_proxy, que en varios planes viene
+ * capado. Si no esta disponible, la cuenta no sirve para esos sitios por mucho
+ * credito que tenga.
  *
- * La segunda es cuanto cuesta cada anuncio. El scraper pide las paginas con
- * premium_proxy y render_js juntos, la combinacion mas cara del tarifario. El
- * precio y la foto de BoatTrader viven en el JSON incrustado del anuncio, que
- * llega en el HTML sin ejecutar nada, asi que render_js podria sobrar.
+ * La segunda es cuanto cuesta cada anuncio, para poder dimensionar el plan. Ojo
+ * con eso: el contador de creditos de ScrapingBee se actualiza con retraso, asi
+ * que restar el saldo antes y despues de una peticion suele dar 0 aunque la
+ * peticion se haya cobrado. Por eso este script no publica un costo por
+ * anuncio salvo que lo haya medido de verdad, y para la cifra exacta manda al
+ * panel.
  *
  * Se prueba por etapas y contra un sitio trivial primero. Cuando todo se prueba
  * de una vez, un fallo no dice si la culpa es de la cuenta, del plan, de los
@@ -130,6 +133,7 @@ $etapas = [
     ['Anuncio stealth+JS  ', $urlAnuncio, 'stealth', true,  'el modo mas caro, para sitios que no ceden'],
 ];
 
+$saldoInicial = $saldo;
 $res = [];
 foreach ($etapas as $i => [$nombre, $url, $proxy, $conJs, $queMide]) {
     [$code, $html] = sbPedir($llave, $url, $proxy, $conJs);
@@ -138,8 +142,11 @@ foreach ($etapas as $i => [$nombre, $url, $proxy, $conJs, $queMide]) {
     $saldo = $nuevo ?? $saldo;
 
     $ok = ($code === 200 && strlen($html) > 200);
+    // Un costo en 0 casi nunca significa "gratis": el contador de ScrapingBee
+    // va con retraso y todavia no registro esta peticion. Imprimirlo como
+    // "0 creditos" hacia que el resumen recomendara dividir el plan por cero.
     printf("  [%d] %s  %s   %s\n", $i + 1, $nombre,
-        $ok ? 'OK   ' : 'FALLA', $costo === null ? '' : $costo . ' credito(s)');
+        $ok ? 'OK   ' : 'FALLA', ($costo > 0) ? $costo . ' credito(s)' : '');
     printf("      %s\n", $queMide);
 
     if (!$ok) {
@@ -173,33 +180,43 @@ if (!$res[0]['ok']) {
     exit(1);
 }
 if (!$res[1]['ok']) {
-    echo "  Este plan NO permite premium_proxy, que es lo unico que pasa el\n";
-    echo "  Cloudflare de BoatTrader, boats.com y YachtWorld. Con creditos de\n";
-    echo "  sobra la cuenta igual no sirve para esos sitios: hay que subir a un\n";
-    echo "  plan que lo incluya, o dejar esas fuentes fuera y trabajar con\n";
-    echo "  Facebook Marketplace y Rightboat, que no lo necesitan.\n\n";
-    exit(1);
+    echo "  AVISO: este plan NO permite premium_proxy, que es lo que necesita\n";
+    echo "  Facebook Marketplace cuando hace falta sesion. Sigo igual, porque\n";
+    echo "  los sitios de Cloudflare no dependen de premium sino de stealth.\n\n";
 }
 
 $barato  = $res[3];   // premium, sin navegador
 $medio   = $res[4];   // premium con navegador
 $stealth = $res[5];   // stealth con navegador
 
-$costo = function ($e) { return $e['costo'] === null ? '?' : $e['costo']; };
+// El costo por peticion casi nunca se puede medir: el contador de ScrapingBee
+// va con retraso y devuelve 0. Antes esto se imprimia igual y salia la
+// instruccion absurda de dividir los creditos del plan por cero.
+$porAnuncio = function ($e) {
+    return ($e['costo'] > 0)
+        ? "Costo medido: " . $e['costo'] . " creditos por anuncio.\n"
+        : "El contador de ScrapingBee no alcanzo a registrar el cobro, asi que\n"
+        . "  el costo por anuncio no se puede medir aqui.\n";
+};
 
 if ($barato['ok']) {
     echo "  RECOMENDACION: premium_proxy sin render_js.\n";
-    echo "  Trae foto y precio, y es la combinacion mas barata (" . $costo($barato) . " creditos).\n";
+    echo "  Trae foto y precio, y es la combinacion mas barata del tarifario.\n";
     echo "  Hay que apagar render_js para este dominio en planBScrapingBee().\n";
+    echo "  " . $porAnuncio($barato);
 } elseif ($medio['ok']) {
-    echo "  RECOMENDACION: premium_proxy con render_js, que es como esta hoy.\n";
+    echo "  RECOMENDACION: premium_proxy con render_js.\n";
     echo "  Sin navegador el sitio devuelve el desafio de Cloudflare, asi que no\n";
-    echo "  hay ahorro posible. Costo por anuncio: " . $costo($medio) . " creditos.\n";
+    echo "  hay ahorro posible por ese lado.\n";
+    echo "  " . $porAnuncio($medio);
 } elseif ($stealth['ok']) {
-    echo "  RECOMENDACION: cambiar a stealth_proxy con render_js.\n";
-    echo "  Es lo unico que atraviesa este Cloudflare, y cuesta " . $costo($stealth) . " creditos\n";
-    echo "  por anuncio. Con eso hay que dimensionar el plan: divide los creditos\n";
-    echo "  mensuales por " . $costo($stealth) . " y eso son los anuncios que rinde.\n";
+    echo "  RECOMENDACION: stealth_proxy con render_js, que es como quedo el\n";
+    echo "  scraper en produccion para BoatTrader, boats.com y YachtWorld.\n";
+    echo "  Es lo unico que atraviesa este Cloudflare: premium no pasa ni con\n";
+    echo "  navegador ni sin el.\n";
+    echo "  " . $porAnuncio($stealth);
+    echo "  Es la variante mas cara del tarifario, asi que conviene elegir bien\n";
+    echo "  que anuncios se piden en vez de rescrapear expedientes enteros.\n";
 } elseif (!empty($barato['borrado']) || !empty($medio['borrado']) || !empty($stealth['borrado'])) {
     echo "  El anuncio de prueba ya no existe: el sitio devolvio su pagina de 404.\n";
     echo "  Eso NO es un fallo del proxy — llegar al 404 significa que pasamos\n";
@@ -213,6 +230,14 @@ if ($barato['ok']) {
     echo "  precio y conviene apoyarse en Facebook Marketplace y Rightboat.\n";
 }
 
-echo "\n  Nota: el contador de creditos de ScrapingBee se actualiza con retraso,\n";
-echo "  asi que un costo en 0 puede ser eso y no una peticion gratis.\n";
+// El gasto total de la corrida es mas confiable que el de cada peticion: entre
+// la primera y la ultima consulta el contador ya tuvo tiempo de moverse.
+$saldoFinal = sbSaldo($llave);
+if ($saldoInicial !== null && $saldoFinal !== null) {
+    echo "\n  Gasto de esta corrida: " . max(0, $saldoFinal - $saldoInicial) . " creditos"
+       . " (6 peticiones, contador en $saldoFinal).\n";
+}
+echo "\n  El contador de ScrapingBee se actualiza con retraso, asi que un costo\n";
+echo "  en 0 puede ser eso y no una peticion gratis. La cifra exacta por tipo\n";
+echo "  de peticion esta en dashboard.scrapingbee.com, en el detalle de uso.\n";
 echo "\n";
