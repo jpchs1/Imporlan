@@ -203,12 +203,10 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
     { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', logoFallback: '#64748b', action: () => setShowBank(true) },
   ];
 
-  const logoMap = {
-    webpay: '/panel/user/assets/logos/logowebpay.png',
-    webpay2: '/panel/user/assets/logos/logowebpay.png',
-    mercadopago: '/panel/user/assets/logos/logomercadopago.png',
-    transfer: null,
-  };
+  // Aca habia un logoMap apuntando a /panel/user/assets/logos/, una carpeta que
+  // no existe en el servidor: los <img> daban 404 y la tarjeta quedaba con un
+  // hueco. El color de cada marca ya estaba definido en logoFallback, asi que
+  // el recuadro de abajo alcanza y no depende de ningun archivo.
 
   return (
     <Modal open={open} onClose={onClose} title={`Pagar: ${pr.title}`} size="md">
@@ -240,13 +238,9 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
                       : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
                   )}
                 >
-                  {logoMap[m.id] ? (
-                    <img src={logoMap[m.id]} alt={m.label} className="h-12 w-16 rounded-xl object-contain shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${m.logoFallback}, ${m.logoFallback}cc)` }}>
-                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                    </div>
-                  )}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${m.logoFallback}, ${m.logoFallback}cc)` }}>
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                  </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-700">{m.label}</p>
                     <p className="text-xs text-slate-400">{m.desc}</p>
@@ -270,14 +264,23 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
 }
 
 // --- Custom Pay Form (matching production screenshot) ---
+// Mismo caso que MarcaPago: los tres archivos de logo no existen y el <img>
+// dejaba el recuadro en blanco. El de transferencia ya se dibujaba asi, con su
+// abreviatura sobre el color de la marca; ahora los cuatro van igual.
 function PayLogo({ id }) {
-  const logos = {
-    webpay: '/panel/user/assets/logos/logowebpay.png',
-    mercadopago: '/panel/user/assets/logos/logomercadopago.png',
-    paypal: '/panel/user/assets/logos/logopaypal.png',
+  const marcas = {
+    webpay:      { texto: 'WebPay', fondo: '#E31837' },
+    mercadopago: { texto: 'MP',     fondo: '#00B1EA' },
+    paypal:      { texto: 'PayPal', fondo: '#003087' },
+    transfer:    { texto: 'TRA',    fondo: '#10b981' },
   };
-  if (logos[id]) return <img src={logos[id]} alt={id} className="w-full h-full object-contain" />;
-  return <div className="w-full h-full rounded-lg bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">TRA</div>;
+  const m = marcas[id] || marcas.transfer;
+  return (
+    <div className="w-full h-full rounded-lg flex items-center justify-center px-0.5 text-white text-[10px] font-bold text-center leading-tight"
+         style={{ background: m.fondo }}>
+      {m.texto}
+    </div>
+  );
 }
 
 const PAY_METHODS = [
@@ -399,6 +402,24 @@ function StatTile({ label, value, sub, color, icon, active, onClick }) {
       <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">{label}</p>
       {sub && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sub}</p>}
     </button>
+  );
+}
+
+/**
+ * Marca de un medio de pago dibujada, no cargada.
+ *
+ * Las tarjetas pedian /panel/user/assets/logos/logowebpay.png y sus hermanas,
+ * archivos que no existen en el servidor. El onError escondia la imagen, asi
+ * que el 404 no se veia como error: la tarjeta simplemente salia sin logo y
+ * nadie se enteraba. Dibujarla con el color de la marca —el mismo que ya usan
+ * los badges de cada tarjeta— no depende de ningun archivo y no se puede
+ * romper. Es el mismo camino que ya seguia la tarjeta de Transferencia.
+ */
+function MarcaPago({ nombre, color, fondo }) {
+  return (
+    <div className="h-10 w-14 rounded-xl flex items-center justify-center shrink-0 px-1" style={{ background: fondo }}>
+      <span className="text-[10px] font-bold leading-tight text-center" style={{ color }}>{nombre}</span>
+    </div>
   );
 }
 
@@ -565,7 +586,7 @@ export default function Payments() {
             { label: 'Credito', bg: '#fef2f2', color: '#E31837' },
             { label: 'Debito', bg: '#fef2f2', color: '#E31837' },
           ]}
-          logo={<img src="/panel/user/assets/logos/logowebpay.png" alt="WebPay" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          logo={<MarcaPago nombre="WebPay" color="#E31837" fondo="#fef2f2" />}
           onClick={() => setShowCustomPay(true)}
         />
         <ProviderCard
@@ -577,7 +598,7 @@ export default function Payments() {
             { label: 'Wallet', bg: '#e6f7fd', color: '#00B1EA' },
             { label: 'Tarjeta', bg: '#e6f7fd', color: '#00B1EA' },
           ]}
-          logo={<img src="/panel/user/assets/logos/logomercadopago.png" alt="MercadoPago" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          logo={<MarcaPago nombre="Mercado Pago" color="#00B1EA" fondo="#e6f7fd" />}
           onClick={() => setShowCustomPay(true)}
         />
         <ProviderCard
@@ -589,7 +610,7 @@ export default function Payments() {
             { label: 'USD', bg: '#e8eaf6', color: '#003087' },
             { label: 'Internacional', bg: '#e8eaf6', color: '#003087' },
           ]}
-          logo={<img src="/panel/user/assets/logos/logopaypal.png" alt="PayPal" className="h-10 w-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />}
+          logo={<MarcaPago nombre="PayPal" color="#003087" fondo="#e8eaf6" />}
           onClick={() => setShowCustomPay(true)}
         />
         <ProviderCard
