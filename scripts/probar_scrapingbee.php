@@ -1,25 +1,30 @@
 <?php
 /**
- * Medir cuanto cuesta cada anuncio en ScrapingBee — Imporlan
- * ==========================================================
+ * Que permite esta cuenta de ScrapingBee, y cuanto cuesta — Imporlan
+ * ==================================================================
  *
- * El scraper pide las paginas de BoatTrader con premium_proxy y render_js
- * juntos. Esa combinacion es la mas cara del tarifario: la prueba gratuita de
- * 1.000 creditos alcanzo para unos trece anuncios y se agoto en dias.
+ * Dos preguntas distintas que se responden juntas porque comparten el mismo
+ * experimento.
  *
- * La pregunta que este script contesta es si render_js hace falta. El precio y
- * la foto de BoatTrader viven en el JSON incrustado del anuncio, que llega en
- * el HTML sin ejecutar nada; si eso alcanza, cada anuncio cuesta bastante menos
- * y el mismo plan rinde varias veces mas.
+ * La primera es si la cuenta permite lo que el scraper necesita. BoatTrader,
+ * boats.com y YachtWorld estan detras de Cloudflare y solo pasan con
+ * premium_proxy, que en varios planes viene capado; si no esta disponible, la
+ * cuenta no sirve para esos sitios por mucho credito que tenga.
  *
- * Prueba las dos variantes contra un anuncio real, mide los creditos que gasto
- * cada una consultando el saldo antes y despues, y recomienda.
+ * La segunda es cuanto cuesta cada anuncio. El scraper pide las paginas con
+ * premium_proxy y render_js juntos, la combinacion mas cara del tarifario. El
+ * precio y la foto de BoatTrader viven en el JSON incrustado del anuncio, que
+ * llega en el HTML sin ejecutar nada, asi que render_js podria sobrar.
+ *
+ * Se prueba por etapas y contra un sitio trivial primero. Cuando todo se prueba
+ * de una vez, un fallo no dice si la culpa es de la cuenta, del plan, de los
+ * parametros o del anuncio: la primera version de este script devolvio HTTP 500
+ * en las dos variantes y no permitia distinguir nada.
  *
  * USO
  *   php /home/wwimpo/imporlan-staging/scripts/probar_scrapingbee.php [URL]
  *
- * Gasta creditos de verdad: dos peticiones, una barata y una cara. Es el precio
- * de no seguir adivinando.
+ * Gasta creditos reales. Las peticiones que fallan no se cobran.
  */
 
 if (php_sapi_name() !== 'cli') {
@@ -35,7 +40,8 @@ $config = require $configPath;
 $llave = trim($config['scrapingbee_api_key'] ?? '');
 if (!$llave) exit("No hay API key de ScrapingBee configurada.\n  Corre antes: set_scrapingbee_key.php\n\n");
 
-$url = $argv[1] ?? 'https://www.boattrader.com/boat/2019-cobalt-r5-surf-8625998/';
+$urlAnuncio = $argv[1] ?? 'https://www.boattrader.com/boat/2019-cobalt-r5-surf-8625998/';
+$urlTrivial = 'https://example.com';
 
 function sbSaldo($llave) {
     $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($llave));
@@ -45,97 +51,122 @@ function sbSaldo($llave) {
     return is_array($r) ? ($r['used_api_credit'] ?? null) : null;
 }
 
-function sbPedir($llave, $url, $conJs) {
+function sbPedir($llave, $url, $premium, $conJs) {
     $params = [
         'api_key' => $llave,
         'url' => $url,
         'render_js' => $conJs ? 'true' : 'false',
-        'premium_proxy' => 'true',
-        'block_ads' => 'true',
-        'block_resources' => 'false',
     ];
-    if ($conJs) $params['wait'] = '3000';
+    if ($premium) $params['premium_proxy'] = 'true';
+    // block_ads, block_resources y wait solo existen con navegador detras.
+    // Mandarlos con render_js apagado hace que la API rechace la peticion
+    // entera, y el 500 se lee como si hubiera fallado el sitio.
+    if ($conJs) {
+        $params['block_ads'] = 'true';
+        $params['wait'] = '3000';
+    }
 
     $ch = curl_init('https://app.scrapingbee.com/api/v1/?' . http_build_query($params));
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_ENCODING => '']);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 70, CURLOPT_ENCODING => '']);
     $html = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     return [$code, (string) $html];
 }
 
-/**
- * Que trajo la pagina, medido por lo unico que importa: si de ahi sale una
- * ficha que le sirva al cliente. Se reusa el extractor de verdad para no
- * medir con una regla distinta a la que despues corre en produccion.
- */
-function sbEvaluar($html, $url) {
-    $lib = '/home/wwimpo/lib/imporlan/link_scraper.php';
-    if (!is_readable($lib)) $lib = __DIR__ . '/../lib/link_scraper.php';
-    if (!defined('IMPORLAN_API_DIR')) {
-        $api = '/home/wwimpo/imporlan.cl/api';
-        define('IMPORLAN_API_DIR', is_dir($api) ? $api : __DIR__ . '/../api');
+/** Reusa el extractor de produccion: interesa la ficha, no que la pagina llegue. */
+function sbFicha($html, $url) {
+    static $cargado = false;
+    if (!$cargado) {
+        $lib = '/home/wwimpo/lib/imporlan/link_scraper.php';
+        if (!is_readable($lib)) $lib = __DIR__ . '/../lib/link_scraper.php';
+        if (!defined('IMPORLAN_API_DIR')) {
+            $api = '/home/wwimpo/imporlan.cl/api';
+            define('IMPORLAN_API_DIR', is_dir($api) ? $api : __DIR__ . '/../api');
+        }
+        require_once $lib;
+        $cargado = true;
     }
-    require_once $lib;
-
-    $result = ['title'=>null,'image_url'=>null,'location'=>null,'hours'=>null,'engine'=>null,
-               'make'=>null,'model'=>null,'year'=>null,'value_usa_usd'=>null,'description'=>null];
-    parseHtml($html, $url, parse_url($url), $result);
-    extractFromStructuredData($html, $result);
-    return $result;
+    $r = ['title'=>null,'image_url'=>null,'location'=>null,'hours'=>null,'engine'=>null,
+          'make'=>null,'model'=>null,'year'=>null,'value_usa_usd'=>null,'description'=>null];
+    parseHtml($html, $url, parse_url($url), $r);
+    extractFromStructuredData($html, $r);
+    return $r;
 }
 
-echo "\n  Cuanto cuesta cada anuncio en ScrapingBee\n";
-echo "  " . str_repeat('=', 62) . "\n";
-echo "  Anuncio: $url\n\n";
+$saldo = sbSaldo($llave);
+if ($saldo === null) exit("\n  No pude consultar el saldo. Revisa la llave.\n\n");
 
-$antes = sbSaldo($llave);
-if ($antes === null) exit("  No pude consultar el saldo. Revisa la llave.\n\n");
-echo "  Creditos usados al empezar: $antes\n\n";
+echo "\n  Que permite esta cuenta de ScrapingBee\n";
+echo "  " . str_repeat('=', 64) . "\n";
+echo "  Creditos usados al empezar: $saldo\n\n";
 
-$resumen = [];
-foreach ([['sin render_js', false], ['con render_js', true]] as [$etiqueta, $conJs]) {
-    echo "  ── $etiqueta ──\n";
-    [$code, $html] = sbPedir($llave, $url, $conJs);
-    $despues = sbSaldo($llave);
-    $costo = ($despues !== null && $antes !== null) ? $despues - $antes : null;
-    $antes = $despues;
+$etapas = [
+    ['Basico            ', $urlTrivial, false, false, 'la cuenta responde'],
+    ['Premium proxy     ', $urlTrivial, true,  false, 'el plan permite IPs residenciales'],
+    ['Navegador (JS)    ', $urlTrivial, false, true,  'el plan permite render_js'],
+    ['Anuncio + premium ', $urlAnuncio, true,  false, 'la variante barata sirve para el anuncio'],
+    ['Anuncio + todo    ', $urlAnuncio, true,  true,  'la variante cara sirve para el anuncio'],
+];
 
-    if ($code !== 200) {
-        printf("    %-14s HTTP %d — %s\n", 'resultado', $code, substr(strip_tags($html), 0, 120));
-        printf("    %-14s %s\n\n", 'costo', $costo === null ? '?' : $costo . ' creditos');
-        $resumen[$etiqueta] = ['ok' => false, 'costo' => $costo];
-        continue;
+$res = [];
+foreach ($etapas as $i => [$nombre, $url, $premium, $conJs, $queMide]) {
+    [$code, $html] = sbPedir($llave, $url, $premium, $conJs);
+    $nuevo = sbSaldo($llave);
+    $costo = ($nuevo !== null) ? $nuevo - $saldo : null;
+    $saldo = $nuevo ?? $saldo;
+
+    $ok = ($code === 200 && strlen($html) > 200);
+    printf("  [%d] %s  %s   %s\n", $i + 1, $nombre,
+        $ok ? 'OK   ' : 'FALLA', $costo === null ? '' : $costo . ' credito(s)');
+    printf("      %s\n", $queMide);
+
+    if (!$ok) {
+        printf("      HTTP %d: %s\n", $code, trim(preg_replace('/\s+/', ' ', strip_tags($html))));
+    } elseif ($url === $urlAnuncio) {
+        $f = sbFicha($html, $url);
+        printf("      titulo: %s\n", $f['title'] ?: '—');
+        printf("      precio: %s   foto: %s\n",
+            !empty($f['value_usa_usd']) ? 'USD ' . number_format($f['value_usa_usd']) : '—',
+            !empty($f['image_url']) ? 'si' : '—');
+        $ok = !empty($f['value_usa_usd']) && !empty($f['image_url']);
     }
-
-    $r = sbEvaluar($html, $url);
-    $foto = !empty($r['image_url']);
-    $precio = !empty($r['value_usa_usd']);
-    printf("    %-14s %s bytes\n", 'pagina', number_format(strlen($html)));
-    printf("    %-14s %s\n", 'titulo', $r['title'] ?: '—');
-    printf("    %-14s %s\n", 'precio', $precio ? 'USD ' . number_format($r['value_usa_usd']) : '—');
-    printf("    %-14s %s\n", 'foto', $foto ? 'si' : '—');
-    printf("    %-14s %s\n\n", 'costo', $costo === null ? '?' : $costo . ' creditos');
-    $resumen[$etiqueta] = ['ok' => ($foto && $precio), 'costo' => $costo];
+    echo "\n";
+    $res[$i] = ['ok' => $ok, 'costo' => $costo];
 }
 
-echo "  " . str_repeat('=', 62) . "\n";
-$barato = $resumen['sin render_js'] ?? null;
-$caro = $resumen['con render_js'] ?? null;
+echo "  " . str_repeat('=', 64) . "\n";
 
-if ($barato && $barato['ok']) {
+if (!$res[0]['ok']) {
+    echo "  La cuenta no responde ni a una peticion trivial. El problema es la\n";
+    echo "  llave o la cuenta, no la configuracion del scraper.\n\n";
+    exit(1);
+}
+if (!$res[1]['ok']) {
+    echo "  Este plan NO permite premium_proxy, que es lo unico que pasa el\n";
+    echo "  Cloudflare de BoatTrader, boats.com y YachtWorld. Con creditos de\n";
+    echo "  sobra la cuenta igual no sirve para esos sitios: hay que subir a un\n";
+    echo "  plan que lo incluya, o dejar esas fuentes fuera y trabajar con\n";
+    echo "  Facebook Marketplace y Rightboat, que no lo necesitan.\n\n";
+    exit(1);
+}
+
+$barato = $res[3];
+$caro = $res[4];
+
+if ($barato['ok']) {
     echo "  RECOMENDACION: apagar render_js para BoatTrader.\n";
-    if ($barato['costo'] && $caro && $caro['costo']) {
+    if ($barato['costo'] && $caro['costo']) {
         $veces = round($caro['costo'] / max(1, $barato['costo']), 1);
-        echo "  Trae foto y precio igual, y cuesta {$barato['costo']} creditos contra {$caro['costo']}:\n";
+        echo "  Trae foto y precio igual, y cuesta {$barato['costo']} contra {$caro['costo']} creditos:\n";
         echo "  el mismo plan rinde {$veces} veces mas anuncios.\n";
     }
-} elseif ($caro && $caro['ok']) {
-    echo "  RECOMENDACION: dejar render_js encendido.\n";
-    echo "  Sin el la pagina no entrega foto ni precio, asi que el ahorro no existe.\n";
+} elseif ($caro['ok']) {
+    echo "  RECOMENDACION: dejar render_js encendido, que es como esta hoy.\n";
+    echo "  Sin el la pagina no entrega foto ni precio, asi que no hay ahorro.\n";
 } else {
-    echo "  Ninguna de las dos variantes trajo foto y precio.\n";
-    echo "  Si ademas dieron HTTP distinto de 200, el problema es la cuenta o el\n";
-    echo "  sitio, no la configuracion. Revisa el detalle de arriba.\n";
+    echo "  El plan permite todo, pero de ese anuncio no sale ficha por ninguna\n";
+    echo "  de las dos vias. Lo mas probable es que ya no exista: pruebalo con\n";
+    echo "  otro pasando la URL como argumento.\n";
 }
 echo "\n";
