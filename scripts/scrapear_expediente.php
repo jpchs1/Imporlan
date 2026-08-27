@@ -22,12 +22,18 @@
  * cobrar.
  *
  * USO
+ *   php scrapear_expediente.php --pendientes     que expedientes tienen fichas a medias
  *   php scrapear_expediente.php IMP-00003        un expediente por su numero
  *   php scrapear_expediente.php 42               o por su id interno
  *   php scrapear_expediente.php IMP-00003 --todo tambien las filas ya completas
  *   php scrapear_expediente.php IMP-00003 --si   sin preguntar (para cron)
  *
- * Por defecto solo toca las filas sin titulo ni imagen, que son las que fallaron.
+ * Por defecto toca las filas a las que les falta la foto o el precio, que son
+ * los dos datos que el cliente necesita para decidir. No alcanza con mirar el
+ * titulo: cuando el scrapeo falla, el titulo igual se rellena deduciendolo de la
+ * URL, asi que una fila rota se ve "con ficha" y con este criterio quedaria
+ * fuera justo la que hay que arreglar.
+ *
  * Cada anuncio de un sitio con Cloudflare cuesta 75 creditos de ScrapingBee, asi
  * que el script los cuenta y pregunta antes de gastarlos.
  */
@@ -43,8 +49,11 @@ $argumento = $argv[1] ?? '';
 $soloVacias = !in_array('--todo', $argv, true);
 $sinPreguntar = in_array('--si', $argv, true);
 
-if ($argumento === '' || $argumento[0] === '-') {
+$listarPendientes = in_array('--pendientes', $argv, true);
+
+if (!$listarPendientes && ($argumento === '' || $argumento[0] === '-')) {
     exit("\n  Falta el expediente.\n"
+       . "    php " . basename(__FILE__) . " --pendientes        que expedientes tienen fichas a medias\n"
        . "    php " . basename(__FILE__) . " IMP-00003\n"
        . "    php " . basename(__FILE__) . " IMP-00003 --todo   (tambien las filas ya completas)\n\n");
 }
@@ -66,6 +75,59 @@ require_once $apiPath;
 $pdo = getDbConnection();
 if (!$pdo) exit("No pude conectar a la base de datos.\n");
 
+/**
+ * Una fila esta incompleta cuando le falta la foto o el precio.
+ *
+ * Mirar el titulo no sirve: cuando el scrapeo falla, el titulo igual se rellena
+ * deduciendolo de la URL ("2021 Chaparral 267 Ssx" sale del propio link), asi
+ * que la fila rota aparenta estar completa. Foto y precio son los dos datos que
+ * el cliente necesita para decidir, y los unicos que solo pueden venir del
+ * anuncio.
+ */
+function filaIncompleta($f) {
+    $sinFoto = trim((string) ($f['image_url'] ?? '')) === '';
+    $sinPrecio = !((float) ($f['value_usa_usd'] ?? 0) > 0);
+    return $sinFoto || $sinPrecio;
+}
+
+// ── Modo --pendientes: donde estan las fichas a medias ──
+// Sin esto, para arreglar un link roto que se vio en el panel hay que adivinar
+// a que expediente pertenece.
+if ($listarPendientes) {
+    $filasTodas = $pdo->query(
+        "SELECT o.order_number, l.order_id, l.row_index, l.url, l.image_url, l.value_usa_usd
+           FROM order_links l
+           JOIN orders o ON o.id = l.order_id
+          WHERE l.url IS NOT NULL AND TRIM(l.url) <> ''
+          ORDER BY l.order_id, l.row_index"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    $porExpediente = [];
+    foreach ($filasTodas as $f) {
+        if (filaIncompleta($f)) $porExpediente[$f['order_number']][] = $f;
+    }
+
+    echo "\n  Expedientes con fichas incompletas\n";
+    echo "  " . str_repeat('=', 68) . "\n";
+    if (!$porExpediente) {
+        echo "  Ninguno: todas las filas con link tienen foto y precio.\n\n";
+        exit(0);
+    }
+    foreach ($porExpediente as $numero => $rotas) {
+        echo "\n  $numero — " . count($rotas) . " fila(s)\n";
+        foreach ($rotas as $f) {
+            $falta = [];
+            if (trim((string) $f['image_url']) === '') $falta[] = 'foto';
+            if (!((float) $f['value_usa_usd'] > 0)) $falta[] = 'precio';
+            printf("    fila %-2d  falta %-12s %s\n", $f['row_index'],
+                implode('+', $falta), substr($f['url'], 0, 52));
+        }
+    }
+    echo "\n  " . str_repeat('=', 68) . "\n";
+    echo "  Para completar uno:  php " . basename(__FILE__) . " <numero>\n\n";
+    exit(0);
+}
+
 // Se acepta el numero que ve el cliente (IMP-00003) o el id interno. El numero
 // es lo que aparece en el panel y en los correos; pedir el id obligaria a ir a
 // buscarlo a la base justo cuando uno quiere resolver rapido.
@@ -80,7 +142,7 @@ if (!$orden) exit("\n  No existe el expediente '$argumento'.\n\n");
 
 $orderId = intval($orden['id']);
 
-$st = $pdo->prepare("SELECT row_index, url, title, image_url FROM order_links
+$st = $pdo->prepare("SELECT row_index, url, title, image_url, value_usa_usd FROM order_links
                      WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''
                      ORDER BY row_index");
 $st->execute([$orderId]);
@@ -96,22 +158,21 @@ function esSitioCaro($url) {
     return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
 }
 
-$vacia = function ($f) {
-    return trim((string) $f['title']) === '' && trim((string) $f['image_url']) === '';
-};
-
-$aProcesar = $soloVacias ? array_filter($filas, $vacia) : $filas;
+$aProcesar = $soloVacias ? array_filter($filas, 'filaIncompleta') : $filas;
 $indices = array_column($aProcesar, 'row_index');
 
 foreach ($filas as $f) {
     $marca = in_array($f['row_index'], $indices) ? '→' : ' ';
-    $estado = $vacia($f) ? 'sin ficha' : 'ya tiene ficha';
-    printf("  %s fila %-2d  %-15s %s%s\n", $marca, $f['row_index'], $estado,
-        substr($f['url'], 0, 58), esSitioCaro($f['url']) ? '  [75 cred.]' : '');
+    $falta = [];
+    if (trim((string) $f['image_url']) === '') $falta[] = 'foto';
+    if (!((float) $f['value_usa_usd'] > 0)) $falta[] = 'precio';
+    printf("  %s fila %-2d  %-14s %s%s\n", $marca, $f['row_index'],
+        $falta ? 'falta ' . implode('+', $falta) : 'completa',
+        substr($f['url'], 0, 56), esSitioCaro($f['url']) ? '  [75 cred.]' : '');
 }
 
 if (!$aProcesar) {
-    echo "\n  Todas las filas ya tienen ficha. Para rehacerlas igual: --todo\n\n";
+    echo "\n  Todas las filas tienen foto y precio. Para rehacerlas igual: --todo\n\n";
     exit(0);
 }
 
@@ -136,15 +197,24 @@ $t = microtime(true);
 
 // La misma funcion que usa el boton del panel. Reusarla en vez de reescribir el
 // scrapeo evita que consola y panel se vayan separando con cada arreglo.
-$resultados = scrapeOrderLinkRows($pdo, $orderId, $soloVacias, 0, null);
-
-foreach ($resultados as $r) {
+//
+// Se llama fila por fila, y no de una vez, por dos razones: su filtro interno
+// de "solo vacias" pide titulo E imagen en blanco, que no es el criterio de
+// aca; y con anuncios de 90 segundos conviene ver el avance en vez de mirar una
+// pantalla quieta durante diez minutos.
+$resultados = [];
+foreach ($aProcesar as $i => $f) {
+    printf("  fila %-2d  (%d de %d) pidiendo...", $f['row_index'], count($resultados) + 1, count($aProcesar));
+    $t0 = microtime(true);
+    $r = scrapeOrderLinkRows($pdo, $orderId, false, 0, intval($f['row_index']));
+    $r = $r[0] ?? ['row_index' => $f['row_index'], 'status' => 'sin_resultado'];
     $campos = $r['fields'] ?? [];
-    printf("  fila %-2d  %-12s %s%s\n",
+    printf("\r  fila %-2d  %-13s %-42s %ds\n",
         $r['row_index'] ?? 0,
         $r['status'] ?? '?',
-        $campos ? implode(', ', $campos) : ($r['error'] ?? ''),
-        !empty($r['image']) ? '   (con foto)' : '');
+        $campos ? implode(', ', $campos) : substr((string) ($r['error'] ?? ''), 0, 42),
+        round(microtime(true) - $t0));
+    $resultados[] = $r;
 }
 
 $actualizadas = 0;
