@@ -84,6 +84,24 @@ if (!$pdo) exit("No pude conectar a la base de datos.\n");
  * el cliente necesita para decidir, y los unicos que solo pueden venir del
  * anuncio.
  */
+/** Los mismos dominios que planBScrapingBee() pide con stealth_proxy. */
+function esSitioCaro($url) {
+    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
+}
+
+/** Creditos consumidos en la cuenta de ScrapingBee, o null si no se pudo saber. */
+function creditosScrapingBee() {
+    $cfg = function_exists('loadScraperConfig') ? loadScraperConfig() : [];
+    $llave = trim($cfg['scrapingbee_api_key'] ?? '');
+    if (!$llave) return null;
+    $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($llave));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
+    $r = json_decode((string) curl_exec($ch), true);
+    curl_close($ch);
+    if (!is_array($r) || !isset($r['used_api_credit'], $r['max_api_credit'])) return null;
+    return max(0, $r['max_api_credit'] - $r['used_api_credit']);
+}
+
 function filaIncompleta($f) {
     $sinFoto = trim((string) ($f['image_url'] ?? '')) === '';
     $sinPrecio = !((float) ($f['value_usa_usd'] ?? 0) > 0);
@@ -113,17 +131,45 @@ if ($listarPendientes) {
         echo "  Ninguno: todas las filas con link tienen foto y precio.\n\n";
         exit(0);
     }
+    $carasTotal = 0;
+    $gratisTotal = 0;
     foreach ($porExpediente as $numero => $rotas) {
-        echo "\n  $numero — " . count($rotas) . " fila(s)\n";
+        $caras = 0;
+        foreach ($rotas as $f) if (esSitioCaro($f['url'])) $caras++;
+        $carasTotal += $caras;
+        $gratisTotal += count($rotas) - $caras;
+
+        // El costo por expediente es lo que decide por cual empezar, asi que va
+        // en el encabezado y no hay que ir sumandolo a mano.
+        printf("\n  %s — %d fila(s), %s\n", $numero, count($rotas),
+            $caras ? "$caras con Cloudflare: ~" . ($caras * 75) . " creditos" : 'gratis');
         foreach ($rotas as $f) {
             $falta = [];
             if (trim((string) $f['image_url']) === '') $falta[] = 'foto';
             if (!((float) $f['value_usa_usd'] > 0)) $falta[] = 'precio';
             printf("    fila %-2d  falta %-12s %s\n", $f['row_index'],
-                implode('+', $falta), substr($f['url'], 0, 52));
+                implode('+', $falta), $f['url']);
         }
     }
+
     echo "\n  " . str_repeat('=', 68) . "\n";
+    printf("  %d fila(s) incompletas: %d gratis y %d de sitios con Cloudflare\n",
+        $gratisTotal + $carasTotal, $gratisTotal, $carasTotal);
+
+    if ($carasTotal) {
+        $quedan = creditosScrapingBee();
+        printf("  Completarlas todas cuesta ~%d creditos", $carasTotal * 75);
+        if ($quedan === null) {
+            echo ".\n";
+        } else {
+            // Sin este contraste es facil arrancar por el expediente equivocado
+            // y quedarse sin creditos a mitad de camino.
+            printf(" y quedan %d: alcanza para %d de %d.\n",
+                $quedan, intdiv($quedan, 75), $carasTotal);
+        }
+        echo "  Las gratis (Facebook Marketplace) conviene hacerlas primero.\n";
+    }
+
     echo "  Para completar uno:  php " . basename(__FILE__) . " <numero>\n\n";
     exit(0);
 }
@@ -152,11 +198,6 @@ echo "\n  Expediente {$orden['order_number']} (id $orderId)\n";
 echo "  " . str_repeat('=', 68) . "\n";
 
 if (!$filas) exit("  No tiene links cargados.\n\n");
-
-/** Los mismos dominios que planBScrapingBee() pide con stealth_proxy. */
-function esSitioCaro($url) {
-    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
-}
 
 $aProcesar = $soloVacias ? array_filter($filas, 'filaIncompleta') : $filas;
 $indices = array_column($aProcesar, 'row_index');
