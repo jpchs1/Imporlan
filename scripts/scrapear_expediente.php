@@ -75,9 +75,27 @@ require_once $apiPath;
 $pdo = getDbConnection();
 if (!$pdo) exit("No pude conectar a la base de datos.\n");
 
-/** Los mismos dominios que planBScrapingBee() pide con stealth_proxy. */
-function esSitioCaro($url) {
-    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
+/**
+ * Cuantos creditos de ScrapingBee cuesta, aproximadamente, pedir este anuncio.
+ *
+ * La primera version dividia el mundo en "caro" y "gratis", y eso era falso: se
+ * anuncio que cinco anuncios de Facebook no costaban nada y si costaron. Ningun
+ * link es gratis si llega al Plan B, porque el Plan B siempre es ScrapingBee.
+ * Lo que cambia es la tarifa, y la fija el tipo de proxy que pide
+ * planBScrapingBee() para cada dominio:
+ *
+ *   stealth_proxy   75   BoatTrader, boats.com, YachtWorld, boatsgroup
+ *   premium_proxy   25   Facebook, Instagram, Craigslist
+ *   render_js        5   todo lo demas
+ *
+ * Es una estimacion por arriba: si el pedido directo alcanza, el Plan B no
+ * corre y no se cobra nada. Para decidir si vale la pena, conviene que el
+ * numero peque de alto y no de bajo.
+ */
+function costoEstimado($url) {
+    if (preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url)) return 75;
+    if (preg_match('/facebook\.com|instagram\.com|craigslist\.org/i', $url)) return 25;
+    return 5;
 }
 
 /** Creditos consumidos en la cuenta de ScrapingBee, o null si no se pudo saber. */
@@ -131,44 +149,30 @@ if ($listarPendientes) {
         echo "  Ninguno: todas las filas con link tienen foto y precio.\n\n";
         exit(0);
     }
-    $carasTotal = 0;
-    $gratisTotal = 0;
+    $costoTotal = 0;
     foreach ($porExpediente as $numero => $rotas) {
-        $caras = 0;
-        foreach ($rotas as $f) if (esSitioCaro($f['url'])) $caras++;
-        $carasTotal += $caras;
-        $gratisTotal += count($rotas) - $caras;
+        $costo = 0;
+        foreach ($rotas as $f) $costo += costoEstimado($f['url']);
+        $costoTotal += $costo;
 
         // El costo por expediente es lo que decide por cual empezar, asi que va
         // en el encabezado y no hay que ir sumandolo a mano.
-        printf("\n  %s — %d fila(s), %s\n", $numero, count($rotas),
-            $caras ? "$caras con Cloudflare: ~" . ($caras * 75) . " creditos" : 'gratis');
+        printf("\n  %s — %d fila(s), hasta ~%d creditos\n", $numero, count($rotas), $costo);
         foreach ($rotas as $f) {
             $falta = [];
             if (trim((string) $f['image_url']) === '') $falta[] = 'foto';
             if (!((float) $f['value_usa_usd'] > 0)) $falta[] = 'precio';
-            printf("    fila %-2d  falta %-12s %s\n", $f['row_index'],
-                implode('+', $falta), $f['url']);
+            printf("    fila %-2d  falta %-12s ~%2d cred.  %s\n", $f['row_index'],
+                implode('+', $falta), costoEstimado($f['url']), $f['url']);
         }
     }
 
     echo "\n  " . str_repeat('=', 68) . "\n";
-    printf("  %d fila(s) incompletas: %d gratis y %d de sitios con Cloudflare\n",
-        $gratisTotal + $carasTotal, $gratisTotal, $carasTotal);
-
-    if ($carasTotal) {
-        $quedan = creditosScrapingBee();
-        printf("  Completarlas todas cuesta ~%d creditos", $carasTotal * 75);
-        if ($quedan === null) {
-            echo ".\n";
-        } else {
-            // Sin este contraste es facil arrancar por el expediente equivocado
-            // y quedarse sin creditos a mitad de camino.
-            printf(" y quedan %d: alcanza para %d de %d.\n",
-                $quedan, intdiv($quedan, 75), $carasTotal);
-        }
-        echo "  Las gratis (Facebook Marketplace) conviene hacerlas primero.\n";
-    }
+    $quedan = creditosScrapingBee();
+    printf("  Completarlas todas cuesta hasta ~%d creditos", $costoTotal);
+    // Sin este contraste es facil arrancar por el expediente equivocado y
+    // quedarse sin creditos a mitad de camino.
+    echo $quedan === null ? ".\n" : " y quedan $quedan.\n";
 
     echo "  Para completar uno:  php " . basename(__FILE__) . " <numero>\n\n";
     exit(0);
@@ -207,9 +211,9 @@ foreach ($filas as $f) {
     $falta = [];
     if (trim((string) $f['image_url']) === '') $falta[] = 'foto';
     if (!((float) $f['value_usa_usd'] > 0)) $falta[] = 'precio';
-    printf("  %s fila %-2d  %-14s %s%s\n", $marca, $f['row_index'],
+    printf("  %s fila %-2d  %-14s ~%2d cred.  %s\n", $marca, $f['row_index'],
         $falta ? 'falta ' . implode('+', $falta) : 'completa',
-        substr($f['url'], 0, 56), esSitioCaro($f['url']) ? '  [75 cred.]' : '');
+        costoEstimado($f['url']), substr($f['url'], 0, 56));
 }
 
 if (!$aProcesar) {
@@ -217,24 +221,28 @@ if (!$aProcesar) {
     exit(0);
 }
 
-$caras = 0;
-foreach ($aProcesar as $f) if (esSitioCaro($f['url'])) $caras++;
-
-echo "\n  Se van a procesar " . count($aProcesar) . " fila(s).\n";
-if ($caras) {
-    echo "  $caras son de sitios con Cloudflare: ~" . ($caras * 75) . " creditos de ScrapingBee\n";
-    echo "  y cerca de " . ($caras * 90) . " segundos en total. Las que ya se pidieron hoy\n";
-    echo "  salen del cache y no cobran.\n";
-} else {
-    echo "  Ninguna pasa por ScrapingBee, asi que no cuestan creditos.\n";
+$costo = 0;
+$lentas = 0;
+foreach ($aProcesar as $f) {
+    $costo += costoEstimado($f['url']);
+    if (costoEstimado($f['url']) === 75) $lentas++;
 }
 
-// Se pregunta solo cuando hay creditos de por medio. La confirmacion existe
-// para proteger la plata; pedirla para cinco anuncios de Facebook, que son
-// gratis, es un tramite que solo puede salir mal — y salio: en el servidor
-// fgets(STDIN) devolvio vacio, el script lo leyo como un "no" y contesto
-// "Cancelado", que ademas es una explicacion falsa de lo que paso.
-if ($caras && !$sinPreguntar) {
+echo "\n  Se van a procesar " . count($aProcesar) . " fila(s).\n";
+printf("  Cuesta hasta ~%d creditos de ScrapingBee", $costo);
+$quedan = creditosScrapingBee();
+echo $quedan === null ? ".\n" : " y quedan $quedan.\n";
+if ($lentas) {
+    printf("  %d son de sitios con Cloudflare: cerca de %d segundos en total.\n", $lentas, $lentas * 90);
+}
+echo "  Es un techo: las filas que se resuelvan con el pedido directo no cobran,\n";
+echo "  y las que ya se pidieron hoy salen del cache.\n";
+
+// Se pregunta siempre que haya creditos en juego, que es casi siempre: cualquier
+// link que llegue al Plan B pasa por ScrapingBee. La version anterior solo
+// preguntaba por los sitios con Cloudflare y anunciaba que el resto era gratis
+// — y no lo era: cinco anuncios de Facebook se cobraron igual.
+if ($costo > 0 && !$sinPreguntar) {
     echo "\n  Continuar? [s/N] ";
     // readline() lee de la terminal aunque fgets(STDIN) no lo consiga; en el
     // hosting fgets devolvio EOF de entrada.
