@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
-import { scrapeBoatTrader, scrapeLink } from '../api';
+import { scrapeBoatTrader, scrapeLink, rescrapeOrderLink } from '../api';
 
 function fmtDot(v) {
   if (v === null || v === undefined || v === '' || isNaN(v)) return '';
@@ -45,7 +45,18 @@ function MoneyInput({ value, onChange, format, parse, prefix = '', className, pl
 const parseUsd = v => (v || '').toString().replace(/[^0-9.]/g, '');
 const parseClp = v => stripDots(v);
 
-export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, onScrapeResult, onCotizar, dragHandlers }) {
+/**
+ * Dominios que el servidor lee en segundo plano.
+ *
+ * Es la misma lista que urlNecesitaCola() en el backend. Pedirlos desde el
+ * navegador no funciona: tardan entre 50 y 90 segundos y la peticion se corta
+ * antes.
+ */
+function necesitaCola(url) {
+  return /yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i.test(url || '');
+}
+
+export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onCotizar, dragHandlers }) {
   const fileRef = useRef(null);
   const lk = link;
   const [scraping, setScraping] = useState(false);
@@ -97,6 +108,12 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
     if (url && url !== prevUrlRef.current && url.match(/^https?:\/\//i)) {
       const wasEmpty = !prevUrlRef.current;
       prevUrlRef.current = url;
+      // Al pegar un link de los lentos no se pide nada: la peticion tardaria 90
+      // segundos y se cortaria igual, dejando la tarjeta en "Extrayendo
+      // datos..." un buen rato para no traer nada. La fila queda marcada como
+      // incompleta y el boton de reintentar la encola, que es el camino que si
+      // funciona.
+      if (necesitaCola(url)) return;
       // If the admin pasted into an empty URL field this is a first scrape —
       // force=false is fine (no existing data to preserve). If the URL just
       // CHANGED to a different listing, force=true so the title/image/specs
@@ -105,9 +122,29 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
     }
   }
 
-  function handleRescrape() {
+  async function handleRescrape() {
     const url = (lk.url || '').trim();
-    if (url) doScrape(url, true);
+    if (!url) return;
+
+    // Este es el boton que aprieta el agente cuando ve la ficha incompleta, y
+    // hasta ahora pedia el anuncio directo desde el navegador. Para BoatTrader
+    // y compania eso no puede funcionar: tardan hasta 90 segundos y la peticion
+    // se corta mucho antes. El endpoint del expediente los deja en cola y el
+    // worker los completa; el resto se sigue pidiendo al momento.
+    if (necesitaCola(url) && orderId && lk.row_index) {
+      setScraping(true);
+      try {
+        await rescrapeOrderLink(orderId, lk.row_index);
+        if (onEncolado) await onEncolado();
+      } catch (e) {
+        console.warn('No se pudo encolar:', e);
+      } finally {
+        setScraping(false);
+      }
+      return;
+    }
+
+    doScrape(url, true);
   }
 
   // Una fila sin foto es el caso NORMAL y no una excepción, así que se avisa con
