@@ -286,49 +286,57 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
     @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
     $xpath = new DOMXPath($doc);
 
-    $ogImage = $xpath->query('//meta[@property="og:image"]/@content');
-    if ($ogImage->length > 0) {
-        $result['image_url'] = $ogImage->item(0)->nodeValue;
+    // Las cinco estrategias de abajo se prueban en orden y TODAS pasan por
+    // isUsefulImage(). Antes ninguna lo hacia, y el filtro solo se aplicaba mas
+    // tarde para decidir si conservar la imagen anterior — asi que la basura
+    // entraba igual. Un anuncio de BoatTrader quedo con esto como foto:
+    //
+    //   /static/legacy/img/tol-design/btol/bt-inc-release/dropdown-arrow
+    //
+    // la flecha de un menu desplegable. isUsefulImage() ya rechazaba ese patron;
+    // simplemente nunca se le preguntaba. El cliente veia un icono de interfaz
+    // en lugar de la lancha, y el diagnostico lo contaba como "tiene foto".
+    $primeraUtil = function ($lista) {
+        // El primer <img> del documento casi nunca es el de la ficha: son
+        // iconos de la interfaz. Hay que recorrer hasta encontrar uno que sirva
+        // en vez de quedarse con el indice cero.
+        for ($i = 0; $i < $lista->length; $i++) {
+            $v = trim((string) $lista->item($i)->nodeValue);
+            if (strlen($v) > 10 && isUsefulImage($v)) return $v;
+        }
+        return null;
+    };
+
+    $result['image_url'] = $primeraUtil($xpath->query('//meta[@property="og:image"]/@content'));
+
+    if (!$result['image_url']) {
+        $result['image_url'] = $primeraUtil($xpath->query('//meta[@name="twitter:image"]/@content'));
     }
     if (!$result['image_url']) {
-        $metaImage = $xpath->query('//meta[@name="twitter:image"]/@content');
-        if ($metaImage->length > 0) {
-            $result['image_url'] = $metaImage->item(0)->nodeValue;
-        }
-    }
-    if (!$result['image_url']) {
-        $imgs = $xpath->query('//img[contains(@class,"main") or contains(@class,"primary") or contains(@class,"hero") or contains(@class,"listing") or contains(@class,"boat") or contains(@id,"main")]/@src');
-        if ($imgs->length > 0) {
-            $result['image_url'] = $imgs->item(0)->nodeValue;
-        }
+        $result['image_url'] = $primeraUtil($xpath->query('//img[contains(@class,"main") or contains(@class,"primary") or contains(@class,"hero") or contains(@class,"listing") or contains(@class,"boat") or contains(@id,"main")]/@src'));
     }
     if (!$result['image_url']) {
         $ldJson = $xpath->query('//script[@type="application/ld+json"]');
         for ($i = 0; $i < $ldJson->length; $i++) {
             $jsonText = trim($ldJson->item($i)->textContent);
             $ld = @json_decode($jsonText, true);
-            if ($ld) {
-                $img = $ld['image'] ?? ($ld['@graph'][0]['image'] ?? null);
-                if (is_string($img)) {
-                    $result['image_url'] = $img;
-                    break;
-                }
-                if (is_array($img)) {
-                    $result['image_url'] = $img['url'] ?? ($img[0] ?? null);
-                    if (is_array($result['image_url'])) $result['image_url'] = $result['image_url']['url'] ?? null;
-                    if ($result['image_url']) break;
-                }
+            if (!$ld) continue;
+            $img = $ld['image'] ?? ($ld['@graph'][0]['image'] ?? null);
+            $candidato = null;
+            if (is_string($img)) {
+                $candidato = $img;
+            } elseif (is_array($img)) {
+                $candidato = $img['url'] ?? ($img[0] ?? null);
+                if (is_array($candidato)) $candidato = $candidato['url'] ?? null;
+            }
+            if (is_string($candidato) && isUsefulImage($candidato)) {
+                $result['image_url'] = $candidato;
+                break;
             }
         }
     }
     if (!$result['image_url']) {
-        $imgs = $xpath->query('//img[not(contains(@src,"logo")) and not(contains(@src,"icon")) and not(contains(@src,"sprite")) and not(contains(@src,"avatar"))]/@src');
-        if ($imgs->length > 0) {
-            $imgSrc = $imgs->item(0)->nodeValue;
-            if (strlen($imgSrc) > 10) {
-                $result['image_url'] = $imgSrc;
-            }
-        }
+        $result['image_url'] = $primeraUtil($xpath->query('//img[not(contains(@src,"logo")) and not(contains(@src,"icon")) and not(contains(@src,"sprite")) and not(contains(@src,"avatar"))]/@src'));
     }
 
     if ($result['image_url'] && !preg_match('/^https?:\/\//', $result['image_url'])) {
@@ -1848,9 +1856,24 @@ function executePlanB($url, &$result, $config) {
         }
     }
 
-    // Level 2: Screenshot + AI Vision
+    // ── Nivel 2: captura de pantalla + IA ──
+    //
+    // Solo corre si esta explicitamente encendido. Medido en produccion: en una
+    // tanda de once anuncios se disparo siete veces, recupero CERO campos y
+    // costo unos 425 creditos —la captura se le pide a ScrapingBee al mismo
+    // precio que la pagina, asi que una ficha que falla cuesta el doble— mas lo
+    // que se paga aparte en OpenAI por cada llamada a GPT-4o.
+    //
+    // El diagnostico de un anuncio de BoatTrader lo dejo escrito:
+    //   plan B  nivel 1 (scrapingbee),   recupero 1 campo(s)
+    //   plan B  nivel 2 (screenshot_ai), recupero 0 campo(s)
+    //
+    // Tener la llave de OpenAI configurada ya no alcanza para encenderlo: hace
+    // falta plan_b_screenshot_ai = true en scraper_config.php. Si algun dia
+    // vuelve a servir, se enciende ahi sin tocar codigo.
     $openaiKey = trim($config['openai_api_key'] ?? '');
-    if ($openaiKey) {
+    $nivel2Encendido = !empty($config['plan_b_screenshot_ai']);
+    if ($openaiKey && $nivel2Encendido) {
         $beforeMissing = countMissingFields($result);
         planBScreenshotAI($url, $result, $config);
         $afterMissing = countMissingFields($result);
