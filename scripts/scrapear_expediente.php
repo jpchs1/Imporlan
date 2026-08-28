@@ -75,6 +75,24 @@ require_once $apiPath;
 $pdo = getDbConnection();
 if (!$pdo) exit("No pude conectar a la base de datos.\n");
 
+/** Los mismos dominios que planBScrapingBee() pide con stealth_proxy. */
+function esSitioCaro($url) {
+    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
+}
+
+/** Creditos consumidos en la cuenta de ScrapingBee, o null si no se pudo saber. */
+function creditosScrapingBee() {
+    $cfg = function_exists('loadScraperConfig') ? loadScraperConfig() : [];
+    $llave = trim($cfg['scrapingbee_api_key'] ?? '');
+    if (!$llave) return null;
+    $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($llave));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
+    $r = json_decode((string) curl_exec($ch), true);
+    curl_close($ch);
+    if (!is_array($r) || !isset($r['used_api_credit'], $r['max_api_credit'])) return null;
+    return max(0, $r['max_api_credit'] - $r['used_api_credit']);
+}
+
 /**
  * Una fila esta incompleta cuando le falta la foto o el precio.
  *
@@ -225,11 +243,27 @@ if ($caras) {
     echo "  $caras son de sitios con Cloudflare: ~" . ($caras * 75) . " creditos de ScrapingBee\n";
     echo "  y cerca de " . ($caras * 90) . " segundos en total. Las que ya se pidieron hoy\n";
     echo "  salen del cache y no cobran.\n";
+} else {
+    echo "  Ninguna pasa por ScrapingBee, asi que no cuestan creditos.\n";
 }
 
-if (!$sinPreguntar) {
+// Se pregunta solo cuando hay creditos de por medio. La confirmacion existe
+// para proteger la plata; pedirla para cinco anuncios de Facebook, que son
+// gratis, es un tramite que solo puede salir mal — y salio: en el servidor
+// fgets(STDIN) devolvio vacio, el script lo leyo como un "no" y contesto
+// "Cancelado", que ademas es una explicacion falsa de lo que paso.
+if ($caras && !$sinPreguntar) {
     echo "\n  Continuar? [s/N] ";
-    $r = strtolower(trim((string) fgets(STDIN)));
+    // readline() lee de la terminal aunque fgets(STDIN) no lo consiga; en el
+    // hosting fgets devolvio EOF de entrada.
+    $linea = function_exists('readline') ? readline('') : fgets(STDIN);
+    if ($linea === false) {
+        // Distinto de responder "no": aca no se pudo leer la respuesta, y decir
+        // "cancelado" mandaba a buscar el problema al lado equivocado.
+        exit("\n  No pude leer tu respuesta desde esta terminal.\n"
+           . "  Corre el mismo comando con --si al final para confirmar de entrada.\n\n");
+    }
+    $r = strtolower(trim((string) $linea));
     if ($r !== 's' && $r !== 'si') exit("  Cancelado. No se gasto nada.\n\n");
 }
 
