@@ -1,0 +1,103 @@
+<!--
+  PANEL ANTIGUO — copia de respaldo, no se sirve en /panel/
+  =========================================================
+  Esto es lo que /panel/index.html era hasta la migracion al panel nuevo. Se
+  conserva para poder volver atras en dos segundos y sin depender de git ni de
+  un deploy, porque el cambio lo ven todos los clientes a la vez:
+
+      cd /home/wwimpo/imporlan.cl/panel && cp index-legacy.html index.html
+
+  Se puede borrar cuando el panel nuevo lleve un tiempo sin sorpresas.
+-->
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" />
+    <script>
+      (function() {
+        var originalAlert = window.alert;
+        window.alert = function(message) {
+          var msgLower = (message || '').toLowerCase();
+          if (msgLower.indexOf('error al procesar') !== -1 ||
+              msgLower.indexOf('error al conectar') !== -1) {
+            return originalAlert.call(window, message);
+          }
+          if (msgLower.indexOf('configurar la api') !== -1 ||
+              msgLower.indexOf('requiere configuracion') !== -1 ||
+              msgLower.indexOf('esta es una demo') !== -1) {
+            console.log('Payment override: Blocked demo alert');
+            return;
+          }
+          return originalAlert.call(window, message);
+        };
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/images/imporlan-favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>imporlan-panel</title>
+    <script>if(new URLSearchParams(location.search).get('publicar')==='1')sessionStorage.setItem('mkt_open_publish','1');</script>
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Imporlan Panel">
+    <meta property="og:description" content="Panel de usuario Imporlan. Gestiona tus embarcaciones y servicios.">
+    <meta property="og:url" content="https://www.imporlan.cl/panel/">
+    <meta property="og:site_name" content="Imporlan">
+    <meta property="og:locale" content="es_CL">
+    <meta property="og:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="799">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Imporlan Panel">
+    <meta name="twitter:description" content="Panel de usuario Imporlan. Gestiona tus embarcaciones y servicios.">
+    <meta name="twitter:image" content="https://www.imporlan.cl/images/imporlan-og.jpg">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
+    <script src="/panel/assets/fetch-interceptor.js?v=1"></script>
+    <script src="/panel/assets/payment-override.js?v=15"></script>
+    <!-- Arregla el botón "¿Olvidaste tu contraseña?" del bundle compilado antiguo -->
+    <script src="/panel/assets/login-forgot-fix.js?v=20260806"></script>
+    <script type="module" crossorigin src="/panel/assets/index-CnCPfROY.js"></script>
+    <link rel="stylesheet" crossorigin href="/panel/assets/index-DasYcwDL.css">
+    <!-- Chat Widget -->
+    <link rel="stylesheet" href="/panel/assets/chat-widget.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Chat Widget Script -->
+    <script src="/panel/assets/chat-widget-user.js?v=3" defer></script>
+    <!-- Support Form -->
+    <script src="/panel/assets/support-form.js?v=1" defer></script>
+    <!-- Support Page Enhancer -->
+    <script src="/panel/assets/support-page-enhancer.js?v=5" defer></script>
+    <!-- Importaciones Image Enhancer -->
+    <script src="/panel/assets/importaciones-enhancer.js?v=1" defer></script>
+    <!-- Links Contratados / Mis Expedientes -->
+    <script src="/panel/assets/links-contratados.js?v=10" defer></script>
+    <!-- Marketplace Enhancer (extra boats + my listings) -->
+    <script src="/panel/assets/marketplace-enhancer.js?v=4" defer></script>
+    <!-- Dashboard Enhancer (user name, dates, admin btn, cursor fix, docs, cards) -->
+    <script src="/panel/assets/dashboard-enhancer.js?v=3" defer></script>
+    <!-- Post-Payment Popup -->
+    <script src="/panel/assets/post-payment-popup.js?v=2" defer></script>
+    <!-- Registration Sync -->
+    <script src="/panel/assets/registration-sync.js?v=1"></script>
+    <!-- Payment Requests User - Solicitudes de Pago -->
+    <script src="/panel/assets/payment-requests-user.js?v=4" defer></script>
+    <!-- Tracking Enhancer - Seguimiento En Vivo -->
+    <script src="/panel/assets/tracking-enhancer.js?v=20260510a" defer></script>
+    <!-- Report Viewer - Reportes de Busqueda -->
+    <script src="/panel/assets/report-viewer.js?v=2" defer></script>
+    <!-- Notifications Enhancer - Bell Icon + Dropdown -->
+    <script src="/panel/assets/notifications-enhancer.js?v=1" defer></script>
+    <!-- Demo Data Cleaner - Remove hardcoded demo data, show only real user data -->
+    <script src="/panel/assets/demo-data-cleaner.js?v=4" defer></script>
+    <!-- Inspection Reports User Module -->
+    <script src="/panel/assets/inspection-user.js?v=1" defer></script>
+    <!-- Payment Cards Enhancer -->
+    <script src="/panel/assets/payment-cards-enhancer.js?v=1" defer></script>
+    <!-- Documents Section Enhancer -->
+    <script src="/panel/assets/documents-enhancer.js?v=1" defer></script>
+    <!-- Messages Section Enhancer -->
+    <script src="/panel/assets/messages-enhancer.js?v=1" defer></script>
+    <!-- Cotizador Bridge: restore links coming from the home cotizador form -->
+    <script src="/panel/assets/cotizador-bridge.js?v=20260509a" defer></script>
+  </body>
+</html>
