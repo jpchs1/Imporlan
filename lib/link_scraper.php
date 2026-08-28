@@ -154,6 +154,17 @@ function scrapeLinkData($url) {
         $cachedUrl = cacheImageLocally($result['image_url']);
         if ($cachedUrl) {
             $result['image_url'] = $cachedUrl;
+        } else {
+            // isExpiringImageUrl() marca justamente las fuentes que no se pueden
+            // enlazar desde afuera: Facebook expira los tokens y BoatTrader
+            // bloquea el hotlinking. Si ademas no pudimos bajarla —cacheImage
+            // Locally verifica que lo descargado sea una imagen de verdad—
+            // conservar la URL no le sirve a nadie: el navegador del cliente
+            // tampoco va a poder mostrarla, y encima tapa el hecho de que la
+            // ficha no tiene foto. Asi es como quedo guardado un servidor de
+            // publicidad como si fuera la lancha.
+            error_log('link_scraper: descarto imagen que no se pudo descargar — ' . $result['image_url']);
+            $result['image_url'] = null;
         }
     }
 
@@ -786,6 +797,14 @@ function isUsefulImage($imgUrl) {
     // Reject BoatTrader/boats.com placeholder/generic images
     if (preg_match('/static\/legacy\/img\/tol-design/', $lower)) return false;
     if (preg_match('/placeholder|no-image|default-boat/i', $lower)) return false;
+    // Servidores de publicidad y rastreo. Un anuncio de BoatTrader quedo con
+    // esto como foto de la lancha:
+    //   https://servedby.boatsgroup.com/e061c2b61/?libBID=5612434
+    // No tiene nada que ver con la embarcacion, y encima no es una imagen: el
+    // intento de guardarla en local fallo y el expediente se quedo apuntando a
+    // una URL que el navegador del cliente tampoco puede mostrar.
+    if (preg_match('#//servedby\.|//ads?\.|adserver|adservice|doubleclick|googlesyndication#i', $lower)) return false;
+    if (preg_match('#/(ads|banner|tracking|beacon)/#i', $lower)) return false;
     return true;
 }
 
