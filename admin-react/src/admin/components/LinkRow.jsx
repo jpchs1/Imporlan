@@ -115,6 +115,14 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
   // sepa si falta cargar algo o si el sistema falló.
   const scrapeIncompleto = !!(lk.url || '').trim() && !lk.image_url;
 
+  // Los sitios con Cloudflare tardan entre 50 y 90 segundos en responder y
+  // ninguna peticion web sobrevive eso, asi que el servidor los deja en cola y
+  // los lee en segundo plano. Mientras tanto hay que decirlo: ofrecer un boton
+  // de "Reintentar" para algo que por construccion no puede terminar en una
+  // peticion web solo consigue que el agente lo apriete una y otra vez.
+  const enCola = lk.scrape_state === 'en_cola' || lk.scrape_state === 'procesando';
+  const errorLectura = lk.scrape_state === 'error';
+
   const titleParts = [lk.year, lk.make, lk.model].filter(Boolean);
   const title = titleParts.length ? titleParts.join(' ') : 'Opción sin identificar';
 
@@ -231,8 +239,18 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
             </div>
           </div>
 
-          {scrapeIncompleto && (
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+          {enCola && (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-sky-50 border border-sky-200">
+              <svg className="w-4 h-4 text-sky-600 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+              <span className="flex-1 text-xs font-medium text-sky-800">
+                {lk.scrape_message || 'Leyendo el anuncio en segundo plano. Este sitio tarda un par de minutos.'}
+                {' '}Podés seguir trabajando; la ficha se completa sola.
+              </span>
+            </div>
+          )}
+
+          {!enCola && scrapeIncompleto && (
+            <div className={'flex items-center gap-2.5 px-3 py-2 rounded-xl ' + (errorLectura ? 'bg-amber-50 border border-amber-200' : 'bg-amber-50 border border-amber-200')}>
               <svg className="w-4 h-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               {/* El texto anterior afirmaba una causa —"el sitio bloquea la
                   lectura a ratos"— y mandaba a reintentar en unos minutos. Es
@@ -242,7 +260,8 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
                   agotada, ese consejo hacía apretar el botón indefinidamente
                   detrás de un problema que no existía. */}
               <span className="flex-1 text-xs font-medium text-amber-800">
-                No se pudo leer el anuncio completo. Puede ser que el vendedor lo haya retirado, que el sitio esté bloqueando la lectura, o que el servicio de lectura no tenga créditos. Reintentá una vez; si sigue igual, subí la foto a mano.
+                {lk.scrape_message
+                  || 'No se pudo leer el anuncio completo. Puede ser que el vendedor lo haya retirado, que el sitio esté bloqueando la lectura, o que el servicio de lectura no tenga créditos. Reintentá una vez; si sigue igual, subí la foto a mano.'}
               </span>
               <button
                 onClick={handleRescrape}
