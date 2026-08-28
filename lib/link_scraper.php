@@ -405,8 +405,9 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
         $bodyText = $doc->textContent;
     }
 
-    // For Facebook pages, try to extract structured data from embedded JSON
-    extractFacebookJsonData($html, $result);
+    // For Facebook pages, try to extract structured data from embedded JSON.
+    // La URL va como parametro porque el precio se ancla al id del anuncio.
+    extractFacebookJsonData($html, $result, $url);
 
     extractFieldsFromText($bodyText, $xpath, $result);
     libxml_clear_errors();
@@ -416,35 +417,65 @@ function parseHtml($html, $url, $parsedUrl, &$result) {
  * Extract structured data from Facebook's embedded JSON (listing_price, location, etc.).
  * Facebook embeds listing data as JSON objects within <script> tags.
  */
-function extractFacebookJsonData($html, &$result) {
+/**
+ * El precio del anuncio pedido, y solo de ese.
+ *
+ * Marketplace mete en la misma pagina el JSON de muchos anuncios. El unico
+ * ancla fiable es el id que viene en la URL: el precio correcto es el que
+ * aparece cerca de ese id. Devuelve null si no se puede afirmar cual es, y eso
+ * es una respuesta valida — mejor sin precio que con el de otra lancha.
+ */
+function precioFacebookDelAnuncio($html, $url) {
+    if (!preg_match('#/marketplace/item/(\d{6,})#', (string) $url, $mu)) return null;
+    $id = $mu[1];
+
+    // Se mira SOLO hacia adelante desde el id. La primera version miraba tambien
+    // hacia atras y volvia a fallar igual: el anuncio de la barra lateral estaba
+    // antes en el HTML, asi que su precio caia dentro de la ventana y se lo
+    // llevaba otra vez. En el JSON de Facebook el precio va despues del id
+    // dentro del mismo objeto.
+    $desde = 0;
+    while (($pos = strpos($html, '"' . $id . '"', $desde)) !== false) {
+        $desde = $pos + strlen($id);
+        $ventana = substr($html, $pos, 3000);
+
+        if (!preg_match('/"listing_price"\s*:\s*\{[^}]*?(?:"amount"\s*:\s*"([\d.]+)"|"formatted_amount[^"]*"\s*:\s*"\$([\d,]+)")/', $ventana, $m, PREG_OFFSET_CAPTURE)) {
+            continue;
+        }
+
+        // Entre el id y el precio no puede haber otro anuncio: si aparece, el
+        // precio ya es de ese otro y no del que se pidio.
+        $tramo = substr($ventana, 0, $m[0][1]);
+        if (preg_match('/"(?:id|listing_id)"\s*:\s*"(\d{6,})"/', $tramo, $otro) && $otro[1] !== $id) {
+            continue;
+        }
+
+        $crudo = ($m[1][0] !== '' && $m[1][1] !== -1) ? $m[1][0] : ($m[2][0] ?? '');
+        $val = floatval(str_replace(',', '', $crudo));
+        if ($val >= 100 && $val < 50000000) return $val;
+    }
+    return null;
+}
+
+function extractFacebookJsonData($html, &$result, $url = '') {
     // Extract listing_price from Facebook's embedded JSON data.
     // Facebook pages contain many listing_price objects (for sidebar listings, etc.)
     // The REAL one for the current listing has "currency":"USD" and full structure.
+    // ── Precio: solo el del anuncio que se pidio ──
+    //
+    // Una pagina de Marketplace trae decenas de listing_price: los de la barra
+    // lateral, los "similares", los del vendedor. Tomar el primero que pase un
+    // minimo es una loteria, y salio mal: un Chaparral 277 de 2019 quedo
+    // guardado en USD 1.200, el precio de otro anuncio de la misma pagina.
+    //
+    // El id del anuncio esta en la URL, y el precio correcto es el que aparece
+    // junto a ese id dentro del JSON. Se busca en una ventana alrededor de cada
+    // aparicion del id; si no hay ninguno, la ficha se queda sin precio. Es
+    // preferible que falte el dato a que el agente cotice sobre un numero que no
+    // es de esa lancha.
     if (!$result['value_usa_usd']) {
-        // Priority 1: listing_price with currency field (most specific - the actual listing)
-        if (preg_match('/"listing_price"\s*:\s*\{[^}]*"amount"\s*:\s*"([\d.]+)"[^}]*"currency"\s*:\s*"(\w+)"/', $html, $m)) {
-            $val = floatval($m[1]);
-            if ($val >= 500 && $val < 50000000) {
-                $result['value_usa_usd'] = $val;
-            }
-        }
-        // Priority 2: formatted_amount with $ sign (also specific to the real listing)
-        if (!$result['value_usa_usd'] && preg_match('/"listing_price"\s*:\s*\{[^}]*"formatted_amount[^"]*"\s*:\s*"\$([\d,]+)"/', $html, $m)) {
-            $val = floatval(str_replace(',', '', $m[1]));
-            if ($val >= 500 && $val < 50000000) {
-                $result['value_usa_usd'] = $val;
-            }
-        }
-        // Priority 3: Iterate all listing_price objects and pick the first valid one >= 500
-        if (!$result['value_usa_usd'] && preg_match_all('/"listing_price"\s*:\s*\{[^}]*"amount"\s*:\s*"([\d.]+)"/', $html, $matches)) {
-            foreach ($matches[1] as $mVal) {
-                $val = floatval($mVal);
-                if ($val >= 500 && $val < 50000000) {
-                    $result['value_usa_usd'] = $val;
-                    break;
-                }
-            }
-        }
+        $precio = precioFacebookDelAnuncio($html, $url);
+        if ($precio !== null) $result['value_usa_usd'] = $precio;
     }
 
     // Extract location from Facebook's embedded JSON
@@ -716,16 +747,21 @@ function extractFieldsFromText($bodyText, $xpath, &$result) {
         }
     }
 
+    // ── Precio desde el texto: solo si viene etiquetado ──
+    //
+    // Aca habia dos intentos y el segundo era "toma el primer $numero que
+    // aparezca en la pagina". Eso no es extraer un dato, es adivinarlo: un
+    // Chaparral 277 de 2019 quedo guardado en USD 1.200 porque ese fue el primer
+    // monto del texto —de otro anuncio de la barra lateral— y el agente vio un
+    // precio falso en la ficha de su cliente.
+    //
+    // Queda solo el intento etiquetado: el numero tiene que ir precedido de
+    // "price", "asking", "sale" o "USD". Un signo peso suelto ya no alcanza,
+    // porque en una pagina cualquiera hay decenas y ninguno es necesariamente el
+    // del anuncio. Si no hay etiqueta, la ficha se queda sin precio, que es la
+    // respuesta honesta.
     if (!$result['value_usa_usd']) {
-        if (preg_match_all('/(?:price|asking|sale|USD|\$)\s*:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $matches)) {
-            foreach ($matches[1] as $mVal) {
-                $val = floatval(str_replace(',', '', $mVal));
-                if ($val >= 500 && $val < 50000000) { $result['value_usa_usd'] = $val; break; }
-            }
-        }
-    }
-    if (!$result['value_usa_usd']) {
-        if (preg_match_all('/\$\s*([\d,]+(?:\.\d{1,2})?)/', $bodyText, $matches)) {
+        if (preg_match_all('/(?:price|asking|sale|USD)\s*:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/i', $bodyText, $matches)) {
             foreach ($matches[1] as $mVal) {
                 $val = floatval(str_replace(',', '', $mVal));
                 if ($val >= 500 && $val < 50000000) { $result['value_usa_usd'] = $val; break; }
@@ -2128,7 +2164,7 @@ function planBScrapingBeeProcesar($html, $url, &$result, $isFacebook) {
         $savedLocation = $result['location'];
         $result['value_usa_usd'] = null;
         $result['location'] = null;
-        extractFacebookJsonData($html, $result);
+        extractFacebookJsonData($html, $result, $url);
         // If JSON extraction failed, restore previous values
         if (!$result['value_usa_usd'] && $savedPrice) {
             $result['value_usa_usd'] = $savedPrice;
