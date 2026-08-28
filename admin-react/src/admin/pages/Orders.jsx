@@ -313,6 +313,29 @@ export default function Orders() {
     setUnsaved(true);
   }
 
+  // Al escribir un link de un sitio lento hay que encolarlo, no pedirlo: tarda
+  // hasta 90 segundos y la peticion se corta. Pero para encolarlo el servidor
+  // necesita tener la URL guardada —la lee de la base, no del navegador— asi que
+  // primero se persiste la fila y recien despues se encola.
+  const encolarUrlLenta = useCallback(async (linkId, url) => {
+    if (!detail?.id) return;
+    const actualizados = links.map(l => (l.id === linkId ? { ...l, url } : l));
+    setLinks(actualizados);
+    try {
+      await updateOrderLinks(detail.id, actualizados);
+      setUnsaved(false);
+      // El row_index lo asigna el servidor, asi que se relee antes de encolar:
+      // una fila recien agregada todavia no lo tiene en el navegador.
+      const o = await getOrderDetail(detail.id);
+      const orden = o.order || o;
+      const fila = (orden.links || []).find(l => l.id === linkId);
+      if (fila?.row_index) await rescrapeOrderLink(detail.id, fila.row_index);
+      await refrescarDetalle();
+    } catch (e) {
+      toast?.('No se pudo poner el anuncio en cola: ' + (e.message || ''), 'error');
+    }
+  }, [detail?.id, links, refrescarDetalle]);
+
   // ---- IMAGE UPLOAD ----
   async function handleImageUpload(linkId, file) {
     try {
@@ -608,6 +631,7 @@ export default function Orders() {
               onImageUpload={handleImageUpload}
               onScrapeResult={handleScrapeResult}
               onEncolado={refrescarDetalle}
+              onEncolarUrl={encolarUrlLenta}
               orderId={detail?.id}
               onCotizar={lk.id ? setCotizandoLink : undefined}
               dragHandlers={{
