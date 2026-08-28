@@ -173,6 +173,17 @@ export default function Orders() {
     } catch { /* si falla, la proxima recarga lo muestra */ }
   }, [detail?.id]);
 
+  // Mientras haya filas leyendose en segundo plano, releer el expediente cada
+  // diez segundos. Sin esto el aviso azul se queda puesto para siempre aunque el
+  // worker ya haya terminado, porque el panel solo conoce el estado del momento
+  // en que se abrio la pantalla.
+  useEffect(() => {
+    const hayEnCola = links.some(l => l.scrape_state === 'en_cola' || l.scrape_state === 'procesando');
+    if (!hayEnCola || !detail?.id) return;
+    const id = setInterval(refrescarDetalle, 10000);
+    return () => clearInterval(id);
+  }, [links, detail?.id, refrescarDetalle]);
+
   // Rescrapea el expediente fila por fila. Los links pegados a mano nunca
   // pasaban por el scraper del servidor, asi que este boton es la via para
   // recuperar imagen, titulo y ficha de un expediente ya armado.
