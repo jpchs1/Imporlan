@@ -11,7 +11,7 @@
  * prefers-reduced-motion, protects the hero (LCP), is idempotent, skips /panel,
  * and supports a ?noenh kill-switch. Uses a unique imp-uxpro-* namespace so it
  * never collides with the header/footer/plans/etapas enhancers.
- * Version 1.0
+ * Version 1.1
  */
 (function () {
   'use strict';
@@ -39,6 +39,18 @@
       /* Fix pre-existing horizontal overflow caused by the off-canvas mobile drawer
          (and any off-screen decoration): clip the x-axis without affecting vertical scroll. */
       'html,body{overflow-x:hidden;max-width:100%;}',
+
+      /* Hero glow: stop the image from shimmering.
+         The hero card is .glass (backdrop-filter: blur(20px)) and sits directly on
+         top of a full-size gradient with blur-3xl (64px) whose opacity is animated
+         by .animate-pulse-slow. Every frame the browser has to repaint the 64px
+         blur AND re-run the card's 20px backdrop blur that samples it, which reads
+         as the picture trembling. The glow itself only breathes between 20% and
+         10% opacity, so freezing it costs nothing visually.
+         Scoped to the blurred layer: the small pulsing dots keep their animation. */
+      '.animate-pulse-slow.blur-3xl{animation:none!important;}',
+      /* Give it its own compositor layer so the blur is rasterised once. */
+      '.animate-pulse-slow.blur-3xl{transform:translateZ(0);will-change:opacity;}',
       /* Scroll progress bar */
       '#imp-uxpro-progress{position:fixed;top:0;left:0;height:3px;width:100%;transform:scaleX(0);transform-origin:0 50%;background:linear-gradient(90deg,#22d3ee,#6366f1 60%,#a855f7);z-index:10000;pointer-events:none;will-change:transform;transition:transform .08s linear;}',
       '#imp-uxpro-progress::after{content:"";position:absolute;right:0;top:0;height:100%;width:60px;background:linear-gradient(90deg,transparent,rgba(168,85,247,.65));}',
