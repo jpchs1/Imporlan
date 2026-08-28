@@ -160,6 +160,19 @@ export default function Orders() {
   // unsaved local edits (scrape data the admin hadn't hit Save on yet).
   // Persist current edits first, then append the new empty row to the
   // local state without re-fetching — no flicker, no data loss.
+  // Tras encolar una fila hay que releer el expediente: el estado "en cola" lo
+  // guarda el servidor, y sin refrescar, la tarjeta seguiria mostrando el aviso
+  // viejo como si no hubiera pasado nada.
+  const refrescarDetalle = useCallback(async () => {
+    if (!detail?.id) return;
+    try {
+      const o = await getOrderDetail(detail.id);
+      const orden = o.order || o;
+      setDetail(orden);
+      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+    } catch { /* si falla, la proxima recarga lo muestra */ }
+  }, [detail?.id]);
+
   // Rescrapea el expediente fila por fila. Los links pegados a mano nunca
   // pasaban por el scraper del servidor, asi que este boton es la via para
   // recuperar imagen, titulo y ficha de un expediente ya armado.
@@ -583,6 +596,8 @@ export default function Orders() {
               onDelete={handleDeleteLink}
               onImageUpload={handleImageUpload}
               onScrapeResult={handleScrapeResult}
+              onEncolado={refrescarDetalle}
+              orderId={detail?.id}
               onCotizar={lk.id ? setCotizandoLink : undefined}
               dragHandlers={{
                 onDragStart: e => onDragStart(e, idx),
