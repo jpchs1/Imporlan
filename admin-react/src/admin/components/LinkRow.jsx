@@ -56,7 +56,7 @@ function necesitaCola(url) {
   return /yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i.test(url || '');
 }
 
-export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onCotizar, dragHandlers }) {
+export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl, onCotizar, dragHandlers }) {
   const fileRef = useRef(null);
   const lk = link;
   const [scraping, setScraping] = useState(false);
@@ -108,12 +108,15 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
     if (url && url !== prevUrlRef.current && url.match(/^https?:\/\//i)) {
       const wasEmpty = !prevUrlRef.current;
       prevUrlRef.current = url;
-      // Al pegar un link de los lentos no se pide nada: la peticion tardaria 90
-      // segundos y se cortaria igual, dejando la tarjeta en "Extrayendo
-      // datos..." un buen rato para no traer nada. La fila queda marcada como
-      // incompleta y el boton de reintentar la encola, que es el camino que si
-      // funciona.
-      if (necesitaCola(url)) return;
+      // Un link de los lentos no se pide desde el navegador —tarda 90 segundos y
+      // la peticion se corta— pero tampoco se ignora: se encola al salir del
+      // campo, igual que cualquier otro link se scrapea solo. La primera version
+      // no hacia nada y la fila salia diciendo "no se pudo leer el anuncio" sin
+      // haberlo intentado siquiera.
+      if (necesitaCola(url)) {
+        if (onEncolarUrl) { setScraping(true); Promise.resolve(onEncolarUrl(lk.id, url)).finally(() => setScraping(false)); }
+        return;
+      }
       // If the admin pasted into an empty URL field this is a first scrape —
       // force=false is fine (no existing data to preserve). If the URL just
       // CHANGED to a different listing, force=true so the title/image/specs
@@ -131,11 +134,19 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
     // y compania eso no puede funcionar: tardan hasta 90 segundos y la peticion
     // se corta mucho antes. El endpoint del expediente los deja en cola y el
     // worker los completa; el resto se sigue pidiendo al momento.
-    if (necesitaCola(url) && orderId && lk.row_index) {
+    if (necesitaCola(url)) {
+      // Se pasa por el mismo camino que el blur, que guarda la fila antes de
+      // encolar. Llamar directo al endpoint no alcanzaba: el servidor lee la URL
+      // de la base, asi que con un link recien escrito y sin guardar no
+      // encontraba nada que encolar y el boton no hacia nada visible.
       setScraping(true);
       try {
-        await rescrapeOrderLink(orderId, lk.row_index);
-        if (onEncolado) await onEncolado();
+        if (onEncolarUrl) {
+          await onEncolarUrl(lk.id, url);
+        } else if (orderId && lk.row_index) {
+          await rescrapeOrderLink(orderId, lk.row_index);
+          if (onEncolado) await onEncolado();
+        }
       } catch (e) {
         console.warn('No se pudo encolar:', e);
       } finally {
@@ -171,6 +182,12 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
   // vaya lenta: es que nadie esta vaciando la cola, o sea que falta el cron.
   // Decirlo convierte un "cargando para siempre" en algo que se puede arreglar.
   const colaDetenida = esperaSeg > 600;
+
+  // Una fila de un sitio lento que nunca se intento no es un fallo: es una que
+  // todavia no se ha pedido. Decir "no se pudo leer el anuncio" ahi es
+  // directamente falso —fue lo que aparecio al pegar un link nuevo— asi que se
+  // distingue del error de verdad.
+  const nuncaIntentada = necesitaCola(lk.url) && !enCola && !errorLectura && !lk.title && !lk.image_url;
 
   const titleParts = [lk.year, lk.make, lk.model].filter(Boolean);
   const title = titleParts.length ? titleParts.join(' ') : 'Opción sin identificar';
@@ -316,7 +333,24 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
             </div>
           )}
 
-          {!enCola && scrapeIncompleto && (
+          {!enCola && nuncaIntentada && (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+              <svg className="w-4 h-4 text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <span className="flex-1 text-xs font-medium text-slate-600">
+                Este sitio se lee en segundo plano porque tarda un par de minutos. Salí del campo del link o apretá reintentar para ponerlo en cola.
+              </span>
+              <button
+                onClick={handleRescrape}
+                disabled={scraping}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-semibold transition disabled:opacity-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className={scraping ? 'animate-spin' : ''}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                Leer ahora
+              </button>
+            </div>
+          )}
+
+          {!enCola && !nuncaIntentada && scrapeIncompleto && (
             <div className={'flex items-center gap-2.5 px-3 py-2 rounded-xl ' + (errorLectura ? 'bg-amber-50 border border-amber-200' : 'bg-amber-50 border border-amber-200')}>
               <svg className="w-4 h-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               {/* El texto anterior afirmaba una causa —"el sitio bloquea la
