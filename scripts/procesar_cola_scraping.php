@@ -50,6 +50,16 @@ if (!$pdo) exit("No pude conectar a la base de datos.\n");
 
 $ahora = date('d-m-Y H:i');
 
+// Las columnas de la cola las crea la migracion, que no corre sola. Sin esta
+// comprobacion el script moria con "Unknown column 'scrape_state'" y, como el
+// hosting tiene display_errors apagado, no imprimia absolutamente nada: el
+// comando volvia al prompt en silencio y no habia forma de saber por que.
+if (!$pdo->query("SHOW COLUMNS FROM order_links LIKE 'scrape_state'")->fetch()) {
+    exit("\n  Falta la migracion: la tabla order_links todavia no tiene las columnas\n"
+       . "  de la cola. Corre esto una vez y vuelve a intentar:\n\n"
+       . "    php -r 'require \"/home/wwimpo/imporlan.cl/api/orders_api.php\"; runMigration();'\n\n");
+}
+
 // Se procesa la mas antigua primero: si alguien encola diez fichas, la que
 // lleva mas rato esperando es la que mas molesta.
 $cola = $pdo->query(

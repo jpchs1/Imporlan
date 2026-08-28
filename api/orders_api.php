@@ -1904,7 +1904,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         // Desde la web estas filas ya quedaron en cola: intentarlas aca solo
         // consigue que el servidor corte la peticion a mitad de camino. El
         // worker las toma sin ese limite.
-        if (!$incluirLentos && urlNecesitaCola($url)) {
+        if (!$incluirLentos && colaDisponible($pdo) && urlNecesitaCola($url)) {
             $results[] = ['row_index' => intval($row['row_index']), 'status' => 'en_cola'];
             continue;
         }
@@ -2031,8 +2031,10 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
 
     // La fila deja de estar en cola en cuanto se le escriben datos: si sigue
     // marcada, el panel seguiria diciendo "se esta leyendo" para siempre.
-    $sets[] = "scrape_state = 'idle'";
-    $sets[] = "scrape_message = NULL";
+    if (colaDisponible($pdo)) {
+        $sets[] = "scrape_state = 'idle'";
+        $sets[] = "scrape_message = NULL";
+    }
 
     $params[] = $orderId;
     $params[] = $rowIndex;
@@ -2124,6 +2126,26 @@ function scrapePendingOrderLinks($pdo, $orderId, $limit = 3) {
  * solo las que nunca se scrapearon.
  */
 /**
+ * Estan creadas las columnas de la cola?
+ *
+ * El codigo se despliega antes de que alguien corra la migracion, y sin esta
+ * comprobacion la primera peticion que intenta encolar muere con "Unknown
+ * column 'scrape_state'" — o sea que el boton de rescrapear del panel queda
+ * roto para todos hasta que se migre. Si las columnas no estan, el sistema
+ * simplemente se comporta como antes: pide todo en vivo.
+ */
+function colaDisponible($pdo) {
+    static $hay = null;
+    if ($hay !== null) return $hay;
+    try {
+        $hay = (bool) $pdo->query("SHOW COLUMNS FROM order_links LIKE 'scrape_state'")->fetch();
+    } catch (\Throwable $e) {
+        $hay = false;
+    }
+    return $hay;
+}
+
+/**
  * Dominios cuya lectura no cabe en una peticion web.
  *
  * Es la misma lista que planBScrapingBee() pide con stealth_proxy: son los que
@@ -2138,6 +2160,8 @@ function urlNecesitaCola($url) {
  * web. Devuelve cuantas quedaron en cola.
  */
 function encolarFilasLentas($pdo, $orderId, $onlyEmpty, $rowIndex = null) {
+    if (!colaDisponible($pdo)) return 0;
+
     $sql = "SELECT row_index, url, title, image_url FROM order_links
             WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
     $args = [$orderId];
@@ -2244,7 +2268,7 @@ function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
         // links de esos el cliente se queda mirando una pantalla en blanco
         // mientras el servidor decide cortar. Van a la cola y el worker los
         // completa; el expediente se crea al instante igual.
-        if (urlNecesitaCola($url)) {
+        if (colaDisponible($pdo) && urlNecesitaCola($url)) {
             $pdo->prepare("UPDATE order_links
                               SET scrape_state = 'en_cola', scrape_queued_at = NOW(),
                                   scrape_message = 'Este sitio tarda un par de minutos en responder. Se esta leyendo en segundo plano.'
