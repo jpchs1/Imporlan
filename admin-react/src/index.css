@@ -127,3 +127,11 @@ body {
 .recharts-tooltip-wrapper {
   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
 }
+
+/* Barra de progreso indeterminada para las filas que se leen en segundo plano.
+   No hay porcentaje real que mostrar —ScrapingBee no informa avance— asi que la
+   barra solo comunica "sigue andando", que es lo unico que sabemos. */
+@keyframes indeterminado {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

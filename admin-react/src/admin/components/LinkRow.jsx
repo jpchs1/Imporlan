@@ -160,6 +160,18 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
   const enCola = lk.scrape_state === 'en_cola' || lk.scrape_state === 'procesando';
   const errorLectura = lk.scrape_state === 'error';
 
+  // Cuanto lleva esperando. El numero lo calcula el servidor: scrape_queued_at
+  // viene sin zona horaria y restarlo en el navegador daba diferencias de horas.
+  const esperaSeg = Number(lk.scrape_espera_seg || 0);
+  const esperaTexto = esperaSeg < 60
+    ? 'hace unos segundos'
+    : 'hace ' + Math.round(esperaSeg / 60) + ' min';
+
+  // Una lectura tarda entre uno y dos minutos. Si lleva mucho mas, no es que
+  // vaya lenta: es que nadie esta vaciando la cola, o sea que falta el cron.
+  // Decirlo convierte un "cargando para siempre" en algo que se puede arreglar.
+  const colaDetenida = esperaSeg > 600;
+
   const titleParts = [lk.year, lk.make, lk.model].filter(Boolean);
   const title = titleParts.length ? titleParts.join(' ') : 'Opción sin identificar';
 
@@ -279,10 +291,28 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
           {enCola && (
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-sky-50 border border-sky-200">
               <svg className="w-4 h-4 text-sky-600 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
-              <span className="flex-1 text-xs font-medium text-sky-800">
-                {lk.scrape_message || 'Leyendo el anuncio en segundo plano. Este sitio tarda un par de minutos.'}
-                {' '}Podés seguir trabajando; la ficha se completa sola.
-              </span>
+              <div className="flex-1 min-w-0">
+                {colaDetenida ? (
+                  <span className="text-xs font-medium text-sky-800">
+                    En cola {esperaTexto}, que es mucho más de lo normal (una lectura tarda 1-2 minutos).
+                    Lo más probable es que la cola no se esté procesando: revisá que la tarea programada esté activa.
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-sky-800">
+                    Leyendo el anuncio en segundo plano — en cola {esperaTexto}. Este sitio tarda 1-2 minutos.
+                    Podés seguir trabajando; la ficha se completa sola.
+                  </span>
+                )}
+                {/* Barra indeterminada: ScrapingBee no informa avance, asi que
+                    fingir un porcentaje seria inventarlo. Esto solo dice "sigue
+                    andando", que es lo unico que sabemos de verdad. */}
+                {!colaDetenida && (
+                  <div className="mt-1.5 h-1 w-full rounded-full bg-sky-100 overflow-hidden">
+                    <div className="h-full w-1/3 rounded-full bg-sky-400 animate-[indeterminado_1.4s_ease-in-out_infinite]"
+                         style={{ animation: 'indeterminado 1.4s ease-in-out infinite' }} />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

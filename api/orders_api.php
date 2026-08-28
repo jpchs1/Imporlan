@@ -560,7 +560,7 @@ function adminGetOrderDetail() {
             SELECT * FROM order_links WHERE order_id = ? ORDER BY row_index ASC
         ");
         $linkStmt->execute([$orderId]);
-        $links = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
+        $links = agregarEsperaDeCola($linkStmt->fetchAll(PDO::FETCH_ASSOC));
 
         $eventStmt = $pdo->prepare("
             SELECT * FROM order_events WHERE order_id = ? ORDER BY created_at DESC LIMIT 50
@@ -2125,6 +2125,25 @@ function scrapePendingOrderLinks($pdo, $orderId, $limit = 3) {
  * Por defecto reprocesa todas las filas con URL; con only_empty=true
  * solo las que nunca se scrapearon.
  */
+/**
+ * Cuantos segundos lleva esperando cada fila encolada.
+ *
+ * El calculo va en el servidor y no en el navegador a proposito: scrape_queued_at
+ * viene sin zona horaria y el servidor esta en otra que el agente, asi que
+ * restar fechas en el navegador da diferencias de horas. Aca las dos puntas son
+ * la misma maquina.
+ */
+function agregarEsperaDeCola($links) {
+    foreach ($links as &$l) {
+        $l['scrape_espera_seg'] = null;
+        if (!empty($l['scrape_queued_at'])) {
+            $t = strtotime($l['scrape_queued_at']);
+            if ($t) $l['scrape_espera_seg'] = max(0, time() - $t);
+        }
+    }
+    return $links;
+}
+
 /**
  * Estan creadas las columnas de la cola?
  *
