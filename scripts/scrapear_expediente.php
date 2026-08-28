@@ -102,24 +102,6 @@ function creditosScrapingBee() {
  * el cliente necesita para decidir, y los unicos que solo pueden venir del
  * anuncio.
  */
-/** Los mismos dominios que planBScrapingBee() pide con stealth_proxy. */
-function esSitioCaro($url) {
-    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', $url);
-}
-
-/** Creditos consumidos en la cuenta de ScrapingBee, o null si no se pudo saber. */
-function creditosScrapingBee() {
-    $cfg = function_exists('loadScraperConfig') ? loadScraperConfig() : [];
-    $llave = trim($cfg['scrapingbee_api_key'] ?? '');
-    if (!$llave) return null;
-    $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($llave));
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
-    $r = json_decode((string) curl_exec($ch), true);
-    curl_close($ch);
-    if (!is_array($r) || !isset($r['used_api_credit'], $r['max_api_credit'])) return null;
-    return max(0, $r['max_api_credit'] - $r['used_api_credit']);
-}
-
 function filaIncompleta($f) {
     $sinFoto = trim((string) ($f['image_url'] ?? '')) === '';
     $sinPrecio = !((float) ($f['value_usa_usd'] ?? 0) > 0);
