@@ -1971,6 +1971,23 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
         $actuales = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
+    // Una foto que ya vive en uploads/ es la unica que esta demostrada: se
+    // descargo y se verifico que fuera una imagen de verdad. Un rescrapeo no
+    // puede cambiarla por una URL remota sin comprobar, porque eso solo puede
+    // empeorar la ficha — y ya paso: una fila de IMP-00031 tenia su foto
+    // guardada y un rescrapeo la reemplazo por un banner de publicidad.
+    $fotoActual = trim((string) ($actuales['image_url'] ?? ''));
+    if ($fotoActual === '' && !$soloVacios) {
+        $st = $pdo->prepare("SELECT image_url FROM order_links WHERE order_id = ? AND row_index = ?");
+        $st->execute([$orderId, $rowIndex]);
+        $fotoActual = trim((string) ($st->fetchColumn() ?: ''));
+    }
+    $fotoNueva = trim((string) ($map['image_url'] ?? ''));
+    if ($fotoActual !== '' && strpos($fotoActual, '/uploads/order_images/') !== false
+        && strpos($fotoNueva, '/uploads/order_images/') === false) {
+        unset($map['image_url']);
+    }
+
     $sets = [];
     $params = [];
     $cols = [];

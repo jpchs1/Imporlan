@@ -786,6 +786,26 @@ function isVideoUrl($url) {
     return false;
 }
 
+/**
+ * La URL apunta a un archivo de imagen?
+ *
+ * Los banners de publicidad que se colaron como foto del anuncio tienen algo en
+ * comun: ninguno termina en .jpg ni nada parecido. "/adserve/;MID=188087;..."
+ * no es una imagen, es una llamada a un servidor de anuncios. Exigir que la URL
+ * parezca una foto ataja a todos de una vez, incluidos los que todavia no
+ * conocemos, en vez de perseguirlos de a uno.
+ *
+ * Los CDN que sirven imagenes sin extension se nombran aparte para no perder
+ * fotos legitimas.
+ */
+function pareceUrlDeImagen($url) {
+    $sinQuery = strtolower(preg_replace('/[?#].*$/', '', (string) $url));
+    if (preg_match('/\.(jpe?g|png|webp|gif|avif)$/', $sinQuery)) return true;
+    // CDN conocidos que entregan la foto sin extension en la ruta.
+    if (preg_match('#images\.boatsgroup\.com|\.rbxcdn\.com|scontent|fbcdn\.net#', $sinQuery)) return true;
+    return false;
+}
+
 function isUsefulImage($imgUrl) {
     if (!$imgUrl) return false;
     $lower = strtolower($imgUrl);
@@ -797,14 +817,20 @@ function isUsefulImage($imgUrl) {
     // Reject BoatTrader/boats.com placeholder/generic images
     if (preg_match('/static\/legacy\/img\/tol-design/', $lower)) return false;
     if (preg_match('/placeholder|no-image|default-boat/i', $lower)) return false;
-    // Servidores de publicidad y rastreo. Un anuncio de BoatTrader quedo con
-    // esto como foto de la lancha:
+    // Servidores de publicidad y rastreo. Tres distintos aparecieron guardados
+    // como "foto de la lancha" en expedientes reales:
     //   https://servedby.boatsgroup.com/e061c2b61/?libBID=5612434
-    // No tiene nada que ver con la embarcacion, y encima no es una imagen: el
-    // intento de guardarla en local fallo y el expediente se quedo apuntando a
-    // una URL que el navegador del cliente tampoco puede mostrar.
-    if (preg_match('#//servedby\.|//ads?\.|adserver|adservice|doubleclick|googlesyndication#i', $lower)) return false;
+    //   https://servedbyadbutler.com/adserve/;MID=188087;type=v959fb862;...
+    if (preg_match('#servedby|adbutler|adserve|adserver|adservice|doubleclick|googlesyndication|//ads?\.#i', $lower)) return false;
     if (preg_match('#/(ads|banner|tracking|beacon)/#i', $lower)) return false;
+
+    // Y la regla de fondo, que es la que hace innecesaria esa lista negra: una
+    // foto tiene que PARECER una foto. Ir agregando dominios de publicidad uno
+    // por uno es una carrera perdida —cayeron tres seguidos, cada uno de un
+    // proveedor distinto—, mientras que ninguno de ellos apunta a un archivo de
+    // imagen. Se exige extension conocida, o un CDN que sirve fotos sin ella.
+    if (!pareceUrlDeImagen($imgUrl)) return false;
+
     return true;
 }
 
