@@ -233,6 +233,23 @@ function runMigration() {
             $pdo->exec("ALTER TABLE order_links ADD COLUMN year INT AFTER model");
         }
 
+        // ── Cola de scraping ──
+        // BoatTrader, boats.com y YachtWorld tardan entre 50 y 90 segundos en
+        // responder, y ninguna peticion web sobrevive eso: el servidor la corta
+        // antes, el boton del panel muestra un error y el credito se gasta
+        // igual. Estas columnas permiten encolar el trabajo y contestar al
+        // instante, para que el agente no quede apretando un boton que no
+        // puede terminar.
+        if (!in_array('scrape_state', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN scrape_state ENUM('idle','en_cola','procesando','error') DEFAULT 'idle' AFTER year");
+        }
+        if (!in_array('scrape_queued_at', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN scrape_queued_at DATETIME NULL AFTER scrape_state");
+        }
+        if (!in_array('scrape_message', $linkCols)) {
+            $pdo->exec("ALTER TABLE order_links ADD COLUMN scrape_message VARCHAR(255) NULL AFTER scrape_queued_at");
+        }
+
         // Timeline step column
         if (!in_array('timeline_step', $columns)) {
             $pdo->exec("ALTER TABLE orders ADD COLUMN timeline_step TINYINT UNSIGNED DEFAULT 1 AFTER status");
@@ -1836,7 +1853,7 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  *                         sincronas del panel usan un tope bajo.
  * @return array Resumen por fila, apto para devolver al panel.
  */
-function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null) {
+function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null, $incluirLentos = true) {
     // Un require de un archivo ausente es un fatal: el servidor devolveria un 500
     // en HTML que el panel ni siquiera puede parsear. Por eso el modulo pesado es
     // opcional: si no esta, igual guardamos lo deducible de la URL y lo informamos
@@ -1881,6 +1898,14 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         $url = trim((string) $row['url']);
         if (!preg_match('/^https?:\/\//i', $url)) {
             $results[] = ['row_index' => intval($row['row_index']), 'status' => 'invalid_url'];
+            continue;
+        }
+
+        // Desde la web estas filas ya quedaron en cola: intentarlas aca solo
+        // consigue que el servidor corte la peticion a mitad de camino. El
+        // worker las toma sin ese limite.
+        if (!$incluirLentos && urlNecesitaCola($url)) {
+            $results[] = ['row_index' => intval($row['row_index']), 'status' => 'en_cola'];
             continue;
         }
 
@@ -2004,6 +2029,11 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
     }
     if (empty($sets)) return [];
 
+    // La fila deja de estar en cola en cuanto se le escriben datos: si sigue
+    // marcada, el panel seguiria diciendo "se esta leyendo" para siempre.
+    $sets[] = "scrape_state = 'idle'";
+    $sets[] = "scrape_message = NULL";
+
     $params[] = $orderId;
     $params[] = $rowIndex;
     $pdo->prepare("UPDATE order_links SET " . implode(', ', $sets) . " WHERE order_id = ? AND row_index = ?")
@@ -2093,6 +2123,44 @@ function scrapePendingOrderLinks($pdo, $orderId, $limit = 3) {
  * Por defecto reprocesa todas las filas con URL; con only_empty=true
  * solo las que nunca se scrapearon.
  */
+/**
+ * Dominios cuya lectura no cabe en una peticion web.
+ *
+ * Es la misma lista que planBScrapingBee() pide con stealth_proxy: son los que
+ * estan detras de Cloudflare y hay que atravesar con un navegador de verdad.
+ */
+function urlNecesitaCola($url) {
+    return (bool) preg_match('/yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i', (string) $url);
+}
+
+/**
+ * Marca como encoladas las filas que no se pueden leer dentro de una peticion
+ * web. Devuelve cuantas quedaron en cola.
+ */
+function encolarFilasLentas($pdo, $orderId, $onlyEmpty, $rowIndex = null) {
+    $sql = "SELECT row_index, url, title, image_url FROM order_links
+            WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
+    $args = [$orderId];
+    if ($rowIndex !== null) { $sql .= " AND row_index = ?"; $args[] = $rowIndex; }
+    if ($onlyEmpty) {
+        $sql .= " AND (title IS NULL OR TRIM(title) = '') AND (image_url IS NULL OR TRIM(image_url) = '')";
+    }
+    $st = $pdo->prepare($sql);
+    $st->execute($args);
+
+    $n = 0;
+    $marcar = $pdo->prepare("UPDATE order_links
+                                SET scrape_state = 'en_cola', scrape_queued_at = NOW(),
+                                    scrape_message = 'Este sitio tarda un par de minutos en responder. Se esta leyendo en segundo plano.'
+                              WHERE order_id = ? AND row_index = ?");
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        if (!urlNecesitaCola($fila['url'])) continue;
+        $marcar->execute([$orderId, intval($fila['row_index'])]);
+        $n++;
+    }
+    return $n;
+}
+
 function adminRescrapeLinks() {
     $input = json_decode(file_get_contents('php://input'), true);
     $orderId = intval($input['order_id'] ?? 0);
@@ -2119,8 +2187,22 @@ function adminRescrapeLinks() {
 
     @set_time_limit(300);
 
+    // ── Los sitios lentos se encolan, no se piden en vivo ──
+    //
+    // BoatTrader, boats.com y YachtWorld tardan entre 50 y 90 segundos —medido:
+    // 50,6 / 73,8 / 86,8— y el servidor web corta la peticion mucho antes. El
+    // agente veia "no se pudo leer el anuncio", apretaba Reintentar, y volvia a
+    // pasar lo mismo: un boton que por construccion no podia funcionar. Y cada
+    // intento gastaba los creditos igual, porque ScrapingBee si hacia el
+    // trabajo; lo que se perdia era la respuesta.
+    //
+    // Encolar contesta al instante y deja el trabajo para el worker, que corre
+    // sin servidor web encima. Los demas dominios se siguen resolviendo en el
+    // momento porque responden en segundos.
+    $encoladas = encolarFilasLentas($pdo, $orderId, $onlyEmpty, $rowIndex);
+
     try {
-        $results = scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty, 0, $rowIndex);
+        $results = scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty, 0, $rowIndex, false);
     } catch (\Throwable $e) {
         error_log("adminRescrapeLinks: " . $e->getMessage());
         http_response_code(500);
@@ -2156,6 +2238,20 @@ function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
     foreach ($urls as $index => $url) {
         $url = trim((string) $url);
         if ($url === '' || !preg_match('/^https?:\/\//i', $url)) continue;
+
+        // Esto corre justo despues de un pago, dentro de la peticion web. Un
+        // anuncio de BoatTrader tarda hasta 90 segundos, asi que con dos o tres
+        // links de esos el cliente se queda mirando una pantalla en blanco
+        // mientras el servidor decide cortar. Van a la cola y el worker los
+        // completa; el expediente se crea al instante igual.
+        if (urlNecesitaCola($url)) {
+            $pdo->prepare("UPDATE order_links
+                              SET scrape_state = 'en_cola', scrape_queued_at = NOW(),
+                                  scrape_message = 'Este sitio tarda un par de minutos en responder. Se esta leyendo en segundo plano.'
+                            WHERE order_id = ? AND row_index = ?")
+                ->execute([$orderId, $index + 1]);
+            continue;
+        }
 
         try {
             $data = scrapeLinkData($url);
