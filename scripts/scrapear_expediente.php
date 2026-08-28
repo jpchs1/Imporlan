@@ -98,10 +98,18 @@ function costoEstimado($url) {
     return 5;
 }
 
-/** Creditos consumidos en la cuenta de ScrapingBee, o null si no se pudo saber. */
+/** Creditos que quedan en la cuenta de ScrapingBee, o null si no se pudo saber. */
 function creditosScrapingBee() {
-    $cfg = function_exists('loadScraperConfig') ? loadScraperConfig() : [];
-    $llave = trim($cfg['scrapingbee_api_key'] ?? '');
+    // El archivo se lee directo y no via loadScraperConfig(), que vive en
+    // link_scraper.php: esa libreria se carga recien dentro de
+    // scrapeOrderLinkRows(), asi que en el listado --pendientes no existe todavia
+    // y la consulta devolvia null sin decir por que — justo en la pantalla donde
+    // el saldo es el dato que decide si conviene gastar.
+    $ruta = '/home/wwimpo/imporlan.cl/api/scraper_config.php';
+    if (!file_exists($ruta)) $ruta = __DIR__ . '/../api/scraper_config.php';
+    if (!file_exists($ruta)) return null;
+    $cfg = require $ruta;
+    $llave = is_array($cfg) ? trim($cfg['scrapingbee_api_key'] ?? '') : '';
     if (!$llave) return null;
     $ch = curl_init('https://app.scrapingbee.com/api/v1/usage?api_key=' . urlencode($llave));
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
@@ -171,8 +179,11 @@ if ($listarPendientes) {
     $quedan = creditosScrapingBee();
     printf("  Completarlas todas cuesta hasta ~%d creditos", $costoTotal);
     // Sin este contraste es facil arrancar por el expediente equivocado y
-    // quedarse sin creditos a mitad de camino.
-    echo $quedan === null ? ".\n" : " y quedan $quedan.\n";
+    // quedarse sin creditos a mitad de camino. Y si el saldo no se pudo leer hay
+    // que decirlo: callarselo se ve igual que no tener nada que informar.
+    echo $quedan === null
+        ? ". No pude consultar el saldo de ScrapingBee.\n"
+        : " y quedan $quedan.\n";
 
     echo "  Para completar uno:  php " . basename(__FILE__) . " <numero>\n\n";
     exit(0);
@@ -231,7 +242,9 @@ foreach ($aProcesar as $f) {
 echo "\n  Se van a procesar " . count($aProcesar) . " fila(s).\n";
 printf("  Cuesta hasta ~%d creditos de ScrapingBee", $costo);
 $quedan = creditosScrapingBee();
-echo $quedan === null ? ".\n" : " y quedan $quedan.\n";
+echo $quedan === null
+    ? ". No pude consultar el saldo de ScrapingBee.\n"
+    : " y quedan $quedan.\n";
 if ($lentas) {
     printf("  %d son de sitios con Cloudflare: cerca de %d segundos en total.\n", $lentas, $lentas * 90);
 }
