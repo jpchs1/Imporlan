@@ -110,10 +110,9 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
     if (url) doScrape(url, true);
   }
 
-  // El scraping de BoatTrader falla de forma intermitente (Cloudflare bloquea a
-  // ratos), así que una fila sin foto es el caso NORMAL, no una excepción: se
-  // avisa con el motivo y un botón para reintentar en vez de dejar la ficha
-  // muda y que el agente no sepa si falta cargar algo o si el sistema falló.
+  // Una fila sin foto es el caso NORMAL y no una excepción, así que se avisa con
+  // un botón para reintentar en vez de dejar la ficha muda y que el agente no
+  // sepa si falta cargar algo o si el sistema falló.
   const scrapeIncompleto = !!(lk.url || '').trim() && !lk.image_url;
 
   const titleParts = [lk.year, lk.make, lk.model].filter(Boolean);
@@ -235,8 +234,15 @@ export default function LinkRow({ link, idx, onUpdate, onDelete, onImageUpload, 
           {scrapeIncompleto && (
             <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
               <svg className="w-4 h-4 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {/* El texto anterior afirmaba una causa —"el sitio bloquea la
+                  lectura a ratos"— y mandaba a reintentar en unos minutos. Es
+                  una de las tres causas posibles, y las otras dos no se
+                  arreglan reintentando: el anuncio pudo haber sido retirado, o
+                  el servicio de lectura puede estar sin créditos. Con la cuenta
+                  agotada, ese consejo hacía apretar el botón indefinidamente
+                  detrás de un problema que no existía. */}
               <span className="flex-1 text-xs font-medium text-amber-800">
-                No se pudo leer el anuncio completo. El sitio bloquea la lectura a ratos: reintentá en unos minutos o subí la foto a mano.
+                No se pudo leer el anuncio completo. Puede ser que el vendedor lo haya retirado, que el sitio esté bloqueando la lectura, o que el servicio de lectura no tenga créditos. Reintentá una vez; si sigue igual, subí la foto a mano.
               </span>
               <button
                 onClick={handleRescrape}
