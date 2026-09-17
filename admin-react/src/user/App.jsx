@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider } from '../shared/components/Toast';
 import Layout from '../shared/components/Layout';
@@ -34,7 +34,11 @@ import PostPaymentPopup from './components/PostPaymentPopup';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
-  return isAuth ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  // Igual que en el panel admin: recordamos el destino para no perderlo cuando
+  // la sesion vence a mitad de camino o el cliente llega desde un correo.
+  if (isAuth) return children;
+  return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
 }
 
 function UserLayout() {
@@ -99,9 +103,12 @@ function UserLayout() {
 
 function AppRoutes() {
   const { isAuth } = useAuth();
+  const location = useLocation();
+  const from = location.state?.from;
+  const afterLogin = from && from !== '/login' ? from : '/dashboard';
   return (
     <Routes>
-      <Route path="/login" element={isAuth ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/login" element={isAuth ? <Navigate to={afterLogin} replace /> : <Login />} />
       <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/tracking" element={<Tracking />} />
