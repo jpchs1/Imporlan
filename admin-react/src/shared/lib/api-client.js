@@ -40,6 +40,9 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
     const isGet = !options.method || options.method === 'GET';
     const baseHeaders = isGet ? { ...authHeaders() } : { 'Content-Type': 'application/json', ...authHeaders() };
     const headers = { ...baseHeaders, ...options.headers };
+    // Con que token sale ESTA peticion. Se guarda antes del fetch porque para
+    // cuando vuelva el 401 puede haber otro guardado (ver mas abajo).
+    const tokenEnviado = getToken();
     let res;
     try {
       const controller = new AbortController();
@@ -51,11 +54,18 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
       throw new Error('Error de conexion');
     }
     if (res.status === 401) {
-      // El primer 401 borra el token; los que vengan detras (varias llamadas en
-      // paralelo por pantalla) ya no encuentran nada y no repiten el aviso.
-      // Asi no hace falta un flag que se quede pegado y deje muda la proxima
-      // expiracion, despues de volver a entrar.
-      if (getToken() || getUserData().email) {
+      const tokenActual = getToken();
+      // Un 401 solo habla del token con el que salio su peticion. Una pantalla
+      // dispara varias llamadas a la vez y alguna puede tardar: si el usuario
+      // ya volvio a entrar cuando llega ese 401 atrasado, el token vigente es
+      // otro y borrarlo lo expulsaria de la sesion que acaba de abrir.
+      if (tokenActual && tokenActual !== tokenEnviado) {
+        throw new Error('No autorizado');
+      }
+      // El primer 401 borra el token; los que vengan detras ya no encuentran
+      // nada y no repiten el aviso. Asi no hace falta un flag que se quede
+      // pegado y deje muda la proxima expiracion, despues de volver a entrar.
+      if (tokenActual || getUserData().email) {
         localStorage.removeItem(storageKeys.token);
         localStorage.removeItem(storageKeys.user);
         window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { storageKeys } }));
