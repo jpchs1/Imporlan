@@ -149,6 +149,16 @@ function scrapeLinkData($url) {
         }
     }
 
+    // En la pagina de un fabricante, un mismo modelo se vende en varias
+    // medidas y cada una tiene su precio. Cual eligio el cliente lo dice el
+    // ancla de la URL, y hasta aca nadie la habia mirado: la ficha se quedaba
+    // con el primer precio del texto, que es el del paquete mas barato.
+    //
+    // Va al final a proposito. Es la unica via que sabe leer la medida elegida,
+    // asi que tiene que correr despues de todas las que solo ven "un precio en
+    // la pagina" — el Plan B incluido — para que ninguna le pase por encima.
+    aplicarPaqueteDelConfigurador($html ?: '', $url, $result);
+
     // Cache external images (Facebook CDN URLs expire) to permanent local copies
     if ($result['image_url'] && isExpiringImageUrl($result['image_url'])) {
         $cachedUrl = cacheImageLocally($result['image_url']);
@@ -1797,6 +1807,143 @@ function extractFromJinaMarkdown($md, &$result) {
     if (strlen($texto) > 200) {
         extractFieldsFromText($texto, null, $result);
     }
+}
+
+/**
+ * Recorta el objeto JSON que empieza en $desde (que debe apuntar a la llave de
+ * apertura), respetando llaves dentro de cadenas. json_decode no sirve solo:
+ * el objeto viene incrustado en un `<script>` entre codigo JavaScript.
+ */
+function recortarObjetoJson($texto, $desde) {
+    $largo = strlen($texto);
+    $profundidad = 0;
+    $enCadena = false;
+    $escapado = false;
+    for ($i = $desde; $i < $largo; $i++) {
+        $c = $texto[$i];
+        if ($enCadena) {
+            if ($escapado)          { $escapado = false; }
+            elseif ($c === '\\')    { $escapado = true; }
+            elseif ($c === '"')     { $enCadena = false; }
+            continue;
+        }
+        if ($c === '"')      { $enCadena = true; }
+        elseif ($c === '{')  { $profundidad++; }
+        elseif ($c === '}')  {
+            $profundidad--;
+            if ($profundidad === 0) return substr($texto, $desde, $i - $desde + 1);
+        }
+    }
+    return null;
+}
+
+/**
+ * Deja una etiqueta de paquete comparable con el ancla de la URL. La pagina
+ * escribe "Switch Sport 21 - 300 hp" y el ancla llega como
+ * "switch%20sport_21--%20300%20hp": mismo contenido, distinta puntuacion.
+ */
+function normalizarEtiquetaPaquete($texto) {
+    $texto = strtolower(trim((string) $texto));
+    $texto = preg_replace('/[^a-z0-9]+/', ' ', $texto);
+    return trim(preg_replace('/\s+/', ' ', $texto));
+}
+
+/**
+ * Paquetes publicados por un configurador de fabricante. sea-doo.brp.com — y
+ * el resto de las marcas de BRP, que montan la misma pieza — deja en la pagina
+ * un JSON con todas las configuraciones del modelo, cada una con su medida,
+ * su motor y su precio.
+ *
+ * Devuelve la lista sin repetidos (el mismo paquete aparece una vez por color),
+ * o [] si la pagina no es un configurador.
+ */
+function paquetesDelConfigurador($html) {
+    if (!$html || strpos($html, 'packagePrice') === false) return [];
+    if (!preg_match('/\bsbsProps\s*=\s*\{/', $html, $m, PREG_OFFSET_CAPTURE)) return [];
+
+    $inicio = $m[0][1] + strlen($m[0][0]) - 1;
+    $json = recortarObjetoJson($html, $inicio);
+    if (!$json) return [];
+
+    $datos = json_decode($json, true);
+    if (!is_array($datos) || empty($datos['vehicles']) || !is_array($datos['vehicles'])) return [];
+
+    $paquetes = [];
+    foreach ($datos['vehicles'] as $v) {
+        if (!is_array($v)) continue;
+        $etiqueta = trim((string) ($v['packageLabel'] ?? ''));
+        if ($etiqueta === '' || !isset($v['packagePrice'])) continue;
+        $precio = floatval(preg_replace('/[^\d.]/', '', (string) $v['packagePrice']));
+        if ($precio <= 0) continue;
+
+        $clave = normalizarEtiquetaPaquete($etiqueta);
+        if (isset($paquetes[$clave])) continue;
+        $paquetes[$clave] = [
+            'etiqueta' => $etiqueta,
+            'precio'   => $precio,
+            'medida'   => trim((string) ($v['length'] ?? '')),
+            'motor'    => trim((string) ($v['engine'] ?? '')),
+            'anio'     => trim((string) ($v['modelYear'] ?? '')),
+        ];
+    }
+    return array_values($paquetes);
+}
+
+/**
+ * Cuando la pagina vende el modelo en varias medidas, el precio de la ficha
+ * tiene que ser el de la que eligio el cliente, no el de la primera que
+ * aparezca en el texto.
+ *
+ * El expediente IMP-00034 es el caso: el cliente mando el Switch Sport con el
+ * ancla del 21 pies / 300 hp (USD 46.199) y la ficha quedo con USD 30.449, el
+ * Compact de 170 hp. Mas de USD 15.000 de diferencia arrastrados a aranceles,
+ * IVA y precio final de toda la cotizacion.
+ *
+ * Si el enlace no dice cual paquete es, el precio se deja vacio: entre varios
+ * precios posibles, elegir uno al azar es peor que no tener ninguno. Las
+ * opciones quedan en el log y en la respuesta para que el admin las vea.
+ */
+function aplicarPaqueteDelConfigurador($html, $url, &$result) {
+    $paquetes = paquetesDelConfigurador($html);
+    if (count($paquetes) < 2) return;
+
+    // Si todas las medidas cuestan lo mismo no hay nada que desambiguar, y el
+    // precio que ya tiene la ficha es tan bueno como cualquiera.
+    if (count(array_unique(array_column($paquetes, 'precio'))) < 2) return;
+
+    $ancla = normalizarEtiquetaPaquete(urldecode((string) parse_url($url, PHP_URL_FRAGMENT)));
+    $elegido = null;
+    if ($ancla !== '') {
+        foreach ($paquetes as $p) {
+            if (normalizarEtiquetaPaquete($p['etiqueta']) === $ancla) {
+                $elegido = $p;
+                break;
+            }
+        }
+    }
+
+    $opciones = [];
+    foreach ($paquetes as $p) {
+        $opciones[] = $p['etiqueta'] . ' (USD ' . number_format($p['precio'], 0, '.', '.') . ')';
+    }
+
+    if (!$elegido) {
+        error_log('link_scraper: ' . $url . ' vende ' . count($paquetes) . ' configuraciones y el enlace no dice cual; '
+                . 'se deja el precio vacio en vez de inventar uno. Opciones: ' . implode(' | ', $opciones));
+        $result['value_usa_usd'] = null;
+        $result['paquetes_disponibles'] = $opciones;
+        return;
+    }
+
+    $result['value_usa_usd'] = $elegido['precio'];
+    // La etiqueta lleva la medida dentro ("Switch Sport 21 - 300 hp"), que es
+    // justamente el dato que se perdia. Pisa lo que hubiera: ningun otro metodo
+    // sabe que configuracion eligio el cliente.
+    $result['model'] = $elegido['etiqueta'];
+    if (empty($result['engine']) && $elegido['motor'] !== '') $result['engine'] = $elegido['motor'];
+    if (empty($result['year']) && $elegido['anio'] !== '')    $result['year'] = intval($elegido['anio']);
+    $result['paquete_elegido'] = $elegido['etiqueta'];
+    if ($elegido['medida'] !== '') $result['medida_elegida'] = $elegido['medida'];
 }
 
 function parseUrlPatterns($url, $parsedUrl, &$result) {
