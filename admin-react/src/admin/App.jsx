@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider } from '../shared/components/Toast';
 import Layout from '../shared/components/Layout';
@@ -29,7 +29,12 @@ import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
-  return isAuth ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  // Guardamos a donde iba para devolverlo ahi despues del login: los correos
+  // internos enlazan a #/orders y perder ese destino dejaba al admin en el
+  // dashboard, lejos del expediente que venia a mirar.
+  if (isAuth) return children;
+  return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
 }
 
 function AdminLayout() {
@@ -53,9 +58,12 @@ function AdminLayout() {
 
 function AppRoutes() {
   const { isAuth } = useAuth();
+  const location = useLocation();
+  const from = location.state?.from;
+  const afterLogin = from && from !== '/login' ? from : '/dashboard';
   return (
     <Routes>
-      <Route path="/login" element={isAuth ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/login" element={isAuth ? <Navigate to={afterLogin} replace /> : <Login />} />
       <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />

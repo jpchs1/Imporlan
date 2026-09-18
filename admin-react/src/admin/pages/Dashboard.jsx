@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getDashboard } from '../api';
 import { fmtCLP, fmtDate, statusColor } from '../../shared/lib/utils';
-import { Card, StatCard, PageHeader, Spinner, Badge, Table } from '../../shared/components/UI';
+import { Card, StatCard, PageHeader, Spinner, Badge, Table, Button } from '../../shared/components/UI';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid } from 'recharts';
 
 const COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -21,13 +21,34 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    getDashboard().then(setData).catch(console.error).finally(() => setLoading(false));
+  const fetchDashboard = useCallback(() => {
+    getDashboard()
+      .then(d => { setData(d); setError(null); })
+      .catch(e => setError(e.message || 'No se pudo cargar el dashboard'))
+      .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+
+  const retry = () => { setLoading(true); setError(null); fetchDashboard(); };
+
   if (loading) return <Spinner />;
-  if (!data) return <p className="text-slate-500">Error cargando dashboard</p>;
+  // Decir que fallo, y no solo que fallo: un "Error cargando dashboard" a secas
+  // no distingue una sesion vencida de un servidor caido ni deja reintentar.
+  if (!data) {
+    return (
+      <>
+        <PageHeader title="Dashboard" subtitle="Resumen general del sistema" />
+        <Card className="max-w-lg">
+          <h3 className="font-bold text-slate-800 mb-1">No se pudo cargar el dashboard</h3>
+          <p className="text-sm text-slate-500 mb-4">{error || 'El servidor no devolvio datos.'}</p>
+          <Button variant="secondary" size="sm" onClick={retry}>Reintentar</Button>
+        </Card>
+      </>
+    );
+  }
 
   const statusData = (data.submissions_by_status || []).map(s => ({ name: s.status, value: s.count }));
   const paymentData = (data.payments_by_provider || []).map(p => ({ name: p.provider, value: p.count }));

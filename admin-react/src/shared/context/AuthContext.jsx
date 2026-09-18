@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { SESSION_EXPIRED_EVENT } from '../lib/api-client';
 
 const AuthContext = createContext(null);
 
@@ -22,6 +23,21 @@ export function AuthProvider({ children, storageKeys = DEFAULT_KEYS }) {
     localStorage.removeItem(storageKeys.user);
     setToken(null);
     setUser(null);
+  }, [storageKeys]);
+
+  // Si el token vence, el cliente HTTP borra localStorage y avisa por aqui. Sin
+  // esto el estado de React seguia con la sesion vieja: el guard daba por
+  // autenticado, /login rebotaba de vuelta al dashboard y la pantalla quedaba
+  // colgada en "Error cargando dashboard", sin forma de volver a entrar.
+  useEffect(() => {
+    const onExpired = (e) => {
+      const keys = e?.detail?.storageKeys;
+      if (keys && keys.token !== storageKeys.token) return;
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, [storageKeys]);
 
   const isAuth = !!token && !!user;

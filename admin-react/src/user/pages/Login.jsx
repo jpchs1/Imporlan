@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { login, verify2FA, googleAuth } from '../api';
 
@@ -8,6 +8,10 @@ const GOOGLE_CLIENT_ID = '143983416032-4tmdrcn2f2j3tdg0ni5k834729f25og6.apps.goo
 export default function Login() {
   const { loginUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // ProtectedRoute deja aqui la ruta que el usuario intentaba abrir.
+  const from = location.state?.from;
+  const destination = from && from !== '/login' ? from : '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -29,7 +33,7 @@ export default function Login() {
         setTempToken(res.temp_token);
       } else {
         loginUser(res.user, res.access_token);
-        navigate('/dashboard');
+        navigate(destination, { replace: true });
       }
     } catch (err) {
       setError(err.message || 'Credenciales invalidas');
@@ -45,7 +49,7 @@ export default function Login() {
     try {
       const res = await verify2FA(code2FA, tempToken);
       loginUser(res.user, res.access_token);
-      navigate('/dashboard');
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err.message || 'Codigo invalido');
     } finally {
@@ -61,7 +65,7 @@ export default function Login() {
       const res = await googleAuth(response.credential);
       if (res.user && res.access_token) {
         loginUser(res.user, res.access_token);
-        navigate('/dashboard');
+        navigate(destination, { replace: true });
       } else {
         setError('Error al autenticar con Google');
       }
@@ -70,7 +74,7 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  }, [loginUser, navigate]);
+  }, [loginUser, navigate, destination]);
 
   useEffect(() => {
     // Load Google Identity Services

@@ -5,11 +5,15 @@
 // to /api regardless of where the panel HTML is hosted.
 const API_BASE = '/api';
 
-export { API_BASE };
+// Cuando el token vence, la sesion se cae en mitad de una pantalla ya montada.
+// Limpiar localStorage no alcanza: AuthContext guarda el token en estado de
+// React y seguiria creyendo que hay sesion, asi que avisamos por evento para
+// que el arbol entero se entere y el router mande al login.
+const SESSION_EXPIRED_EVENT = 'imporlan:session-expired';
+
+export { API_BASE, SESSION_EXPIRED_EVENT };
 
 export function createApiClient(storageKeys = { token: 'token', user: 'user' }) {
-  let redirecting = false;
-
   function getToken() {
     return localStorage.getItem(storageKeys.token);
   }
@@ -47,11 +51,14 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
       throw new Error('Error de conexion');
     }
     if (res.status === 401) {
-      if (!redirecting) {
-        redirecting = true;
+      // El primer 401 borra el token; los que vengan detras (varias llamadas en
+      // paralelo por pantalla) ya no encuentran nada y no repiten el aviso.
+      // Asi no hace falta un flag que se quede pegado y deje muda la proxima
+      // expiracion, despues de volver a entrar.
+      if (getToken() || getUserData().email) {
         localStorage.removeItem(storageKeys.token);
         localStorage.removeItem(storageKeys.user);
-        window.location.hash = '#/login';
+        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { storageKeys } }));
       }
       throw new Error('No autorizado');
     }
