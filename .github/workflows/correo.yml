@@ -105,6 +105,8 @@ jobs:
           MAIL_HOST: ${{ vars.IMPORLAN_MAIL_HOST || 'mail.imporlan.cl' }}
           MAIL_USER: ${{ vars.IMPORLAN_MAIL_USER || 'contacto@imporlan.cl' }}
           MAIL_PASS: ${{ secrets.IMPORLAN_MAIL_PASS }}
+          # Copia oculta en TODO envío, pedida por JP.
+          MAIL_BCC: ${{ vars.IMPORLAN_MAIL_BCC || 'jpchs1@gmail.com' }}
           IMAP_PORT: ${{ vars.IMPORLAN_IMAP_PORT || '993' }}
           SMTP_PORT: ${{ vars.IMPORLAN_SMTP_PORT || '465' }}
         run: node correo.mjs

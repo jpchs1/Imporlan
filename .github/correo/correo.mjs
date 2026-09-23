@@ -16,6 +16,7 @@
 //   DESDE       YYYY-MM-DD, por defecto hace 7 días (leer)
 //   LIMITE      1-50, por defecto 10               (leer)
 //   DATOS       base64 de un JSON {to, subject, text, cc?, inReplyTo?, references?} (enviar)
+//   MAIL_BCC    copia oculta que va SIEMPRE en cada envío (por defecto jpchs1@gmail.com)
 //   MAIL_HOST, MAIL_USER, MAIL_PASS, IMAP_PORT, SMTP_PORT  (secrets)
 //
 // `leer` no marca nada como leído ni escribe en el buzón.
@@ -104,21 +105,22 @@ async function enviar() {
   const destinos = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
   const to = destinos(d.to);
   const cc = destinos(d.cc);
+  const bcc = destinos(env.MAIL_BCC ?? 'jpchs1@gmail.com');
   if (!to.length) fallar('falta "to"');
-  for (const x of [...to, ...cc]) if (!EMAIL.test(x)) fallar(`dirección inválida: ${x}`);
+  for (const x of [...to, ...cc, ...bcc]) if (!EMAIL.test(x)) fallar(`dirección inválida: ${x}`);
   if (!d.subject || typeof d.subject !== 'string') fallar('falta "subject"');
   if (!d.text || typeof d.text !== 'string') fallar('falta "text"');
 
   const mail = {
     from: { name: FROM_NAME, address: USER },
-    to, cc: cc.length ? cc : undefined,
+    to, cc: cc.length ? cc : undefined, bcc: bcc.length ? bcc : undefined,
     subject: d.subject, text: d.text,
     inReplyTo: d.inReplyTo || undefined,
     references: d.references || d.inReplyTo || undefined,
   };
   const t = nodemailer.createTransport({ host: HOST, port: SMTP_PORT, secure: SMTP_PORT === 465, auth: { user: USER, pass: PASS } });
   const info = await t.sendMail(mail);
-  console.log(`Enviado · Message-ID ${info.messageId} · aceptados: ${info.accepted.join(', ')} · rechazados: ${info.rejected.join(', ') || 'ninguno'}`);
+  console.log(`Enviado · Message-ID ${info.messageId} · aceptados: ${info.accepted.join(', ')} · rechazados: ${info.rejected.join(', ') || 'ninguno'} · CCO: ${bcc.join(', ') || 'ninguna'}`);
 
   // Copia en Enviados para que quede en el webmail igual que un correo escrito a mano.
   try {
