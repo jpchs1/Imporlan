@@ -102,6 +102,8 @@ jobs:
           DESDE: ${{ inputs.desde }}
           LIMITE: ${{ inputs.limite }}
           DATOS: ${{ inputs.datos }}
+          # Firma de JP en todo envío (pedida por JP). `ninguna` la saca.
+          FIRMA: ${{ vars.IMPORLAN_MAIL_FIRMA || 'jp' }}
           MAIL_HOST: ${{ vars.IMPORLAN_MAIL_HOST || 'mail.imporlan.cl' }}
           MAIL_USER: ${{ vars.IMPORLAN_MAIL_USER || 'contacto@imporlan.cl' }}
           MAIL_PASS: ${{ secrets.IMPORLAN_MAIL_PASS }}

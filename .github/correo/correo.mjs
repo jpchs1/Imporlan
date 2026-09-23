@@ -16,6 +16,7 @@
 //   DESDE       YYYY-MM-DD, por defecto hace 7 días (leer)
 //   LIMITE      1-50, por defecto 10               (leer)
 //   DATOS       base64 de un JSON {to, subject, text, cc?, inReplyTo?, references?} (enviar)
+//   FIRMA       jp (por defecto) = firma de Juan Pablo (firma-jp.jpg) · ninguna
 //   MAIL_BCC    copia oculta que va SIEMPRE en cada envío (por defecto jpchs1@gmail.com)
 //   MAIL_HOST, MAIL_USER, MAIL_PASS, IMAP_PORT, SMTP_PORT  (secrets)
 //
@@ -25,6 +26,7 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
+import { readFileSync } from 'node:fs';
 
 const env = process.env;
 const HOST = env.MAIL_HOST || 'mail.imporlan.cl';
@@ -32,7 +34,24 @@ const USER = env.MAIL_USER || 'contacto@imporlan.cl';
 const PASS = env.MAIL_PASS || '';
 const IMAP_PORT = Number(env.IMAP_PORT || 993);
 const SMTP_PORT = Number(env.SMTP_PORT || 465);
-const FROM_NAME = 'Imporlan';
+const FIRMAS = {
+  // La imagen es 705x298; se muestra a 460 px de ancho (cabe en móvil y queda
+  // nítida en pantallas retina). Enlaza a imporlan.cl, como el botón que trae.
+  jp: {
+    fromName: 'Juan Pablo · Imporlan',
+    archivo: new URL('./firma-jp.jpg', import.meta.url),
+    texto: '--\nJuan Pablo\nCommercial & Logistics · Imporlan\n+56 9 4021 1459 · www.imporlan.cl',
+  },
+};
+
+const html = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Texto plano → HTML simple: párrafos, saltos de línea y links clickeables.
+function textoAHtml(t) {
+  const linkificar = (s) => s.replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" style="color:#1d4ed8">${u}</a>`);
+  return t.trim().split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 14px">${linkificar(html(p)).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
 
 const EMAIL = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const FILTRO = /^[A-Za-z0-9._%+@-]{1,100}$/;
@@ -111,10 +130,23 @@ async function enviar() {
   if (!d.subject || typeof d.subject !== 'string') fallar('falta "subject"');
   if (!d.text || typeof d.text !== 'string') fallar('falta "text"');
 
+  const firma = FIRMAS[env.FIRMA ?? 'jp'] || null;
+  if (env.FIRMA && env.FIRMA !== 'ninguna' && !firma) fallar(`FIRMA desconocida: ${env.FIRMA}`);
+  let cuerpoHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1e293b;max-width:600px">${textoAHtml(d.text)}`;
+  const adjuntos = [];
+  if (firma) {
+    cuerpoHtml += '<a href="https://www.imporlan.cl" style="text-decoration:none"><img src="cid:firma@imporlan.cl" alt="Juan Pablo · Imporlan · +56 9 4021 1459 · www.imporlan.cl" width="460" style="display:block;width:460px;max-width:100%;height:auto;border:0;border-radius:10px;margin-top:8px"></a>';
+    adjuntos.push({ filename: 'firma.jpg', content: readFileSync(firma.archivo), cid: 'firma@imporlan.cl', contentDisposition: 'inline' });
+  }
+  cuerpoHtml += '</div>';
+
   const mail = {
-    from: { name: FROM_NAME, address: USER },
+    from: { name: firma?.fromName || FROM_NAME, address: USER },
     to, cc: cc.length ? cc : undefined, bcc: bcc.length ? bcc : undefined,
-    subject: d.subject, text: d.text,
+    subject: d.subject,
+    text: firma ? `${d.text.trim()}\n\n${firma.texto}\n` : d.text,
+    html: cuerpoHtml,
+    attachments: adjuntos,
     inReplyTo: d.inReplyTo || undefined,
     references: d.references || d.inReplyTo || undefined,
   };
