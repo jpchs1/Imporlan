@@ -7,6 +7,9 @@
   navegador — no sólo la ruta de menús ("Settings → Secrets → …").
   Ej.: https://github.com/jpchs1/Imporlan/settings/secrets/actions/new
 - Responder en español.
+- Cambios de código: cuando JP pida algo, **crear el PR y hacer merge a `main`
+  directamente**, sin preguntar. Validar antes (sintaxis, checks locales) y
+  avisar al final con el link del PR.
 
 ## Correo contacto@imporlan.cl
 
