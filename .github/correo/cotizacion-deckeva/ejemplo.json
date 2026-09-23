@@ -1,0 +1,28 @@
+{
+  "numero": "DCK-CL-20260101-EJEMPLO",
+  "fecha": "1 de enero de 2026",
+  "saludo": "Como conversamos, aquí tienes la cotización de tu piso náutico EVA a medida, con la toma de medidas y la instalación incluidas.",
+  "cliente": { "nombre": "Cliente de Ejemplo", "email": "cliente@ejemplo.cl", "telefono": "", "pais": "Chile" },
+  "embarcacion": { "tamano": "", "modelo": "MasterCraft", "anio": "", "color": "Gris" },
+  "precio": {
+    "a_consultar": false,
+    "subtotal": "CLP $1.000.000",
+    "iva": "CLP $190.000",
+    "total": "CLP $1.560.000",
+    "ref_usd": "",
+    "tipo_cambio": ""
+  },
+  "servicios": [
+    { "desc": "Toma de medidas", "sub": "En destino · IVA incluido", "monto": "CLP $185.000" },
+    { "desc": "Instalación", "sub": "En destino · IVA incluido", "monto": "CLP $185.000" }
+  ],
+  "forma_pago": [
+    { "etiqueta": "50% para iniciar", "detalle": "Al confirmar la cotización", "monto": "CLP $780.000" },
+    { "etiqueta": "50% contra entrega", "detalle": "Para el envío o para coordinar la instalación, con el piso ya listo", "monto": "CLP $780.000" }
+  ],
+  "servicios_incluidos": "Deckeva realiza la toma de medidas y la instalación del piso. Ambas ya están incluidas en el total.",
+  "proximos_pasos": [
+    "Toma de medidas: fecha por confirmar.",
+    "Con las medidas listas fabricamos el piso y coordinamos la instalación."
+  ]
+}
