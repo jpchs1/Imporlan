@@ -15,9 +15,13 @@
 //   ASUNTO      texto dentro del asunto          (leer, opcional)
 //   DESDE       YYYY-MM-DD, por defecto hace 7 días (leer)
 //   LIMITE      1-50, por defecto 10               (leer)
-//   DATOS       base64 de un JSON {to, subject, text, cc?, inReplyTo?, references?} (enviar)
+//   DATOS       base64 de un JSON {to, subject, text, cc?, inReplyTo?, references?, adjuntos?} (enviar)
+//               `adjuntos`: nombres de archivo dentro de ./adjuntos/ (PDF o imagen). Esos
+//               archivos traen datos de clientes: se suben en una rama temporal, se
+//               dispara el workflow con `ref` en esa rama y después se borra la rama.
+//               Nunca a main.
 //   CUENTA      imporlan (por defecto) | deckeva
-//   FIRMA       por defecto la de la cuenta: jp (Imporlan, gráfica) | deckeva (texto) · ninguna
+//   FIRMA       por defecto la de la cuenta: jp (Imporlan) | deckeva (Deckeva), ambas gráficas · ninguna
 //   MAIL_BCC    copia oculta que va SIEMPRE en cada envío (por defecto jpchs1@gmail.com)
 //   MAIL_HOST, MAIL_USER, MAIL_PASS, IMAP_PORT, SMTP_PORT  (secrets)
 //
@@ -49,13 +53,16 @@ const FIRMAS = {
   jp: {
     fromName: 'Juan Pablo · Imporlan',
     archivo: new URL('./firma-jp.jpg', import.meta.url),
+    alt: 'Juan Pablo · Imporlan · +56 9 4021 1459 · www.imporlan.cl',
+    link: 'https://www.imporlan.cl',
     texto: '--\nJuan Pablo\nCommercial & Logistics · Imporlan\n+56 9 4021 1459 · www.imporlan.cl',
   },
   deckeva: {
     fromName: 'Juan Pablo · Deckeva',
-    archivo: null,
-    texto: '--\nJuan Pablo\nDeckeva · Pisos náuticos a medida\n+56 9 4021 1459 · www.deckeva.cl',
-    html: '<p style="margin:18px 0 0;padding-top:12px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.5;color:#475569"><strong style="color:#0d2137">Juan Pablo</strong><br>Deckeva · Pisos náuticos a medida<br>+56 9 4021 1459 · <a href="https://www.deckeva.cl" style="color:#1d4ed8">www.deckeva.cl</a></p>',
+    archivo: new URL('./firma-deckeva.jpg', import.meta.url),
+    alt: 'Juan Pablo · Commercial Manager · Deckeva · +56 2 2570 9228 · contacto@deckeva.cl · www.deckeva.cl',
+    link: 'https://www.deckeva.cl',
+    texto: '--\nJuan Pablo\nCommercial Manager · Deckeva\n+56 2 2570 9228 · contacto@deckeva.cl · www.deckeva.cl\nLo Barnechea, Santiago, Chile',
   },
 };
 
@@ -150,12 +157,18 @@ async function enviar() {
   if (nombreFirma !== 'ninguna' && !firma) fallar(`FIRMA desconocida: ${nombreFirma}`);
   let cuerpoHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1e293b;max-width:600px">${textoAHtml(d.text)}`;
   const adjuntos = [];
-  if (firma?.html) cuerpoHtml += firma.html;
   if (firma?.archivo) {
-    cuerpoHtml += '<a href="https://www.imporlan.cl" style="text-decoration:none"><img src="cid:firma@imporlan.cl" alt="Juan Pablo · Imporlan · +56 9 4021 1459 · www.imporlan.cl" width="460" style="display:block;width:460px;max-width:100%;height:auto;border:0;border-radius:10px;margin-top:8px"></a>';
-    adjuntos.push({ filename: 'firma.jpg', content: readFileSync(firma.archivo), cid: 'firma@imporlan.cl', contentDisposition: 'inline' });
+    // Imagen de firma pegada al final, a 460 px (cabe en móvil, nítida en retina).
+    cuerpoHtml += `<a href="${firma.link}" style="text-decoration:none"><img src="cid:firma@correo" alt="${html(firma.alt)}" width="460" style="display:block;width:460px;max-width:100%;height:auto;border:0;margin-top:8px"></a>`;
+    adjuntos.push({ filename: 'firma.jpg', content: readFileSync(firma.archivo), cid: 'firma@correo', contentDisposition: 'inline' });
   }
   cuerpoHtml += '</div>';
+
+  for (const nombre of [].concat(d.adjuntos || [])) {
+    if (!/^[A-Za-z0-9._-]{1,120}\.(pdf|jpe?g|png)$/i.test(nombre)) fallar(`adjunto inválido: ${nombre}`);
+    const ruta = new URL(`./adjuntos/${nombre}`, import.meta.url);
+    try { adjuntos.push({ filename: nombre, content: readFileSync(ruta) }); } catch { fallar(`no existe el adjunto: ${nombre}`); }
+  }
 
   const mail = {
     from: { name: firma?.fromName || FROM_NAME, address: USER },
@@ -169,6 +182,7 @@ async function enviar() {
   };
   const t = nodemailer.createTransport({ host: HOST, port: SMTP_PORT, secure: SMTP_PORT === 465, auth: { user: USER, pass: PASS } });
   const info = await t.sendMail(mail);
+  if (adjuntos.length > (firma?.archivo ? 1 : 0)) console.log(`Adjuntos: ${[].concat(d.adjuntos).join(', ')}`);
   console.log(`Enviado · Message-ID ${info.messageId} · aceptados: ${info.accepted.join(', ')} · rechazados: ${info.rejected.join(', ') || 'ninguno'} · CCO: ${bcc.join(', ') || 'ninguna'}`);
 
   // Copia en Enviados para que quede en el webmail igual que un correo escrito a mano.
