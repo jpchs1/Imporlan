@@ -16,4 +16,6 @@
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se
 dispara `.github/workflows/correo.yml` (GitHub Actions) y se lee el log del
 job. Requiere el secret `IMPORLAN_MAIL_PASS`. Nunca usar `accion: enviar` sin
-que JP haya aprobado el texto exacto.
+que JP haya aprobado el texto exacto. Todo correo enviado a un cliente va
+**siempre con copia oculta (CCO) a jpchs1@gmail.com** — el workflow la agrega
+solo (`MAIL_BCC`); no quitarla.
