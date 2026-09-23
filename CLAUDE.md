@@ -26,5 +26,16 @@ el workflow la pone sola. Escribir el texto en su nombre, en primera persona.
 
 Se envía con el mismo workflow, `cuenta: deckeva` (secret `DECKEVA_MAIL_PASS`
 en ESTE repo). No desde el repo de Deckeva: es público y sus logs de Actions
-también. Remitente «Juan Pablo · Deckeva», firma en texto, CCO a
+también. Remitente «Juan Pablo · Deckeva», con su firma gráfica pegada al final
+(`.github/correo/firma-deckeva.jpg`, la pone el workflow solo), CCO a
 jpchs1@gmail.com igual que Imporlan.
+
+## Adjuntos (PDF de cotización, etc.)
+
+`DATOS.adjuntos` = nombres de archivo en `.github/correo/adjuntos/`. Como traen
+datos de clientes, NUNCA van a `main`: se crea una rama temporal
+`correo/adjuntos-<algo>` desde main con el archivo, se dispara `correo.yml` con
+`ref` en esa rama y al terminar se borra la rama.
+
+Cotizaciones de Deckeva: PDF con el formato de `build_international_pdf_html`
+(repo deckeva, `wp-content/mu-plugins/deckeva-cotizador.php`), en español.
