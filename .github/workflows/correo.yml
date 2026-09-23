@@ -1,0 +1,110 @@
+# Lee o envía correo de contacto@imporlan.cl.
+#
+# El agente de Claude en la nube no llega al servidor de correo (sale sólo por
+# HTTPS/443). El runner de GitHub sí, así que el agente dispara este workflow
+# por la API y lee la respuesta en el log del job. Mismo patrón que
+# tourevo-cl/correr-script-vps.yml.
+#
+# Necesita UN secret (Settings → Secrets and variables → Actions):
+#   IMPORLAN_MAIL_PASS   la clave de contacto@imporlan.cl
+# Opcionales como variables (Actions → Variables): IMPORLAN_MAIL_HOST
+# (por defecto mail.imporlan.cl), IMPORLAN_MAIL_USER, IMPORLAN_IMAP_PORT,
+# IMPORLAN_SMTP_PORT.
+#
+# `enviar` manda un correo real a un cliente: el agente sólo lo dispara con el
+# texto ya aprobado por JP. `datos` es base64 de un JSON y el script valida
+# direcciones; los inputs llegan como variables de entorno, nunca se
+# interpolan en un comando.
+#
+# El log del job queda con el contenido de los correos leídos. El repo es
+# privado; igual, los logs se pueden borrar desde la ejecución en Actions.
+
+name: Correo contacto@imporlan.cl
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "leer = buscar y mostrar correos · enviar = mandar uno"
+        required: true
+        default: leer
+        type: choice
+        options: [leer, enviar]
+      carpeta:
+        description: "(leer) entrada o enviados"
+        required: false
+        default: entrada
+        type: choice
+        options: [entrada, enviados]
+      de:
+        description: "(leer) remitente o dominio, ej. cliente@dominio.cl"
+        required: false
+        default: ""
+        type: string
+      para:
+        description: "(leer) destinatario"
+        required: false
+        default: ""
+        type: string
+      asunto:
+        description: "(leer) texto dentro del asunto"
+        required: false
+        default: ""
+        type: string
+      desde:
+        description: "(leer) YYYY-MM-DD · por defecto, últimos 7 días"
+        required: false
+        default: ""
+        type: string
+      limite:
+        description: "(leer) máximo de correos, 1-50"
+        required: false
+        default: "10"
+        type: string
+      datos:
+        description: "(enviar) base64 de {to, subject, text, cc?, inReplyTo?, references?}"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: correo-imporlan
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  correo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/correo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        working-directory: .github/correo
+        run: npm ci --no-audit --no-fund
+
+      - name: ${{ inputs.accion == 'enviar' && 'Enviar correo' || 'Leer correo' }}
+        working-directory: .github/correo
+        env:
+          ACCION: ${{ inputs.accion }}
+          CARPETA: ${{ inputs.carpeta }}
+          DE: ${{ inputs.de }}
+          PARA: ${{ inputs.para }}
+          ASUNTO: ${{ inputs.asunto }}
+          DESDE: ${{ inputs.desde }}
+          LIMITE: ${{ inputs.limite }}
+          DATOS: ${{ inputs.datos }}
+          MAIL_HOST: ${{ vars.IMPORLAN_MAIL_HOST || 'mail.imporlan.cl' }}
+          MAIL_USER: ${{ vars.IMPORLAN_MAIL_USER || 'contacto@imporlan.cl' }}
+          MAIL_PASS: ${{ secrets.IMPORLAN_MAIL_PASS }}
+          IMAP_PORT: ${{ vars.IMPORLAN_IMAP_PORT || '993' }}
+          SMTP_PORT: ${{ vars.IMPORLAN_SMTP_PORT || '465' }}
+        run: node correo.mjs

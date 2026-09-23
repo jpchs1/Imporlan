@@ -1,0 +1,11 @@
+{
+  "name": "imporlan-correo",
+  "private": true,
+  "description": "Lee y envia correo de contacto@imporlan.cl desde GitHub Actions (ver .github/workflows/correo.yml)",
+  "type": "module",
+  "dependencies": {
+    "imapflow": "^1.0.0",
+    "mailparser": "^3.7.0",
+    "nodemailer": "^6.9.0"
+  }
+}
