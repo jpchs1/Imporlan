@@ -19,11 +19,17 @@
 # El log del job queda con el contenido de los correos leídos. El repo es
 # privado; igual, los logs se pueden borrar desde la ejecución en Actions.
 
-name: Correo contacto@imporlan.cl
+name: Correo contacto@imporlan.cl / contacto@deckeva.cl
 
 on:
   workflow_dispatch:
     inputs:
+      cuenta:
+        description: "Casilla: imporlan = contacto@imporlan.cl · deckeva = contacto@deckeva.cl"
+        required: true
+        default: imporlan
+        type: choice
+        options: [imporlan, deckeva]
       accion:
         description: "leer = buscar y mostrar correos · enviar = mandar uno"
         required: true
@@ -94,6 +100,7 @@ jobs:
       - name: ${{ inputs.accion == 'enviar' && 'Enviar correo' || 'Leer correo' }}
         working-directory: .github/correo
         env:
+          CUENTA: ${{ inputs.cuenta }}
           ACCION: ${{ inputs.accion }}
           CARPETA: ${{ inputs.carpeta }}
           DE: ${{ inputs.de }}
@@ -103,10 +110,15 @@ jobs:
           LIMITE: ${{ inputs.limite }}
           DATOS: ${{ inputs.datos }}
           # Firma de JP en todo envío (pedida por JP). `ninguna` la saca.
-          FIRMA: ${{ vars.IMPORLAN_MAIL_FIRMA || 'jp' }}
+          # Vacío = la firma de la cuenta (jp en Imporlan, deckeva en Deckeva).
+          FIRMA: ${{ vars.IMPORLAN_MAIL_FIRMA }}
           MAIL_HOST: ${{ vars.IMPORLAN_MAIL_HOST || 'mail.imporlan.cl' }}
           MAIL_USER: ${{ vars.IMPORLAN_MAIL_USER || 'contacto@imporlan.cl' }}
           MAIL_PASS: ${{ secrets.IMPORLAN_MAIL_PASS }}
+          # Deckeva se opera desde acá: su repo es público, este no.
+          DECKEVA_MAIL_HOST: ${{ vars.DECKEVA_MAIL_HOST || 'mail.deckeva.cl' }}
+          DECKEVA_MAIL_USER: ${{ vars.DECKEVA_MAIL_USER || 'contacto@deckeva.cl' }}
+          DECKEVA_MAIL_PASS: ${{ secrets.DECKEVA_MAIL_PASS }}
           # Copia oculta en TODO envío, pedida por JP.
           MAIL_BCC: ${{ vars.IMPORLAN_MAIL_BCC || 'jpchs1@gmail.com' }}
           IMAP_PORT: ${{ vars.IMPORLAN_IMAP_PORT || '993' }}

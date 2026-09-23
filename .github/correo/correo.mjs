@@ -16,7 +16,8 @@
 //   DESDE       YYYY-MM-DD, por defecto hace 7 días (leer)
 //   LIMITE      1-50, por defecto 10               (leer)
 //   DATOS       base64 de un JSON {to, subject, text, cc?, inReplyTo?, references?} (enviar)
-//   FIRMA       jp (por defecto) = firma de Juan Pablo (firma-jp.jpg) · ninguna
+//   CUENTA      imporlan (por defecto) | deckeva
+//   FIRMA       por defecto la de la cuenta: jp (Imporlan, gráfica) | deckeva (texto) · ninguna
 //   MAIL_BCC    copia oculta que va SIEMPRE en cada envío (por defecto jpchs1@gmail.com)
 //   MAIL_HOST, MAIL_USER, MAIL_PASS, IMAP_PORT, SMTP_PORT  (secrets)
 //
@@ -29,9 +30,17 @@ import MailComposer from 'nodemailer/lib/mail-composer/index.js';
 import { readFileSync } from 'node:fs';
 
 const env = process.env;
-const HOST = env.MAIL_HOST || 'mail.imporlan.cl';
-const USER = env.MAIL_USER || 'contacto@imporlan.cl';
-const PASS = env.MAIL_PASS || '';
+// Dos casillas: Imporlan (por defecto) y Deckeva. Deckeva se opera desde este
+// repo porque el suyo es público y sus logs de Actions también: ahí no puede
+// pasar ni un correo de cliente.
+const CUENTA = env.CUENTA === 'deckeva' ? 'deckeva' : 'imporlan';
+const CUENTAS = {
+  imporlan: { host: env.MAIL_HOST || 'mail.imporlan.cl', user: env.MAIL_USER || 'contacto@imporlan.cl', pass: env.MAIL_PASS || '', firma: 'jp', secret: 'IMPORLAN_MAIL_PASS' },
+  deckeva: { host: env.DECKEVA_MAIL_HOST || 'mail.deckeva.cl', user: env.DECKEVA_MAIL_USER || 'contacto@deckeva.cl', pass: env.DECKEVA_MAIL_PASS || '', firma: 'deckeva', secret: 'DECKEVA_MAIL_PASS' },
+};
+const HOST = CUENTAS[CUENTA].host;
+const USER = CUENTAS[CUENTA].user;
+const PASS = CUENTAS[CUENTA].pass;
 const IMAP_PORT = Number(env.IMAP_PORT || 993);
 const SMTP_PORT = Number(env.SMTP_PORT || 465);
 const FIRMAS = {
@@ -41,6 +50,12 @@ const FIRMAS = {
     fromName: 'Juan Pablo · Imporlan',
     archivo: new URL('./firma-jp.jpg', import.meta.url),
     texto: '--\nJuan Pablo\nCommercial & Logistics · Imporlan\n+56 9 4021 1459 · www.imporlan.cl',
+  },
+  deckeva: {
+    fromName: 'Juan Pablo · Deckeva',
+    archivo: null,
+    texto: '--\nJuan Pablo\nDeckeva · Pisos náuticos a medida\n+56 9 4021 1459 · www.deckeva.cl',
+    html: '<p style="margin:18px 0 0;padding-top:12px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.5;color:#475569"><strong style="color:#0d2137">Juan Pablo</strong><br>Deckeva · Pisos náuticos a medida<br>+56 9 4021 1459 · <a href="https://www.deckeva.cl" style="color:#1d4ed8">www.deckeva.cl</a></p>',
   },
 };
 
@@ -130,11 +145,13 @@ async function enviar() {
   if (!d.subject || typeof d.subject !== 'string') fallar('falta "subject"');
   if (!d.text || typeof d.text !== 'string') fallar('falta "text"');
 
-  const firma = FIRMAS[env.FIRMA ?? 'jp'] || null;
-  if (env.FIRMA && env.FIRMA !== 'ninguna' && !firma) fallar(`FIRMA desconocida: ${env.FIRMA}`);
+  const nombreFirma = env.FIRMA || CUENTAS[CUENTA].firma;
+  const firma = FIRMAS[nombreFirma] || null;
+  if (nombreFirma !== 'ninguna' && !firma) fallar(`FIRMA desconocida: ${nombreFirma}`);
   let cuerpoHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1e293b;max-width:600px">${textoAHtml(d.text)}`;
   const adjuntos = [];
-  if (firma) {
+  if (firma?.html) cuerpoHtml += firma.html;
+  if (firma?.archivo) {
     cuerpoHtml += '<a href="https://www.imporlan.cl" style="text-decoration:none"><img src="cid:firma@imporlan.cl" alt="Juan Pablo · Imporlan · +56 9 4021 1459 · www.imporlan.cl" width="460" style="display:block;width:460px;max-width:100%;height:auto;border:0;border-radius:10px;margin-top:8px"></a>';
     adjuntos.push({ filename: 'firma.jpg', content: readFileSync(firma.archivo), cid: 'firma@imporlan.cl', contentDisposition: 'inline' });
   }
@@ -165,7 +182,8 @@ async function enviar() {
   if (info.rejected.length) process.exit(1);
 }
 
-if (!PASS) fallar('falta el secret IMPORLAN_MAIL_PASS');
+if (!PASS) fallar(`falta el secret ${CUENTAS[CUENTA].secret}`);
+console.log(`Cuenta: ${USER}`);
 if (env.ACCION === 'leer') await leer();
 else if (env.ACCION === 'enviar') await enviar();
 else fallar('ACCION debe ser leer o enviar');

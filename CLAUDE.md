@@ -21,3 +21,10 @@ que JP haya aprobado el texto exacto. Todo correo enviado a un cliente va
 solo (`MAIL_BCC`); no quitarla. Y va **firmado por Juan Pablo**, con su
 firma gráfica (`.github/correo/firma-jp.jpg`, remitente «Juan Pablo · Imporlan»);
 el workflow la pone sola. Escribir el texto en su nombre, en primera persona.
+
+## Correo contacto@deckeva.cl
+
+Se envía con el mismo workflow, `cuenta: deckeva` (secret `DECKEVA_MAIL_PASS`
+en ESTE repo). No desde el repo de Deckeva: es público y sus logs de Actions
+también. Remitente «Juan Pablo · Deckeva», firma en texto, CCO a
+jpchs1@gmail.com igual que Imporlan.
