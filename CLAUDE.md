@@ -37,5 +37,19 @@ datos de clientes, NUNCA van a `main`: se crea una rama temporal
 `correo/adjuntos-<algo>` desde main con el archivo, se dispara `correo.yml` con
 `ref` en esa rama y al terminar se borra la rama.
 
-Cotizaciones de Deckeva: PDF con el formato de `build_international_pdf_html`
-(repo deckeva, `wp-content/mu-plugins/deckeva-cotizador.php`), en español.
+## Cotizaciones de Deckeva (regla de JP)
+
+Siempre con el **formato de la autocotización de la web** (el PDF nuevo de
+`deckeva/wp-content/mu-plugins/deckeva-assets/pdf-cotizacion.php`), no un
+diseño propio. Herramienta: `.github/correo/cotizacion-deckeva/`
+(`render.php` + `pdf.mjs`, ver `ejemplo.json`). Clonar jpchs1/deckeva para
+tener la plantilla y las fuentes.
+
+- **Forma de pago, siempre:** 50% para iniciar · 50% para el envío o para
+  coordinar la instalación, una vez que el piso está listo (`forma_pago`).
+- Toma de medidas / instalación hechas por Deckeva: van en `servicios` con su
+  precio y `servicios_incluidos` (aviso verde). Si no las hace Deckeva, se omiten
+  y sale el aviso estándar de «no incluidas».
+- No mencionar pies/tamaño si JP no lo pide (`embarcacion.tamano` vacío).
+- El correo: mensaje breve en el cuerpo + firma de Deckeva; el PDF adjunto
+  (rama temporal, ver «Adjuntos»).
