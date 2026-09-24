@@ -10,6 +10,10 @@
 - Cambios de código: cuando JP pida algo, **crear el PR y hacer merge a `main`
   directamente**, sin preguntar. Validar antes (sintaxis, checks locales) y
   avisar al final con el link del PR.
+- Deploy: al mergear a `main` el sitio se publica solo en ≤5 min (cron de
+  cPanel → `cron-deploy.sh` → `deploy-prod.sh`). Verificar que
+  https://www.imporlan.cl/.imporlan_docroot muestre el commit del merge antes
+  de decirle a JP que está en producción.
 
 ## Correo contacto@imporlan.cl
 
