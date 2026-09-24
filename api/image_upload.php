@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-requireAdminAuthShared();
+requireAdminAuthShared(['admin', 'support', 'agent']);
 
 $action = $_GET['action'] ?? '';
 
@@ -36,8 +36,13 @@ function uploadLinkImage() {
     }
 
     $file = $_FILES['image'];
-    $allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!in_array($file['type'], $allowed)) {
+    // MIME real del contenido (no el que declara el navegador) y extensión
+    // derivada de él: así nunca se guarda un .php en una carpeta pública.
+    $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    if (!isset($allowed[$mime])) {
         http_response_code(400);
         echo json_encode(['error' => 'Tipo de archivo no permitido. Use JPG, PNG, WEBP o GIF']);
         return;
@@ -53,7 +58,11 @@ function uploadLinkImage() {
         mkdir($uploadDir, 0755, true);
     }
 
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg');
+    if (!file_exists($uploadDir . '.htaccess')) {
+        @file_put_contents($uploadDir . '.htaccess', "Options -Indexes\n<IfModule mod_php.c>\nphp_flag engine off\n</IfModule>\nRemoveHandler .php .phtml .php5 .php7 .phar\nRemoveType .php .phtml .php5 .php7 .phar\n");
+    }
+
+    $ext = $allowed[$mime];
     $filename = 'link_' . uniqid() . '_' . time() . '.' . $ext;
     $destPath = $uploadDir . $filename;
 

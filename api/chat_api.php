@@ -104,6 +104,7 @@ switch ($action) {
     
     // Initialize database tables
     case 'init_db':
+        requireAdminAuth();
         initDatabase();
         break;
     
@@ -193,7 +194,14 @@ function requireAdminAuth() {
         exit();
     }
     
-    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
+    // El token temporal que se emite tras la contraseña no sirve sin el 2FA.
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Completa la verificacion en dos pasos']);
+        exit();
+    }
+
+    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support', 'agent'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();
@@ -231,8 +239,8 @@ function sanitizeMessage($message) {
     // Trim whitespace
     $message = trim($message);
     // Limit message length
-    if (strlen($message) > 5000) {
-        $message = substr($message, 0, 5000);
+    if (mb_strlen($message, 'UTF-8') > 5000) {
+        $message = mb_substr($message, 0, 5000, 'UTF-8');
     }
     return $message;
 }
@@ -901,19 +909,11 @@ function handlePoll() {
         return;
     }
     
+    // Sólo tokens con firma válida (antes se aceptaba cualquier payload sin
+    // firmar, lo que exponía todos los chats) y nunca el token temporal de 2FA.
     $payload = verifyJWT($token);
-    
-    // If JWT verification fails, try to decode without verifying signature
-    // This handles the case where the admin panel uses a different JWT secret
-    if (!$payload) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                // Token is not expired, use it
-                $payload = $tokenPayload;
-            }
-        }
+    if ($payload && ($payload['purpose'] ?? null) === '2fa_pending') {
+        $payload = null;
     }
     
     if (!$payload) {

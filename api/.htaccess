@@ -16,3 +16,16 @@ RewriteRule ^(.*)$ index.php [QSA,L]
     Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
     Header set Access-Control-Allow-Headers "Content-Type, Authorization"
 </IfModule>
+
+# Datos que viven sólo en el servidor (compras, solicitudes, logs, pagos en
+# curso, secretos en dotfiles): nunca se sirven por URL. Los scripts PHP los
+# leen del disco. Aplica también a subcarpetas (webpay_pending/, etc.).
+<FilesMatch "(\.(json|log|bak|sql|lock)|^\..+)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

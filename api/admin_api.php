@@ -53,7 +53,12 @@ switch ($action) {
         getUserDetail();
         break;
     case 'update_purchase_status':
-        requireAuth();
+        $p = requireAuth();
+        if (!in_array($p['role'] ?? '', ['admin', 'support'], true)) {
+            http_response_code(403);
+            echo json_encode(['detail' => 'Acceso denegado']);
+            exit();
+        }
         updatePurchaseStatus();
         break;
     default:
@@ -177,7 +182,9 @@ function handleLogin() {
                 $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
                 $stmt->execute([$email]);
                 $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
-                if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
+                // Sólo roles del equipo entran al panel admin.
+                if ($dbUser && in_array($dbUser['role'], ['admin', 'support', 'agent'], true)
+                    && password_verify($password, $dbUser['password_hash'])) {
                     $user = [
                         'id' => (int)$dbUser['id'],
                         'email' => $dbUser['email'],

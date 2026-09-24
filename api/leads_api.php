@@ -81,14 +81,19 @@ switch ($action) {
         fwrite($salida, "\xEF\xBB\xBF");
         fputcsv($salida, ['Fecha', 'Nombre', 'Email', 'Correo enviado', 'IP', 'Origen']);
         foreach ($leads as $l) {
-            fputcsv($salida, [
+            // Lo tipea el público: neutralizar fórmulas de Excel (=, +, -, @).
+            $celda = function ($v) {
+                $v = (string)$v;
+                return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v;
+            };
+            fputcsv($salida, array_map($celda, [
                 $l['fecha'] ?? '',
                 $l['nombre'] ?? '',
                 $l['email'] ?? '',
                 !empty($l['correo_enviado']) ? 'si' : 'no',
                 $l['ip'] ?? '',
                 $l['origen'] ?? '',
-            ]);
+            ]));
         }
         fclose($salida);
         break;
