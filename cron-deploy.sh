@@ -27,24 +27,33 @@ RUN_COPY="/home/wwimpo/deploy-prod.run.sh"
 FAIL_FILE="/home/wwimpo/.imporlan_deploy_failures"
 MAX_TRIES=3
 
-exec 9>"$LOCK_FILE"
-flock -n 9 || exit 0
+# Estado publico (sin datos sensibles) para verificar el cron desde fuera:
+# https://www.imporlan.cl/.imporlan_deploy_status
+STATUS_FILE="/home/wwimpo/imporlan.cl/.imporlan_deploy_status"
+status() { echo "checked: $(date '+%F %T') | $*" > "$STATUS_FILE" 2>/dev/null; echo "[$(date '+%F %T')] $*"; }
 
-cd "$STAGING_REPO" || exit 1
-git fetch -q origin main || { echo "[$(date '+%F %T')] ERROR: git fetch fallo"; exit 1; }
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
+  flock -n 9 || exit 0
+fi
+
+cd "$STAGING_REPO" || { status "ERROR: no existe $STAGING_REPO"; exit 1; }
+git fetch -q origin main || { status "ERROR: git fetch fallo"; exit 1; }
 
 TARGET=$(git rev-parse origin/main)
 LAST=$(cat "$STATE_FILE" 2>/dev/null || true)
-[ "$TARGET" = "$LAST" ] && exit 0
+# Sin cambios: solo el archivo de estado, sin escribir en el log.
+[ "$TARGET" = "$LAST" ] && { status "OK sin cambios | publicado: ${LAST:0:7}" > /dev/null; exit 0; }
 
 # Un commit que falla se reintenta a lo mas MAX_TRIES veces (cada intento
 # deja respaldos); despues espera al siguiente commit en main.
 read -r FAIL_SHA FAIL_COUNT 2>/dev/null < "$FAIL_FILE" || true
 if [ "${FAIL_SHA:-}" = "$TARGET" ] && [ "${FAIL_COUNT:-0}" -ge "$MAX_TRIES" ]; then
+  status "BLOQUEADO: ${TARGET:0:7} fallo $MAX_TRIES veces | publicado: ${LAST:0:7}"
   exit 0
 fi
 
-echo "[$(date '+%F %T')] Nuevo commit en main: ${TARGET:0:7} (antes: ${LAST:0:7}). Desplegando..."
+status "DESPLEGANDO ${TARGET:0:7} (antes: ${LAST:0:7})"
 
 # Copia fija del script de deploy de ese commit.
 git show "$TARGET:deploy-prod.sh" > "$RUN_COPY" || exit 1
@@ -52,12 +61,12 @@ git show "$TARGET:deploy-prod.sh" > "$RUN_COPY" || exit 1
 if bash "$RUN_COPY"; then
   echo "$TARGET" > "$STATE_FILE"
   rm -f "$FAIL_FILE"
-  echo "[$(date '+%F %T')] Deploy OK: ${TARGET:0:7}"
+  status "OK desplegado: ${TARGET:0:7}"
 else
   CODE=$?
   [ "${FAIL_SHA:-}" = "$TARGET" ] && N=$(( ${FAIL_COUNT:-0} + 1 )) || N=1
   echo "$TARGET $N" > "$FAIL_FILE"
-  echo "[$(date '+%F %T')] Deploy FALLO (exit $CODE) en ${TARGET:0:7}, intento $N de $MAX_TRIES."
+  status "FALLO (exit $CODE) en ${TARGET:0:7}, intento $N de $MAX_TRIES | publicado: ${LAST:0:7}"
   exit "$CODE"
 fi
 exit 0
