@@ -8,7 +8,7 @@
 #  nada nuevo, sale sin hacer nada.
 #
 #  Linea del cron (cPanel -> Cron Jobs), se actualiza sola desde main:
-#  */5 * * * * cd /home/wwimpo/imporlan-staging && git fetch -q origin main && git show origin/main:cron-deploy.sh > /home/wwimpo/cron-deploy.sh && bash /home/wwimpo/cron-deploy.sh >> /home/wwimpo/cron-deploy.log 2>&1
+#  */5 * * * * export PATH=/usr/local/cpanel/3rdparty/bin:/usr/local/bin:/usr/bin:/bin; (cd /home/wwimpo/imporlan-staging && git fetch -q origin main && git show origin/main:cron-deploy.sh > /home/wwimpo/cron-deploy.sh && bash /home/wwimpo/cron-deploy.sh) >> /home/wwimpo/cron-deploy.log 2>&1
 #
 #  Para verificar que se publico: https://www.imporlan.cl/.imporlan_docroot
 #  muestra el commit desplegado.
@@ -18,7 +18,8 @@
 # `git reset` de deploy-prod.sh no le cambia el archivo a medio camino.
 {
 set -uo pipefail
-export PATH=/usr/local/bin:/usr/bin:/bin
+# En cPanel git suele estar en /usr/local/cpanel/3rdparty/bin, fuera del PATH del cron.
+export PATH=/usr/local/cpanel/3rdparty/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}
 
 STAGING_REPO="/home/wwimpo/imporlan-staging"
 STATE_FILE="/home/wwimpo/.imporlan_last_deployed"
@@ -37,6 +38,7 @@ if command -v flock >/dev/null 2>&1; then
   flock -n 9 || exit 0
 fi
 
+command -v git >/dev/null 2>&1 || { status "ERROR: git no esta en el PATH ($PATH)"; exit 1; }
 cd "$STAGING_REPO" || { status "ERROR: no existe $STAGING_REPO"; exit 1; }
 git fetch -q origin main || { status "ERROR: git fetch fallo"; exit 1; }
 
