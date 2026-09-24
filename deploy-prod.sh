@@ -341,6 +341,7 @@ cat > "$SENTINEL" <<SENTINEL_EOF
 imporlan
 last_deploy: ${TIMESTAMP}
 repo: jpchs1/Imporlan
+commit: $(git -C "$STAGING_REPO" rev-parse HEAD)
 SENTINEL_EOF
 chmod 644 "$SENTINEL"
 echo "  -> Sentinel refreshed: $SENTINEL"
