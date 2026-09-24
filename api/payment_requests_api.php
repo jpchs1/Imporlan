@@ -563,6 +563,14 @@ function userListRequestsPublic() {
     }
     
     $userEmail = strtolower(trim($userEmail));
+    // Sólo el propio cliente (o el equipo) puede ver sus solicitudes de pago.
+    $auth = requireUserAuthShared();
+    $isStaff = in_array($auth['role'] ?? '', ['admin', 'support', 'agent'], true);
+    if (!$isStaff && $userEmail !== strtolower(trim($auth['email'] ?? ''))) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acceso denegado']);
+        return;
+    }
     $status = $_GET['status'] ?? 'all';
     $data = loadPaymentRequests();
     

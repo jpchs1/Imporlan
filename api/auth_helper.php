@@ -122,5 +122,11 @@ function requireUserAuthShared() {
         exit();
     }
 
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token de 2FA no es valido para esta operacion']);
+        exit();
+    }
+
     return $payload;
 }

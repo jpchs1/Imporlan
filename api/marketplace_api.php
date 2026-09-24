@@ -31,6 +31,7 @@ $action = $_GET['action'] ?? '';
 
 switch ($action) {
     case 'init_db':
+        requireAdminAuthShared(['admin']);
         initMarketplaceDb();
         break;
     case 'list':
@@ -75,6 +76,7 @@ switch ($action) {
         migrateMarketplaceV2();
         break;
     case 'migrate_arriendo':
+        requireAdminAuthShared(['admin']);
         migrateArriendoFields();
         break;
     case 'admin_list':

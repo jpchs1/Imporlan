@@ -59,8 +59,10 @@ file_put_contents($tokenFile, json_encode([
 ]));
 
 $isTest  = isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/test/') !== false;
-$scheme  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host    = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'www.imporlan.cl';
+// Host fijo: nunca el Host de la petición, que un atacante controla y con el
+// que el enlace (con un token válido) apuntaría a su dominio.
+$scheme  = 'https';
+$host    = 'www.imporlan.cl';
 $basePath = $isTest ? '/test/api' : '/api';
 $resetUrl = $scheme . '://' . $host . $basePath . '/admin_reset_password.php?token=' . $token;
 
@@ -106,15 +108,13 @@ try {
         error_log('admin_forgot_password: send failed - ' . $err);
         http_response_code(500);
         echo json_encode([
-            'error'  => 'No se pudo enviar el correo de recuperacion. Verifica la configuracion SMTP o intenta nuevamente.',
-            'detail' => $err
+            'error'  => 'No se pudo enviar el correo de recuperacion. Verifica la configuracion SMTP o intenta nuevamente.'
         ]);
     }
 } catch (Exception $e) {
     error_log('admin_forgot_password exception: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'error'  => 'Error al enviar el correo de recuperacion.',
-        'detail' => $e->getMessage()
+        'error'  => 'Error al enviar el correo de recuperacion.'
     ]);
 }

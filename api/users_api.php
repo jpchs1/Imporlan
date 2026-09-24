@@ -39,15 +39,21 @@ switch ($action) {
         usersList();
         break;
     case 'create':
-        requireAdminAuthShared();
+        // Sólo un admin gestiona cuentas del equipo (support no puede
+        // crear admins ni cambiar contraseñas ajenas).
+        $GLOBALS['authPayload'] = requireAdminAuthShared(['admin']);
         usersCreate();
         break;
     case 'update':
-        requireAdminAuthShared();
+        // Sólo un admin gestiona cuentas del equipo (support no puede
+        // crear admins ni cambiar contraseñas ajenas).
+        $GLOBALS['authPayload'] = requireAdminAuthShared(['admin']);
         usersUpdate();
         break;
     case 'delete':
-        requireAdminAuthShared();
+        // Sólo un admin gestiona cuentas del equipo (support no puede
+        // crear admins ni cambiar contraseñas ajenas).
+        $GLOBALS['authPayload'] = requireAdminAuthShared(['admin']);
         usersDelete();
         break;
     case 'update_email':
@@ -278,6 +284,21 @@ function usersCreate() {
         echo json_encode(['error' => 'Se requiere name, email y password']);
         return;
     }
+    if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email invalido']);
+        return;
+    }
+    if (strlen($input['password']) < 8) {
+        http_response_code(400);
+        echo json_encode(['error' => 'La contrasena debe tener al menos 8 caracteres']);
+        return;
+    }
+    if (isset($input['role']) && !in_array($input['role'], ['admin', 'support', 'agent'], true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Rol invalido']);
+        return;
+    }
     $pdo = getDbConnection();
     if (!$pdo) {
         http_response_code(500);
@@ -297,7 +318,7 @@ function usersCreate() {
             $input['name'],
             $input['email'],
             password_hash($input['password'], PASSWORD_DEFAULT),
-            $input['role'] ?? 'user',
+            $input['role'] ?? 'agent',
             $input['status'] ?? 'active',
             $input['phone'] ?? null
         ]);
@@ -323,7 +344,29 @@ function usersUpdate() {
         echo json_encode(['error' => 'Database connection failed']);
         return;
     }
+    if (isset($input['role']) && !in_array($input['role'], ['admin', 'support', 'agent'], true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Rol invalido']);
+        return;
+    }
+    if (!empty($input['password']) && strlen($input['password']) < 8) {
+        http_response_code(400);
+        echo json_encode(['error' => 'La contrasena debe tener al menos 8 caracteres']);
+        return;
+    }
     try {
+        // Un admin no puede quitarse su propio rol ni suspenderse (quedaría
+        // sin nadie capaz de gestionar el equipo).
+        $self = $GLOBALS['authPayload']['email'] ?? '';
+        $who = $pdo->prepare("SELECT email FROM admin_users WHERE id = ?");
+        $who->execute([$id]);
+        $targetEmail = (string)$who->fetchColumn();
+        if ($self !== '' && strcasecmp($targetEmail, $self) === 0 &&
+            ((isset($input['role']) && $input['role'] !== 'admin') || (isset($input['status']) && $input['status'] !== 'active'))) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No puedes quitarte el rol de admin ni suspender tu propia cuenta']);
+            return;
+        }
         $sets = [];
         $params = [];
         $allowed = ['name', 'email', 'role', 'status', 'phone'];

@@ -38,6 +38,22 @@ maybeExpireStalePlans();
 
 $action = $_GET['action'] ?? '';
 
+// Autenticación: `get` la usa el panel de clientes con su propio token (sólo
+// puede ver sus compras); todo lo demás es exclusivo del equipo.
+require_once __DIR__ . '/auth_helper.php';
+if ($action === 'get') {
+    $authPayload = requireUserAuthShared();
+    $isStaff = in_array($authPayload['role'] ?? '', ['admin', 'support', 'agent'], true);
+    $requested = strtolower(trim($_GET['user_email'] ?? ''));
+    if (!$isStaff && $requested !== strtolower(trim($authPayload['email'] ?? ''))) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acceso denegado']);
+        exit();
+    }
+} elseif ($action !== '') {
+    requireAdminAuthShared(['admin', 'support']);
+}
+
 switch ($action) {
     case 'get':
         getPurchases();

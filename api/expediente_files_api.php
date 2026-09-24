@@ -34,7 +34,8 @@ switch ($action) {
         uploadFiles();
         break;
     case 'list':
-        listFiles();
+        // Admin/agente, o el cliente dueño del expediente (panel de usuario).
+        listFiles(requireUserAuthShared());
         break;
     case 'download':
         downloadFile();
@@ -61,7 +62,37 @@ function getUploadDir() {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
+    // Nada de lo subido se ejecuta ni se lista: se sirve sólo vía ?action=download.
+    if (!file_exists($dir . '.htaccess')) {
+        @file_put_contents($dir . '.htaccess', "Require all denied\nOptions -Indexes\n<IfModule mod_php.c>\nphp_flag engine off\n</IfModule>\nRemoveHandler .php .phtml .php5 .php7 .phar\nRemoveType .php .phtml .php5 .php7 .phar\n");
+    }
     return $dir;
+}
+
+// Enlaces de descarga firmados: los genera `list` (que exige sesión) y valen
+// FILE_LINK_TTL segundos. Así un id secuencial no basta para bajar documentos.
+define('FILE_LINK_TTL', 7 * 86400);
+
+function fileLinkSignature($fileId, $exp) {
+    return hash_hmac('sha256', 'expediente_file:' . $fileId . ':' . $exp, getJwtSecret() ?: 'imporlan');
+}
+
+/** Extensión segura según el MIME detectado (nunca la del nombre del cliente). */
+function safeExtensionForMime($mime, $originalName) {
+    $map = [
+        'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp', 'image/bmp' => 'bmp',
+        'video/mp4' => 'mp4', 'video/mpeg' => 'mpeg', 'video/quicktime' => 'mov', 'video/x-msvideo' => 'avi',
+        'video/webm' => 'webm', 'video/x-matroska' => 'mkv',
+        'application/pdf' => 'pdf', 'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.ms-excel' => 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'application/vnd.ms-powerpoint' => 'ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+        'text/plain' => 'txt', 'text/csv' => 'csv', 'application/rtf' => 'rtf',
+        'application/zip' => 'zip', 'application/x-rar-compressed' => 'rar', 'application/gzip' => 'gz',
+    ];
+    return $map[$mime] ?? 'bin';
 }
 
 function getFileCategory($mimeType, $extension) {
@@ -81,7 +112,7 @@ function getFileCategory($mimeType, $extension) {
 function getAllowedMimeTypes() {
     return [
         // Images
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
         // Videos
         'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska',
         // Documents
@@ -163,7 +194,7 @@ function uploadFiles() {
             continue;
         }
 
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $ext = safeExtensionForMime($detectedMime, $fileName);
         $category = getFileCategory($detectedMime, $ext);
         $storedName = 'exp_' . $orderId . '_' . uniqid() . '_' . time() . '.' . $ext;
         $destPath = $uploadDir . $storedName;
@@ -252,7 +283,7 @@ function notifyClientAboutFiles($pdo, $order, $files, $description) {
     }
 }
 
-function listFiles() {
+function listFiles($auth) {
     $orderId = intval($_GET['order_id'] ?? 0);
     if (!$orderId) {
         http_response_code(400);
@@ -268,6 +299,19 @@ function listFiles() {
     }
 
     try {
+        // Un cliente sólo ve los archivos de sus propios expedientes.
+        $isStaff = in_array($auth['role'] ?? '', ['admin', 'support', 'agent'], true);
+        if (!$isStaff) {
+            $own = $pdo->prepare("SELECT customer_email FROM orders WHERE id = ?");
+            $own->execute([$orderId]);
+            $ownerEmail = strtolower(trim((string)$own->fetchColumn()));
+            if ($ownerEmail === '' || $ownerEmail !== strtolower(trim($auth['email'] ?? ''))) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Acceso denegado']);
+                return;
+            }
+        }
+
         $stmt = $pdo->prepare("
             SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at
             FROM expediente_files
@@ -281,7 +325,9 @@ function listFiles() {
         $isTest = strpos($_SERVER['REQUEST_URI'] ?? '', '/test/') !== false;
         $baseUrl = $isTest ? '/test/api/expediente_files_api.php' : '/api/expediente_files_api.php';
         foreach ($files as &$f) {
-            $f['download_url'] = $baseUrl . '?action=download&id=' . $f['id'];
+            $exp = time() + FILE_LINK_TTL;
+            $f['download_url'] = $baseUrl . '?action=download&id=' . $f['id'] . '&exp=' . $exp . '&sig=' . fileLinkSignature($f['id'], $exp);
+            unset($f['stored_name']);
             $f['file_size_formatted'] = formatFileSize($f['file_size']);
         }
 
@@ -297,6 +343,14 @@ function downloadFile() {
     if (!$fileId) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere id']);
+        return;
+    }
+
+    $exp = intval($_GET['exp'] ?? 0);
+    $sig = (string)($_GET['sig'] ?? '');
+    if ($exp < time() || !hash_equals(fileLinkSignature($fileId, $exp), $sig)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Enlace vencido o invalido. Vuelve a abrir el expediente.']);
         return;
     }
 
@@ -330,7 +384,7 @@ function downloadFile() {
         header('Content-Length: ' . filesize($filePath));
 
         // For images and PDFs, display inline; for others, force download
-        $inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf',
+        $inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf',
                         'video/mp4', 'video/webm'];
         if (in_array($file['mime_type'], $inlineTypes)) {
             header('Content-Disposition: inline; filename="' . $file['original_name'] . '"');
@@ -338,7 +392,8 @@ function downloadFile() {
             header('Content-Disposition: attachment; filename="' . $file['original_name'] . '"');
         }
 
-        header('Cache-Control: public, max-age=86400');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, max-age=86400');
         readfile($filePath);
         exit();
     } catch (PDOException $e) {
