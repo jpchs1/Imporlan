@@ -27,6 +27,9 @@ if (!file_exists($purchasesFile)) {
     file_put_contents($purchasesFile, json_encode(['purchases' => []]));
 }
 
+require_once __DIR__ . '/plan_expiration.php';
+maybeExpireStalePlans();
+
 $action = $_GET['action'] ?? '';
 
 switch ($action) {

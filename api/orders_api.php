@@ -34,6 +34,9 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         exit();
     }
 
+    require_once __DIR__ . '/plan_expiration.php';
+    maybeExpireStalePlans();
+
     $action = $_GET['action'] ?? '';
 
     switch ($action) {

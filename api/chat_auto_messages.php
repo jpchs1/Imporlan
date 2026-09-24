@@ -23,6 +23,10 @@ if (php_sapi_name() !== 'cli' && !isset($_GET['cron_key'])) {
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/email_service.php';
 
+// Cierre automatico de planes vencidos (throttled, ver plan_expiration.php)
+require_once __DIR__ . '/plan_expiration.php';
+maybeExpireStalePlans();
+
 // Configuration
 define('AUTO_MSG_3MIN_DELAY', 3 * 60);   // 3 minutes in seconds
 define('AUTO_MSG_15MIN_DELAY', 15 * 60); // 15 minutes in seconds
