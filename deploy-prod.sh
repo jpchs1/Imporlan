@@ -223,6 +223,18 @@ SEO_PAGES=(
   "casos-de-importacion"
   "terminos-y-condiciones"
   "politica-de-privacidad"
+  # Faltaban: estas páginas existían en el servidor pero sus cambios nunca
+  # se publicaban (quedaban con la versión subida a mano).
+  "cotizar-importacion"
+  "lanchas-usadas-en-chile-2"
+  "requisitos-importar-embarcaciones-chile"
+  "seguro-embarcaciones-chile"
+  "servicios-importacion"
+  "servicios"
+  "tipos-de-lanchas-segun-uso"
+  "transporte-logistica-embarcaciones-chile"
+  "veleros-usados"
+  "veleros-usados-a-la-venta-en-chile-o-usa"
 )
 for PAGE in "${SEO_PAGES[@]}"; do
   if [ -d "$STAGING_REPO/$PAGE" ]; then
