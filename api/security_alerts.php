@@ -146,9 +146,8 @@ class SecurityAlerts {
         $limit = intval($limit);
         $stmt = $this->pdo->prepare("
             SELECT * FROM security_events $where
-            ORDER BY created_at DESC LIMIT ?
+            ORDER BY created_at DESC LIMIT " . max(1, min(1000, $limit)) . "
         ");
-        $params[] = $limit;
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

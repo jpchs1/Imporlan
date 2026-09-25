@@ -78,9 +78,9 @@ function listNotifications($authenticatedEmail = '') {
             FROM notifications
             WHERE user_email = ?
             ORDER BY created_at DESC
-            LIMIT ?
+            LIMIT " . max(1, min(200, $limit)) . "
         ");
-        $stmt->execute([$userEmail, $limit]);
+        $stmt->execute([$userEmail]);
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode(['success' => true, 'notifications' => $notifications]);
@@ -117,7 +117,7 @@ function unreadCount($authenticatedEmail = '') {
         $stmt->execute([$userEmail]);
         $count = intval($stmt->fetch(PDO::FETCH_ASSOC)['count']);
 
-        echo json_encode(['success' => true, 'count' => $count]);
+        echo json_encode(['success' => true, 'count' => $count, 'unread_count' => $count]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error: ' . $e->getMessage()]);

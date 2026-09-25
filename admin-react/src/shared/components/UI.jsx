@@ -1,3 +1,4 @@
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
 
@@ -76,24 +77,79 @@ export function Textarea({ label, className, ...props }) {
   );
 }
 
-export function Table({ columns, data, onRowClick, emptyMsg = 'Sin datos' }) {
+/**
+ * Tabla con orden por columna y paginación opcionales.
+ * - Una columna es ordenable si trae `sortValue(row)` o `key`.
+ * - `pageSize` (por defecto 50) pagina en el cliente; 0 la desactiva.
+ */
+export function Table({ columns, data, onRowClick, emptyMsg = 'Sin datos', pageSize = 50 }) {
+  const [sort, setSort] = useState({ col: null, dir: 'desc' });
+  const [page, setPage] = useState(0);
+
+  const sorted = useMemo(() => {
+    if (sort.col === null) return data;
+    const col = columns[sort.col];
+    const get = col?.sortValue || (col?.key ? (r => r[col.key]) : null);
+    if (!get) return data;
+    const arr = [...data];
+    arr.sort((a, b) => {
+      const va = get(a), vb = get(b);
+      const na = va === null || va === undefined || va === '';
+      const nb = vb === null || vb === undefined || vb === '';
+      if (na && nb) return 0;
+      if (na) return 1;
+      if (nb) return -1;
+      const cmp = (typeof va === 'number' && typeof vb === 'number')
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' });
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [data, columns, sort]);
+
+  const pages = pageSize > 0 ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
+  const current = Math.min(page, pages - 1);
+  const visible = pageSize > 0 ? sorted.slice(current * pageSize, (current + 1) * pageSize) : sorted;
+
+  function toggleSort(i) {
+    const col = columns[i];
+    if (!col.sortValue && !col.key) return;
+    setSort(s => (s.col === i ? { col: i, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col: i, dir: 'desc' }));
+    setPage(0);
+  }
+
   return (
     <div className="overflow-x-auto -mx-6 px-6">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100">
-            {columns.map((col, i) => (
-              <th key={i} className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">{col.header}</th>
-            ))}
+            {columns.map((col, i) => {
+              const sortable = !!(col.sortValue || col.key);
+              const active = sort.col === i;
+              return (
+                <th
+                  key={i}
+                  onClick={sortable ? () => toggleSort(i) : undefined}
+                  aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  className={cn(
+                    'text-left py-3 px-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap select-none',
+                    active ? 'text-indigo-600' : 'text-slate-400',
+                    sortable && 'cursor-pointer hover:text-slate-600'
+                  )}
+                >
+                  {col.header}{active && <span className="ml-1">{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {data.length === 0 ? (
+          {visible.length === 0 ? (
             <tr><td colSpan={columns.length} className="py-12 text-center text-slate-300 text-sm">{emptyMsg}</td></tr>
-          ) : data.map((row, i) => (
+          ) : visible.map((row, i) => (
             <tr
               key={row.id || i}
-              style={{ animationDelay: `${i * 20}ms` }}
+              style={{ animationDelay: `${Math.min(i, 20) * 20}ms` }}
               className={cn(
                 'border-b border-slate-50 hover:bg-indigo-50/40 transition-all duration-150 animate-fade-in',
                 onRowClick && 'cursor-pointer'
@@ -107,11 +163,48 @@ export function Table({ columns, data, onRowClick, emptyMsg = 'Sin datos' }) {
           ))}
         </tbody>
       </table>
+      {pages > 1 && (
+        <div className="flex items-center justify-between gap-3 pt-4 text-xs text-slate-500">
+          <span>{current * pageSize + 1}–{Math.min((current + 1) * pageSize, sorted.length)} de {sorted.length}</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={current === 0} onClick={() => setPage(current - 1)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50">Anterior</button>
+            <span className="px-2 py-1.5">Página {current + 1} de {pages}</span>
+            <button type="button" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50">Siguiente</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Estado de error con botón de reintento, para pantallas cuyo fetch falló. */
+export function ErrorState({ message = 'No se pudieron cargar los datos', onRetry }) {
+  return (
+    <div className="text-center py-12">
+      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 text-red-500 flex items-center justify-center">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+      </div>
+      <p className="font-medium text-slate-700">{message}</p>
+      {onRetry && <button type="button" onClick={onRetry} className="mt-3 text-sm font-semibold text-indigo-600 hover:text-indigo-800">Reintentar</button>}
     </div>
   );
 }
 
 export function Modal({ open, onClose, title, children, size = 'md' }) {
+  // Escape cierra y el fondo no hace scroll mientras el modal está abierto.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
   if (!open) return null;
   const widths = { sm: '28rem', md: '32rem', lg: '42rem', xl: '56rem' };
   return createPortal(
@@ -165,8 +258,10 @@ export function StatCard({ label, value, icon, color = 'blue', trend }) {
     yellow: { bg: 'bg-amber-50', text: 'text-amber-600', gradient: 'from-amber-500 to-amber-600' },
     red: { bg: 'bg-red-50', text: 'text-red-600', gradient: 'from-red-500 to-red-600' },
     purple: { bg: 'bg-violet-50', text: 'text-violet-600', gradient: 'from-violet-500 to-violet-600' },
+    indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', gradient: 'from-indigo-400 to-indigo-600' },
+    slate: { bg: 'bg-slate-100', text: 'text-slate-600', gradient: 'from-slate-500 to-slate-600' },
   };
-  const c = colors[color];
+  const c = colors[color] || colors.blue;
   return (
     <Card className="card-hover relative overflow-hidden group">
       <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${c.gradient} opacity-[0.04] rounded-full -translate-y-8 translate-x-8 group-hover:opacity-[0.08] transition-opacity`} />

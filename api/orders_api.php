@@ -636,7 +636,8 @@ function adminUpdateOrder() {
         if (array_key_exists($field, $input)) {
             $sets[] = "$field = ?";
             $params[] = $input[$field];
-            if ($oldOrder && isset($oldOrder[$field]) && $oldOrder[$field] !== $input[$field]) {
+            // Comparar como texto: la base devuelve "1" y el formulario manda 1.
+            if ($oldOrder && array_key_exists($field, $oldOrder) && (string)$oldOrder[$field] !== (string)$input[$field]) {
                 $changes[$field] = ['from' => $oldOrder[$field], 'to' => $input[$field]];
             }
         }
@@ -1570,7 +1571,7 @@ function notifyRanking() {
         }
 
         // Get links for ranking preview
-        $linkStmt = $pdo->prepare("SELECT url, title, image_url, value_usa_usd, location FROM order_links WHERE order_id = ? ORDER BY row_index ASC LIMIT 5");
+        $linkStmt = $pdo->prepare("SELECT url, title, image_url, value_usa_usd, location FROM order_links WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> '' ORDER BY row_index ASC LIMIT 5");
         $linkStmt->execute([$orderId]);
         $topLinks = $linkStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -2011,8 +2012,9 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
         $fotoActual = trim((string) ($st->fetchColumn() ?: ''));
     }
     $fotoNueva = trim((string) ($map['image_url'] ?? ''));
-    if ($fotoActual !== '' && strpos($fotoActual, '/uploads/order_images/') !== false
-        && strpos($fotoNueva, '/uploads/order_images/') === false) {
+    // Fotos subidas a mano (order_images o link_images) no se pisan con las del scraper.
+    $esManual = fn($u) => strpos($u, '/uploads/order_images/') !== false || strpos($u, '/api/link_images/') !== false;
+    if ($fotoActual !== '' && $esManual($fotoActual) && !$esManual($fotoNueva)) {
         unset($map['image_url']);
     }
 

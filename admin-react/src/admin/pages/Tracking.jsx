@@ -75,6 +75,7 @@ export default function Tracking() {
   const [positions, setPositions] = useState([]);
   const [loadingPos, setLoadingPos] = useState(false);
   const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     load();
@@ -85,6 +86,7 @@ export default function Tracking() {
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
       script.onload = () => setLeafletLoaded(true);
+      script.onerror = () => toast?.('No se pudo cargar el mapa (Leaflet). Revisa tu conexión.', 'error');
       document.head.appendChild(script);
     }
   }, []);
@@ -98,11 +100,17 @@ export default function Tracking() {
     setLoading(false);
   }
 
+  // Con dos clics rápidos no deben quedar las posiciones de un barco bajo el nombre de otro.
+  const posReq = useRef(0);
   async function viewVessel(v) {
+    const n = ++posReq.current;
     setSelectedVessel(v);
     setLoadingPos(true);
-    try { const res = await getVesselPositions(v.id); setPositions(res.positions || []); }
-    catch { setPositions([]); }
+    let pos = [];
+    try { const res = await getVesselPositions(v.id); pos = res.positions || []; }
+    catch { pos = []; }
+    if (posReq.current !== n) return;
+    setPositions(pos);
     setLoadingPos(false);
   }
 
@@ -116,7 +124,8 @@ export default function Tracking() {
     setEditItem(v);
     setForm({
       display_name: v.display_name || v.name || '', imo: v.imo || '', mmsi: v.mmsi || '',
-      type: v.type || 'manual', status: v.status || 'active', shipping_line: v.shipping_line || '',
+      // _db_status: el estado real guardado (el puente de tracking puede mostrar uno proyectado).
+      type: v.type || 'manual', status: v._db_status || v.status || 'active', shipping_line: v.shipping_line || '',
       client_name: v.client_name || '', origin_label: v.origin_label || '',
       destination_label: v.destination_label || '', eta_manual: v.eta_manual ? v.eta_manual.slice(0, 16) : '',
     });
@@ -126,13 +135,20 @@ export default function Tracking() {
   async function handleSave() {
     if (!form.display_name) { if (toast) toast('Nombre es requerido', 'error'); return; }
     if (!form.imo && !form.mmsi) { if (toast) toast('Se requiere IMO o MMSI', 'error'); return; }
+    if (form.imo && !/^\d{7}$/.test(form.imo)) { toast?.('El IMO tiene 7 dígitos', 'error'); return; }
+    if (form.mmsi && !/^\d{9}$/.test(form.mmsi)) { toast?.('El MMSI tiene 9 dígitos', 'error'); return; }
+    if (saving) return;
+    // Vacíos como null: MySQL estricto rechaza '' en columnas DATETIME.
+    const payload = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v === '' ? null : v]));
+    setSaving(true);
     try {
-      if (editItem) await updateVessel({ id: editItem.id, ...form });
-      else await createVessel(form);
+      if (editItem) await updateVessel({ id: editItem.id, ...payload });
+      else await createVessel(payload);
       setShowModal(false);
       if (toast) toast(editItem ? 'Embarcacion actualizada' : 'Embarcacion creada');
       load();
     } catch (e) { if (toast) toast(e.message || 'Error al guardar', 'error'); }
+    setSaving(false);
   }
 
   async function handleDelete(id) {
@@ -264,7 +280,7 @@ export default function Tracking() {
           <Input label="ETA estimada" type="datetime-local" value={form.eta_manual} onChange={e => setForm({...form, eta_manual: e.target.value})} />
           <div className="flex gap-3 justify-end pt-2 border-t border-slate-100">
             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editItem ? 'Guardar cambios' : 'Crear embarcacion'}</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : editItem ? 'Guardar cambios' : 'Crear embarcación'}</Button>
           </div>
         </div>
       </Modal>

@@ -54,6 +54,7 @@ switch ($action) {
         break;
     case 'update_purchase_status':
         $p = requireAuth();
+        $GLOBALS['authPayload'] = $p;
         if (!in_array($p['role'] ?? '', ['admin', 'support'], true)) {
             http_response_code(403);
             echo json_encode(['detail' => 'Acceso denegado']);
@@ -259,6 +260,19 @@ function handleLogin() {
     ]);
 }
 
+/** Compras con dinero efectivamente recibido (expired = plan pagado ya cerrado). */
+function purchaseIsPaid($p) {
+    return in_array($p['status'] ?? '', ['paid', 'active', 'completed', 'expired'], true);
+}
+
+function purchaseAmount($p) {
+    return floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+}
+
+function purchaseTime($p) {
+    return strtotime($p['timestamp'] ?? '') ?: (strtotime($p['date'] ?? '') ?: 0);
+}
+
 function getDashboard() {
     global $purchasesFile;
     
@@ -266,25 +280,31 @@ function getDashboard() {
     $purchases = $data['purchases'] ?? [];
     
     $users = [];
+    $weekAgo = time() - 7 * 86400;
     foreach ($purchases as $p) {
         $email = strtolower($p['user_email'] ?? '');
-        if ($email && !isset($users[$email])) {
-            $users[$email] = ['email' => $p['user_email'], 'total_purchases' => 0, 'total_spent' => 0];
+        if (!$email) continue;
+        if (!isset($users[$email])) {
+            $users[$email] = ['email' => $p['user_email'], 'total_purchases' => 0, 'total_spent' => 0, 'first' => PHP_INT_MAX];
         }
-        if ($email) {
-            $users[$email]['total_purchases']++;
-            $users[$email]['total_spent'] += floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
-        }
+        $users[$email]['total_purchases']++;
+        if (purchaseIsPaid($p)) $users[$email]['total_spent'] += purchaseAmount($p);
+        $t = purchaseTime($p);
+        if ($t && $t < $users[$email]['first']) $users[$email]['first'] = $t;
     }
     
     $totalUsers = count($users);
+    $newUsers7d = count(array_filter($users, fn($u) => $u['first'] !== PHP_INT_MAX && $u['first'] >= $weekAgo));
     $totalPurchases = count($purchases);
     $pendingPurchases = count(array_filter($purchases, fn($p) => ($p['status'] ?? '') === 'pending'));
-    $completedPurchases = count(array_filter($purchases, fn($p) => in_array($p['status'] ?? '', ['completed', 'paid', 'active'])));
+    $completedPurchases = count(array_filter($purchases, 'purchaseIsPaid'));
     
-    $totalRevenue = array_reduce($purchases, function($sum, $p) {
-        return $sum + floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
-    }, 0);
+    // Sólo dinero recibido: no suman compras pendientes ni canceladas.
+    $totalRevenue = array_reduce(array_filter($purchases, 'purchaseIsPaid'), fn($sum, $p) => $sum + purchaseAmount($p), 0);
+    $monthStart = strtotime(date('Y-m-01 00:00:00'));
+    $revenueMonth = array_reduce(
+        array_filter($purchases, fn($p) => purchaseIsPaid($p) && purchaseTime($p) >= $monthStart),
+        fn($sum, $p) => $sum + purchaseAmount($p), 0);
     
     $byPaymentMethod = [];
     foreach ($purchases as $p) {
@@ -298,27 +318,44 @@ function getDashboard() {
         $byStatus[$status] = ($byStatus[$status] ?? 0) + 1;
     }
     
-    $recentPurchases = array_slice(array_reverse($purchases), 0, 10);
+    $sortedPurchases = $purchases;
+    usort($sortedPurchases, fn($a, $b) => purchaseTime($b) <=> purchaseTime($a));
+    $recentPurchases = array_slice($sortedPurchases, 0, 10);
     $recentActivity = array_map(function($p) {
         return [
-            'id' => $p['id'],
-            'user_email' => $p['user_email'],
-            'type' => $p['type'],
-            'amount' => $p['amount_clp'] ?? $p['amount'],
-            'status' => $p['status'],
-            'date' => $p['timestamp'] ?? $p['date']
+            'id' => $p['id'] ?? '',
+            'user_email' => $p['user_email'] ?? '',
+            'type' => $p['type'] ?? '',
+            'description' => $p['plan_name'] ?? ($p['description'] ?? ''),
+            'amount' => $p['amount_clp'] ?? ($p['amount'] ?? 0),
+            'status' => $p['status'] ?? '',
+            'payment_method' => $p['payment_method'] ?? '',
+            'date' => $p['timestamp'] ?? ($p['date'] ?? '')
         ];
     }, $recentPurchases);
+
+    // Ingresos por mes (últimos 6) para el gráfico del dashboard.
+    $revenueByMonth = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $revenueByMonth[date('Y-m', strtotime("first day of -$i month"))] = 0;
+    }
+    foreach ($purchases as $p) {
+        if (!purchaseIsPaid($p)) continue;
+        $k = date('Y-m', purchaseTime($p) ?: 0);
+        if (isset($revenueByMonth[$k])) $revenueByMonth[$k] += purchaseAmount($p);
+    }
     
     echo json_encode([
         'total_users' => $totalUsers,
-        'new_users_7d' => $totalUsers,
+        'new_users_7d' => $newUsers7d,
         'total_submissions' => $totalPurchases,
         'pending_submissions' => $pendingPurchases,
         'total_revenue' => $totalRevenue,
+        'revenue_month' => $revenueMonth,
+        'revenue_by_month' => array_map(fn($m, $v) => ['month' => $m, 'amount' => $v], array_keys($revenueByMonth), array_values($revenueByMonth)),
         'completed_payments' => $completedPurchases,
-        'active_plans' => count(array_filter($purchases, fn($p) => $p['type'] === 'plan')),
-        'total_plans' => count(array_filter($purchases, fn($p) => $p['type'] === 'plan')),
+        'active_plans' => count(array_filter($purchases, fn($p) => ($p['type'] ?? '') === 'plan' && in_array($p['status'] ?? '', ['paid', 'active'], true))),
+        'total_plans' => count(array_filter($purchases, fn($p) => ($p['type'] ?? '') === 'plan')),
         'users_by_role' => [
             ['role' => 'user', 'count' => $totalUsers],
             ['role' => 'admin', 'count' => 1],
@@ -366,7 +403,7 @@ function getUsers() {
         }
         
         $usersMap[$email]['total_purchases']++;
-        $usersMap[$email]['total_spent'] += floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+        if (purchaseIsPaid($p)) $usersMap[$email]['total_spent'] += purchaseAmount($p);
         
         if (($p['timestamp'] ?? '') > ($usersMap[$email]['last_login'] ?? '')) {
             $usersMap[$email]['last_login'] = $p['timestamp'];
@@ -407,12 +444,20 @@ function getPurchases() {
             'order_id' => $p['order_id'] ?? null,
             'status' => $p['status'] ?? 'pending',
             'date' => $p['date'] ?? '',
-            'created_at' => $p['timestamp'] ?? $p['date'],
-            'updated_at' => $p['timestamp'] ?? $p['date']
+            'created_at' => $p['timestamp'] ?? ($p['date'] ?? ''),
+            'updated_at' => $p['timestamp'] ?? ($p['date'] ?? ''),
+            'sort_time' => purchaseTime($p),
+            'days' => $p['days'] ?? null,
+            'end_date' => $p['end_date'] ?? null,
+            'payer_name' => $p['payer_name'] ?? null,
+            'payer_phone' => $p['payer_phone'] ?? null,
+            'expired_at' => $p['expired_at'] ?? null,
+            'expired_reason' => $p['expired_reason'] ?? null,
+            'reactivated_at' => $p['reactivated_at'] ?? null,
         ];
     }, $purchases, array_keys($purchases));
     
-    usort($items, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+    usort($items, fn($a, $b) => $b['sort_time'] <=> $a['sort_time']);
     
     echo json_encode([
         'items' => $items,
@@ -446,7 +491,7 @@ function getUserDetail() {
     }
     
     $firstPurchase = reset($userPurchases);
-    $totalSpent = array_reduce($userPurchases, fn($sum, $p) => $sum + floatval($p['amount_clp'] ?? $p['amount'] ?? 0), 0);
+    $totalSpent = array_reduce(array_filter($userPurchases, 'purchaseIsPaid'), fn($sum, $p) => $sum + purchaseAmount($p), 0);
     
     $user = [
         'id' => 1,
@@ -461,7 +506,7 @@ function getUserDetail() {
         'updated_at' => $firstPurchase['timestamp'] ?? $firstPurchase['date'],
         'total_purchases' => count($userPurchases),
         'total_spent' => $totalSpent,
-        'purchases' => array_values($userPurchases)
+        'purchases' => (function ($l) { usort($l, fn($a, $b) => purchaseTime($b) <=> purchaseTime($a)); return $l; })(array_values($userPurchases))
     ];
     
     echo json_encode($user);
@@ -498,8 +543,15 @@ function updatePurchaseStatus() {
         return;
     }
     
-    // === 1. Update purchases.json ===
-    $data = json_decode(file_get_contents($purchasesFile), true);
+    // === 1. Update purchases.json (con lock: el cierre automático de planes
+    // y las pasarelas escriben el mismo archivo) ===
+    $fp = fopen($purchasesFile, 'c+');
+    if (!$fp || !flock($fp, LOCK_EX)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudo abrir el registro de compras']);
+        return;
+    }
+    $data = json_decode(stream_get_contents($fp), true);
     $purchases = $data['purchases'] ?? [];
     
     $found = false;
@@ -510,6 +562,13 @@ function updatePurchaseStatus() {
         if (($purchase['id'] ?? '') === $purchaseId) {
             $oldStatus = $purchase['status'] ?? 'unknown';
             $purchase['status'] = $newStatus;
+            // Reactivar a mano reinicia el plazo del cierre automático (60 días).
+            if (in_array($newStatus, ['paid', 'active'], true) && !in_array($oldStatus, ['paid', 'active'], true)) {
+                $purchase['reactivated_at'] = date('Y-m-d H:i:s');
+            }
+            if ($newStatus !== 'expired') {
+                unset($purchase['expired_reason']);
+            }
             $found = true;
             $purchaseInfo = [
                 'id' => $purchase['id'],
@@ -525,13 +584,20 @@ function updatePurchaseStatus() {
     unset($purchase);
     
     if (!$found) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
         http_response_code(404);
         echo json_encode(['error' => 'Compra no encontrada con id: ' . $purchaseId]);
         return;
     }
     
     $data['purchases'] = $purchases;
-    file_put_contents($purchasesFile, json_encode($data, JSON_PRETTY_PRINT));
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
     
     // === 2. Sync order status in MySQL (Expedientes) ===
     $orderSynced = false;
@@ -549,9 +615,19 @@ function updatePurchaseStatus() {
             require_once __DIR__ . '/db_config.php';
             $pdo = getDbConnection();
             if ($pdo) {
-                $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE purchase_id = ?");
-                $stmt->execute([$orderStatus, $purchaseId]);
-                $orderSynced = $stmt->rowCount() > 0;
+                // Un expediente completado no se reabre por un cambio en la compra.
+                $ids = $pdo->prepare("SELECT id FROM orders WHERE purchase_id = ? AND status <> 'completed' AND status <> ?");
+                $ids->execute([$purchaseId, $orderStatus]);
+                $orderIds = $ids->fetchAll(PDO::FETCH_COLUMN);
+                $upd = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
+                $evt = $pdo->prepare("INSERT INTO order_events (order_id, event_type, meta_json, user_id) VALUES (?, 'status_change', ?, ?)");
+                foreach ($orderIds as $oid) {
+                    $upd->execute([$orderStatus, $oid]);
+                    try {
+                        $evt->execute([$oid, json_encode(['new_status' => $orderStatus, 'reason' => 'Cambio de estado de la compra ' . $purchaseId]), $GLOBALS['authPayload']['email'] ?? 'admin']);
+                    } catch (Exception $e) { /* auditoría best-effort */ }
+                }
+                $orderSynced = count($orderIds) > 0;
             }
         } catch (Exception $e) {
             error_log("Error syncing order status for purchase $purchaseId: " . $e->getMessage());

@@ -36,8 +36,16 @@ export function AuthProvider({ children, storageKeys = DEFAULT_KEYS }) {
       setToken(null);
       setUser(null);
     };
+    // Cerrar sesión en otra pestaña la cierra también aquí.
+    const onStorage = (e) => {
+      if (e.key === storageKeys.token && !e.newValue) { setToken(null); setUser(null); }
+    };
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [storageKeys]);
 
   const isAuth = !!token && !!user;

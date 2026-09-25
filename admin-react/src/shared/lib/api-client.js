@@ -43,34 +43,20 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
     // Con que token sale ESTA peticion. Se guarda antes del fetch porque para
     // cuando vuelva el 401 puede haber otro guardado (ver mas abajo).
     const tokenEnviado = getToken();
+    // timeoutMs: las operaciones lentas (rescrapear un link) piden más plazo.
+    const { timeoutMs = 15000, ...fetchOptions } = options;
     let res;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      res = await fetch(url, { ...options, headers, signal: controller.signal });
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      res = await fetch(url, { ...fetchOptions, headers, signal: controller.signal });
       clearTimeout(timeout);
     } catch (e) {
       if (e.name === 'AbortError') throw new Error('Timeout: el servidor no respondio');
       throw new Error('Error de conexion');
     }
     if (res.status === 401) {
-      const tokenActual = getToken();
-      // Un 401 solo habla del token con el que salio su peticion. Una pantalla
-      // dispara varias llamadas a la vez y alguna puede tardar: si el usuario
-      // ya volvio a entrar cuando llega ese 401 atrasado, el token vigente es
-      // otro y borrarlo lo expulsaria de la sesion que acaba de abrir.
-      if (tokenActual && tokenActual !== tokenEnviado) {
-        throw new Error('No autorizado');
-      }
-      // El primer 401 borra el token; los que vengan detras ya no encuentran
-      // nada y no repiten el aviso. Asi no hace falta un flag que se quede
-      // pegado y deje muda la proxima expiracion, despues de volver a entrar.
-      if (tokenActual || getUserData().email) {
-        localStorage.removeItem(storageKeys.token);
-        localStorage.removeItem(storageKeys.user);
-        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { storageKeys } }));
-      }
-      throw new Error('No autorizado');
+      handleUnauthorized(tokenEnviado);
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Error del servidor' }));
@@ -85,15 +71,55 @@ export function createApiClient(storageKeys = { token: 'token', user: 'user' }) 
     }
   }
 
-  async function uploadFile(url, formData) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getToken()}` },
-      body: formData,
-    });
+  // Un 401 vence la sesión (salvo que sea de un token ya reemplazado) y
+  // siempre corta la operación con error.
+  function handleUnauthorized(tokenEnviado) {
+    const tokenActual = getToken();
+    // Un 401 solo habla del token con el que salio su peticion. Una pantalla
+    // dispara varias llamadas a la vez y alguna puede tardar: si el usuario
+    // ya volvio a entrar cuando llega ese 401 atrasado, el token vigente es
+    // otro y borrarlo lo expulsaria de la sesion que acaba de abrir.
+    if (tokenActual && tokenActual !== tokenEnviado) {
+      throw new Error('No autorizado');
+    }
+    // El primer 401 borra el token; los que vengan detras ya no encuentran
+    // nada y no repiten el aviso. Asi no hace falta un flag que se quede
+    // pegado y deje muda la proxima expiracion, despues de volver a entrar.
+    if (tokenActual || getUserData().email) {
+      localStorage.removeItem(storageKeys.token);
+      localStorage.removeItem(storageKeys.user);
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { storageKeys } }));
+    }
+    throw new Error('No autorizado');
+  }
+
+  // Subidas multipart: mismo manejo de sesión y errores que request(), con
+  // más plazo porque los archivos pueden ser grandes.
+  async function uploadFile(url, formData, { timeoutMs = 120000 } = {}) {
+    const tokenEnviado = getToken();
+    let res;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      res = await fetch(url, {
+        method: 'POST',
+        headers: tokenEnviado ? { Authorization: `Bearer ${tokenEnviado}` } : {},
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('Timeout: la subida tardo demasiado');
+      throw new Error('Error de conexion');
+    }
+    if (res.status === 401) handleUnauthorized(tokenEnviado);
     const text = await res.text();
-    if (!text) return {};
-    try { return JSON.parse(text); } catch { return { error: 'Respuesta invalida' }; }
+    let json = {};
+    if (text) {
+      try { json = JSON.parse(text); } catch { json = { error: 'Respuesta invalida del servidor' }; }
+    }
+    if (!res.ok) throw new Error(json.detail || json.error || `Error ${res.status}`);
+    return json;
   }
 
   return { request, uploadFile, getToken, getUserEmail, authHeaders, API_BASE };

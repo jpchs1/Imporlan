@@ -169,6 +169,9 @@
     cacheVesselRoute(v);
     v.lat = String(r.lat);
     v.lon = String(r.lon);
+    // Se guarda el estado real: el formulario de edición debe usar el de la
+    // base, no el proyectado (si no, al guardar se persistía 'arrived').
+    if (v._db_status === undefined) v._db_status = v.status;
     if (r.arrived) v.status = 'arrived';
     if (v.current_position && typeof v.current_position === 'object') {
       v.current_position.lat = r.lat;

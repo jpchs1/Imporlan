@@ -58,3 +58,56 @@ export function statusLabel(status) {
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
+
+/**
+ * Descarga un CSV (con BOM para que Excel respete los acentos) a partir de
+ * filas y columnas `{ header, value(row) }`. Neutraliza fórmulas de Excel.
+ */
+export function downloadCSV(filename, columns, rows) {
+  const esc = (v) => {
+    let s = v === null || v === undefined ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [columns.map(c => esc(c.header)).join(',')]
+    .concat(rows.map(r => columns.map(c => esc(c.value(r))).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Fecha comparable (ms) desde 'YYYY-MM-DD HH:MM:SS' o 'd M Y'; 0 si no se puede. */
+export function dateValue(str) {
+  if (!str) return 0;
+  const t = new Date(String(str).replace(' ', 'T')).getTime();
+  if (!isNaN(t)) return t;
+  const t2 = Date.parse(str);
+  return isNaN(t2) ? 0 : t2;
+}
+
+/** Decodifica entidades HTML (el chat guarda los mensajes escapados). */
+export function decodeHtml(s) {
+  if (!s) return '';
+  const t = document.createElement('textarea');
+  t.innerHTML = s;
+  return t.value;
+}
+
+/** Tipo de compra legible. */
+export function purchaseTypeLabel(type) {
+  return { plan: 'Plan', link: 'Cotización link', cotizacion: 'Cotización', pago_directo: 'Pago directo' }[type] || type || '-';
+}
+
+/** Medio de pago legible. */
+export function paymentMethodLabel(m) {
+  return {
+    webpay: 'WebPay', mercadopago: 'Mercado Pago', paypal: 'PayPal',
+    transferencia_bancaria: 'Transferencia', transferencia: 'Transferencia', manual: 'Manual',
+  }[m] || m || '-';
+}
+
+/** Estados de compra que representan dinero efectivamente recibido. */
+export const PAID_STATUSES = ['paid', 'active', 'completed', 'expired'];

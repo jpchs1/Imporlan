@@ -7,7 +7,7 @@ import {
   reopenChatConversation,
   assignChatConversation,
 } from '../api';
-import { fmtDateTime } from '../../shared/lib/utils';
+import { fmtDateTime, decodeHtml } from '../../shared/lib/utils';
 import { PageHeader, Card, Badge, Button, Input, Spinner, StatCard } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
@@ -46,7 +46,6 @@ export default function Chat() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
-  const messagesEndRef = useRef(null);
   const selectedIdRef = useRef(null);
   selectedIdRef.current = selectedId;
 
@@ -76,10 +75,14 @@ export default function Chat() {
     }
   }, []);
 
+  // Con la pestaña oculta no se consulta: cada lectura marca los mensajes como
+  // leídos y el admin los perdería sin haberlos visto.
   useEffect(() => {
     loadConversations();
-    const t = setInterval(loadConversations, LIST_POLL_MS);
-    return () => clearInterval(t);
+    const t = setInterval(() => { if (!document.hidden) loadConversations(); }, LIST_POLL_MS);
+    const onVis = () => { if (!document.hidden) loadConversations(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [loadConversations]);
 
   useEffect(() => {
@@ -88,14 +91,20 @@ export default function Chat() {
     setMessages([]);
     setConversation(null);
     loadMessages(selectedId);
-    const t = setInterval(() => loadMessages(selectedId), MESSAGES_POLL_MS);
-    return () => clearInterval(t);
+    const t = setInterval(() => { if (!document.hidden) loadMessages(selectedId); }, MESSAGES_POLL_MS);
+    const onVis = () => { if (!document.hidden) loadMessages(selectedId); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, [selectedId, loadMessages]);
 
+  // Baja al último mensaje sólo si el admin ya estaba abajo (o al cambiar de
+  // conversación), y moviendo sólo el panel de mensajes, no toda la página.
+  const scrollBoxRef = useRef(null);
+  const stickToBottom = useRef(true);
+  useEffect(() => { stickToBottom.current = true; }, [selectedId]);
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    const box = scrollBoxRef.current;
+    if (box && stickToBottom.current) box.scrollTop = box.scrollHeight;
   }, [messages.length, selectedId]);
 
   async function handleSend(e) {
@@ -117,7 +126,7 @@ export default function Chat() {
 
   async function handleClose() {
     if (!selectedId) return;
-    if (!confirm('Cerrar esta conversacion?')) return;
+    if (!confirm('Cerrar esta conversación? El cliente recibe un correo avisando el cierre.')) return;
     try {
       await closeChatConversation(selectedId);
       showToast('Conversacion cerrada', 'success');
@@ -243,7 +252,7 @@ export default function Chat() {
                         <span className="text-sm font-semibold text-slate-800 truncate">{c.user_name || c.user_email}</span>
                         <span className="text-[10px] text-slate-400 shrink-0">{fmtRelative(c.last_message_time || c.updated_at)}</span>
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">{c.last_message || '(sin mensajes)'}</p>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">{c.last_message ? decodeHtml(c.last_message) : '(sin mensajes)'}</p>
                       <div className="flex items-center gap-1.5 mt-1.5">
                         {unread > 0 && (
                           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{unread}</span>
@@ -298,7 +307,9 @@ export default function Chat() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4 bg-slate-50/40">
+              <div ref={scrollBoxRef}
+                onScroll={e => { const b = e.currentTarget; stickToBottom.current = b.scrollHeight - b.scrollTop - b.clientHeight < 80; }}
+                className="flex-1 overflow-y-auto px-5 py-4 bg-slate-50/40">
                 {loadingMessages ? (
                   <Spinner />
                 ) : messages.length === 0 ? (
@@ -306,12 +317,12 @@ export default function Chat() {
                 ) : (
                   <div className="space-y-3">
                     {messages.map(m => {
-                      const isAdmin = m.sender_role === 'admin' || m.sender_role === 'support';
+                      const isAdmin = ['admin', 'support', 'agent'].includes(m.sender_role);
                       const isSystem = m.sender_role === 'system';
                       if (isSystem) {
                         return (
                           <div key={m.id} className="text-center">
-                            <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[11px]">{m.message}</span>
+                            <span className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[11px]">{decodeHtml(m.message)}</span>
                           </div>
                         );
                       }
@@ -320,10 +331,10 @@ export default function Chat() {
                           <div className={'max-w-[75%] rounded-2xl px-4 py-2.5 ' + (isAdmin
                             ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-br-md'
                             : 'bg-white border border-slate-200 text-slate-700 rounded-bl-md')}>
-                            {!isAdmin && m.sender_name && (
-                              <div className="text-[10px] font-semibold text-slate-400 mb-0.5">{m.sender_name}</div>
+                            {m.sender_name && (!isAdmin || m.sender_role === 'agent') && (
+                              <div className={'text-[10px] font-semibold mb-0.5 ' + (isAdmin ? 'text-indigo-100' : 'text-slate-400')}>{m.sender_name}</div>
                             )}
-                            <div className="text-sm whitespace-pre-wrap break-words">{m.message}</div>
+                            <div className="text-sm whitespace-pre-wrap break-words">{decodeHtml(m.message)}</div>
                             <div className={'text-[10px] mt-1 ' + (isAdmin ? 'text-indigo-100' : 'text-slate-400')}>
                               {fmtDateTime(m.timestamp)}
                             </div>
@@ -331,7 +342,6 @@ export default function Chat() {
                         </div>
                       );
                     })}
-                    <div ref={messagesEndRef} />
                   </div>
                 )}
               </div>
@@ -341,7 +351,7 @@ export default function Chat() {
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault();
                       handleSend();
                     }

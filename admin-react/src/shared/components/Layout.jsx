@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -169,7 +169,19 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const currentPage = navItems.find(n => location.pathname.startsWith(n.to))?.label || 'Dashboard';
+  const currentPage = navItems.find(n => location.pathname.startsWith(n.to))?.label
+    || (profilePath && location.pathname.startsWith(profilePath) ? 'Mi perfil' : 'Dashboard');
+
+  // Título de la pestaña por pantalla (con los pendientes, si hay).
+  const totalBadges = Object.values(badges).reduce((a, n) => a + (Number(n) || 0), 0);
+  useEffect(() => {
+    document.title = `${totalBadges ? `(${totalBadges}) ` : ''}${currentPage} · ${title} ${subtitle}`;
+  }, [currentPage, title, subtitle, totalBadges]);
+
+  // El que hace scroll es <main>, no la ventana: al cambiar de pantalla se
+  // vuelve arriba (antes se entraba a mitad de página).
+  const mainRef = useRef(null);
+  useEffect(() => { mainRef.current?.scrollTo(0, 0); }, [location.pathname]);
 
   // Group nav items if groups are provided
   const groupedItems = useMemo(() => {
@@ -185,7 +197,7 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
   let itemIndex = 0;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen h-dvh overflow-hidden bg-slate-50">
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden animate-fade-in" onClick={() => setSidebarOpen(false)} />
       )}
@@ -334,7 +346,7 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="animate-fade-in">
             <Outlet />
           </div>
