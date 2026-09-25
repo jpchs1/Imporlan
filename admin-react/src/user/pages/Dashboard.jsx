@@ -4,6 +4,7 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { getMyOrders, getMyPaymentRequests, getMyConversations, getFeaturedVessels, getMyReports, getMyListings } from '../api';
 import { fmtDate, fmtCLP, cn, statusColor } from '../../shared/lib/utils';
 import { Card, Badge, Spinner, SkeletonCard } from '../../shared/components/UI';
+import DeckevaPromo from '../components/DeckevaPromo';
 
 function StatCard({ label, value, icon, color, onClick, subtitle }) {
   const colors = {
@@ -250,6 +251,8 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      <DeckevaPromo context="panel_dashboard" className="mb-5" />
 
       {/* Activity row: 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">

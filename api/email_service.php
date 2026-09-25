@@ -1419,6 +1419,37 @@ BASE64;
     /**
      * Primary CTA Button - matching /panel/ "Entrar" button exactly
      */
+    /**
+     * Bloque del partner DECKEVA (pisos de goma EVA antideslizante) para los
+     * correos a clientes en los momentos en que les sirve: cuando compran un
+     * plan, piden una inspección, su lancha llega a Chile o se completa el
+     * expediente. $context va en utm_content para medir cada correo.
+     */
+    protected function getDeckevaPromoBlock($context, $headline = null) {
+        $utm = 'utm_source=imporlan&utm_medium=email&utm_campaign=partner_deckeva&utm_content=' . rawurlencode($context);
+        $cotizador = 'https://deckeva.cl/cotizador/?' . $utm;
+        $img = 'https://deckeva.cl/wp-content/uploads/2024/08/piso-de-lancha.jpg';
+        $headline = $headline ?: 'Estrena tu lancha con piso de goma EVA antideslizante';
+        return '
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 32px 0 8px 0; border-collapse: separate; border-radius: 14px; overflow: hidden; background: #0b1f3a;">
+                <tr>
+                    <td style="padding: 0;">
+                        <a href="' . htmlspecialchars($cotizador) . '" target="_blank" style="display: block;">
+                            <img src="' . $img . '" alt="Piso de goma EVA antideslizante DECKEVA instalado en una lancha" width="560" style="display: block; width: 100%; max-width: 560px; height: auto; border: 0;">
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 20px 22px 22px 22px; font-family: Arial, Helvetica, sans-serif;">
+                        <p style="margin: 0 0 6px 0; color: #ffc04d; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Partner oficial de Imporlan &middot; DECKEVA</p>
+                        <p style="margin: 0 0 8px 0; color: #ffffff; font-size: 18px; font-weight: 700; line-height: 1.3;">' . htmlspecialchars($headline) . '</p>
+                        <p style="margin: 0 0 16px 0; color: #cbd5e1; font-size: 14px; line-height: 1.6;">Pisos a medida fabricados en Chile: agarre firme aunque est&eacute; mojado, c&oacute;modos para andar descalzo y resistentes al sol y la sal. Toma de medidas e instalaci&oacute;n en terreno. +500 embarcaciones renovadas &middot; 4.9&#9733;</p>
+                        <a href="' . htmlspecialchars($cotizador) . '" target="_blank" style="display: inline-block; background: #f5a623; color: #0a1628; font-size: 14px; font-weight: 700; text-decoration: none; padding: 12px 20px; border-radius: 10px;">Calcula el precio de tu piso &rarr;</a>
+                    </td>
+                </tr>
+            </table>';
+    }
+
     protected function getButton($text, $url, $fullWidth = true) {
         $c = $this->colors;
         $width = $fullWidth ? 'width: 100%;' : '';
@@ -1853,6 +1884,10 @@ BASE64;
             <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
                 Si tienes alguna consulta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none; font-weight: 500;">contacto@imporlan.cl</a>
             </p>';
+
+        if ($isPlan) {
+            $content .= $this->getDeckevaPromoBlock('email_plan_pagado', 'Cuando llegue tu lancha, estrénala con piso nuevo');
+        }
         
         return $this->getBaseTemplate($content, $emailTitle . ' - Imporlan');
     }
@@ -3077,6 +3112,10 @@ BASE64;
                 Si tienes alguna pregunta sobre tu expediente, puedes contactarnos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
             </p>';
 
+        if ($newStatus === 'completed') {
+            $content .= $this->getDeckevaPromoBlock('email_expediente_completado', 'Dale el toque final a tu embarcación');
+        }
+
         return $this->getBaseTemplate($content, 'Expediente ' . $orderNumber . ' - ' . $config['label']);
     }
     
@@ -4011,7 +4050,8 @@ BASE64;
             
             <div style="margin: 30px 0; text-align: center;">
                 ' . $this->getButton('Ir al Panel', $this->panelUrl) . '
-            </div>';
+            </div>
+            ' . $this->getDeckevaPromoBlock('email_arribo', 'Tu lancha ya está en Chile: estrénala con piso nuevo') . '';
         
         $htmlContent = $this->getBaseTemplate($content, 'Embarque Arribado - Imporlan');
         return $this->sendEmail($userEmail, 'Tu Embarque ha Arribado - Imporlan', $htmlContent, 'vessel_arrived', ['order_number' => $orderNumber, 'vessel_name' => $vesselName]);
@@ -4133,7 +4173,8 @@ BASE64;
             
             <div style="margin: 25px 0 10px 0; text-align: center;">
                 ' . $this->getButton('Contactar por WhatsApp', 'https://wa.me/56940211459?text=Hola,%20envie%20una%20solicitud%20de%20inspeccion%20pre-compra') . '
-            </div>';
+            </div>
+            ' . $this->getDeckevaPromoBlock('email_inspeccion', 'Si la compras, déjala impecable con piso DECKEVA') . '';
 
         $subject = 'Imporlan | Solicitud recibida - Inspeccion pre-compra de embarcacion';
         $htmlContent = $this->getBaseTemplate($content, $subject);
