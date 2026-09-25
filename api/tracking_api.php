@@ -327,9 +327,9 @@ function getVesselPositions() {
             FROM vessel_positions
             WHERE vessel_id = ?
             ORDER BY fetched_at DESC
-            LIMIT ?
+            LIMIT " . max(1, min(1000, intval($limit))) . "
         ");
-        $stmt->execute([$vesselId, $limit]);
+        $stmt->execute([$vesselId]);
         $positions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode(['success' => true, 'positions' => $positions]);

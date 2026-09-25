@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
 import { fmtDate, statusColor } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -12,7 +13,8 @@ import FilesSection from '../components/FilesSection';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos los estados' },
-  { value: 'pending_admin_fill', label: 'Pendiente' },
+  { value: 'new', label: 'Nuevo' },
+  { value: 'pending_admin_fill', label: 'En revisión' },
   { value: 'in_progress', label: 'En Proceso' },
   { value: 'completed', label: 'Completado' },
   { value: 'expired', label: 'Vencido' },
@@ -61,15 +63,32 @@ export default function Orders() {
   const dragIdx = useRef(null);
   const linksContainerRef = useRef(null);
 
-  useEffect(() => { loadOrders(); }, []);
+  // Los avisos internos enlazan a #/orders?new=ID (o ?id=ID): abrir ese expediente.
+  const location = useLocation();
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const target = qs.get('id') || qs.get('new');
+    loadOrders().then(list => {
+      if (!target) return;
+      // ?new= trae el número de expediente (IMP-…); ?id= el id interno.
+      const hit = /^\d+$/.test(target)
+        ? { id: Number(target) }
+        : list.find(o => String(o.order_number) === target);
+      if (hit?.id) openDetail(hit.id);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   async function loadOrders() {
     setLoading(true);
+    let list = [];
     try {
       const res = await getOrders(filters);
-      setOrders(res.orders || res.items || []);
-    } catch (e) { console.error(e); }
+      list = res.orders || res.items || [];
+      setOrders(list);
+    } catch (e) { toast?.('No se pudieron cargar los expedientes: ' + (e.message || ''), 'error'); }
     setLoading(false);
+    return list;
   }
 
   async function openDetail(orderId) {
@@ -94,11 +113,15 @@ export default function Orders() {
       });
       setUnsaved(false);
       setView('detail');
-    } catch (e) { toast?.('Error cargando expediente', 'error'); }
+    } catch (e) { toast?.('Error cargando expediente: ' + (e.message || ''), 'error'); }
     setLoading(false);
   }
 
-  function goBack() { setView('list'); setDetail(null); loadOrders(); }
+  function goBack() {
+    if (unsaved && !confirm('Hay cambios sin guardar. ¿Salir igual?')) return;
+    setUnsaved(false);
+    setView('list'); setDetail(null); loadOrders();
+  }
 
   // ---- SAVE ALL ----
   async function handleSaveAll() {
@@ -121,8 +144,9 @@ export default function Orders() {
   async function handleStatusChange() {
     if (!detail || !newStatus) return;
     try {
-      await changeOrderStatus({ id: detail.id, status: newStatus });
-      toast?.('Estado actualizado');
+      const r = await changeOrderStatus({ id: detail.id, status: newStatus });
+      if (r?.email_sent === false || r?.email_error) toast?.('Estado actualizado, pero no se pudo enviar el correo al cliente' + (r.email_error ? `: ${r.email_error}` : ''), 'warning');
+      else toast?.('Estado actualizado');
       setShowStatusModal(false);
       const o = await getOrderDetail(detail.id);
       setDetail(o.order || o);
@@ -131,6 +155,7 @@ export default function Orders() {
 
   // ---- SEND CLIENT UPDATE ----
   async function handleSendClient() {
+    if (!confirm(`Enviar un correo de actualización a ${detail.customer_email || 'el cliente'}?`)) return;
     try {
       await sendClientUpdate(detail.id);
       toast?.('Notificacion enviada al cliente');
@@ -139,6 +164,7 @@ export default function Orders() {
 
   // ---- NOTIFY RANKING ----
   async function handleNotifyRanking() {
+    if (!confirm(`Enviar el ranking por correo a ${detail.customer_email || 'el cliente'}?`)) return;
     try {
       await notifyRanking(detail.id, user?.name || 'Admin');
       toast?.('Ranking notificado al usuario');
@@ -163,6 +189,17 @@ export default function Orders() {
   // Tras encolar una fila hay que releer el expediente: el estado "en cola" lo
   // guarda el servidor, y sin refrescar, la tarjeta seguiria mostrando el aviso
   // viejo como si no hubiera pasado nada.
+  // Avisar antes de cerrar la pestaña con cambios sin guardar.
+  useEffect(() => {
+    if (!unsaved) return;
+    const h = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [unsaved]);
+
+  const linksRef = useRef(links);
+  useEffect(() => { linksRef.current = links; }, [links]);
+
   const refrescarDetalle = useCallback(async () => {
     if (!detail?.id) return;
     try {
@@ -179,10 +216,11 @@ export default function Orders() {
   // en que se abrio la pantalla.
   useEffect(() => {
     const hayEnCola = links.some(l => l.scrape_state === 'en_cola' || l.scrape_state === 'procesando');
-    if (!hayEnCola || !detail?.id) return;
+    // Con cambios sin guardar no se relee: pisaría lo que el admin está editando.
+    if (!hayEnCola || !detail?.id || unsaved) return;
     const id = setInterval(refrescarDetalle, 10000);
     return () => clearInterval(id);
-  }, [links, detail?.id, refrescarDetalle]);
+  }, [links, detail?.id, unsaved, refrescarDetalle]);
 
   // Rescrapea el expediente fila por fila. Los links pegados a mano nunca
   // pasaban por el scraper del servidor, asi que este boton es la via para
@@ -208,28 +246,37 @@ export default function Orders() {
     if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.${aviso}`)) return;
 
     setRescraping(true);
-    let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0;
+    let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0, queued = 0;
     try {
+      // El servidor lee las URLs de la base: lo escrito sin guardar se guarda antes.
+      if (unsaved) {
+        await updateOrderLinks(detail.id, links);
+        setUnsaved(false);
+      }
       for (let i = 0; i < pend.length; i++) {
         setRescrapeProgress(`${i + 1} de ${pend.length}`);
         try {
           const res = await rescrapeOrderLink(detail.id, pend[i].row_index ?? (i + 1));
           const r = (res.results || [])[0];
-          if (r?.status === 'updated') updated++;
           if (r?.image) withImage++;
+          if (r?.status === 'updated') updated++;
           // Sin el modulo de scraping el servidor igual deduce año, marca y
           // modelo desde la URL: eso no es un fallo, es un resultado parcial.
           else if (r?.status === 'partial_no_scraper') partial++;
           else if (r?.status === 'no_scraper') noScraper++;
-          else if (r && r.status !== 'updated' && r.status !== 'no_data') failed++;
+          // Los sitios lentos quedan en cola y se completan solos en segundo plano.
+          else if (r?.status === 'en_cola') queued++;
+          else if (r && r.status !== 'no_data') failed++;
         } catch {
           failed++;
         }
       }
       const o = await getOrderDetail(detail.id);
-      setDetail(o);
-      setLinks(o.links || []);
+      const orden = o.order || o;
+      setDetail(orden);
+      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
       const parts = [`Listo: ${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.`];
+      if (queued) parts.push(`\n${queued} quedaron en cola y se completan solos en unos minutos.`);
       if (partial || noScraper) {
         parts.push(
           `\nFalta api/link_scraper.php en el servidor (el antivirus del hosting lo pone en cuarentena).` +
@@ -295,7 +342,8 @@ export default function Orders() {
   // leftover from "Agregar Fila" clicks during testing or from old plans
   // that pre-allocated empty rows.
   async function handleDeleteEmptyLinks() {
-    const empty = links.filter(l => !l.url && !l.make && !l.model && !l.image_url);
+    const empty = links.filter(l => !l.url && !l.make && !l.model && !l.image_url && !l.comments
+      && !l.value_usa_usd && !l.value_chile_clp && !l.value_chile_negotiated_clp && !l.selection_order);
     if (!empty.length) return;
     if (!confirm(`Borrar ${empty.length} fila${empty.length === 1 ? '' : 's'} vacía${empty.length === 1 ? '' : 's'}?`)) return;
     try {
@@ -308,8 +356,11 @@ export default function Orders() {
   }
 
   // ---- UPDATE LINK FIELD ----
+  const NUMERIC_LINK_FIELDS = ['value_usa_usd', 'value_to_negotiate_usd', 'value_chile_clp', 'value_chile_negotiated_clp', 'selection_order', 'year', 'hours'];
   function handleLinkUpdate(linkId, field, value) {
-    setLinks(prev => prev.map(l => l.id === linkId ? { ...l, [field]: value } : l));
+    // Un número borrado se guarda como vacío (NULL), no como '' (MySQL estricto lo rechaza).
+    const v = NUMERIC_LINK_FIELDS.includes(field) && value === '' ? null : value;
+    setLinks(prev => prev.map(l => l.id === linkId ? { ...l, [field]: v } : l));
     setUnsaved(true);
   }
 
@@ -334,34 +385,33 @@ export default function Orders() {
     } catch (e) {
       toast?.('No se pudo poner el anuncio en cola: ' + (e.message || ''), 'error');
     }
-  }, [detail?.id, links, refrescarDetalle]);
+  }, [detail?.id, links, refrescarDetalle, toast]);
 
   // ---- IMAGE UPLOAD ----
   async function handleImageUpload(linkId, file) {
     try {
       const res = await uploadLinkImage(detail.id, linkId, file);
-      if (res.url || res.image_url) {
-        const url = res.url || res.image_url;
-        setLinks(prev => prev.map(l => l.id === linkId ? { ...l, image_url: url } : l));
-        toast?.('Imagen subida');
-      }
-    } catch (e) { toast?.('Error subiendo imagen', 'error'); }
+      const url = res.url || res.image_url;
+      if (!url) throw new Error(res.error || 'El servidor no devolvió la imagen');
+      setLinks(prev => prev.map(l => l.id === linkId ? { ...l, image_url: url } : l));
+      setUnsaved(true);
+      toast?.('Imagen subida. Recuerda guardar el expediente.');
+    } catch (e) { toast?.('Error subiendo imagen: ' + (e.message || ''), 'error'); }
   }
 
   // ---- SCRAPE RESULT ----
   const handleScrapeResult = useCallback((linkId, data, force) => {
     const fields = ['make', 'model', 'year', 'location', 'hours', 'engine', 'image_url'];
     const priceKey = data.value_usa_usd || data.price;
-    let filled = false;
-    setLinks(prev => prev.map(l => {
-      if (l.id !== linkId) return l;
-      const updated = { ...l };
-      fields.forEach(f => {
-        if (data[f] && (force || !l[f])) { updated[f] = data[f]; filled = true; }
-      });
-      if (priceKey && (force || !l.value_usa_usd)) { updated.value_usa_usd = priceKey; filled = true; }
-      return updated;
-    }));
+    // Se calcula sobre la fila actual (no dentro del updater de setLinks, que
+    // React puede ejecutar más tarde) para saber si de verdad se llenó algo.
+    const current = linksRef.current.find(l => l.id === linkId);
+    if (!current) return;
+    const patch = {};
+    fields.forEach(f => { if (data[f] && (force || !current[f])) patch[f] = data[f]; });
+    if (priceKey && (force || !current.value_usa_usd)) patch.value_usa_usd = priceKey;
+    const filled = Object.keys(patch).length > 0;
+    if (filled) setLinks(prev => prev.map(l => (l.id === linkId ? { ...l, ...patch } : l)));
     if (filled) {
       setUnsaved(true);
       const hasImage = !!data.image_url;
@@ -383,21 +433,25 @@ export default function Orders() {
     e.preventDefault();
     const fromIdx = dragIdx.current;
     if (fromIdx === null || fromIdx === dropIdx) return;
-    const newLinks = [...links];
-    const [moved] = newLinks.splice(fromIdx, 1);
-    newLinks.splice(dropIdx, 0, moved);
+    const arr = [...links];
+    const [moved] = arr.splice(fromIdx, 1);
+    arr.splice(dropIdx, 0, moved);
+    // El orden se guarda al tiro en el servidor; el row_index local se alinea
+    // para que un "Guardar Todo" posterior no lo deshaga.
+    const newLinks = arr.map((l, i) => ({ ...l, row_index: i + 1 }));
     setLinks(newLinks);
-    setUnsaved(true);
-    // Save reorder
     const ids = newLinks.map(l => l.id).filter(Boolean);
-    reorderOrderLinks(detail.id, ids, user?.name || 'Admin').catch(() => {});
+    reorderOrderLinks(detail.id, ids, user?.name || 'Admin')
+      .then(() => setDetail(d => (d ? { ...d, ranking_author_name: user?.name || 'Admin' } : d)))
+      .catch(err => toast?.('No se pudo guardar el nuevo orden: ' + (err.message || ''), 'error'));
   }
   function onDragEnd(e) { e.currentTarget.style.opacity = '1'; dragIdx.current = null; }
 
   // ---- CREATE ORDER ----
   async function handleCreate() {
+    if (!createForm.customer_email) { toast?.('Falta el email del cliente', 'error'); return; }
     try {
-      await createOrder(createForm);
+      await createOrder({ ...createForm, initial_links: 1 });
       setShowCreate(false);
       setCreateForm({ customer_email:'', customer_name:'', customer_phone:'', service_type:'plan_busqueda', plan_name:'', asset_name:'', type_zone:'', agent_name:'Rodrigo Calderon' });
       toast?.('Expediente creado');
@@ -646,7 +700,7 @@ export default function Orders() {
       </Card>
 
       {/* Reports section */}
-      <ReportsSection orderId={detail.id} linksCount={links.length} customerEmail={detail.customer_email} />
+      <ReportsSection orderId={detail.id} linksCount={links.filter(l => (l.url || '').trim()).length} customerEmail={detail.customer_email} />
 
       {/* Files section */}
       <FilesSection orderId={detail.id} />
@@ -666,15 +720,22 @@ export default function Orders() {
         onClose={() => setCotizandoLink(null)}
         onSaved={async () => {
           if (!detail?.id) return;
-          // Persist any pending link edits BEFORE the refetch — otherwise
-          // the openDetail call below blows away unsaved scrape data.
+          const cotizadoId = cotizandoLink?.id;
+          // Guardar la cotización copia su total a "valor negociado" en el
+          // servidor. Si había ediciones sin guardar, se persisten tomando ese
+          // valor nuevo del servidor para no pisarlo con el local viejo.
           if (unsaved) {
             try {
-              await updateOrderLinks(detail.id, links);
+              const o = await getOrderDetail(detail.id);
+              const fresco = ((o.order || o).links || []).find(l => l.id === cotizadoId);
+              const merged = links.map(l => (l.id === cotizadoId && fresco
+                ? { ...l, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
+                : l));
+              await updateOrderLinks(detail.id, merged);
               setUnsaved(false);
-            } catch (e) { /* keep going — refetch will surface the issue */ }
+            } catch (e) { toast?.('No se pudieron guardar los cambios pendientes: ' + (e.message || ''), 'error'); }
           }
-          openDetail(detail.id);
+          await refrescarDetalle();
         }}
       />
     </div>

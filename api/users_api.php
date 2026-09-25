@@ -235,7 +235,9 @@ function usersList() {
                     ];
                 }
                 $usersMap[$email]['total_purchases']++;
-                $usersMap[$email]['total_spent'] += floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+                if (in_array($p['status'] ?? '', ['paid', 'active', 'completed', 'expired'], true)) {
+                    $usersMap[$email]['total_spent'] += floatval($p['amount_clp'] ?? $p['amount'] ?? 0);
+                }
                 if (($p['timestamp'] ?? '') > ($usersMap[$email]['last_login'] ?? '')) {
                     $usersMap[$email]['last_login'] = $p['timestamp'];
                     $usersMap[$email]['updated_at'] = $p['timestamp'];

@@ -747,8 +747,21 @@ function adminUpdateStatus() {
         return;
     }
     $pdo = getDbConnection();
-    $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = ? WHERE id = ?");
-    $stmt->execute([$status, $id]);
+    if ($status === 'active') {
+        // Reactivar = publicar de nuevo por 30 días; si no, el cron la vuelve
+        // a expirar de inmediato por su fecha vieja.
+        try {
+            $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = 'active', published_at = NOW(), expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY) WHERE id = ?");
+            $stmt->execute([$id]);
+        } catch (PDOException $e) {
+            // Tablas antiguas sin columnas de fecha.
+            $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = 'active' WHERE id = ?");
+            $stmt->execute([$id]);
+        }
+    } else {
+        $stmt = $pdo->prepare("UPDATE marketplace_listings SET status = ? WHERE id = ?");
+        $stmt->execute([$status, $id]);
+    }
     echo json_encode(['success' => true]);
 }
 

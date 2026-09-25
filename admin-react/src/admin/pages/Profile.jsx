@@ -56,7 +56,7 @@ export default function Profile() {
     setSavingName(true);
     try {
       const r = await updateProfileName(name.trim());
-      if (r.success === false) throw new Error(r.error || 'Error');
+      if (!r || r.success === false || r.error) throw new Error(r?.error || 'Error');
       setProfile(p => ({ ...p, name: name.trim() }));
       syncAuthUser({ name: name.trim() });
       showToast('Nombre actualizado', 'success');
@@ -85,7 +85,7 @@ export default function Profile() {
     setSavingPw(true);
     try {
       const r = await changeProfilePassword(currentPw, newPw, confirmPw);
-      if (r.success === false) throw new Error(r.error || 'Error');
+      if (!r || r.success === false || r.error) throw new Error(r?.error || 'Error');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
       setPwMsg({ type: 'success', text: r.message || 'Contrasena actualizada.' });
     } catch (err) {
@@ -106,7 +106,7 @@ export default function Profile() {
     setUploadingPhoto(true);
     try {
       const r = await uploadProfilePhoto(file);
-      if (r.success === false) throw new Error(r.error || 'Error');
+      if (!r || r.success === false || r.error) throw new Error(r?.error || 'Error');
       const newUrl = r.avatar_url || r.profile?.avatar_url;
       if (newUrl) {
         setProfile(p => ({ ...p, avatar_url: newUrl }));

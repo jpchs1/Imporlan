@@ -69,9 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'update_photo' && isset($_FILES['avatar'])) {
             $file = $_FILES['avatar'];
-            $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            // MIME real del contenido y extensión derivada de él.
+            $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $realMime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
 
-            if (!in_array($file['type'], $allowed)) {
+            if (!isset($allowed[$realMime])) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Formato de imagen no valido. Usa JPG, PNG, GIF o WEBP.']);
                 exit();
@@ -89,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mkdir($avatarDir, 0755, true);
             }
 
-            $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg';
+            $ext = $allowed[$realMime];
             $filename = md5($userEmail) . '_' . time() . '.' . $ext;
             $targetPath = $avatarDir . '/' . $filename;
 
@@ -191,148 +195,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        if (strlen($newPassword) < 6) {
+        if (strlen($newPassword) < 8) {
             http_response_code(400);
-            echo json_encode(['error' => 'La contrasena debe tener al menos 6 caracteres.']);
+            echo json_encode(['error' => 'La contrasena debe tener al menos 8 caracteres.']);
             exit();
         }
 
-        // Verify current password against the hardcoded ones
-        $proxyFile = __DIR__ . '/test/proxy.php';
-        $adminApiFile = __DIR__ . '/admin_api.php';
-        $currentAdminPassword = null;
-
-        // Read current password from proxy.php
-        if (file_exists($proxyFile)) {
-            $content = file_get_contents($proxyFile);
-            if (preg_match("/\\\$adminPassword\s*=\s*'([^']*)'/", $content, $m)) {
-                $currentAdminPassword = $m[1];
-            }
+        // Cuentas del equipo creadas en Usuarios (tabla admin_users): se
+        // verifica y se actualiza el hash. Antes se comparaba contra
+        // contraseñas leídas con regex de archivos PHP que ya no las tienen,
+        // así que siempre respondía "contraseña actual incorrecta".
+        require_once __DIR__ . '/db_config.php';
+        require_once __DIR__ . '/credentials.php';
+        $pdo = getDbConnection();
+        $row = null;
+        $isMainAccount = in_array(strtolower($userEmail), [strtolower(IMPORLAN_ADMIN_EMAIL), strtolower(IMPORLAN_SUPPORT_EMAIL)], true);
+        if ($pdo && !$isMainAccount) {
+            $st = $pdo->prepare("SELECT id, password_hash FROM admin_users WHERE email = ?");
+            $st->execute([$userEmail]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
         }
 
-        // Also check admin_api.php
-        if (!$currentAdminPassword && file_exists($adminApiFile)) {
-            $content = file_get_contents($adminApiFile);
-            if (preg_match("/define\s*\(\s*'ADMIN_PASSWORD'\s*,\s*'([^']*)'\s*\)/", $content, $m)) {
-                $currentAdminPassword = $m[1];
-            }
+        if (!$row) {
+            // Cuentas principales (definidas en la configuración del servidor):
+            // su contraseña no se guarda en la base; se cambia con el enlace de
+            // recuperación, que la escribe en la configuración de forma segura.
+            http_response_code(400);
+            echo json_encode(['error' => 'La contrasena de esta cuenta principal se cambia desde "Olvide mi contrasena" en la pantalla de ingreso.']);
+            exit();
         }
 
-        // For non-admin users (support, agent), check their specific passwords
-        $userRole = $user['role'] ?? '';
-        if ($userEmail === 'soporte@imporlan.cl') {
-            if (file_exists($proxyFile)) {
-                $content = file_get_contents($proxyFile);
-                if (preg_match("/\\\$supportPassword\s*=\s*'([^']*)'/", $content, $m)) {
-                    $currentAdminPassword = $m[1];
-                }
-            }
-        }
-
-        if ($currentPassword !== $currentAdminPassword) {
+        if (!password_verify($currentPassword, $row['password_hash'])) {
             http_response_code(400);
             echo json_encode(['error' => 'La contrasena actual es incorrecta.']);
             exit();
         }
 
-        // Update password in auth files using preg_replace_callback
-        $authFiles = [
-            $proxyFile,
-            $adminApiFile
-        ];
-
-        $escapedPassword = addcslashes($newPassword, "'\\");
-        $updatedCount = 0;
-        $errors = [];
-
-        // Determine which pattern to match based on user
-        $isMainAdmin = ($userEmail === 'admin@imporlan.cl');
-
-        foreach ($authFiles as $filePath) {
-            if (!file_exists($filePath)) continue;
-
-            $content = file_get_contents($filePath);
-            if ($content === false) {
-                $errors[] = basename($filePath) . ': no se pudo leer';
-                continue;
-            }
-
-            $changed = false;
-
-            if ($isMainAdmin) {
-                // Update $adminPassword in proxy.php
-                $newContent = preg_replace_callback(
-                    "/\\\$adminPassword\s*=\s*'[^']*'/",
-                    function() use ($escapedPassword) {
-                        return "\$adminPassword = '" . $escapedPassword . "'";
-                    },
-                    $content,
-                    -1,
-                    $count
-                );
-                if ($count > 0) $changed = true;
-
-                // Update ADMIN_PASSWORD in admin_api.php
-                $newContent = preg_replace_callback(
-                    "/define\s*\(\s*'ADMIN_PASSWORD'\s*,\s*'[^']*'\s*\)/",
-                    function() use ($escapedPassword) {
-                        return "define('ADMIN_PASSWORD', '" . $escapedPassword . "')";
-                    },
-                    $newContent,
-                    -1,
-                    $count
-                );
-                if ($count > 0) $changed = true;
-            } else if ($userEmail === 'soporte@imporlan.cl') {
-                // Update $supportPassword in proxy.php
-                $newContent = preg_replace_callback(
-                    "/\\\$supportPassword\s*=\s*'[^']*'/",
-                    function() use ($escapedPassword) {
-                        return "\$supportPassword = '" . $escapedPassword . "'";
-                    },
-                    $content,
-                    -1,
-                    $count
-                );
-                if ($count > 0) $changed = true;
-
-                // Update SUPPORT_PASSWORD in admin_api.php
-                $newContent = preg_replace_callback(
-                    "/define\s*\(\s*'SUPPORT_PASSWORD'\s*,\s*'[^']*'\s*\)/",
-                    function() use ($escapedPassword) {
-                        return "define('SUPPORT_PASSWORD', '" . $escapedPassword . "')";
-                    },
-                    $newContent,
-                    -1,
-                    $count
-                );
-                if ($count > 0) $changed = true;
-            }
-
-            if ($changed) {
-                if (file_put_contents($filePath, $newContent) !== false) {
-                    $updatedCount++;
-                } else {
-                    $errors[] = basename($filePath) . ': no se pudo escribir';
-                }
-            }
-        }
-
-        if ($updatedCount === 0) {
-            if (!empty($errors)) {
-                http_response_code(500);
-                echo json_encode(['error' => 'No se pudo actualizar la contrasena: ' . implode(', ', $errors)]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'No se encontraron los archivos de autenticacion para actualizar.']);
-            }
-            exit();
-        }
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Contrasena actualizada exitosamente.'
-        ]);
+        $upd = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
+        $upd->execute([password_hash($newPassword, PASSWORD_DEFAULT), $row['id']]);
+        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente.']);
         exit();
     }
 

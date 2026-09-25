@@ -8,7 +8,7 @@ export const login = (email, password) =>
   request(`${API_BASE}/admin_api.php?action=login`, { method: 'POST', body: JSON.stringify({ email, password }) });
 
 export const verify2FA = (code, tempToken) =>
-  request(`${API_BASE}/auth_local.php?action=verify-2fa`, { method: 'POST', body: JSON.stringify({ code, temp_token: tempToken }) });
+  request(`${API_BASE}/auth/verify-2fa`, { method: 'POST', body: JSON.stringify({ code, temp_token: tempToken }) });
 
 export const forgotPassword = (email) =>
   request(`${API_BASE}/admin_forgot_password.php`, { method: 'POST', body: JSON.stringify({ email }) });
@@ -77,7 +77,7 @@ export const updateOrderLinks = (orderId, links) =>
 // Una fila por llamada: con Plan B un link puede tardar minutos y el servidor
 // web cortaria una peticion que las procese todas juntas.
 export const rescrapeOrderLink = (orderId, rowIndex) =>
-  request(`${API_BASE}/orders_api.php?action=admin_rescrape_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, row_index: rowIndex, only_empty: false }) });
+  request(`${API_BASE}/orders_api.php?action=admin_rescrape_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, row_index: rowIndex, only_empty: false }), timeoutMs: 150000 });
 export const reorderOrderLinks = (orderId, linkIds, authorName) =>
   request(`${API_BASE}/orders_api.php?action=admin_reorder_links`, { method: 'POST', body: JSON.stringify({ order_id: orderId, link_ids: linkIds, author_name: authorName, author_role: 'admin' }) });
 export const changeOrderStatus = (data) =>
@@ -88,10 +88,11 @@ export const notifyRanking = (orderId, authorName) =>
   request(`${API_BASE}/orders_api.php?action=notify_ranking`, { method: 'POST', body: JSON.stringify({ order_id: parseInt(orderId), author_name: authorName, author_role: 'admin' }) });
 
 // Inspections
-export const getInspections = () => request(`${API_BASE}/inspection_api.php?action=admin_list`).catch(() => ({ items: [] }));
+export const getInspections = () => request(`${API_BASE}/inspection_api.php?action=admin_list`);
 
 // Tracking
-export const getVessels = () => request(`${API_BASE}/tracking_api.php?action=admin_list_vessels`);
+// Puede consultar AIS en vivo para barcos sin posición: más plazo que el normal.
+export const getVessels = () => request(`${API_BASE}/tracking_api.php?action=admin_list_vessels`, { timeoutMs: 60000 });
 export const createVessel = (data) =>
   request(`${API_BASE}/tracking_api.php?action=admin_create_vessel`, { method: 'POST', body: JSON.stringify(data) });
 export const updateVessel = (data) =>
@@ -120,13 +121,11 @@ export const updatePricing = (data) =>
   request(`${API_BASE}/settings_api.php?action=pricing_update`, { method: 'POST', body: JSON.stringify(data) });
 
 // Security
-export const getSecurityEvents = (params = '') => request(`${API_BASE}/security_alerts.php?action=list&${params}`).catch(() => ({ items: [] }));
-export const get2FAStatus = (email) => request(`${API_BASE}/two_factor.php?action=status&email=${encodeURIComponent(email)}`).catch(() => ({ enabled: false }));
+export const getSecurityEvents = (params = '') => request(`${API_BASE}/security_alerts.php?action=recent&${params}`);
+export const get2FAStatusMap = (emails) => request(`${API_BASE}/two_factor.php?action=admin_status&emails=${encodeURIComponent(emails.join(','))}`);
 export const disable2FA = (email) =>
-  request(`${API_BASE}/two_factor.php?action=disable`, { method: 'POST', body: JSON.stringify({ email }) });
+  request(`${API_BASE}/two_factor.php?action=admin_disable`, { method: 'POST', body: JSON.stringify({ email }) });
 
-// Content pages
-export const getContentPages = () => request(`${API_BASE}/admin_api.php?action=content_list`).catch(() => ({ items: [] }));
 
 // Marketplace
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
@@ -218,7 +217,7 @@ export async function uploadLinkImage(orderId, linkId, file) {
   fd.append('order_id', orderId);
   fd.append('link_id', linkId);
   fd.append('image', file);
-  return uploadFile(`${API_BASE}/expediente_files_api.php?action=upload_link_image`, fd);
+  return uploadFile(`${API_BASE}/image_upload.php?action=upload_link_image`, fd);
 }
 
 // Notifications (admin bell). Backed by the same `notifications` table the

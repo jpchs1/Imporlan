@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getReports, previewReport, sendReport, resendReport, editReport, saveReport, deleteReport as apiDeleteReport } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { Card, Button, Modal } from '../../shared/components/UI';
@@ -11,6 +11,17 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
   const [sending, setSending] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [editModal, setEditModal] = useState(null); // { report, html }
+  // El HTML se escribe en el iframe UNA vez por reporte abierto: con un ref
+  // inline se reescribía en cada render y se perdía lo editado.
+  const writtenFor = useRef(null);
+  const iframeRef = useCallback(el => {
+    if (!el || !editModal?.html || writtenFor.current === editModal.report.id) return;
+    writtenFor.current = editModal.report.id;
+    const doc = el.contentDocument || el.contentWindow.document;
+    doc.open(); doc.write(editModal.html); doc.close();
+    doc.designMode = 'on';
+  }, [editModal]);
+  useEffect(() => { if (!editModal) writtenFor.current = null; }, [editModal]);
 
   const loadReports = useCallback(async () => {
     if (!orderId) return;
@@ -35,7 +46,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       } else {
         toast?.(data.error || 'Error al generar preview', 'error');
       }
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
     setPreviewing(false);
   }
 
@@ -49,12 +60,13 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
     try {
       const data = await sendReport(orderId);
       if (data.success) {
-        toast?.('Reporte enviado correctamente al cliente', 'success');
+        if (data.email_sent === false) toast?.('Reporte generado, pero el correo al cliente no se pudo enviar', 'warning');
+        else toast?.('Reporte enviado correctamente al cliente', 'success');
         loadReports();
       } else {
         toast?.(data.error || 'Error al enviar reporte', 'error');
       }
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
     setSending(false);
   }
 
@@ -64,7 +76,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       const data = await resendReport(reportId);
       if (data.success) { toast?.('Reporte reenviado exitosamente', 'success'); loadReports(); }
       else toast?.(data.error || 'Error al reenviar', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
   }
 
   async function handleEdit(reportId) {
@@ -75,7 +87,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       } else {
         toast?.(data.error || 'Error al cargar reporte', 'error');
       }
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
   }
 
   async function handleSaveEdit() {
@@ -92,7 +104,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       } else {
         toast?.(data.error || 'Error al guardar', 'error');
       }
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
   }
 
   async function handleDelete(reportId, version) {
@@ -101,7 +113,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       const data = await apiDeleteReport(reportId);
       if (data.success) { toast?.(data.message || 'Reporte eliminado', 'success'); loadReports(); }
       else toast?.(data.error || 'Error al eliminar', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
   }
 
   function handleView(report) {
@@ -196,13 +208,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
             <iframe
               id="ea-edit-report-iframe"
               className="flex-1 w-full border-0 rounded-xl border border-slate-200"
-              ref={el => {
-                if (el && editModal.html) {
-                  const doc = el.contentDocument || el.contentWindow.document;
-                  doc.open(); doc.write(editModal.html); doc.close();
-                  doc.designMode = 'on';
-                }
-              }}
+              ref={iframeRef}
             />
             <div className="flex gap-3 justify-end mt-4">
               <Button variant="secondary" onClick={() => setEditModal(null)}>Cerrar</Button>

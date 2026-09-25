@@ -3929,12 +3929,11 @@ BASE64;
             if (!empty($filters['template'])) { $where[] = 'template LIKE ?'; $params[] = '%' . $filters['template'] . '%'; }
             if (!empty($filters['email'])) { $where[] = 'to_email LIKE ?'; $params[] = '%' . $filters['email'] . '%'; }
             $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-            $stmt = $this->pdo->prepare("SELECT * FROM wp_email_logs {$whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?");
-            $params[] = (int)$limit; $params[] = (int)$offset;
+            $stmt = $this->pdo->prepare("SELECT * FROM wp_email_logs {$whereClause} ORDER BY created_at DESC LIMIT " . max(1, (int)$limit) . " OFFSET " . max(0, (int)$offset));
             $stmt->execute($params);
             $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $countStmt = $this->pdo->prepare("SELECT COUNT(*) FROM wp_email_logs {$whereClause}");
-            $countStmt->execute(array_slice($params, 0, -2));
+            $countStmt->execute($params);
             $total = $countStmt->fetchColumn();
             return ['success' => true, 'logs' => $logs, 'total' => $total, 'limit' => $limit, 'offset' => $offset];
         } catch (PDOException $e) {

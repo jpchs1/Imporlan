@@ -393,6 +393,35 @@ function handle2FAEndpoint() {
             }
             break;
 
+        // Panel admin → Seguridad: estado 2FA de las cuentas del equipo y
+        // desactivación por un admin (p. ej. si alguien perdió el teléfono).
+        case 'admin_status':
+            requireAdminAuthShared(['admin']);
+            $emails = array_filter(array_map('trim', explode(',', $_GET['emails'] ?? '')));
+            $tfa = new TwoFactorAuth();
+            $status = [];
+            foreach (array_slice($emails, 0, 200) as $em) {
+                $status[strtolower($em)] = (bool)$tfa->isEnabled($em);
+            }
+            echo json_encode(['success' => true, 'status' => $status]);
+            break;
+
+        case 'admin_disable':
+            $payload = requireAdminAuthShared(['admin']);
+            $input = json_decode(file_get_contents('php://input'), true);
+            $target = trim($input['email'] ?? '');
+            if (!filter_var($target, FILTER_VALIDATE_EMAIL)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Email invalido']);
+                break;
+            }
+            $tfa = new TwoFactorAuth();
+            $tfa->disable($target);
+            $tfa->revokeAllDevices($target);
+            error_log('two_factor: 2FA de ' . $target . ' desactivado por ' . ($payload['email'] ?? '?'));
+            echo json_encode(['success' => true, 'message' => '2FA desactivado']);
+            break;
+
         case 'devices':
             $payload = requireAdminAuthShared(['admin', 'support', 'agent', 'user']);
             $tfa = new TwoFactorAuth();

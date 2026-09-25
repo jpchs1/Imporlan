@@ -59,7 +59,9 @@ export default function FilesSection({ orderId }) {
     setUploading(true);
     try {
       const data = await uploadExpedienteFiles(orderId, pending, description, notifyClient);
-      if (data.success) {
+      if (data.success && !data.count) {
+        toast?.('No se subió ningún archivo' + (data.errors?.length ? ': ' + data.errors.join(', ') : ''), 'error');
+      } else if (data.success) {
         let msg = `${data.count} archivo${data.count > 1 ? 's' : ''} subido${data.count > 1 ? 's' : ''} correctamente`;
         if (notifyClient) msg += '. Cliente notificado.';
         toast?.(msg, 'success');
@@ -74,7 +76,7 @@ export default function FilesSection({ orderId }) {
       } else {
         toast?.(data.error || 'Error al subir archivos', 'error');
       }
-    } catch (e) { toast?.('Error de conexion al subir archivos', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion al subir archivos', 'error'); }
     setUploading(false);
   }
 
@@ -84,7 +86,7 @@ export default function FilesSection({ orderId }) {
       const data = await deleteExpedienteFile(fileId);
       if (data.success) { toast?.('Archivo eliminado', 'success'); loadFiles(); }
       else toast?.(data.error || 'Error al eliminar', 'error');
-    } catch (e) { toast?.('Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
   }
 
   function formatSize(bytes) {

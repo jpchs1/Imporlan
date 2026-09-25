@@ -21,6 +21,7 @@ export default function NotificationBell({
   markRead,
   markAllRead,
   viewAllPath = '/alerts',
+  viewAllLabel = 'Ver todas las notificaciones',
   pollMs = 30000,
 }) {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function NotificationBell({
   const refreshCount = useCallback(async () => {
     try {
       const data = await getUnreadCount();
-      const n = Number(data?.unread_count || 0);
+      const n = Number(data?.unread_count ?? data?.count ?? 0);
       if (n > lastCountRef.current && lastCountRef.current > 0) {
         try {
           const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -84,7 +85,13 @@ export default function NotificationBell({
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x));
       setCount(c => Math.max(0, c - 1));
     }
-    if (n.link) window.open(n.link, '_blank');
+    if (n.link) {
+      // Enlaces a este mismo panel (…/#/ruta) se abren aquí, no en otra pestaña.
+      const hash = n.link.indexOf('#/');
+      const samePanel = hash >= 0 && n.link.slice(0, hash).replace(/^https?:\/\/[^/]+/, '') === window.location.pathname;
+      if (samePanel) navigate(n.link.slice(hash + 1));
+      else window.open(n.link, '_blank', 'noopener');
+    }
   }
 
   async function handleMarkAll(e) {
@@ -177,7 +184,7 @@ export default function NotificationBell({
             onClick={() => { setOpen(false); navigate(viewAllPath); }}
             className="w-full px-4 py-2.5 text-center text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:bg-slate-50 border-t border-slate-100 transition-colors"
           >
-            Ver todas las notificaciones
+            {viewAllLabel}
           </button>
         </div>
       )}

@@ -15,12 +15,30 @@
  */
 
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    exit();
+}
+
+// Listado para el panel admin (Inspecciones). Antes no existía y la pantalla
+// siempre salía vacía.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'admin_list') {
+    require_once __DIR__ . '/db_config.php';
+    require_once __DIR__ . '/auth_helper.php';
+    requireAdminAuthShared(['admin', 'support', 'agent']);
+    try {
+        $pdo = getDbConnection();
+        ensureLeadsTable($pdo);
+        $rows = $pdo->query("SELECT * FROM wp_inspection_leads ORDER BY created_at DESC LIMIT 1000")->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'items' => $rows]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'No se pudieron cargar las inspecciones']);
+    }
     exit();
 }
 

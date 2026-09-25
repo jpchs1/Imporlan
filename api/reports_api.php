@@ -95,7 +95,8 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 }
 
 function requireAdminAuth() {
-    return requireAdminAuthShared();
+    // Los agentes trabajan los expedientes: también generan y envían reportes.
+    return requireAdminAuthShared(['admin', 'support', 'agent']);
 }
 
 // ============================================================
@@ -1203,7 +1204,9 @@ function deleteReport() {
         }
 
         // Delete associated notifications
-        $pdo->prepare("DELETE FROM notifications WHERE link LIKE ?")->execute(['%report_id=' . $reportId . '%']);
+        // Exacto: 'report_id=5' no debe borrar las notificaciones del 50, 51...
+        $pdo->prepare("DELETE FROM notifications WHERE link LIKE ? OR link LIKE ?")
+            ->execute(['%report_id=' . $reportId . '&%', '%report_id=' . $reportId]);
 
         // Delete the report
         $pdo->prepare("DELETE FROM reports WHERE id = ?")->execute([$reportId]);

@@ -23,7 +23,8 @@ define('PLAN_EXPIRATION_INTERVAL', 6 * 3600);
  * Fecha de compra de un plan (unix time) o null si no se puede determinar.
  */
 function planPurchaseTime(array $purchase) {
-    foreach (['timestamp', 'date'] as $field) {
+    // Si un admin lo reactivó a mano, el plazo corre desde esa fecha.
+    foreach (['reactivated_at', 'timestamp', 'date'] as $field) {
         if (!empty($purchase[$field])) {
             $t = strtotime($purchase[$field]);
             if ($t) {

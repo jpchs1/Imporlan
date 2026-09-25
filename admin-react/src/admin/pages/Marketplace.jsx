@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+
+const MP_STATUS = { active: 'Activa', sold: 'Vendida', deleted: 'Eliminada', expired: 'Expirada', pending: 'Pendiente' };
 import {
   getMarketplaceAdminList, getMarketplaceAdminDetail,
   updateMarketplaceStatus, updateMarketplaceListing, deleteMarketplaceListing
 } from '../api';
-import { fmtCLP, fmtDate, statusColor } from '../../shared/lib/utils';
+import { fmtCLP, fmtDate } from '../../shared/lib/utils';
 import { PageHeader, Card, Table, Badge, Input, Select, Spinner, StatCard, Modal, Button, Textarea } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
@@ -62,17 +65,28 @@ export default function Marketplace() {
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  // Cada apertura tiene su número: si se cerró el modal o se abrió otra
+  // publicación antes de que llegue el detalle, esa respuesta se descarta.
+  const detailReq = useRef(0);
   const openDetail = (item) => {
+    const n = ++detailReq.current;
     setDetailLoading(true);
     setSelected(item);
     setEditMode(false);
     getMarketplaceAdminDetail(item.id)
-      .then(res => { setSelected(res.listing || res.item || item); })
+      .then(res => { if (detailReq.current === n) setSelected(res.listing || res.item || item); })
       .catch(() => {})
-      .finally(() => setDetailLoading(false));
+      .finally(() => { if (detailReq.current === n) setDetailLoading(false); });
   };
 
-  const closeDetail = () => { setSelected(null); setEditMode(false); setEditData({}); };
+  const closeDetail = () => { detailReq.current++; setSelected(null); setEditMode(false); setEditData({}); };
+
+  useEffect(() => {
+    if (!photoView) return;
+    const onKey = (e) => { if (e.key === 'Escape') setPhotoView(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [photoView]);
 
   const startEdit = () => {
     setEditData({
@@ -194,9 +208,8 @@ export default function Marketplace() {
     )},
     { header: 'Precio', cell: r => <span className="font-semibold tabular-nums">{fmtPrice(r)}</span> },
     { header: 'Ubicacion', cell: r => <span className="text-sm">{r.ubicacion || r.location || r.city || '-'}</span> },
-    { header: 'Estado', cell: r => <Badge className={statusBadge(r.status)}>{r.status}</Badge> },
+    { header: 'Estado', key: 'status', cell: r => <Badge className={statusBadge(r.status)}>{MP_STATUS[r.status] || r.status}</Badge> },
     { header: 'Fecha', cell: r => <span className="text-xs text-slate-400">{fmtDate(r.created_at)}</span> },
-    { header: 'Vistas', cell: r => <span className="tabular-nums text-slate-500">{r.views || 0}</span> },
     { header: 'Acciones', cell: r => (
       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
         {r.status === 'active' && (
@@ -205,7 +218,7 @@ export default function Marketplace() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </button>
         )}
-        {(r.status === 'sold' || r.status === 'deleted') && (
+        {['sold', 'deleted', 'expired'].includes(r.status) && (
           <button onClick={() => handleStatusChange(r.id, 'active', 'activa')}
             className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors" title="Reactivar">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -278,11 +291,13 @@ export default function Marketplace() {
       </Modal>
 
       {/* Photo lightbox */}
-      {photoView && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setPhotoView(null)}>
+      {photoView && createPortal(
+        // Por encima del modal de detalle (que también usa portal, z 9999).
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10001 }} className="flex items-center justify-center p-4" onClick={() => setPhotoView(null)}>
           <div className="fixed inset-0 bg-black/80" />
           <img src={photoView} alt="" className="relative z-10 max-w-full max-h-[90vh] rounded-xl shadow-2xl" />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -308,7 +323,7 @@ function DetailView({ item, onEdit, onStatusChange, onDelete, onPhotoClick }) {
           {item.status === 'active' && (
             <Button variant="accent" size="sm" onClick={() => onStatusChange(item.id, 'sold', 'vendida')}>Marcar Vendida</Button>
           )}
-          {(item.status === 'sold' || item.status === 'deleted') && (
+          {['sold', 'deleted', 'expired'].includes(item.status) && (
             <Button variant="primary" size="sm" onClick={() => onStatusChange(item.id, 'active', 'activa')}>Reactivar</Button>
           )}
           <Button variant="danger" size="sm" onClick={onDelete}>Eliminar</Button>
@@ -327,7 +342,7 @@ function DetailView({ item, onEdit, onStatusChange, onDelete, onPhotoClick }) {
 
       {/* Info grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <InfoField label="Estado" value={<Badge className={statusBadgeCls[item.status] || 'bg-slate-100 text-slate-500'}>{item.status}</Badge>} />
+        <InfoField label="Estado" value={<Badge className={statusBadgeCls[item.status] || 'bg-slate-100 text-slate-500'}>{MP_STATUS[item.status] || item.status}</Badge>} />
         <InfoField label="Tipo embarcacion" value={item.tipo || '-'} />
         <InfoField label="Ano" value={item.ano || item.year || '-'} />
         <InfoField label="Eslora" value={item.eslora ? item.eslora + ' pies' : '-'} />
@@ -360,8 +375,6 @@ function DetailView({ item, onEdit, onStatusChange, onDelete, onPhotoClick }) {
       <div className="border-t border-slate-100 pt-4">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Estadisticas</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <InfoField label="Vistas" value={item.views || 0} />
-          <InfoField label="Leads" value={item.lead_count || 0} />
           <InfoField label="Creada" value={fmtDate(item.created_at)} />
           <InfoField label="Expira" value={item.expires_at ? fmtDate(item.expires_at) : '-'} />
         </div>

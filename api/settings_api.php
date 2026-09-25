@@ -78,7 +78,8 @@ switch ($action) {
         agentsDelete();
         break;
     case 'pricing_get':
-        requireAdminAuthShared();
+        // El cotizador de los agentes necesita los costos vigentes.
+        requireAdminAuthShared(['admin', 'support', 'agent']);
         pricingGet();
         break;
     case 'pricing_update':
