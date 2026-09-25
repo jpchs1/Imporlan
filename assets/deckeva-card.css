@@ -1,0 +1,21 @@
+/* Tarjeta del partner DECKEVA en páginas de lanchas y veleros (HTML estático,
+   indexable). v1 */
+.dk-card{max-width:1100px;margin:48px auto;padding:0 16px;font-family:inherit}
+.dk-card__in{display:grid;grid-template-columns:320px 1fr;gap:0;overflow:hidden;border-radius:20px;
+  background:linear-gradient(110deg,#0a1628 0%,#0c2d52 60%,#0e6ba8 100%);color:#fff;
+  box-shadow:0 24px 60px -24px rgba(14,107,168,.55)}
+.dk-card__img{display:block;width:100%;height:100%;min-height:220px;object-fit:cover}
+.dk-card__body{padding:28px 30px}
+.dk-card__tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:#0a1628;background:linear-gradient(90deg,#f5a623,#ffc04d);padding:4px 10px;border-radius:999px}
+.dk-card h2,.dk-card .dk-card__title{font-size:clamp(20px,2.4vw,26px);line-height:1.25;font-weight:800;margin:12px 0 8px;color:#fff}
+.dk-card p{margin:0 0 14px;color:rgba(255,255,255,.8);font-size:15px;line-height:1.6}
+.dk-card ul{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.dk-card li{font-size:12.5px;font-weight:600;color:#e2e8f0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:5px 10px;border-radius:999px}
+.dk-card__ctas{display:flex;flex-wrap:wrap;gap:10px}
+.dk-card__btn{display:inline-block;text-decoration:none;font-weight:800;font-size:14px;padding:12px 18px;border-radius:12px}
+.dk-card__btn--pri{background:#f5a623;color:#0a1628}
+.dk-card__btn--sec{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.dk-card__btn:hover{filter:brightness(1.06)}
+@media (max-width:760px){.dk-card__in{grid-template-columns:1fr}.dk-card__img{min-height:180px;max-height:220px}.dk-card__body{padding:22px 20px}
+  .dk-card__btn{flex:1;text-align:center}}

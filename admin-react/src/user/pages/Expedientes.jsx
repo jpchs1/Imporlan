@@ -5,6 +5,7 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
+import DeckevaPromo from '../components/DeckevaPromo';
 
 function relativeTime(ts) {
   if (!ts) return '';
@@ -1818,6 +1819,8 @@ export default function Expedientes() {
           </div>
         )
       )}
+
+      <DeckevaPromo context="panel_expedientes" title="Cuando llegue tu lancha, estrénala con piso nuevo" className="mt-8" />
     </div>
   );
 }
