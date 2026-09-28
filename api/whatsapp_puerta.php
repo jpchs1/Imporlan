@@ -112,6 +112,23 @@ function iwa_escribir($chats) {
     file_put_contents($tmp, json_encode($chats, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
     rename($tmp, iwa_archivo());
 }
+/**
+ * Toda escritura pasa por acá, con un candado corto sobre una lectura fresca:
+ * la entrada, el panel y la pasada escriben el mismo archivo, y sin esto la
+ * última en guardar pisaba a las otras. Lo lento (Claude) queda FUERA.
+ */
+function iwa_con_candado($cambio) {
+    if (!is_dir(dirname(iwa_archivo()))) @mkdir(dirname(iwa_archivo()), 0750, true);
+    $f = @fopen(iwa_archivo() . '.escritura.lock', 'c');
+    if ($f) flock($f, LOCK_EX);
+    try {
+        iwa_escribir($cambio(iwa_leer()));
+    } finally {
+        if ($f) { flock($f, LOCK_UN); fclose($f); }
+    }
+}
+function iwa_huella($c) { return md5(json_encode(array($c['mensajes'] ?? array(), $c['pendiente'] ?? null))); }
+
 function iwa_anotar(&$c, $que) {
     $c['historial'][] = array('ts' => time(), 'que' => $que);
     $c['historial'] = array_slice($c['historial'], -40);
@@ -125,71 +142,122 @@ function iwa_entrada($d) {
     if (!preg_match('/^\d{8,15}$/', $num)) return;
     $msgs = array();
     foreach ((array) ($d['mensajes'] ?? array()) as $m) {
-        $msgs[] = array('ts' => (int) ($m['ts'] ?? 0), 'dir' => ($m['dir'] ?? '') === 'in' ? 'in' : 'out', 'texto' => mb_substr((string) ($m['texto'] ?? ''), 0, 2000));
+        $ts = (int) ($m['ts'] ?? 0);
+        if ($ts <= 0 || $ts > time() + 300) continue; // una hora futura alargaría la ventana de 24 h
+        $msgs[] = array('ts' => $ts, 'dir' => ($m['dir'] ?? '') === 'in' ? 'in' : 'out', 'texto' => mb_substr((string) ($m['texto'] ?? ''), 0, 2000));
     }
-    $chats = iwa_leer();
-    $c = $chats[$num] ?? array('numero' => $num, 'pendiente' => null, 'historial' => array());
-    $c['mensajes'] = array_slice($msgs, -30);
-    $c['actualizado'] = time();
-    $chats[$num] = $c;
-    iwa_escribir($chats);
+    if (!$msgs) return;
+    $ultimo = max(array_column($msgs, 'ts'));
+    iwa_con_candado(function ($chats) use ($num, $msgs, $ultimo) {
+        $c = $chats[$num] ?? array('numero' => $num, 'pendiente' => null, 'historial' => array(), 'mensajes' => array());
+        $antes = !empty($c['mensajes']) ? max(array_column($c['mensajes'], 'ts')) : 0;
+        if ($ultimo < $antes) return $chats; // una entrega más vieja no pisa a una más nueva
+        $c['mensajes'] = array_slice($msgs, -30);
+        $c['actualizado'] = time();
+        $chats[$num] = $c;
+        return $chats;
+    });
 }
 
 function iwa_pasada($fx) {
     if (iwa_llave() === '' || strlen(iwa_secreto()) < 24) return;
+    foreach (array_keys(iwa_leer()) as $num) iwa_un_chat((string) $num, $fx); // un número como clave de array PHP lo vuelve entero
+}
+
+/**
+ * Un chat: se lee, se decide (Claude, si toca, FUERA del candado) y se guarda
+ * sólo si nadie lo tocó mientras tanto. Si entró un mensaje o JP aprobó en el
+ * medio, no se guarda nada y la próxima pasada lo mira con lo nuevo.
+ */
+function iwa_un_chat($num, $fx) {
     $ahora = time();
     $chats = iwa_leer();
-    foreach ($chats as $num => $c) {
-        $num = (string) $num; // un número como clave de array PHP lo vuelve entero
-        $ultIn = 0; $ultOut = 0;
-        foreach ((array) ($c['mensajes'] ?? array()) as $m) {
-            if ($m['dir'] === 'in') $ultIn = max($ultIn, (int) $m['ts']); else $ultOut = max($ultOut, (int) $m['ts']);
-        }
-        $p = $c['pendiente'] ?? null;
-        $activo = is_array($p) && in_array($p['estado'] ?? '', array('borrador', 'aprobado'), true);
-        if ($ultIn === 0) continue;
-        if ($ultOut >= $ultIn) {
-            if ($activo) { $p['estado'] = 'superado'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' no sale · alguien le contestó antes'); }
-            $chats[$num] = $c; continue;
-        }
-        if ($ahora - $ultIn > IWA_VENCE) {
-            if ($activo) { $p['estado'] = 'vencido'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' vencido · más de 23 h'); }
-            $chats[$num] = $c; continue;
-        }
-        if ($activo && (int) $p['para_ts'] < $ultIn) { $p['estado'] = 'reemplazado'; iwa_anotar($c, $p['id'] . ' reemplazado · el cliente volvió a escribir'); }
-
-        if (!is_array($p) || (int) $p['para_ts'] < $ultIn) {
-            if ($ahora - $ultIn < IWA_SILENCIO) { $chats[$num] = $c; continue; }
-            $r = $fx['redactar']((array) $c['mensajes']);
-            if (!$r['ok']) { iwa_anotar($c, 'no se pudo redactar · ' . $r['error']); $chats[$num] = $c; continue; }
-            $id = 'I-' . strtoupper(substr(base_convert(substr(hash('sha256', $num . '|' . $ultIn), 0, 10), 16, 36), 0, 4));
-            if (!$r['responder'] || $r['texto'] === '') {
-                $c['pendiente'] = array('id' => $id, 'para_ts' => $ultIn, 'estado' => 'sin_respuesta', 'motivo' => $r['motivo']);
-                iwa_anotar($c, 'no hace falta contestar · ' . $r['motivo']);
-                $chats[$num] = $c; continue;
+    if (!isset($chats[$num])) return;
+    $c = $chats[$num];
+    $original = $c;
+    $huella = iwa_huella($c);
+    $salida = null;
+    $avisar = false;
+    do {
+            $ultIn = 0; $ultOut = 0;
+            foreach ((array) ($c['mensajes'] ?? array()) as $m) {
+                if ($m['dir'] === 'in') $ultIn = max($ultIn, (int) $m['ts']); else $ultOut = max($ultOut, (int) $m['ts']);
             }
-            $regla = iwa_validar($r['texto']);
-            $auto = iwa_modo() === 'automatico' && !$r['necesita_humano'] && $regla === '';
-            $s = $num . '|' . $ultIn;
-            $p = array('id' => $id, 'para_ts' => $ultIn, 'texto' => $r['texto'], 'en' => iwa_en_horario($ultIn + iwa_demora($s), $s),
-                'estado' => $auto ? 'aprobado' : 'borrador', 'necesita_humano' => $r['necesita_humano'], 'motivo' => $r['motivo'], 'regla' => $regla);
-            if ($auto) $p['aprobado_por'] = 'automático';
-            $c['pendiente'] = $p;
-            iwa_anotar($c, $id . ' redactado · ' . ($auto ? 'sale solo ' . iwa_legible($p['en']) : 'espera a JP'));
-            if (!$auto) $fx['avisar']($c);
-        }
+            $p = $c['pendiente'] ?? null;
+            $activo = is_array($p) && in_array($p['estado'] ?? '', array('borrador', 'aprobado'), true);
+            if ($ultIn === 0) break;
+            if ($ultOut >= $ultIn) {
+                if ($activo) { $p['estado'] = 'superado'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' no sale · alguien le contestó antes'); }
+                break;
+            }
+            if ($ahora - $ultIn > IWA_VENCE) {
+                if ($activo) { $p['estado'] = 'vencido'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' vencido · más de 23 h'); }
+                break;
+            }
+            if ($activo && (int) $p['para_ts'] < $ultIn) { $p['estado'] = 'reemplazado'; iwa_anotar($c, $p['id'] . ' reemplazado · el cliente volvió a escribir'); }
 
-        if (($p['estado'] ?? '') === 'aprobado' && (int) $p['para_ts'] === $ultIn && $ahora >= (int) $p['en'] && iwa_habil($ahora)) {
-            $w = $fx['mandar']($num, (string) $p['texto'], (string) $p['id'], (string) ($p['aprobado_por'] ?? 'JP'));
-            $p['estado'] = $w['ok'] ? 'enviado' : 'error';
-            if (!$w['ok']) $p['error'] = $w['error'];
-            $p['enviado_ts'] = $ahora;
-            $c['pendiente'] = $p;
-            iwa_anotar($c, $p['id'] . ($w['ok'] ? ' entregado a la puerta · sale en el próximo minuto' : ' NO salió · ' . $w['error']));
-        }
-        $chats[$num] = $c;
+            if (!is_array($p) || (int) $p['para_ts'] < $ultIn) {
+                if ($ahora - $ultIn < IWA_SILENCIO) break;
+                $r = $fx['redactar']((array) $c['mensajes']);
+                if (!$r['ok']) { iwa_anotar($c, 'no se pudo redactar · ' . $r['error']); break; }
+                $id = 'I-' . strtoupper(substr(base_convert(substr(hash('sha256', $num . '|' . $ultIn), 0, 10), 16, 36), 0, 4));
+                if (!$r['responder'] || $r['texto'] === '') {
+                    $c['pendiente'] = array('id' => $id, 'para_ts' => $ultIn, 'estado' => 'sin_respuesta', 'motivo' => $r['motivo']);
+                    iwa_anotar($c, 'no hace falta contestar · ' . $r['motivo']);
+                    break;
+                }
+                $regla = iwa_validar($r['texto']);
+                $auto = iwa_modo() === 'automatico' && !$r['necesita_humano'] && $regla === '';
+                $s = $num . '|' . $ultIn;
+                $p = array('id' => $id, 'para_ts' => $ultIn, 'texto' => $r['texto'], 'en' => iwa_en_horario($ultIn + iwa_demora($s), $s),
+                    'estado' => $auto ? 'aprobado' : 'borrador', 'necesita_humano' => $r['necesita_humano'], 'motivo' => $r['motivo'], 'regla' => $regla);
+                if ($auto) $p['aprobado_por'] = 'automático';
+                $c['pendiente'] = $p;
+                iwa_anotar($c, $id . ' redactado · ' . ($auto ? 'sale solo ' . iwa_legible($p['en']) : 'espera a JP'));
+                $avisar = !$auto;
+            }
+
+            if (($p['estado'] ?? '') === 'aprobado' && (int) $p['para_ts'] === $ultIn && $ahora >= (int) $p['en'] && iwa_habil($ahora)) {
+                $salida = $p;
+            }
+    } while (false);
+
+    $guardado = false;
+    if ($c !== $original) {
+        iwa_con_candado(function ($chats) use ($num, $c, $huella, &$guardado) {
+            if (!isset($chats[$num]) || iwa_huella($chats[$num]) !== $huella) return $chats;
+            $chats[$num] = $c;
+            $guardado = true;
+            return $chats;
+        });
+        if ($guardado && $avisar) $fx['avisar']($c); // después de guardar: si no, se repetiría
+        if (!$guardado) return;
     }
-    iwa_escribir($chats);
+    if ($salida === null) return;
+
+    // El ref es el id del borrador y la puerta no encola dos veces el mismo:
+    // reintentar después de una caída no duplica el mensaje.
+    $w = $fx['mandar']($num, (string) $salida['texto'], (string) $salida['id'], (string) ($salida['aprobado_por'] ?? 'JP'));
+    iwa_con_candado(function ($chats) use ($num, $salida, $w, $ahora) {
+        $c = $chats[$num] ?? null;
+        if (!is_array($c) || ($c['pendiente']['id'] ?? '') !== $salida['id']) return $chats;
+        $p = $c['pendiente'];
+        if ($w['ok']) {
+            $p['estado'] = 'enviado';
+            $p['enviado_ts'] = $ahora;
+            iwa_anotar($c, $p['id'] . ' entregado a la puerta · sale en el próximo minuto');
+        } else {
+            // Una caída de la puerta no pierde la respuesta: sigue aprobada y se
+            // reintenta en las pasadas siguientes, hasta 10 veces.
+            $p['intentos'] = (int) ($p['intentos'] ?? 0) + 1;
+            $p['error'] = $w['error'];
+            if ($p['intentos'] >= 10) $p['estado'] = 'error';
+            iwa_anotar($c, $p['id'] . ' no salió (intento ' . $p['intentos'] . ') · ' . $w['error']);
+        }
+        $c['pendiente'] = $p;
+        $chats[$num] = $c;
+        return $chats;
+    });
 }
 
 // ── Efectos: Claude, la puerta de salida, el correo a JP ──
@@ -303,20 +371,31 @@ if ($ruta === 'panel') {
     $msg = '';
     if ($metodo === 'POST') {
         $num = preg_replace('/\D+/', '', (string) ($_POST['numero'] ?? ''));
-        $chats = iwa_leer();
-        $c = $chats[$num] ?? null;
-        $p = is_array($c) ? ($c['pendiente'] ?? null) : null;
-        if (!is_array($p) || ($p['estado'] ?? '') !== 'borrador') {
-            $msg = 'Ese borrador ya no está esperando.';
-        } elseif (($_POST['accion'] ?? '') === 'descartar') {
-            $p['estado'] = 'descartado'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' descartado'); $msg = 'Descartado · no sale nada.';
-        } else {
-            $texto = trim((string) ($_POST['texto'] ?? ''));
-            $v = iwa_validar($texto);
-            if ($v !== '') { $msg = 'No se aprobó: ' . $v . '.'; }
-            else { $p['texto'] = $texto; $p['estado'] = 'aprobado'; $p['aprobado_por'] = 'JP · panel'; $c['pendiente'] = $p; iwa_anotar($c, $p['id'] . ' aprobado'); $msg = 'Aprobado · sale ' . iwa_legible(max((int) $p['en'], time())) . '.'; }
-        }
-        if (is_array($c)) { $chats[$num] = $c; iwa_escribir($chats); }
+        $id = (string) ($_POST['id'] ?? '');
+        $texto = trim((string) ($_POST['texto'] ?? ''));
+        $accion = (string) ($_POST['accion'] ?? '');
+        iwa_con_candado(function ($chats) use ($num, $id, $texto, $accion, &$msg) {
+            $c = $chats[$num] ?? null;
+            $p = is_array($c) ? ($c['pendiente'] ?? null) : null;
+            // Se aprueba EL borrador que se mostró: si el cliente volvió a
+            // escribir y ya hay otro, el formulario viejo no lo aprueba.
+            if (!is_array($p) || ($p['estado'] ?? '') !== 'borrador' || ($p['id'] ?? '') !== $id) {
+                $msg = 'Ese borrador ya no está esperando (el cliente pudo volver a escribir). Mira el nuevo.';
+                return $chats;
+            }
+            if ($accion === 'descartar') {
+                $p['estado'] = 'descartado'; iwa_anotar($c, $p['id'] . ' descartado'); $msg = 'Descartado · no sale nada.';
+            } else {
+                $v = iwa_validar($texto);
+                if ($v !== '') { $msg = 'No se aprobó: ' . $v . '.'; return $chats; }
+                $p['texto'] = $texto; $p['estado'] = 'aprobado'; $p['aprobado_por'] = 'JP · panel';
+                iwa_anotar($c, $p['id'] . ' aprobado');
+                $msg = 'Aprobado · sale ' . iwa_legible(max((int) $p['en'], time())) . '.';
+            }
+            $c['pendiente'] = $p;
+            $chats[$num] = $c;
+            return $chats;
+        });
     }
     $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
     echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Imporlan</title>'
@@ -332,7 +411,7 @@ if ($ruta === 'panel') {
         foreach (array_slice((array) $c['mensajes'], -6) as $m) echo '<p style="margin:4px 0"><span style="color:#666">' . ($m['dir'] === 'in' ? 'Cliente' : 'Imporlan') . ' ' . $e(iwa_legible($m['ts'])) . ':</span> ' . $e($m['texto']) . '</p>';
         if (!empty($p['necesita_humano'])) echo '<p style="color:#b45309">Necesita que lo mires: ' . $e($p['motivo']) . '</p>';
         if (!empty($p['regla'])) echo '<p style="color:#b45309">No pasa las reglas: ' . $e($p['regla']) . '</p>';
-        echo '<form method="post"><input type="hidden" name="numero" value="' . $e($num) . '"><textarea name="texto" rows="4" style="width:100%">' . $e($p['texto']) . '</textarea>'
+        echo '<form method="post"><input type="hidden" name="numero" value="' . $e($num) . '"><input type="hidden" name="id" value="' . $e($p['id']) . '"><textarea name="texto" rows="4" style="width:100%">' . $e($p['texto']) . '</textarea>'
             . '<p><button name="accion" value="aprobar">Aprobar · sale ' . $e(iwa_legible(max((int) $p['en'], time()))) . '</button> <button name="accion" value="descartar">Descartar</button></p></form></div>';
     }
     if (!$hay) echo '<p>No hay borradores esperando.</p>';
