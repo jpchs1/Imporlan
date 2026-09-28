@@ -343,6 +343,20 @@ $IWA_FX = array(
     },
 );
 
+/** Manda la respuesta y cierra la conexión; el script sigue corriendo. */
+function iwa_contestar_y_seguir(string $json): void
+{
+    ignore_user_abort(true);
+    @set_time_limit(600);
+    while (ob_get_level() > 0) @ob_end_clean();
+    header('Content-Length: ' . strlen($json));
+    header('Connection: close');
+    echo $json;
+    if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+    elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+    else flush();
+}
+
 // ── Rutas ──
 
 if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') !== basename(__FILE__)) return; // incluido por un test
@@ -360,11 +374,15 @@ if ($ruta === 'entrada' || $ruta === 'tick') {
     if (!is_array($d)) { http_response_code(400); echo '{"ok":false}'; exit; }
     if ($ruta === 'entrada') {
         iwa_entrada($d);
-    } else {
-        $lock = @fopen(iwa_archivo() . '.lock', 'c');
-        if ($lock && flock($lock, LOCK_EX | LOCK_NB)) { iwa_pasada($IWA_FX); flock($lock, LOCK_UN); }
+        echo '{"ok":true}';
+        exit;
     }
-    echo '{"ok":true}';
+    // El tick se contesta al tiro y la pasada sigue después: con varios chats
+    // nuevos son minutos de Claude, Tourevo cuelga a los 20 s, y un hosting
+    // que corta el script cuando el cliente se va dejaría la pasada a medias.
+    iwa_contestar_y_seguir('{"ok":true}');
+    $lock = @fopen(iwa_archivo() . '.lock', 'c');
+    if ($lock && flock($lock, LOCK_EX | LOCK_NB)) { iwa_pasada($IWA_FX); flock($lock, LOCK_UN); }
     exit;
 }
 
