@@ -85,7 +85,8 @@ function iwa_validar($txt) {
 }
 function iwa_demora($s) {
     $base = IWA_ESPERAS[hexdec(substr(hash('sha256', $s . '|espera'), 0, 8)) % count(IWA_ESPERAS)] * 60;
-    return $base + hexdec(substr(hash('sha256', $s . '|seg'), 0, 8)) % max(30, (int) ($base * 0.3));
+    // La regla dice «hasta 40 minutos»: la variación no la pasa.
+    return min($base + hexdec(substr(hash('sha256', $s . '|seg'), 0, 8)) % max(30, (int) ($base * 0.3)), 40 * 60);
 }
 function iwa_hora($t) { return (int) (new DateTimeImmutable('@' . (int) $t))->setTimezone(new DateTimeZone('America/Santiago'))->format('G'); }
 function iwa_habil($t) { $h = iwa_hora($t); return $h >= 8 && $h < 20; }
@@ -161,6 +162,8 @@ function iwa_entrada($d) {
 
 function iwa_pasada($fx) {
     if (iwa_llave() === '' || strlen(iwa_secreto()) < 24) return;
+    // A lo más 5 llamadas a Claude por pasada: el resto, el minuto siguiente.
+    $GLOBALS['iwa_redacciones'] = 0;
     foreach (array_keys(iwa_leer()) as $num) iwa_un_chat((string) $num, $fx); // un número como clave de array PHP lo vuelve entero
 }
 
@@ -198,6 +201,8 @@ function iwa_un_chat($num, $fx) {
 
             if (!is_array($p) || (int) $p['para_ts'] < $ultIn) {
                 if ($ahora - $ultIn < IWA_SILENCIO) break;
+                if (($GLOBALS['iwa_redacciones'] ?? 0) >= 5) break;
+                $GLOBALS['iwa_redacciones'] = ($GLOBALS['iwa_redacciones'] ?? 0) + 1;
                 $r = $fx['redactar']((array) $c['mensajes']);
                 if (!$r['ok']) { iwa_anotar($c, 'no se pudo redactar · ' . $r['error']); break; }
                 $id = 'I-' . strtoupper(substr(base_convert(substr(hash('sha256', $num . '|' . $ultIn), 0, 10), 16, 36), 0, 4));
