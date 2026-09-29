@@ -11,6 +11,12 @@
  * opcionales de cotización manual: saludo, servicios[], forma_pago[],
  * servicios_incluidos, proximos_pasos[]. Ver ejemplo.json.
  *
+ * Toma de medidas e instalación (JP, 29-sep-2026): opcionales, $155.000 + IVA
+ * cada una. NO van en servicios[] ni en el total: la plantilla las pinta sola
+ * en la sección «Opcionales» (neto, IVA y total con IVA), con el valor de
+ * deckeva/wp-content/mu-plugins/deckeva-00-opcionales.php, y le explica al
+ * cliente que también las puede hacer él mismo con el video explicativo.
+ *
  * El JSON y el PDF traen datos del cliente: se trabajan en el scratchpad y el
  * PDF viaja en la rama temporal de adjuntos, nunca a main.
  */

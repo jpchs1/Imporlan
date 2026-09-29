@@ -51,9 +51,15 @@ tener la plantilla y las fuentes.
 
 - **Forma de pago, siempre:** 50% para iniciar · 50% para el envío o para
   coordinar la instalación, una vez que el piso está listo (`forma_pago`).
-- Toma de medidas / instalación hechas por Deckeva: van en `servicios` con su
-  precio y `servicios_incluidos` (aviso verde). Si no las hace Deckeva, se omiten
-  y sale el aviso estándar de «no incluidas».
+- **Toma de medidas e instalación son OPCIONALES: $155.000 + IVA cada una**
+  (JP, 29-sep-2026), mismo valor en todas las regiones y para motos de agua.
+  **No se suman al total** ni van en `servicios`: la plantilla las pinta sola en
+  la sección «Opcionales» (neto, IVA 19% y total con IVA = $184.450) y explica
+  que el cliente también las puede hacer él mismo con el video explicativo. El
+  valor vive en `deckeva/wp-content/mu-plugins/deckeva-00-opcionales.php`, no se
+  escribe en el JSON. Nada de «contrátalo con un técnico» ni de los $145.000
+  viejos. `servicios_incluidos` (aviso verde, incluidas en el total) solo si JP
+  lo pide expresamente para un cliente.
 - No mencionar pies/tamaño si JP no lo pide (`embarcacion.tamano` vacío).
 - El correo: mensaje breve en el cuerpo + firma de Deckeva; el PDF adjunto
   (rama temporal, ver «Adjuntos»).
