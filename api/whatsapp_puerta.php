@@ -47,7 +47,7 @@ $cred = '/home/wwimpo/credentials_config.php';
 if (is_file($cred)) require_once $cred;
 
 const IWA_PUERTA_SALIDA = 'https://tourevo.cl/api/whatsapp-puerta.php?negocio=imporlan';
-const IWA_ESPERAS = array(1, 2, 3, 5, 7, 15, 40);
+const IWA_ESPERAS = array(5, 7, 9, 12, 15, 25, 40); // nunca menos de 5 min (JP, 29-sep)
 const IWA_SILENCIO = 90;
 const IWA_VENCE = 82800;
 const IWA_MODELO = 'claude-opus-5';
@@ -423,7 +423,7 @@ if ($ruta === 'panel') {
     $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
     echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Imporlan</title>'
         . '<body style="font-family:Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#111"><h1>WhatsApp Imporlan</h1>'
-        . '<p>Se contestan entre 1 y 40 minutos después del mensaje del cliente, de 8:00 a 20:00. ' . (iwa_modo() === 'automatico' ? '<b>Automático</b>.' : '<b>Borrador</b>: nada sale sin tu aprobación.') . '</p>';
+        . '<p>Se contestan entre 5 y 40 minutos después del mensaje del cliente, de 8:00 a 20:00. ' . (iwa_modo() === 'automatico' ? '<b>Automático</b>.' : '<b>Borrador</b>: nada sale sin tu aprobación.') . '</p>';
     if ($msg !== '') echo '<p style="background:#eff6ff;padding:8px">' . $e($msg) . '</p>';
     $hay = false;
     foreach (iwa_leer() as $num => $c) {
