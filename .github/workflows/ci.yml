@@ -26,6 +26,9 @@ jobs:
           done
           echo "PHP syntax check passed!"
 
+      - name: Tests del contestador de WhatsApp
+        run: php test/whatsapp-rehacer-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
