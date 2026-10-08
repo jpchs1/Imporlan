@@ -15,6 +15,37 @@
   https://www.imporlan.cl/.imporlan_docroot muestre el commit del merge antes
   de decirle a JP que está en producción.
 
+## WhatsApp · corregir un borrador con una indicación (JP, 8-oct-2026)
+
+> «Yo sólo debería poner "Sí podemos, pero deben ser casas rodantes, motorhome
+> usadas ya no se puede" y la misma IA redactar nuevamente el mensaje con ese
+> input nuevo.»
+
+En el panel (`/api/whatsapp_puerta.php?r=panel&k=…`) cada borrador tiene, además
+del textarea y «Aprobar», un campo **«O dile qué corregir»** y el botón
+**«Rehacer con mi indicación»**. JP escribe la corrección en una línea, la IA
+reescribe el mensaje al cliente con eso, y el borrador **sigue siendo
+borrador**: él lee el texto nuevo y recién ahí aprueba.
+
+Tres cosas que no se negocian, y las cobra `test/whatsapp-rehacer-tests.php`
+(en CI, con canario):
+
+| | |
+|---|---|
+| Rehacer **no manda** | no toca el estado · sólo cambia el texto |
+| El texto nuevo se **vuelve a validar** | `iwa_validar()` · una indicación no es una puerta para que salga un precio |
+| La indicación **se aprende** | `iwa_aprender()` · entra en el prompt de las respuestas siguientes, con tope de `IWA_APRENDIDO_MAX` |
+
+Lo último es el punto: «motorhome usado ya no se puede importar» no es la
+respuesta a un cliente, es un dato del negocio que la IA no tenía. Queda en
+`api/logs/whatsapp-aprendido.json` junto con lo que había preguntado el
+cliente, y se le dice al modelo que **manda sobre lo que creía saber**. Lo que
+se repite conviene escribirlo en `iwa_sistema()`, que es lo permanente; esto
+es la vía rápida mientras tanto.
+
+La indicación va en el **mensaje** y no en el prompt de sistema, a propósito:
+el sistema es lo que vale para todos los chats, y esto es sobre éste.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

@@ -52,6 +52,7 @@ const IWA_SILENCIO = 90;
 const IWA_VENCE = 82800;
 const IWA_MODELO = 'claude-opus-5';
 const IWA_APROBADOR = 'jpchs1@gmail.com';
+const IWA_APRENDIDO_MAX = 20;   // cuántas indicaciones de JP entran al prompt
 
 function iwa_cfg($nombre, $def = '') {
     if (defined($nombre)) return trim((string) constant($nombre));
@@ -277,6 +278,51 @@ function iwa_post($url, $headers, $body, $timeout) {
     return array('code' => $code, 'body' => $resp === false ? '' : $resp);
 }
 
+/**
+ * Lo que JP le fue diciendo a la IA al rehacer un borrador.
+ *
+ * «Yo sólo debería poner "Sí podemos, pero deben ser casas rodantes, motorhome
+ * usadas ya no se puede" y la misma IA redactar nuevamente el mensaje con ese
+ * input nuevo» (JP, 8-oct-2026). Esa frase no es sólo para ESE cliente: es un
+ * dato del negocio que la IA no tenía. Se guarda y entra en el prompt de las
+ * respuestas siguientes.
+ *
+ * Tope de 20: el prompt no puede crecer sin techo, y una indicación de hace
+ * tres meses vale menos que la de ayer. Lo que se repite se escribe en
+ * `iwa_sistema()`, que es donde vive lo permanente.
+ */
+function iwa_aprendido() {
+    $x = iwa_leer_json(iwa_archivo_aprendido());
+    return is_array($x) ? $x : array();
+}
+function iwa_archivo_aprendido() { return __DIR__ . '/logs/whatsapp-aprendido.json'; }
+function iwa_leer_json($f) { return is_file($f) ? json_decode((string) file_get_contents($f), true) : array(); }
+
+/** Guarda la indicación de JP · lo que el cliente preguntó y lo que él dijo. */
+function iwa_aprender($chat, $indicacion) {
+    $indicacion = trim((string) $indicacion);
+    if ($indicacion === '') return;
+    $cliente = '';
+    foreach ((array) ($chat['mensajes'] ?? array()) as $m) {
+        if (($m['dir'] ?? '') === 'in' && trim((string) ($m['texto'] ?? '')) !== '') $cliente = (string) $m['texto'];
+    }
+    $corta = function ($t) { return mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $t)), 0, 400); };
+    $todas = iwa_aprendido();
+    $todas[] = array('ts' => time(), 'cliente' => $corta($cliente), 'jp' => $corta($indicacion));
+    $todas = array_slice($todas, -IWA_APRENDIDO_MAX);
+    @file_put_contents(iwa_archivo_aprendido(), json_encode($todas, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+}
+
+function iwa_aprendido_prompt() {
+    $todas = iwa_aprendido();
+    if (!$todas) return '';
+    $t = "\n\nLo que Juan Pablo te fue corrigiendo, de casos reales. Es el dato bueno: si contradice algo de arriba, manda esto, y lo último manda sobre lo anterior.\n";
+    foreach ($todas as $c) {
+        $t .= '- Cliente: «' . $c['cliente'] . '» · JP: «' . $c['jp'] . "»\n";
+    }
+    return $t;
+}
+
 function iwa_sistema() {
     return "Contestas el WhatsApp de Imporlan, en Chile. Te paso la conversación con un cliente y redactas UNA respuesta a lo último que escribió.\n\n"
         . "Lo que sabes de Imporlan:\n"
@@ -290,11 +336,12 @@ function iwa_sistema() {
         . "- No inventes. Plazos, disponibilidad de una embarcación, estado de un pedido, pagos, cambios o reclamos: responde que lo revisas y le confirmas, y marca necesita_humano.\n"
         . "- No saludes de nuevo si ya se saludaron. No repitas lo ya dicho.\n"
         . "- Si lo último no necesita respuesta (un gracias, un ok), responder = false y texto vacío.\n"
-        . "- motivo: una línea para el equipo, no para el cliente.";
+        . "- motivo: una línea para el equipo, no para el cliente."
+        . iwa_aprendido_prompt();
 }
 
 $IWA_FX = array(
-    'redactar' => function ($mensajes) {
+    'redactar' => function ($mensajes, $indicacion = '') {
         $tz = new DateTimeZone('America/Santiago');
         $txt = '';
         foreach ($mensajes as $m) {
@@ -307,7 +354,14 @@ $IWA_FX = array(
         $r = iwa_post('https://api.anthropic.com/v1/messages', array('x-api-key' => iwa_llave(), 'anthropic-version' => '2023-06-01', 'anthropic-beta' => 'server-side-fallback-2026-07-01', 'content-type' => 'application/json'),
             json_encode(array('model' => IWA_MODELO, 'max_tokens' => 2000, 'fallbacks' => 'default',
                 'output_config' => array('effort' => 'low', 'format' => array('type' => 'json_schema', 'schema' => $esquema)),
-                'system' => iwa_sistema(), 'messages' => array(array('role' => 'user', 'content' => "<conversacion>\n" . $txt . '</conversacion>')))), 60);
+                'system' => iwa_sistema(), 'messages' => array(array('role' => 'user', 'content' => "<conversacion>\n" . $txt . '</conversacion>'
+                    // Lo que JP escribió al rehacer el borrador. Va en el mensaje y
+                    // no en el sistema: es sobre ESTE chat, y tiene que pesar más
+                    // que lo que la IA creía saber.
+                    . (trim((string) $indicacion) !== ''
+                        ? "\n\n<indicacion_de_juan_pablo>\n" . trim((string) $indicacion)
+                          . "\n</indicacion_de_juan_pablo>\n\nJuan Pablo leyó tu borrador y te dice esto. Reescribe la respuesta al cliente aplicándolo: su indicación es el dato correcto, aunque contradiga lo que creías saber. No la copies literal ni la menciones; dísela al cliente con tus palabras, en el tono de siempre."
+                        : ''))))), 60);
         $j = json_decode($r['body'], true);
         if ($r['code'] !== 200 || !is_array($j)) return array('ok' => false, 'error' => 'Claude HTTP ' . $r['code']);
         if (in_array($j['stop_reason'] ?? '', array('refusal', 'max_tokens'), true)) return array('ok' => false, 'error' => (string) $j['stop_reason']);
@@ -396,8 +450,9 @@ if ($ruta === 'panel') {
         $num = preg_replace('/\D+/', '', (string) ($_POST['numero'] ?? ''));
         $id = (string) ($_POST['id'] ?? '');
         $texto = trim((string) ($_POST['texto'] ?? ''));
+        $indicacion = trim((string) ($_POST['indicacion'] ?? ''));
         $accion = (string) ($_POST['accion'] ?? '');
-        iwa_con_candado(function ($chats) use ($num, $id, $texto, $accion, &$msg) {
+        iwa_con_candado(function ($chats) use ($num, $id, $texto, $indicacion, $accion, &$msg) {
             $c = $chats[$num] ?? null;
             $p = is_array($c) ? ($c['pendiente'] ?? null) : null;
             // Se aprueba EL borrador que se mostró: si el cliente volvió a
@@ -408,6 +463,23 @@ if ($ruta === 'panel') {
             }
             if ($accion === 'descartar') {
                 $p['estado'] = 'descartado'; iwa_anotar($c, $p['id'] . ' descartado'); $msg = 'Descartado · no sale nada.';
+            } elseif ($accion === 'rehacer') {
+                // JP no reescribe el mensaje: escribe QUÉ corregir y lo rehace la
+                // IA (JP, 8-oct-2026). Queda en borrador —él lee el nuevo y
+                // aprueba— y la indicación se aprende para las próximas.
+                if ($indicacion === '') { $msg = 'Escribe qué corregir y vuelve a apretar «Rehacer».'; return $chats; }
+                $r = $GLOBALS['IWA_FX']['redactar']((array) $c['mensajes'], $indicacion);
+                if (!$r['ok']) { $msg = 'No se pudo rehacer: ' . $r['error'] . '. El borrador queda como estaba.'; return $chats; }
+                if (trim((string) $r['texto']) === '') { $msg = 'La IA no escribió nada con esa indicación. El borrador queda como estaba.'; return $chats; }
+                iwa_aprender($c, $indicacion);
+                $p['texto_original'] = isset($p['texto_original']) ? $p['texto_original'] : $p['texto'];
+                $p['texto'] = trim((string) $r['texto']);
+                $p['indicacion'] = $indicacion;
+                $p['regla'] = iwa_validar($p['texto']);
+                $p['necesita_humano'] = !empty($r['necesita_humano']);
+                $p['motivo'] = (string) $r['motivo'];
+                iwa_anotar($c, $p['id'] . ' rehecho con la indicación de JP · «' . mb_substr($indicacion, 0, 80) . '»');
+                $msg = 'Listo, lo reescribí con tu indicación. Léelo y aprueba si va.';
             } else {
                 $v = iwa_validar($texto);
                 if ($v !== '') { $msg = 'No se aprobó: ' . $v . '.'; return $chats; }
@@ -434,8 +506,14 @@ if ($ruta === 'panel') {
         foreach (array_slice((array) $c['mensajes'], -6) as $m) echo '<p style="margin:4px 0"><span style="color:#666">' . ($m['dir'] === 'in' ? 'Cliente' : 'Imporlan') . ' ' . $e(iwa_legible($m['ts'])) . ':</span> ' . $e($m['texto']) . '</p>';
         if (!empty($p['necesita_humano'])) echo '<p style="color:#b45309">Necesita que lo mires: ' . $e($p['motivo']) . '</p>';
         if (!empty($p['regla'])) echo '<p style="color:#b45309">No pasa las reglas: ' . $e($p['regla']) . '</p>';
+        if (!empty($p['indicacion'])) echo '<p style="color:#15803d">Rehecho con tu indicación: «' . $e($p['indicacion']) . '»</p>';
         echo '<form method="post"><input type="hidden" name="numero" value="' . $e($num) . '"><input type="hidden" name="id" value="' . $e($p['id']) . '"><textarea name="texto" rows="4" style="width:100%">' . $e($p['texto']) . '</textarea>'
-            . '<p><button name="accion" value="aprobar">Aprobar · sale ' . $e(iwa_legible(max((int) $p['en'], time()))) . '</button> <button name="accion" value="descartar">Descartar</button></p></form></div>';
+            . '<p><button name="accion" value="aprobar">Aprobar · sale ' . $e(iwa_legible(max((int) $p['en'], time()))) . '</button> <button name="accion" value="descartar">Descartar</button></p>'
+            // Lo de abajo es lo que JP usa casi siempre: en vez de reescribir el
+            // mensaje entero, dice qué corregir y lo rehace la IA.
+            . '<p style="margin:12px 0 4px"><label for="ind' . $e($p['id']) . '"><b>O dile qué corregir</b> y lo reescribe la IA:</label></p>'
+            . '<input id="ind' . $e($p['id']) . '" name="indicacion" style="width:100%;padding:6px" placeholder="Ej: Sí podemos, pero deben ser casas rodantes nuevas; usadas ya no se puede">'
+            . '<p><button name="accion" value="rehacer">Rehacer con mi indicación</button></p></form></div>';
     }
     if (!$hay) echo '<p>No hay borradores esperando.</p>';
     exit;
