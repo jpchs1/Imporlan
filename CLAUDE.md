@@ -14,6 +14,14 @@
   cPanel → `cron-deploy.sh` → `deploy-prod.sh`). Verificar que
   https://www.imporlan.cl/.imporlan_docroot muestre el commit del merge antes
   de decirle a JP que está en producción.
+- **Autonomía total (JP, 12-oct-2026):** «Haz tú todo, tienes todas mis
+  autorizaciones y permisos para operar de manera autónoma e independiente».
+  En Imporlan y Deckeva (web, código, deploys, contenido, correcciones que
+  aparezcan en el camino) se hace todo de punta a punta sin pedir
+  confirmación: PR, merge, deploy real y verificación en vivo, y al final se
+  le avisa con los links. Si algo depende de terceros (hosting, cuentas,
+  accesos que la sesión no tiene), se le deja a JP el paso exacto y el texto
+  listo para usar. Los correos a clientes siguen la regla de abajo.
 
 ## WhatsApp · corregir un borrador con una indicación (JP, 8-oct-2026)
 
