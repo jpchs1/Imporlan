@@ -99,19 +99,26 @@ export default function Orders() {
     return c;
   }
 
+  // Cada carga lleva un número de generación: si el admin cambia el filtro
+  // antes de que responda la anterior, la respuesta vieja (y su conteo) se
+  // descarta en vez de pisar la lista con resultados de otro filtro.
+  const cargaGen = useRef(0);
   async function loadOrders(f = filtersRef.current) {
+    const gen = ++cargaGen.current;
+    const vigente = () => gen === cargaGen.current;
     setLoading(true);
     let list = [];
     try {
       const res = await getOrders(f);
       list = res.orders || res.items || [];
+      if (!vigente()) return list;
       setOrders(list);
       // Conteo por estado para los chips: con el estado filtrado, se pide la
       // misma consulta sin estado para que los números no sean los del filtro.
       if (!f.status) setConteos(contar(list));
-      else getOrders({ ...f, status: '' }).then(r => setConteos(contar(r.orders || r.items || []))).catch(() => {});
-    } catch (e) { toast?.('No se pudieron cargar los expedientes: ' + (e.message || ''), 'error'); }
-    setLoading(false);
+      else getOrders({ ...f, status: '' }).then(r => { if (vigente()) setConteos(contar(r.orders || r.items || [])); }).catch(() => {});
+    } catch (e) { if (vigente()) toast?.('No se pudieron cargar los expedientes: ' + (e.message || ''), 'error'); }
+    if (vigente()) setLoading(false);
     return list;
   }
 

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { login, verify2FA, forgotPassword } from '../api';
 import { Button, IconButton, Input, Modal, Callout } from '../../shared/components/UI';
 import { ImporlanMark, Eye, EyeOff, KeyRound } from '../../shared/components/Icons';
+
+const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
   const { loginUser } = useAuth();
@@ -24,13 +26,41 @@ export default function Login() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState(null);
   const [forgotLoading, setForgotLoading] = useState(false);
+  // Errores por campo. Se valida ANTES de llamar a la API: admin_api.php
+  // (handleLogin → imporlan_login_protection) cuenta cada petición y bloquea la
+  // IP 30 minutos a los 5 intentos, con lo que un par de envíos vacíos o con
+  // el correo mal escrito dejaban al equipo afuera sin haber probado una clave.
+  const [campos, setCampos] = useState({});
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const codeRef = useRef(null);
+  const forgotRef = useRef(null);
+
+  function validarLogin() {
+    const errs = {};
+    const em = email.trim();
+    if (!em) errs.email = 'Escribe tu correo.';
+    else if (!CORREO.test(em)) errs.email = 'Escribe un correo válido (nombre@imporlan.cl).';
+    if (!password) errs.password = 'Escribe tu contraseña.';
+    setCampos(errs);
+    if (errs.email) emailRef.current?.focus();
+    else if (errs.password) passwordRef.current?.focus();
+    return Object.keys(errs).length === 0;
+  }
 
   const handleForgot = async (e) => {
     e.preventDefault();
     setForgotMsg(null);
+    const em = forgotEmail.trim();
+    if (!CORREO.test(em)) {
+      setCampos({ forgot: em ? 'Escribe un correo válido.' : 'Escribe tu correo.' });
+      forgotRef.current?.focus();
+      return;
+    }
+    setCampos({});
     setForgotLoading(true);
     try {
-      const res = await forgotPassword(forgotEmail.trim());
+      const res = await forgotPassword(em);
       setForgotMsg({ type: 'success', text: res.message || 'Te enviamos un enlace de recuperación al correo del administrador.' });
     } catch (err) {
       setForgotMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo de recuperación.' });
@@ -43,15 +73,17 @@ export default function Login() {
   const abrirForgot = () => {
     setForgotEmail('');
     setForgotMsg(null);
+    setCampos({});
     setForgotOpen(true);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    if (!validarLogin()) return;
     setLoading(true);
     try {
-      const res = await login(email, password);
+      const res = await login(email.trim(), password);
       if (res.requires_2fa) {
         setNeeds2FA(true);
         setTempToken(res.temp_token);
@@ -69,6 +101,12 @@ export default function Login() {
   const handle2FA = async (e) => {
     e.preventDefault();
     setError('');
+    if (code2FA.length !== 6) {
+      setCampos({ code: 'El código tiene 6 dígitos.' });
+      codeRef.current?.focus();
+      return;
+    }
+    setCampos({});
     setLoading(true);
     try {
       const res = await verify2FA(code2FA, tempToken);
@@ -96,25 +134,29 @@ export default function Login() {
           {!needs2FA ? (
             <form onSubmit={handleLogin} className="space-y-4" noValidate>
               <Input
+                ref={emailRef}
                 label="Correo"
                 type="email"
                 name="email"
                 autoComplete="username"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => { setEmail(e.target.value); if (campos.email) setCampos(c => ({ ...c, email: undefined })); }}
                 placeholder="nombre@imporlan.cl"
                 required
+                error={campos.email}
                 data-autofocus
               />
               <div className="relative">
                 <Input
+                  ref={passwordRef}
                   label="Contraseña"
                   type={showPw ? 'text' : 'password'}
                   name="password"
                   autoComplete="current-password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => { setPassword(e.target.value); if (campos.password) setCampos(c => ({ ...c, password: undefined })); }}
                   required
+                  error={campos.password}
                   inputClassName="pr-10"
                 />
                 <IconButton
@@ -145,14 +187,16 @@ export default function Login() {
                 <p className="text-sm text-ink-500 mt-1">Ingresa el código de 6 dígitos de tu app de autenticación.</p>
               </div>
               <Input
+                ref={codeRef}
                 label="Código"
                 value={code2FA}
-                onChange={e => setCode2FA(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onChange={e => { setCode2FA(e.target.value.replace(/\D/g, '').slice(0, 6)); if (campos.code) setCampos({}); }}
                 placeholder="000000"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
                 required
+                error={campos.code}
                 data-autofocus
                 size="lg"
                 inputClassName="text-center font-mono text-xl tracking-[0.4em]"
@@ -182,13 +226,15 @@ export default function Login() {
       >
         <form id="form-recuperar" onSubmit={handleForgot} className="space-y-4" noValidate>
           <Input
+            ref={forgotRef}
             label="Correo de inicio de sesión"
             type="email"
             autoComplete="username"
             value={forgotEmail}
-            onChange={e => setForgotEmail(e.target.value)}
+            onChange={e => { setForgotEmail(e.target.value); if (campos.forgot) setCampos({}); }}
             placeholder="nombre@imporlan.cl"
             required
+            error={campos.forgot}
             data-autofocus
           />
           {forgotMsg && (

@@ -59,7 +59,7 @@ function TooltipConteo({ active, payload }) {
   return (
     <div className="bg-surface border border-line rounded-md shadow-pop px-3 py-2 min-w-[120px]">
       <p className="text-xs text-ink-500 mb-0.5">{p.name}</p>
-      <p className="text-sm font-semibold text-ink-900 tabular">{fmtNumero(p.value)} {p.value === 1 ? 'pago' : 'pagos'}</p>
+      <p className="text-sm font-semibold text-ink-900 tabular">{fmtNumero(p.value)} {p.value === 1 ? 'compra' : 'compras'}</p>
     </div>
   );
 }
@@ -217,12 +217,15 @@ export default function Dashboard() {
               : <EmptyState compact icon={Receipt} title="Sin compras todavía" />}
           </Card.Body>
         </Card>
+        {/* payments_by_provider (admin_api.php getDashboard) agrupa TODAS las
+            compras por medio elegido, pagadas o no; el título dice eso y no
+            "pagos recibidos", que era falso. */}
         <Card>
-          <Card.Header title="Métodos de pago" description="Pagos recibidos por medio" />
+          <Card.Header title="Compras por medio de pago" description="Todas las compras registradas, pagadas o no, según el medio elegido" />
           <Card.Body>
             {porMedio.length > 0
               ? <GraficoMedios data={porMedio} />
-              : <EmptyState compact icon={ChartColumn} title="Sin pagos todavía" />}
+              : <EmptyState compact icon={ChartColumn} title="Sin compras todavía" />}
           </Card.Body>
         </Card>
       </div>

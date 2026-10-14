@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getSettings, updateSettings, getPricing, updatePricing } from '../api';
-import { PageHeader, Card, Button, Input, MoneyInput, NumberInput, FormGrid, Tabs, Spinner, ErrorState } from '../../shared/components/UI';
+import { PageHeader, Card, Button, Input, MoneyInput, NumberInput, FormGrid, Tabs, Spinner, ErrorState, useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
 // Esquema del cotizador: cada clave es una entrada cot_* que siembra
@@ -108,6 +109,8 @@ function CampoCotizador({ field, value, onChange }) {
 
 export default function Config() {
   const toast = useToast();
+  const confirm = useConfirm();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('general');
   const [settings, setSettings] = useState({});
   const [pricing, setPricing] = useState({});
@@ -140,40 +143,102 @@ export default function Config() {
 
   const reload = useCallback(() => { setLoading(true); setTick(t => t + 1); }, []);
 
+  // Las dos pestañas comparten el estado, así que los cambios de una siguen
+  // ahí al mirar la otra: el aviso y los botones consideran ambas (antes
+  // editar General y pasar a Cotizador decía "Todo guardado").
   const dirtySettings = useMemo(() => JSON.stringify(settings) !== base.settings, [settings, base.settings]);
   const dirtyPricing = useMemo(() => JSON.stringify(pricing) !== base.pricing, [pricing, base.pricing]);
-  const dirty = tab === 'general' ? dirtySettings : dirtyPricing;
+  const dirty = dirtySettings || dirtyPricing;
+  const pendientes = useMemo(() => [dirtySettings && 'General', dirtyPricing && 'Cotizador'].filter(Boolean), [dirtySettings, dirtyPricing]);
 
-  async function saveSettings() {
-    setSaving(true);
-    try {
-      await updateSettings(settings);
-      setBase(b => ({ ...b, settings: JSON.stringify(settings) }));
-      toast?.('Configuración guardada', 'success');
-    } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar', description: e.message }); }
-    setSaving(false);
-  }
+  // Cerrar o recargar la pestaña del navegador con cambios sin guardar pide confirmación.
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [dirty]);
 
-  async function savePricing() {
+  // Navegar dentro del panel (menú lateral, migas, enlaces) con cambios sin
+  // guardar: se intercepta el clic en el enlace y se pregunta antes de salir.
+  // Con HashRouter no hay useBlocker, por eso se escucha el clic en captura y
+  // se anula; <Link> respeta defaultPrevented y no navega.
+  useEffect(() => {
+    if (!dirty) return;
+    function onClick(e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest?.('a[href]');
+      if (!a || a.target === '_blank') return;
+      const href = a.getAttribute('href') || '';
+      if (!href.startsWith('#/') || href.startsWith('#/config')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      confirm({
+        title: 'Hay cambios sin guardar',
+        description: `¿Salir igual? Lo que editaste en ${pendientes.join(' y ')} se perderá.`,
+        tone: 'warning',
+        confirmLabel: 'Salir sin guardar',
+        cancelLabel: 'Seguir editando',
+      }).then(ok => { if (ok) navigate(href.slice(1)); });
+    }
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [dirty, pendientes, confirm, navigate]);
+
+  // Guarda lo que esté pendiente, de las dos pestañas. Cada una tiene su
+  // endpoint, así que se guardan por separado y se informa lo que falló.
+  async function guardar() {
+    if (!dirty || saving) return;
     setSaving(true);
+    const guardados = [];
     try {
-      // Backend expects { configs: { key: value, ... } }. Flatten the
-      // {key: {value, description, id}} shape we get back from getPricing.
-      const configs = {};
-      for (const [k, v] of Object.entries(pricing)) {
-        configs[k] = v && typeof v === 'object' && 'value' in v ? v.value : v;
+      if (dirtySettings) {
+        try {
+          await updateSettings(settings);
+          setBase(b => ({ ...b, settings: JSON.stringify(settings) }));
+          guardados.push('Configuración');
+        } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar la configuración', description: e.message }); }
       }
-      await updatePricing({ configs });
-      setBase(b => ({ ...b, pricing: JSON.stringify(pricing) }));
-      toast?.('Cotizador guardado', 'success');
-    } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar', description: e.message || 'Error al guardar' }); }
-    setSaving(false);
+      if (dirtyPricing) {
+        try {
+          // Backend expects { configs: { key: value, ... } }. Flatten the
+          // {key: {value, description, id}} shape we get back from getPricing.
+          const configs = {};
+          for (const [k, v] of Object.entries(pricing)) {
+            configs[k] = v && typeof v === 'object' && 'value' in v ? v.value : v;
+          }
+          await updatePricing({ configs });
+          setBase(b => ({ ...b, pricing: JSON.stringify(pricing) }));
+          guardados.push('Cotizador');
+        } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar el cotizador', description: e.message || 'Error al guardar' }); }
+      }
+      if (guardados.length === 2) toast?.('Configuración y cotizador guardados', 'success');
+      else if (guardados[0] === 'Configuración') toast?.('Configuración guardada', 'success');
+      else if (guardados[0] === 'Cotizador') toast?.('Cotizador guardado', 'success');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function descartar() {
-    if (tab === 'general') setSettings(JSON.parse(base.settings));
-    else setPricing(JSON.parse(base.pricing));
+    if (dirtySettings) setSettings(JSON.parse(base.settings));
+    if (dirtyPricing) setPricing(JSON.parse(base.pricing));
   }
+
+  // Marca en la pestaña que tiene cambios sin guardar.
+  const tabs = TABS.map(t => {
+    const sucia = t.id === 'general' ? dirtySettings : dirtyPricing;
+    return !sucia ? t : {
+      ...t,
+      label: (
+        <>
+          {t.label}
+          <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden="true" />
+          <span className="sr-only">(cambios sin guardar)</span>
+        </>
+      ),
+    };
+  });
 
   function setCotField(key, value) {
     setPricing(prev => ({
@@ -192,10 +257,10 @@ export default function Config() {
   if (error) return (<><PageHeader title="Configuración" /><Card><ErrorState message={error} onRetry={reload} /></Card></>);
 
   return (
-    <form onSubmit={e => { e.preventDefault(); if (tab === 'general') saveSettings(); else savePricing(); }} className="flex flex-col min-h-full">
+    <form onSubmit={e => { e.preventDefault(); guardar(); }} className="flex flex-col min-h-full">
       <PageHeader title="Configuración" description="Datos de contacto del sitio y valores base del cotizador." />
 
-      <Tabs tabs={TABS} value={tab} onChange={setTab} className="mb-6" aria-label="Secciones de configuración" />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} className="mb-6" aria-label="Secciones de configuración" />
 
       {tab === 'general' && (
         <div role="tabpanel" className="space-y-4">
@@ -246,11 +311,11 @@ export default function Config() {
           hace scroll, con fondo propio (no flota sobre las tarjetas). */}
       <div className="sticky bottom-0 mt-6 -mx-(--page-gutter) px-(--page-gutter) py-3 bg-surface/95 backdrop-blur border-t border-line flex flex-wrap items-center gap-3">
         <p className="text-13 text-ink-500 flex-1 min-w-[12rem]" aria-live="polite">
-          {dirty ? 'Tienes cambios sin guardar.' : 'Todo guardado.'}
+          {dirty ? `Tienes cambios sin guardar en ${pendientes.join(' y ')}.` : 'Todo guardado.'}
         </p>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="secondary" onClick={descartar} disabled={!dirty || saving}>Descartar</Button>
-          <Button type="submit" loading={saving} disabled={!dirty}>{tab === 'general' ? 'Guardar configuración' : 'Guardar cotizador'}</Button>
+          <Button type="submit" loading={saving} disabled={!dirty}>Guardar cambios</Button>
         </div>
       </div>
     </form>
