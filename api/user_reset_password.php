@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/user_recovery_common.php';
+require_once __DIR__ . '/session_revocation.php';
 
 /** Lee el token del enlace y devuelve [datos, mensajeDeError, vencido]. */
 function urValidarToken($token) {
@@ -99,6 +100,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // verdad. Y se tiran ademas los otros enlaces vivos del mismo correo:
         // si alguien pidio tres, los tres dejan de servir en cuanto uno se usa.
         @unlink($rutaEnUso);
+
+        // Y se cortan las sesiones que ya estaban abiertas. El caso que hace
+        // existir todo esto es que a alguien le entraron a la cuenta: si los
+        // JWT emitidos antes siguieran valiendo sus siete dias, cambiar la
+        // clave cerraria la puerta con el intruso adentro.
+        if (!impInvalidarSesionesDe($cuenta['id'])) {
+            urRegistrar("OJO: no se pudo invalidar las sesiones de  {$cuenta['email']}");
+        }
+
         $dir = urDirectorioTokens();
         // Sin este guard, un $dir nulo convertiria el patron en '/*.json' y el
         // glob saldria a recorrer la raiz del servidor.
