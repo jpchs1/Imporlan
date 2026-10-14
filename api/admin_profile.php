@@ -238,8 +238,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // motivo por el que uno la cambia cuando sospecha: hasta ahora no
         // echaba a nadie y quien tuviera la sesion robada seguia dentro una
         // semana.
-        require_once __DIR__ . '/sesiones.php';
-        $sesionesCerradas = sesionesCerrarAnteriores($userEmail);
+        //
+        // Por id de cuenta, como lo hace session_revocation.php: asi sobrevive
+        // sola a un cambio de correo, sin tener que perseguir dos direcciones.
+        $sesionesCerradas = false;
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            $sesionesCerradas = impInvalidarSesionesDe($row['id']);
+        }
 
         // Menos la de quien la esta cambiando: se le da un token nuevo para que
         // siga trabajando. Sin esto, cambiar la contrasena te expulsa a ti
@@ -258,12 +264,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'locale'      => $user['locale'] ?? 'es',
                 'permissions' => $user['permissions'] ?? null,
                 'exp'         => time() + (7 * 24 * 60 * 60),
+                // Nace en el mismo segundo del corte o despues. Como la
+                // comparacion de session_revocation.php es estricta ('<'), este
+                // token sobrevive y los anteriores no.
                 'iat'         => time(),
-                // Un milisegundo despues del corte, como minimo. Si el cambio y
-                // este token caian en el mismo milisegundo, el token nuevo se
-                // revocaba a si mismo y el usuario quedaba fuera en la siguiente
-                // peticion, justo despues de hacer lo correcto.
-                'iat_ms'      => is_int($sesionesCerradas) ? $sesionesCerradas + 1 : null,
             ]);
         }
 

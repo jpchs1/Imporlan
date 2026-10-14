@@ -7,23 +7,23 @@ import { useToast } from '../../shared/components/Toast';
 
 const SUBJECTS = [
   { value: 'Consulta general', label: 'Consulta general', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-  { value: 'Estado de importacion', label: 'Estado de importacion', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-  { value: 'Cotizacion', label: 'Cotizacion / Plan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { value: 'Estado de importación', label: 'Estado de importación', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+  { value: 'Cotización', label: 'Cotización / Plan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   { value: 'Documentos', label: 'Documentos', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
-  { value: 'Pagos y facturacion', label: 'Pagos y facturacion', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
-  { value: 'Inspeccion', label: 'Inspeccion tecnica', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-  { value: 'Problema tecnico', label: 'Problema tecnico (panel)', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+  { value: 'Pagos y facturación', label: 'Pagos y facturación', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+  { value: 'Inspección', label: 'Inspección técnica', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+  { value: 'Problema técnico', label: 'Problema técnico (panel)', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
   { value: 'Sugerencia', label: 'Sugerencia o feedback', icon: 'M5 13l4 4L19 7' },
   { value: 'Otro', label: 'Otro', icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 ];
 
 const FAQS = [
-  { cat: 'Servicio', q: 'Cuanto demora una importacion?', a: 'El tiempo promedio de una importacion completa es de 45 a 90 dias dependiendo del origen, tipo de embarcacion y tramites aduaneros. Te mantendremos informado en cada etapa del proceso desde el panel.' },
-  { cat: 'Servicio', q: 'Que incluye el servicio puerta a puerta?', a: 'Inspeccion pre-compra, compra de la embarcacion, transporte maritimo, seguros, tramites aduaneros, internacion y entrega en el destino que indiques.' },
-  { cat: 'Inspeccion', q: 'Como funciona la inspeccion pre-compra?', a: 'Coordinamos con inspectores certificados en el pais de origen. Revisan el estado mecanico, estructural y estetico de la embarcacion, entregandote un informe detallado con fotos y video antes de concretar la compra.' },
-  { cat: 'Documentos', q: 'Que documentos necesito para importar?', a: 'Cedula de identidad vigente, titulo de la embarcacion (Bill of Sale), factura comercial y documentos de exportacion del pais de origen. Nosotros nos encargamos de toda la tramitacion.' },
-  { cat: 'Seguimiento', q: 'Puedo hacer seguimiento de mi importacion?', a: 'Si. En "Mis Productos Contratados" y "Seguimiento" ves el estado en tiempo real, ubicacion del envio, documentos asociados y proximos pasos. Tambien recibis notificaciones automaticas en cada cambio.' },
-  { cat: 'Pagos', q: 'Que medios de pago aceptan?', a: 'WebPay (Transbank), MercadoPago, PayPal y transferencia bancaria. Todas las opciones estan disponibles desde la seccion Pagos del panel cuando recibes una solicitud de pago.' },
+  { cat: 'Servicio', q: '¿Cuánto demora una importación?', a: 'El tiempo promedio de una importación completa es de 45 a 90 días dependiendo del origen, tipo de embarcación y trámites aduaneros. Te mantendremos informado en cada etapa del proceso desde el panel.' },
+  { cat: 'Servicio', q: '¿Qué incluye el servicio puerta a puerta?', a: 'Inspección pre-compra, compra de la embarcación, transporte marítimo, seguros, trámites aduaneros, internacion y entrega en el destino que indiques.' },
+  { cat: 'Inspección', q: '¿Cómo funciona la inspección pre-compra?', a: 'Coordinamos con inspectores certificados en el país de origen. Revisan el estado mecánico, estructural y estético de la embarcación, entregandote un informe detallado con fotos y video antes de concretar la compra.' },
+  { cat: 'Documentos', q: '¿Qué documentos necesito para importar?', a: 'Cédula de identidad vigente, título de la embarcación (Bill of Sale), factura comercial y documentos de exportacion del país de origen. Nosotros nos encargamos de toda la tramitación.' },
+  { cat: 'Seguimiento', q: '¿Puedo hacer seguimiento de mi importación?', a: 'Sí. En "Mis Productos Contratados" y "Seguimiento" ves el estado en tiempo real, ubicación del envío, documentos asociados y próximos pasos. También recibes notificaciones automáticas en cada cambio.' },
+  { cat: 'Pagos', q: '¿Qué medios de pago aceptan?', a: 'WebPay (Transbank), MercadoPago, PayPal y transferencia bancaria. Todas las opciones están disponibles desde la sección Pagos del panel cuando recibes una solicitud de pago.' },
 ];
 
 const CATS = ['Todas', ...Array.from(new Set(FAQS.map(f => f.cat)))];
@@ -127,7 +127,7 @@ export default function Support() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.subject) { toast?.('Elegi un tema', 'error'); return; }
+    if (!form.subject) { toast?.('Elige un tema', 'error'); return; }
     if (!form.message.trim()) { toast?.('Escribi tu consulta', 'error'); return; }
     setSending(true);
     try {
@@ -156,7 +156,7 @@ export default function Support() {
               Soporte disponible
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Centro de Soporte</h1>
-            <p className="text-sm text-slate-300 mt-1.5">Estamos aqui para ayudarte con tu importacion</p>
+            <p className="text-sm text-slate-300 mt-1.5">Estamos aquí para ayudarte con tu importación</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20ayuda%20con%20mi%20cuenta" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition">
@@ -178,7 +178,7 @@ export default function Support() {
           icon="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
           title="Email"
           value="contacto@imporlan.cl"
-          sub="Respuesta en 48 hrs habiles"
+          sub="Respuesta en 48 hrs hábiles"
           href="mailto:contacto@imporlan.cl"
           cta="Enviar email"
           copyable
@@ -199,7 +199,7 @@ export default function Support() {
           icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
           title="Horario"
           value="Lun a Vie · 09 a 18 hrs"
-          sub="Sab y Dom 10 a 14 hrs"
+          sub="Sáb y Dom 10 a 14 hrs"
         />
       </div>
 
@@ -210,7 +210,7 @@ export default function Support() {
         </div>
         <div className="flex-1 min-w-0 text-xs sm:text-sm">
           <p className="font-semibold text-blue-800">Tiempo de respuesta (SLA)</p>
-          <p className="text-blue-700/80 mt-0.5 leading-relaxed">Generalmente respondemos en <strong className="font-semibold text-blue-800">hasta 48 horas habiles</strong>. En periodos de alta demanda puede llegar a 72 hrs. Para algo urgente, escribinos por WhatsApp.</p>
+          <p className="text-blue-700/80 mt-0.5 leading-relaxed">Generalmente respondemos en <strong className="font-semibold text-blue-800">hasta 48 horas hábiles</strong>. En períodos de alta demanda puede llegar a 72 hrs. Para algo urgente, escribinos por WhatsApp.</p>
         </div>
       </div>
 
@@ -240,14 +240,14 @@ export default function Support() {
                   </div>
                 </div>
                 <p className="font-bold text-slate-800 text-lg">Solicitud enviada</p>
-                <p className="text-sm text-slate-500 mt-1">Te respondemos a <strong>{form.email}</strong> dentro de 48 hrs habiles.</p>
+                <p className="text-sm text-slate-500 mt-1">Te respondemos a <strong>{form.email}</strong> dentro de 48 hrs hábiles.</p>
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
                   <Button variant="secondary" size="sm" onClick={() => { setSent(false); setForm(f => ({ ...f, subject: '', message: '', operation: '' })); }}>
                     Nueva solicitud
                   </Button>
                   <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition">
                     <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-                    Tambien por WhatsApp
+                    También por WhatsApp
                   </a>
                 </div>
               </div>
@@ -258,8 +258,8 @@ export default function Support() {
                   <Input label="Email" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="tu@email.com" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Input label="Telefono (opcional)" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 ..." />
-                  <Input label="N. Operacion (opcional)" value={form.operation} onChange={e => set('operation', e.target.value)} placeholder="IMP-XXXX" />
+                  <Input label="Teléfono (opcional)" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 ..." />
+                  <Input label="N. Operación (opcional)" value={form.operation} onChange={e => set('operation', e.target.value)} placeholder="IMP-XXXX" />
                 </div>
 
                 {/* Subject pills */}
@@ -346,7 +346,7 @@ export default function Support() {
           <Card className="h-full flex flex-col">
             <div className="mb-4">
               <h2 className="font-bold text-slate-800">Preguntas frecuentes</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Quizas ya tenemos la respuesta</p>
+              <p className="text-xs text-slate-400 mt-0.5">Quizás ya tenemos la respuesta</p>
             </div>
 
             <div className="relative mb-3">

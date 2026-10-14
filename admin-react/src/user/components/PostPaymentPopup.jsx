@@ -98,12 +98,12 @@ export default function PostPaymentPopup() {
   const isBusqueda = isPlanDeBusqueda(params.plan);
   const isAlmirante = params.plan === 'almirante';
   const title = isBusqueda
-    ? 'Tu Plan de Busqueda ya esta activo!'
+    ? 'Tu Plan de Búsqueda ya esta activo!'
     : (params.justCreated
-        ? 'Tu Cotizacion por Links esta lista!'
-        : 'Tu Cotizacion por Links ya esta activa!');
+        ? 'Tu Cotización por Links esta lista!'
+        : 'Tu Cotización por Links ya esta activa!');
   const message = isBusqueda
-    ? 'Nuestro equipo ya comenzo a trabajar en tu busqueda personalizada. Revisa tu panel para ver el estado de tu plan.'
+    ? 'Nuestro equipo ya comenzó a trabajar en tu búsqueda personalizada. Revisa tu panel para ver el estado de tu plan.'
     : (params.justCreated
         ? 'Cargamos tus links en un nuevo expediente. Nuestro equipo arranca a cotizar y te avisaremos por email cuando este listo.'
         : 'Ya puedes gestionar tus embarcaciones desde tu panel. Revisa tus productos contratados para ver los detalles.');
@@ -150,7 +150,7 @@ export default function PostPaymentPopup() {
         <div className="mt-4 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/25 text-left">
           <p className="text-[13px] font-semibold text-blue-400">Tiempo de Respuesta</p>
           <p className="text-xs text-slate-400 leading-relaxed mt-1">
-            El tiempo de respuesta y trabajo para tu requerimiento es de <strong className="text-white">hasta 48 horas</strong>. En periodos de alta demanda, puede ser de <strong className="text-white">hasta 72 hrs</strong>.
+            El tiempo de respuesta y trabajo para tu requerimiento es de <strong className="text-white">hasta 48 horas</strong>. En períodos de alta demanda, puede ser de <strong className="text-white">hasta 72 hrs</strong>.
           </p>
           <p className="text-xs text-blue-400 mt-1">Por email o WhatsApp estaremos activos ante cualquier duda.</p>
         </div>

@@ -9,7 +9,7 @@ export default function Login() {
   const { loginUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  // ProtectedRoute deja aqui la ruta que el usuario intentaba abrir.
+  // ProtectedRoute deja aquí la ruta que el usuario intentaba abrir.
   const from = location.state?.from;
   const destination = from && from !== '/login' ? from : '/dashboard';
   const [email, setEmail] = useState('');

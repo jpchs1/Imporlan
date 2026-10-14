@@ -27,11 +27,11 @@ const PORTALS = [
 ];
 
 const BENEFITS = [
-  'Cotizacion completa: precio + impuestos + transporte',
+  'Cotización completa: precio + impuestos + transporte',
   'Validacion del estado del listing',
   'Comparativa entre las opciones que enviaste',
   'Recomendacion del equipo Imporlan',
-  'Respuesta en 48 horas habiles',
+  'Respuesta en 48 horas hábiles',
 ];
 
 function isValidUrl(s) {
@@ -91,7 +91,7 @@ export default function Quotation() {
     if (!accepted) { toast?.('Acepta los terminos y condiciones', 'error'); return; }
 
     setPaying(true);
-    const desc = `Cotizacion por ${validLinks.length} link${validLinks.length > 1 ? 's' : ''}`;
+    const desc = `Cotización por ${validLinks.length} link${validLinks.length > 1 ? 's' : ''}`;
     const fullName = `${form.name} ${form.lastName}`.trim();
 
     try {
@@ -104,7 +104,7 @@ export default function Quotation() {
           payer_name: fullName,
           payer_phone: form.phone,
           country: form.country,
-          plan_name: 'Cotizacion por Links',
+          plan_name: 'Cotización por Links',
           description: desc,
           type: 'cotizacion_link',
           boat_links: validLinks,
@@ -122,7 +122,7 @@ export default function Quotation() {
         const data = await createMercadoPagoPreference({
           amount: total,
           description: desc,
-          plan_name: 'Cotizacion por Links',
+          plan_name: 'Cotización por Links',
           payer_email: form.email,
           payer_name: fullName,
           payer_phone: form.phone,
@@ -152,7 +152,7 @@ export default function Quotation() {
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              Cotizacion express
+              Cotización express
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Cotizador online</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
@@ -192,12 +192,12 @@ export default function Quotation() {
               </div>
               <div>
                 <h2 className="font-bold text-slate-800">Destino de la lancha</h2>
-                <p className="text-xs text-slate-400 mt-0.5">A donde queres recibirla</p>
+                <p className="text-xs text-slate-400 mt-0.5">A donde quieres recibirla</p>
               </div>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Pais destino</label>
+                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">País destino</label>
                 <div className="flex flex-wrap gap-1.5">
                   {COUNTRIES.map(c => (
                     <button
@@ -230,7 +230,7 @@ export default function Quotation() {
                 </div>
                 <div>
                   <h2 className="font-bold text-slate-800">Datos de contacto</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">A donde te enviamos la cotizacion</p>
+                  <p className="text-xs text-slate-400 mt-0.5">A donde te enviamos la cotización</p>
                 </div>
               </div>
               {user?.email && (
@@ -246,7 +246,7 @@ export default function Quotation() {
                 <Input label="Apellidos" value={form.lastName} onChange={e => set('lastName', e.target.value)} placeholder="Tus apellidos" />
               </div>
               <Input label="Email *" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="tu@email.com" />
-              <Input label="Telefono" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 XXXX XXXX" />
+              <Input label="Teléfono" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 XXXX XXXX" />
             </div>
           </Card>
         </div>
@@ -340,7 +340,7 @@ export default function Quotation() {
 
             {links.length === MIN_LINKS && validLinks.length === 0 && (
               <p className="text-[11px] text-slate-400 text-center mt-3">
-                Tip: podes agregar hasta {MAX_LINKS} links y solo pagas por los completos.
+                Tip: puedes agregar hasta {MAX_LINKS} links y solo pagas por los completos.
               </p>
             )}
           </Card>
@@ -377,7 +377,7 @@ export default function Quotation() {
             <label className="flex items-start gap-2 text-xs text-slate-300 mb-3 cursor-pointer p-3 rounded-xl bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition">
               <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="mt-0.5 w-4 h-4 accent-cyan-500 rounded cursor-pointer" />
               <span>
-                Acepto los <strong className="text-white font-semibold">terminos y condiciones</strong> para recibir esta cotizacion, y confirmo que he leido la politica de privacidad. Al pagar autorizo a Imporlan a procesar la cotizacion en un plazo de 48 hrs habiles.
+                Acepto los <strong className="text-white font-semibold">terminos y condiciones</strong> para recibir esta cotización, y confirmo que he leido la politica de privacidad. Al pagar autorizo a Imporlan a procesar la cotización en un plazo de 48 hrs hábiles.
               </span>
             </label>
 
@@ -436,7 +436,7 @@ export default function Quotation() {
             </div>
 
             <p className="text-[11px] text-slate-400 mt-3 text-center sm:text-left">
-              Conexion segura · Procesado por Transbank / Mercado Libre · Recibis confirmacion en {form.email || 'tu email'}.
+              Conexión segura · Procesado por Transbank / Mercado Libre · Recibes confirmación en {form.email || 'tu email'}.
             </p>
           </div>
         </div>
@@ -459,8 +459,8 @@ export default function Quotation() {
             <svg className="w-4 h-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">Necesitas mas que cotizar?</p>
-            <p className="text-xs text-slate-500">Conoce los planes de busqueda completa</p>
+            <p className="text-sm font-bold text-slate-800">Necesitas más que cotizar?</p>
+            <p className="text-xs text-slate-500">Conoce los planes de búsqueda completa</p>
           </div>
           <svg className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6"/></svg>
         </a>

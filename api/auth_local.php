@@ -7,6 +7,11 @@
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/credentials.php';
+// Con red: si este archivo faltara —un deploy a medias, o el antivirus del
+// hosting, que ya se llevo lib/link_scraper.php una vez— un require a secas
+// seria un error fatal en CADA peticion autenticada del sitio. Faltando, se
+// pierde el corte de sesiones y todo lo demas sigue como siempre.
+if (file_exists(__DIR__ . '/session_revocation.php')) require_once __DIR__ . '/session_revocation.php';
 
 function handleAuthEndpoint($uriPath) {
     header('Content-Type: application/json');
@@ -68,13 +73,6 @@ function getJwtSecretLocal() {
 }
 
 function generateJWT($payload) {
-    // Momento de emision en milisegundos. `iat` va en segundos, y con eso no
-    // se puede saber si un token nacio antes o despues de un cambio de clave
-    // ocurrido en ese mismo segundo. Ver api/sesiones.php.
-    // Nunca antes del que pida quien llama: el token renovado tras un cambio de
-    // clave tiene que nacer estrictamente despues del corte, y el reloj puede
-    // no haber avanzado un milisegundo entre una cosa y la otra.
-    $payload['iat_ms'] = max((int) floor(microtime(true) * 1000), (int) ($payload['iat_ms'] ?? 0));
     $secret = getJwtSecretLocal();
     $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
     $b64Header = rtrim(strtr(base64_encode($header), '+/', '-_'), '=');
@@ -99,18 +97,10 @@ function verifyJWTLocal($token) {
     $payload = json_decode(base64_decode(strtr($b64Payload, '-_', '+/')), true);
     if (!$payload || ($payload['exp'] ?? 0) < time()) return null;
 
-    // Firma buena y sin vencer no basta: si la contrasena de esa cuenta cambio
-    // despues de emitirse este token, la sesion ya no vale. Sin esto, cambiar
-    // la clave no echaba a nadie — a un cliente con la sesion robada, el
-    // ladron le seguia dentro una semana justo cuando mas urgia sacarlo.
-    //
-    // El archivo se carga con red: si faltara —un deploy a medias, o el
-    // antivirus del hosting, que ya se llevo lib/link_scraper.php una vez— un
-    // require a secas seria un error fatal AQUI, en la verificacion de todas
-    // las sesiones, y nadie podria entrar al sitio. Faltando, se pierde este
-    // corte y todo lo demas sigue funcionando como siempre.
-    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
-    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
+    // Firma buena y sin vencer no alcanza: si la cuenta cambio de contrasena
+    // despues de que se emitiera este token, no vale. Sin esto, cambiar la
+    // clave no echaba a quien ya estaba dentro.
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) return null;
 
     return $payload;
 }

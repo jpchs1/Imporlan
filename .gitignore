@@ -62,3 +62,6 @@ get_*.php
 # Tokens de recuperacion de contrasena (los crea el servidor en caliente)
 .admin_reset_tokens/
 .user_reset_tokens/
+
+# Marcas de "las sesiones de antes ya no valen" (ver api/session_revocation.php)
+.imporlan_sesiones/

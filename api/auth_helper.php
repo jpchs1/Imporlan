@@ -5,6 +5,12 @@
  * JWT secret is loaded from environment variable JWT_SECRET
  */
 
+// Con red: si este archivo faltara —un deploy a medias, o el antivirus del
+// hosting, que ya se llevo lib/link_scraper.php una vez— un require a secas
+// seria un error fatal en CADA peticion autenticada del sitio. Faltando, se
+// pierde el corte de sesiones y todo lo demas sigue como siempre.
+if (file_exists(__DIR__ . '/session_revocation.php')) require_once __DIR__ . '/session_revocation.php';
+
 function getJwtSecret() {
     if (defined('IMPORLAN_JWT_SECRET')) {
         return IMPORLAN_JWT_SECRET;
@@ -54,15 +60,9 @@ function verifyJWTToken($token) {
 
     if (isset($payload['exp']) && $payload['exp'] < time()) return null;
 
-    // Mismo corte que en verifyJWTLocal: un cambio de contrasena cierra las
-    // sesiones abiertas hasta ese momento. Va en las dos verificaciones porque
-    // el panel del cliente usa una y el de administracion la otra; dejarlo en
-    // una sola habria sido una puerta cerrada con la ventana abierta.
-    //
-    // Con red, por lo mismo que alla: si el archivo faltara, un require a secas
-    // tumbaria la autenticacion del sitio entero.
-    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
-    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
+    // Si la cuenta cambio de contrasena despues de emitirse este token, no
+    // vale: ver session_revocation.php.
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) return null;
 
     return $payload;
 }

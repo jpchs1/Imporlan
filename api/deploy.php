@@ -250,11 +250,13 @@ try {
         'api/marketplace_photos',
         'api/*.log',
         // logs/ no es solo historial. Guarda lo que JP le enseno al contestador
-        // de WhatsApp (whatsapp-aprendido.json) y la lista de sesiones cerradas
-        // por cambio de clave (sesiones-cerradas.json). Borrarla en un deploy
-        // olvidaba todas las correcciones de JP y, peor, devolvia la vida a
-        // los tokens robados que se acababan de revocar.
+        // de WhatsApp (whatsapp-aprendido.json). Borrarla en un deploy
+        // olvidaba todas las correcciones de JP.
         'api/logs',
+        // Las marcas de sesiones cerradas por cambio de clave
+        // (session_revocation.php). Borrarlas devolvia la vida a los tokens
+        // robados que se acababan de revocar.
+        '.imporlan_sesiones',
         // Enlaces de recuperacion de contrasena pendientes de usar.
         '.user_reset_tokens',
         '.admin_reset_tokens',

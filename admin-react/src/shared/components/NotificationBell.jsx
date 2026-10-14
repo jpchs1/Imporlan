@@ -11,7 +11,7 @@ function timeAgo(dateStr) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `Hace ${hrs} hr${hrs > 1 ? 's' : ''}`;
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `Hace ${days} dia${days > 1 ? 's' : ''}`;
+  if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
   return new Date(dateStr).toLocaleDateString('es-CL');
 }
 

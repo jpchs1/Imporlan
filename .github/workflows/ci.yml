@@ -38,7 +38,10 @@ jobs:
       - name: Tests de recuperacion de contrasena de clientes
         run: php test/recuperacion-clientes-tests.php
 
-      - name: Cambiar la contrasena cierra las sesiones abiertas
+      - name: El panel del cliente habla bien
+        run: php test/panel-cliente-idioma-tests.php
+
+      - name: Cambiar la contrasena cierra las sesiones en TODO el sitio
         run: php test/sesiones-tests.php
 
   javascript-lint:

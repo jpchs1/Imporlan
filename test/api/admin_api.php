@@ -102,8 +102,8 @@ function verifyJWT($token) {
     // produccion vale aqui. Sin este corte, una sesion revocada seguia
     // entrando por /test/api/ una semana entera. Lee la lista de produccion,
     // que es una sola.
-    if (file_exists(__DIR__ . '/../../api/sesiones.php')) require_once __DIR__ . '/../../api/sesiones.php';
-    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
+    if (file_exists(__DIR__ . '/../../api/session_revocation.php')) require_once __DIR__ . '/../../api/session_revocation.php';
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) return null;
     
     return $payload;
 }

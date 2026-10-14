@@ -187,7 +187,7 @@ function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
             {(item.status === 'sold' || item.status === 'expired') && (
               <button onClick={() => onRenew(item.id)} className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                Renovar (+30 dias)
+                Renovar (+30 días)
               </button>
             )}
             {item.status !== 'deleted' && (
@@ -238,8 +238,8 @@ function DetailModal({ item, open, onClose }) {
         {item.ano && <InfoCell label="Ano" value={item.ano} />}
         {item.eslora && <InfoCell label="Eslora" value={item.eslora} />}
         {item.horas && <InfoCell label="Horas Motor" value={item.horas} />}
-        {item.ubicacion && <InfoCell label="Ubicacion" value={item.ubicacion} />}
-        {item.condicion && <InfoCell label="Condicion" value={item.condicion} />}
+        {item.ubicacion && <InfoCell label="Ubicación" value={item.ubicacion} />}
+        {item.condicion && <InfoCell label="Condición" value={item.condicion} />}
         {item.estado && <InfoCell label="Estado" value={item.estado} />}
       </div>
 
@@ -317,7 +317,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   async function handleUploadPhoto(files) {
-    if (photos.length + files.length > 8) { toast?.('Maximo 8 fotos', 'error'); return; }
+    if (photos.length + files.length > 8) { toast?.('Máximo 8 fotos', 'error'); return; }
     setUploading(true);
     for (const file of files) {
       try {
@@ -357,7 +357,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
         data = await createListing(payload);
       }
       if (data.success) {
-        toast?.(editItem ? 'Publicacion actualizada' : 'Publicacion creada', 'success');
+        toast?.(editItem ? 'Publicación actualizada' : 'Publicación creada', 'success');
         onSuccess();
         onClose();
       } else {
@@ -370,11 +370,11 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editItem ? 'Editar Publicacion' : 'Publicar Embarcacion'} size="lg">
+    <Modal open={open} onClose={onClose} title={editItem ? 'Editar Publicación' : 'Publicar Embarcación'} size="lg">
       <div className="space-y-4">
-        {/* Tipo publicacion */}
+        {/* Tipo publicación */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tipo de Publicacion</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tipo de Publicación</label>
           <div className="flex gap-2">
             <button type="button" onClick={() => set('tipo_publicacion', 'venta')} className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border-2', form.tipo_publicacion === 'venta' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
               Venta
@@ -391,13 +391,13 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
           <Input label="Eslora" value={form.eslora} onChange={e => set('eslora', e.target.value)} placeholder="25 ft" />
           <Input label="Precio" type="number" value={form.precio} onChange={e => set('precio', e.target.value)} placeholder="50000" />
           <Select label="Moneda" value={form.moneda} onChange={e => set('moneda', e.target.value)} options={[{ value: 'USD', label: 'USD' }, { value: 'CLP', label: 'CLP' }]} />
-          <Input label="Ubicacion" value={form.ubicacion} onChange={e => set('ubicacion', e.target.value)} placeholder="Vina del Mar, Chile" />
+          <Input label="Ubicación" value={form.ubicacion} onChange={e => set('ubicacion', e.target.value)} placeholder="Vina del Mar, Chile" />
           <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value)} options={[{ value: 'Nueva', label: 'Nueva' }, { value: 'Usada', label: 'Usada' }]} />
-          <Select label="Condicion" value={form.condicion} onChange={e => set('condicion', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: c }))} />
+          <Select label="Condición" value={form.condicion} onChange={e => set('condicion', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: c }))} />
           <Input label="Horas Motor" type="number" value={form.horas} onChange={e => set('horas', e.target.value)} placeholder="150" />
         </div>
 
-        <Textarea label="Descripcion" value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Describe tu embarcacion..." />
+        <Textarea label="Descripción" value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Describe tu embarcación..." />
 
         {/* Photos */}
         <div>
@@ -492,7 +492,7 @@ export default function Marketplace() {
     if (!confirm(`Eliminar "${nombre}"?`)) return;
     try {
       const data = await deleteListing(id);
-      if (data.success) { toast?.('Publicacion eliminada', 'success'); load(); }
+      if (data.success) { toast?.('Publicación eliminada', 'success'); load(); }
       else toast?.(data.error || 'Error', 'error');
     } catch { toast?.('Error de conexion', 'error'); }
   }
@@ -500,13 +500,13 @@ export default function Marketplace() {
   async function handleRenew(id) {
     try {
       const data = await renewListing(id);
-      if (data.success) { toast?.('Publicacion renovada por 30 dias', 'success'); load(); }
+      if (data.success) { toast?.('Publicación renovada por 30 días', 'success'); load(); }
       else toast?.(data.error || 'Error', 'error');
     } catch { toast?.('Error de conexion', 'error'); }
   }
 
   async function handleMarkSold(id) {
-    if (!confirm('Marcar como vendido?')) return;
+    if (!confirm('¿Marcar como vendido?')) return;
     try {
       const data = await markListingSold(id);
       if (data.success) { toast?.('Marcado como vendido', 'success'); load(); }
@@ -542,7 +542,7 @@ export default function Marketplace() {
             </Button>
             <Button onClick={() => { setEditItem(null); setShowPublish(true); }} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
-              Publicar embarcacion
+              Publicar embarcación
             </Button>
           </div>
         </div>
@@ -623,7 +623,7 @@ export default function Marketplace() {
               <div className="flex flex-wrap gap-2">
                 <div className="flex-1 min-w-[220px] relative">
                   <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                  <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar marca, modelo, ubicacion..." className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
+                  <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar marca, modelo, ubicación..." className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
                   {search && (
                     <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
@@ -675,14 +675,14 @@ export default function Marketplace() {
               {filtersActive ? (
                 <>
                   <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-                  <p className="text-sm text-slate-500 mt-1">Probá ajustar los filtros o limpiar la busqueda.</p>
+                  <p className="text-sm text-slate-500 mt-1">Prueba ajustar los filtros o limpiar la búsqueda.</p>
                   <Button variant="secondary" size="sm" className="mt-4" onClick={clearFilters}>Limpiar filtros</Button>
                 </>
               ) : (
                 <>
                   <p className="text-slate-700 font-semibold">No hay publicaciones activas</p>
-                  <p className="text-sm text-slate-500 mt-1">Sé el primero en publicar una embarcacion.</p>
-                  <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>Publicar embarcacion</Button>
+                  <p className="text-sm text-slate-500 mt-1">Sé el primero en publicar una embarcación.</p>
+                  <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>Publicar embarcación</Button>
                 </>
               )}
             </Card>
@@ -702,9 +702,9 @@ export default function Marketplace() {
           <Card className="text-center py-16">
             <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M12 4v16m8-8H4"/></svg>
             <p className="text-slate-500 font-medium">No tienes publicaciones</p>
-            <p className="text-sm text-slate-400 mt-1">Publica tu primera embarcacion.</p>
+            <p className="text-sm text-slate-400 mt-1">Publica tu primera embarcación.</p>
             <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>
-              Publicar Embarcacion
+              Publicar Embarcación
             </Button>
           </Card>
         ) : (
@@ -749,7 +749,7 @@ export default function Marketplace() {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="text-left px-4 py-3 font-semibold">Embarcacion</th>
+                        <th className="text-left px-4 py-3 font-semibold">Embarcación</th>
                         <th className="text-left px-4 py-3 font-semibold">Tipo</th>
                         <th className="text-right px-4 py-3 font-semibold">Precio</th>
                         <th className="text-left px-4 py-3 font-semibold">Estado</th>

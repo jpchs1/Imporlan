@@ -395,15 +395,13 @@ function usersUpdate() {
         // Un administrador que le cambia la clave a alguien suele estar
         // haciendo justamente eso: sacarlo.
         //
-        // Con el correo de ANTES del cambio: si en la misma edicion se le cambio
-        // tambien el correo, sus tokens vivos siguen llevando el viejo, y una
-        // marca puesta solo al nuevo los dejaba pasar a todos. Se marca el
-        // nuevo tambien, por las dudas de una sesion abierta entremedio.
-        if (!empty($input['password'])) {
-            require_once __DIR__ . '/sesiones.php';
-            if ($targetEmail !== '') sesionesCerrarAnteriores($targetEmail);
-            if (!empty($input['email']) && strcasecmp($input['email'], $targetEmail) !== 0) {
-                sesionesCerrarAnteriores($input['email']);
+        // Por id, no por correo: si en la misma edicion tambien se le cambio el
+        // correo, el id es el mismo y los tokens vivos —que llevan el id en
+        // `sub`— caen igual.
+        if (!empty($input['password']) && file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            if (!impInvalidarSesionesDe($id)) {
+                error_log('users_api: la clave cambio pero no se pudieron cerrar las sesiones de la cuenta ' . $id);
             }
         }
 
@@ -641,8 +639,12 @@ function usersSendPasswordReset() {
         $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
 
         // La clave vieja ya no sirve, y las sesiones abiertas con ella tampoco.
-        require_once __DIR__ . '/sesiones.php';
-        sesionesCerrarAnteriores($user['email']);
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            if (!impInvalidarSesionesDe($user['id'])) {
+                error_log('users_api: temporal enviada pero no se pudieron cerrar las sesiones de la cuenta ' . $user['id']);
+            }
+        }
 
         // Send email with temporary password
         require_once __DIR__ . '/email_service.php';

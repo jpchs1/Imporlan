@@ -142,9 +142,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // con mas poder del sitio: si alguien la recupera porque cree que otro
         // entro, ese otro no puede quedarse una semana mas.
         require_once __DIR__ . '/credentials.php';
-        if (file_exists(__DIR__ . '/sesiones.php')) {
-            require_once __DIR__ . '/sesiones.php';
-            if (!sesionesCerrarAnteriores(IMPORLAN_ADMIN_EMAIL)) {
+        //
+        // El administrador principal no vive en la base: sus tokens llevan
+        // sub = 1, fijo en auth_local.php y en admin_api.php.
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            if (!impInvalidarSesionesDe(1)) {
                 $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
             }
         }

@@ -101,12 +101,28 @@ export function purchaseTypeLabel(type) {
   return { plan: 'Plan', link: 'Cotización link', cotizacion: 'Cotización', pago_directo: 'Pago directo' }[type] || type || '-';
 }
 
-/** Medio de pago legible. */
+/**
+ * Medio de pago legible.
+ *
+ * El panel del cliente mostraba la clave de la base con los guiones cambiados
+ * por espacios: "mercadopago", "transferencia bancaria". El cliente leia el
+ * nombre interno de un sistema, no el de la empresa por la que acaba de pagar.
+ *
+ * La clave se normaliza porque llega escrita de varias formas segun quien la
+ * grabe, y lo que no reconocemos se muestra legible — nunca con guiones bajos.
+ */
 export function paymentMethodLabel(m) {
-  return {
-    webpay: 'WebPay', mercadopago: 'Mercado Pago', paypal: 'PayPal',
-    transferencia_bancaria: 'Transferencia', transferencia: 'Transferencia', manual: 'Manual',
-  }[m] || m || '-';
+  const clave = (m || '').toString().toLowerCase().trim();
+  const map = {
+    webpay: 'WebPay', transbank: 'WebPay',
+    mercadopago: 'Mercado Pago', mercado_pago: 'Mercado Pago',
+    paypal: 'PayPal',
+    transferencia_bancaria: 'Transferencia', transferencia: 'Transferencia',
+    bank_transfer: 'Transferencia',
+    efectivo: 'Efectivo', manual: 'Registrado por Imporlan',
+  };
+  if (map[clave]) return map[clave];
+  return clave ? clave.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()) : '-';
 }
 
 /** Estados de compra que representan dinero efectivamente recibido. */
