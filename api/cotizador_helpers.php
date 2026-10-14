@@ -315,14 +315,13 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
      * ask for it).
      *
      * Flete + seguro go at cost: they are printed on the customs declaration
-     * (and the freight is part of the IVA base), so they must match. Half of
-     * the margin (what's left over the sheet costs, i.e. the FEE) goes to its
-     * own «Gestión Imporlan» line; the other half is spread over the three
-     * logistics stages in proportion to their cost. JP, 14-oct-2026: spread
-     * whole, the FEE made the USA stage read 43% over cost for its title; this
-     * way every stage stays ~21% over cost, the client sees that Imporlan
-     * charges for its work, and no line shows the whole FEE. Everything adds
-     * up, to the peso, to the All-Inclusive the client has in the quote.
+     * (and the freight is part of the IVA base), so they must match. The
+     * margin (what's left over the sheet costs, i.e. the FEE) goes whole to
+     * its own «Gestión Imporlan» line, and the three logistics stages show
+     * their cost. JP, 14-oct-2026: spread over the stages, the FEE made them
+     * read expensive for their titles («Gestión Imporlan approx CLP
+     * $3.000.000», the whole FEE). Everything adds up, to the peso, to the
+     * All-Inclusive the client has in the quote.
      *
      * 'cuadra' is false when the saved total doesn't even cover the freight
      * (a broken quote): the breakdown must not go out like that.
@@ -375,10 +374,12 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         $servicio = ['usa', 'chile', 'entrega'];
         $base = 0.0;
         foreach ($servicio as $k) $base += $etapas[$k]['costo'];
-        // Half the margin, to the thousand, in its own line. Under $2.000 of
-        // margin there is no line: it would read as a rounding error.
+        // The whole margin, to the thousand, in its own line (under $1.000
+        // there is no line: it would read as a rounding error). Rounding it up
+        // can't take more than the stages have left; then it rounds down.
         $margen = $allIncl - $montos['flete'] - $base;
-        $montos['gestion'] = $margen >= 2000 ? round($margen / 2, -3) : 0;
+        $montos['gestion'] = $margen >= 1000 ? round($margen, -3) : 0;
+        if ($montos['gestion'] > $allIncl - $montos['flete']) $montos['gestion'] = floor($margen / 1000) * 1000;
         $resto = $allIncl - $montos['flete'] - $montos['gestion'];
         // The costliest stage takes the remainder; the other two are rounded
         // to the thousand so they read as prices. Its share is at least a third
@@ -481,7 +482,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             . '</div>'
             . '<div style="background:#f8fafc;border-left:4px solid #94a3b8;padding:12px 16px;border-radius:6px;margin:18px 0;color:#475569;font-size:12px;line-height:1.6">'
             . 'El <strong>flete marítimo y el seguro</strong> van a costo: son los mismos valores que aparecen en la declaración de aduana. '
-            . 'Las etapas siguientes son el precio de nuestro servicio en cada tramo, y la última línea es la gestión de Imporlan de principio a fin.'
+            . 'Las etapas siguientes cubren cada tramo de la logística, y la última línea es nuestro trabajo: la gestión de Imporlan de principio a fin.'
             . '</div>'
             . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px">Resumen de la cotización</div>'
             . $resumen
