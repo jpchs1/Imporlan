@@ -218,9 +218,11 @@ function urResponderYSeguirEnSegundoPlano($cuerpo) {
     // Sin esto, cerrar la conexion puede matar el proceso antes del correo.
     ignore_user_abort(true);
 
-    $json = json_encode($cuerpo);
-    header('Content-Length: ' . strlen($json));
-    echo $json;
+    // Sin Content-Length a mano: si el servidor comprime la salida despues,
+    // el largo que calculemos aqui ya no es el que viaja, y un Content-Length
+    // que no cuadra deja al navegador esperando bytes que no llegan. Las
+    // funciones de abajo cierran bien la respuesta por su cuenta.
+    echo json_encode($cuerpo);
 
     // PHP-FPM la trae de fabrica; LiteSpeed —que es lo que corre en el
     // hosting— expone la suya con otro nombre.
