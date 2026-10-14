@@ -80,7 +80,16 @@ t(strpos($src, 'array_slice($todas, -IWA_APRENDIDO_MAX)') !== false,
 t(strpos($src, '. iwa_aprendido_prompt();') !== false, 'lo aprendido entra en el prompt de sistema');
 
 // Con el archivo de aprendizaje vacío, el prompt queda como estaba.
-$archivo = __DIR__ . '/../api/logs/whatsapp-aprendido.json';
+// Se borra la carpeta entera, no sólo el archivo: iwa_aprender() tiene que
+// poder crearla. Antes no lo hacía, y como escribe con @ el fallo no se veía
+// por ninguna parte — JP corregía el borrador y lo aprendido se perdía.
+$carpetaLogs = __DIR__ . '/../api/logs';
+$archivo = $carpetaLogs . '/whatsapp-aprendido.json';
+if (is_file($archivo)) @unlink($archivo);
+if (is_dir($carpetaLogs) && !glob($carpetaLogs . '/*')) @rmdir($carpetaLogs);
+iwa_aprender(['mensajes' => [['dir' => 'in', 'texto' => 'hola']]], 'prueba de carpeta');
+t(is_file($archivo), 'iwa_aprender() crea la carpeta logs/ si no existe');
+
 $habia = is_file($archivo) ? (string) file_get_contents($archivo) : null;
 @unlink($archivo);
 $sinNada = iwa_sistema();
