@@ -120,6 +120,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @unlink($tokenFile);
 
+        // Este espejo escribe la MISMA clave de produccion
+        // (/home/wwimpo/credentials_config.php). Cambiarla por aqui sin cerrar
+        // las sesiones dejaba vivo un token robado del administrador una
+        // semana, aunque el reseteo de /api ya lo hiciera bien. Mismo corte, y
+        // con las marcas de produccion. El administrador principal lleva sub = 1.
+        if (file_exists(__DIR__ . '/../../api/session_revocation.php')) {
+            require_once __DIR__ . '/../../api/session_revocation.php';
+            if (!impInvalidarSesionesDe(1)) {
+                $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
+            }
+        }
+
         error_log('admin_reset_password (test): ' . implode('; ', $log));
 
         echo json_encode([

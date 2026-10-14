@@ -94,6 +94,30 @@ foreach ($sitios as $f => [$llamada, $queEs]) {
 prueba('y en el reseteo con clave temporal del panel',
     strpos(leer('api/users_api.php'), "impInvalidarSesionesDe(\$user['id'])") !== false);
 
+// --------------------- TODO el que escribe una contrasena cierra sesiones
+// La lista de arriba nombra los sitios conocidos. Esta los busca por PATRON:
+// una escritura en la base (password_hash = ?) o una reescritura de la clave
+// del administrador en credentials_config.php. Asi se encontro el espejo
+// test/api/admin_reset_password.php, que cambiaba la clave de PRODUCCION sin
+// cerrar ninguna sesion.
+$escritores = [];
+foreach (array_merge(glob($raiz . '/api/*.php'), glob($raiz . '/test/api/*.php')) as $php) {
+    $src = file_get_contents($php);
+    if (preg_match('/password_hash = \?/', $src) || strpos($src, "define('IMPORLAN_ADMIN_PASSWORD', '\" .") !== false) {
+        $escritores[str_replace($raiz . '/', '', $php)] = $src;
+    }
+}
+prueba('se encontraron los cinco escritores de contrasena', count($escritores) === 5);
+foreach ($escritores as $nombre => $src) {
+    prueba("$nombre cierra las sesiones al cambiar la clave", strpos($src, 'impInvalidarSesionesDe(') !== false);
+}
+
+// Y quien cambio la clave se entera si el corte fallo: es lo unico que le
+// permite actuar.
+prueba('el cliente se entera si sus otras sesiones siguen abiertas',
+    strpos(leer('api/user_reset_password.php'), 'no pudimos cerrar las otras sesiones abiertas') !== false);
+prueba('el administrador tambien', substr_count(leer('api/users_api.php'), '$avisoSesiones') >= 4);
+
 // El administrador principal no vive en la base: su sub es 1, fijo, en los
 // dos logins. Si eso cambiara, el reseteo marcaria otra cuenta.
 prueba('el administrador principal sigue teniendo sub = 1 en auth_local',

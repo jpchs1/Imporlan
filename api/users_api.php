@@ -398,14 +398,16 @@ function usersUpdate() {
         // Por id, no por correo: si en la misma edicion tambien se le cambio el
         // correo, el id es el mismo y los tokens vivos —que llevan el id en
         // `sub`— caen igual.
+        $avisoSesiones = '';
         if (!empty($input['password']) && file_exists(__DIR__ . '/session_revocation.php')) {
             require_once __DIR__ . '/session_revocation.php';
             if (!impInvalidarSesionesDe($id)) {
                 error_log('users_api: la clave cambio pero no se pudieron cerrar las sesiones de la cuenta ' . $id);
+                $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
             }
         }
 
-        echo json_encode(['success' => true, 'message' => 'Usuario actualizado']);
+        echo json_encode(['success' => true, 'message' => 'Usuario actualizado.' . $avisoSesiones]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al actualizar: ' . $e->getMessage()]);
@@ -639,10 +641,12 @@ function usersSendPasswordReset() {
         $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
 
         // La clave vieja ya no sirve, y las sesiones abiertas con ella tampoco.
+        $avisoSesiones = '';
         if (file_exists(__DIR__ . '/session_revocation.php')) {
             require_once __DIR__ . '/session_revocation.php';
             if (!impInvalidarSesionesDe($user['id'])) {
                 error_log('users_api: temporal enviada pero no se pudieron cerrar las sesiones de la cuenta ' . $user['id']);
+                $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
             }
         }
 
@@ -652,10 +656,10 @@ function usersSendPasswordReset() {
         $result = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $tempPassword);
 
         if ($result['success']) {
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email']]);
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email'] . '.' . $avisoSesiones]);
         } else {
             // Password was updated but email failed - still report success with warning
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido'), 'email_error' => true]);
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido') . '.' . $avisoSesiones, 'email_error' => true]);
         }
     } catch (PDOException $e) {
         http_response_code(500);
