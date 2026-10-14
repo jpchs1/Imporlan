@@ -201,15 +201,21 @@ export default function Orders() {
   const linksRef = useRef(links);
   useEffect(() => { linksRef.current = links; }, [links]);
 
-  // «Enviar desglose» desde la fila del link. Después se relee el expediente
-  // para mostrar «Reenviar desglose», salvo con ediciones sin guardar, que
-  // refrescar pisaría.
+  // Tras enviar el desglose se marca sólo esa fila. No se relee el expediente:
+  // el envío puede tardar y, si mientras tanto se editó otra cosa, releer la
+  // pisaría (Devin y Codex, PR 668). Guardar los links no escribe esta columna.
+  function marcarDesgloseEnviado(linkId, sentAt) {
+    const marcar = l => (l.id === linkId ? { ...l, quote_breakdown_sent_at: sentAt } : l);
+    setLinks(prev => prev.map(marcar));
+    setDetail(prev => (prev ? { ...prev, links: (prev.links || []).map(marcar) } : prev));
+  }
+
   async function handleEnviarDesglose(lk) {
     try {
-      const email = await enviarDesglose(lk.id);
-      if (!email) return;
-      toast?.(`Desglose enviado a ${email}`, 'success');
-      if (!unsaved) refrescarDetalle();
+      const enviado = await enviarDesglose(lk.id);
+      if (!enviado) return;
+      toast?.(`Desglose enviado a ${enviado.email}`, 'success');
+      marcarDesgloseEnviado(lk.id, enviado.sentAt);
     } catch (e) {
       toast?.(e.message || 'Error al enviar el desglose', 'error');
     }
@@ -734,9 +740,7 @@ export default function Orders() {
         open={!!cotizandoLink}
         link={cotizandoLink}
         onClose={() => setCotizandoLink(null)}
-        // Releer marca «Desglose enviado»; con ediciones sin guardar se espera
-        // a que las guarden, porque refrescar las pisaría.
-        onBreakdownSent={() => { if (!unsaved) refrescarDetalle(); }}
+        onBreakdownSent={marcarDesgloseEnviado}
         onSaved={async () => {
           if (!detail?.id) return;
           const cotizadoId = cotizandoLink?.id;

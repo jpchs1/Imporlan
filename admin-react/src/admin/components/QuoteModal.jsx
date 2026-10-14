@@ -247,10 +247,10 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
     if (!link?.id) return;
     setSendingBreakdown(true);
     try {
-      const email = await enviarDesglose(link.id);
-      if (!email) return;
-      showToast(`Desglose enviado a ${email}`, 'success');
-      onBreakdownSent?.();
+      const enviado = await enviarDesglose(link.id);
+      if (!enviado) return;
+      showToast(`Desglose enviado a ${enviado.email}`, 'success');
+      onBreakdownSent?.(link.id, enviado.sentAt);
       onClose?.();
     } catch (e) {
       showToast(e.message || 'Error al enviar el desglose', 'error');

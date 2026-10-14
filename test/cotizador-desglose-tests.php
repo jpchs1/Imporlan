@@ -206,6 +206,17 @@ $fila = (string) file_get_contents(__DIR__ . '/../admin-react/src/admin/componen
 t(strpos($fila, '{onEnviarDesglose && lk.quote_published_at && (') !== false,
     'la fila del link muestra «Enviar desglose» cuando la cotización está publicada');
 
+// Devin y Codex, PR 668: tras el envío no se relee el expediente (pisaría lo
+// que se editó mientras tanto); se marca sólo la fila enviada.
+$orders = (string) file_get_contents(__DIR__ . '/../admin-react/src/admin/pages/Orders.jsx');
+if (preg_match('/async function handleEnviarDesglose\(lk\) \{(.*?)\n  \}\n/s', $orders, $m)) {
+    t(strpos($m[1], 'refrescarDetalle') === false && strpos($m[1], 'marcarDesgloseEnviado(') !== false,
+        'enviar el desglose no relee el expediente: marca sólo esa fila');
+} else {
+    t(false, 'no encontré handleEnviarDesglose');
+}
+t(strpos($orders, 'onBreakdownSent={marcarDesgloseEnviado}') !== false, 'la ventana de cotización hace lo mismo');
+
 $panel = (string) file_get_contents(__DIR__ . '/../panel/assets/links-contratados.js');
 t(strpos($panel, 'Flete marítimo y seguro') === false && strpos($panel, 'quote_breakdown') === false,
     'el panel del cliente no muestra el desglose por defecto');
