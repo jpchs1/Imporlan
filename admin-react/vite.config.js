@@ -99,6 +99,12 @@ export default defineConfig({
       input: cfg.entry,
     },
   },
+  // Solo afecta al servidor de desarrollo: las pantallas se cargan perezosas
+  // (React.lazy) y Vite descubría recharts/leaflet recién al abrirlas,
+  // re-optimizaba y el import dinámico fallaba en esa primera carga.
+  optimizeDeps: {
+    include: ['recharts', 'leaflet', 'react-leaflet', 'lucide-react'],
+  },
   server: {
     port: target === 'admin' ? 5173 : 5174,
     proxy: {

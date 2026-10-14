@@ -1,5 +1,12 @@
 # El panel de clientes: por qué hay dos y cómo se migra
 
+> **Actualización (14-oct-2026): la migración ya ocurrió.** Desde #625,
+> `/panel/` sirve el panel compilado desde `admin-react/src/user/` con
+> `BUILD_TARGET=user-prod` (base `/panel/`); los 22 scripts ya no se cargan.
+> El rediseño de octubre (#679–#692) se publica igual: `npm run build:admin`
+> y `BUILD_TARGET=user-prod npx vite build` desde `admin-react/`. Lo que
+> sigue es el registro histórico de cómo era antes.
+
 Este documento existe porque la situación no es obvia y cuesta media hora
 redescubrirla cada vez.
 
