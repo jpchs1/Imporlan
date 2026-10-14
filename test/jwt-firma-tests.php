@@ -192,6 +192,24 @@ foreach (['api/chat_api.php', 'test/api/chat_api.php'] as $rel) {
     ok(strpos($hp, "'2fa_pending'") !== false, "$rel: handlePoll rechaza el token temporal de 2FA");
 }
 
+echo "\nEl espejo test/api se publica con cada deploy\n";
+// Si no, los arreglos de test/api se mergean pero no llegan al servidor: el
+// cron solo corre deploy-prod.sh, y deploy-test.sh se corre a mano.
+$deploy = file_get_contents("$raiz/deploy-prod.sh");
+ok(strpos($deploy, 'cp -a "$STAGING_REPO/test/api/." "$PUBLIC_HTML/test/api/"') !== false, 'deploy-prod.sh copia test/api al servidor');
+ok(!file_exists("$raiz/test/api/db_config.php"), 'test/api/db_config.php no esta en el repo (el overlay no pisa la config del servidor)');
+foreach (glob("$raiz/test/api/*.php") as $f) {
+    if (preg_match_all("~__DIR__\\s*\\.\\s*'(/\\.\\./[^']+\\.php)'~", file_get_contents($f), $m)) {
+        foreach (array_unique($m[1]) as $dep) {
+            $real = realpath(dirname($f) . $dep);
+            // Lo que el espejo pide de afuera tiene que publicarlo deploy-prod.sh:
+            // estar en api/ (o ser config del servidor, que no esta en el repo).
+            $esConfig = basename($dep) === 'db_config.php';
+            ok($esConfig || ($real && strpos($real, "$raiz/api/") === 0), basename($f) . " pide $dep y deploy-prod.sh lo publica");
+        }
+    }
+}
+
 echo "\nLogin con Google: firma real, contra las dos copias\n";
 if (!function_exists('openssl_pkey_new')) {
     ok(false, 'falta la extension openssl para probar el login con Google');
