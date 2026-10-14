@@ -25,6 +25,50 @@ export function fmtUSD(n) {
   return `USD ${nf0.format(Math.round(v))}`;
 }
 
+/* ---------------------------------------------------------------------------
+   MoneyInput: lo que se escribe y lo que se muestra.
+   CLP es entero. USD acepta hasta 2 decimales (coma o punto al escribir) y se
+   muestra con formato es-CL: 1250.5 → "1.250,50"; 1250 → "1.250".
+   --------------------------------------------------------------------------- */
+const nf2 = new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Texto escrito en un MoneyInput → { texto (limpio, con coma), valor (number|null) }. */
+export function parseMoneyInput(text, currency = 'CLP') {
+  const s = String(text ?? '');
+  if (currency !== 'USD') {
+    const digits = s.replace(/[^\d]/g, '');
+    return { texto: digits, valor: digits === '' ? null : Number(digits) };
+  }
+  // Separador decimal: si hay coma y punto, el último que aparece; los demás
+  // son miles ("1.250,50" → 1250.50; "87.50" → 87.5; "87,5" → 87.5).
+  const iComa = s.lastIndexOf(','), iPunto = s.lastIndexOf('.');
+  const sep = iComa < 0 && iPunto < 0 ? -1 : Math.max(iComa, iPunto);
+  const entero = (sep < 0 ? s : s.slice(0, sep)).replace(/[^\d]/g, '');
+  const dec = sep < 0 ? null : s.slice(sep + 1).replace(/[^\d]/g, '').slice(0, 2);
+  const texto = dec === null ? entero : `${entero},${dec}`;
+  if (entero === '' && !dec) return { texto, valor: null };
+  return { texto, valor: Math.round(Number(`${entero || '0'}.${dec || '0'}`) * 100) / 100 };
+}
+
+/** Valor numérico → texto para mostrar sin foco ("12.523.000" · "1.250,50"). */
+export function fmtMoneyInput(value, currency = 'CLP') {
+  if (value === null || value === undefined || value === '') return '';
+  const v = Number(value);
+  if (!isFinite(v)) return '';
+  if (currency !== 'USD') return nf0.format(Math.round(v));
+  const entero = Math.abs(v - Math.round(v)) < 1e-9;
+  return entero ? nf0.format(v) : nf2.format(v);
+}
+
+/** Valor numérico → texto para editar con foco ("12523000" · "1250,5"). */
+export function rawMoneyInput(value, currency = 'CLP') {
+  if (value === null || value === undefined || value === '') return '';
+  const v = Number(value);
+  if (!isFinite(v)) return '';
+  if (currency !== 'USD') return String(Math.round(v));
+  return String(Math.round(v * 100) / 100).replace('.', ',');
+}
+
 /** "12 oct 2026" (o "12 oct 2026, 14:35" con `hora`). */
 export function fmtDateLarga(dateStr, { hora = false } = {}) {
   const d = aFecha(dateStr);

@@ -108,3 +108,20 @@ export function paymentMethodLabel(m) {
 
 /** Estados de compra que representan dinero efectivamente recibido. */
 export const PAID_STATUSES = ['paid', 'active', 'completed', 'expired'];
+
+/**
+ * ¿`file` pasa el filtro `accept` (misma sintaxis que el atributo nativo:
+ * ".pdf,image/*,application/pdf")? Sin `accept`, todo pasa. Lo usa Dropzone
+ * para lo arrastrado, que el navegador no filtra.
+ */
+export function aceptaArchivo(file, accept) {
+  const reglas = String(accept || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (!reglas.length) return true;
+  const nombre = String(file?.name || '').toLowerCase();
+  const tipo = String(file?.type || '').toLowerCase();
+  return reglas.some(r => {
+    if (r.startsWith('.')) return nombre.endsWith(r);
+    if (r.endsWith('/*')) return tipo.startsWith(r.slice(0, -1));
+    return tipo === r;
+  });
+}

@@ -85,9 +85,10 @@ export function ProcessStepper({ current, step, steps = ETAPAS_EXPEDIENTE, compl
       {currentNote && <p className="mt-4 text-sm text-ink-700 bg-brand-50 border border-brand-200 rounded-md px-3 py-2">{currentNote}</p>}
       {(onPrev || onNext) && (
         <div className="mt-5 flex items-center justify-center gap-3">
-          <Button variant="secondary" size="sm" icon={ChevronLeft} onClick={onPrev} disabled={cur <= 1}>Retroceder</Button>
+          {/* Solo los botones que tienen acción: con onNext a secas no hay "Retroceder" muerto. */}
+          {onPrev && <Button variant="secondary" size="sm" icon={ChevronLeft} onClick={onPrev} disabled={cur <= 1}>Retroceder</Button>}
           <span className="text-13 text-ink-500 tabular">Etapa {cur} de {total}</span>
-          <Button variant="secondary" size="sm" iconRight={ChevronRight} onClick={onNext} disabled={cur >= total}>Avanzar</Button>
+          {onNext && <Button variant="secondary" size="sm" iconRight={ChevronRight} onClick={onNext} disabled={cur >= total}>Avanzar</Button>}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { forwardRef, useId, useState, cloneElement, isValidElement } from 'react';
 import { cn } from '../lib/utils';
+import { parseMoneyInput, fmtMoneyInput, rawMoneyInput } from '../lib/format';
 import { ChevronDown, Check } from './Icons';
 
 /* ---------------------------------------------------------------------------
@@ -221,7 +222,9 @@ export const Switch = forwardRef(function Switch({ label, hint, id, className, c
           dims, checked ? 'bg-brand-600' : 'bg-line-strong')}
         {...props}
       >
-        <span className={cn('absolute top-1/2 -translate-y-1/2 rounded-full bg-white shadow-card transition-transform duration-150', knob, checked && on)} />
+        {/* `left-0`: sin él, el knob absoluto cae en su posición estática (en un
+            <button> es el borde derecho del track) y pisa la primera letra del label. */}
+        <span aria-hidden="true" className={cn('absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white shadow-card transition-transform duration-150', knob, checked && on)} />
       </button>
       {(label || hint) && (
         <label htmlFor={fid} className="text-sm text-ink-700 cursor-pointer">
@@ -236,12 +239,14 @@ export const Switch = forwardRef(function Switch({ label, hint, id, className, c
 /* ---------------------------------------------------------------------------
    MoneyInput (CLP / USD) · NumberInput con unidad
    --------------------------------------------------------------------------- */
-const nfCL = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
-
 /**
  * Entrada de dinero: muestra "12.523.000" con separador de miles mientras no
  * tiene el foco y dígitos limpios mientras se escribe. `value` es un número
  * (o null); `onChange(number|null)`.
+ *
+ * CLP es entero. USD acepta hasta 2 decimales (coma o punto al escribir), se
+ * muestra "1.250,50" y `onChange` entrega el número con decimales; al enfocar
+ * no se redondea (87.5 → "87,5").
  */
 export const MoneyInput = forwardRef(function MoneyInput(
   { currency = 'CLP', value, onChange, label, hint, error, required, id, className, size = 'md', placeholder = '0', ...props },
@@ -249,23 +254,24 @@ export const MoneyInput = forwardRef(function MoneyInput(
 ) {
   const [focus, setFocus] = useState(false);
   const [raw, setRaw] = useState('');
-  const shown = focus ? raw : (value === null || value === undefined || value === '' ? '' : nfCL.format(Number(value)));
+  const usd = currency === 'USD';
+  const shown = focus ? raw : fmtMoneyInput(value, currency);
   return (
     <Input
       ref={ref}
       label={label} hint={hint} error={error} required={required} id={id} className={className} size={size}
-      inputMode="numeric"
-      prefix={currency === 'USD' ? 'USD' : '$'}
-      suffix={currency === 'USD' ? undefined : 'CLP'}
+      inputMode={usd ? 'decimal' : 'numeric'}
+      prefix={usd ? 'USD' : '$'}
+      suffix={usd ? undefined : 'CLP'}
       inputClassName="text-right tabular"
       placeholder={placeholder}
       value={shown}
-      onFocus={() => { setRaw(value === null || value === undefined || value === '' ? '' : String(Math.round(Number(value)))); setFocus(true); }}
+      onFocus={() => { setRaw(rawMoneyInput(value, currency)); setFocus(true); }}
       onBlur={() => setFocus(false)}
       onChange={(e) => {
-        const digits = e.target.value.replace(/[^\d]/g, '');
-        setRaw(digits);
-        onChange?.(digits === '' ? null : Number(digits));
+        const { texto, valor } = parseMoneyInput(e.target.value, currency);
+        setRaw(texto);
+        onChange?.(valor);
       }}
       {...props}
     />

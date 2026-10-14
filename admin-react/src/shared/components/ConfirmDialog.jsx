@@ -63,17 +63,29 @@ const ConfirmCtx = createContext(null);
  * El Layout ya monta el ConfirmProvider; fuera del Layout (login) montarlo a mano.
  */
 export function ConfirmProvider({ children }) {
-  const [state, setState] = useState(null);
+  // Cola: si llegan dos confirm() seguidos se muestran uno por uno y cada
+  // promesa se resuelve con su propia respuesta (antes la segunda pisaba a la
+  // primera y esa quedaba colgada para siempre).
+  const [queue, setQueue] = useState([]);
+  const seq = useRef(0);
   const confirm = useCallback((opts) => new Promise((resolve) => {
-    setState({ opts: typeof opts === 'string' ? { title: opts } : opts, resolve });
+    seq.current += 1;
+    setQueue(q => [...q, { id: seq.current, opts: typeof opts === 'string' ? { title: opts } : (opts || {}), resolve }]);
   }), []);
-  const finish = (value) => { state?.resolve(value); setState(null); };
+  const head = queue[0] || null;
+  const finish = (value) => {
+    if (!head) return;
+    head.resolve(value);
+    setQueue(q => q.filter(item => item !== head));
+  };
   return (
     <ConfirmCtx.Provider value={confirm}>
       {children}
+      {/* `key` por solicitud: cada diálogo monta su propia trampa de foco. */}
       <ConfirmDialog
-        open={!!state}
-        {...(state?.opts || {})}
+        key={head ? head.id : 'ninguno'}
+        open={!!head}
+        {...(head?.opts || {})}
         onConfirm={() => finish(true)}
         onCancel={() => finish(false)}
       />

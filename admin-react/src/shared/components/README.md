@@ -59,7 +59,7 @@ Todos generan `id`, `label htmlFor`, `hint`, `error` (role=alert), `required`, `
 <Textarea label="Mensaje" maxLength={2000} showCount />
 <Checkbox label="Acepto los términos" checked={ok} onChange={e => setOk(e.target.checked)} />
 <Switch label="Avisar por correo" checked={on} onChange={setOn} />
-<MoneyInput label="Precio negociado" currency="USD" value={n} onChange={setN} />   // onChange(number|null)
+<MoneyInput label="Precio negociado" currency="USD" value={n} onChange={setN} />   // onChange(number|null); USD acepta 2 decimales ("1.250,50"), CLP entero
 <NumberInput label="IVA" unit="%" value={iva} onChange={e => …} />
 <Field label="Fecha"><input type="date" … /></Field>       // controles propios
 <FormGrid cols={2}>…</FormGrid>
@@ -133,7 +133,9 @@ Nunca escribir montos a mano: `fmtCLP` (`$12.523.000`) y `fmtUSD` (`USD 13.182`,
   pageSize={25}
 />
 ```
-`priority` 2 se oculta < lg, 3 < xl. Fila clickeable accesible (Tab + Enter). Sin `mobileCard`, en móvil hay scroll horizontal con sombra lateral. Orden con `aria-sort`; `onSortChange`/`onPageChange` para orden/paginación en el servidor. Va dentro de `<Card padding="none">`.
+`priority` 2 se oculta < lg, 3 < xl. Fila clickeable accesible (Tab + Enter). Sin `mobileCard`, en móvil hay scroll horizontal con sombra lateral. Orden con `aria-sort`. Va dentro de `<Card padding="none">`.
+
+Servidor: `onPageChange(p)` (0-based) deja de recortar `data` y avisa; con `page` la página es controlada, sin `page` la tabla igual lleva el indicador. `onSortChange({ col, dir, key })` deja de ordenar; con `sort={{ col: 'amount' | índice, dir }}` el orden es controlado y alterna al repetir el clic en la misma columna. `total` = filas totales para calcular páginas.
 
 ### Tabs · SegmentedControl · FilterChips · SearchInput
 ```jsx
@@ -168,6 +170,8 @@ await confirm({ title: 'Listo', description: 'Se envió el correo.', cancelLabel
 ```
 Todos: `role="dialog"`, foco atrapado y devuelto, Escape, scroll interno con cabecera/pie fijos. Modal en móvil = hoja a pantalla completa. Tamaños sm 448 · md 512 · lg 672 · xl 896 · full. **Prohibidos `confirm()`/`alert()` nativos.**
 
+Capas anidadas (`lib/focus.js`): las trampas de foco y los `Menu` abiertos forman una **pila**; solo la capa superior recibe Escape y Tab (un ConfirmDialog sobre un Modal cierra solo el de arriba). El bloqueo de scroll del body lleva contador: se restaura el estilo original al soltar el último, en cualquier orden. `confirm()` encola: dos llamadas seguidas se muestran una por una y ambas promesas se resuelven.
+
 ### Menu · Accordion · Dropzone · Avatar
 ```jsx
 <Menu items={[{ label: 'Editar', icon: Pencil, onClick }, { separator: true }, { label: 'Eliminar', icon: Trash, tone: 'danger', onClick }]} />   // "⋯"
@@ -176,12 +180,13 @@ Todos: `role="dialog"`, foco atrapado y devuelto, Escape, scroll interno con cab
 <Dropzone onFiles={subir} accept=".pdf,image/*" multiple hint="PDF o imágenes, hasta 20 MB" />
 <Avatar name={user.name} src={user.avatar_url} size="lg" />
 ```
+`Menu` vive en un portal pero se pinta por encima de la capa activa (drawer, modal) y devuelve el foco al disparador al cerrar; con el scroll se reposiciona (solo se cierra si el disparador sale de la vista). `Dropzone`: la zona de arrastre no es interactiva, el control es el botón «Elegir archivo(s)» (`buttonLabel`); `accept` se aplica también a lo arrastrado, lo rechazado va a `onReject(files)` y se muestra un aviso (`showRejected={false}` lo apaga).
 
 ### ProcessStepper (reemplaza Timeline)
 ```jsx
 <ProcessStepper current={3} completedAt={{ 1: o.plan_at, 2: o.search_at }} currentNote="Estamos coordinando la inspección…" />
 <ProcessStepper current={3} compact />                       // barra + "Etapa 3 de 5 · Inspección" (tarjetas)
-<ProcessStepper current={3} onPrev={…} onNext={…} />        // solo admin
+<ProcessStepper current={3} onPrev={…} onNext={…} />        // solo admin; con solo uno de los dos, solo ese botón
 ```
 Horizontal ≥ md, vertical con descripción en móvil. Etapas en `ETAPAS_EXPEDIENTE` (`lib/status.js`). `Timeline` sigue exportado (`step/onPrev/onNext`) como alias dentro de una Card.
 
