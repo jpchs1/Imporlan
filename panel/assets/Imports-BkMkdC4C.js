@@ -1,0 +1,1 @@
+import{a as e,u as t}from"./status-BjjRD_6w.js";import{n}from"./lib-xLQmHx_2.js";var r=e();function i(){return(0,r.jsx)(t,{to:`/expedientes?filtro=${n}`,replace:!0})}export{i as default};
