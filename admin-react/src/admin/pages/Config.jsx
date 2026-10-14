@@ -1,94 +1,156 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getSettings, updateSettings, getPricing, updatePricing } from '../api';
-import { PageHeader, Card, Button, Input, Spinner } from '../../shared/components/UI';
+import { PageHeader, Card, Button, Input, MoneyInput, NumberInput, FormGrid, Tabs, Spinner, ErrorState } from '../../shared/components/UI';
+import { useToast } from '../../shared/components/Toast';
 
-// Cotizador config schema — drives the editable form for the importation cost
-// calculator. Keys match the cot_* entries seeded by api/settings_api.php in
-// cotizadorSeedDefaults(). Section + label are display-only.
+// Esquema del cotizador: cada clave es una entrada cot_* que siembra
+// api/settings_api.php (cotizadorSeedDefaults()). `type` solo decide qué
+// control se pinta: clp / usd (MoneyInput con miles), pct / hours / rate
+// (NumberInput con unidad). El valor se guarda como texto, igual que antes.
 const COTIZADOR_SECTIONS = [
   {
-    title: 'Tipo de cambio, pagos y delay cliente',
+    id: 'base',
+    title: 'Tipo de cambio y pagos',
+    description: 'Cómo se convierte a pesos y en cuántas cuotas se divide la cotización.',
     fields: [
-      { key: 'cot_usd_clp_rate', label: 'Tipo de cambio USD → CLP' },
-      { key: 'cot_client_delay_hours', label: 'Horas de delay antes de mostrar al cliente' },
-      { key: 'cot_pago_1_pct', label: 'Pago 1 (%)' },
-      { key: 'cot_pago_2_pct', label: 'Pago 2 (%)' },
-      { key: 'cot_pago_3_pct', label: 'Pago 3 (%)' },
+      { key: 'cot_usd_clp_rate', label: 'Tipo de cambio', type: 'rate', hint: 'Pesos por cada dólar' },
+      { key: 'cot_client_delay_hours', label: 'Espera antes de mostrar al cliente', type: 'hours' },
+      { key: 'cot_pago_1_pct', label: 'Pago 1', type: 'pct' },
+      { key: 'cot_pago_2_pct', label: 'Pago 2', type: 'pct' },
+      { key: 'cot_pago_3_pct', label: 'Pago 3', type: 'pct' },
     ],
   },
   {
-    title: 'Cargos y porcentajes',
+    id: 'cargos',
+    title: 'Impuestos y comisión',
+    description: 'El IVA se calcula sobre el CIF (lancha + transporte); el impuesto al lujo, sobre el valor de la lancha.',
     fields: [
-      { key: 'cot_pct_iva_aduanero', label: 'IVA Aduanero (%)' },
-      { key: 'cot_pct_impuesto_lujo', label: 'Impuesto al Lujo (%)' },
-      { key: 'cot_clp_fee_imporlan_default', label: 'FEE Imporlan default (CLP)' },
+      { key: 'cot_pct_iva_aduanero', label: 'IVA aduanero', type: 'pct' },
+      { key: 'cot_pct_impuesto_lujo', label: 'Impuesto al lujo', type: 'pct' },
+      { key: 'cot_clp_fee_imporlan_default', label: 'Fee Imporlan por defecto', type: 'clp' },
     ],
   },
   {
-    title: 'Costos en USD (defaults — editables por cotización)',
+    id: 'usd',
+    title: 'Costos en USD',
+    description: 'Valores por defecto en Estados Unidos; se pueden ajustar en cada cotización.',
     fields: [
-      { key: 'cot_usd_trailer', label: 'Trailer (si no trae)' },
-      { key: 'cot_usd_inspeccion_lancha', label: 'Inspección Técnica USA' },
-      { key: 'cot_usd_inland_usa', label: 'Inland USA (bodegaje + entrega puerto)' },
-      { key: 'cot_usd_transporte_roro', label: 'Transporte Marítimo (RORO)' },
-      { key: 'cot_usd_certificado_fumigacion', label: 'Certificado de Fumigación' },
-      { key: 'cot_usd_seguro', label: 'Seguro / Insurance' },
-      { key: 'cot_usd_gastos_locales_naviera', label: 'Gastos Locales Naviera' },
-      { key: 'cot_usd_congestion_surcharge', label: 'Congestion Surcharge' },
-      { key: 'cot_usd_thc', label: 'THC' },
-      { key: 'cot_usd_baf', label: 'BAF (Impuesto)' },
-      { key: 'cot_usd_wharfage', label: 'WHARFAGE' },
-      { key: 'cot_usd_handling_chile', label: 'Handling Chile' },
-      { key: 'cot_usd_miami_admin_fee', label: 'Miami Admin FEE' },
-      { key: 'cot_usd_escorte', label: 'Escorte (Port Pass)' },
+      { key: 'cot_usd_trailer', label: 'Trailer (si no trae)', type: 'usd' },
+      { key: 'cot_usd_inspeccion_lancha', label: 'Inspección técnica en USA', type: 'usd' },
+      { key: 'cot_usd_inland_usa', label: 'Inland USA (bodegaje y entrega a puerto)', type: 'usd' },
+      { key: 'cot_usd_transporte_roro', label: 'Transporte marítimo (RORO)', type: 'usd' },
+      { key: 'cot_usd_certificado_fumigacion', label: 'Certificado de fumigación', type: 'usd' },
+      { key: 'cot_usd_seguro', label: 'Seguro', type: 'usd' },
+      { key: 'cot_usd_gastos_locales_naviera', label: 'Gastos locales naviera', type: 'usd' },
+      { key: 'cot_usd_congestion_surcharge', label: 'Congestion surcharge', type: 'usd' },
+      { key: 'cot_usd_thc', label: 'THC', type: 'usd' },
+      { key: 'cot_usd_baf', label: 'BAF', type: 'usd' },
+      { key: 'cot_usd_wharfage', label: 'Wharfage', type: 'usd' },
+      { key: 'cot_usd_handling_chile', label: 'Handling Chile', type: 'usd' },
+      { key: 'cot_usd_miami_admin_fee', label: 'Miami admin fee', type: 'usd' },
+      { key: 'cot_usd_escorte', label: 'Escolta (Port Pass)', type: 'usd' },
     ],
   },
   {
-    title: 'Costos en CLP (defaults — editables por cotización)',
+    id: 'clp',
+    title: 'Costos en CLP',
+    description: 'Valores por defecto en Chile; se pueden ajustar en cada cotización.',
     fields: [
-      { key: 'cot_clp_fee_wire_transfer', label: 'FEE Wire Transferencia' },
-      { key: 'cot_clp_inland_puerto_santiago', label: 'Inland Puerto → Santiago' },
-      { key: 'cot_clp_chequeo_mecanico', label: 'Chequeo Mecánico Chile' },
-      { key: 'cot_clp_pulido_tratamiento', label: 'Pulido y Tratamiento Chile' },
-      { key: 'cot_clp_entrega_traslado', label: 'Entrega / Traslado' },
-      { key: 'cot_clp_aduana_extra', label: 'Aduana (M$1.2 + IVA)' },
-      { key: 'cot_clp_autorizaciones', label: 'Autorizaciones' },
-      { key: 'cot_clp_gastos_puerto', label: 'Gastos de Puerto' },
-      { key: 'cot_clp_agencia_aduana', label: 'Agencia de Aduana' },
-      { key: 'cot_clp_iva_servicios_linea', label: 'IVA Servicios (línea)' },
-      { key: 'cot_clp_gastos_despachos', label: 'Gastos de Despachos' },
-      { key: 'cot_clp_honorarios_agencia', label: 'Honorarios Agencia' },
+      { key: 'cot_clp_fee_wire_transfer', label: 'Fee transferencia internacional', type: 'clp' },
+      { key: 'cot_clp_inland_puerto_santiago', label: 'Inland puerto → Santiago', type: 'clp' },
+      { key: 'cot_clp_chequeo_mecanico', label: 'Chequeo mecánico en Chile', type: 'clp' },
+      { key: 'cot_clp_pulido_tratamiento', label: 'Pulido y tratamiento', type: 'clp' },
+      { key: 'cot_clp_entrega_traslado', label: 'Entrega y traslado', type: 'clp' },
+      { key: 'cot_clp_aduana_extra', label: 'Aduana (M$1.2 + IVA)', type: 'clp' },
+      { key: 'cot_clp_autorizaciones', label: 'Autorizaciones', type: 'clp' },
+      { key: 'cot_clp_gastos_puerto', label: 'Gastos de puerto', type: 'clp' },
+      { key: 'cot_clp_agencia_aduana', label: 'Agencia de aduana', type: 'clp' },
+      { key: 'cot_clp_iva_servicios_linea', label: 'IVA servicios (línea)', type: 'clp' },
+      { key: 'cot_clp_gastos_despachos', label: 'Gastos de despacho', type: 'clp' },
+      { key: 'cot_clp_honorarios_agencia', label: 'Honorarios de agencia', type: 'clp' },
     ],
   },
 ];
 
+const TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'cotizador', label: 'Cotizador' },
+];
+
+const UNIT = { pct: '%', hours: 'h', rate: 'CLP' };
+
+/** Un campo del cotizador según su tipo. El valor viaja siempre como texto. */
+function CampoCotizador({ field, value, onChange }) {
+  if (field.type === 'clp' || field.type === 'usd') {
+    const n = value === '' || value === null || value === undefined ? null : Number(value);
+    return (
+      <MoneyInput
+        label={field.label}
+        hint={field.hint}
+        currency={field.type === 'usd' ? 'USD' : 'CLP'}
+        value={Number.isFinite(n) ? n : null}
+        onChange={v => onChange(v === null ? '' : String(v))}
+      />
+    );
+  }
+  return (
+    <NumberInput
+      label={field.label}
+      hint={field.hint}
+      unit={UNIT[field.type] || ''}
+      step="any"
+      min="0"
+      value={value ?? ''}
+      onChange={e => onChange(e.target.value)}
+    />
+  );
+}
+
 export default function Config() {
+  const toast = useToast();
   const [tab, setTab] = useState('general');
   const [settings, setSettings] = useState({});
   const [pricing, setPricing] = useState({});
+  const [base, setBase] = useState({ settings: '{}', pricing: '{}' });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [tick, setTick] = useState(0);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const [s, p] = await Promise.all([getSettings(), getPricing().catch(() => ({}))]);
+        if (!alive) return;
+        const st = s.settings || s || {};
+        const pr = p.pricing || p || {};
+        setSettings(st);
+        setPricing(pr);
+        setBase({ settings: JSON.stringify(st), pricing: JSON.stringify(pr) });
+        setError('');
+      } catch (e) {
+        if (alive) setError(e.message || 'No se pudo cargar la configuración');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [tick]);
 
-  async function load() {
-    setLoading(true);
-    try {
-      const [s, p] = await Promise.all([getSettings(), getPricing().catch(() => ({}))]);
-      setSettings(s.settings || s || {});
-      setPricing(p.pricing || p || {});
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  }
+  const reload = useCallback(() => { setLoading(true); setTick(t => t + 1); }, []);
+
+  const dirtySettings = useMemo(() => JSON.stringify(settings) !== base.settings, [settings, base.settings]);
+  const dirtyPricing = useMemo(() => JSON.stringify(pricing) !== base.pricing, [pricing, base.pricing]);
+  const dirty = tab === 'general' ? dirtySettings : dirtyPricing;
 
   async function saveSettings() {
     setSaving(true);
     try {
       await updateSettings(settings);
-      setMsg('Configuración guardada');
-      setTimeout(() => setMsg(''), 3000);
-    } catch (e) { alert(e.message); }
+      setBase(b => ({ ...b, settings: JSON.stringify(settings) }));
+      toast?.('Configuración guardada', 'success');
+    } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar', description: e.message }); }
     setSaving(false);
   }
 
@@ -102,10 +164,15 @@ export default function Config() {
         configs[k] = v && typeof v === 'object' && 'value' in v ? v.value : v;
       }
       await updatePricing({ configs });
-      setMsg('Configuración guardada');
-      setTimeout(() => setMsg(''), 3000);
-    } catch (e) { alert(e.message || 'Error al guardar'); }
+      setBase(b => ({ ...b, pricing: JSON.stringify(pricing) }));
+      toast?.('Cotizador guardado', 'success');
+    } catch (e) { toast?.({ type: 'error', title: 'No se pudo guardar', description: e.message || 'Error al guardar' }); }
     setSaving(false);
+  }
+
+  function descartar() {
+    if (tab === 'general') setSettings(JSON.parse(base.settings));
+    else setPricing(JSON.parse(base.pricing));
   }
 
   function setCotField(key, value) {
@@ -119,79 +186,73 @@ export default function Config() {
     return pricing[key]?.value ?? '';
   }
 
+  const setS = (k) => (e) => setSettings(s => ({ ...s, [k]: e.target.value }));
+
   if (loading) return <Spinner />;
+  if (error) return (<><PageHeader title="Configuración" /><Card><ErrorState message={error} onRetry={reload} /></Card></>);
 
   return (
-    <>
-      <PageHeader title="Configuración" subtitle="Ajustes del sistema" />
+    <form onSubmit={e => { e.preventDefault(); if (tab === 'general') saveSettings(); else savePricing(); }} className="flex flex-col min-h-full">
+      <PageHeader title="Configuración" description="Datos de contacto del sitio y valores base del cotizador." />
 
-      {msg && <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm">{msg}</div>}
-
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <Button variant={tab === 'general' ? 'primary' : 'secondary'} onClick={() => setTab('general')}>General</Button>
-        <Button variant={tab === 'pricing' ? 'primary' : 'secondary'} onClick={() => setTab('pricing')}>Precios</Button>
-        <Button variant={tab === 'cotizador' ? 'primary' : 'secondary'} onClick={() => setTab('cotizador')}>Cotizador</Button>
-      </div>
+      <Tabs tabs={TABS} value={tab} onChange={setTab} className="mb-6" aria-label="Secciones de configuración" />
 
       {tab === 'general' && (
-        <Card>
-          <h3 className="font-semibold text-slate-700 mb-4">Configuración general</h3>
-          <div className="space-y-4 max-w-xl">
-            <Input label="Nombre del sitio" value={settings.site_name || ''} onChange={e => setSettings({...settings, site_name: e.target.value})} />
-            <Input label="Email de contacto" value={settings.contact_email || ''} onChange={e => setSettings({...settings, contact_email: e.target.value})} />
-            <Input label="Teléfono" value={settings.phone || ''} onChange={e => setSettings({...settings, phone: e.target.value})} />
-            <Input label="Dirección" value={settings.address || ''} onChange={e => setSettings({...settings, address: e.target.value})} />
-            <Input label="Dólar observado (CLP)" type="number" value={settings.dollar_rate || ''} onChange={e => setSettings({...settings, dollar_rate: e.target.value})} />
-            <Input label="WhatsApp" value={settings.whatsapp || ''} onChange={e => setSettings({...settings, whatsapp: e.target.value})} />
-            <Button onClick={saveSettings} disabled={saving}>{saving ? 'Guardando...' : 'Guardar configuración'}</Button>
-          </div>
-        </Card>
-      )}
-
-      {tab === 'pricing' && (
-        <Card>
-          <h3 className="font-semibold text-slate-700 mb-4">Precios y comisiones (legacy)</h3>
-          <p className="text-xs text-slate-400 mb-4">Estos cuatro valores son del sistema antiguo. Para el cotizador completo usa la pestaña <strong>Cotizador</strong>.</p>
-          <div className="space-y-4 max-w-xl">
-            <Input label="Comisión por búsqueda (%)" type="number" value={getCotValue('search_commission')} onChange={e => setCotField('search_commission', e.target.value)} />
-            <Input label="Tarifa de inspección (CLP)" type="number" value={getCotValue('inspection_fee')} onChange={e => setCotField('inspection_fee', e.target.value)} />
-            <Input label="Tarifa de importación (%)" type="number" value={getCotValue('import_fee')} onChange={e => setCotField('import_fee', e.target.value)} />
-            <Input label="IVA (%)" type="number" value={getCotValue('iva')} onChange={e => setCotField('iva', e.target.value)} />
-            <Button onClick={savePricing} disabled={saving}>{saving ? 'Guardando...' : 'Guardar precios'}</Button>
-          </div>
-        </Card>
+        <div role="tabpanel" className="space-y-4">
+          <Card>
+            <Card.Header title="Datos del sitio" description="Aparecen en el sitio web, en los correos y en el panel del cliente." />
+            <Card.Body>
+              <FormGrid cols={2}>
+                <Input label="Nombre del sitio" value={settings.site_name || ''} onChange={setS('site_name')} />
+                <Input label="Correo de contacto" type="email" autoComplete="off" value={settings.contact_email || ''} onChange={setS('contact_email')} />
+                <Input label="Teléfono" type="tel" value={settings.phone || ''} onChange={setS('phone')} />
+                <Input label="WhatsApp" type="tel" hint="Con código de país, sin espacios: +56912345678" value={settings.whatsapp || ''} onChange={setS('whatsapp')} />
+                <Input label="Dirección" className="sm:col-span-2" value={settings.address || ''} onChange={setS('address')} />
+              </FormGrid>
+            </Card.Body>
+          </Card>
+          <Card>
+            <Card.Header title="Dólar observado" description="Valor de referencia para mostrar montos en pesos en el sitio." />
+            <Card.Body>
+              <FormGrid cols={2}>
+                <NumberInput label="Dólar observado" unit="CLP" step="any" min="0" value={settings.dollar_rate ?? ''} onChange={setS('dollar_rate')} />
+              </FormGrid>
+            </Card.Body>
+          </Card>
+        </div>
       )}
 
       {tab === 'cotizador' && (
-        <div className="space-y-4">
-          <div className="text-sm text-slate-500 leading-relaxed">
-            Estos son los valores plantilla que usa el cotizador. Cada cotización por link toma estos defaults y permite override por embarcación (modalidad RORO/contenedor, tarifas variables, etc.). Los porcentajes son sobre <span className="font-medium text-slate-700">CIF</span> (lancha + transporte) para IVA y sobre <span className="font-medium text-slate-700">valor lancha</span> para Lujo.
-          </div>
-
+        <div role="tabpanel" className="space-y-4">
+          <p className="text-sm text-ink-500 max-w-3xl">
+            Valores plantilla del cotizador. Cada cotización por link parte de estos valores y permite ajustarlos por embarcación (RORO o contenedor, tarifas variables, etc.).
+          </p>
           {COTIZADOR_SECTIONS.map(section => (
-            <Card key={section.title}>
-              <h3 className="font-semibold text-slate-700 mb-4 text-sm">{section.title}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {section.fields.map(f => (
-                  <Input
-                    key={f.key}
-                    label={f.label}
-                    type="number"
-                    value={getCotValue(f.key)}
-                    onChange={e => setCotField(f.key, e.target.value)}
-                  />
-                ))}
-              </div>
+            <Card key={section.id}>
+              <Card.Header title={section.title} description={section.description} />
+              <Card.Body>
+                <FormGrid cols={2} className="lg:grid-cols-3">
+                  {section.fields.map(f => (
+                    <CampoCotizador key={f.key} field={f} value={getCotValue(f.key)} onChange={v => setCotField(f.key, v)} />
+                  ))}
+                </FormGrid>
+              </Card.Body>
             </Card>
           ))}
-
-          <div className="sticky bottom-4 z-10 flex justify-end">
-            <Button onClick={savePricing} disabled={saving} className="shadow-xl">
-              {saving ? 'Guardando...' : 'Guardar cotizador'}
-            </Button>
-          </div>
         </div>
       )}
-    </>
+
+      {/* Barra de guardado: al pie del contenido, pegada abajo mientras se
+          hace scroll, con fondo propio (no flota sobre las tarjetas). */}
+      <div className="sticky bottom-0 mt-6 -mx-(--page-gutter) px-(--page-gutter) py-3 bg-surface/95 backdrop-blur border-t border-line flex flex-wrap items-center gap-3">
+        <p className="text-13 text-ink-500 flex-1 min-w-[12rem]" aria-live="polite">
+          {dirty ? 'Tienes cambios sin guardar.' : 'Todo guardado.'}
+        </p>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="secondary" onClick={descartar} disabled={!dirty || saving}>Descartar</Button>
+          <Button type="submit" loading={saving} disabled={!dirty}>{tab === 'general' ? 'Guardar configuración' : 'Guardar cotizador'}</Button>
+        </div>
+      </div>
+    </form>
   );
 }

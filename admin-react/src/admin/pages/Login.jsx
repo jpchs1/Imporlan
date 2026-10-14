@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { login, verify2FA, forgotPassword } from '../api';
-import { Button, Input } from '../../shared/components/UI';
+import { Button, IconButton, Input, Modal, Callout } from '../../shared/components/UI';
+import { ImporlanMark, Eye, EyeOff, KeyRound } from '../../shared/components/Icons';
 
 export default function Login() {
   const { loginUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  // ProtectedRoute deja aqui la ruta que el usuario intentaba abrir.
+  // ProtectedRoute deja aquí la ruta que el usuario intentaba abrir.
   const from = location.state?.from;
   const destination = from && from !== '/login' ? from : '/dashboard';
   const [email, setEmail] = useState('');
@@ -20,7 +21,7 @@ export default function Login() {
   const [tempToken, setTempToken] = useState('');
   const [code2FA, setCode2FA] = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('admin@imporlan.cl');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState(null);
   const [forgotLoading, setForgotLoading] = useState(false);
 
@@ -30,12 +31,19 @@ export default function Login() {
     setForgotLoading(true);
     try {
       const res = await forgotPassword(forgotEmail.trim());
-      setForgotMsg({ type: 'success', text: res.message || 'Se envio un enlace de recuperacion al buzon del administrador.' });
+      setForgotMsg({ type: 'success', text: res.message || 'Te enviamos un enlace de recuperación al correo del administrador.' });
     } catch (err) {
-      setForgotMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo de recuperacion.' });
+      setForgotMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo de recuperación.' });
     } finally {
       setForgotLoading(false);
     }
+  };
+
+  // El correo de recuperación no se prellena: quien lo pide lo escribe (F9).
+  const abrirForgot = () => {
+    setForgotEmail('');
+    setForgotMsg(null);
+    setForgotOpen(true);
   };
 
   const handleLogin = async (e) => {
@@ -52,7 +60,7 @@ export default function Login() {
         navigate(destination, { replace: true });
       }
     } catch (err) {
-      setError(err.message || 'Credenciales invalidas');
+      setError(err.message || 'Correo o contraseña incorrectos.');
     } finally {
       setLoading(false);
     }
@@ -67,175 +75,127 @@ export default function Login() {
       loginUser(res.user, res.access_token);
       navigate(destination, { replace: true });
     } catch (err) {
-      setError(err.message || 'Codigo invalido');
+      setError(err.message || 'El código no es válido.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900" />
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/15 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-violet-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-
-      <div className="relative z-10 w-full max-w-md px-4 animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center text-white font-bold text-2xl shadow-2xl shadow-indigo-500/30 mb-4">
-            I
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Imporlan Admin</h1>
-          <p className="text-sm text-slate-400 mt-1">Panel de administracion</p>
+    <div className="min-h-dvh bg-sidebar flex flex-col items-center justify-center px-4 py-10">
+      <main className="w-full max-w-[400px]">
+        <div className="flex flex-col items-center text-center mb-6">
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-brand-600 text-white" aria-hidden="true">
+            <ImporlanMark size={30} />
+          </span>
+          <h1 className="mt-4 text-xl font-semibold text-white tracking-tight">Imporlan</h1>
+          <p className="text-sm text-sidebar-ink mt-0.5">Panel de administración · solo para el equipo</p>
         </div>
 
-        {/* Form card */}
-        <div className="bg-white/[0.08] backdrop-blur-xl rounded-3xl border border-white/[0.1] p-8 shadow-2xl">
+        <div className="bg-surface rounded-xl border border-line shadow-modal p-6 sm:p-7">
           {!needs2FA ? (
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@imporlan.cl"
-                  required
-                  className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400/50 outline-none transition-all duration-200"
-                />
-              </div>
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
+              <Input
+                label="Correo"
+                type="email"
+                name="email"
+                autoComplete="username"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="nombre@imporlan.cl"
+                required
+                data-autofocus
+              />
               <div className="relative">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Contrasena</label>
-                <input
+                <Input
+                  label="Contraseña"
                   type={showPw ? 'text' : 'password'}
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400/50 outline-none transition-all duration-200 pr-12"
+                  inputClassName="pr-10"
                 />
-                <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-[34px] text-slate-500 hover:text-slate-300 transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={showPw ? 'M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88' : 'M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178zM15 12a3 3 0 11-6 0 3 3 0 016 0z'} />
-                  </svg>
-                </button>
+                <IconButton
+                  icon={showPw ? EyeOff : Eye}
+                  size="sm"
+                  aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={showPw}
+                  onClick={() => setShowPw(s => !s)}
+                  className="absolute right-0.5 bottom-0.5 text-ink-500"
+                />
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm animate-fade-in">
-                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                  {error}
-                </div>
-              )}
+              {error && <Callout tone="danger" compact>{error}</Callout>}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 hover:from-indigo-700 hover:to-indigo-600 transition-all duration-200 disabled:opacity-50 active:scale-[0.98] text-sm"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                    Ingresando...
-                  </span>
-                ) : 'Ingresar'}
-              </button>
+              <Button type="submit" block loading={loading}>Ingresar</Button>
 
-              <button
-                type="button"
-                onClick={() => { setForgotEmail(email || 'admin@imporlan.cl'); setForgotMsg(null); setForgotOpen(true); }}
-                className="block mx-auto text-xs text-slate-400 hover:text-slate-200 transition-colors underline-offset-2 hover:underline"
-              >
-                &iquest;Olvidaste tu contrasena?
-              </button>
+              <div className="text-center pt-1">
+                <Button type="button" variant="link" size="sm" onClick={abrirForgot}>¿Olvidaste tu contraseña?</Button>
+              </div>
             </form>
           ) : (
-            <form onSubmit={handle2FA} className="space-y-5">
-              <div className="text-center mb-2">
-                <div className="w-12 h-12 mx-auto bg-indigo-500/10 rounded-xl flex items-center justify-center mb-3">
-                  <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                </div>
-                <p className="text-sm text-slate-400">Ingresa el codigo de tu app de autenticacion</p>
+            <form onSubmit={handle2FA} className="space-y-4" noValidate>
+              <div className="text-center">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-700" aria-hidden="true">
+                  <KeyRound size={20} />
+                </span>
+                <h2 className="mt-3 text-base font-semibold text-ink-900">Verificación en dos pasos</h2>
+                <p className="text-sm text-ink-500 mt-1">Ingresa el código de 6 dígitos de tu app de autenticación.</p>
               </div>
-              <div>
-                <input
-                  value={code2FA}
-                  onChange={e => setCode2FA(e.target.value)}
-                  placeholder="000000"
-                  maxLength={6}
-                  autoFocus
-                  required
-                  className="w-full px-4 py-4 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-center text-2xl font-mono tracking-[0.5em] placeholder:text-slate-600 focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400/50 outline-none transition-all duration-200"
-                />
-              </div>
-              {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm text-center">{error}</div>}
-              <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 hover:from-indigo-700 hover:to-indigo-600 transition-all duration-200 disabled:opacity-50 text-sm">
-                {loading ? 'Verificando...' : 'Verificar'}
-              </button>
-              <button type="button" onClick={() => { setNeeds2FA(false); setError(''); }} className="w-full text-sm text-slate-500 hover:text-slate-300 transition-colors py-2">
-                Volver al login
-              </button>
+              <Input
+                label="Código"
+                value={code2FA}
+                onChange={e => setCode2FA(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                data-autofocus
+                size="lg"
+                inputClassName="text-center font-mono text-xl tracking-[0.4em]"
+              />
+              {error && <Callout tone="danger" compact>{error}</Callout>}
+              <Button type="submit" block loading={loading}>Verificar</Button>
+              <Button type="button" variant="ghost" block onClick={() => { setNeeds2FA(false); setCode2FA(''); setError(''); }}>Volver</Button>
             </form>
           )}
         </div>
 
-        <p className="text-center text-[11px] text-slate-600 mt-6">Imporlan &copy; {new Date().getFullYear()}</p>
-      </div>
+        <p className="text-center text-xs text-sidebar-ink mt-6">Imporlan © {new Date().getFullYear()}</p>
+      </main>
 
-      {forgotOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
-          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setForgotOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-7 animate-scale-in">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Recuperar contrasena</h3>
-                <p className="text-xs text-slate-500 mt-1">Te enviaremos un enlace al buzon del administrador (<strong>contacto@imporlan.cl</strong>).</p>
-              </div>
-              <button onClick={() => setForgotOpen(false)} className="text-slate-300 hover:text-slate-600 -mt-1 -mr-1 p-1.5 rounded-lg hover:bg-slate-100">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleForgot} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email de inicio de sesion</label>
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={e => setForgotEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 outline-none transition-all duration-200 bg-white"
-                />
-              </div>
-
-              {forgotMsg && (
-                <div className={
-                  'p-3 rounded-xl text-sm ' +
-                  (forgotMsg.type === 'success'
-                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                    : 'bg-red-50 border border-red-200 text-red-600')
-                }>
-                  {forgotMsg.text}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={forgotLoading}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold rounded-xl shadow-md shadow-indigo-500/20 hover:from-indigo-700 hover:to-indigo-600 transition-all duration-200 disabled:opacity-50 text-sm"
-              >
-                {forgotLoading ? 'Enviando...' : 'Enviar enlace de recuperacion'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        size="sm"
+        title="Recuperar contraseña"
+        description="Te enviamos un enlace al correo del administrador (contacto@imporlan.cl)."
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setForgotOpen(false)}>Cancelar</Button>
+            <Button type="submit" form="form-recuperar" loading={forgotLoading}>Enviar enlace</Button>
+          </>
+        )}
+      >
+        <form id="form-recuperar" onSubmit={handleForgot} className="space-y-4" noValidate>
+          <Input
+            label="Correo de inicio de sesión"
+            type="email"
+            autoComplete="username"
+            value={forgotEmail}
+            onChange={e => setForgotEmail(e.target.value)}
+            placeholder="nombre@imporlan.cl"
+            required
+            data-autofocus
+          />
+          {forgotMsg && (
+            <Callout tone={forgotMsg.type === 'success' ? 'success' : 'danger'} compact>{forgotMsg.text}</Callout>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 }
