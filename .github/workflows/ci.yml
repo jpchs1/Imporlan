@@ -38,6 +38,9 @@ jobs:
       - name: Tests de recuperacion de contrasena de clientes
         run: php test/recuperacion-clientes-tests.php
 
+      - name: El panel del cliente habla bien
+        run: php test/panel-cliente-idioma-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest

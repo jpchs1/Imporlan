@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMyPaymentRequests, createWebPayTransaction, createMercadoPagoPreference, createPayPalOrder, capturePayPalOrder, getPayPalClientId } from '../api';
-import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, cn, paymentMethodLabel } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { Card, Badge, Button, Modal, Input } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -66,7 +66,7 @@ function PaymentCard({ req, onPay }) {
           {isPaid && req.payment_method && (
             <div className="flex items-center gap-1.5 text-emerald-700">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
-              <span className="capitalize font-semibold">Pagado por {req.payment_method.replace(/_/g, ' ')}</span>
+              <span className="font-semibold">Pagado por {paymentMethodLabel(req.payment_method)}</span>
             </div>
           )}
           {req.paid_at && (
@@ -197,13 +197,13 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
   }
 
   const methods = [
-    { id: 'webpay', label: 'Tarjeta de Credito / Debito', desc: 'Pago con tarjeta via WebPay (Transbank)', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
-    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta credito o debito', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay },
+    { id: 'webpay', label: 'Tarjeta de Crédito / Débito', desc: 'Pago con tarjeta vía WebPay (Transbank)', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay, badges: ['VISA', 'MASTERCARD', 'AMEX'] },
+    { id: 'webpay2', label: 'WebPay (Transbank)', desc: 'OnePay y Tarjeta crédito o débito', logo: 'https://www.webpay.cl/images/webpay-logo.svg', logoFallback: '#E31837', action: handleWebPay },
     { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', logo: 'https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/6.6.92/mercadopago/logo__large@2x.png', logoFallback: '#00B1EA', action: handleMercadoPago },
     { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Banco Santander', logoFallback: '#64748b', action: () => setShowBank(true) },
   ];
 
-  // Aca habia un logoMap apuntando a /panel/user/assets/logos/, una carpeta que
+  // Acá habia un logoMap apuntando a /panel/user/assets/logos/, una carpeta que
   // no existe en el servidor: los <img> daban 404 y la tarjeta quedaba con un
   // hueco. El color de cada marca ya estaba definido en logoFallback, asi que
   // el recuadro de abajo alcanza y no depende de ningun archivo.
@@ -224,7 +224,7 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-500">Selecciona un metodo de pago:</p>
+            <p className="text-sm text-slate-500">Selecciona un método de pago:</p>
             <div className="space-y-2">
               {methods.map(m => (
                 <button
@@ -284,7 +284,7 @@ function PayLogo({ id }) {
 }
 
 const PAY_METHODS = [
-  { id: 'webpay', label: 'WebPay (Transbank)', desc: 'Tarjeta credito o debito chilena', color: '#E31837' },
+  { id: 'webpay', label: 'WebPay (Transbank)', desc: 'Tarjeta crédito o débito chilena', color: '#E31837' },
   { id: 'mercadopago', label: 'MercadoPago', desc: 'Cuenta MercadoPago o tarjeta', color: '#00B1EA' },
   { id: 'paypal', label: 'PayPal (USD)', desc: 'Pago internacional con PayPal', color: '#003087' },
   { id: 'transfer', label: 'Transferencia Bancaria', desc: 'Transferencia directa', color: '#10b981' },
@@ -320,7 +320,7 @@ function CustomPayForm({ onClose, toast, user }) {
         else { toast?.('Error al crear preferencia', 'error'); }
       } else if (selectedMethod === 'transfer') {
         setShowBank(true); setProcessing(false); return;
-      } else { toast?.('Metodo no disponible aun', 'warning'); }
+      } else { toast?.('Método no disponible aún', 'warning'); }
     } catch (e) { toast?.(e.message || 'Error al procesar', 'error'); }
     setProcessing(false);
   }
@@ -334,13 +334,13 @@ function CustomPayForm({ onClose, toast, user }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-slate-400">Selecciona metodo e ingresa el monto</p>
+      <p className="text-xs text-slate-400">Selecciona método e ingresa el monto</p>
 
       <Input label="Monto (CLP)" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Ej: 150.000" />
-      <Input label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej: Pago inspeccion, Anticipo embarcacion..." />
+      <Input label="Concepto" value={concept} onChange={e => setConcept(e.target.value)} placeholder="Ej: Pago inspección, Anticipo embarcación..." />
 
       <div>
-        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Metodo de Pago</label>
+        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Método de Pago</label>
         <div className="space-y-2">
           {PAY_METHODS.map(m => (
             <button
@@ -511,14 +511,14 @@ export default function Payments() {
   return (
     <div className="max-w-6xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 sm:p-7 overflow-hidden mb-5 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-5 sm:p-7 overflow-hidden mb-5 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className={cn('w-1.5 h-1.5 rounded-full', pending.length > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400')} />
-              {pending.length > 0 ? `${pending.length} pago${pending.length > 1 ? 's' : ''} pendiente${pending.length > 1 ? 's' : ''} (${fmtCLP(pendingTotal)})` : 'Estas al dia con tus pagos'}
+              {pending.length > 0 ? `${pending.length} pago${pending.length > 1 ? 's' : ''} pendiente${pending.length > 1 ? 's' : ''} (${fmtCLP(pendingTotal)})` : 'Estas al día con tus pagos'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Pagos</h1>
             <p className="text-sm text-slate-300 mt-1.5">Gestiona tus pagos, facturas y metodos disponibles</p>
@@ -538,7 +538,7 @@ export default function Payments() {
 
       {/* Premium Card + available methods */}
       <Card className="mb-5 p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 vía-slate-800 to-slate-900 p-5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl" />
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2 relative">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
@@ -581,10 +581,10 @@ export default function Payments() {
           accent="red"
           name="WebPay"
           sub="Transbank · Chile"
-          desc="Tarjeta de credito o debito chilena, en pesos."
+          desc="Tarjeta de crédito o débito chilena, en pesos."
           badges={[
-            { label: 'Credito', bg: '#fef2f2', color: '#E31837' },
-            { label: 'Debito', bg: '#fef2f2', color: '#E31837' },
+            { label: 'Crédito', bg: '#fef2f2', color: '#E31837' },
+            { label: 'Débito', bg: '#fef2f2', color: '#E31837' },
           ]}
           logo={<MarcaPago nombre="WebPay" color="#E31837" fondo="#fef2f2" />}
           onClick={() => setShowCustomPay(true)}
@@ -634,7 +634,7 @@ export default function Payments() {
         </div>
         <div className="flex-1 min-w-0 text-xs sm:text-sm">
           <p className="font-semibold text-amber-900">Procesamiento de pagos</p>
-          <p className="text-amber-800/80 mt-0.5 leading-relaxed">Las solicitudes se procesan en <strong>48-72 hrs habiles</strong>. Para consultas escribinos a <a href="mailto:contacto@imporlan.cl" className="font-semibold underline decoration-amber-300 hover:decoration-amber-500">contacto@imporlan.cl</a> o por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 underline decoration-emerald-300 hover:decoration-emerald-500">WhatsApp</a>.</p>
+          <p className="text-amber-800/80 mt-0.5 leading-relaxed">Las solicitudes se procesan en <strong>48-72 hrs hábiles</strong>. Para consultas escribinos a <a href="mailto:contacto@imporlan.cl" className="font-semibold underline decoration-amber-300 hover:decoration-amber-500">contacto@imporlan.cl</a> o por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 underline decoration-emerald-300 hover:decoration-emerald-500">WhatsApp</a>.</p>
         </div>
       </div>
 
@@ -643,7 +643,7 @@ export default function Payments() {
         <StatTile
           label="Pendientes"
           value={pending.length}
-          sub={pending.length > 0 ? fmtCLP(pendingTotal) : 'Al dia'}
+          sub={pending.length > 0 ? fmtCLP(pendingTotal) : 'Al día'}
           color="amber"
           active={tab === 'pending'}
           onClick={() => setTab(tab === 'pending' ? 'all' : 'pending')}
@@ -710,14 +710,14 @@ export default function Payments() {
           </div>
           {requests.length === 0 ? (
             <>
-              <p className="text-slate-700 font-semibold">No hay solicitudes de pago todavia</p>
-              <p className="text-sm text-slate-500 mt-1">Cuando el equipo Imporlan genere una solicitud aparecera aqui. Tambien podes iniciar un pago manual cuando quieras.</p>
+              <p className="text-slate-700 font-semibold">No hay solicitudes de pago todavía</p>
+              <p className="text-sm text-slate-500 mt-1">Cuando el equipo Imporlan genere una solicitud aparecerá aquí. También puedes iniciar un pago manual cuando quieras.</p>
               <Button variant="accent" size="sm" className="mt-4" onClick={() => setShowCustomPay(true)}>Realizar pago manual</Button>
             </>
           ) : (
             <>
               <p className="text-slate-700 font-semibold">No hay {TABS.find(t => t.v === tab)?.label.toLowerCase()}</p>
-              <p className="text-sm text-slate-500 mt-1">Probá cambiar de pestaña.</p>
+              <p className="text-sm text-slate-500 mt-1">Prueba cambiar de pestaña.</p>
               <Button variant="secondary" size="sm" className="mt-4" onClick={() => setTab('all')}>Ver todos</Button>
             </>
           )}

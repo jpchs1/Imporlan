@@ -8,7 +8,7 @@ const IMG = 'https://deckeva.cl/wp-content/uploads/2024/08/piso-de-lancha.jpg';
 export default function DeckevaPromo({ context = 'panel', title, className = '' }) {
   const utm = `utm_source=imporlan&utm_medium=panel&utm_campaign=partner_deckeva&utm_content=${encodeURIComponent(context)}`;
   return (
-    <div className={'relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1628] via-[#0c2d52] to-[#0e6ba8] text-white shadow-lg ' + className}>
+    <div className={'relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1628] vía-[#0c2d52] to-[#0e6ba8] text-white shadow-lg ' + className}>
       <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr]">
         <img src={IMG} alt="Piso de goma EVA antideslizante DECKEVA instalado en una lancha"
           className="w-full h-36 sm:h-full object-cover" loading="lazy" />

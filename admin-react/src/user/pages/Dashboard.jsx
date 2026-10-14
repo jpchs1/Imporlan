@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { getMyOrders, getMyPaymentRequests, getMyConversations, getFeaturedVessels, getMyReports, getMyListings } from '../api';
-import { fmtDate, fmtCLP, cn, statusColor } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, cn, statusColor, statusLabel } from '../../shared/lib/utils';
 import { Card, Badge, Spinner, SkeletonCard } from '../../shared/components/UI';
 import DeckevaPromo from '../components/DeckevaPromo';
 
@@ -56,7 +56,7 @@ function RecentOrderRow({ order, onClick }) {
         <p className="text-sm font-medium text-slate-700 truncate">{order.asset_name || order.plan_name || `Expediente #${order.order_number}`}</p>
         <p className="text-[11px] text-slate-400">{fmtDate(order.created_at)}</p>
       </div>
-      <Badge className={cn(statusColor(order.status), 'text-[10px]')}>{(order.status || '').replace(/_/g, ' ')}</Badge>
+      <Badge className={cn(statusColor(order.status), 'text-[10px]')}>{statusLabel(order.status)}</Badge>
     </div>
   );
 }
@@ -146,7 +146,7 @@ export default function Dashboard() {
     .pop();
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Buenos dias' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
   const initials = (name || 'U').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
   if (loading) return (
@@ -160,12 +160,12 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Hero - greeting */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-400 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-2xl shrink-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-400 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-2xl shrink-0">
               {initials}
             </div>
             <div className="min-w-0">
@@ -175,7 +175,7 @@ export default function Dashboard() {
                   ? `${pendingPayments.length} pago${pendingPayments.length > 1 ? 's' : ''} pendiente${pendingPayments.length > 1 ? 's' : ''}`
                   : activeOrders.length > 0
                     ? `${activeOrders.length} expediente${activeOrders.length > 1 ? 's' : ''} activo${activeOrders.length > 1 ? 's' : ''}`
-                    : 'Estas al dia'}
+                    : 'Estas al día'}
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{greeting}, {name.split(' ')[0]}</h1>
               <p className="text-sm text-slate-300 mt-1">Resumen de tu actividad en Imporlan</p>
@@ -183,7 +183,7 @@ export default function Dashboard() {
           </div>
           {lastActivity && (
             <div className="text-right shrink-0">
-              <p className="uppercase tracking-[0.18em] font-bold text-[10px] text-cyan-300/80">Ultima actualizacion</p>
+              <p className="uppercase tracking-[0.18em] font-bold text-[10px] text-cyan-300/80">Última actualizacion</p>
               <p className="text-slate-200 font-semibold mt-1">{fmtDate(lastActivity)}</p>
             </div>
           )}
@@ -200,7 +200,7 @@ export default function Dashboard() {
         />
         <StatCard
           label="Pagos Pendientes" value={pendingPayments.length} color={pendingPayments.length > 0 ? 'amber' : 'emerald'}
-          subtitle={pendingPayments.length > 0 ? fmtCLP(pendingTotal) : 'Al dia'}
+          subtitle={pendingPayments.length > 0 ? fmtCLP(pendingTotal) : 'Al día'}
           onClick={() => navigate('/payments')}
           icon={<svg className={cn('w-5 h-5', pendingPayments.length > 0 ? 'text-amber-600' : 'text-emerald-600')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>}
         />
@@ -212,7 +212,7 @@ export default function Dashboard() {
         />
         <StatCard
           label="Seguimiento" value={activeVessels.length} color="emerald"
-          subtitle={activeVessels.length > 0 ? 'Envios en ruta' : 'Sin envios activos'}
+          subtitle={activeVessels.length > 0 ? 'Envíos en ruta' : 'Sin envíos activos'}
           onClick={() => navigate('/tracking')}
           icon={<svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>}
         />
@@ -230,7 +230,7 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm sm:text-base font-bold text-amber-900">
-              Tenes {pendingPayments.length} pago{pendingPayments.length > 1 ? 's' : ''} pendiente{pendingPayments.length > 1 ? 's' : ''} por <span className="text-amber-700">{fmtCLP(pendingTotal)}</span>
+              Tienes {pendingPayments.length} pago{pendingPayments.length > 1 ? 's' : ''} pendiente{pendingPayments.length > 1 ? 's' : ''} por <span className="text-amber-700">{fmtCLP(pendingTotal)}</span>
             </p>
             <p className="text-xs text-amber-700/80 mt-0.5">Click para ver y pagar</p>
           </div>
@@ -246,7 +246,7 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0 text-xs sm:text-sm">
           <p className="font-semibold text-blue-900">Tiempos de respuesta</p>
           <p className="text-blue-800/80 mt-0.5 leading-relaxed">
-            Respondemos cotizaciones y consultas en <strong className="font-semibold text-blue-900">48-72 horas habiles</strong>.
+            Respondemos cotizaciones y consultas en <strong className="font-semibold text-blue-900">48-72 horas hábiles</strong>.
             Para urgencias, escribinos por <a href="https://wa.me/56940211459" target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 underline decoration-emerald-300 hover:decoration-emerald-500">WhatsApp</a>.
           </p>
         </div>
@@ -265,7 +265,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h2 className="font-bold text-slate-800 text-sm">Expedientes recientes</h2>
-                <p className="text-[11px] text-slate-400">Ultimos en tu cuenta</p>
+                <p className="text-[11px] text-slate-400">Últimos en tu cuenta</p>
               </div>
             </div>
             <button onClick={() => navigate('/expedientes')} className="text-xs text-cyan-600 font-semibold hover:text-cyan-700 inline-flex items-center gap-1">
@@ -276,7 +276,7 @@ export default function Dashboard() {
           {orders.length === 0 ? (
             <div className="py-8 text-center">
               <svg className="w-8 h-8 text-slate-200 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-              <p className="text-sm text-slate-500 font-medium">Aun no tenes expedientes</p>
+              <p className="text-sm text-slate-500 font-medium">Aún no tienes expedientes</p>
               <a href="#/quotation" className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition">
                 Cotizar ahora
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
@@ -301,7 +301,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h2 className="font-bold text-slate-800 text-sm">Pagos pendientes</h2>
-                  <p className="text-[11px] text-slate-400">{pendingPayments.length > 0 ? `${fmtCLP(pendingTotal)} en total` : 'Estado al dia'}</p>
+                  <p className="text-[11px] text-slate-400">{pendingPayments.length > 0 ? `${fmtCLP(pendingTotal)} en total` : 'Estado al día'}</p>
                 </div>
               </div>
               <button onClick={() => navigate('/payments')} className="text-xs text-cyan-600 font-semibold hover:text-cyan-700 inline-flex items-center gap-1">
@@ -341,7 +341,7 @@ export default function Dashboard() {
               {reports.slice(0, 3).map(r => (
                 <div key={r.id} className="flex items-center gap-3 py-2.5 px-1 border-b border-slate-50 last:border-0">
                   <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 ring-1 ring-violet-100">
-                    <span className="text-violet-600 text-[10px] font-bold">v{r.version || 1}</span>
+                    <span className="text-violet-600 text-[10px] font-bold">v{r.versión || 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-700 truncate">Reporte #{r.order_number || r.id}</p>
@@ -364,15 +364,15 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="font-bold text-slate-800">Accesos rapidos</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">Atajos a las secciones mas usadas</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Atajos a las secciones más usadas</p>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             { label: 'Expedientes', to: '/expedientes', accent: 'cyan', subtitle: `${activeOrders.length} activos`, icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
-            { label: 'Pagos', to: '/payments', accent: 'amber', subtitle: pendingPayments.length > 0 ? `${pendingPayments.length} pendiente${pendingPayments.length > 1 ? 's' : ''}` : 'Al dia', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
-            { label: 'Mensajes', to: '/messages', accent: 'indigo', subtitle: unreadMessages > 0 ? `${unreadMessages} sin leer` : 'Al dia', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-            { label: 'Marketplace', to: '/marketplace', accent: 'emerald', subtitle: activeListings.length > 0 ? `${activeListings.length} publicacion${activeListings.length > 1 ? 'es' : ''}` : 'Compra y vende', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z' },
+            { label: 'Pagos', to: '/payments', accent: 'amber', subtitle: pendingPayments.length > 0 ? `${pendingPayments.length} pendiente${pendingPayments.length > 1 ? 's' : ''}` : 'Al día', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+            { label: 'Mensajes', to: '/messages', accent: 'indigo', subtitle: unreadMessages > 0 ? `${unreadMessages} sin leer` : 'Al día', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+            { label: 'Marketplace', to: '/marketplace', accent: 'emerald', subtitle: activeListings.length > 0 ? `${activeListings.length} publicación${activeListings.length > 1 ? 'es' : ''}` : 'Compra y vende', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z' },
             { label: 'Documentos', to: '/documents', accent: 'violet', subtitle: 'Archivos y reportes', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
             { label: 'Seguimiento', to: '/tracking', accent: 'teal', subtitle: activeVessels.length > 0 ? `${activeVessels.length} en ruta` : 'AIS tiempo real', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
           ].map(q => {

@@ -28,10 +28,10 @@ const DEMO_INSPECTION = {
   status: 'completed',
   report_type: 'PREMIUM',
   overall_rating: 8.3,
-  overall_summary: 'Embarcacion en muy buen estado general. Motor con bajo horaje y buen mantenimiento. Se recomienda revision de tapiceria por desgaste menor.',
+  overall_summary: 'Embarcación en muy buen estado general. Motor con bajo horaje y buen mantenimiento. Se recomienda revisión de tapicería por desgaste menor.',
   sent_at: '2026-04-07',
   created_at: '2026-04-07',
-  recommendations: 'La embarcacion se encuentra en muy buen estado general para su ano. El motor Mercury MerCruiser presenta un funcionamiento optimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapiceria del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar anodos de zinc en la proxima temporada\n4. Verificar tension de la correa del alternador\n\nEn general, es una excelente opcion de compra con muy buena relacion precio-calidad.',
+  recommendations: 'La embarcación se encuentra en muy buen estado general para su año. El motor Mercury MerCruiser presenta un funcionamiento óptimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapicería del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar ánodos de zinc en la próxima temporada\n4. Verificar tensión de la correa del alternador\n\nEn general, es una excelente opción de compra con muy buena relación precio-calidad.',
   section_details: {
     hull: { rating: 8.5, fields: { 'Estado del gelcoat': 'Buen estado', 'Linea de flotacion': 'Sin osmosis', 'Quilla': 'Sin danos', 'Obra viva': 'Antifouling vigente', 'Cubierta': 'Buen estado general' }, notes: 'Casco en buen estado. Se recomienda aplicar cera protectora.' },
     engine: { rating: 9.0, fields: { 'Arranque': 'Funcionando correctamente', 'Ralenti': 'Estable', 'Aceite': 'Nivel correcto, color normal', 'Filtros': 'Limpios', 'Correas': 'Buen estado', 'Sistema de enfriamiento': 'Funcionando' }, notes: 'Motor en excelente estado. 120 horas de uso.' },
@@ -40,18 +40,18 @@ const DEMO_INSPECTION = {
     trailer: { rating: 8.0, fields: { 'Estructura': 'Sin oxidacion', 'Neumaticos': 'Buen estado', 'Luces': 'Funcionando', 'Winche': 'Operativo', 'Rodillos': 'Buen estado' }, notes: 'Trailer en condiciones adecuadas para transporte.' },
     navigation: { rating: 8.5, fields: { 'GPS/Chartplotter': 'Funcionando', 'Ecosonda': 'Operativa', 'Radio VHF': 'Funcionando', 'Compas': 'Calibrado' }, notes: 'Equipos de navegacion operativos y actualizados.' },
     safety: { rating: 9.0, fields: { 'Chalecos salvavidas': '6 unidades, buen estado', 'Extintor': 'Vigente (2025)', 'Bengalas': 'Vigentes', 'Botiquin': 'Completo', 'Aro salvavidas': 'Presente' }, notes: 'Equipamiento de seguridad completo y vigente.' },
-    test_drive: { rating: 8.0, fields: { 'Aceleracion': 'Respuesta normal', 'Velocidad maxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rapido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcacion responde bien en todas las pruebas.' },
+    test_drive: { rating: 8.0, fields: { 'Aceleración': 'Respuesta normal', 'Velocidad máxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rápido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcación responde bien en todas las pruebas.' },
   },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
   // Las fotos originales de este ejemplo apuntaban a una carpeta que no existe
-  // en el servidor, asi que el reporte —el que ve todo cliente que aun no tiene
-  // una inspeccion— salia con 14 imagenes rotas. En su lugar van dos fotos del
-  // Cobalt CS23 que ya estaban en el sitio, y la embarcacion del ejemplo pasa a
+  // en el servidor, asi que el reporte —el que ve todo cliente que aún no tiene
+  // una inspección— salia con 14 imagenes rotas. En su lugar van dos fotos del
+  // Cobalt CS23 que ya estaban en el sitio, y la embarcación del ejemplo pasa a
   // ser ese mismo modelo: un informe cuyas fotos no son del barco que describe
   // se nota, aunque diga "ejemplo". El 4.5L MerCruiser de la ficha es el motor
   // real del CS23, asi que los datos siguen siendo coherentes.
   //
-  // Solo va la seccion General: son tomas del barco completo. Ponerlas bajo
+  // Solo va la sección General: son tomas del barco completo. Ponerlas bajo
   // "Motor" o "Electrica" seria peor que no tener foto. Las secciones sin
   // fotos no se dibujan, asi que el resto queda limpio.
   photos_general: [
@@ -99,7 +99,7 @@ function CountryFlag({ country }) {
 
 function InspectionCard({ report, onClick }) {
   const r = report;
-  const vesselName = [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspeccion';
+  const vesselName = [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspección';
   const ratingColor = r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : r.overall_rating ? '#ef4444' : '#94a3b8';
 
   return (
@@ -189,7 +189,7 @@ function InspectionDetail({ report, onBack }) {
           <svg className="w-5 h-5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
           <div>
             <p className="text-sm font-semibold text-violet-800">Reporte de ejemplo (informativo)</p>
-            <p className="text-xs text-violet-600">Este es un ejemplo de inspeccion para que conozcas el formato. Los datos son ilustrativos.</p>
+            <p className="text-xs text-violet-600">Este es un ejemplo de inspección para que conozcas el formato. Los datos son ilustrativos.</p>
           </div>
         </div>
       )}
@@ -229,7 +229,7 @@ function InspectionDetail({ report, onBack }) {
       <Card className="mb-5">
         <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
           <svg className="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          Datos de la Embarcacion
+          Datos de la Embarcación
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-sm">
           {d.vessel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p><p className="text-slate-700">{d.vessel_type}</p></div>}
@@ -242,7 +242,7 @@ function InspectionDetail({ report, onBack }) {
           {d.engine_hours && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Horas Motor</p><p className="text-slate-700">{d.engine_hours}</p></div>}
           {d.num_engines && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Motores</p><p className="text-slate-700">{d.num_engines}</p></div>}
           {d.fuel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Combustible</p><p className="text-slate-700">{d.fuel_type}</p></div>}
-          {d.location && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ubicacion</p><p className="text-slate-700">{d.city ? `${d.city}, ` : ''}{d.location}</p></div>}
+          {d.location && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ubicación</p><p className="text-slate-700">{d.city ? `${d.city}, ` : ''}{d.location}</p></div>}
           {d.marina && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Marina</p><p className="text-slate-700">{d.marina}</p></div>}
         </div>
         {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-600 hover:text-cyan-700 font-medium">Ver listing original <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>}
@@ -269,7 +269,7 @@ function InspectionDetail({ report, onBack }) {
       {/* Section-by-section details */}
       {d.section_details && (
         <Card className="mb-5">
-          <h3 className="font-bold text-slate-800 mb-4">Detalle por Seccion</h3>
+          <h3 className="font-bold text-slate-800 mb-4">Detalle por Sección</h3>
           <div className="space-y-3">
             {METRICS.map(key => {
               const sec = d.section_details[key];
@@ -391,7 +391,7 @@ function InspectionDetail({ report, onBack }) {
 
       {/* Footer */}
       <p className="text-center text-xs text-slate-400 mb-5">
-        Reporte generado el {fmtDate(d.sent_at || d.created_at)} {d.report_type && `· Inspeccion ${d.report_type}`} · Imporlan.cl
+        Reporte generado el {fmtDate(d.sent_at || d.created_at)} {d.report_type && `· Inspección ${d.report_type}`} · Imporlan.cl
       </p>
 
       {lightbox && (
@@ -441,7 +441,7 @@ export default function Inspections() {
   return (
     <div className="max-w-6xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-emerald-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -449,8 +449,8 @@ export default function Inspections() {
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-semibold ring-1 ring-emerald-400/20 mb-3">
               <span className={cn('w-1.5 h-1.5 rounded-full', realReports.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-violet-400')} />
               {realReports.length > 0
-                ? `${realReports.length} inspeccion${realReports.length > 1 ? 'es' : ''} en tu cuenta`
-                : 'Sin inspecciones reales aun'}
+                ? `${realReports.length} inspección${realReports.length > 1 ? 'es' : ''} en tu cuenta`
+                : 'Sin inspecciones reales aún'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis inspecciones</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
@@ -460,7 +460,7 @@ export default function Inspections() {
           <div className="flex flex-wrap gap-2">
             <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20pre-compra" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-              Solicitar inspeccion
+              Solicitar inspección
             </a>
           </div>
         </div>
@@ -474,7 +474,7 @@ export default function Inspections() {
           </div>
           <p className="text-2xl font-bold text-slate-800 leading-none">{realReports.length}</p>
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Reportes reales</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{realReports.length > 0 ? 'En tu cuenta' : 'Aun ninguno'}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{realReports.length > 0 ? 'En tu cuenta' : 'Aún ninguno'}</p>
         </div>
         <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
@@ -482,7 +482,7 @@ export default function Inspections() {
           </div>
           <p className="text-2xl font-bold text-slate-800 leading-none">{avgScore || '-'}</p>
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Score promedio</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{avgScore ? 'Sobre 10' : 'Sin datos aun'}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{avgScore ? 'Sobre 10' : 'Sin datos aún'}</p>
         </div>
         <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
@@ -498,7 +498,7 @@ export default function Inspections() {
           </div>
           <p className="text-2xl font-bold text-slate-800 leading-none">USD 850+</p>
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Costo referencial</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Segun eslora</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Según eslora</p>
         </div>
       </div>
 
@@ -509,9 +509,9 @@ export default function Inspections() {
             <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-violet-900">Inspeccion de ejemplo (informativo)</p>
+            <p className="text-sm font-semibold text-violet-900">Inspección de ejemplo (informativo)</p>
             <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
-              Este reporte es una muestra de como se ve una inspeccion completa. Cuando solicites una inspeccion real, aparecera aqui con los datos de tu embarcacion.
+              Este reporte es una muestra de como se ve una inspección completa. Cuando solicites una inspección real, aparecerá aquí con los datos de tu embarcación.
             </p>
           </div>
         </div>
@@ -525,7 +525,7 @@ export default function Inspections() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar embarcacion, marca, inspector..."
+            placeholder="Buscar embarcación, marca, inspector..."
             className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
           />
           {search && (
@@ -549,13 +549,13 @@ export default function Inspections() {
           {search ? (
             <>
               <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-              <p className="text-sm text-slate-500 mt-1">Probá con otra palabra clave.</p>
-              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setSearch('')}>Limpiar busqueda</Button>
+              <p className="text-sm text-slate-500 mt-1">Prueba con otra palabra clave.</p>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setSearch('')}>Limpiar búsqueda</Button>
             </>
           ) : (
             <>
-              <p className="text-slate-700 font-semibold">Aun no tenes inspecciones</p>
-              <p className="text-sm text-slate-500 mt-1">Cuando solicites una, aparecera aqui con todo el detalle.</p>
+              <p className="text-slate-700 font-semibold">Aún no tienes inspecciones</p>
+              <p className="text-sm text-slate-500 mt-1">Cuando solicites una, aparecerá aquí con todo el detalle.</p>
             </>
           )}
         </Card>
@@ -566,13 +566,13 @@ export default function Inspections() {
       )}
 
       {/* Bottom CTA - request new inspection */}
-      <div className="mt-6 relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-7 overflow-hidden shadow-xl">
+      <div className="mt-6 relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-7 overflow-hidden shadow-xl">
         <div className="absolute -top-12 -right-12 w-56 h-56 bg-emerald-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="max-w-md">
-            <h3 className="text-xl font-bold">Necesitas otra inspeccion?</h3>
-            <p className="text-sm text-slate-300 mt-1.5">Coordinamos inspectores certificados en USA y Chile. Recibis el reporte completo en 48-72 hrs habiles.</p>
+            <h3 className="text-xl font-bold">Necesitas otra inspección?</h3>
+            <p className="text-sm text-slate-300 mt-1.5">Coordinamos inspectores certificados en USA y Chile. Recibes el reporte completo en 48-72 hrs hábiles.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Chile" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow-md hover:bg-slate-100 transition">

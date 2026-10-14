@@ -158,7 +158,7 @@ function VesselDetailPanel({ vessel, onRefresh, refreshing }) {
 
       {/* Info section */}
       <div className="p-3 bg-slate-50 rounded-lg">
-        <p className="text-[11px] font-semibold text-slate-400 uppercase mb-2">Informacion</p>
+        <p className="text-[11px] font-semibold text-slate-400 uppercase mb-2">Información</p>
         <div className="space-y-1.5 text-sm">
           {vessel.client_name && <div className="flex justify-between"><span className="text-slate-400 text-xs">Cliente</span><span className="text-slate-700 font-medium text-xs">{vessel.client_name}</span></div>}
           {vessel.shipping_line && <div className="flex justify-between"><span className="text-slate-400 text-xs">Naviera</span><span className="text-slate-700 text-xs">{vessel.shipping_line}</span></div>}
@@ -316,7 +316,7 @@ export default function Tracking() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -324,12 +324,12 @@ export default function Tracking() {
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className={cn('w-1.5 h-1.5 rounded-full', activeVessels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
               {activeVessels.length > 0
-                ? `${activeVessels.length} envio${activeVessels.length > 1 ? 's' : ''} en transito`
-                : vessels.length > 0 ? `${vessels.length} envio${vessels.length > 1 ? 's' : ''} en seguimiento` : 'Sin envios activos'}
+                ? `${activeVessels.length} envío${activeVessels.length > 1 ? 's' : ''} en transito`
+                : vessels.length > 0 ? `${vessels.length} envío${vessels.length > 1 ? 's' : ''} en seguimiento` : 'Sin envíos activos'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Seguimiento</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Rastrea en tiempo real cada embarcacion en transito con datos de AIS: ruta, velocidad, ETA y posicion actual.
+              Rastrea en tiempo real cada embarcación en transito con datos de AIS: ruta, velocidad, ETA y posicion actual.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -417,8 +417,8 @@ export default function Tracking() {
           <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
             <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </div>
-          <p className="text-slate-700 font-semibold">No hay envios en seguimiento</p>
-          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Cuando tu importacion este en camino podras ver la ubicacion en tiempo real con datos de AIS aqui.</p>
+          <p className="text-slate-700 font-semibold">No hay envíos en seguimiento</p>
+          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Cuando tu importación este en camino podrás ver la ubicación en tiempo real con datos de AIS aquí.</p>
           <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
             <a href="#/expedientes" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
               Ver expedientes
@@ -527,8 +527,8 @@ export default function Tracking() {
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
                     <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
                   </div>
-                  <p className="text-sm font-semibold text-slate-700">Selecciona un envio</p>
-                  <p className="text-xs text-slate-400 mt-1">Eligi una embarcacion para ver detalles y posicion</p>
+                  <p className="text-sm font-semibold text-slate-700">Selecciona un envío</p>
+                  <p className="text-xs text-slate-400 mt-1">Eligi una embarcación para ver detalles y posicion</p>
                 </div>
               )}
             </Card>

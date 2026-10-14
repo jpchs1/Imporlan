@@ -4,7 +4,7 @@ import { cn } from '../../shared/lib/utils';
 
 const HERO_IMG = 'https://deckeva.cl/wp-content/uploads/2024/08/dock-bann-1.jpg';
 
-// Aca habia 14 rutas mas apuntando a /panel/user/assets/gallery/, una carpeta
+// Acá habia 14 rutas más apuntando a /panel/user/assets/gallery/, una carpeta
 // que no existe en el servidor: eran 14 imagenes rotas intercaladas entre las
 // que si cargan. Quedan las de deckeva.cl, que son del proveedor y funcionan.
 const GALLERY = [
@@ -36,7 +36,7 @@ const FEATURES = [
     icon: 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z',
   },
   {
-    title: 'Facil instalacion',
+    title: 'Fácil instalación',
     desc: 'Adhesivo 3M de alta resistencia, lo coloca tu instalador o vos mismo.',
     bg: 'from-cyan-500/15 to-blue-500/10',
     text: 'text-cyan-600',
@@ -44,21 +44,21 @@ const FEATURES = [
   },
   {
     title: 'Corte a medida',
-    desc: 'Personalizado segun el plano de tu embarcacion, sin desperdicios.',
+    desc: 'Personalizado según el plano de tu embarcación, sin desperdicios.',
     bg: 'from-violet-500/15 to-purple-500/10',
     text: 'text-violet-600',
     icon: 'M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.331 4.331 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664',
   },
   {
-    title: 'Facil limpieza',
+    title: 'Fácil limpieza',
     desc: 'Resistente a manchas, sal y combustible. Se limpia con agua y jabon.',
     bg: 'from-blue-500/15 to-sky-500/10',
     text: 'text-blue-600',
     icon: 'M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42',
   },
   {
-    title: 'Envio nacional',
-    desc: 'Despacho a todo Chile y envio internacional a Latinoamerica.',
+    title: 'Envío nacional',
+    desc: 'Despacho a todo Chile y envío internacional a Latinoamerica.',
     bg: 'from-rose-500/15 to-pink-500/10',
     text: 'text-rose-600',
     icon: 'M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
@@ -68,8 +68,8 @@ const FEATURES = [
 const STATS = [
   { label: 'Embarcaciones renovadas', value: '+500', sub: 'En todo Chile' },
   { label: 'Espesor del piso', value: '6 mm', sub: 'Goma EVA premium' },
-  { label: 'Tiempo de instalacion', value: '1 dia', sub: 'Dependiendo del tamano' },
-  { label: 'Garantia', value: '2 anos', sub: 'Adhesion y desgaste' },
+  { label: 'Tiempo de instalación', value: '1 día', sub: 'Dependiendo del tamaño' },
+  { label: 'Garantía', value: '2 años', sub: 'Adhesión y desgaste' },
 ];
 
 function Lightbox({ items, index, onClose, onNav }) {
@@ -134,7 +134,7 @@ export default function Deckeva() {
       {/* Hero with photo bg + dark overlay */}
       <div className="relative rounded-3xl overflow-hidden mb-6 shadow-xl" style={{ minHeight: '320px' }}>
         <img src={HERO_IMG} alt="Deckeva" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 via-slate-900/65 to-cyan-950/80" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 vía-slate-900/65 to-cyan-950/80" />
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
 
@@ -207,12 +207,12 @@ export default function Deckeva() {
             >
               <img
                 src={url}
-                alt={`Instalacion ${i + 1}`}
+                alt={`Instalación ${i + 1}`}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 loading="lazy"
                 onError={e => { e.currentTarget.style.opacity = '0.3'; }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 vía-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
               <div className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                 <svg className="w-3.5 h-3.5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
@@ -231,7 +231,7 @@ export default function Deckeva() {
             </div>
             <div>
               <h3 className="font-bold text-slate-800">Caracteristicas del producto</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Por que la goma EVA es la mejor opcion</p>
+              <p className="text-xs text-slate-400 mt-0.5">Por que la goma EVA es la mejor opción</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -278,8 +278,8 @@ export default function Deckeva() {
                   <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372"/></svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Telefono</p>
-                  <p className="text-xs text-amber-800 mt-0.5">Disponible para clientes con plan de busqueda Imporlan</p>
+                  <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Teléfono</p>
+                  <p className="text-xs text-amber-800 mt-0.5">Disponible para clientes con plan de búsqueda Imporlan</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3 rounded-xl border border-slate-200">
@@ -287,7 +287,7 @@ export default function Deckeva() {
                   <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ubicacion</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Ubicación</p>
                   <p className="text-sm font-semibold text-slate-800">Lo Barnechea, Santiago</p>
                   <p className="text-[11px] text-slate-400">Chile</p>
                 </div>
@@ -295,7 +295,7 @@ export default function Deckeva() {
             </div>
           </Card>
 
-          <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 overflow-hidden shadow-lg">
+          <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-5 overflow-hidden shadow-lg">
             <div className="absolute -top-12 -right-12 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl" />
             <div className="relative">
@@ -309,7 +309,7 @@ export default function Deckeva() {
                 </div>
               </div>
               <p className="text-sm text-slate-300 leading-relaxed">
-                El precio depende del tamano y diseno de tu embarcacion. Coordina la cotizacion directamente con Deckeva y mencionales que vienes desde Imporlan.
+                El precio depende del tamaño y diseno de tu embarcación. Coordina la cotización directamente con Deckeva y mencionales que vienes desde Imporlan.
               </p>
               <a href="https://www.deckeva.cl" target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow-md hover:bg-slate-100 transition">
                 Ir a Deckeva.cl

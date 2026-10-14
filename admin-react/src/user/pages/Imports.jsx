@@ -16,11 +16,11 @@ const STATUS_LABELS = {
 };
 
 const TIMELINE_STEPS = [
-  { label: 'Plan o cotizacion', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-  { label: 'Busqueda activa', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
-  { label: 'Inspeccion', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+  { label: 'Plan o cotización', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+  { label: 'Búsqueda activa', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
+  { label: 'Inspección', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
   { label: 'Compra', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
-  { label: 'Logistica', icon: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
+  { label: 'Logística', icon: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
 ];
 
 function avatarInitials(name) {
@@ -68,18 +68,18 @@ export default function Imports() {
   return (
     <div className="max-w-6xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className={cn('w-1.5 h-1.5 rounded-full', activeCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
-              {activeCount > 0 ? `${activeCount} importacion${activeCount > 1 ? 'es' : ''} en transito` : 'Sin importaciones en curso'}
+              {activeCount > 0 ? `${activeCount} importación${activeCount > 1 ? 'es' : ''} en transito` : 'Sin importaciones en curso'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis importaciones</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Seguimiento en tiempo real de tus expedientes que ya pasaron a la etapa de compra o logistica.
+              Seguimiento en tiempo real de tus expedientes que ya pasaron a la etapa de compra o logística.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -110,7 +110,7 @@ export default function Imports() {
           </div>
           <p className="text-2xl font-bold text-slate-800 leading-none">{orders.length}</p>
           <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Importaciones</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">En la fase de compra/logistica</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">En la fase de compra/logística</p>
         </button>
         <button
           type="button"
@@ -197,9 +197,9 @@ export default function Imports() {
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
                 <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
               </div>
-              <p className="text-slate-700 font-semibold">No tenes importaciones activas</p>
+              <p className="text-slate-700 font-semibold">No tienes importaciones activas</p>
               <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                Cuando un expediente avance a la etapa de compra o logistica aparecera aqui con su seguimiento en tiempo real.
+                Cuando un expediente avance a la etapa de compra o logística aparecerá aquí con su seguimiento en tiempo real.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
                 <button onClick={() => navigate('/expedientes')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
@@ -217,7 +217,7 @@ export default function Imports() {
       ) : visible.length === 0 ? (
         <Card className="text-center py-12">
           <p className="text-slate-700 font-semibold">No hay {filter === 'active' ? 'importaciones en transito' : 'importaciones completadas'}</p>
-          <p className="text-sm text-slate-500 mt-1">Probá con otro filtro.</p>
+          <p className="text-sm text-slate-500 mt-1">Prueba con otro filtro.</p>
           <Button variant="secondary" size="sm" className="mt-4" onClick={() => setFilter('all')}>Ver todas</Button>
         </Card>
       ) : (
@@ -242,7 +242,7 @@ export default function Imports() {
                           {STATUS_LABELS[order.status] || order.status}
                         </Badge>
                       </div>
-                      <p className="text-base font-semibold text-slate-700 mt-1 truncate">{order.asset_name || order.plan_name || 'Importacion'}</p>
+                      <p className="text-base font-semibold text-slate-700 mt-1 truncate">{order.asset_name || order.plan_name || 'Importación'}</p>
                       <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[11px] text-slate-500">
                         <span className="inline-flex items-center gap-1">
                           <svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>

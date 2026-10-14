@@ -202,7 +202,7 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 lg:hidden animate-fade-in" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-64 lg:w-[256px] bg-gradient-to-b from-[#0a1628] via-[#0f172a] to-[#0a1628] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col border-r border-white/[0.04]`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-64 lg:w-[256px] bg-gradient-to-b from-[#0a1628] vía-[#0f172a] to-[#0a1628] transform transition-all duration-300 ease-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col border-r border-white/[0.04]`}>
         {/* Decorative glow on top */}
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
         <div className="absolute top-16 -right-10 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -210,8 +210,8 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
         {/* Logo */}
         <div className="relative flex items-center gap-2.5 px-4 py-3.5">
           <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 rounded-2xl blur opacity-40 transition" />
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+            <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-500 rounded-2xl blur opacity-40 transition" />
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
               I
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
                   title="Editar perfil"
                 >
                   <div className="relative shrink-0">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-md overflow-hidden ring-1 ring-white/[0.08] group-hover:ring-white/[0.15] transition">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-md overflow-hidden ring-1 ring-white/[0.08] group-hover:ring-white/[0.15] transition">
                       {user?.avatar_url ? (
                         <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -291,7 +291,7 @@ export default function Layout({ navItems, navGroups, branding = {}, profilePath
               ) : (
                 <>
                   <div className="relative shrink-0">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-md ring-1 ring-white/[0.08]">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-md ring-1 ring-white/[0.08]">
                       {(user?.name || 'A')[0].toUpperCase()}
                     </div>
                     <span className="absolute -bottom-px -right-px w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0a1628]" />

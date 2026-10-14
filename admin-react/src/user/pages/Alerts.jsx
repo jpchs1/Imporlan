@@ -14,7 +14,7 @@ function timeAgo(dateStr) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `Hace ${hrs} hr${hrs > 1 ? 's' : ''}`;
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `Hace ${days} dia${days > 1 ? 's' : ''}`;
+  if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
   if (days < 30) return `Hace ${Math.floor(days / 7)} sem`;
   return fmtDate(dateStr);
 }
@@ -68,7 +68,7 @@ const TYPE_META = {
     icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>,
   },
   inspection: {
-    label: 'Inspeccion',
+    label: 'Inspección',
     accent: 'teal',
     bg: 'bg-teal-100',
     text: 'text-teal-600',
@@ -76,7 +76,7 @@ const TYPE_META = {
     icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
   },
   default: {
-    label: 'Notificacion',
+    label: 'Notificación',
     accent: 'slate',
     bg: 'bg-slate-100',
     text: 'text-slate-500',
@@ -181,14 +181,14 @@ export default function Alerts() {
   return (
     <div className="max-w-5xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className={cn('w-1.5 h-1.5 rounded-full', unread > 0 ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400')} />
-              {unread > 0 ? `${unread} sin leer` : 'Estas al dia'}
+              {unread > 0 ? `${unread} sin leer` : 'Estas al día'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Alertas</h1>
             <p className="text-sm text-slate-300 mt-1.5">Novedades de tus expedientes, pagos y reportes</p>
@@ -316,13 +316,13 @@ export default function Alerts() {
           </div>
           {notifications.length === 0 ? (
             <>
-              <p className="text-slate-700 font-semibold">Estas al dia</p>
-              <p className="text-sm text-slate-400 mt-1">Cuando haya novedades en tus expedientes, te avisaremos aqui.</p>
+              <p className="text-slate-700 font-semibold">Estas al día</p>
+              <p className="text-sm text-slate-400 mt-1">Cuando haya novedades en tus expedientes, te avisaremos aquí.</p>
             </>
           ) : (
             <>
               <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-              <p className="text-sm text-slate-400 mt-1">Probá cambiar el filtro o limpiar la búsqueda.</p>
+              <p className="text-sm text-slate-400 mt-1">Prueba cambiar el filtro o limpiar la búsqueda.</p>
               <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setFilter('all'); setSearch(''); }}>Limpiar filtros</Button>
             </>
           )}

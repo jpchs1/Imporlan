@@ -246,18 +246,18 @@ export default function Documents() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {counts.all > 0 ? `${counts.all} archivo${counts.all > 1 ? 's' : ''} disponible${counts.all > 1 ? 's' : ''}` : 'Aun sin archivos'}
+              {counts.all > 0 ? `${counts.all} archivo${counts.all > 1 ? 's' : ''} disponible${counts.all > 1 ? 's' : ''}` : 'Aún sin archivos'}
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Documentos</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Todos tus archivos, reportes, fotos y videos en un solo lugar. Lo que tu agente suba a cualquier expediente aparece automaticamente aqui.
+              Todos tus archivos, reportes, fotos y videos en un solo lugar. Lo que tu agente suba a cualquier expediente aparece automaticamente aquí.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -308,7 +308,7 @@ export default function Documents() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, expediente, descripcion..."
+                placeholder="Buscar por nombre, expediente, descripción..."
                 className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
               />
               {search && (
@@ -375,12 +375,12 @@ export default function Documents() {
             <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
           </div>
           <p className="text-slate-700 font-semibold">
-            {allDocs.length === 0 ? 'No tenes documentos todavia' : 'Sin coincidencias'}
+            {allDocs.length === 0 ? 'No tienes documentos todavía' : 'Sin coincidencias'}
           </p>
           <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
             {allDocs.length === 0
-              ? 'Cuando tu agente suba archivos a tus expedientes apareceran aqui automaticamente.'
-              : 'Probá ajustar los filtros o limpiar la busqueda.'}
+              ? 'Cuando tu agente suba archivos a tus expedientes apareceran aquí automaticamente.'
+              : 'Prueba ajustar los filtros o limpiar la búsqueda.'}
           </p>
           {allDocs.length === 0 ? (
             <>

@@ -9,7 +9,7 @@ const STEPS = [
 export default function Timeline({ step = 1, onPrev, onNext }) {
   const pct = Math.round(((step - 1) / 4) * 100);
   return (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl overflow-hidden shadow-lg mb-5">
+    <div className="bg-gradient-to-r from-slate-900 vía-slate-800 to-slate-900 rounded-2xl overflow-hidden shadow-lg mb-5">
       <div className="px-6 pt-4 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -22,8 +22,8 @@ export default function Timeline({ step = 1, onPrev, onNext }) {
           <span className="text-xs text-cyan-400 font-bold">Paso {step}/5</span>
         </div>
       </div>
-      {/* Los pasos tienen ancho fijo, asi que en un telefono no caben los cinco:
-          sin este scroll horizontal el ultimo queda cortado contra el borde. */}
+      {/* Los pasos tienen ancho fijo, asi que en un teléfono no caben los cinco:
+          sin este scroll horizontal el último queda cortado contra el borde. */}
       <div className="px-4 pb-3 flex items-start justify-start sm:justify-center gap-0 overflow-x-auto">
         {STEPS.map((s, i) => {
           const done = s.num < step;
