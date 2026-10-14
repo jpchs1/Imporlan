@@ -72,6 +72,7 @@ function UserLayout() {
 
   useEffect(() => {
     if (!isAuth) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshBadges();
     const id = setInterval(refreshBadges, 30000);
     return () => clearInterval(id);
