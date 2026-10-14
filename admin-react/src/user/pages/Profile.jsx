@@ -226,19 +226,19 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto pb-12">
       {/* Hero card */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
 
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-5">
           {/* Avatar */}
           <div className="relative group shrink-0">
-            <div className="absolute -inset-1 bg-gradient-to-br from-cyan-400 vía-teal-400 to-indigo-400 rounded-3xl blur opacity-60 group-hover:opacity-90 transition" />
+            <div className="absolute -inset-1 bg-gradient-to-br from-cyan-400 via-teal-400 to-indigo-400 rounded-3xl blur opacity-60 group-hover:opacity-90 transition" />
             <div className="relative">
               {data.avatar_url ? (
                 <img src={data.avatar_url} alt={name} className="w-24 h-24 rounded-3xl object-cover border-2 border-white/20" />
               ) : (
-                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold border-2 border-white/20">
+                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold border-2 border-white/20">
                   {initials}
                 </div>
               )}

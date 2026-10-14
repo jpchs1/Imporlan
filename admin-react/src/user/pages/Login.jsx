@@ -155,7 +155,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
       {/* Animated background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 vía-cyan-950 to-slate-900" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900" />
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-cyan-600/20 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 sm:w-96 sm:h-96 bg-indigo-600/15 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
@@ -168,7 +168,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md px-4 animate-fade-in">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-400 flex items-center justify-center text-white font-bold text-2xl shadow-2xl shadow-cyan-500/30 mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-400 flex items-center justify-center text-white font-bold text-2xl shadow-2xl shadow-cyan-500/30 mb-4">
             I
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Imporlan</h1>

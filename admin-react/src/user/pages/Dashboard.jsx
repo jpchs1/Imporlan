@@ -160,12 +160,12 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Hero - greeting */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-cyan-500 vía-teal-500 to-indigo-400 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-2xl shrink-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-indigo-400 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-2xl shrink-0">
               {initials}
             </div>
             <div className="min-w-0">
@@ -341,7 +341,7 @@ export default function Dashboard() {
               {reports.slice(0, 3).map(r => (
                 <div key={r.id} className="flex items-center gap-3 py-2.5 px-1 border-b border-slate-50 last:border-0">
                   <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 ring-1 ring-violet-100">
-                    <span className="text-violet-600 text-[10px] font-bold">v{r.versión || 1}</span>
+                    <span className="text-violet-600 text-[10px] font-bold">v{r.version || 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-700 truncate">Reporte #{r.order_number || r.id}</p>

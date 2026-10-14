@@ -99,7 +99,7 @@ function ListingCard({ item, onClick }) {
 
         {/* Condition badges */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {item.condición && <Badge className={cn('text-[10px] uppercase font-bold', item.condición === 'Excelente' || item.condición === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condición === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condición === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condición}</Badge>}
+          {item.condicion && <Badge className={cn('text-[10px] uppercase font-bold', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
           {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px] uppercase">{item.estado}</Badge>}
         </div>
 
@@ -162,9 +162,9 @@ function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
               {item.ubicacion && <span>{item.ubicacion}</span>}
               <span>{fmtDate(item.created_at)}</span>
             </div>
-            {item.condición && (
+            {item.condicion && (
               <div className="flex gap-1.5 mt-2">
-                <Badge className={cn('text-[10px]', item.condición === 'Excelente' || item.condición === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condición === 'Regular' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>{item.condición}</Badge>
+                <Badge className={cn('text-[10px]', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>
                 {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px]">{item.estado}</Badge>}
               </div>
             )}
@@ -239,7 +239,7 @@ function DetailModal({ item, open, onClose }) {
         {item.eslora && <InfoCell label="Eslora" value={item.eslora} />}
         {item.horas && <InfoCell label="Horas Motor" value={item.horas} />}
         {item.ubicacion && <InfoCell label="Ubicación" value={item.ubicacion} />}
-        {item.condición && <InfoCell label="Condición" value={item.condición} />}
+        {item.condicion && <InfoCell label="Condición" value={item.condicion} />}
         {item.estado && <InfoCell label="Estado" value={item.estado} />}
       </div>
 
@@ -285,7 +285,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
   const toast = useToast();
   const { user } = useAuth();
   const fileRef = useRef(null);
-  const [form, setForm] = useState({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condición: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
+  const [form, setForm] = useState({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
   const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -301,7 +301,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
         moneda: editItem.moneda || 'USD',
         ubicacion: editItem.ubicacion || '',
         estado: editItem.estado || 'Usada',
-        condición: editItem.condición || 'Buena',
+        condicion: editItem.condicion || 'Buena',
         horas: editItem.horas || '',
         descripcion: editItem.descripcion || '',
         tipo_publicacion: editItem.tipo_publicacion || 'venta',
@@ -309,7 +309,7 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
       const existingPhotos = parsePhotos(editItem.fotos);
       setPhotos(existingPhotos);
     } else {
-      setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condición: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
+      setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
       setPhotos([]);
     }
   }, [editItem, open]);
@@ -393,11 +393,11 @@ function PublishModal({ open, onClose, editItem, onSuccess }) {
           <Select label="Moneda" value={form.moneda} onChange={e => set('moneda', e.target.value)} options={[{ value: 'USD', label: 'USD' }, { value: 'CLP', label: 'CLP' }]} />
           <Input label="Ubicación" value={form.ubicacion} onChange={e => set('ubicacion', e.target.value)} placeholder="Vina del Mar, Chile" />
           <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value)} options={[{ value: 'Nueva', label: 'Nueva' }, { value: 'Usada', label: 'Usada' }]} />
-          <Select label="Condición" value={form.condición} onChange={e => set('condición', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: c }))} />
+          <Select label="Condición" value={form.condicion} onChange={e => set('condicion', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: c }))} />
           <Input label="Horas Motor" type="number" value={form.horas} onChange={e => set('horas', e.target.value)} placeholder="150" />
         </div>
 
-        <Textarea label="Descripción" value={form.descripcion} onChange={e => set('descripción', e.target.value)} placeholder="Describe tu embarcación..." />
+        <Textarea label="Descripción" value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Describe tu embarcación..." />
 
         {/* Photos */}
         <div>
@@ -523,7 +523,7 @@ export default function Marketplace() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">

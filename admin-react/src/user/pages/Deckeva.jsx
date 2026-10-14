@@ -134,7 +134,7 @@ export default function Deckeva() {
       {/* Hero with photo bg + dark overlay */}
       <div className="relative rounded-3xl overflow-hidden mb-6 shadow-xl" style={{ minHeight: '320px' }}>
         <img src={HERO_IMG} alt="Deckeva" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 vía-slate-900/65 to-cyan-950/80" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/85 via-slate-900/65 to-cyan-950/80" />
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
 
@@ -212,7 +212,7 @@ export default function Deckeva() {
                 loading="lazy"
                 onError={e => { e.currentTarget.style.opacity = '0.3'; }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/30 vía-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition" />
               <div className="absolute bottom-2 right-2 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                 <svg className="w-3.5 h-3.5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
               </div>
@@ -295,7 +295,7 @@ export default function Deckeva() {
             </div>
           </Card>
 
-          <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-5 overflow-hidden shadow-lg">
+          <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 overflow-hidden shadow-lg">
             <div className="absolute -top-12 -right-12 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-12 -left-12 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl" />
             <div className="relative">

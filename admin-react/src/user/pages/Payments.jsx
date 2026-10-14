@@ -511,7 +511,7 @@ export default function Payments() {
   return (
     <div className="max-w-6xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-5 sm:p-7 overflow-hidden mb-5 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 sm:p-7 overflow-hidden mb-5 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -538,7 +538,7 @@ export default function Payments() {
 
       {/* Premium Card + available methods */}
       <Card className="mb-5 p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-900 vía-slate-800 to-slate-900 p-5 relative overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl" />
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2 relative">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>

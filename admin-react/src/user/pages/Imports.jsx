@@ -68,7 +68,7 @@ export default function Imports() {
   return (
     <div className="max-w-6xl mx-auto pb-12">
       {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 vía-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
         <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
