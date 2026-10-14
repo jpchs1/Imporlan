@@ -9,13 +9,24 @@ export const WA_SOPORTE = '56940211459';
 
 /** Valor del query `?filtro=` que reemplaza a la antigua sección /imports. */
 export const FILTRO_IMPORTACION = 'importacion';
-export const FILTROS = ['todos', 'activos', FILTRO_IMPORTACION, 'completados', 'vencidos'];
+export const FILTROS = ['todos', 'activos', FILTRO_IMPORTACION, 'completados', 'vencidos', 'cancelados'];
 
-export const CERRADOS = ['expired', 'canceled', 'cancelled'];
+export const CANCELADOS = ['canceled', 'cancelled'];
+export const CERRADOS = ['expired', ...CANCELADOS];
 export const TERMINALES = ['completed', ...CERRADOS];
 
+/** Vencido o cancelado: ya no avanza. */
 export function esCerrado(order) {
   return CERRADOS.includes(order?.status);
+}
+
+/** Solo vencidos: un cancelado no «venció», lo cerró alguien. */
+export function esVencido(order) {
+  return order?.status === 'expired';
+}
+
+export function esCancelado(order) {
+  return CANCELADOS.includes(order?.status);
 }
 
 export function esActivo(order) {

@@ -30,16 +30,37 @@ const PLANS = [
 const CHECKOUT_URL = 'https://www.imporlan.cl/#planes';
 const WHATSAPP_URL = 'https://wa.me/56940211459?text=Hola%2C%20tengo%20una%20consulta%20sobre%20los%20planes%20de%20b%C3%BAsqueda';
 
-/* Estado de una cotización por link (viene del servidor sin tilde). */
-const LINK_ESTADO = {
-  pending: { label: 'Pendiente', tone: 'warning' },
-  en_revision: { label: 'En revisión', tone: 'warning' },
-  active: { label: 'Activa', tone: 'success' },
-  completed: { label: 'Completada', tone: 'success' },
-  expired: { label: 'Vencida', tone: 'neutral' },
-  canceled: { label: 'Cancelada', tone: 'danger' },
-  cancelled: { label: 'Cancelada', tone: 'danger' },
-};
+/*
+ * Estado de una cotización por links. `api/purchases.php` devuelve el estado
+ * crudo de la compra: `paid` (WebPay y Mercado Pago lo guardan así al
+ * confirmar), `pending` (PayPal hasta capturar), y los que fija el equipo
+ * desde el admin (`active`, `expired`, `canceled`…). Todos viven en
+ * `STATUS.compra` de `shared/lib/status.js`, así que el badge es el del kit.
+ */
+function EstadoLink({ status, size }) {
+  return <StatusBadge kind="compra" status={status || 'pending'} dot size={size} />;
+}
+
+/**
+ * `Date.now()` vivo: se actualiza cada minuto y al volver a la pestaña, para
+ * que «Quedan N días» no se quede pegado si el panel sigue abierto.
+ */
+function useAhora() {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = () => setAhora(Date.now());
+    const t = setInterval(tick, 60_000);
+    const alVolver = () => { if (document.visibilityState !== 'hidden') tick(); };
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', tick);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, []);
+  return ahora;
+}
 
 function planIdFromName(name) {
   const n = (name || '').toLowerCase();
@@ -164,7 +185,7 @@ export default function Plans() {
   const [userPlans, setUserPlans] = useState([]);
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [now] = useState(() => Date.now());
+  const now = useAhora();
 
   useEffect(() => {
     async function load() {
@@ -186,21 +207,19 @@ export default function Plans() {
     window.open(CHECKOUT_URL, '_blank');
   }
 
+  // La API entrega `title` (la descripción de la compra, p. ej. «Cotizacion
+  // Online - 2 links») y `url` solo cuando la compra fue de un link suelto.
   const columnasLinks = [
-    { key: 'url', header: 'Link', cell: l => (
+    { key: 'url', header: 'Cotización', cell: l => (
       <div className="min-w-0 flex items-center gap-2">
         <Link2 size={16} className="text-ink-500 shrink-0" />
         {l.url
           ? <a href={l.url} target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:underline truncate max-w-[52ch]" onClick={e => e.stopPropagation()}>{l.url}</a>
-          : <span className="font-medium text-ink-900 truncate">{l.name || 'Link'}</span>}
+          : <span className="font-medium text-ink-900 truncate">{l.title || 'Cotización por links'}</span>}
       </div>
     ) },
     { key: 'contractedAt', header: 'Contratado', width: 130, priority: 2, cell: l => <span className="tabular">{fmtDate(l.contractedAt || l.created_at)}</span>, sortValue: l => new Date(l.contractedAt || l.created_at).getTime() },
-    { key: 'status', header: 'Estado', width: 130, cell: l => {
-      const s = String(l.status || 'pending').toLowerCase();
-      const m = LINK_ESTADO[s] || { label: 'En revisión', tone: 'warning' };
-      return <Badge tone={m.tone} dot>{m.label}</Badge>;
-    } },
+    { key: 'status', header: 'Estado', width: 130, cell: l => <EstadoLink status={l.status} /> },
   ];
 
   return (
@@ -242,21 +261,17 @@ export default function Plans() {
                       data={links}
                       aria-label="Cotizaciones por links"
                       pageSize={10}
-                      mobileCard={l => {
-                        const s = String(l.status || 'pending').toLowerCase();
-                        const m = LINK_ESTADO[s] || { label: 'En revisión', tone: 'warning' };
-                        return (
-                          <div className="min-w-0">
-                            {l.url
-                              ? <a href={l.url} target="_blank" rel="noreferrer" className="block font-medium text-brand-600 hover:underline truncate">{l.url}</a>
-                              : <p className="font-medium text-ink-900 truncate">{l.name || 'Link'}</p>}
-                            <div className="flex items-center gap-2 mt-1 text-13 text-ink-500">
-                              <span className="tabular">{fmtDateLarga(l.contractedAt || l.created_at)}</span>
-                              <Badge tone={m.tone} size="sm">{m.label}</Badge>
-                            </div>
+                      mobileCard={l => (
+                        <div className="min-w-0">
+                          {l.url
+                            ? <a href={l.url} target="_blank" rel="noreferrer" className="block font-medium text-brand-600 hover:underline truncate">{l.url}</a>
+                            : <p className="font-medium text-ink-900 truncate">{l.title || 'Cotización por links'}</p>}
+                          <div className="flex items-center gap-2 mt-1 text-13 text-ink-500">
+                            <span className="tabular">{fmtDateLarga(l.contractedAt || l.created_at)}</span>
+                            <EstadoLink status={l.status} size="sm" />
                           </div>
-                        );
-                      }}
+                        </div>
+                      )}
                     />
                   </Card>
                 </div>
