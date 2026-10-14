@@ -27,7 +27,10 @@ export default function SeccionArchivos({ files, onPreview }) {
   if (!files?.length) return null;
   const imagenes = files.filter(esImagen);
   const otros = files.filter(f => !esImagen(f));
-  const nota = files.find(f => f.description && !esImagen(f) && !esVideo(f))?.description;
+  // La descripción que el equipo escribe al subir un lote queda en cada
+  // archivo del lote; se muestra la primera, venga de una foto, un video o un
+  // documento (un lote solo de fotos también trae nota).
+  const nota = files.find(f => f.description)?.description;
 
   return (
     <Card>

@@ -301,30 +301,40 @@ function logOrderEvent($pdo, $orderId, $eventType, $meta = [], $userId = null) {
  * 5 = Logística & Tracking (vessel assigned / tracking active)
  */
 function computeTimelineStep($pdo, $order) {
-    $step = 1; // Default: plan contratado
-
     // Step 2: links with actual URLs added
     $links = $order['links'] ?? [];
     $hasRealLinks = false;
     foreach ($links as $lk) {
         if (!empty($lk['url'])) { $hasRealLinks = true; break; }
     }
-    if ($hasRealLinks) $step = 2;
 
-    // Step 3: inspection exists for this customer
-    if ($step >= 2) {
-        try {
-            $email = $order['customer_email'] ?? '';
-            if ($email) {
-                $inspStmt = $pdo->prepare("SELECT COUNT(*) as cnt FROM wp_inspection_reports WHERE user_email = ? AND status IN ('in_progress','completed','sent')");
-                $inspStmt->execute([$email]);
-                $inspCount = intval($inspStmt->fetch(PDO::FETCH_ASSOC)['cnt']);
-                if ($inspCount > 0) $step = 3;
-            }
-        } catch (Exception $e) {
-            // Table may not exist
-        }
+    // Step 3: inspection exists for this customer (solo importa desde la etapa 2)
+    $inspCount = 0;
+    $email = $order['customer_email'] ?? '';
+    if ($hasRealLinks && $email) {
+        $conteo = contarInspeccionesPorEmail($pdo, [$email]);
+        $inspCount = $conteo[strtolower($email)] ?? 0;
     }
+
+    return timelineStepDesdeDatos($order, $hasRealLinks, $inspCount);
+}
+
+/**
+ * La misma regla de computeTimelineStep() pero sobre datos ya contados, sin
+ * tocar la base. La usan el detalle (via computeTimelineStep) y la lista del
+ * cliente (userListOrders), para que la etapa de la tarjeta, el filtro
+ * «En importacion» y el detalle digan siempre lo mismo.
+ *
+ *   $tieneLinksConUrl   hay al menos un link con URL en order_links
+ *   $inspeccionesCliente cuantos reportes de inspeccion (in_progress/completed/sent)
+ *                        tiene el correo del cliente
+ */
+function timelineStepDesdeDatos($order, $tieneLinksConUrl, $inspeccionesCliente) {
+    $step = 1; // Default: plan contratado
+
+    if ($tieneLinksConUrl) $step = 2;
+
+    if ($step >= 2 && intval($inspeccionesCliente) > 0) $step = 3;
 
     // Step 4: order marked completed or specific event
     if ($step >= 3 && in_array($order['status'] ?? '', ['completed'])) {
@@ -341,6 +351,36 @@ function computeTimelineStep($pdo, $order) {
     if ($dbStep > $step) $step = $dbStep;
 
     return $step;
+}
+
+/**
+ * Reportes de inspeccion por correo de cliente, en UNA consulta para todos
+ * los correos pedidos. Devuelve [correo_en_minusculas => cantidad]; si la
+ * tabla no existe, []. Asi la lista no hace una consulta por expediente.
+ */
+function contarInspeccionesPorEmail($pdo, array $emails) {
+    $emails = array_values(array_unique(array_filter(array_map(function ($e) {
+        return strtolower(trim((string) $e));
+    }, $emails))));
+    if (!$emails) return [];
+    try {
+        $marcas = implode(',', array_fill(0, count($emails), '?'));
+        $stmt = $pdo->prepare("
+            SELECT LOWER(user_email) AS email, COUNT(*) AS cnt
+            FROM wp_inspection_reports
+            WHERE LOWER(user_email) IN ($marcas) AND status IN ('in_progress','completed','sent')
+            GROUP BY LOWER(user_email)
+        ");
+        $stmt->execute($emails);
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $out[strtolower($row['email'])] = intval($row['cnt']);
+        }
+        return $out;
+    } catch (Exception $e) {
+        // Table may not exist
+        return [];
+    }
 }
 
 function userListOrders($authPayload = null) {
@@ -362,26 +402,51 @@ function userListOrders($authPayload = null) {
     }
 
     try {
-        $where = 'WHERE visible_to_client = 1';
+        $where = 'WHERE o.visible_to_client = 1';
         $params = [];
         if ($userEmail) {
-            $where .= ' AND customer_email = ?';
+            $where .= ' AND o.customer_email = ?';
             $params[] = $userEmail;
         } else {
-            $where .= ' AND customer_id = ?';
+            $where .= ' AND o.customer_id = ?';
             $params[] = $userId;
         }
 
+        // vessel_id lo agrega la migracion de tracking_api.php; puede no existir.
+        $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        $vesselSel = in_array('vessel_id', $columns) ? 'o.vessel_id' : 'NULL AS vessel_id';
+
+        // Los links con URL se cuentan en la misma consulta (subconsulta
+        // correlacionada sobre order_links) para que la etapa efectiva de
+        // cada fila salga igual que en el detalle sin N consultas mas.
         $stmt = $pdo->prepare("
-            SELECT id, order_number, customer_email, customer_name, customer_phone,
-                   plan_name, requirement_name, asset_name, type_zone, service_type,
-                   agent_name, agent_phone, status, timeline_step, created_at, updated_at
-            FROM orders
+            SELECT o.id, o.order_number, o.customer_email, o.customer_name, o.customer_phone,
+                   o.plan_name, o.requirement_name, o.asset_name, o.type_zone, o.service_type,
+                   o.agent_name, o.agent_phone, o.status, o.timeline_step, o.created_at, o.updated_at,
+                   $vesselSel,
+                   (SELECT COUNT(*) FROM order_links l WHERE l.order_id = o.id AND l.url IS NOT NULL AND l.url <> '') AS links_con_url
+            FROM orders o
             $where
-            ORDER BY created_at DESC
+            ORDER BY o.created_at DESC
         ");
         $stmt->execute($params);
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Inspecciones: una sola consulta agrupada por correo (normalmente es
+        // un solo correo, el del cliente).
+        $emails = [];
+        foreach ($orders as $o) {
+            if (intval($o['links_con_url']) > 0 && !empty($o['customer_email'])) $emails[] = $o['customer_email'];
+        }
+        $inspecciones = contarInspeccionesPorEmail($pdo, $emails);
+
+        // Misma etapa efectiva que el detalle (computeTimelineStep), fila por fila.
+        foreach ($orders as &$o) {
+            $insp = $inspecciones[strtolower(trim((string) ($o['customer_email'] ?? '')))] ?? 0;
+            $o['timeline_step'] = timelineStepDesdeDatos($o, intval($o['links_con_url']) > 0, $insp);
+            unset($o['links_con_url'], $o['vessel_id']);
+        }
+        unset($o);
 
         echo json_encode(['success' => true, 'orders' => $orders]);
     } catch (PDOException $e) {

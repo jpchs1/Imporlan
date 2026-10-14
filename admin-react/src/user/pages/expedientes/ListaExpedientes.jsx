@@ -1,44 +1,74 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyOrders } from '../../api';
-import { PageHeader, Card, Button, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton } from '../../../shared/components/UI';
-import { Link2, FolderOpen, WhatsAppIcon } from '../../../shared/components/Icons';
+import { PageHeader, Card, Button, IconButton, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton } from '../../../shared/components/UI';
+import { Link2, FolderOpen, RefreshCw, WhatsAppIcon } from '../../../shared/components/Icons';
 import TarjetaExpediente from './TarjetaExpediente';
 import BotonEnlace from './BotonEnlace';
-import { esActivo, esImportacion, esCerrado, WA_SOPORTE } from './lib';
+import { esActivo, esImportacion, esVencido, esCancelado, WA_SOPORTE } from './lib';
 
 const FILTRO_FN = {
   todos: () => true,
   activos: esActivo,
   importacion: esImportacion,
   completados: (o) => o.status === 'completed',
-  vencidos: esCerrado,
+  vencidos: esVencido,
+  cancelados: esCancelado,
 };
+
+/** No se vuelve a pedir la lista si la última carga fue hace menos de esto. */
+const RECARGA_MIN_MS = 15_000;
 
 export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [recargando, setRecargando] = useState(false);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
+  const ultimaCarga = useRef(0);
 
   const load = useCallback(async () => {
     try {
       const r = (await getMyOrders()) || {};
       const list = r.orders || r.data || (Array.isArray(r) ? r : []);
       setOrders(Array.isArray(list) ? list : []);
-      if (r.error) setError(String(r.error));
+      setError(r.error ? String(r.error) : '');
     } catch (e) {
       setError(e?.message || 'No pudimos cargar tus expedientes');
-      setOrders([]);
     }
+    ultimaCarga.current = Date.now();
     setLoading(false);
+    setRecargando(false);
   }, []);
 
   useEffect(() => {
     const t = setTimeout(load, 0);
     return () => clearTimeout(t);
   }, [load]);
+
+  // Botón «Actualizar» y reintento: lo que ya se ve no se tapa con skeleton.
+  const recargar = useCallback(() => {
+    setRecargando(true);
+    setError('');
+    load();
+  }, [load]);
+
+  // Al volver a la pestaña (o a la ventana) la lista se refresca sola: el
+  // equipo cambia etapas y estados mientras el cliente está en otra cosa.
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (Date.now() - ultimaCarga.current < RECARGA_MIN_MS) return;
+      recargar();
+    };
+    window.addEventListener('focus', alVolver);
+    document.addEventListener('visibilitychange', alVolver);
+    return () => {
+      window.removeEventListener('focus', alVolver);
+      document.removeEventListener('visibilitychange', alVolver);
+    };
+  }, [recargar]);
 
   const conteo = useMemo(() => Object.fromEntries(Object.entries(FILTRO_FN).map(([k, fn]) => [k, orders.filter(fn).length])), [orders]);
 
@@ -53,16 +83,24 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
     });
   }, [orders, filtro, q]);
 
+  // «Cancelados» aparece solo cuando hay alguno: casi nadie tiene, y un chip
+  // en cero no ayuda. Si el filtro viene por URL y no hay, igual se muestra
+  // para que el cliente entienda qué está viendo.
   const chips = [
     { id: 'todos', label: 'Todos', count: conteo.todos },
     { id: 'activos', label: 'Activos', count: conteo.activos },
     { id: 'importacion', label: 'En importación', count: conteo.importacion },
     { id: 'completados', label: 'Completados', count: conteo.completados },
     { id: 'vencidos', label: 'Vencidos', count: conteo.vencidos },
-  ];
+    (conteo.cancelados > 0 || filtro === 'cancelados') && { id: 'cancelados', label: 'Cancelados', count: conteo.cancelados },
+  ].filter(Boolean);
 
   const hayFiltro = filtro !== 'todos' || q.trim() !== '';
   const limpiar = () => { onFiltro('todos'); setQ(''); };
+
+  const botonActualizar = (
+    <IconButton icon={RefreshCw} aria-label="Actualizar" title="Actualizar" variant="secondary" onClick={recargar} loading={recargando} disabled={loading} />
+  );
 
   let cuerpo;
   if (loading) {
@@ -74,7 +112,7 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
   } else if (orders.length === 0 && error) {
     cuerpo = (
       <Card padding="none">
-        <ErrorState title="No pudimos cargar tus expedientes" message="Vuelve a intentarlo en unos segundos. Si sigue fallando, escríbenos." detail={error} onRetry={() => { setError(''); setLoading(true); load(); }} />
+        <ErrorState title="No pudimos cargar tus expedientes" message="Vuelve a intentarlo en unos segundos. Si sigue fallando, escríbenos." detail={error} onRetry={recargar} />
       </Card>
     );
   } else if (orders.length === 0) {
@@ -87,9 +125,12 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
           primaryAction={<Button icon={Link2} onClick={() => navigate('/quotation')}>Cotizar links</Button>}
           secondaryAction={<Button variant="secondary" onClick={() => navigate('/plans')}>Ver planes</Button>}
         >
-          <BotonEnlace variant="ghost" size="sm" icon={WhatsAppIcon} className="mt-3" href={`https://wa.me/${WA_SOPORTE}?text=${encodeURIComponent('Hola, no veo mis expedientes en el panel')}`}>
-            Escríbenos por WhatsApp
-          </BotonEnlace>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <BotonEnlace variant="ghost" size="sm" icon={WhatsAppIcon} href={`https://wa.me/${WA_SOPORTE}?text=${encodeURIComponent('Hola, no veo mis expedientes en el panel')}`}>
+              Escríbenos por WhatsApp
+            </BotonEnlace>
+            <Button variant="ghost" size="sm" icon={RefreshCw} onClick={recargar} loading={recargando}>Actualizar</Button>
+          </div>
         </EmptyState>
       </Card>
     );
@@ -121,12 +162,19 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
       <PageHeader
         title="Expedientes"
         description="Tus búsquedas y cotizaciones, con la etapa en la que va cada una."
-        actions={<Button icon={Link2} onClick={() => navigate('/quotation')}>Cotizar links</Button>}
+        actions={(
+          <>
+            {botonActualizar}
+            <Button icon={Link2} onClick={() => navigate('/quotation')}>Cotizar links</Button>
+          </>
+        )}
       />
 
+      {/* Si los chips (hasta 6 + «Limpiar») y el buscador no caben en una
+          línea, el buscador baja a la siguiente en vez de cortar «Limpiar». */}
       {orders.length > 0 && (
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <FilterChips options={chips} value={filtro} onChange={onFiltro} onClear={hayFiltro ? limpiar : undefined} aria-label="Filtrar expedientes" className="min-w-0" />
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+          <FilterChips options={chips} value={filtro} onChange={onFiltro} onClear={hayFiltro ? limpiar : undefined} aria-label="Filtrar expedientes" className="max-w-full md:shrink-0" />
           <SearchInput value={q} onChange={setQ} placeholder="Buscar por número, lancha o agente" className="md:w-72 shrink-0" />
         </div>
       )}

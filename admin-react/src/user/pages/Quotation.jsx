@@ -163,7 +163,7 @@ export default function Quotation() {
   ].filter(Boolean);
 
   const resumen = (
-    <Card className="lg:sticky lg:top-[calc(var(--topbar-h)+16px)]">
+    <Card>
       <p className="eyebrow">Resumen</p>
       <dl className="mt-3 space-y-2 text-sm">
         <div className="flex justify-between gap-3"><dt className="text-ink-500">Links válidos</dt><dd className="tabular text-ink-900">{validLinks.length}</dd></div>
@@ -219,7 +219,15 @@ export default function Quotation() {
         meta={<Badge tone="brand">{fmtCLP(PRICE_PER_LINK)} por link</Badge>}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      {/*
+        El resumen se queda a la vista mientras el formulario hace scroll. El
+        `sticky` va en la columna de la grilla (no en la Card): con
+        `self-start` la columna mide lo que mide el resumen y su contenedor
+        es la grilla entera, tan alta como el formulario; si el sticky fuera en
+        la Card, su contenedor sería la columna, del mismo alto que ella, y no
+        tendría dónde moverse.
+      */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6 min-w-0">
           {/* Paso 1 · Links */}
           <Card as="section" aria-labelledby="paso-links">
@@ -313,7 +321,7 @@ export default function Quotation() {
           </Card>
         </div>
 
-        <div className="min-w-0">{resumen}</div>
+        <div className="min-w-0 lg:sticky lg:top-[calc(var(--topbar-h)+16px)] lg:self-start">{resumen}</div>
       </div>
     </div>
   );

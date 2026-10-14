@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getMyPaymentRequests, createWebPayTransaction, createMercadoPagoPreference } from '../api';
+import { getMyPaymentRequests, getMyOrders, createWebPayTransaction, createMercadoPagoPreference } from '../api';
 import { fmtDate, fmtCLP, cn, paymentMethodLabel } from '../../shared/lib/utils';
 import { fmtDateLarga } from '../../shared/lib/format';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -29,6 +29,50 @@ const BANCO = [
   { label: 'SWIFT', value: 'BSCHCLRM' },
   { label: 'Correo', value: 'contacto@imporlan.cl' },
 ];
+
+/*
+ * Referencia pública del expediente de una solicitud de pago.
+ *
+ * `api/payment_requests_api.php` guarda `metadata.order_id` con lo que el
+ * equipo escribió al crear la solicitud: a veces el id interno (35), a veces
+ * el número público («IMP-00035»). Nunca guarda `order_number`. Para no
+ * mostrar un id interno como si fuera el número, se cruza con los
+ * expedientes del cliente (`getMyOrders`) y se usa su `order_number`; si no
+ * calza con ninguno, solo se muestra cuando ya viene con formato «IMP-…».
+ */
+function referenciaExpediente(req, ordersById) {
+  const meta = req?.metadata || {};
+  if (meta.order_number) return String(meta.order_number);
+  const raw = meta.order_id;
+  if (raw === null || raw === undefined || raw === '') return '';
+  const s = String(raw).trim();
+  const porId = ordersById.get(s);
+  if (porId) return porId;
+  if (/^IMP-\d+$/i.test(s)) return s.toUpperCase();
+  const porNumero = [...ordersById.values()].find(n => String(n).toLowerCase() === s.toLowerCase());
+  return porNumero || '';
+}
+
+/** Mapa id → order_number con los expedientes del cliente (solo lectura). */
+function useMisExpedientes() {
+  const [ordersById, setOrdersById] = useState(() => new Map());
+  useEffect(() => {
+    let vivo = true;
+    getMyOrders()
+      .then((r) => {
+        if (!vivo) return;
+        const list = r?.orders || r?.data || (Array.isArray(r) ? r : []);
+        const m = new Map();
+        for (const o of Array.isArray(list) ? list : []) {
+          if (o?.id !== undefined && o?.order_number) m.set(String(o.id), String(o.order_number));
+        }
+        setOrdersById(m);
+      })
+      .catch(() => { /* sin expedientes no hay referencia; el pago se muestra igual */ });
+    return () => { vivo = false; };
+  }, []);
+  return ordersById;
+}
 
 /** Envía el token de WebPay por POST (igual que siempre: form + token_ws). */
 function enviarAWebPay(url, token) {
@@ -137,7 +181,7 @@ function DatosTransferencia({ amount, concepto }) {
 /* ---------------------------------------------------------------------------
    Modal: pagar una solicitud existente
    --------------------------------------------------------------------------- */
-function PayModal({ open, onClose, paymentRequest, toast }) {
+function PayModal({ open, onClose, paymentRequest, toast, expediente }) {
   const { user } = useAuth();
   const [method, setMethod] = useState('webpay');
   const [processing, setProcessing] = useState(false);
@@ -233,16 +277,16 @@ function PayModal({ open, onClose, paymentRequest, toast }) {
             <p className="eyebrow">Monto a pagar</p>
             <Money clp={pr.amount_clp} usd={pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
           </div>
-          {(meta.order_number || meta.boat_name) && (
+          {(expediente || meta.boat_name) && (
             <div className="text-right text-13 text-ink-500 shrink-0 max-w-[45%]">
-              {meta.order_number && <p className="font-medium text-ink-700">{meta.order_number}</p>}
+              {expediente && <p className="font-medium text-ink-700">{expediente}</p>}
               {meta.boat_name && <p className="truncate">{meta.boat_name}</p>}
             </div>
           )}
         </div>
 
         {showBank ? (
-          <DatosTransferencia amount={pr.amount_clp} concepto={meta.order_number ? `${meta.order_number} · ${pr.title}` : pr.title} />
+          <DatosTransferencia amount={pr.amount_clp} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} />
         ) : (
           <div>
             <p className="text-sm font-medium text-ink-900 mb-2">Elige cómo pagar</p>
@@ -354,7 +398,7 @@ function CustomPayModal({ open, onClose, toast, user }) {
 /* ---------------------------------------------------------------------------
    Solicitud pendiente (tarjeta ancha)
    --------------------------------------------------------------------------- */
-function PendienteCard({ req, onPay }) {
+function PendienteCard({ req, onPay, expediente }) {
   const meta = req.metadata || {};
   return (
     <Card as="article" className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -365,7 +409,7 @@ function PendienteCard({ req, onPay }) {
         </div>
         {req.description && <p className="text-sm text-ink-500 mt-1">{req.description}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-13 text-ink-500">
-          {meta.order_number && <span className="font-medium text-ink-700">{meta.order_number}</span>}
+          {expediente && <span className="font-medium text-ink-700">{expediente}</span>}
           {meta.boat_name && <span className="inline-flex items-center gap-1.5"><Ship size={14} /> {meta.boat_name}</span>}
           <span>Solicitado el {fmtDateLarga(req.created_at)}</span>
           {req.due_at && <span className="text-warning font-medium">Vence el {fmtDateLarga(req.due_at)}</span>}
@@ -382,17 +426,19 @@ function PendienteCard({ req, onPay }) {
 /* ---------------------------------------------------------------------------
    Detalle de un pago (historial)
    --------------------------------------------------------------------------- */
-function DetalleModal({ req, onClose, onPay }) {
+function DetalleModal({ req, onClose, onPay, expediente }) {
   if (!req) return null;
   const meta = req.metadata || {};
   const comprobante = req.receipt_url || req.voucher_url || req.comprobante_url;
+  // La API no guarda fecha de cancelación (solo `cancelled_reason`), así que
+  // un pago cancelado muestra únicamente cuándo se solicitó.
   const items = [
     { label: 'Monto', value: <Money clp={req.amount_clp} usd={req.amount_usd > 0 ? req.amount_usd : undefined} size="lg" /> },
     { label: 'Estado', value: <StatusBadge kind="pago" status={req.status} dot /> },
     { label: 'Solicitado', value: fmtDateLarga(req.created_at) },
     req.paid_at && { label: 'Pagado', value: fmtDateLarga(req.paid_at) },
     req.payment_method && { label: 'Medio de pago', value: paymentMethodLabel(req.payment_method) },
-    meta.order_number && { label: 'Expediente', value: meta.order_number },
+    expediente && { label: 'Expediente', value: expediente },
     meta.boat_name && { label: 'Embarcación', value: meta.boat_name },
     (req.payment_id || req.transaction_id) && { label: 'ID de transacción', value: req.payment_id || req.transaction_id, mono: true },
   ].filter(Boolean);
@@ -441,6 +487,8 @@ export default function Payments() {
   const [detalle, setDetalle] = useState(null);
   const [showCustomPay, setShowCustomPay] = useState(false);
   const [tab, setTab] = useState(null);
+  const ordersById = useMisExpedientes();
+  const expedienteDe = useCallback((r) => referenciaExpediente(r, ordersById), [ordersById]);
 
   // Sin setState síncrono antes del await: la carga inicial parte con
   // loading=true y `recargar` (botón / reintentar) lo vuelve a poner.
@@ -466,21 +514,25 @@ export default function Payments() {
   const tabActual = tab || (pending.length > 0 ? 'pending' : 'paid');
   const visible = tabActual === 'pending' ? pending : tabActual === 'paid' ? paid : cancelled;
 
+  // «Fecha» es cuando se solicitó (`created_at`). «Pagado» (`paid_at`) solo
+  // tiene sentido en Pendientes/Pagados: la API no guarda cuándo se canceló
+  // una solicitud, así que en Cancelados no hay columna de fecha inventada.
   const columns = [
-    { key: 'created_at', header: 'Fecha', width: 120, cell: r => <span className="tabular whitespace-nowrap">{fmtDate(r.created_at)}</span>, sortValue: r => new Date(r.created_at).getTime() },
-    { key: 'title', header: 'Concepto', cell: r => (
-      <div className="min-w-0">
-        <p className="font-medium text-ink-900 truncate max-w-[36ch]">{r.title}</p>
-        {(r.metadata?.order_number || r.metadata?.boat_name) && (
-          <p className="text-13 text-ink-500 truncate max-w-[36ch]">{[r.metadata?.order_number, r.metadata?.boat_name].filter(Boolean).join(' · ')}</p>
-        )}
-      </div>
-    ) },
+    { key: 'created_at', header: 'Solicitado', width: 120, cell: r => <span className="tabular whitespace-nowrap">{fmtDate(r.created_at)}</span>, sortValue: r => new Date(r.created_at).getTime() },
+    { key: 'title', header: 'Concepto', cell: r => {
+      const ref = [expedienteDe(r), r.metadata?.boat_name].filter(Boolean).join(' · ');
+      return (
+        <div className="min-w-0">
+          <p className="font-medium text-ink-900 truncate max-w-[36ch]">{r.title}</p>
+          {ref && <p className="text-13 text-ink-500 truncate max-w-[36ch]">{ref}</p>}
+        </div>
+      );
+    } },
     { key: 'payment_method', header: 'Medio', priority: 2, cell: r => r.payment_method ? paymentMethodLabel(r.payment_method) : <span className="text-ink-500">—</span> },
-    { key: 'paid_at', header: tabActual === 'cancelled' ? 'Cancelado' : 'Pagado', priority: 3, cell: r => <span className="tabular">{r.paid_at ? fmtDate(r.paid_at) : r.cancelled_at ? fmtDate(r.cancelled_at) : '—'}</span> },
+    tabActual !== 'cancelled' && { key: 'paid_at', header: 'Pagado', priority: 3, cell: r => <span className="tabular">{r.paid_at ? fmtDate(r.paid_at) : '—'}</span>, sortValue: r => (r.paid_at ? new Date(r.paid_at).getTime() : 0) },
     { key: 'amount_clp', header: 'Monto', align: 'right', cell: r => <Money clp={r.amount_clp} usd={r.amount_usd > 0 ? r.amount_usd : undefined} align="right" />, sortValue: r => Number(r.amount_clp) },
     { key: 'status', header: 'Estado', priority: 2, cell: r => <StatusBadge kind="pago" status={r.status} dot /> },
-  ];
+  ].filter(Boolean);
 
   const acciones = (r) => [
     { label: 'Ver detalle', icon: Receipt, onClick: () => setDetalle(r) },
@@ -534,7 +586,7 @@ export default function Payments() {
                 description={`${pending.length} ${pending.length === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} · ${fmtCLP(pendingTotal)} en total`}
               />
               <div className="space-y-3">
-                {pending.map(r => <PendienteCard key={r.id} req={r} onPay={setPayTarget} />)}
+                {pending.map(r => <PendienteCard key={r.id} req={r} onPay={setPayTarget} expediente={expedienteDe(r)} />)}
               </div>
             </section>
           )}
@@ -561,7 +613,7 @@ export default function Payments() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-ink-900 truncate">{r.title}</p>
-                      <p className="text-13 text-ink-500">{fmtDate(r.created_at)}{r.payment_method ? ` · ${paymentMethodLabel(r.payment_method)}` : ''}</p>
+                      <p className="text-13 text-ink-500">{[fmtDate(r.created_at), expedienteDe(r), r.payment_method && paymentMethodLabel(r.payment_method)].filter(Boolean).join(' · ')}</p>
                       <div className="mt-1.5"><StatusBadge kind="pago" status={r.status} dot size="sm" /></div>
                     </div>
                     <Money clp={r.amount_clp} align="right" />
@@ -575,8 +627,8 @@ export default function Payments() {
       )}
 
       {/* Se montan solo abiertos: cada apertura parte con el estado limpio. */}
-      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} />}
-      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} />}
+      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} />}
+      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} />}
       {showCustomPay && <CustomPayModal open onClose={() => setShowCustomPay(false)} toast={toast} user={user} />}
     </div>
   );
