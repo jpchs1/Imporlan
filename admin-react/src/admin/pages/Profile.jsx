@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { getProfile, updateProfileName, changeProfilePassword, uploadProfilePhoto } from '../api';
-import { PageHeader, Card, Button, Input, Spinner } from '../../shared/components/UI';
+import { PageHeader, Card, Button, Input, Avatar, Badge, Spinner } from '../../shared/components/UI';
+import { Camera } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
-function initialOf(s) {
-  return ((s || 'A')[0] || 'A').toUpperCase();
-}
+const ROLE_LABEL = { admin: 'Administrador', support: 'Soporte', agent: 'Agente' };
+// Misma regla que el alta de cuentas del equipo (Usuarios › Equipo).
+const PW_MIN = 8;
 
 export default function Profile() {
   const { user, loginUser } = useAuth();
-  const showToast = useToast();
+  const toast = useToast();
   const fileInputRef = useRef(null);
 
   const [profile, setProfile] = useState(null);
@@ -22,26 +23,30 @@ export default function Profile() {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
+  const [pwErrors, setPwErrors] = useState({});
   const [savingPw, setSavingPw] = useState(false);
-  const [pwMsg, setPwMsg] = useState(null);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  useEffect(() => { load(); }, []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const r = await getProfile();
-      const p = r.profile || r;
-      setProfile(p);
-      setName(p.name || user?.name || '');
-    } catch (e) {
-      showToast(e.message || 'No se pudo cargar el perfil', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await getProfile();
+        if (!alive) return;
+        const p = r.profile || r;
+        setProfile(p);
+        setName(p.name || user?.name || '');
+      } catch (e) {
+        if (alive) toast?.(e.message || 'No se pudo cargar tu cuenta', 'error');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  // Solo al montar: el nombre del contexto es el respaldo inicial.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function syncAuthUser(updates) {
     const stored = JSON.parse(localStorage.getItem('user') || '{}');
@@ -59,37 +64,37 @@ export default function Profile() {
       if (!r || r.success === false || r.error) throw new Error(r?.error || 'Error');
       setProfile(p => ({ ...p, name: name.trim() }));
       syncAuthUser({ name: name.trim() });
-      showToast('Nombre actualizado', 'success');
+      toast?.('Nombre actualizado', 'success');
     } catch (err) {
-      showToast(err.message || 'Error al actualizar el nombre', 'error');
+      toast?.(err.message || 'No se pudo actualizar el nombre', 'error');
     } finally {
       setSavingName(false);
     }
   }
 
+  function validarContrasena() {
+    const errs = {};
+    if (!currentPw) errs.current = 'Escribe tu contraseña actual.';
+    if (!newPw) errs.next = 'Escribe la contraseña nueva.';
+    else if (newPw.length < PW_MIN) errs.next = `Debe tener al menos ${PW_MIN} caracteres.`;
+    if (!confirmPw) errs.confirm = 'Repite la contraseña nueva.';
+    else if (newPw && newPw !== confirmPw) errs.confirm = 'Las contraseñas no coinciden.';
+    return errs;
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault();
-    setPwMsg(null);
-    if (!currentPw || !newPw || !confirmPw) {
-      setPwMsg({ type: 'error', text: 'Completa todos los campos.' });
-      return;
-    }
-    if (newPw !== confirmPw) {
-      setPwMsg({ type: 'error', text: 'Las contrasenas no coinciden.' });
-      return;
-    }
-    if (newPw.length < 6) {
-      setPwMsg({ type: 'error', text: 'La contrasena debe tener al menos 6 caracteres.' });
-      return;
-    }
+    const errs = validarContrasena();
+    setPwErrors(errs);
+    if (Object.keys(errs).length) return;
     setSavingPw(true);
     try {
       const r = await changeProfilePassword(currentPw, newPw, confirmPw);
       if (!r || r.success === false || r.error) throw new Error(r?.error || 'Error');
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
-      setPwMsg({ type: 'success', text: r.message || 'Contrasena actualizada.' });
+      toast?.({ type: 'success', title: 'Contraseña actualizada', description: r.message });
     } catch (err) {
-      setPwMsg({ type: 'error', text: err.message || 'Error al cambiar la contrasena.' });
+      toast?.({ type: 'error', title: 'No se pudo cambiar la contraseña', description: err.message });
     } finally {
       setSavingPw(false);
     }
@@ -100,7 +105,7 @@ export default function Profile() {
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      showToast('La imagen no debe pesar mas de 5 MB', 'error');
+      toast?.('La imagen no debe pesar más de 5 MB', 'error');
       return;
     }
     setUploadingPhoto(true);
@@ -112,9 +117,9 @@ export default function Profile() {
         setProfile(p => ({ ...p, avatar_url: newUrl }));
         syncAuthUser({ avatar_url: newUrl });
       }
-      showToast('Foto actualizada', 'success');
+      toast?.('Foto actualizada', 'success');
     } catch (err) {
-      showToast(err.message || 'Error al subir la foto', 'error');
+      toast?.(err.message || 'No se pudo subir la foto', 'error');
     } finally {
       setUploadingPhoto(false);
     }
@@ -122,87 +127,73 @@ export default function Profile() {
 
   if (loading) return <Spinner />;
 
+  const displayName = profile?.name || user?.name || 'Usuario';
+  const role = profile?.role || user?.role;
+
   return (
     <>
-      <PageHeader title="Mi perfil" subtitle="Actualiza tu foto, nombre y contrasena" />
+      <PageHeader title="Mi cuenta" description="Tu foto, tu nombre y tu contraseña de acceso al panel." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-1 flex flex-col items-center text-center">
-          <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white text-3xl font-bold shadow-lg overflow-hidden">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="absolute inset-0 w-full h-full object-cover" />
-            ) : (
-              initialOf(profile?.name || user?.name)
-            )}
-            {uploadingPhoto && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              </div>
-            )}
-          </div>
-          <div className="mt-4">
-            <p className="text-base font-semibold text-slate-800">{profile?.name || user?.name || 'Usuario'}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{profile?.email || user?.email}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5 capitalize">{profile?.role || user?.role}</p>
-          </div>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-          <Button className="mt-5" variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploadingPhoto}>
-            {uploadingPhoto ? 'Subiendo...' : 'Cambiar foto'}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <Card className="flex flex-col items-center text-center">
+          <Avatar name={displayName} src={profile?.avatar_url} size="xl" className="h-24! w-24! text-2xl!" />
+          <p className="mt-4 text-base font-semibold text-ink-900">{displayName}</p>
+          <p className="text-13 text-ink-500 mt-0.5 break-all">{profile?.email || user?.email}</p>
+          {role && <Badge tone="info" className="mt-2">{ROLE_LABEL[role] || role}</Badge>}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="sr-only" tabIndex={-1} aria-hidden="true" />
+          <Button className="mt-5" variant="secondary" icon={Camera} onClick={() => fileInputRef.current?.click()} loading={uploadingPhoto}>
+            Cambiar foto
           </Button>
-          <p className="text-[10px] text-slate-400 mt-2">JPG, PNG o GIF. Maximo 5 MB.</p>
+          <p className="text-xs text-ink-500 mt-2">JPG, PNG o GIF · hasta 5 MB</p>
         </Card>
 
         <div className="lg:col-span-2 space-y-4">
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-4">Nombre</h3>
-            <form onSubmit={handleSaveName} className="flex gap-2 items-end">
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre" className="flex-1" />
-              <Button type="submit" disabled={savingName || !name.trim() || name === profile?.name}>
-                {savingName ? 'Guardando...' : 'Guardar'}
-              </Button>
-            </form>
+            <Card.Header title="Nombre" description="Así te ven el equipo y los clientes en el panel y en el chat." />
+            <Card.Body>
+              <form onSubmit={handleSaveName} className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <Input label="Nombre" value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre" className="flex-1" autoComplete="name" />
+                <Button type="submit" loading={savingName} disabled={!name.trim() || name.trim() === (profile?.name || '')}>Guardar</Button>
+              </form>
+            </Card.Body>
           </Card>
 
           <Card>
-            <h3 className="font-semibold text-slate-700 mb-4">Cambiar contrasena</h3>
-            <form onSubmit={handleChangePassword} className="space-y-3">
-              <Input
-                type="password"
-                label="Contrasena actual"
-                value={currentPw}
-                onChange={e => setCurrentPw(e.target.value)}
-                autoComplete="current-password"
-              />
-              <Input
-                type="password"
-                label="Nueva contrasena"
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-                autoComplete="new-password"
-                placeholder="Minimo 6 caracteres"
-              />
-              <Input
-                type="password"
-                label="Confirmar nueva contrasena"
-                value={confirmPw}
-                onChange={e => setConfirmPw(e.target.value)}
-                autoComplete="new-password"
-              />
-              {pwMsg && (
-                <div className={
-                  'p-3 rounded-xl text-sm ' +
-                  (pwMsg.type === 'success'
-                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                    : 'bg-red-50 border border-red-200 text-red-600')
-                }>
-                  {pwMsg.text}
-                </div>
-              )}
-              <div className="flex justify-end">
-                <Button type="submit" disabled={savingPw}>
-                  {savingPw ? 'Guardando...' : 'Cambiar contrasena'}
-                </Button>
-              </div>
+            <Card.Header title="Cambiar contraseña" description={`Mínimo ${PW_MIN} caracteres. Al cambiarla se cierran tus otras sesiones.`} />
+            <form onSubmit={handleChangePassword} noValidate>
+              <Card.Body className="space-y-4">
+                <Input
+                  type="password"
+                  label="Contraseña actual"
+                  value={currentPw}
+                  onChange={e => { setCurrentPw(e.target.value); setPwErrors(p => ({ ...p, current: undefined })); }}
+                  autoComplete="current-password"
+                  error={pwErrors.current}
+                  required
+                />
+                <Input
+                  type="password"
+                  label="Contraseña nueva"
+                  value={newPw}
+                  onChange={e => { setNewPw(e.target.value); setPwErrors(p => ({ ...p, next: undefined })); }}
+                  autoComplete="new-password"
+                  hint={`Al menos ${PW_MIN} caracteres`}
+                  error={pwErrors.next}
+                  required
+                />
+                <Input
+                  type="password"
+                  label="Repite la contraseña nueva"
+                  value={confirmPw}
+                  onChange={e => { setConfirmPw(e.target.value); setPwErrors(p => ({ ...p, confirm: undefined })); }}
+                  autoComplete="new-password"
+                  error={pwErrors.confirm}
+                  required
+                />
+              </Card.Body>
+              <Card.Footer>
+                <Button type="submit" loading={savingPw}>Cambiar contraseña</Button>
+              </Card.Footer>
             </form>
           </Card>
         </div>

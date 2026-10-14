@@ -5,6 +5,9 @@ import { ToastProvider, useToast } from '../shared/components/Toast';
 import { SESSION_EXPIRED_EVENT } from '../shared/lib/api-client';
 import Layout from '../shared/components/Layout';
 import NotificationBell from '../shared/components/NotificationBell';
+import { IconButton } from '../shared/components/UI';
+import { Search } from '../shared/components/Icons';
+import CommandPalette, { CommandPaletteTrigger, useCommandPalette, ATAJO } from './components/CommandPalette';
 import {
   getUnreadCount,
   getNotifications,
@@ -77,23 +80,34 @@ function SessionExpiredNotice() {
 function AdminLayout() {
   const { user } = useAuth();
   const chatUnread = useChatUnread();
+  const navItems = navItemsFor(user?.role);
+  // Paleta de comandos (⌘K / Ctrl K): buscador en el topbar en escritorio,
+  // ícono en móvil; solo navega a las secciones que el rol puede ver.
+  const paleta = useCommandPalette();
   return (
-    <Layout
-      navItems={navItemsFor(user?.role)}
-      badges={{ '/chat': chatUnread }}
-      branding={BRANDING}
-      profilePath="/profile"
-      headerExtra={
-        <NotificationBell
-          getUnreadCount={getUnreadCount}
-          getNotifications={getNotifications}
-          markRead={markNotificationRead}
-          markAllRead={markAllNotificationsRead}
-          viewAllPath="/orders"
-          viewAllLabel="Ir a Expedientes"
-        />
-      }
-    />
+    <>
+      <Layout
+        navItems={navItems}
+        badges={{ '/chat': chatUnread }}
+        branding={BRANDING}
+        profilePath="/profile"
+        search={<CommandPaletteTrigger onClick={paleta.show} />}
+        headerExtra={
+          <>
+            <IconButton icon={Search} aria-label={`Buscar (${ATAJO})`} onClick={paleta.show} className="md:hidden" />
+            <NotificationBell
+              getUnreadCount={getUnreadCount}
+              getNotifications={getNotifications}
+              markRead={markNotificationRead}
+              markAllRead={markAllNotificationsRead}
+              viewAllPath="/orders"
+              viewAllLabel="Ir a Expedientes"
+            />
+          </>
+        }
+      />
+      <CommandPalette open={paleta.open} onClose={paleta.hide} sections={navItems} />
+    </>
   );
 }
 
