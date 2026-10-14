@@ -5,6 +5,8 @@
  * JWT secret is loaded from environment variable JWT_SECRET
  */
 
+require_once __DIR__ . '/session_revocation.php';
+
 function getJwtSecret() {
     if (defined('IMPORLAN_JWT_SECRET')) {
         return IMPORLAN_JWT_SECRET;
@@ -53,6 +55,10 @@ function verifyJWTToken($token) {
     $payload = json_decode(authBase64UrlDecode($base64Payload), true);
 
     if (isset($payload['exp']) && $payload['exp'] < time()) return null;
+
+    // Si la cuenta cambio de contrasena despues de emitirse este token, no
+    // vale: ver session_revocation.php.
+    if (impTokenRevocado($payload)) return null;
 
     return $payload;
 }

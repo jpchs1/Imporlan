@@ -142,7 +142,7 @@ prueba('la pagina de cambio tambien comprueba el role',
 // cada intento para estrenar cuota una y otra vez.
 $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
 $_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.77';
-prueba('el tope se cuenta por REMOTE_ADDR, no por la cabecera del proxy',
+prueba('desde una IP cualquiera la cabecera del proxy no decide nada',
     urIpCliente() === '203.0.113.9');
 prueba('el log si conserva la cabecera del proxy',
     strpos(urIpParaElLog(), '198.51.100.77') !== false);
@@ -151,6 +151,55 @@ $_SERVER['REMOTE_ADDR'] = 'no-es-una-ip';
 prueba('una REMOTE_ADDR rara no se usa como clave',
     urIpCliente() === 'desconocida');
 unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+
+// El otro lado del mismo riesgo: detras de Cloudflare REMOTE_ADDR es una IP de
+// borde, asi que contando solo por ella las 12 solicitudes por hora quedaban
+// repartidas entre TODOS los clientes del sitio. Desde un rango de Cloudflare
+// la cabecera la escribio el proxy, no el cliente, y ahi si se le cree.
+$_SERVER['REMOTE_ADDR'] = '162.158.1.1';   // 162.158.0.0/15, de Cloudflare
+$_SERVER['HTTP_CF_CONNECTING_IP'] = '203.0.113.50';
+prueba('detras de Cloudflare se cuenta la IP real del cliente',
+    urIpCliente() === '203.0.113.50');
+
+$_SERVER['HTTP_CF_CONNECTING_IP'] = 'basura';
+prueba('una cabecera con basura cae de vuelta en REMOTE_ADDR',
+    urIpCliente() === '162.158.1.1');
+unset($_SERVER['HTTP_CF_CONNECTING_IP']);
+
+// De X-Forwarded-For se toma la ultima, la que agrego el proxy: las de antes
+// las pudo haber escrito el cliente para estrenar cuota.
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '10.9.9.9, 198.51.100.4';
+prueba('de X-Forwarded-For se toma la que puso el proxy, no la primera',
+    urIpCliente() === '198.51.100.4');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+
+prueba('urIpEnRango acierta con IPv4',
+    urIpEnRango('162.158.1.1', '162.158.0.0/15') === true
+    && urIpEnRango('162.160.0.1', '162.158.0.0/15') === false
+    && urIpEnRango('131.0.75.3', '131.0.72.0/22') === true
+    && urIpEnRango('131.0.76.3', '131.0.72.0/22') === false);
+prueba('urIpEnRango acierta con IPv6',
+    urIpEnRango('2606:4700::1', '2606:4700::/32') === true
+    && urIpEnRango('2606:4701::1', '2606:4700::/32') === false);
+prueba('urIpEnRango no mezcla IPv4 con IPv6',
+    urIpEnRango('162.158.1.1', '2606:4700::/32') === false
+    && urIpEnRango('2606:4700::1', '162.158.0.0/15') === false);
+prueba('urIpEnRango aguanta un CIDR con basura',
+    urIpEnRango('162.158.1.1', 'ni-ahi/15') === false
+    && urIpEnRango('162.158.1.1', '162.158.0.0/999') === false);
+
+// Y el tope de verdad: cada cliente detras del proxy gasta su propia cuota.
+$_SERVER['REMOTE_ADDR'] = '162.158.1.1';
+$_SERVER['HTTP_CF_CONNECTING_IP'] = '203.0.113.77';
+$claveIp = urIpCliente();
+for ($i = 0; $i < 12; $i++) urPermiteSolicitud("tope$i@ejemplo.cl", $claveIp);
+prueba('el tope por IP se agota con la IP real del cliente',
+    urPermiteSolicitud('tope99@ejemplo.cl', $claveIp) === false);
+$_SERVER['HTTP_CF_CONNECTING_IP'] = '203.0.113.78';
+prueba('otro cliente detras del mismo Cloudflare conserva su cuota',
+    urPermiteSolicitud('otro@ejemplo.cl', urIpCliente()) === true);
+unset($_SERVER['HTTP_CF_CONNECTING_IP']);
+unset($_SERVER['REMOTE_ADDR']);
 
 // ---------------------------------------- el enlace va a un solo buzon
 // Los correos normales llevan copia oculta a jpchs1@gmail.com y CC al correo
@@ -271,6 +320,44 @@ prueba('handleLogin solo revela el estado tras verificar la clave',
 $tramoAdminUsers = substr($cuerpoLogin, 0, strpos($cuerpoLogin, '// Check panel users'));
 prueba('handleLogin comprueba la clave una sola vez por cuenta',
     substr_count($tramoAdminUsers, 'password_verify(') === 1);
+
+// ------------------- cambiar la clave corta las sesiones que ya estaban
+// El caso que hace existir la recuperacion es que a alguien le entraron a la
+// cuenta. Si los JWT emitidos antes siguieran valiendo sus siete dias, cambiar
+// la clave cerraria la puerta con el intruso adentro.
+$dirSesiones = sys_get_temp_dir() . '/imporlan_test_sesiones_' . getmypid();
+@mkdir($dirSesiones, 0700, true);
+define('IMP_DIR_SESIONES', $dirSesiones);
+require_once __DIR__ . '/../api/session_revocation.php';
+
+prueba('una cuenta sin marca deja pasar sus tokens',
+    impTokenRevocado(['sub' => '77', 'iat' => time() - 10]) === false);
+prueba('la marca se escribe',
+    impInvalidarSesionesDe('77') === true);
+prueba('un token de antes del cambio deja de valer',
+    impTokenRevocado(['sub' => '77', 'iat' => time() - 3600]) === true);
+prueba('un token emitido despues del cambio vale',
+    impTokenRevocado(['sub' => '77', 'iat' => time() + 5]) === false);
+prueba('la marca es de esa cuenta y no de las demas',
+    impTokenRevocado(['sub' => '78', 'iat' => time() - 3600]) === false);
+prueba('un token sin iat se deja como estaba',
+    impTokenRevocado(['sub' => '77']) === false);
+prueba('un payload sin sub se deja como estaba',
+    impTokenRevocado(['iat' => time() - 3600]) === false);
+prueba('el directorio no deja ver los ids de las cuentas',
+    !file_exists($dirSesiones . '/77.json')
+    && file_exists($dirSesiones . '/' . hash('sha256', 'cuenta:77') . '.json'));
+
+// Los dos verificadores tienen que mirarla. Si uno se olvidara, el panel
+// echaria al intruso y la API de pagos lo seguiria dejando entrar.
+prueba('los dos verificadores de JWT miran la marca',
+    strpos(file_get_contents(__DIR__ . '/../api/auth_local.php'), 'impTokenRevocado($payload)') !== false
+    && strpos(file_get_contents(__DIR__ . '/../api/auth_helper.php'), 'impTokenRevocado($payload)') !== false);
+prueba('el cambio de clave pone la marca',
+    strpos($reset, 'impInvalidarSesionesDe($cuenta[\'id\'])') !== false);
+
+foreach (glob($dirSesiones . '/*') ?: [] as $f) @unlink($f);
+@rmdir($dirSesiones);
 
 // --------------------------------------------------------------- limpieza
 foreach (glob($tmp . '/*') ?: [] as $f) @unlink($f);
