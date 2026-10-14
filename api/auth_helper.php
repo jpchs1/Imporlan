@@ -140,3 +140,29 @@ function requireUserAuthShared() {
 
     return $payload;
 }
+
+/**
+ * Correo del cliente cuyos datos va a leer una ruta de cliente.
+ *
+ * Es SIEMPRE el del token verificado. El panel sigue mandando user_email en
+ * la URL o en el cuerpo (lo hacia cuando no habia sesion), y eso se acepta
+ * solo como comprobacion: si no coincide con el token, 403. El equipo
+ * (admin/support/agent) si puede pedir el correo de un cliente concreto.
+ *
+ * Toda ruta que filtre por correo de cliente pasa por aqui, y asi lo cobra
+ * test/acceso-api-tests.php: leer user_email de $_GET o del cuerpo por
+ * fuera de esta funcion, sin sesion, es como se filtraron los expedientes
+ * (#690) y las compras del espejo /test/api.
+ *
+ *   $sesion  lo que devolvio requireUserAuthShared()
+ *   $pedido  el correo que vino en la peticion, o null
+ */
+function correoClienteDesdeSesion(array $sesion, $pedido = null) {
+    $propio = strtolower(trim((string) ($sesion['email'] ?? '')));
+    $pedido = strtolower(trim((string) $pedido));
+    if ($pedido === '' || $pedido === $propio) return $propio;
+    if (in_array($sesion['role'] ?? '', ['admin', 'support', 'agent'], true)) return $pedido;
+    http_response_code(403);
+    echo json_encode(['error' => 'Acceso denegado']);
+    exit();
+}

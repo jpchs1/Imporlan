@@ -72,12 +72,13 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             uploadInspectionMedia();
             break;
         case 'user_list':
+            // El correo sale del token; el user_email de la URL solo se contrasta.
             $userPayload = requireUserAuthShared();
-            userListInspections($userPayload);
+            userListInspections(correoClienteDesdeSesion($userPayload, $_GET['user_email'] ?? null));
             break;
         case 'user_detail':
             $userPayload = requireUserAuthShared();
-            userDetailInspection($userPayload);
+            userDetailInspection(correoClienteDesdeSesion($userPayload, $_GET['user_email'] ?? null));
             break;
         default:
             http_response_code(400);
@@ -527,20 +528,12 @@ function uploadInspectionMedia() {
 // USER ENDPOINTS
 // ============================================================
 
-function userListInspections($userPayload) {
+function userListInspections($email) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
-    $authenticatedEmail = $userPayload['email'] ?? '';
-    $email = trim($_GET['user_email'] ?? '');
+    $email = trim((string) $email);
     if (empty($email)) { http_response_code(400); echo json_encode(['error' => 'Email requerido']); return; }
-
-    // Verify the authenticated user can only access their own inspections
-    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($email)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'No autorizado para ver inspecciones de otro usuario']);
-        return;
-    }
 
     try {
         runSilentMigration($pdo);
@@ -557,21 +550,13 @@ function userListInspections($userPayload) {
     }
 }
 
-function userDetailInspection($userPayload) {
+function userDetailInspection($email) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
-    $authenticatedEmail = $userPayload['email'] ?? '';
     $id = intval($_GET['id'] ?? 0);
-    $email = trim($_GET['user_email'] ?? '');
+    $email = trim((string) $email);
     if ($id <= 0 || empty($email)) { http_response_code(400); echo json_encode(['error' => 'ID y email requeridos']); return; }
-
-    // Verify the authenticated user can only access their own inspections
-    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($email)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'No autorizado para ver inspecciones de otro usuario']);
-        return;
-    }
 
     try {
         runSilentMigration($pdo);

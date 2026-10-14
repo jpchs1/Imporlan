@@ -2,6 +2,12 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/db_config.php';
 
+// Borra y siembra publicaciones del marketplace: solo un admin con sesion.
+// La clave fija de abajo esta en el repositorio, asi que por si sola no
+// protege nada; se mantiene solo como segundo candado.
+require_once __DIR__ . '/auth_helper.php';
+requireAdminAuthShared(['admin']);
+
 $action = $_GET['action'] ?? '';
 $key = $_GET['key'] ?? '';
 

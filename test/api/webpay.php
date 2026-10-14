@@ -72,6 +72,10 @@ switch ($action) {
         break;
     case 'refund':
         header('Content-Type: application/json');
+        // Devolver dinero es del equipo: antes bastaba el token_ws de la
+        // transaccion (que el propio pagador ve en la URL de retorno).
+        require_once __DIR__ . '/auth_helper.php';
+        requireAdminAuthShared(['admin', 'support']);
         refundTransaction($input);
         break;
     default:

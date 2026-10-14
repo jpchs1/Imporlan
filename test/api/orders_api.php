@@ -1351,7 +1351,7 @@ function saveRanking() {
     $linkIds = $input['link_ids'] ?? [];
     $authorName = $input['author_name'] ?? '';
     $authorRole = $input['author_role'] ?? ''; // 'user' or 'admin'
-    $userEmail = $input['user_email'] ?? '';
+    // user_email del cuerpo no se lee: el correo sale del token (mas abajo).
 
     if (!$orderId || empty($linkIds) || !$authorName || !$authorRole) {
         http_response_code(400);
@@ -1434,7 +1434,7 @@ function notifyRanking() {
     $orderId = intval($input['order_id'] ?? 0);
     $authorName = $input['author_name'] ?? '';
     $authorRole = $input['author_role'] ?? '';
-    $userEmail = $input['user_email'] ?? '';
+    // user_email del cuerpo no se lee: el correo sale del token (mas abajo).
 
     if (!$orderId || !$authorName || !$authorRole) {
         http_response_code(400);

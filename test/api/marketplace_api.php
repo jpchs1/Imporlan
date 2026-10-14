@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/marketplace_email_service.php';
+require_once __DIR__ . '/auth_helper.php';
 
 if (!defined('JWT_SECRET')) {
     $jwt = getenv('JWT_SECRET');
@@ -66,10 +67,13 @@ switch ($action) {
         handleLeadSubmission();
         break;
     case 'migrate_v2':
-        $user = requireAuth();
+        // Migraciones de esquema: solo un admin, no cualquier sesion (y
+        // migrate_arriendo no pedia nada).
+        requireAdminAuthShared(['admin']);
         migrateMarketplaceV2();
         break;
     case 'migrate_arriendo':
+        requireAdminAuthShared(['admin']);
         migrateArriendoFields();
         break;
     default:
@@ -107,8 +111,6 @@ function verifyJWT($token) {
 function requireAuth() {
     $headers = getallheaders();
     $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
-    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
-    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
 
     if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
         http_response_code(401);
@@ -124,8 +126,20 @@ function requireAuth() {
         exit();
     }
 
-    if (empty($payload['email']) && $userEmail) $payload['email'] = $userEmail;
-    if (empty($payload['name']) && $userName) $payload['name'] = $userName;
+    // El token temporal que se emite tras la contraseña no sirve sin el 2FA.
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['error' => 'Completa la verificacion en dos pasos']);
+        exit();
+    }
+
+    // La identidad es SOLO la del token. Antes, si el token no traia correo,
+    // se tomaba de la cabecera X-User-Email, que la manda el navegador.
+    if (empty($payload['email'])) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Token sin correo']);
+        exit();
+    }
 
     return $payload;
 }

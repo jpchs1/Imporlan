@@ -19,6 +19,11 @@ if (php_sapi_name() !== 'cli' && $runKey !== $expectedKey) {
     echo json_encode(['error' => 'Unauthorized. Provide correct key parameter.']);
     exit();
 }
+// Por web ademas exige sesion de admin: la clave fija esta en el repositorio.
+if (php_sapi_name() !== 'cli') {
+    require_once __DIR__ . '/auth_helper.php';
+    requireAdminAuthShared(['admin']);
+}
 
 $purchasesFile = __DIR__ . '/purchases.json';
 

@@ -41,22 +41,19 @@ $action = $_GET['action'] ?? '';
 // Autenticación: `get` la usa el panel de clientes con su propio token (sólo
 // puede ver sus compras); todo lo demás es exclusivo del equipo.
 require_once __DIR__ . '/auth_helper.php';
+$emailCliente = '';
 if ($action === 'get') {
+    // El correo es el del token; el user_email de la URL solo se contrasta
+    // (el equipo si puede pedir el de un cliente concreto).
     $authPayload = requireUserAuthShared();
-    $isStaff = in_array($authPayload['role'] ?? '', ['admin', 'support', 'agent'], true);
-    $requested = strtolower(trim($_GET['user_email'] ?? ''));
-    if (!$isStaff && $requested !== strtolower(trim($authPayload['email'] ?? ''))) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Acceso denegado']);
-        exit();
-    }
+    $emailCliente = correoClienteDesdeSesion($authPayload, $_GET['user_email'] ?? null);
 } elseif ($action !== '') {
     requireAdminAuthShared(['admin', 'support']);
 }
 
 switch ($action) {
     case 'get':
-        getPurchases();
+        getPurchases($emailCliente);
         break;
     case 'add':
         addPurchase();
@@ -127,11 +124,9 @@ function sanitizeDescription($description) {
 /**
  * Get purchases for a specific user
  */
-function getPurchases() {
+function getPurchases($userEmail) {
     global $purchasesFile;
-    
-    $userEmail = $_GET['user_email'] ?? null;
-    
+
     if (!$userEmail) {
         http_response_code(400);
         echo json_encode(['error' => 'Falta el parametro: user_email']);

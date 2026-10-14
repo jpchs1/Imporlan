@@ -4,6 +4,11 @@
  * Run once via browser: /api/update_demo_vessels.php?key=imporlan2026
  */
 
+// Reescribe embarcaciones: solo un admin con sesion. La clave fija esta en
+// el repositorio y no protege nada por si sola; queda como segundo candado.
+require_once __DIR__ . '/auth_helper.php';
+requireAdminAuthShared(['admin']);
+
 if (($_GET['key'] ?? '') !== 'imporlan2026') {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized']);

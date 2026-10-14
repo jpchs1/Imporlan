@@ -12,6 +12,12 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
+// Escribe compras y solicitudes de un cliente real: solo un admin con
+// sesion. La clave fija de abajo esta en el repositorio y no protege nada
+// por si sola; queda como segundo candado.
+require_once __DIR__ . '/../auth_helper.php';
+requireAdminAuthShared(['admin']);
+
 $action = $_GET['action'] ?? '';
 $key = $_GET['key'] ?? '';
 

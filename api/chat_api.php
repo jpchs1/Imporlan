@@ -160,24 +160,28 @@ function getAuthToken() {
 
 function requireUserAuth() {
     $token = getAuthToken();
-    $headers = getallheaders();
-    
-    // Get email and name from headers (sent by the widget from localStorage)
-    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
-    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
-    
+
+    // La identidad es SOLO la del token: las cabeceras X-User-Email /
+    // X-User-Name que manda el panel no se leen.
     if (!$token) {
         http_response_code(401);
         echo json_encode(['detail' => 'No autorizado']);
         exit();
     }
-    
+
     // Verify JWT with cryptographic signature - no bypass allowed
     $payload = verifyJWT($token);
 
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
+        exit();
+    }
+
+    // El token temporal que se emite tras la contraseña no sirve sin el 2FA.
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Completa la verificacion en dos pasos']);
         exit();
     }
 

@@ -551,24 +551,18 @@ function adminUpdateRequest() {
 }
 
 /**
- * G) user_list_public - Listar solicitudes por email (sin JWT, como otros endpoints)
- * Usado por el panel de usuario para mostrar solicitudes de pago pendientes
+ * G) user_list_public - Listar solicitudes del cliente con sesion
+ * Usado por el panel de usuario para mostrar solicitudes de pago pendientes.
+ * El nombre es historico: hoy exige token igual que user_list.
  */
 function userListRequestsPublic() {
-    $userEmail = $_GET['user_email'] ?? '';
+    // Sólo el propio cliente (o el equipo) puede ver sus solicitudes de pago:
+    // el correo es el del token y el user_email de la URL solo se contrasta.
+    $auth = requireUserAuthShared();
+    $userEmail = correoClienteDesdeSesion($auth, $_GET['user_email'] ?? null);
     if (empty($userEmail) || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(['error' => 'user_email es requerido y debe ser valido']);
-        return;
-    }
-    
-    $userEmail = strtolower(trim($userEmail));
-    // Sólo el propio cliente (o el equipo) puede ver sus solicitudes de pago.
-    $auth = requireUserAuthShared();
-    $isStaff = in_array($auth['role'] ?? '', ['admin', 'support', 'agent'], true);
-    if (!$isStaff && $userEmail !== strtolower(trim($auth['email'] ?? ''))) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Acceso denegado']);
         return;
     }
     $status = $_GET['status'] ?? 'all';
