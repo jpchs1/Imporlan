@@ -106,6 +106,9 @@ t(@md5_file(__DIR__ . '/../images/correo/firma-jp.jpg') === md5_file(__DIR__ . '
 t(strpos($html, '$ ' . number_format($d['all_inclusive'], 0, ',', '.')) !== false, 'muestra el All-Inclusive');
 t(strpos($html, 'van a costo') !== false && strpos($html, 'nuestra coordinación y gestión') !== false,
     'dice qué va a costo y que las otras etapas incluyen nuestra gestión');
+// Codex, PR 665: el IVA del cotizador va sobre lancha + flete, sin el seguro;
+// el correo no puede decir que se calcula sobre «flete y seguro».
+t(strpos($html, 'se calcula el IVA') === false, 'no afirma una base del IVA distinta de la que se usa');
 
 $xss = cotizadorDesgloseHtml(['make' => '<b>x</b>', 'quote_data' => json_encode($qd), 'quote_total_clp' => $total], '<script>alert(1)</script>');
 t(strpos($xss, '<script>') === false && strpos($xss, '<b>x</b>') === false, 'escapa nombre y título');

@@ -315,7 +315,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
      * ask for it).
      *
      * Flete + seguro go at cost: they are printed on the customs declaration
-     * and are the IVA base, so they must match. The other three stages are
+     * (and the freight is part of the IVA base), so they must match. The other three stages are
      * service prices: what's left of the All-Inclusive is spread over them in
      * proportion to their sheet cost, so no line reveals the FEE and the
      * stages add up, to the peso, to the number the client has in the quote.
@@ -468,7 +468,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             . '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">' . $etapasHtml . '</table>'
             . '</div>'
             . '<div style="background:#f8fafc;border-left:4px solid #94a3b8;padding:12px 16px;border-radius:6px;margin:18px 0;color:#475569;font-size:12px;line-height:1.6">'
-            . 'El <strong>flete marítimo y el seguro</strong> van a costo: es el mismo valor que aparece en la declaración de aduana, y sobre él se calcula el IVA aduanero. '
+            . 'El <strong>flete marítimo y el seguro</strong> van a costo: son los mismos valores que aparecen en la declaración de aduana. '
             . 'Las otras tres etapas son el precio de nuestro servicio puerta a puerta: cada una incluye sus costos y nuestra coordinación y gestión, con un solo interlocutor de principio a fin.'
             . '</div>'
             . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px">Resumen de la cotización</div>'
