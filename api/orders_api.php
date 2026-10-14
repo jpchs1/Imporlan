@@ -1449,8 +1449,9 @@ function adminDeleteQuote() {
  * the clients who ask. Always uses the quote as saved, never unsaved edits
  * in the modal.
  *
- * Input: { link_id, preview? }. With preview=true nothing is sent: it returns
- * the stages and the recipient so the admin can confirm exactly what goes out.
+ * Input: { link_id, preview?, revision? }. With preview=true nothing is sent:
+ * it returns the stages, the recipient and a revision; the real send must
+ * bring that revision back, so the client gets exactly what was confirmed.
  */
 function adminSendQuoteBreakdown() {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -1467,7 +1468,7 @@ function adminSendQuoteBreakdown() {
         cotizadorEnsureOrderLinkColumns($pdo);
         $stmt = $pdo->prepare("
             SELECT ol.id, ol.order_id, ol.year, ol.make, ol.model,
-                   ol.quote_data, ol.quote_total_clp, ol.quote_published_at,
+                   ol.quote_data, ol.quote_total_clp, ol.quote_published_at, ol.quote_calculated_at,
                    o.customer_email, o.customer_name
             FROM order_links ol
             JOIN orders o ON o.id = ol.order_id
@@ -1502,7 +1503,15 @@ function adminSendQuoteBreakdown() {
                 'email'         => $row['customer_email'],
                 'etapas'        => $d['etapas'],
                 'all_inclusive' => $d['all_inclusive'],
+                'revision'      => cotizadorDesgloseRevision($row),
             ]);
+            return;
+        }
+        // What goes out must be what the admin confirmed: if someone saved
+        // the quote (or changed the email) after the preview, stop.
+        if (($input['revision'] ?? '') !== cotizadorDesgloseRevision($row)) {
+            http_response_code(409);
+            echo json_encode(['error' => 'La cotización o el email del cliente cambiaron desde la vista previa. Vuelve a abrir la cotización y envía de nuevo.']);
             return;
         }
 

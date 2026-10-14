@@ -100,6 +100,9 @@ foreach (['comisión', 'margen', 'honorarios'] as $palabra) {
     t(stripos($html, $palabra) === false, "el correo no habla de «{$palabra}»");
 }
 t(strpos($html, 'Hola Alberto,') !== false, 'saluda por el nombre de pila');
+t(strpos($html, 'src="https://www.imporlan.cl/images/correo/firma-jp.jpg"') !== false, 'va con la firma gráfica de Juan Pablo');
+t(@md5_file(__DIR__ . '/../images/correo/firma-jp.jpg') === md5_file(__DIR__ . '/../.github/correo/firma-jp.jpg'),
+    'la firma publicada es la misma del workflow de correo');
 t(strpos($html, '$ ' . number_format($d['all_inclusive'], 0, ',', '.')) !== false, 'muestra el All-Inclusive');
 t(strpos($html, 'van a costo') !== false && strpos($html, 'nuestra coordinación y gestión') !== false,
     'dice qué va a costo y que las otras etapas incluyen nuestra gestión');
@@ -117,6 +120,19 @@ $justo = cotizadorDesgloseEtapas($qd, $lancha + $iva + (8500 + 320) * $rate + 15
 t($justo['cuadra'] === true, 'resto chico: cuadra');
 t(min(array_column($justo['etapas'], 'clp')) > 0, 'resto chico: ninguna etapa negativa ni en cero');
 t(array_sum(array_column($justo['etapas'], 'clp')) == $justo['all_inclusive'], 'resto chico: suma igual al peso');
+
+// Devin, PR 665: USA sin costo, Chile y entrega iguales y un resto impar. El
+// redondeo no puede dejar una etapa negativa ni sumar un peso de más.
+$impar = array_merge(array_fill_keys(array_keys($qd), 0), [
+    'usd_clp_rate' => 1, 'valor_lancha_usd' => 0, 'iva_pct' => 19, 'lujo_pct' => 2, 'lujo_aplica' => false,
+    'transporte_roro_usd' => 0, 'seguro_usd' => 100, 'gastos_puerto_clp' => 500, 'inland_puerto_clp' => 500,
+]);
+foreach ([3101, 2101, 1101, 102] as $allIncl) {
+    $r = cotizadorDesgloseEtapas($impar, $allIncl);
+    $suma = array_sum(array_column($r['etapas'], 'clp'));
+    t($r['cuadra'] && $suma == $allIncl && min(array_column($r['etapas'], 'clp')) > 0,
+        "resto impar ({$allIncl}): suma {$suma}, sin etapas negativas");
+}
 
 // Sin costos de servicio cargados, todo el resto queda en USA.
 $soloFlete = array_merge($qd, array_fill_keys(['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'fumigacion_usd',
@@ -141,12 +157,39 @@ if (preg_match('/function adminSendQuoteBreakdown\(\) \{(.*?)\n\}\n/s', $api, $m
     t($posCuadra !== false && $posCuadra < $posEnvio, 'no se manda si la cotización no cuadra');
     t($posPreview !== false && $posPreview < $posEnvio, 'la vista previa vuelve antes de enviar');
     t(strpos($f, 'quote_breakdown_sent_at = NOW()') > $posEnvio, 'marca el envío sólo después de mandarlo');
+    // Devin, PR 665: lo que sale es lo que se confirmó en la vista previa.
+    $posRevision = strpos($f, "(\$input['revision'] ?? '') !== cotizadorDesgloseRevision(\$row)");
+    t($posRevision !== false && $posPreview < $posRevision && $posRevision < $posEnvio,
+        'si la cotización cambió desde la vista previa, no se manda');
 } else {
     t(false, 'no encontré adminSendQuoteBreakdown');
 }
 if (preg_match('/function adminSaveQuote\(\) \{(.*?)\n\}\n/s', $api, $m)) {
     t(strpos($m[1], 'quote_breakdown_sent_at     = NULL') !== false, 're-guardar la cotización borra la marca de desglose enviado');
 }
+$base = ['quote_data' => json_encode($qd), 'quote_total_clp' => $total, 'customer_email' => 'a@b.cl'];
+$rev = cotizadorDesgloseRevision($base);
+t($rev !== cotizadorDesgloseRevision(array_merge($base, ['quote_total_clp' => $total + 1])), 'la revisión cambia si cambia el total');
+t($rev !== cotizadorDesgloseRevision(array_merge($base, ['quote_data' => json_encode(array_merge($qd, ['seguro_usd' => 321]))])),
+    'la revisión cambia si cambia la planilla');
+t($rev !== cotizadorDesgloseRevision(array_merge($base, ['customer_email' => 'otro@b.cl'])), 'la revisión cambia si cambia el destinatario');
+
+// Remitente «Juan Pablo · Imporlan», codificado para que el From siga siendo válido.
+$svc = (string) file_get_contents(__DIR__ . '/../api/email_service.php');
+if (preg_match('/    public function setFromName\(\$name\) \{.*?\n    \}\n/s', $svc, $m)) {
+    eval('class RemitentePrueba { public $fromName = "Imporlan"; ' . $m[0] . ' }');
+    $r = new RemitentePrueba();
+    $r->setFromName('Juan Pablo · Imporlan');
+    t(preg_match('/^[\x20-\x7e]+$/', $r->fromName) === 1, 'el From queda en ASCII: ' . $r->fromName);
+    t(iconv_mime_decode($r->fromName, 0, 'UTF-8') === 'Juan Pablo · Imporlan', 'y se lee «Juan Pablo · Imporlan»');
+    $r->setFromName("Malo\r\nBcc: x@y.cl");
+    t(strpos($r->fromName, "\n") === false, 'no deja inyectar cabeceras');
+} else {
+    t(false, 'no encontré EmailService::setFromName');
+}
+t(strpos((string) file_get_contents(__DIR__ . '/../api/cotizador_helpers.php'), "\$svc->setFromName('Juan Pablo · Imporlan');") !== false,
+    'el desglose sale como «Juan Pablo · Imporlan»');
+
 $panel = (string) file_get_contents(__DIR__ . '/../panel/assets/links-contratados.js');
 t(strpos($panel, 'Flete marítimo y seguro') === false && strpos($panel, 'quote_breakdown') === false,
     'el panel del cliente no muestra el desglose por defecto');

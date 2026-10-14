@@ -367,28 +367,36 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         $lujoClp   = $lujoAplica ? $lanchaClp * ((float)($qd['lujo_pct'] ?? 2) / 100) : 0;
         $allIncl   = round($totalClp - $lanchaClp - $ivaClp - $lujoClp);
 
-        $flete = round($etapas['flete']['costo']);
-        $resto = $allIncl - $flete;
-        $base  = $etapas['usa']['costo'] + $etapas['chile']['costo'] + $etapas['entrega']['costo'];
-        $reparto = function ($redondeo) use ($resto, $base, $etapas) {
-            $chile   = $base > 0 ? round($resto * $etapas['chile']['costo'] / $base, $redondeo) : 0;
-            $entrega = $base > 0 ? round($resto * $etapas['entrega']['costo'] / $base, $redondeo) : 0;
-            return [$resto - $chile - $entrega, $chile, $entrega];
-        };
-        // Chile and entrega rounded to the thousand so they read as prices;
-        // USA keeps the remainder so the four lines add up to the peso.
-        [$usa, $chile, $entrega] = $reparto(-3);
-        if ($usa < 0) [$usa, $chile, $entrega] = $reparto(0);
+        $montos = ['flete' => round($etapas['flete']['costo'])];
+        $resto = $allIncl - $montos['flete'];
+        $servicio = ['usa', 'chile', 'entrega'];
+        $base = 0.0;
+        foreach ($servicio as $k) $base += $etapas[$k]['costo'];
+        // The costliest stage takes the remainder; the other two are rounded
+        // to the thousand so they read as prices. Its share is at least a third
+        // of the rest, so their rounding (at most $1.000 between both) can't
+        // push it below zero once the rest is $3.000 or more; under that they
+        // are floored to the peso, which never overshoots.
+        $mayor = 'usa';
+        foreach ($servicio as $k) if ($etapas[$k]['costo'] > $etapas[$mayor]['costo']) $mayor = $k;
+        $asignado = 0;
+        foreach ($servicio as $k) {
+            if ($k === $mayor) continue;
+            $parte = $base > 0 ? max(0, $resto) * $etapas[$k]['costo'] / $base : 0;
+            $montos[$k] = $resto >= 3000 ? round($parte, -3) : floor($parte);
+            $asignado += $montos[$k];
+        }
+        $montos[$mayor] = $resto - $asignado;
 
         $out = [];
-        foreach (['flete' => $flete, 'usa' => $usa, 'chile' => $chile, 'entrega' => $entrega] as $k => $monto) {
-            if ($monto <= 0) continue;
-            $out[] = ['label' => $etapas[$k]['label'], 'detalle' => $etapas[$k]['detalle'], 'clp' => $monto];
+        foreach (['flete', 'usa', 'chile', 'entrega'] as $k) {
+            if ($montos[$k] <= 0) continue;
+            $out[] = ['label' => $etapas[$k]['label'], 'detalle' => $etapas[$k]['detalle'], 'clp' => $montos[$k]];
         }
         return [
             'etapas'        => $out,
             'all_inclusive' => $allIncl,
-            'cuadra'        => $resto >= 0 && $allIncl > 0,
+            'cuadra'        => $resto >= 0 && $allIncl > 0 && array_sum(array_column($out, 'clp')) == $allIncl,
             'lancha'        => $lanchaClp,
             'iva'           => $ivaClp,
             'iva_pct'       => $ivaPct,
@@ -405,7 +413,10 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
 
     /**
      * The «Desglose de tu cotización» email body, written in JP's voice (he
-     * is the one who sends it). Shape approved by JP on 14-oct-2026.
+     * is the one who sends it). Shape approved by JP on 14-oct-2026. Signed
+     * with his graphic signature, like every client email that goes out in
+     * his name (same image as .github/correo/firma-jp.jpg, served from the
+     * site because EmailService only embeds the logo).
      */
     function cotizadorDesgloseHtml(array $link, string $userName): string {
         $qd = $link['quote_data'] ?? null;
@@ -464,14 +475,24 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             . $resumen
             . '<div style="text-align:center;margin:26px 0 22px"><a href="https://www.imporlan.cl/panel/" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600">Ver mi cotización en el panel</a></div>'
             . '<p style="color:#475569;font-size:14px;line-height:1.6;margin:0">Cualquier duda, respóndeme este correo o escríbeme por WhatsApp.</p>'
-            . '<p style="color:#0f172a;font-size:14px;line-height:1.5;margin:14px 0 0"><strong>Juan Pablo</strong><br><span style="color:#64748b">Imporlan</span></p>'
+            . '<a href="https://www.imporlan.cl" style="text-decoration:none"><img src="https://www.imporlan.cl/images/correo/firma-jp.jpg" alt="Juan Pablo · Imporlan · +56 9 4021 1459 · www.imporlan.cl" width="460" style="display:block;width:460px;max-width:100%;height:auto;border:0;margin-top:14px"></a>'
             . '</div></body></html>';
+    }
+
+    /**
+     * Revision of what the admin confirmed in the preview: the saved quote and
+     * the recipient. The send is refused if it changed in between, so the
+     * client never gets numbers nobody looked at.
+     */
+    function cotizadorDesgloseRevision(array $row): string {
+        return substr(sha1(($row['quote_data'] ?? '') . '|' . ($row['quote_total_clp'] ?? '') . '|' . ($row['customer_email'] ?? '')), 0, 16);
     }
 
     /**
      * Send the breakdown email. Unlike the "ready" email this one reports
      * back, so the admin sees whether it actually went out. EmailService adds
-     * the BCC to jpchs1@gmail.com on its own.
+     * the BCC to jpchs1@gmail.com on its own; the sender shows as
+     * «Juan Pablo · Imporlan», as in his other emails to clients.
      */
     function cotizadorSendDesgloseEmail(string $userEmail, string $userName, array $link): array {
         if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
@@ -479,6 +500,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         }
         require_once __DIR__ . '/email_service.php';
         $svc = new EmailService();
+        $svc->setFromName('Juan Pablo · Imporlan');
         return $svc->sendCustomEmail(
             $userEmail,
             'Desglose de tu cotización — ' . cotizadorLinkTitle($link),

@@ -1051,6 +1051,19 @@ BASE64;
     }
 
     /**
+     * Sender name for the next sends, for emails written in a person's voice
+     * (e.g. «Juan Pablo · Imporlan»). Non-ASCII names go RFC 2047-encoded so
+     * the From header stays valid; the address doesn't change.
+     */
+    public function setFromName($name) {
+        $name = trim(str_replace(["\r", "\n", '"', '<', '>'], '', (string)$name));
+        if ($name === '') return;
+        $this->fromName = preg_match('/[^\x20-\x7e]/', $name)
+            ? '=?UTF-8?B?' . base64_encode($name) . '?='
+            : $name;
+    }
+
+    /**
      * Send password reset email with temporary password
      */
     public function sendPasswordResetEmail($userEmail, $userName, $temporaryPassword) {

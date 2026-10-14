@@ -248,10 +248,10 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
     if (!link?.id) return;
     setSendingBreakdown(true);
     try {
-      const p = await sendQuoteBreakdown(link.id, true);
+      const p = await sendQuoteBreakdown(link.id);
       const lineas = (p.etapas || []).map((e, i) => `${i + 1}. ${e.label}: ${fmtClp(e.clp)}`).join('\n');
       if (!confirm(`Enviar el desglose a ${p.email}:\n\n${lineas}\n\nServicio All-Inclusive: ${fmtClp(p.all_inclusive)}\n\nSe usa la cotización guardada (no los cambios sin guardar). ¿Enviar?`)) return;
-      await sendQuoteBreakdown(link.id);
+      await sendQuoteBreakdown(link.id, p.revision);
       showToast(`Desglose enviado a ${p.email}`, 'success');
       onBreakdownSent?.();
       onClose?.();
