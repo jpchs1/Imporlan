@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { fmtRelativo, fmtDateLarga } from '../lib/format';
+import { useClickOutside } from '../lib/focus';
+import { Bell, FileText, CreditCard, MessageCircle, Info, X } from './Icons';
+import { IconButton } from './Button';
+import { Spinner } from './Skeleton';
 
-function timeAgo(dateStr) {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Ahora';
-  if (mins < 60) return `Hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `Hace ${hrs} hr${hrs > 1 ? 's' : ''}`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
-  return new Date(dateStr).toLocaleDateString('es-CL');
-}
+const ICON_BY_TYPE = { report: FileText, payment: CreditCard, message: MessageCircle, chat: MessageCircle };
 
+/**
+ * Campana de notificaciones (popover). Misma firma que antes:
+ * getUnreadCount · getNotifications(limit) · markRead(id) · markAllRead ·
+ * viewAllPath · viewAllLabel · pollMs.
+ */
 export default function NotificationBell({
   getUnreadCount,
   getNotifications,
@@ -31,8 +30,11 @@ export default function NotificationBell({
   const [loading, setLoading] = useState(false);
   const lastCountRef = useRef(0);
   const wrapRef = useRef(null);
+  const btnRef = useRef(null);
+  const id = useId();
 
   const refreshCount = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getUnreadCount();
       const n = Number(data?.unread_count ?? data?.count ?? 0);
@@ -47,25 +49,27 @@ export default function NotificationBell({
           g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
           g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
           o.start(); o.stop(ctx.currentTime + 0.3);
-        } catch { /* sound optional */ }
+        } catch { /* el sonido es opcional */ }
       }
       lastCountRef.current = n;
       setCount(n);
-    } catch { /* silent */ }
+    } catch { /* silencioso */ }
   }, [getUnreadCount]);
 
   useEffect(() => {
-    refreshCount();
-    const id = setInterval(refreshCount, pollMs);
-    return () => clearInterval(id);
+    const t0 = setTimeout(refreshCount, 0);
+    const t = setInterval(refreshCount, pollMs);
+    document.addEventListener('visibilitychange', refreshCount);
+    return () => { clearTimeout(t0); clearInterval(t); document.removeEventListener('visibilitychange', refreshCount); };
   }, [refreshCount, pollMs]);
 
+  useClickOutside(wrapRef, open, () => setOpen(false));
+
   useEffect(() => {
-    function onClick(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-    }
-    if (open) document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus(); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   async function handleOpen() {
@@ -81,7 +85,7 @@ export default function NotificationBell({
 
   async function handleClickItem(n) {
     if (!n.read_at) {
-      try { await markRead(n.id); } catch { /* silent */ }
+      try { await markRead(n.id); } catch { /* silencioso */ }
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x));
       setCount(c => Math.max(0, c - 1));
     }
@@ -89,6 +93,7 @@ export default function NotificationBell({
       // Enlaces a este mismo panel (…/#/ruta) se abren aquí, no en otra pestaña.
       const hash = n.link.indexOf('#/');
       const samePanel = hash >= 0 && n.link.slice(0, hash).replace(/^https?:\/\/[^/]+/, '') === window.location.pathname;
+      setOpen(false);
       if (samePanel) navigate(n.link.slice(hash + 1));
       else window.open(n.link, '_blank', 'noopener');
     }
@@ -100,89 +105,95 @@ export default function NotificationBell({
       await markAllRead();
       setItems(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
       setCount(0);
-    } catch { /* silent */ }
+    } catch { /* silencioso */ }
   }
 
   return (
     <div ref={wrapRef} className="relative">
       <button
+        ref={btnRef}
+        type="button"
         onClick={handleOpen}
-        className="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+        aria-label={count > 0 ? `Notificaciones, ${count} sin leer` : 'Notificaciones'}
         title="Notificaciones"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        className={cn('relative inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 hover:bg-neutral-bg transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500', open && 'bg-neutral-bg')}
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
+        <Bell size={20} />
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-md">
+          <span className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-xs font-semibold tabular flex items-center justify-center leading-none ring-2 ring-surface" aria-hidden="true">
             {count > 99 ? '99+' : count}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[360px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden z-50 animate-fade-in">
-          <div className="px-4 py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold">Notificaciones</p>
-              <p className="text-[11px] text-slate-400">{count > 0 ? `${count} sin leer` : 'Todas leidas'}</p>
+        <div
+          id={id}
+          role="dialog"
+          aria-label="Notificaciones"
+          className="absolute right-0 mt-2 w-[380px] max-w-[calc(100vw-2rem)] bg-surface rounded-lg shadow-pop border border-line overflow-hidden z-popover ov-pop"
+        >
+          <div className="px-4 h-12 flex items-center justify-between gap-3 border-b border-line">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h2 className="text-sm font-semibold text-ink-900">Notificaciones</h2>
+              <span className="text-xs text-ink-500 tabular">{count > 0 ? `${count} sin leer` : 'Al día'}</span>
             </div>
-            {count > 0 && (
-              <button onClick={handleMarkAll} className="text-[11px] text-cyan-300 hover:text-cyan-200 font-medium">
-                Marcar todas
-              </button>
-            )}
+            <div className="flex items-center gap-1">
+              {count > 0 && (
+                <button type="button" onClick={handleMarkAll} className="text-13 font-medium text-brand-600 hover:text-brand-700 px-1.5 h-7 rounded hover:bg-neutral-bg">
+                  Marcar todas
+                </button>
+              )}
+              <IconButton icon={X} size="sm" aria-label="Cerrar notificaciones" onClick={() => setOpen(false)} className="lg:hidden" />
+            </div>
           </div>
 
-          <div className="max-h-[440px] overflow-y-auto">
+          <div className="max-h-[420px] overflow-y-auto overscroll-contain">
             {loading ? (
-              <div className="py-10 text-center text-sm text-slate-400">Cargando...</div>
+              <Spinner size="sm" label="Cargando…" className="py-8" />
             ) : items.length === 0 ? (
               <div className="py-10 px-4 text-center">
-                <svg className="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                </svg>
-                <p className="text-sm text-slate-500">No tienes notificaciones</p>
+                <Bell size={24} className="mx-auto mb-2 text-ink-400" />
+                <p className="text-sm text-ink-500">No tienes notificaciones</p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100">
-                {items.map(n => (
-                  <li
-                    key={n.id}
-                    onClick={() => handleClickItem(n)}
-                    className={cn(
-                      'px-4 py-3 cursor-pointer transition-colors',
-                      n.read_at ? 'hover:bg-slate-50' : 'bg-cyan-50/40 border-l-4 border-l-cyan-500 hover:bg-cyan-50/70'
-                    )}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className={cn(
-                        'w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
-                        n.type === 'report' ? 'bg-violet-100' : 'bg-cyan-100'
-                      )}>
-                        {n.type === 'report' ? (
-                          <svg className="w-3.5 h-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={cn('text-[13px] leading-snug', n.read_at ? 'text-slate-600' : 'font-semibold text-slate-800')}>{n.title}</p>
-                          <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">{timeAgo(n.created_at)}</span>
-                        </div>
-                        {n.message && <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>}
-                      </div>
-                    </div>
-                  </li>
-                ))}
+              <ul className="divide-y divide-line">
+                {items.map(n => {
+                  const I = ICON_BY_TYPE[n.type] || Info;
+                  const unread = !n.read_at;
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleClickItem(n)}
+                        className={cn('w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-150 hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500', unread && 'bg-brand-50/60')}
+                      >
+                        <span className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', unread ? 'bg-brand-100 text-brand-700' : 'bg-neutral-bg text-ink-500')}>
+                          <I size={16} />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="flex items-start justify-between gap-3">
+                            <span className={cn('text-sm leading-5 block', unread ? 'font-semibold text-ink-900' : 'text-ink-700')}>{n.title}</span>
+                            <time dateTime={n.created_at} title={fmtDateLarga(n.created_at, { hora: true })} className="text-xs text-ink-500 shrink-0 mt-0.5 tabular whitespace-nowrap">{fmtRelativo(n.created_at)}</time>
+                          </span>
+                          {n.message && <span className="block text-13 text-ink-500 mt-0.5 line-clamp-2">{n.message}</span>}
+                        </span>
+                        {unread && <span className="mt-2 h-2 w-2 rounded-full bg-brand-600 shrink-0" aria-hidden="true" />}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
           <button
+            type="button"
             onClick={() => { setOpen(false); navigate(viewAllPath); }}
-            className="w-full px-4 py-2.5 text-center text-xs font-semibold text-cyan-600 hover:text-cyan-700 hover:bg-slate-50 border-t border-slate-100 transition-colors"
+            className="w-full h-11 px-4 text-center text-13 font-medium text-brand-600 hover:text-brand-700 hover:bg-canvas border-t border-line transition-colors duration-150"
           >
             {viewAllLabel}
           </button>

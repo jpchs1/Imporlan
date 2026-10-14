@@ -1,137 +1,283 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Inter autoalojada (variable, subconjuntos por unicode-range): no depende de
+   Google Fonts ni de un tercero, carga con el bundle y no salta al pintar. */
+@import "@fontsource-variable/inter/index.css";
 @import "tailwindcss";
 
-:root {
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-dark: #4f46e5;
-  --accent: #06b6d4;
-  --accent-light: #22d3ee;
-  --bg-sidebar: #0f172a;
-  --bg-main: #f8fafc;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.2);
+/* ---------------------------------------------------------------------------
+   Tokens del sistema (ver src/shared/components/README.md).
+   Un solo sistema para los dos paneles; `static` para que todas las variables
+   existan en :root aunque ninguna utilidad las use (las páginas pueden usar
+   var(--color-…) en estilos en línea y el modo oscuro las redefine).
+   --------------------------------------------------------------------------- */
+@theme static {
+  /* Marca: un solo azul marino / cian profundo. */
+  --color-brand-50: #ecfeff;
+  --color-brand-100: #cffafe;
+  --color-brand-200: #a5f3fc;
+  --color-brand-500: #0891b2;
+  --color-brand-600: #0e7490;
+  --color-brand-700: #155e75;
+  --color-brand-800: #164e63;
+
+  /* Neutros con el contraste fijado por rol. */
+  --color-ink-900: #0f172a;   /* títulos */
+  --color-ink-700: #334155;   /* texto */
+  --color-ink-500: #64748b;   /* secundario: AA sobre blanco y sobre canvas */
+  --color-ink-400: #94a3b8;   /* SOLO placeholders e íconos decorativos */
+  --color-line: #e2e8f0;
+  --color-line-strong: #cbd5e1;
+  --color-surface: #ffffff;
+  --color-canvas: #f8fafc;
+  --color-sidebar: #0b1220;
+  --color-sidebar-ink: #cbd5e1;
+  --color-sidebar-muted: #94a3b8;
+  --color-sidebar-active: rgba(255, 255, 255, 0.08);
+  --color-sidebar-line: rgba(255, 255, 255, 0.08);
+
+  /* Semánticos: exactamente uno por significado, en 3 tonos (bg / line / text). */
+  --color-success-bg: #ecfdf5;
+  --color-success-line: #a7f3d0;
+  --color-success: #047857;
+  --color-warning-bg: #fffbeb;
+  --color-warning-line: #fde68a;
+  --color-warning: #b45309;
+  --color-danger-bg: #fef2f2;
+  --color-danger-line: #fecaca;
+  --color-danger: #b91c1c;
+  --color-danger-strong: #991b1b;
+  --color-info-bg: #eff6ff;
+  --color-info-line: #bfdbfe;
+  --color-info: #1d4ed8;
+  --color-neutral-bg: #f1f5f9;
+  --color-neutral-line: #e2e8f0;
+  --color-neutral: #475569;
+
+  /* Avatares: un color plano por persona (derivado del nombre). */
+  --color-avatar-1: #155e75;
+  --color-avatar-2: #1d4ed8;
+  --color-avatar-3: #047857;
+  --color-avatar-4: #b45309;
+  --color-avatar-5: #6d28d9;
+  --color-avatar-6: #be185d;
+
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; /* solo IDs técnicos */
+
+  /* Escala tipográfica: 12 (xs) / 13 (text-13) / 14 (sm, cuerpo) / 16 (base)
+     / 20 (xl) / 24 (2xl, título de página) / 30 (3xl, solo montos). Los nombres
+     de Tailwind conservan su tamaño; se agregan `text-13` y `text-body`. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-13: 13px;
+  --text-13--line-height: 18px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+
+  --radius-sm: 6px;   /* chips, badges */
+  --radius-md: 8px;   /* inputs, botones */
+  --radius-lg: 12px;  /* cards */
+  --radius-xl: 16px;  /* modales, drawers */
+  --radius-2xl: 16px; /* compatibilidad: las páginas viejas usan rounded-2xl */
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 8px 24px -8px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --shadow-modal: 0 24px 48px -16px rgba(15, 23, 42, 0.28);
+
+  /* Escala única de capas (F7: nada por encima de --z-index-toast). */
+  --z-index-nav: 30;
+  --z-index-fab: 40;
+  --z-index-popover: 50;
+  --z-index-modal: 60;
+  --z-index-toast: 70;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* Densidad: el admin es compacto (data-density="compact" en <html>). */
+:root {
+  --density-row: 48px;
+  --content-max: 1120px;
+  --card-pad: 24px;
+  --page-gutter: 24px;
+  --sidebar-w: 240px;
+  --topbar-h: 56px;
+  --tabbar-h: 56px;
+  --tabbar-space: 0px; /* Layout lo pone a --tabbar-h cuando hay barra inferior */
+}
+:root[data-density="compact"] {
+  --density-row: 40px;
+  --content-max: 1280px;
+  --text-body: 13px;
+  --text-body--line-height: 18px;
+}
+@media (max-width: 639px) {
+  :root { --card-pad: 16px; --page-gutter: 16px; }
+}
+/* Con barra inferior (cliente, < lg) el contenido y los toasts dejan espacio. */
+@media (max-width: 1023px) {
+  :root.has-tabbar { --tabbar-space: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Modo oscuro: definido para que exista; NO se activa en esta fase. */
+:root[data-theme="dark"] {
+  --color-surface: #0f172a;
+  --color-canvas: #020617;
+  --color-ink-900: #f8fafc;
+  --color-ink-700: #cbd5e1;
+  --color-ink-500: #94a3b8;
+  --color-ink-400: #64748b;
+  --color-line: #1e293b;
+  --color-line-strong: #334155;
+  --color-neutral-bg: #1e293b;
+  --color-neutral-line: #334155;
+  --color-neutral: #cbd5e1;
+  --color-sidebar: #020617;
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------------- */
+@layer base {
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-behavior: smooth;
+  background: var(--color-canvas);
+  /* El body hace scroll: la canaleta fija evita que el ancho salte entre
+     pantallas con y sin barra (y que los gráficos se remidan al desaparecer). */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg-main);
-  color: #1e293b;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  background: var(--color-canvas);
+  color: var(--color-ink-700);
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+
+::placeholder { color: var(--color-ink-400); opacity: 1; }
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: var(--color-line-strong); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-400); background-clip: padding-box; }
+} /* @layer base */
 
-/* Glassmorphism utility */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-}
+@utility scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
 
-/* Smooth transitions */
-.transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #6366f1, #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Movimiento: solo 150 ms en color/opacidad/transform; reduced-motion lo apaga. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-/* Card hover effect */
-.card-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.12);
-}
-
-/* Pulse dot animation */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.5); }
-}
-.animate-pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+/* ---------------------------------------------------------------------------
+   Utilidades del kit
+   --------------------------------------------------------------------------- */
+@utility eyebrow {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
 }
 
-/* Shimmer loading */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-.shimmer {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
+@utility tabular { font-variant-numeric: tabular-nums; }
 
-/* Fade in animation */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
-}
+/* Texto accesible solo para lectores de pantalla (Tailwind ya trae sr-only). */
 
-/* Slide in from left */
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-16px); }
-  to { opacity: 1; transform: translateX(0); }
+@layer components {
+/* Sombra lateral que indica scroll horizontal en tablas (DataTable). */
+.dt-scroll { position: relative; }
+.dt-scroll::before, .dt-scroll::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 24px; pointer-events: none; z-index: 1;
+  opacity: 0; transition: opacity 150ms var(--ease-standard);
 }
-.animate-slide-in {
-  animation: slideInLeft 0.3s ease-out forwards;
-}
+.dt-scroll::before { left: 0; background: linear-gradient(to right, rgba(15, 23, 42, 0.08), transparent); }
+.dt-scroll::after { right: 0; background: linear-gradient(to left, rgba(15, 23, 42, 0.08), transparent); }
+.dt-scroll[data-shadow-left="true"]::before { opacity: 1; }
+.dt-scroll[data-shadow-right="true"]::after { opacity: 1; }
 
-/* Scale in */
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-scale-in {
-  animation: scaleIn 0.2s ease-out forwards;
-}
+/* Skeleton: pulso suave (sin shimmer con degradado). */
+@keyframes sk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.sk { background: var(--color-neutral-bg); border-radius: var(--radius-sm); animation: sk-pulse 1.6s ease-in-out infinite; }
 
-/* Leaflet fix */
-.leaflet-container { z-index: 1; }
+/* Overlays (modal, drawer, bottom-sheet) */
+@keyframes ov-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ov-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes ov-pop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes ov-slide-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes ov-slide-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.ov-fade { animation: ov-fade 150ms var(--ease-standard) both; }
+.ov-up { animation: ov-up 180ms var(--ease-standard) both; }
+.ov-pop { animation: ov-pop 150ms var(--ease-standard) both; }
+.ov-slide-right { animation: ov-slide-right 200ms var(--ease-standard) both; }
+.ov-slide-left { animation: ov-slide-left 200ms var(--ease-standard) both; }
 
-/* Print/PDF styles */
+/* Spinner */
+@keyframes spin-1 { to { transform: rotate(360deg); } }
+.spin { animation: spin-1 0.8s linear infinite; }
+
+/* Barra de progreso indeterminada (filas que se leen en segundo plano en el
+   admin: ScrapingBee no informa avance, la barra solo dice "sigue andando"). */
+@keyframes indeterminado {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+} /* @layer components */
+
+/* ---------------------------------------------------------------------------
+   Compatibilidad con páginas aún no migradas. Estas clases siguen existiendo
+   para que `main` compile y se vea coherente; los workstreams de páginas no
+   deben usarlas en código nuevo (ver README del kit).
+   --------------------------------------------------------------------------- */
+@layer components {
+.glass { background: var(--color-surface); border: 1px solid var(--color-line); }
+.transition-smooth { transition: color 150ms, background-color 150ms, border-color 150ms, opacity 150ms; }
+.gradient-text { color: var(--color-brand-700); }
+.card-hover { transition: border-color 150ms var(--ease-standard); }
+.card-hover:hover { border-color: var(--color-line-strong); }
+.animate-pulse-dot { animation: none; }
+.shimmer { background: var(--color-neutral-bg); animation: sk-pulse 1.6s ease-in-out infinite; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.animate-fade-in { animation: fadeIn 150ms var(--ease-standard) both; }
+.animate-slide-in { animation: fadeIn 150ms var(--ease-standard) both; }
+.animate-scale-in { animation: ov-pop 150ms var(--ease-standard) both; }
+
+/* Leaflet */
+.leaflet-container { z-index: 1; font-family: var(--font-sans); }
+
+/* Recharts */
+.recharts-tooltip-wrapper { filter: drop-shadow(0 4px 12px rgba(15, 23, 42, 0.12)); }
+} /* @layer components */
+
+/* Impresión / PDF */
 @media print {
   body { background: white !important; }
   aside, header, nav, .no-print { display: none !important; }
-  main { padding: 0 !important; margin: 0 !important; }
+  main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
   .print-break { page-break-before: always; }
   details { display: block !important; }
   details > summary { display: none !important; }
   details > div { display: block !important; border: none !important; }
   * { box-shadow: none !important; }
-}
-
-/* Recharts tooltip */
-.recharts-tooltip-wrapper {
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
-}
-
-/* Barra de progreso indeterminada para las filas que se leen en segundo plano.
-   No hay porcentaje real que mostrar —ScrapingBee no informa avance— asi que la
-   barra solo comunica "sigue andando", que es lo unico que sabemos. */
-@keyframes indeterminado {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
 }

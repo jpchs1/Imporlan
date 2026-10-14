@@ -1,3 +1,5 @@
+import { statusMeta, TONE_CLASSES } from './status';
+
 export function fmtCLP(amount) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(amount || 0);
 }
@@ -16,43 +18,22 @@ export function fmtDateTime(dateStr) {
   return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function statusColor(status) {
-  const map = {
-    active: 'bg-green-100 text-green-800',
-    paid: 'bg-green-100 text-green-800',
-    completed: 'bg-green-100 text-green-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    pending_admin_fill: 'bg-yellow-100 text-yellow-800',
-    suspended: 'bg-red-100 text-red-800',
-    expired: 'bg-gray-100 text-gray-600',
-    canceled: 'bg-red-100 text-red-800',
-    critical: 'bg-red-100 text-red-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    info: 'bg-blue-100 text-blue-800',
-  };
-  return map[status] || 'bg-gray-100 text-gray-600';
+/**
+ * Clases de color para un estado (compatibilidad con las páginas que las
+ * pegan en `Badge className`). Delegan en status.js: mismo tono en todo el
+ * sistema. Para código nuevo usar `<StatusBadge kind status />`.
+ */
+export function statusColor(status, kind = 'auto') {
+  return TONE_CLASSES[statusMeta(kind, status).tone] || TONE_CLASSES.neutral;
 }
 
 /**
- * Nombre del estado en castellano. Sin esto la insignia mostraba la clave cruda
- * de la base ("in_progress" con los guiones cambiados por espacios), que es
- * jerga interna en ingles justo en la parte mas visible del expediente.
+ * Nombre del estado en castellano. Delegado en status.js (`statusMeta`), que es
+ * la única tabla de estados del sistema. `kind` es opcional ('expediente',
+ * 'pago', 'barco', …); sin él se busca en todas las tablas.
  */
-export function statusLabel(status) {
-  const map = {
-    new: 'Nuevo',
-    active: 'Activo',
-    paid: 'Pagado',
-    completed: 'Completado',
-    in_progress: 'En proceso',
-    pending: 'Pendiente',
-    pending_admin_fill: 'En revisión',
-    suspended: 'Suspendido',
-    expired: 'Vencido',
-    canceled: 'Cancelado',
-  };
-  return map[status] || (status || '').replace(/_/g, ' ');
+export function statusLabel(status, kind = 'auto') {
+  return statusMeta(kind, status).label;
 }
 
 export function cn(...classes) {
@@ -105,10 +86,10 @@ export function purchaseTypeLabel(type) {
  * Medio de pago legible.
  *
  * El panel del cliente mostraba la clave de la base con los guiones cambiados
- * por espacios: "mercadopago", "transferencia bancaria". El cliente leia el
+ * por espacios: "mercadopago", "transferencia bancaria". El cliente leía el
  * nombre interno de un sistema, no el de la empresa por la que acaba de pagar.
  *
- * La clave se normaliza porque llega escrita de varias formas segun quien la
+ * La clave se normaliza porque llega escrita de varias formas según quién la
  * grabe, y lo que no reconocemos se muestra legible — nunca con guiones bajos.
  */
 export function paymentMethodLabel(m) {
