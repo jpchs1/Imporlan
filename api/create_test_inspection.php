@@ -5,6 +5,13 @@
  */
 require_once __DIR__ . '/db_config.php';
 
+// Inserta un reporte de demo en la base de produccion: por web, solo un
+// admin con sesion (antes bastaba con abrir la URL).
+if (php_sapi_name() !== 'cli') {
+    require_once __DIR__ . '/auth_helper.php';
+    requireAdminAuthShared(['admin']);
+}
+
 $pdo = getDbConnection();
 if (!$pdo) { die("DB connection failed"); }
 

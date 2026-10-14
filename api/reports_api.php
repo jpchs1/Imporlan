@@ -1523,22 +1523,14 @@ function resendReport() {
 }
 
 function userListReports() {
-    // Require user authentication
+    // Sesion obligatoria; el correo es el del token y el user_email de la
+    // URL solo se contrasta (ver correoClienteDesdeSesion).
     $userPayload = requireUserAuthShared();
-    $authenticatedEmail = $userPayload['email'] ?? '';
-
-    $userEmail = $_GET['user_email'] ?? '';
+    $userEmail = correoClienteDesdeSesion($userPayload, $_GET['user_email'] ?? null);
 
     if (empty($userEmail)) {
         http_response_code(400);
         echo json_encode(['error' => 'Se requiere user_email']);
-        return;
-    }
-
-    // Verify the authenticated user can only access their own reports
-    if (!empty($authenticatedEmail) && strtolower($authenticatedEmail) !== strtolower($userEmail)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'No autorizado para ver reportes de otro usuario']);
         return;
     }
 

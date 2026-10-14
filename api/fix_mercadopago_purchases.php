@@ -42,6 +42,11 @@ if (!$IS_CLI && $runKey !== $EXPECTED_KEY) {
     echo json_encode(['error' => 'Unauthorized. Provide ?key=<MIGRATION_KEY>']);
     exit;
 }
+// Por web ademas exige sesion de admin: la clave fija esta en el repositorio.
+if (!$IS_CLI) {
+    require_once __DIR__ . '/auth_helper.php';
+    requireAdminAuthShared(['admin']);
+}
 
 // Determine dry-run vs apply
 $DRY_RUN = false;

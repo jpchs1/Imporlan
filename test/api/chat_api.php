@@ -160,41 +160,37 @@ function getAuthToken() {
 
 function requireUserAuth() {
     $token = getAuthToken();
-    $headers = getallheaders();
-    
-    // Get email and name from headers (sent by the widget from localStorage)
-    $userEmail = $headers['X-User-Email'] ?? $headers['x-user-email'] ?? null;
-    $userName = $headers['X-User-Name'] ?? $headers['x-user-name'] ?? null;
-    
+
+    // La identidad es SOLO la del token. Antes, si el token no traia correo,
+    // se tomaba de la cabecera X-User-Email, que la manda el navegador.
     if (!$token) {
         http_response_code(401);
         echo json_encode(['detail' => 'No autorizado']);
         exit();
     }
-    
+
     // Try to verify the JWT with our secret
     $payload = verifyJWT($token);
-    
+
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
         exit();
     }
-    
-    // If email is not in the payload, use the one from header
-    if (!isset($payload['email']) || empty($payload['email'])) {
-        if ($userEmail) {
-            $payload['email'] = $userEmail;
-        }
+
+    // El token temporal que se emite tras la contraseña no sirve sin el 2FA.
+    if (($payload['purpose'] ?? null) === '2fa_pending') {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Completa la verificacion en dos pasos']);
+        exit();
     }
-    
-    // If name is not in the payload, use the one from header
-    if (!isset($payload['name']) || empty($payload['name'])) {
-        if ($userName) {
-            $payload['name'] = $userName;
-        }
+
+    if (empty($payload['email'])) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'Token sin correo']);
+        exit();
     }
-    
+
     return $payload;
 }
 

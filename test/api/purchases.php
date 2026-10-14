@@ -36,9 +36,24 @@ if (!file_exists($purchasesFile)) {
 
 $action = $_GET['action'] ?? '';
 
+// Autenticación (igual que api/purchases.php; este espejo vive en produccion
+// con la base y el secreto reales y no tenia NINGUN control: sin sesion,
+// ?action=get&user_email=X devolvia las compras de cualquier cliente y las
+// acciones del equipo —listar todo, borrar solicitudes, mandar recordatorios—
+// quedaban abiertas). `get` la usa el panel de clientes con su propio token;
+// el correo es el del token y el user_email de la URL solo se contrasta.
+require_once __DIR__ . '/auth_helper.php';
+$emailCliente = '';
+if ($action === 'get') {
+    $authPayload = requireUserAuthShared();
+    $emailCliente = correoClienteDesdeSesion($authPayload, $_GET['user_email'] ?? null);
+} elseif ($action !== '') {
+    requireAdminAuthShared(['admin', 'support']);
+}
+
 switch ($action) {
     case 'get':
-        getPurchases();
+        getPurchases($emailCliente);
         break;
     case 'add':
         addPurchase();
@@ -109,11 +124,9 @@ function sanitizeDescription($description) {
 /**
  * Get purchases for a specific user
  */
-function getPurchases() {
+function getPurchases($userEmail) {
     global $purchasesFile;
-    
-    $userEmail = $_GET['user_email'] ?? null;
-    
+
     if (!$userEmail) {
         http_response_code(400);
         echo json_encode(['error' => 'Falta el parametro: user_email']);

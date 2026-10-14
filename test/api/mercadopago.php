@@ -577,14 +577,21 @@ function savePurchase($purchaseData) {
  * Obtener información de un pago específico
  */
 function getPayment() {
+    // Sesion obligatoria (igual que api/mercadopago.php): sin ella, con un
+    // payment_id cualquiera se leia el correo y el monto de cualquier pago de
+    // la cuenta. Un cliente solo ve pagos con su propio correo; el equipo, todos.
+    require_once __DIR__ . '/auth_helper.php';
+    $sesion = requireUserAuthShared();
+    $esEquipo = in_array($sesion['role'] ?? '', ['admin', 'support', 'agent'], true);
+
     $paymentId = $_GET['payment_id'] ?? null;
-    
+
     if (!$paymentId) {
         http_response_code(400);
         echo json_encode(['error' => 'Falta el parámetro: payment_id']);
         return;
     }
-    
+
     $config = getMercadoPagoConfig();
     
     $ch = curl_init();
@@ -609,6 +616,13 @@ function getPayment() {
     
     $payment = json_decode($response, true);
     
+    $pagador = strtolower(trim((string) ($payment['payer']['email'] ?? '')));
+    if (!$esEquipo && $pagador !== strtolower(trim((string) ($sesion['email'] ?? '')))) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acceso denegado']);
+        return;
+    }
+
     echo json_encode([
         'success' => true,
         'payment' => [

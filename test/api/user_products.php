@@ -197,10 +197,16 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === 'user_products.php') {
     $api = new UserProductsAPI();
     $method = $_SERVER['REQUEST_METHOD'];
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    
-    // Get user_id from request (in production, this should come from session/JWT)
-    $userId = $input['user_id'] ?? $_GET['user_id'] ?? null;
-    
+
+    // Sesion obligatoria (igual que api/user_products.php). El cliente es el
+    // del token (sub = id de cuenta); el equipo si puede indicar otro user_id.
+    require_once __DIR__ . '/auth_helper.php';
+    $sesion = requireUserAuthShared();
+    $esEquipo = in_array($sesion['role'] ?? '', ['admin', 'support', 'agent'], true);
+    $userId = $esEquipo
+        ? ($input['user_id'] ?? $_GET['user_id'] ?? ($sesion['sub'] ?? null))
+        : ($sesion['sub'] ?? null);
+
     if (!$userId) {
         http_response_code(401);
         echo json_encode(['error' => 'User ID required']);

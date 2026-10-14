@@ -24,15 +24,22 @@ define('SITE_URL', 'https://www.imporlan.cl');
 // Get action from query string
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// Sesion obligatoria. Sin esto cualquiera mandaba correos "de Imporlan" a la
+// direccion que quisiera (bienvenida, confirmacion de compra con el monto
+// que se le ocurriera). El destinatario es el correo del token: un cliente
+// solo se escribe a si mismo; el equipo puede indicar otro.
+require_once __DIR__ . '/auth_helper.php';
+$sesion = requireUserAuthShared();
+
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
 switch ($action) {
     case 'send_purchase_confirmation':
-        sendPurchaseConfirmation($input);
+        sendPurchaseConfirmation($input, $sesion);
         break;
     case 'send_welcome_email':
-        sendWelcomeEmail($input);
+        sendWelcomeEmail($input, $sesion);
         break;
     case 'send_admin_notification':
         sendAdminNotification($input);
@@ -44,8 +51,8 @@ switch ($action) {
 /**
  * Send purchase confirmation email to customer
  */
-function sendPurchaseConfirmation($data) {
-    $userEmail = isset($data['user_email']) ? $data['user_email'] : '';
+function sendPurchaseConfirmation($data, $sesion) {
+    $userEmail = correoClienteDesdeSesion($sesion, isset($data['user_email']) ? $data['user_email'] : null);
     $purchaseDescription = isset($data['purchase_description']) ? $data['purchase_description'] : '';
     $amount = isset($data['amount']) ? $data['amount'] : 0;
     $paymentMethod = isset($data['payment_method']) ? $data['payment_method'] : '';
@@ -209,8 +216,8 @@ function sendPurchaseConfirmation($data) {
 /**
  * Send welcome email to new user
  */
-function sendWelcomeEmail($data) {
-    $userEmail = isset($data['user_email']) ? $data['user_email'] : '';
+function sendWelcomeEmail($data, $sesion) {
+    $userEmail = correoClienteDesdeSesion($sesion, isset($data['user_email']) ? $data['user_email'] : null);
     $userName = isset($data['user_name']) ? $data['user_name'] : '';
     
     if (empty($userEmail)) {
