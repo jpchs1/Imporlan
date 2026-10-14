@@ -139,6 +139,16 @@ foreach ([3101, 2101, 1101, 102] as $allIncl) {
         "resto impar ({$allIncl}): suma {$suma}, sin etapas negativas");
 }
 
+// Devin, PR 675: logística chica ($400) y un FEE que redondea hacia arriba
+// ($1.600 → $2.000) no pueden dejar a la logística en cero.
+$chica = array_merge(array_fill_keys(array_keys($qd), 0), [
+    'usd_clp_rate' => 1, 'iva_pct' => 19, 'lujo_pct' => 2, 'lujo_aplica' => false, 'gastos_puerto_clp' => 400,
+]);
+$r = cotizadorDesgloseEtapas($chica, 2000);
+$m = array_column($r['etapas'], 'clp', 'label');
+t($r['cuadra'] && array_sum($m) == 2000 && ($m['Puerto y desaduanaje en Chile'] ?? 0) > 0 && ($m['Gestión Imporlan'] ?? 0) == 1000,
+    'logística chica: no desaparece, la gestión redondea hacia abajo · ' . json_encode($m, JSON_UNESCAPED_UNICODE));
+
 // Sin costos de servicio cargados, todo el resto queda en USA.
 $soloFlete = array_merge($qd, array_fill_keys(['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'fumigacion_usd',
     'miami_admin_usd', 'escorte_usd', 'gastos_naviera_usd', 'congestion_usd', 'thc_usd', 'baf_usd', 'wharfage_usd',

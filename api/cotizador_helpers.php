@@ -376,10 +376,11 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         foreach ($servicio as $k) $base += $etapas[$k]['costo'];
         // The whole margin, to the thousand, in its own line (under $1.000
         // there is no line: it would read as a rounding error). Rounding it up
-        // can't take more than the stages have left; then it rounds down.
+        // takes up to $500 from the stages; if that would use up all their
+        // cost (tiny logistics, Devin on PR 675), it rounds down instead.
         $margen = $allIncl - $montos['flete'] - $base;
         $montos['gestion'] = $margen >= 1000 ? round($margen, -3) : 0;
-        if ($montos['gestion'] > $allIncl - $montos['flete']) $montos['gestion'] = floor($margen / 1000) * 1000;
+        if ($montos['gestion'] > $margen && $montos['gestion'] - $margen >= $base) $montos['gestion'] = floor($margen / 1000) * 1000;
         $resto = $allIncl - $montos['flete'] - $montos['gestion'];
         // The costliest stage takes the remainder; the other two are rounded
         // to the thousand so they read as prices. Its share is at least a third
