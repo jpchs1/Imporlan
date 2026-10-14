@@ -17,6 +17,21 @@ export const verify2FA = (code, tempToken) =>
 
 export const getMe = () => request(`${API_BASE}/auth/me`);
 
+// Manda al correo del cliente un enlace para crear una contrasena nueva. El
+// servidor contesta lo mismo exista o no la cuenta, para que el formulario no
+// sirva para averiguar quien es cliente de Imporlan.
+//
+// El plazo es mas largo que los 15 s de siempre porque la respuesta espera a
+// que salga el correo, y solo abrir la conexion SMTP puede tardar 30 s. Con el
+// plazo corto el cliente veia "Timeout" mientras el correo si iba en camino, y
+// al reintentar gastaba otra de sus tres solicitudes por hora.
+export const forgotPassword = (email) =>
+  request(`${API_BASE}/user_forgot_password.php`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    timeoutMs: 45000,
+  });
+
 export const googleAuth = (credential) =>
   request(`${API_BASE}/auth/google`, { method: 'POST', body: JSON.stringify({ credential }) });
 

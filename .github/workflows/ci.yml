@@ -35,6 +35,9 @@ jobs:
       - name: Desglose del All-Inclusive (sin el FEE)
         run: php test/cotizador-desglose-tests.php
 
+      - name: Tests de recuperacion de contrasena de clientes
+        run: php test/recuperacion-clientes-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
