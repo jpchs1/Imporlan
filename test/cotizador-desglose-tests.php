@@ -193,6 +193,12 @@ if (preg_match('/    public function setFromName\(\$name\) \{.*?\n    \}\n/s', $
 t(strpos((string) file_get_contents(__DIR__ . '/../api/cotizador_helpers.php'), "\$svc->setFromName('Juan Pablo · Imporlan');") !== false,
     'el desglose sale como «Juan Pablo · Imporlan»');
 
+// JP, 14-oct: «no veo dónde dice enviar desglose» — dentro de la ventana de
+// cotización no se veía. Va también a la vista en la fila del link.
+$fila = (string) file_get_contents(__DIR__ . '/../admin-react/src/admin/components/LinkRow.jsx');
+t(strpos($fila, '{onEnviarDesglose && lk.quote_published_at && (') !== false,
+    'la fila del link muestra «Enviar desglose» cuando la cotización está publicada');
+
 $panel = (string) file_get_contents(__DIR__ . '/../panel/assets/links-contratados.js');
 t(strpos($panel, 'Flete marítimo y seguro') === false && strpos($panel, 'quote_breakdown') === false,
     'el panel del cliente no muestra el desglose por defecto');

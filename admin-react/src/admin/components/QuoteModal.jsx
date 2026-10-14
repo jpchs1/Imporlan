@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { saveQuote, deleteQuote, getPricing, sendQuoteBreakdown } from '../api';
+import { saveQuote, deleteQuote, getPricing } from '../api';
+import { enviarDesglose } from '../desglose';
 import { Button } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
@@ -241,18 +242,14 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
     }
   }
 
-  // «Enviar desglose»: el All-Inclusive por etapa, sin mostrar el FEE. No va
-  // por defecto; JP lo manda a mano a quien lo pida. Primero se pide la vista
-  // previa al servidor para confirmar con los montos exactos que van a salir.
+  // «Enviar desglose» (ver ../desglose.js): el mismo envío que el botón de la fila.
   async function handleBreakdown() {
     if (!link?.id) return;
     setSendingBreakdown(true);
     try {
-      const p = await sendQuoteBreakdown(link.id);
-      const lineas = (p.etapas || []).map((e, i) => `${i + 1}. ${e.label}: ${fmtClp(e.clp)}`).join('\n');
-      if (!confirm(`Enviar el desglose a ${p.email}:\n\n${lineas}\n\nServicio All-Inclusive: ${fmtClp(p.all_inclusive)}\n\nSe usa la cotización guardada (no los cambios sin guardar). ¿Enviar?`)) return;
-      await sendQuoteBreakdown(link.id, p.revision);
-      showToast(`Desglose enviado a ${p.email}`, 'success');
+      const email = await enviarDesglose(link.id);
+      if (!email) return;
+      showToast(`Desglose enviado a ${email}`, 'success');
       onBreakdownSent?.();
       onClose?.();
     } catch (e) {

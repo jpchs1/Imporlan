@@ -56,10 +56,11 @@ function necesitaCola(url) {
   return /yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i.test(url || '');
 }
 
-export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl, onCotizar, dragHandlers }) {
+export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl, onCotizar, onEnviarDesglose, dragHandlers }) {
   const fileRef = useRef(null);
   const lk = link;
   const [scraping, setScraping] = useState(false);
+  const [enviandoDesglose, setEnviandoDesglose] = useState(false);
   const prevUrlRef = useRef(lk.url || '');
 
   function set(field, val) { onUpdate(lk.id, field, val); }
@@ -278,6 +279,24 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
             </label>
 
             <div className="flex items-center gap-1">
+              {/* A la vista en la fila (JP no lo encontraba dentro de la
+                  ventana de cotización). Sólo con la cotización publicada:
+                  el desglose explica un número que el cliente ya tiene. */}
+              {onEnviarDesglose && lk.quote_published_at && (
+                <button
+                  onClick={async () => {
+                    setEnviandoDesglose(true);
+                    try { await onEnviarDesglose(lk); } finally { setEnviandoDesglose(false); }
+                  }}
+                  disabled={enviandoDesglose}
+                  title={lk.quote_breakdown_sent_at
+                    ? `Desglose enviado el ${new Date(lk.quote_breakdown_sent_at).toLocaleString('es-CL')}. Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE.`
+                    : 'Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE. Solo a quien lo pida.'}
+                  className="h-7 px-2.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition disabled:opacity-40 whitespace-nowrap"
+                >
+                  {enviandoDesglose ? 'Enviando...' : (lk.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose')}
+                </button>
+              )}
               {onCotizar && (
                 <IconBtn
                   onClick={() => onCotizar(lk)}

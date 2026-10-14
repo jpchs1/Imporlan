@@ -8,6 +8,7 @@ import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
 import LinkRow from '../components/LinkRow';
 import QuoteModal from '../components/QuoteModal';
+import { enviarDesglose } from '../desglose';
 import ReportsSection from '../components/ReportsSection';
 import FilesSection from '../components/FilesSection';
 
@@ -199,6 +200,20 @@ export default function Orders() {
 
   const linksRef = useRef(links);
   useEffect(() => { linksRef.current = links; }, [links]);
+
+  // «Enviar desglose» desde la fila del link. Después se relee el expediente
+  // para mostrar «Reenviar desglose», salvo con ediciones sin guardar, que
+  // refrescar pisaría.
+  async function handleEnviarDesglose(lk) {
+    try {
+      const email = await enviarDesglose(lk.id);
+      if (!email) return;
+      toast?.(`Desglose enviado a ${email}`, 'success');
+      if (!unsaved) refrescarDetalle();
+    } catch (e) {
+      toast?.(e.message || 'Error al enviar el desglose', 'error');
+    }
+  }
 
   const refrescarDetalle = useCallback(async () => {
     if (!detail?.id) return;
@@ -688,6 +703,7 @@ export default function Orders() {
               onEncolarUrl={encolarUrlLenta}
               orderId={detail?.id}
               onCotizar={lk.id ? setCotizandoLink : undefined}
+              onEnviarDesglose={lk.id ? handleEnviarDesglose : undefined}
               dragHandlers={{
                 onDragStart: e => onDragStart(e, idx),
                 onDragOver,
