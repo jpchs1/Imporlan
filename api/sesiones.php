@@ -43,7 +43,8 @@ function sesionesVentana() {
  * Deja constancia de que las sesiones de este correo abiertas hasta ahora ya
  * no valen. Se llama al cambiar una contrasena.
  *
- * Devuelve false si no pudo escribirse. La clave igual quedo cambiada —eso ya
+ * Devuelve el momento del corte en milisegundos, o false si no pudo
+ * escribirse. La clave igual quedo cambiada —eso ya
  * paso—, pero las sesiones viejas siguen abiertas, y quien llama tiene que
  * poder saberlo en vez de anunciar un exito a medias.
  */
@@ -98,7 +99,10 @@ function sesionesCerrarAnteriores($email) {
     }
 
     sesionesLista(true); // el cache de esta peticion quedo viejo
-    return true;
+
+    // Se devuelve el corte para que quien emita un token nuevo lo pueda
+    // poner ESTRICTAMENTE despues (ver admin_profile.php).
+    return $ahoraMs;
 }
 
 /** La lista, leida una sola vez por peticion. */

@@ -249,6 +249,15 @@ try {
         'api/paypal_pending',
         'api/marketplace_photos',
         'api/*.log',
+        // logs/ no es solo historial. Guarda lo que JP le enseno al contestador
+        // de WhatsApp (whatsapp-aprendido.json) y la lista de sesiones cerradas
+        // por cambio de clave (sesiones-cerradas.json). Borrarla en un deploy
+        // olvidaba todas las correcciones de JP y, peor, devolvia la vida a
+        // los tokens robados que se acababan de revocar.
+        'api/logs',
+        // Enlaces de recuperacion de contrasena pendientes de usar.
+        '.user_reset_tokens',
+        '.admin_reset_tokens',
     ];
 
     $excludes = "--exclude='.git' --exclude='api/config.php' --exclude='api/db_config.php'";

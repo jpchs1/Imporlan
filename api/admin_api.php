@@ -84,7 +84,10 @@ function createJWT($payload) {
     // Momento de emision en milisegundos. `iat` va en segundos, y con eso no
     // se puede saber si un token nacio antes o despues de un cambio de clave
     // ocurrido en ese mismo segundo. Ver api/sesiones.php.
-    $payload['iat_ms'] = (int) floor(microtime(true) * 1000);
+    // Nunca antes del que pida quien llama: el token renovado tras un cambio de
+    // clave tiene que nacer estrictamente despues del corte, y el reloj puede
+    // no haber avanzado un milisegundo entre una cosa y la otra.
+    $payload['iat_ms'] = max((int) floor(microtime(true) * 1000), (int) ($payload['iat_ms'] ?? 0));
     
     $base64Header = base64UrlEncode($header);
     $base64Payload = base64UrlEncode(json_encode($payload));

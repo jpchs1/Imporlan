@@ -102,17 +102,35 @@ prueba('un archivo corrupto no deja a nadie fuera',
 // token revocado una semana entera. Se buscan por el patron —partir el token
 // en tres—, no por el nombre, que es como se escaparon la primera vez.
 $corte = "if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo(\$payload)) return null;";
+// Se busca tambien en /test/api: esos espejos estan vivos en produccion, usan
+// el MISMO secreto (../../api/credentials.php) y la misma base. Un token
+// revocado que muere en /api pero vive en /test/api no esta revocado.
 $verificadores = [];
-foreach (glob(__DIR__ . '/../api/*.php') as $php) {
+foreach (array_merge(glob(__DIR__ . '/../api/*.php'), glob(__DIR__ . '/api/*.php')) as $php) {
     $src = file_get_contents($php);
-    if (preg_match('/explode\(\s*[\'"]\.[\'"]\s*,\s*\$token\s*\)/', $src)) $verificadores[basename($php)] = $src;
+    if (preg_match('/explode\(\s*[\'"]\.[\'"]\s*,\s*\$token\s*\)/', $src)) {
+        $verificadores[str_replace(dirname(__DIR__) . '/', '', realpath($php))] = $src;
+    }
 }
-prueba('se encontraron los cinco verificadores', count($verificadores) === 5);
+// Nueve exactos: si alguien agrega un verificador nuevo, esta prueba lo frena
+// hasta que alguien decida a conciencia si lleva el corte.
+prueba('se encontraron los nueve verificadores (cinco + cuatro espejos)', count($verificadores) === 9);
 foreach ($verificadores as $nombre => $src) {
-    prueba("$nombre consulta las sesiones cerradas", strpos($src, $corte) !== false);
-    prueba("$nombre no cae si falta sesiones.php",
-        strpos($src, "if (file_exists(__DIR__ . '/sesiones.php')) require_once") !== false);
+    $esEspejo = strpos($nombre, 'test/api/') === 0;
+    prueba("$nombre consulta las sesiones cerradas",
+        strpos($src, $corte) !== false);
+    // Los espejos leen la lista de PRODUCCION: si apuntaran a su propia
+    // carpeta no encontrarian sesiones.php y dejarian pasar todo en silencio.
+    $ruta = $esEspejo ? "'/../../api/sesiones.php'" : "'/sesiones.php'";
+    prueba("$nombre carga sesiones.php con red y de la ruta correcta",
+        strpos($src, "if (file_exists(__DIR__ . $ruta)) require_once") !== false);
 }
+
+// deploy.php hace rsync --delete: sin excluir logs/, cada deploy borraba la
+// lista y los tokens robados volvian a servir. (Y lo aprendido de WhatsApp.)
+$deploy = file_get_contents(__DIR__ . '/../api/deploy.php');
+prueba('el deploy por rsync no borra la lista de sesiones cerradas',
+    strpos($deploy, "'api/logs',") !== false);
 
 // ------------------------------------- precision: el mismo segundo
 // iat va en segundos. Un token nacido ANTES del cambio pero en ese mismo
@@ -129,10 +147,20 @@ prueba('un token del mismo segundo pero ANTERIOR al cambio ya no vale',
 prueba('uno del mismo segundo pero POSTERIOR si vale',
     sesionSigueValiendo(['email' => 'preciso@ejemplo.cl', 'iat' => $seg, 'iat_ms' => $despuesMs]) === true);
 
+$corteMs = sesionesCerrarAnteriores('mismo-ms@ejemplo.cl');
+prueba('cerrar sesiones devuelve el momento del corte', is_int($corteMs) && $corteMs > 0);
+prueba('un token con iat_ms igual al corte no vale',
+    sesionSigueValiendo(['email' => 'mismo-ms@ejemplo.cl', 'iat' => intdiv($corteMs, 1000), 'iat_ms' => $corteMs]) === false);
+prueba('uno con iat_ms = corte + 1 si vale',
+    sesionSigueValiendo(['email' => 'mismo-ms@ejemplo.cl', 'iat' => intdiv($corteMs, 1000), 'iat_ms' => $corteMs + 1]) === true);
+
 $local = file_get_contents(__DIR__ . '/../api/auth_local.php');
 $adminApi = file_get_contents(__DIR__ . '/../api/admin_api.php');
-prueba('generateJWT estampa iat_ms', strpos($local, "\$payload['iat_ms'] = (int) floor(microtime(true) * 1000);") !== false);
-prueba('createJWT estampa iat_ms',   strpos($adminApi, "\$payload['iat_ms'] = (int) floor(microtime(true) * 1000);") !== false);
+$estampa = "\$payload['iat_ms'] = max((int) floor(microtime(true) * 1000), (int) (\$payload['iat_ms'] ?? 0));";
+prueba('generateJWT estampa iat_ms, nunca antes del pedido', strpos($local, $estampa) !== false);
+prueba('createJWT estampa iat_ms, nunca antes del pedido',   strpos($adminApi, $estampa) !== false);
+prueba('el token renovado nace un milisegundo despues del corte',
+    strpos(file_get_contents(__DIR__ . '/../api/admin_profile.php'), "'iat_ms'      => is_int(\$sesionesCerradas) ? \$sesionesCerradas + 1 : null,") !== false);
 
 // --------------------------------------------- escritura atomica
 // Truncar y reescribir dejaba un instante con la lista vacia, y ahi un token

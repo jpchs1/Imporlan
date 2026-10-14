@@ -136,6 +136,13 @@ function verifyJWT($token) {
     $payload = json_decode(base64UrlDecode($base64Payload), true);
     
     if ($payload['exp'] < time()) return null;
+    // Este espejo de /test/api usa el MISMO secreto que produccion
+    // (../../api/credentials.php) y la misma base de datos: un token de
+    // produccion vale aqui. Sin este corte, una sesion revocada seguia
+    // entrando por /test/api/ una semana entera. Lee la lista de produccion,
+    // que es una sola.
+    if (file_exists(__DIR__ . '/../../api/sesiones.php')) require_once __DIR__ . '/../../api/sesiones.php';
+    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
     
     return $payload;
 }

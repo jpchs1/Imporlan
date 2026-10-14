@@ -259,6 +259,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'permissions' => $user['permissions'] ?? null,
                 'exp'         => time() + (7 * 24 * 60 * 60),
                 'iat'         => time(),
+                // Un milisegundo despues del corte, como minimo. Si el cambio y
+                // este token caian en el mismo milisegundo, el token nuevo se
+                // revocaba a si mismo y el usuario quedaba fuera en la siguiente
+                // peticion, justo despues de hacer lo correcto.
+                'iat_ms'      => is_int($sesionesCerradas) ? $sesionesCerradas + 1 : null,
             ]);
         }
 
