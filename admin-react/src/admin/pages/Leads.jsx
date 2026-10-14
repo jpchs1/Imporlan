@@ -1,37 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { getLeadsSimulador, descargarLeadsSimulador } from '../api';
-import { Card, PageHeader, Input, Button, Badge, SkeletonCard } from '../../shared/components/UI';
+import { fmtDateTime, dateValue } from '../../shared/lib/utils';
+import { fmtNumero } from '../../shared/lib/format';
+import { Card, PageHeader, Button, Badge, DataTable, SearchInput, StatTile, StatGrid, ErrorState, EmptyState } from '../../shared/components/UI';
+import { Download, Mail } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
-
-function fechaCorta(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d)) return iso;
-  return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { useCarga } from './operacion/useCarga';
 
 export default function Leads() {
   const toast = useToast();
-  const [leads, setLeads] = useState([]);
-  const [resumen, setResumen] = useState({ total: 0, enviados: 0, fallidos: 0 });
-  const [cargando, setCargando] = useState(true);
+  const { datos, cargando, error, recargar } = useCarga(getLeadsSimulador, { mensaje: 'No se pudieron cargar los leads' });
+  const leads = useMemo(() => datos?.leads || [], [datos]);
+  const resumen = { total: datos?.total || 0, enviados: datos?.enviados || 0, fallidos: datos?.fallidos || 0 };
   const [busqueda, setBusqueda] = useState('');
   const [exportando, setExportando] = useState(false);
-
-  useEffect(() => { cargar(); }, []);
-
-  async function cargar() {
-    setCargando(true);
-    try {
-      const r = await getLeadsSimulador();
-      setLeads(r.leads || []);
-      setResumen({ total: r.total || 0, enviados: r.enviados || 0, fallidos: r.fallidos || 0 });
-    } catch (e) {
-      toast?.(e.message || 'No se pudieron cargar los leads', 'error');
-    } finally {
-      setCargando(false);
-    }
-  }
 
   async function exportar() {
     setExportando(true);
@@ -47,103 +29,69 @@ export default function Leads() {
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     if (!q) return leads;
-    return leads.filter(l =>
-      `${l.nombre || ''} ${l.email || ''} ${l.ip || ''}`.toLowerCase().includes(q)
-    );
+    return leads.filter(l => `${l.nombre || ''} ${l.email || ''} ${l.ip || ''}`.toLowerCase().includes(q));
   }, [leads, busqueda]);
+
+  const columnas = [
+    { key: 'fecha', header: 'Fecha', width: 150, sortValue: r => dateValue(r.fecha), cell: r => <span className="text-ink-500 whitespace-nowrap">{fmtDateTime(r.fecha)}</span> },
+    { key: 'nombre', header: 'Nombre', sortValue: r => r.nombre || '', cell: r => <span className="font-medium text-ink-900">{r.nombre || '—'}</span> },
+    { key: 'email', header: 'Correo', cell: r => <a href={`mailto:${r.email}`} className="text-brand-600 hover:underline break-all" onClick={e => e.stopPropagation()}>{r.email}</a> },
+    // Un envío fallido es un lead que existe pero al que nunca le llegó su
+    // simulación: hay que contactarlo a mano, por eso se marca aparte.
+    { key: 'envio', header: 'Envío', width: 140, sortValue: r => (r.correo_enviado ? 1 : 0), cell: r => r.correo_enviado
+      ? <Badge tone="success" dot>Entregado</Badge>
+      : <Badge tone="warning" dot>No entregado</Badge> },
+    { key: 'ip', header: 'IP', priority: 3, mono: true, cell: r => <span className="text-ink-500">{r.ip || '—'}</span> },
+  ];
 
   return (
     <>
       <PageHeader
         title="Leads del simulador"
-        subtitle={`${resumen.total} solicitudes de simulación de costos`}
-        action={
-          <Button onClick={exportar} disabled={exportando || !resumen.total} className="flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            {exportando ? 'Exportando...' : 'Exportar CSV'}
-          </Button>
-        }
+        description={cargando ? 'Cargando solicitudes…' : `${fmtNumero(resumen.total)} ${resumen.total === 1 ? 'solicitud' : 'solicitudes'} de simulación de costos desde el sitio`}
+        actions={<Button variant="secondary" icon={Download} onClick={exportar} loading={exportando} disabled={!resumen.total}>Exportar CSV</Button>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-        <Tile label="Total" valor={resumen.total} tono="slate" />
-        <Tile label="Correo entregado" valor={resumen.enviados} tono="emerald" />
-        {/* Un envío fallido es un lead que existe pero al que nunca le llegó su
-            simulación: hay que contactarlo a mano, así que se muestra aparte. */}
-        <Tile label="Correo no entregado" valor={resumen.fallidos} tono="amber" />
-      </div>
+      {error ? (
+        <Card><ErrorState title="No se pudieron cargar los leads" message="Vuelve a intentarlo en unos segundos." detail={error} onRetry={recargar} /></Card>
+      ) : (
+        <>
+          <StatGrid cols={3} className="mb-6">
+            <StatTile label="Solicitudes" value={resumen.total} loading={cargando} />
+            <StatTile label="Correo entregado" value={resumen.enviados} loading={cargando} hint="Recibieron su simulación" />
+            <StatTile label="Correo no entregado" value={resumen.fallidos} loading={cargando} tone={resumen.fallidos > 0 ? 'warning' : undefined} hint={resumen.fallidos > 0 ? 'Conviene contactarlos a mano' : 'Todos recibieron su correo'} />
+          </StatGrid>
 
-      <Card>
-        <Input
-          placeholder="Buscar por nombre, correo o IP..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-          className="mb-4"
-        />
-
-        {cargando ? (
-          <SkeletonCard />
-        ) : filtrados.length === 0 ? (
-          <div className="py-14 text-center">
-            <svg className="w-11 h-11 mx-auto mb-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4}>
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
-            </svg>
-            <p className="font-medium text-slate-400">
-              {leads.length === 0 ? 'Todavía no hay solicitudes' : 'Ningún lead coincide con la búsqueda'}
-            </p>
-            {leads.length === 0 && (
-              <p className="text-sm text-slate-300 mt-1">
-                Aparecerán aquí cuando alguien pida una simulación desde el sitio.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-6 px-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  {['Fecha', 'Nombre', 'Correo', 'Envío', 'IP'].map(h => (
-                    <th key={h} className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map(l => (
-                  <tr key={l.id} className="border-b border-slate-50 hover:bg-indigo-50/30 transition">
-                    <td className="py-3 px-3 text-slate-500 text-xs whitespace-nowrap">{fechaCorta(l.fecha)}</td>
-                    <td className="py-3 px-3 font-medium text-slate-700">{l.nombre || '—'}</td>
-                    <td className="py-3 px-3">
-                      <a href={`mailto:${l.email}`} className="text-indigo-600 hover:text-indigo-700 hover:underline">{l.email}</a>
-                    </td>
-                    <td className="py-3 px-3">
-                      {l.correo_enviado
-                        ? <Badge className="bg-emerald-50 text-emerald-700">Entregado</Badge>
-                        : <Badge className="bg-amber-100 text-amber-800">No entregado</Badge>}
-                    </td>
-                    <td className="py-3 px-3 text-slate-400 text-xs font-mono">{l.ip || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+          <Card padding="none">
+            <div className="px-(--card-pad) pt-4 pb-3 border-b border-line">
+              <SearchInput value={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre, correo o IP" className="max-w-md" />
+            </div>
+            <DataTable
+              columns={columnas}
+              data={filtrados}
+              rowKey={r => r.id}
+              loading={cargando}
+              pageSize={25}
+              aria-label="Leads del simulador"
+              emptyState={(
+                <EmptyState compact icon={Mail}
+                  title={leads.length === 0 ? 'Todavía no hay solicitudes' : 'Ningún lead coincide con la búsqueda'}
+                  description={leads.length === 0 ? 'Aparecerán aquí cuando alguien pida una simulación desde el sitio.' : 'Prueba con otro texto.'} />
+              )}
+              mobileCard={r => (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink-900 truncate">{r.nombre || '—'}</p>
+                    <a href={`mailto:${r.email}`} className="text-13 text-brand-600 hover:underline break-all">{r.email}</a>
+                    <p className="text-xs text-ink-500 mt-1">{fmtDateTime(r.fecha)}</p>
+                  </div>
+                  {r.correo_enviado ? <Badge tone="success" size="sm" dot>Entregado</Badge> : <Badge tone="warning" size="sm" dot>No entregado</Badge>}
+                </div>
+              )}
+            />
+          </Card>
+        </>
+      )}
     </>
-  );
-}
-
-function Tile({ label, valor, tono }) {
-  const tonos = {
-    slate: 'text-slate-800',
-    emerald: 'text-emerald-600',
-    amber: 'text-amber-600',
-  };
-  return (
-    <Card className="!p-5">
-      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</div>
-      <div className={'text-2xl font-bold ' + tonos[tono]}>{valor}</div>
-    </Card>
   );
 }

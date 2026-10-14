@@ -1,50 +1,39 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getPurchases } from '../api';
-import { fmtCLP, fmtDate, statusColor, statusLabel, paymentMethodLabel, downloadCSV, PAID_STATUSES } from '../../shared/lib/utils';
-import { PageHeader, Card, Table, Badge, StatCard, Input, Select, Spinner, Button, ErrorState } from '../../shared/components/UI';
+import { fmtCLP, paymentMethodLabel, downloadCSV, statusLabel, PAID_STATUSES } from '../../shared/lib/utils';
+import { fmtNumero } from '../../shared/lib/format';
+import { PageHeader, Card, Button, Select, SearchInput, StatTile, ErrorState } from '../../shared/components/UI';
+import { Download } from '../../shared/components/Icons';
+import { useCarga } from './operacion/useCarga';
+import { TablaCompras, DetalleCompra } from './operacion/TablaCompras';
+import { textoBusqueda } from './operacion/compras';
 
 export default function Payments() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [methodFilter, setMethodFilter] = useState('');
+  const [params, setParams] = useSearchParams();
+  const { datos, cargando, error, recargar } = useCarga(getPurchases, { mensaje: 'No se pudieron cargar los pagos' });
+  // Pagos = compras con dinero recibido. "Vencido" cuenta: es un plan que se
+  // pagó y ya cerró; sacarlo haría bajar los ingresos solos con el tiempo.
+  const items = useMemo(() => (datos?.items || []).filter(i => PAID_STATUSES.includes(i.status)), [datos]);
+  const [selected, setSelected] = useState(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setError('');
-    getPurchases()
-      // Pagos = compras con dinero recibido. "Vencido" cuenta: es un plan que se
-      // pagó y ya cerró; sacarlo haría bajar los ingresos solos con el tiempo.
-      .then(res => setItems((res.items || []).filter(i => PAID_STATUSES.includes(i.status))))
-      .catch(e => setError(e.message || 'No se pudieron cargar los pagos'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const search = params.get('q') || '';
+  const methodFilter = params.get('medio') || '';
+  const setParam = (k, v) => setParams(p => { const n = new URLSearchParams(p); if (v) n.set(k, v); else n.delete(k); return n; }, { replace: true });
 
   const totalRevenue = items.reduce((s, i) => s + (i.amount_clp || 0), 0);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000;
-  const monthRevenue = items.filter(i => (i.sort_time || 0) >= monthStart).reduce((s, i) => s + (i.amount_clp || 0), 0);
+  const delMes = items.filter(i => (i.sort_time || 0) >= monthStart);
+  const monthRevenue = delMes.reduce((s, i) => s + (i.amount_clp || 0), 0);
   const methods = [...new Set(items.map(i => i.payment_method).filter(Boolean))];
 
   const q = search.trim().toLowerCase();
   const filtered = items.filter(i => {
     if (methodFilter && i.payment_method !== methodFilter) return false;
-    if (q && !`${i.user_email} ${i.payment_id || ''} ${i.purchase_id} ${i.description} ${i.plan_name}`.toLowerCase().includes(q)) return false;
+    if (q && !textoBusqueda(i).includes(q)) return false;
     return true;
   });
   const filteredTotal = filtered.reduce((s, i) => s + (i.amount_clp || 0), 0);
-
-  const columns = [
-    { header: 'Fecha', sortValue: r => r.sort_time || 0, cell: r => fmtDate(r.created_at) },
-    { header: 'Email', key: 'user_email' },
-    { header: 'Descripción', cell: r => r.plan_name || r.description || '-' },
-    { header: 'Monto', sortValue: r => r.amount_clp || 0, cell: r => <span className="font-semibold tabular-nums">{fmtCLP(r.amount_clp)}</span> },
-    { header: 'Medio', key: 'payment_method', cell: r => <Badge className="bg-blue-50 text-blue-700">{paymentMethodLabel(r.payment_method)}</Badge> },
-    { header: 'ID pago', cell: r => <span className="font-mono text-xs" title={r.payment_id || ''}>{(r.payment_id || '-').slice(0, 15)}</span> },
-    { header: 'Estado', key: 'status', cell: r => <Badge className={statusColor(r.status)}>{statusLabel(r.status)}</Badge> },
-  ];
 
   function exportCSV() {
     downloadCSV(`pagos-${new Date().toISOString().slice(0, 10)}.csv`, [
@@ -59,36 +48,52 @@ export default function Payments() {
     ], filtered);
   }
 
-  if (loading) return <Spinner />;
+  const hayFiltro = !!(q || methodFilter);
 
   return (
     <>
-      <PageHeader title="Pagos" subtitle="Compras con pago recibido"
-        action={items.length > 0 && <Button variant="secondary" onClick={exportCSV}>Exportar CSV</Button>} />
+      <PageHeader
+        title="Pagos"
+        description="Compras con el pago recibido"
+        actions={items.length > 0 && <Button variant="secondary" icon={Download} onClick={exportCSV}>Exportar CSV</Button>}
+      />
 
-      {error ? <Card><ErrorState message={error} onRetry={load} /></Card> : (
+      {error ? (
+        <Card><ErrorState title="No se pudieron cargar los pagos" message="Vuelve a intentarlo en unos segundos." detail={error} onRetry={recargar} /></Card>
+      ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <StatCard label="Pagos recibidos" value={items.length} color="green" />
-            <StatCard label="Ingresos totales" value={fmtCLP(totalRevenue)} color="blue" />
-            <StatCard label="Ingresos del mes" value={fmtCLP(monthRevenue)} color="cyan" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+            <StatTile label="Pagos recibidos" value={items.length} loading={cargando} hint={items.length ? 'Planes, links y pagos directos' : undefined} />
+            <StatTile label="Ingresos totales" value={fmtCLP(totalRevenue)} loading={cargando} hint="Histórico" />
+            <StatTile label="Ingresos del mes" value={fmtCLP(monthRevenue)} loading={cargando} hint={`${fmtNumero(delMes.length)} ${delMes.length === 1 ? 'pago' : 'pagos'} este mes`} />
           </div>
 
-          <Card>
-            <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              <Input placeholder="Buscar por email, ID de pago o compra..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1" />
-              <Select value={methodFilter} onChange={e => setMethodFilter(e.target.value)} options={[
-                { value: '', label: 'Todos los medios' },
-                ...methods.map(m => ({ value: m, label: paymentMethodLabel(m) })),
-              ]} className="w-full sm:w-48" />
+          <Card padding="none">
+            <div className="px-(--card-pad) pt-4 pb-3 border-b border-line">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <SearchInput value={search} onChange={v => setParam('q', v)} placeholder="Buscar por correo, ID de pago o compra" className="flex-1" />
+                <Select aria-label="Medio de pago" value={methodFilter} onChange={e => setParam('medio', e.target.value)} options={[
+                  { value: '', label: 'Todos los medios' },
+                  ...methods.map(m => ({ value: m, label: paymentMethodLabel(m) })),
+                ]} className="w-full sm:w-48" />
+              </div>
+              {hayFiltro && !cargando && (
+                <p className="text-13 text-ink-500 mt-2 tabular">{fmtNumero(filtered.length)} {filtered.length === 1 ? 'pago' : 'pagos'} · {fmtCLP(filteredTotal)}</p>
+              )}
             </div>
-            {(q || methodFilter) && (
-              <p className="text-xs text-slate-500 mb-3">{filtered.length} pagos · {fmtCLP(filteredTotal)}</p>
-            )}
-            <Table columns={columns} data={filtered} emptyMsg="Sin pagos para mostrar" />
+            <TablaCompras
+              items={filtered}
+              loading={cargando}
+              modo="pagos"
+              onSelect={setSelected}
+              emptyTitle={hayFiltro ? 'Ningún pago coincide con la búsqueda' : 'Sin pagos para mostrar'}
+              emptyDescription={hayFiltro ? 'Prueba con otro texto o quita el filtro.' : 'Aquí aparecen las compras con el pago confirmado.'}
+            />
           </Card>
         </>
       )}
+
+      <DetalleCompra compra={selected} open={!!selected} onClose={() => setSelected(null)} canEdit={false} />
     </>
   );
 }
