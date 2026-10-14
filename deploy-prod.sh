@@ -143,6 +143,18 @@ if [ -f "/tmp/db_config_bak_${TIMESTAMP}.php" ]; then
 fi
 echo "  -> API deployed (db_config.php preserved)."
 
+# --- /test/api: espejo vivo de la API, con el secreto y la base de produccion ---
+# Antes solo lo actualizaba deploy-test.sh, que se corre a mano, asi que los
+# arreglos de seguridad de test/api se mergeaban pero no llegaban: el espejo
+# seguia aceptando tokens armados a mano y leyendo los chats reales. Ahora va
+# en cada deploy. Overlay: lo que no esta en el repo (db_config.php del espejo)
+# queda como esta.
+if [ -d "$PUBLIC_HTML/test/api" ] && [ -d "$STAGING_REPO/test/api" ]; then
+  cp -a "$PUBLIC_HTML/test/api" "$BACKUP_DIR/test_api_backup_${TIMESTAMP}"
+  cp -a "$STAGING_REPO/test/api/." "$PUBLIC_HTML/test/api/"
+  echo "  -> test/api deployed (respaldo en test_api_backup_${TIMESTAMP})."
+fi
+
 # --- link_scraper.php lives OUTSIDE the doc-root ---------------------------
 # The host's real-time antivirus scans web-accessible paths and deletes this
 # module within ~30s of it landing there: its classifier scores the whole file
