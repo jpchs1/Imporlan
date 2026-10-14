@@ -310,6 +310,11 @@ function iwa_aprender($chat, $indicacion) {
     $todas = iwa_aprendido();
     $todas[] = array('ts' => time(), 'cliente' => $corta($cliente), 'jp' => $corta($indicacion));
     $todas = array_slice($todas, -IWA_APRENDIDO_MAX);
+    // La carpeta se crea igual que en iwa_guardar(). Sin esto, si logs/ no
+    // existe la escritura falla y la @ se come hasta el aviso: JP corrige el
+    // borrador, ve el texto nuevo, y lo que enseño no queda en ninguna parte.
+    // Un olvido silencioso es peor que un error.
+    if (!is_dir(dirname(iwa_archivo_aprendido()))) @mkdir(dirname(iwa_archivo_aprendido()), 0750, true);
     @file_put_contents(iwa_archivo_aprendido(), json_encode($todas, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 }
 
