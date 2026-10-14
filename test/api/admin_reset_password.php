@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sesionesCerradas = false;
         if (file_exists(__DIR__ . '/../../api/session_revocation.php')) {
             require_once __DIR__ . '/../../api/session_revocation.php';
-            $sesionesCerradas = impInvalidarSesionesDe(1);
+            $sesionesCerradas = impInvalidarSesionesDe('principal:admin');
         }
         if (!$sesionesCerradas) {
             $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';

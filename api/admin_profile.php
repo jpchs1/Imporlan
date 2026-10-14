@@ -211,7 +211,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = null;
         $isMainAccount = in_array(strtolower($userEmail), [strtolower(IMPORLAN_ADMIN_EMAIL), strtolower(IMPORLAN_SUPPORT_EMAIL)], true);
         if ($pdo && !$isMainAccount) {
-            $st = $pdo->prepare("SELECT id, password_hash FROM admin_users WHERE email = ?");
+            // SELECT *: el token renovado se arma con lo que la cuenta es HOY
+            // (estado, rol, permisos), no con lo que decia el token viejo.
+            $st = $pdo->prepare("SELECT * FROM admin_users WHERE email = ?");
             $st->execute([$userEmail]);
             $row = $st->fetch(PDO::FETCH_ASSOC);
         }
@@ -228,6 +230,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!password_verify($currentPassword, $row['password_hash'])) {
             http_response_code(400);
             echo json_encode(['error' => 'La contrasena actual es incorrecta.']);
+            exit();
+        }
+
+        // Una cuenta suspendida no renueva nada: si no, con el token que le
+        // quedaba y su clave podia sacarse uno nuevo de siete dias.
+        if (($row['status'] ?? 'active') !== 'active') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Tu cuenta no esta activa. Habla con un administrador.']);
             exit();
         }
 
@@ -254,15 +264,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tokenNuevo = null;
         require_once __DIR__ . '/auth_local.php';
         if (function_exists('generateJWT')) {
-            // Con los mismos permisos que traia. handleLogin y handleVerify2FA
-            // los meten en el token; sin copiarlos aqui, un agente que cambia
-            // su clave quedaba con permisos nulos hasta volver a entrar.
+            // Rol, idioma y permisos salen de la cuenta en la base, como en
+            // handleLogin: si a alguien le bajaron el rol o le quitaron
+            // permisos despues de entrar, el token nuevo ya no los trae.
             $tokenNuevo = generateJWT([
                 'sub'         => (string) $row['id'],
-                'email'       => $userEmail,
-                'role'        => $user['role'] ?? 'user',
-                'locale'      => $user['locale'] ?? 'es',
-                'permissions' => $user['permissions'] ?? null,
+                'email'       => $row['email'] ?? $userEmail,
+                'role'        => $row['role'] ?? 'user',
+                'locale'      => $row['locale'] ?? 'es',
+                'permissions' => $row['permissions'] ?? null,
                 'exp'         => time() + (7 * 24 * 60 * 60),
                 // Nace en el mismo segundo del corte o despues. Como la
                 // comparacion de session_revocation.php es estricta ('<'), este

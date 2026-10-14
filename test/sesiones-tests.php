@@ -102,7 +102,7 @@ $sitios = [
     'api/user_reset_password.php'  => ["impInvalidarSesionesDe(\$cuenta['id'])", 'la recuperacion del cliente'],
     'api/users_api.php'            => ['impInvalidarSesionesDe($id)',            'el admin editando la clave de alguien'],
     'api/admin_profile.php'        => ["impInvalidarSesionesDe(\$row['id'])",    'el cambio de tu propia clave'],
-    'api/admin_reset_password.php' => ['impInvalidarSesionesDe(1)',              'la recuperacion del administrador principal'],
+    'api/admin_reset_password.php' => ["impInvalidarSesionesDe('principal:admin')", 'la recuperacion del administrador principal'],
 ];
 foreach ($sitios as $f => [$llamada, $queEs]) {
     prueba("se cierran las sesiones en $queEs", strpos(leer($f), $llamada) !== false);
@@ -157,10 +157,42 @@ $deploy = leer('api/deploy.php');
 prueba('el deploy por rsync no borra las marcas de sesiones', strpos($deploy, "'.imporlan_sesiones',") !== false);
 prueba('ni lo aprendido por el contestador de WhatsApp', strpos($deploy, "'api/logs',") !== false);
 
+// Y no solo api/deploy.php: cualquier PHP que corra un rsync --delete. Habia
+// una copia vieja en test/api/deploy.php, publicada en /test/api, que podia
+// desplegar a produccion sin estas exclusiones.
+$conRsync = [];
+foreach (['api', 'test/api'] as $dir) {
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$raiz/$dir", FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $f) {
+        if (!$f->isFile() || substr($f->getFilename(), -4) !== '.php') continue;
+        // Sin comentarios: el que explica por que se retiro uno no cuenta.
+        $c = '';
+        foreach (token_get_all(file_get_contents($f->getPathname())) as $t) {
+            if (is_array($t) && in_array($t[0], [T_COMMENT, T_DOC_COMMENT], true)) continue;
+            $c .= is_array($t) ? $t[1] : $t;
+        }
+        if (strpos($c, 'rsync') !== false && strpos($c, '--delete') !== false) {
+            $conRsync[] = substr($f->getPathname(), strlen($raiz) + 1);
+        }
+    }
+}
+prueba('el unico PHP que corre rsync --delete es api/deploy.php (' . implode(', ', $conRsync) . ')',
+    $conRsync === ['api/deploy.php']);
+prueba('el deploy del espejo /test/api esta retirado', strpos(leer('test/api/deploy.php'), 'http_response_code(410)') !== false);
+
 // ---------------------- quien cambia su propia clave no se expulsa a si mismo
 $perfil = leer('api/admin_profile.php');
 prueba('cambiar tu propia clave te devuelve un token nuevo', strpos($perfil, "'access_token' => \$tokenNuevo") !== false);
-prueba('el token nuevo conserva los permisos del agente', strpos($perfil, "'permissions' => \$user['permissions'] ?? null,") !== false);
+prueba('el token nuevo trae los permisos que la cuenta tiene HOY en la base',
+    strpos($perfil, "'permissions' => \$row['permissions'] ?? null,") !== false
+    && strpos($perfil, "'role'        => \$row['role'] ?? 'user',") !== false);
+prueba('y no copia nada del token viejo', !preg_match("/generateJWT\(\[[^\]]*\$user\[/s", $perfil));
+$iSusp = strpos($perfil, "if ((\$row['status'] ?? 'active') !== 'active') {");
+prueba('una cuenta suspendida no renueva su sesion cambiando la clave',
+    $iSusp !== false
+    && strpos(substr($perfil, $iSusp, 200), 'http_response_code(403)') !== false
+    && $iSusp < strpos($perfil, 'generateJWT([')
+    && strpos($perfil, 'SELECT * FROM admin_users WHERE email = ?') !== false);
 prueba('y el panel lo guarda',
     strpos(leer('admin-react/src/admin/api.js'), 'if (res?.access_token) localStorage.setItem(STORAGE_KEYS.token, res.access_token);') !== false);
 
@@ -186,6 +218,28 @@ prueba('el token nuevo, emitido en el mismo segundo, si vale',
     impTokenRevocado(['sub' => '77', 'iat' => time()]) === false);
 prueba('a otra cuenta no le pasa nada',
     impTokenRevocado(['sub' => '78', 'iat' => $antes]) === false);
+
+// El administrador principal (sub 1 fijo, fuera de la base) y la fila 1 de
+// admin_users no se pisan: cada uno tiene su clave.
+$adminPrincipal = ['sub' => '1', 'email' => 'Admin@Imporlan.cl', 'iat' => $antes];
+$usuarioUno     = ['sub' => '1', 'email' => 'agente@imporlan.cl', 'iat' => $antes];
+impInvalidarSesionesDe('principal:admin');
+prueba('recuperar la clave del administrador cierra sus sesiones', impTokenRevocado($adminPrincipal) === true);
+prueba('y no las del usuario 1 de la base', impTokenRevocado($usuarioUno) === false);
+impInvalidarSesionesDe(2);
+prueba('cambiar la clave del usuario 2 de la base no echa a soporte',
+    impTokenRevocado(['sub' => '2', 'email' => 'soporte@imporlan.cl', 'iat' => $antes]) === false);
+prueba('el correo del administrador con otro id sigue siendo esa fila',
+    impClaveSesion(['sub' => '40', 'email' => 'admin@imporlan.cl']) === '40');
+// Los cuatro escritores de la tabla admin_users siguen usando el id: que no
+// vuelva a aparecer un impInvalidarSesionesDe(1) "para el administrador".
+foreach (['api', 'test/api'] as $dir) {
+    foreach (glob("$raiz/$dir/*.php") as $f) {
+        if (preg_match('/impInvalidarSesionesDe\(\s*[12]\s*\)/', file_get_contents($f))) {
+            prueba(substr($f, strlen($raiz) + 1) . ' no marca a una cuenta principal por numero', false);
+        }
+    }
+}
 
 foreach (glob($tmp . '/{,.}*', GLOB_BRACE) ?: [] as $f) if (is_file($f)) @unlink($f);
 @rmdir($tmp);

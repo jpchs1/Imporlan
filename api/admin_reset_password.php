@@ -144,11 +144,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once __DIR__ . '/credentials.php';
         //
         // El administrador principal no vive en la base: sus tokens llevan
-        // sub = 1, fijo en auth_local.php y en admin_api.php.
+        // sub = 1, fijo en auth_local.php y en admin_api.php, y sus marcas van
+        // bajo 'principal:admin' para no pisarse con la fila 1 de admin_users
+        // (ver impClaveSesion en session_revocation.php).
         $sesionesCerradas = false;
         if (file_exists(__DIR__ . '/session_revocation.php')) {
             require_once __DIR__ . '/session_revocation.php';
-            $sesionesCerradas = impInvalidarSesionesDe(1);
+            $sesionesCerradas = impInvalidarSesionesDe('principal:admin');
         }
         if (!$sesionesCerradas) {
             $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
