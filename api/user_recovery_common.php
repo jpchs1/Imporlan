@@ -44,11 +44,16 @@ function urRutaToken($token) {
     return $dir ? $dir . '/' . hash('sha256', $token) . '.json' : null;
 }
 
-/** Borra lo vencido. Sin esto el directorio crece para siempre. */
+/**
+ * Borra lo vencido. Sin esto el directorio crece para siempre.
+ *
+ * Tambien barre los `.usando`: son tokens que alguien empezo a canjear y que
+ * quedarian tirados si el proceso se muriera entremedio.
+ */
 function urPodarTokens($horas = 3) {
     $dir = urDirectorioTokens();
     if (!$dir) return;
-    foreach (glob($dir . '/*.json') ?: [] as $archivo) {
+    foreach (array_merge(glob($dir . '/*.json') ?: [], glob($dir . '/*.usando') ?: []) as $archivo) {
         if (time() - @filemtime($archivo) > $horas * 3600) @unlink($archivo);
     }
 }
@@ -197,6 +202,45 @@ function urBuscarCuenta($pdo, $email) {
     $stmt->execute([trim($email)]);
     $fila = $stmt->fetch(PDO::FETCH_ASSOC);
     return $fila ?: null;
+}
+
+/**
+ * Entrega la respuesta y cierra la conexion, para seguir trabajando sin que el
+ * cliente espere. Devuelve true si realmente se pudo cerrar.
+ *
+ * Es lo que iguala los tiempos entre una cuenta que existe y una que no: el
+ * SMTP tarda cuando el cliente ya se fue.
+ */
+function urResponderYSeguirEnSegundoPlano($cuerpo) {
+    if (urRespuestaYaEnviada()) return true;
+    urRespuestaYaEnviada(true);
+
+    // Sin esto, cerrar la conexion puede matar el proceso antes del correo.
+    ignore_user_abort(true);
+
+    $json = json_encode($cuerpo);
+    header('Content-Length: ' . strlen($json));
+    echo $json;
+
+    // PHP-FPM la trae de fabrica; LiteSpeed —que es lo que corre en el
+    // hosting— expone la suya con otro nombre.
+    foreach (['fastcgi_finish_request', 'litespeed_finish_request'] as $cerrar) {
+        if (function_exists($cerrar)) { $cerrar(); return true; }
+    }
+
+    // Sin ninguna de las dos no hay forma de cerrar antes de tiempo: se vacian
+    // los buffers y el cliente espera igual. Todo lo demas sigue funcionando;
+    // lo unico que se pierde es la igualdad de tiempos.
+    while (ob_get_level() > 0) @ob_end_flush();
+    @flush();
+    return false;
+}
+
+/** Si ya se contesto, para que el catch del endpoint no escriba encima. */
+function urRespuestaYaEnviada($marcar = false) {
+    static $enviada = false;
+    if ($marcar) $enviada = true;
+    return $enviada;
 }
 
 /** Las cuentas que este formulario puede atender. */

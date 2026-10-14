@@ -178,10 +178,12 @@ prueba('si el correo no sale, el token se borra',
 // comprobacion daria igual.
 $iniBloque = strpos($forgotSrc, "if (empty(\$envio['success'])) {");
 $bloqueFallo = $iniBloque === false ? '' : substr($forgotSrc, $iniBloque, strpos($forgotSrc, 'exit();', $iniBloque) - $iniBloque);
+// La respuesta neutra ya salio antes de intentar el envio, asi que al bloque
+// del fallo solo le queda registrar: no puede contestar nada propio.
 prueba('un fallo de SMTP contesta igual que una cuenta inexistente',
     $bloqueFallo !== ''
-    && strpos($bloqueFallo, 'echo json_encode($respuestaNeutra);') !== false
-    && strpos($bloqueFallo, 'http_response_code(500)') === false);
+    && strpos($bloqueFallo, 'http_response_code(500)') === false
+    && strpos($bloqueFallo, 'echo ') === false);
 
 // --------------------------------- el freno de fuerza bruta no se toca
 // El bloqueo de antispam.php es por IP, no por cuenta. Limpiarlo al cambiar la
@@ -193,11 +195,43 @@ prueba('cambiar la clave no borra el bloqueo por intentos fallidos',
     && strpos(file_get_contents(__DIR__ . '/../api/user_recovery_common.php'), 'function urLimpiarBloqueoLogin') === false);
 
 // ------------------------------------- el uso unico, de verdad
-// unlink es atomico: de dos peticiones con el mismo enlace, solo una recibe
+// rename es atomico: de dos peticiones con el mismo enlace, solo una recibe
 // true. Comprobar y borrar despues dejaba pasar a las dos.
 prueba('el token se reclama antes de tocar la base de datos',
-    strpos($reset, 'if (!@unlink(urRutaToken($token))) {') !== false
-    && strpos($reset, 'if (!@unlink(urRutaToken($token))) {') < strpos($reset, 'getDbConnection()'));
+    strpos($reset, 'if (!@rename($rutaToken, $rutaEnUso)) {') !== false
+    && strpos($reset, 'if (!@rename($rutaToken, $rutaEnUso)) {') < strpos($reset, 'getDbConnection()'));
+
+prueba('un fallo antes de grabar devuelve el enlace a su sitio',
+    (bool) preg_match('/catch \(Exception \$e\) \{\s*(\/\/[^\n]*\n\s*)*@rename\(\$rutaEnUso, \$rutaToken\);/', $reset));
+
+// De verdad atomico: el segundo rename del mismo origen tiene que fallar.
+$tk = emitirToken('carrera@ejemplo.cl');
+$origen = urRutaToken($tk);
+prueba('el primero en reclamar el token se lo lleva', @rename($origen, $origen . '.usando') === true);
+prueba('el segundo se va con las manos vacias', @rename($origen, $origen . '.usando2') === false);
+@unlink($origen . '.usando');
+
+// La poda tiene que barrer tambien los reclamados a medias, o quedan tirados
+// cuando un proceso se muere entremedio.
+$huerfano = emitirToken('huerfano@ejemplo.cl');
+$aMedias = urRutaToken($huerfano) . '.usando';
+rename(urRutaToken($huerfano), $aMedias);
+touch($aMedias, time() - 4 * 3600);
+urPodarTokens(3);
+prueba('la poda barre los tokens reclamados a medias', !file_exists($aMedias));
+
+// --------------------------------- el reloj tampoco puede delatar la cuenta
+// Mismo texto y mismo codigo no alcanzan si el tiempo los separa: un correo
+// sin cuenta contestaba al instante y uno registrado esperaba al SMTP.
+prueba('se contesta antes de mandar el correo',
+    strpos($forgotSrc, 'urResponderYSeguirEnSegundoPlano($respuestaNeutra);') !== false
+    && strpos($forgotSrc, 'urResponderYSeguirEnSegundoPlano($respuestaNeutra);') < strpos($forgotSrc, 'sendPrivateEmail('));
+
+prueba('el catch no escribe encima de una respuesta ya enviada',
+    strpos($forgotSrc, 'if (!urRespuestaYaEnviada()) {') !== false);
+
+prueba('la marca de respuesta enviada no se puede desmarcar',
+    urRespuestaYaEnviada() === false);
 
 // ------------------------------------------------- misma respuesta siempre
 // La frase de exito esta escrita UNA sola vez. Si alguien agregara un segundo
