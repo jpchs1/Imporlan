@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
-import { login, verify2FA, googleAuth } from '../api';
+import { login, verify2FA, googleAuth, forgotPassword } from '../api';
 
 const GOOGLE_CLIENT_ID = '143983416032-4tmdrcn2f2j3tdg0ni5k834729f25og6.apps.googleusercontent.com';
 
@@ -21,6 +21,36 @@ export default function Login() {
   const [tempToken, setTempToken] = useState('');
   const [code2FA, setCode2FA] = useState('');
   const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  // Antes esta pantalla solo mostraba el correo y el WhatsApp de Imporlan:
+  // quien olvidaba la clave quedaba fuera hasta que una persona lo atendiera.
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSent('');
+    setForgotLoading(true);
+    try {
+      const res = await forgotPassword(forgotEmail.trim());
+      setForgotSent(res.message || 'Si ese correo tiene una cuenta, te enviamos el enlace.');
+    } catch (err) {
+      setForgotError(err.message || 'No pudimos procesar la solicitud.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // Al abrir el formulario se arrastra el correo que ya venia escrito arriba,
+  // para no hacerlo teclear dos veces.
+  const abrirForgot = () => {
+    setForgotEmail(email);
+    setForgotSent('');
+    setForgotError('');
+    setShowForgot(true);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -156,10 +186,51 @@ export default function Login() {
                 </div>
                 <h3 className="text-white font-semibold text-lg">Recuperar Contrasena</h3>
                 <p className="text-sm text-slate-400 mt-2">
-                  Para restablecer tu contrasena, contacta al equipo Imporlan:
+                  Escribe tu correo y te enviamos un enlace para crear una contrasena nueva.
                 </p>
               </div>
+
+              {forgotSent ? (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-200 text-sm leading-relaxed animate-fade-in">
+                  {forgotSent}
+                </div>
+              ) : (
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="tu@email.com"
+                      required
+                      autoFocus
+                      className="w-full px-4 py-3 bg-white/[0.06] border border-white/[0.1] rounded-xl text-white text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-400/50 outline-none transition-all duration-200"
+                    />
+                  </div>
+
+                  {forgotError && (
+                    <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm animate-fade-in">
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                      {forgotError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-cyan-600/30 hover:from-cyan-700 hover:to-cyan-600 transition-all duration-200 disabled:opacity-50 active:scale-[0.98] text-sm"
+                  >
+                    {forgotLoading ? 'Enviando...' : 'Enviarme el enlace'}
+                  </button>
+                </form>
+              )}
+
+              {/* El contacto humano se queda abajo: el enlace resuelve el caso
+                  normal, pero si la cuenta no existe o esta desactivada no hay
+                  correo que lo arregle y hay que hablar con alguien. */}
               <div className="bg-white/[0.06] border border-white/[0.1] rounded-xl p-4 space-y-2">
+                <p className="text-[11px] text-slate-500 mb-1">Si no te llega nada, escribenos:</p>
                 <a href="mailto:contacto@imporlan.cl" className="flex items-center gap-3 text-sm text-cyan-300 hover:text-cyan-200 transition">
                   <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-9.75 6.093L2.25 6.75" /></svg>
                   contacto@imporlan.cl
@@ -169,7 +240,7 @@ export default function Login() {
                   +56 9 4021 1459
                 </a>
               </div>
-              <p className="text-[11px] text-slate-500 text-center">Te enviaremos una contrasena temporal por email.</p>
+
               <button type="button" onClick={() => setShowForgot(false)} className="w-full text-sm text-slate-500 hover:text-slate-300 transition-colors py-2">
                 Volver al login
               </button>
@@ -205,7 +276,7 @@ export default function Login() {
 
               {/* Forgot password link */}
               <div className="text-right -mt-2">
-                <button type="button" onClick={() => setShowForgot(true)} className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
+                <button type="button" onClick={abrirForgot} className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
                   Olvidaste tu contrasena?
                 </button>
               </div>
