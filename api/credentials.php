@@ -12,7 +12,10 @@
 // Try to load credentials from file outside web root (cPanel)
 $credentialsConfigFile = '/home/wwimpo/credentials_config.php';
 if (file_exists($credentialsConfigFile)) {
+    // Sin dejar salir lo que imprima (ver email_service.php).
+    ob_start();
     require_once $credentialsConfigFile;
+    ob_end_clean();
 }
 
 /**
