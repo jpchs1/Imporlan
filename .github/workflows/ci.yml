@@ -29,6 +29,9 @@ jobs:
       - name: Tests del contestador de WhatsApp
         run: php test/whatsapp-rehacer-tests.php
 
+      - name: La planilla de la cotización no sale al cliente
+        run: php test/cotizador-cliente-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
