@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getExpedienteFiles, deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
-import { Card, Button, Input } from '../../shared/components/UI';
+import { fmtBytes } from '../../shared/lib/format';
+import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
+import { Upload, Eye, Download, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
 function fileCategory(mime) {
@@ -12,16 +14,16 @@ function fileCategory(mime) {
   return 'other';
 }
 
-const CAT_STYLES = {
-  image:    { bg: 'bg-violet-500', label: 'IMG' },
-  video:    { bg: 'bg-red-500',    label: 'VID' },
-  document: { bg: 'bg-blue-500',   label: 'DOC' },
-  other:    { bg: 'bg-slate-500',  label: 'FILE' },
+const CATS = {
+  image:    { icon: ImageIcon, label: 'Imagen' },
+  video:    { icon: Video,     label: 'Video' },
+  document: { icon: FileText,  label: 'Documento' },
+  other:    { icon: FileIcon,  label: 'Archivo' },
 };
 
 export default function FilesSection({ orderId }) {
   const toast = useToast();
-  const fileInputRef = useRef(null);
+  const confirm = useConfirm();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
@@ -29,7 +31,6 @@ export default function FilesSection({ orderId }) {
   const [description, setDescription] = useState('');
   const [notifyClient, setNotifyClient] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
 
   const loadFiles = useCallback(async () => {
     if (!orderId) return;
@@ -40,18 +41,13 @@ export default function FilesSection({ orderId }) {
     setLoading(false);
   }, [orderId]);
 
-  useEffect(() => { loadFiles(); }, [loadFiles]);
+  useEffect(() => {
+    const t = setTimeout(loadFiles, 0);
+    return () => clearTimeout(t);
+  }, [loadFiles]);
 
   function handleFilesSelected(fileList) {
     setPending(Array.from(fileList));
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files.length > 0) {
-      handleFilesSelected(e.dataTransfer.files);
-    }
   }
 
   async function handleUpload() {
@@ -68,7 +64,6 @@ export default function FilesSection({ orderId }) {
         setPending([]);
         setDescription('');
         setShowUpload(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
         loadFiles();
         if (data.errors && data.errors.length > 0) {
           toast?.('Algunos archivos fallaron: ' + data.errors.join(', '), 'error');
@@ -76,149 +71,124 @@ export default function FilesSection({ orderId }) {
       } else {
         toast?.(data.error || 'Error al subir archivos', 'error');
       }
-    } catch (e) { toast?.(e.message || 'Error de conexion al subir archivos', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión al subir archivos', 'error'); }
     setUploading(false);
   }
 
-  async function handleDeleteFile(fileId) {
-    if (!confirm('Eliminar este archivo?')) return;
+  async function handleDeleteFile(f) {
+    if (!(await confirm({ title: '¿Eliminar este archivo?', description: `${f.original_name} deja de estar disponible para el cliente. No se puede deshacer.`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
-      const data = await deleteExpedienteFile(fileId);
+      const data = await deleteExpedienteFile(f.id);
       if (data.success) { toast?.('Archivo eliminado', 'success'); loadFiles(); }
       else toast?.(data.error || 'Error al eliminar', 'error');
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
   }
 
-  function formatSize(bytes) {
-    if (!bytes) return '';
-    return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.round(bytes / 1024) + ' KB';
-  }
+  function cerrarSubida() { setShowUpload(false); setPending([]); }
+
+  const columns = [
+    {
+      key: 'original_name', header: 'Archivo',
+      cell: f => {
+        const cat = CATS[f.category || fileCategory(f.mime_type)] || CATS.other;
+        const Icon = cat.icon;
+        return (
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>
+            <div className="min-w-0">
+              <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
+              {f.description && <p className="text-xs text-ink-500 truncate">{f.description}</p>}
+            </div>
+          </div>
+        );
+      },
+    },
+    { key: 'category', header: 'Tipo', width: 120, priority: 2, cell: f => <Badge>{(CATS[f.category || fileCategory(f.mime_type)] || CATS.other).label}</Badge> },
+    { key: 'file_size', header: 'Tamaño', width: 100, align: 'right', priority: 2, sortValue: f => Number(f.file_size) || 0, cell: f => <span className="tabular text-ink-500">{f.file_size_formatted || fmtBytes(f.file_size)}</span> },
+    { key: 'created_at', header: 'Fecha', width: 110, cell: f => <span className="tabular text-ink-500">{fmtDate(f.created_at)}</span> },
+    {
+      header: <span className="sr-only">Abrir</span>, width: 88, align: 'right',
+      cell: f => {
+        const cat = f.category || fileCategory(f.mime_type);
+        const previewable = cat === 'image' || f.mime_type === 'application/pdf' || cat === 'video';
+        return (
+          <span className="inline-flex items-center gap-1" onClick={e => e.stopPropagation()}>
+            {previewable && <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => window.open(f.download_url, '_blank', 'noopener')} />}
+            <a href={f.download_url} download aria-label={`Descargar ${f.original_name}`} title={`Descargar ${f.original_name}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-transparent text-ink-700 hover:bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"><Download size={14} /></a>
+          </span>
+        );
+      },
+    },
+  ];
 
   return (
-    <Card className="mb-5">
-      <div className="bg-gradient-to-r from-emerald-50 to-green-50 -m-6 mb-4 px-7 py-5 rounded-t-2xl border-b border-emerald-200 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-800">Documentos del Expediente</h3>
-            <p className="text-xs text-slate-400">Sube archivos, imagenes, videos y documentos para el cliente</p>
-          </div>
-        </div>
-        <Button variant="secondary" onClick={() => setShowUpload(!showUpload)}
-          className="flex items-center gap-1.5 !bg-emerald-50 !text-emerald-700 !border-emerald-200 hover:!bg-emerald-100">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Subir Archivos
-        </Button>
-      </div>
-
-      {/* Upload area */}
-      {showUpload && (
-        <div className="mb-4 p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={`flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-xl cursor-pointer transition-all ${dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400 hover:bg-emerald-50/50'}`}
-          >
-            <svg className="w-10 h-10 text-slate-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <p className="text-sm text-slate-500 font-medium">Arrastra archivos aqui o haz click para seleccionar</p>
-            <p className="text-xs text-slate-400 mt-1">PDF, imagenes, videos, documentos</p>
-          </div>
-          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleFilesSelected(e.target.files)} />
-
-          {/* Preview selected files */}
-          {pending.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {pending.map((f, i) => {
-                const cat = f.type ? fileCategory(f.type) : 'other';
-                const s = CAT_STYLES[cat];
-                return (
-                  <div key={i} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg">
-                    <div className={`w-8 h-8 ${s.bg} rounded-lg flex items-center justify-center`}>
-                      <span className="text-white text-[10px] font-bold">{s.label}</span>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-slate-700 max-w-[200px] truncate">{f.name}</p>
-                      <p className="text-[10px] text-slate-400">{formatSize(f.size)}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <Input label="Descripcion (opcional)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Descripcion de los archivos..." />
-          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={notifyClient} onChange={e => setNotifyClient(e.target.checked)} className="w-4 h-4 accent-emerald-600 rounded cursor-pointer" />
-            Notificar al cliente
-          </label>
-          <div className="flex gap-3 justify-end">
-            <Button variant="secondary" onClick={() => { setShowUpload(false); setPending([]); }}>Cancelar</Button>
-            <Button onClick={handleUpload} disabled={uploading || pending.length === 0}
-              className="flex items-center gap-1.5">
-              {uploading ? (
-                <><svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Subiendo...</>
-              ) : (
-                <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg> Subir</>
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Files list */}
-      {loading ? (
-        <div className="text-center py-8 text-slate-400 text-sm">Cargando archivos...</div>
-      ) : files.length === 0 ? (
-        <div className="text-center py-8 text-slate-300">
-          <svg className="w-8 h-8 mx-auto mb-2 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <p className="text-sm">No hay archivos subidos.</p>
-          <p className="text-xs mt-1">Usa el boton "Subir Archivos" para agregar documentos.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {files.map(f => {
-            const cat = f.category || fileCategory(f.mime_type);
-            const s = CAT_STYLES[cat] || CAT_STYLES.other;
-            const isPreviewable = cat === 'image' || f.mime_type === 'application/pdf' || cat === 'video';
+    <>
+      <Card>
+        <Card.Header
+          title="Archivos"
+          description="Documentos, fotos y videos que el cliente ve en su expediente."
+          actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
+        />
+        <DataTable
+          aria-label="Archivos del expediente"
+          columns={columns}
+          data={files}
+          rowKey={f => f.id}
+          loading={loading}
+          loadingRows={3}
+          pageSize={0}
+          rowActions={f => [{ label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDeleteFile(f) }]}
+          emptyState={<EmptyState compact icon={Paperclip} title="No hay archivos subidos" description="Sube documentos, fotos o videos para el cliente." primaryAction={<Button size="sm" variant="secondary" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>} />}
+          mobileCard={f => {
+            const cat = CATS[f.category || fileCategory(f.mime_type)] || CATS.other;
             return (
-              <div key={f.id} className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition">
-                <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center shrink-0`}>
-                  <span className="text-white text-[10px] font-bold">{s.label}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{f.original_name}</p>
-                  <p className="text-xs text-slate-400">
-                    {f.file_size_formatted || formatSize(f.file_size)} · {fmtDate(f.created_at)}
-                    {f.description ? ` · ${f.description}` : ''}
-                  </p>
-                </div>
-                <div className="flex gap-1.5 shrink-0">
-                  {isPreviewable && (
-                    <a href={f.download_url} target="_blank" rel="noreferrer"
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-medium hover:bg-white transition flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      Ver
-                    </a>
-                  )}
-                  <a href={f.download_url} download
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-medium hover:bg-white transition flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Descargar
-                  </a>
-                  <button onClick={() => handleDeleteFile(f.id)}
-                    className="px-2 py-1 rounded-lg border border-red-200 text-red-500 text-[11px] font-medium hover:bg-red-50 transition flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                  </button>
-                </div>
+              <div className="min-w-0">
+                <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
+                <p className="text-13 text-ink-500">{cat.label} · {f.file_size_formatted || fmtBytes(f.file_size)} · {fmtDate(f.created_at)}</p>
+                <a href={f.download_url} download className="inline-flex items-center gap-1 mt-1.5 text-13 font-medium text-brand-600 hover:underline"><Download size={14} /> Descargar</a>
               </div>
             );
-          })}
+          }}
+        />
+      </Card>
+
+      <Modal
+        open={showUpload}
+        onClose={uploading ? undefined : cerrarSubida}
+        title="Subir archivos"
+        description="Quedan en el expediente y, si quieres, se le avisa al cliente por correo."
+        size="md"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={cerrarSubida} disabled={uploading}>Cancelar</Button>
+            <Button onClick={handleUpload} loading={uploading} disabled={pending.length === 0}>Subir {pending.length > 0 ? `(${pending.length})` : ''}</Button>
+          </>
+        )}
+      >
+        <div className="space-y-4">
+          <Dropzone multiple onFiles={handleFilesSelected} label="Arrastra los archivos o haz clic para elegirlos" hint="PDF, imágenes, videos o documentos" disabled={uploading} />
+
+          {pending.length > 0 && (
+            <ul className="divide-y divide-line border border-line rounded-md" aria-label="Archivos seleccionados">
+              {pending.map((f, i) => {
+                const cat = CATS[f.type ? fileCategory(f.type) : 'other'];
+                const Icon = cat.icon;
+                return (
+                  <li key={`${f.name}-${i}`} className="flex items-center gap-3 px-3 py-2">
+                    <Icon size={16} className="text-ink-500 shrink-0" />
+                    <span className="flex-1 min-w-0 text-sm text-ink-900 truncate">{f.name}</span>
+                    <span className="text-xs text-ink-500 tabular shrink-0">{fmtBytes(f.size)}</span>
+                    <IconButton size="sm" icon={X} aria-label={`Quitar ${f.name}`} onClick={() => setPending(p => p.filter((_, j) => j !== i))} disabled={uploading} />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <Input label="Descripción (opcional)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ej.: Oferta firmada por el vendedor" disabled={uploading} />
+          <Checkbox label="Avisar al cliente por correo" checked={notifyClient} onChange={e => setNotifyClient(e.target.checked)} disabled={uploading} />
         </div>
-      )}
-    </Card>
+      </Modal>
+    </>
   );
 }

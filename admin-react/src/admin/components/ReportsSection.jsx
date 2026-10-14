@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getReports, previewReport, sendReport, resendReport, editReport, saveReport, deleteReport as apiDeleteReport } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
-import { Card, Button, Modal } from '../../shared/components/UI';
+import { Card, Button, IconButton, Modal, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
+import { Eye, Send, FileDown, Pencil, Trash, FileSearch } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
 export default function ReportsSection({ orderId, linksCount = 0, customerEmail }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [editModal, setEditModal] = useState(null); // { report, html }
   // El HTML se escribe en el iframe UNA vez por reporte abierto: con un ref
   // inline se reescribía en cada render y se perdía lo editado.
@@ -32,30 +35,35 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
     setLoading(false);
   }, [orderId]);
 
-  useEffect(() => { loadReports(); }, [loadReports]);
+  useEffect(() => {
+    const t = setTimeout(loadReports, 0);
+    return () => clearTimeout(t);
+  }, [loadReports]);
 
   async function handlePreview() {
-    if (linksCount === 0) { toast?.('No hay links para generar reporte', 'error'); return; }
+    if (linksCount === 0) { toast?.('No hay links para generar el reporte', 'error'); return; }
     setPreviewing(true);
     try {
       const data = await previewReport(orderId);
       if (data.success && data.html) {
         const w = window.open('', '_blank');
         if (w) { w.document.write(data.html); w.document.close(); }
-        else toast?.('Permite popups para ver el preview', 'error');
+        else toast?.('Permite las ventanas emergentes para ver la vista previa', 'error');
       } else {
-        toast?.(data.error || 'Error al generar preview', 'error');
+        toast?.(data.error || 'Error al generar la vista previa', 'error');
       }
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
     setPreviewing(false);
   }
 
   async function handleSend() {
-    if (linksCount === 0) { toast?.('No hay links para generar reporte', 'error'); return; }
-    if (!customerEmail) { toast?.('El expediente no tiene email de cliente', 'error'); return; }
-    let msg = `Enviar reporte profesional a ${customerEmail}?`;
-    msg += '\n\nSe generara el reporte con analisis AI, se guardara en el expediente y se enviara por email.';
-    if (!confirm(msg)) return;
+    if (linksCount === 0) { toast?.('No hay links para generar el reporte', 'error'); return; }
+    if (!customerEmail) { toast?.('El expediente no tiene correo de cliente', 'error'); return; }
+    if (!(await confirm({
+      title: `¿Enviar el reporte a ${customerEmail}?`,
+      description: 'Se genera el reporte con análisis de IA, se guarda en el expediente y se envía por correo.',
+      confirmLabel: 'Generar y enviar',
+    }))) return;
     setSending(true);
     try {
       const data = await sendReport(orderId);
@@ -64,19 +72,19 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
         else toast?.('Reporte enviado correctamente al cliente', 'success');
         loadReports();
       } else {
-        toast?.(data.error || 'Error al enviar reporte', 'error');
+        toast?.(data.error || 'Error al enviar el reporte', 'error');
       }
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
     setSending(false);
   }
 
-  async function handleResend(reportId) {
-    if (!confirm('Reenviar este reporte al cliente?')) return;
+  async function handleResend(r) {
+    if (!(await confirm({ title: `¿Reenviar el reporte v${r.version} al cliente?`, description: customerEmail ? `Se manda de nuevo a ${customerEmail}.` : undefined, confirmLabel: 'Reenviar' }))) return;
     try {
-      const data = await resendReport(reportId);
-      if (data.success) { toast?.('Reporte reenviado exitosamente', 'success'); loadReports(); }
+      const data = await resendReport(r.id);
+      if (data.success) { toast?.('Reporte reenviado', 'success'); loadReports(); }
       else toast?.(data.error || 'Error al reenviar', 'error');
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
   }
 
   async function handleEdit(reportId) {
@@ -85,9 +93,9 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       if (data.success && data.report) {
         setEditModal({ report: data.report, html: data.report.html_content });
       } else {
-        toast?.(data.error || 'Error al cargar reporte', 'error');
+        toast?.(data.error || 'Error al cargar el reporte', 'error');
       }
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
   }
 
   async function handleSaveEdit() {
@@ -95,6 +103,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
     const iframe = document.getElementById('ea-edit-report-iframe');
     if (!iframe) return;
     const editedHtml = iframe.contentDocument.documentElement.outerHTML;
+    setSavingEdit(true);
     try {
       const data = await saveReport(editModal.report.id, editedHtml);
       if (data.success) {
@@ -104,117 +113,115 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
       } else {
         toast?.(data.error || 'Error al guardar', 'error');
       }
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
+    setSavingEdit(false);
   }
 
   async function handleDelete(reportId, version) {
-    if (!confirm(`Eliminar el reporte v${version}? Esta accion no se puede deshacer.`)) return;
+    if (!(await confirm({ title: `¿Eliminar el reporte v${version}?`, description: 'Esta acción no se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       const data = await apiDeleteReport(reportId);
       if (data.success) { toast?.(data.message || 'Reporte eliminado', 'success'); loadReports(); }
       else toast?.(data.error || 'Error al eliminar', 'error');
-    } catch (e) { toast?.(e.message || 'Error de conexion', 'error'); }
+    } catch (e) { toast?.(e.message || 'Error de conexión', 'error'); }
+  }
+
+  function apiBase() {
+    return window.location.pathname.includes('/test/') || window.location.pathname.includes('/panel-test') ? '/test/api' : '/api';
   }
 
   function handleView(report) {
     if (report.id && report.access_token) {
-      const base = window.location.pathname.includes('/test/') || window.location.pathname.includes('/panel-test') ? '/test/api' : '/api';
-      window.open(`${base}/reports_api.php?action=view&report_id=${report.id}&token=${report.access_token}`, '_blank');
+      window.open(`${apiBase()}/reports_api.php?action=view&report_id=${report.id}&token=${report.access_token}`, '_blank');
     }
   }
 
   function handleDownload(report) {
     if (report.id && report.access_token) {
-      const base = window.location.pathname.includes('/test/') || window.location.pathname.includes('/panel-test') ? '/test/api' : '/api';
-      window.open(`${base}/reports_api.php?action=download&report_id=${report.id}&token=${report.access_token}`, '_blank');
+      window.open(`${apiBase()}/reports_api.php?action=download&report_id=${report.id}&token=${report.access_token}`, '_blank');
     }
   }
 
+  const sinLinks = linksCount === 0;
+
+  const columns = [
+    { key: 'created_at', header: 'Fecha', width: 120, cell: r => <span className="tabular">{fmtDate(r.created_at)}</span> },
+    { key: 'version', header: 'Versión', width: 100, sortValue: r => Number(r.version) || 0, cell: r => <Badge tone="brand">v{r.version}</Badge> },
+    { key: 'plan_type', header: 'Plan', priority: 2, cell: r => r.plan_type || '—' },
+    {
+      header: <span className="sr-only">Abrir</span>, width: 88, align: 'right',
+      cell: r => (
+        <span className="inline-flex items-center gap-1">
+          <IconButton size="sm" icon={Eye} aria-label={`Ver reporte v${r.version}`} onClick={() => handleView(r)} />
+          <IconButton size="sm" icon={FileDown} aria-label={`Descargar PDF del reporte v${r.version}`} onClick={() => handleDownload(r)} />
+        </span>
+      ),
+    },
+  ];
+
   return (
     <>
-      <Card className="mb-5">
-        <div className="bg-gradient-to-r from-violet-50 to-purple-50 -m-6 mb-4 px-7 py-5 rounded-t-2xl border-b border-violet-200 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <Card>
+        <Card.Header
+          title="Reportes"
+          description="Reportes de opciones generados con IA y enviados al cliente."
+          actions={(
+            <>
+              <Button variant="secondary" size="sm" icon={Eye} onClick={handlePreview} loading={previewing} disabled={sinLinks} title={sinLinks ? 'Agrega links al ranking para generar un reporte' : 'Abre una vista previa en otra pestaña, sin guardar ni enviar'}><span className="sr-only sm:not-sr-only">Vista previa</span></Button>
+              <Button variant="secondary" size="sm" icon={Send} onClick={handleSend} loading={sending} disabled={sinLinks} title={sinLinks ? 'Agrega links al ranking para generar un reporte' : 'Genera el reporte, lo guarda y lo envía por correo'}><span className="sr-only sm:not-sr-only">Generar y enviar</span></Button>
+            </>
+          )}
+        />
+        <DataTable
+          aria-label="Reportes del expediente"
+          columns={columns}
+          data={reports}
+          rowKey={r => r.id}
+          loading={loading}
+          loadingRows={2}
+          pageSize={0}
+          rowActions={r => [
+            { label: 'Reenviar al cliente', icon: Send, onClick: () => handleResend(r) },
+            { label: 'Editar', icon: Pencil, onClick: () => handleEdit(r.id) },
+            { separator: true },
+            { label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDelete(r.id, r.version) },
+          ]}
+          emptyState={<EmptyState compact icon={FileSearch} title="Aún no hay reportes" description={sinLinks ? 'Agrega links al ranking para poder generar uno.' : 'Usa «Generar y enviar» para crear el primero.'} />}
+          mobileCard={r => (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2"><Badge tone="brand">v{r.version}</Badge><span className="text-13 text-ink-500 tabular">{fmtDate(r.created_at)}</span></div>
+              <p className="text-13 text-ink-700 mt-1">{r.plan_type || '—'}</p>
+              <div className="flex gap-3 mt-1.5 text-13 font-medium">
+                <button type="button" onClick={() => handleView(r)} className="text-brand-600 hover:underline">Ver</button>
+                <button type="button" onClick={() => handleDownload(r)} className="text-brand-600 hover:underline">PDF</button>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-slate-800">Reportes Generados</h3>
-              <p className="text-xs text-slate-400">Historial de reportes enviados al cliente</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={handlePreview} disabled={previewing || linksCount === 0}
-              className="flex items-center gap-1.5 !bg-violet-50 !text-violet-700 !border-violet-200 hover:!bg-violet-100">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              {previewing ? 'Generando...' : 'Generar Reporte (Preview)'}
-            </Button>
-            <Button variant="secondary" onClick={handleSend} disabled={sending || linksCount === 0}
-              className="flex items-center gap-1.5 !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              {sending ? 'Enviando...' : 'Enviar Reporte'}
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8 text-slate-400 text-sm">Cargando reportes...</div>
-        ) : reports.length === 0 ? (
-          <div className="text-center py-8 text-slate-300">
-            <svg className="w-8 h-8 mx-auto mb-2 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <p className="text-sm">No hay reportes generados aun.</p>
-            <p className="text-xs mt-1">Usa el boton "Enviar Reporte" para crear uno.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto -mx-6 px-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-2.5 px-3 text-[11px] font-bold text-slate-400 uppercase">Fecha</th>
-                  <th className="text-center py-2.5 px-3 text-[11px] font-bold text-slate-400 uppercase">Version</th>
-                  <th className="text-center py-2.5 px-3 text-[11px] font-bold text-slate-400 uppercase">Plan</th>
-                  <th className="text-center py-2.5 px-3 text-[11px] font-bold text-slate-400 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map(r => (
-                  <tr key={r.id} className="border-b border-slate-50">
-                    <td className="py-2.5 px-3 text-slate-600">{fmtDate(r.created_at)}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className="bg-violet-100 text-violet-700 px-2.5 py-0.5 rounded-full text-xs font-semibold">v{r.version}</span>
-                    </td>
-                    <td className="py-2.5 px-3 text-center text-slate-500 text-xs">{r.plan_type || '-'}</td>
-                    <td className="py-2.5 px-3 text-center">
-                      <div className="flex gap-1.5 justify-center flex-wrap">
-                        <button onClick={() => handleView(r)} className="px-2.5 py-1 rounded-lg border border-violet-300 text-violet-600 text-[11px] font-semibold hover:bg-violet-50 transition">Ver</button>
-                        <button onClick={() => handleDownload(r)} className="px-2.5 py-1 rounded-lg border border-cyan-300 text-cyan-600 text-[11px] font-semibold hover:bg-cyan-50 transition">PDF</button>
-                        <button onClick={() => handleResend(r.id)} className="px-2.5 py-1 rounded-lg border border-amber-300 text-amber-600 text-[11px] font-semibold hover:bg-amber-50 transition">Reenviar</button>
-                        <button onClick={() => handleEdit(r.id)} className="px-2.5 py-1 rounded-lg border border-emerald-300 text-emerald-600 text-[11px] font-semibold hover:bg-emerald-50 transition">Editar</button>
-                        <button onClick={() => handleDelete(r.id, r.version)} className="px-2.5 py-1 rounded-lg border border-red-300 text-red-600 text-[11px] font-semibold hover:bg-red-50 transition">Eliminar</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          )}
+        />
       </Card>
 
       {/* Edit report modal */}
-      <Modal open={!!editModal} onClose={() => setEditModal(null)} title={editModal ? `Editar Reporte v${editModal.report.version}` : ''} size="xl">
+      <Modal
+        open={!!editModal}
+        onClose={savingEdit ? undefined : () => setEditModal(null)}
+        title={editModal ? `Editar reporte v${editModal.report.version}` : ''}
+        description="Edita el texto directamente sobre el reporte y guarda."
+        size="xl"
+        bodyClassName="p-0"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setEditModal(null)} disabled={savingEdit}>Cerrar</Button>
+            <Button onClick={handleSaveEdit} loading={savingEdit}>Guardar</Button>
+          </>
+        )}
+      >
         {editModal && (
-          <div className="flex flex-col" style={{height: '60vh'}}>
-            <iframe
-              id="ea-edit-report-iframe"
-              className="flex-1 w-full border-0 rounded-xl border border-slate-200"
-              ref={iframeRef}
-            />
-            <div className="flex gap-3 justify-end mt-4">
-              <Button variant="secondary" onClick={() => setEditModal(null)}>Cerrar</Button>
-              <Button onClick={handleSaveEdit}>Guardar</Button>
-            </div>
-          </div>
+          <iframe
+            id="ea-edit-report-iframe"
+            title={`Reporte v${editModal.report.version}`}
+            className="block w-full border-0 h-[65vh] sm:h-[60vh]"
+            ref={iframeRef}
+          />
         )}
       </Modal>
     </>

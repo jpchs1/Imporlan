@@ -1,43 +1,37 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
-import { fmtDate, statusColor } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
-import { PageHeader, Card, Badge, Button, Modal, Input, Select, Textarea, Spinner } from '../../shared/components/UI';
+import { useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
-import Timeline from '../../shared/components/Timeline';
-import LinkRow from '../components/LinkRow';
-import QuoteModal from '../components/QuoteModal';
+import { useBreadcrumb } from '../../shared/lib/page-meta';
 import { enviarDesglose } from '../desglose';
-import ReportsSection from '../components/ReportsSection';
-import FilesSection from '../components/FilesSection';
+import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
+import ListaExpedientes from './orders/ListaExpedientes';
+import DetalleExpediente from './orders/DetalleExpediente';
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Todos los estados' },
-  { value: 'new', label: 'Nuevo' },
-  { value: 'pending_admin_fill', label: 'En revisión' },
-  { value: 'in_progress', label: 'En Proceso' },
-  { value: 'completed', label: 'Completado' },
-  { value: 'expired', label: 'Vencido' },
-  { value: 'canceled', label: 'Cancelado' },
-];
-
-const SERVICE_TYPES = [
-  { value: '', label: 'Tipo Servicio' },
-  { value: 'plan_busqueda', label: 'Plan Busqueda' },
-  { value: 'cotizacion_link', label: 'Cotizacion Link' },
-];
-
+/**
+ * Expedientes (admin). Este archivo es el contenedor: tiene TODO el estado y
+ * la lógica de negocio (scraping, cola, guardado, drag, cotización). Las
+ * pantallas viven en ./orders/ (`ListaExpedientes`, `DetalleExpediente`,
+ * `BarraAcciones`, `FormularioExpediente`, `ModalNuevoExpediente`): sólo
+ * pintan y llaman a los handlers que reciben por props.
+ *
+ * La lógica se queda aquí y no en ./orders/index.jsx porque
+ * test/cotizador-desglose-tests.php lee este archivo (handleEnviarDesglose,
+ * onBreakdownSent={marcarDesgloseEnviado}).
+ */
 export default function Orders() {
   const { user } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const [orders, setOrders] = useState([]);
+  const [conteos, setConteos] = useState({});
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list'); // list | detail
   const [detail, setDetail] = useState(null);
   const [links, setLinks] = useState([]);
   const [unsaved, setUnsaved] = useState(false);
-  const [sortDir, setSortDir] = useState('desc');
   const [showCreate, setShowCreate] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
@@ -45,24 +39,31 @@ export default function Orders() {
   const [cotizandoLink, setCotizandoLink] = useState(null);
 
   // Filters
-  const [filters, setFilters] = useState({ status: '', service_type: '', agent: '', from_date: '', to_date: '', search: '' });
+  const [filters, setFilters] = useState(FILTROS_VACIOS);
+  const filtersRef = useRef(filters);
+  useEffect(() => { filtersRef.current = filters; }, [filters]);
 
   // Form fields for detail
   const [form, setForm] = useState({});
 
-  // Estado del boton "Rescrapear Expediente"
+  // Estado del botón "Rescrapear expediente"
   const [rescraping, setRescraping] = useState(false);
   const [rescrapeProgress, setRescrapeProgress] = useState('');
+  // Aviso persistente cuando al servidor le falta el módulo de scraping (F13:
+  // antes iba en un alert() con instrucciones de cPanel).
+  const [scraperFaltante, setScraperFaltante] = useState(null);
 
   // Create form
   const [createForm, setCreateForm] = useState({
     customer_email: '', customer_name: '', customer_phone: '', service_type: 'plan_busqueda',
-    plan_name: '', asset_name: '', type_zone: '', agent_name: 'Rodrigo Calderon',
+    plan_name: '', asset_name: '', type_zone: '', agent_name: AGENTE_POR_DEFECTO,
   });
 
   // Drag state
   const dragIdx = useRef(null);
   const linksContainerRef = useRef(null);
+
+  useBreadcrumb(view === 'detail' && detail ? [detail.order_number] : null);
 
   // Los avisos internos enlazan a #/orders?new=ID (o ?id=ID): abrir ese expediente.
   const location = useLocation();
@@ -80,13 +81,35 @@ export default function Orders() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  async function loadOrders() {
+  // Los filtros se aplican al cambiar (300 ms de espera para lo que se escribe),
+  // sin botón "Filtrar". La consulta sigue siendo getOrders(filters) al servidor.
+  const filtrosPrevios = useRef(JSON.stringify(FILTROS_VACIOS));
+  useEffect(() => {
+    const key = JSON.stringify(filters);
+    if (key === filtrosPrevios.current) return;
+    filtrosPrevios.current = key;
+    const t = setTimeout(() => { loadOrders(filters); }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
+  function contar(list) {
+    const c = { '': list.length };
+    list.forEach(o => { c[o.status] = (c[o.status] || 0) + 1; });
+    return c;
+  }
+
+  async function loadOrders(f = filtersRef.current) {
     setLoading(true);
     let list = [];
     try {
-      const res = await getOrders(filters);
+      const res = await getOrders(f);
       list = res.orders || res.items || [];
       setOrders(list);
+      // Conteo por estado para los chips: con el estado filtrado, se pide la
+      // misma consulta sin estado para que los números no sean los del filtro.
+      if (!f.status) setConteos(contar(list));
+      else getOrders({ ...f, status: '' }).then(r => setConteos(contar(r.orders || r.items || []))).catch(() => {});
     } catch (e) { toast?.('No se pudieron cargar los expedientes: ' + (e.message || ''), 'error'); }
     setLoading(false);
     return list;
@@ -113,13 +136,20 @@ export default function Orders() {
         visible_to_client: order.visible_to_client == 1,
       });
       setUnsaved(false);
+      setScraperFaltante(null);
       setView('detail');
     } catch (e) { toast?.('Error cargando expediente: ' + (e.message || ''), 'error'); }
     setLoading(false);
   }
 
-  function goBack() {
-    if (unsaved && !confirm('Hay cambios sin guardar. ¿Salir igual?')) return;
+  async function goBack() {
+    if (unsaved && !(await confirm({
+      title: 'Hay cambios sin guardar',
+      description: '¿Salir igual? Lo que editaste en este expediente se perderá.',
+      tone: 'warning',
+      confirmLabel: 'Salir sin guardar',
+      cancelLabel: 'Seguir editando',
+    }))) return;
     setUnsaved(false);
     setView('list'); setDetail(null); loadOrders();
   }
@@ -156,19 +186,27 @@ export default function Orders() {
 
   // ---- SEND CLIENT UPDATE ----
   async function handleSendClient() {
-    if (!confirm(`Enviar un correo de actualización a ${detail.customer_email || 'el cliente'}?`)) return;
+    if (!(await confirm({
+      title: '¿Enviar una actualización al cliente?',
+      description: `Se manda un correo de actualización a ${detail.customer_email || 'el cliente'}.`,
+      confirmLabel: 'Enviar correo',
+    }))) return;
     try {
       await sendClientUpdate(detail.id);
-      toast?.('Notificacion enviada al cliente');
+      toast?.('Notificación enviada al cliente');
     } catch (e) { toast?.(e.message, 'error'); }
   }
 
   // ---- NOTIFY RANKING ----
   async function handleNotifyRanking() {
-    if (!confirm(`Enviar el ranking por correo a ${detail.customer_email || 'el cliente'}?`)) return;
+    if (!(await confirm({
+      title: '¿Enviar el ranking por correo?',
+      description: `Se le manda el ranking de opciones a ${detail.customer_email || 'el cliente'}.`,
+      confirmLabel: 'Enviar ranking',
+    }))) return;
     try {
       await notifyRanking(detail.id, user?.name || 'Admin');
-      toast?.('Ranking notificado al usuario');
+      toast?.('Ranking notificado al cliente');
     } catch (e) { toast?.(e.message, 'error'); }
   }
 
@@ -253,7 +291,10 @@ export default function Orders() {
   async function handleRescrapeLinks() {
     if (!detail || rescraping) return;
     const pend = links.filter(l => (l.url || '').trim());
-    if (!pend.length) { alert('Este expediente no tiene links con URL.'); return; }
+    if (!pend.length) {
+      await confirm({ title: 'Este expediente no tiene links con URL.', description: 'Pega al menos un link en el ranking para poder leerlo.', cancelLabel: null, confirmLabel: 'Entendido', tone: 'info' });
+      return;
+    }
 
     // BoatTrader, boats.com y YachtWorld estan detras de Cloudflare y solo se
     // pueden pedir en el modo mas caro de ScrapingBee: 75 creditos por link,
@@ -262,9 +303,18 @@ export default function Orders() {
     // asi que repetirlo el mismo dia no vuelve a cobrar.
     const caros = pend.filter(l => /yachtworld\.|boattrader\.com|boats\.com|boatsgroup\.com/i.test(l.url || '')).length;
     const aviso = caros
-      ? `\n\n${caros} de ellos son de sitios con Cloudflare y cuestan ~75 creditos de ScrapingBee cada uno (~${caros * 75} en total). Si ya los rescrapeaste hoy, salen del cache y no cobran.`
-      : '';
-    if (!confirm(`Rescrapear ${pend.length} link(s)? Cada uno puede tardar hasta un minuto.${aviso}`)) return;
+      ? [
+        `${caros} de ellos ${caros === 1 ? 'es' : 'son'} de sitios con Cloudflare y ${caros === 1 ? 'cuesta' : 'cuestan'} ~75 créditos de ScrapingBee cada uno (~${caros * 75} en total).`,
+        'Si ya los rescrapeaste hoy, salen del caché y no cobran.',
+      ]
+      : undefined;
+    if (!(await confirm({
+      title: `¿Rescrapear ${pend.length} link${pend.length === 1 ? '' : 's'}?`,
+      description: 'Cada uno puede tardar hasta un minuto. Se vuelven a extraer imagen, título y ficha desde el anuncio.',
+      detail: aviso,
+      tone: caros ? 'warning' : 'primary',
+      confirmLabel: 'Rescrapear',
+    }))) return;
 
     setRescraping(true);
     let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0, queued = 0;
@@ -296,17 +346,18 @@ export default function Orders() {
       const orden = o.order || o;
       setDetail(orden);
       setLinks(JSON.parse(JSON.stringify(orden.links || [])));
-      const parts = [`Listo: ${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.`];
-      if (queued) parts.push(`\n${queued} quedaron en cola y se completan solos en unos minutos.`);
+      const parts = [`${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.`];
+      if (queued) parts.push(`${queued} quedaron en cola y se completan solos en unos minutos.`);
       if (partial || noScraper) {
-        parts.push(
-          `\nFalta api/link_scraper.php en el servidor (el antivirus del hosting lo pone en cuarentena).` +
-          (partial ? ` Se guardaron año, marca y modelo de ${partial} link(s) desde la URL, pero no las imagenes.` : '') +
-          `\nRestauralo desde cPanel > ImunifyAV > Cuarentena y marcalo como falso positivo.`
+        parts.push('Falta el módulo de lectura en el servidor (ver aviso en el ranking).');
+        setScraperFaltante(
+          'Falta api/link_scraper.php en el servidor (el antivirus del hosting lo pone en cuarentena).' +
+          (partial ? ` Se guardaron año, marca y modelo de ${partial} link(s) desde la URL, pero no las imágenes.` : '') +
+          '\nRestáuralo desde cPanel > ImunifyAV > Cuarentena y márcalo como falso positivo.'
         );
       }
-      if (failed) parts.push(`\n${failed} fallaron; revisa los creditos de ScrapingBee.`);
-      alert(parts.join(''));
+      if (failed) parts.push(`${failed} fallaron; revisa los créditos de ScrapingBee.`);
+      await confirm({ title: 'Rescrape terminado', detail: parts, cancelLabel: null, confirmLabel: 'Entendido', tone: failed || partial || noScraper ? 'warning' : 'info' });
     } finally {
       setRescraping(false);
       setRescrapeProgress('');
@@ -350,7 +401,7 @@ export default function Orders() {
 
   // ---- DELETE LINK ----
   async function handleDeleteLink(linkId) {
-    if (!confirm('Eliminar este link?')) return;
+    if (!(await confirm({ title: '¿Eliminar este link?', description: 'La opción sale del ranking del cliente. No se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       await deleteOrderLink(detail.id, linkId);
       setLinks(prev => prev.filter(l => l.id !== linkId));
@@ -366,7 +417,13 @@ export default function Orders() {
     const empty = links.filter(l => !l.url && !l.make && !l.model && !l.image_url && !l.comments
       && !l.value_usa_usd && !l.value_chile_clp && !l.value_chile_negotiated_clp && !l.selection_order);
     if (!empty.length) return;
-    if (!confirm(`Borrar ${empty.length} fila${empty.length === 1 ? '' : 's'} vacía${empty.length === 1 ? '' : 's'}?`)) return;
+    const n = empty.length;
+    if (!(await confirm({
+      title: `¿Borrar ${n} fila${n === 1 ? '' : 's'} vacía${n === 1 ? '' : 's'}?`,
+      description: 'Son filas sin link, marca, modelo, imagen, precios ni comentarios.',
+      tone: 'danger',
+      confirmLabel: 'Borrar',
+    }))) return;
     try {
       for (const lk of empty) {
         if (lk.id) await deleteOrderLink(detail.id, lk.id);
@@ -436,8 +493,8 @@ export default function Orders() {
     if (filled) {
       setUnsaved(true);
       const hasImage = !!data.image_url;
-      if (filled && hasImage) toast?.('Datos extraidos del link', 'success');
-      else if (filled && !hasImage) toast?.('Datos parciales extraidos. Sube la imagen manualmente.', 'warning');
+      if (filled && hasImage) toast?.('Datos extraídos del link', 'success');
+      else if (filled && !hasImage) toast?.('Datos parciales extraídos. Sube la imagen manualmente.', 'warning');
     } else {
       toast?.('No se encontraron datos nuevos', 'warning');
     }
@@ -474,7 +531,7 @@ export default function Orders() {
     try {
       await createOrder({ ...createForm, initial_links: 1 });
       setShowCreate(false);
-      setCreateForm({ customer_email:'', customer_name:'', customer_phone:'', service_type:'plan_busqueda', plan_name:'', asset_name:'', type_zone:'', agent_name:'Rodrigo Calderon' });
+      setCreateForm({ customer_email:'', customer_name:'', customer_phone:'', service_type:'plan_busqueda', plan_name:'', asset_name:'', type_zone:'', agent_name: AGENTE_POR_DEFECTO });
       toast?.('Expediente creado');
       loadOrders();
     } catch (e) { toast?.(e.message, 'error'); }
@@ -482,7 +539,12 @@ export default function Orders() {
 
   // ---- DELETE ORDER ----
   async function handleDeleteOrder() {
-    if (!confirm('Eliminar este expediente permanentemente?')) return;
+    if (!(await confirm({
+      title: '¿Eliminar este expediente permanentemente?',
+      description: `Se borra ${detail.order_number} con sus ${links.length} link${links.length === 1 ? '' : 's'}, reportes y archivos. No se puede deshacer.`,
+      tone: 'danger',
+      confirmLabel: 'Eliminar expediente',
+    }))) return;
     try {
       await apiDeleteOrder(detail.id);
       toast?.('Expediente eliminado');
@@ -490,277 +552,86 @@ export default function Orders() {
     } catch (e) { toast?.(e.message, 'error'); }
   }
 
-  // ---- SORT ----
-  const sorted = [...orders].sort((a, b) => {
-    const da = new Date(a.purchase_date || a.created_at || 0).getTime();
-    const db = new Date(b.purchase_date || b.created_at || 0).getTime();
-    return sortDir === 'desc' ? db - da : da - db;
-  });
-
   // ============ LIST VIEW ============
   if (view === 'list') {
-    if (loading) return <Spinner />;
     return (
-      <>
-        <PageHeader title="Expedientes" subtitle={`${orders.length} expedientes`} action={<Button onClick={() => setShowCreate(true)}>+ Nuevo Expediente</Button>} />
-
-        {/* Filters */}
-        <Card className="mb-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-            <Select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})} options={STATUS_OPTIONS} />
-            <Select value={filters.service_type} onChange={e => setFilters({...filters, service_type: e.target.value})} options={SERVICE_TYPES} />
-            <Input value={filters.agent} onChange={e => setFilters({...filters, agent: e.target.value})} placeholder="Agente..." />
-            <Input type="date" value={filters.from_date} onChange={e => setFilters({...filters, from_date: e.target.value})} />
-            <Input type="date" value={filters.to_date} onChange={e => setFilters({...filters, to_date: e.target.value})} />
-            <Input value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} placeholder="Buscar cliente..." />
-            <Button onClick={loadOrders} variant="accent">Filtrar</Button>
-          </div>
-        </Card>
-
-        {/* Table */}
-        <Card>
-          <div className="overflow-x-auto -mx-6 px-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Pedido N°</th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cliente</th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Plan</th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Estado</th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer select-none hover:text-slate-600" onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
-                    Fecha {sortDir === 'desc' ? '▼' : '▲'}
-                  </th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Agente</th>
-                  <th className="text-left py-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-slate-300">No se encontraron expedientes</td></tr>
-                ) : sorted.map(o => (
-                  <tr key={o.id} className="border-b border-slate-50 hover:bg-indigo-50/30 transition cursor-pointer" onClick={() => openDetail(o.id)}>
-                    <td className="py-3 px-3"><span className="px-2.5 py-1 rounded-lg bg-cyan-50 text-cyan-700 text-xs font-bold">{o.order_number}</span></td>
-                    <td className="py-3 px-3"><div className="font-medium text-slate-700">{o.customer_name}</div><div className="text-xs text-slate-400">{o.customer_email}</div></td>
-                    <td className="py-3 px-3 text-slate-600">{o.plan_name || '-'}</td>
-                    <td className="py-3 px-3"><Badge className={statusColor(o.status)}>{STATUS_OPTIONS.find(s=>s.value===o.status)?.label || o.status}</Badge></td>
-                    <td className="py-3 px-3 text-slate-500 text-xs">{fmtDate(o.purchase_date || o.created_at)}</td>
-                    <td className="py-3 px-3 text-slate-600">{o.agent_name || '-'}</td>
-                    <td className="py-3 px-3"><Button size="sm" onClick={e => { e.stopPropagation(); openDetail(o.id); }}>Editar</Button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        {/* Create modal */}
-        <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nuevo Expediente">
-          <div className="space-y-4">
-            <Input label="Email cliente *" value={createForm.customer_email} onChange={e => setCreateForm({...createForm, customer_email: e.target.value})} placeholder="cliente@email.com" />
-            <Input label="Nombre cliente *" value={createForm.customer_name} onChange={e => setCreateForm({...createForm, customer_name: e.target.value})} placeholder="Nombre completo" />
-            <Input label="Telefono" value={createForm.customer_phone} onChange={e => setCreateForm({...createForm, customer_phone: e.target.value})} placeholder="+56 9 1234 5678" />
-            <Select label="Tipo servicio" value={createForm.service_type} onChange={e => setCreateForm({...createForm, service_type: e.target.value})} options={[{value:'plan_busqueda',label:'Plan Busqueda'},{value:'cotizacion_link',label:'Cotizacion Link'}]} />
-            <Input label="Plan" value={createForm.plan_name} onChange={e => setCreateForm({...createForm, plan_name: e.target.value})} placeholder="Plan Fragata, etc." />
-            <Input label="Embarcacion/Objetivo" value={createForm.asset_name} onChange={e => setCreateForm({...createForm, asset_name: e.target.value})} />
-            <Input label="Zona/Tipo" value={createForm.type_zone} onChange={e => setCreateForm({...createForm, type_zone: e.target.value})} placeholder="Costa Este USA" />
-            <Input label="Agente" value={createForm.agent_name} onChange={e => setCreateForm({...createForm, agent_name: e.target.value})} />
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancelar</Button>
-              <Button onClick={handleCreate}>Crear Expediente</Button>
-            </div>
-          </div>
-        </Modal>
-      </>
+      <ListaExpedientes
+        orders={orders}
+        conteos={conteos}
+        loading={loading}
+        filters={filters}
+        setFilters={setFilters}
+        onOpen={openDetail}
+        showCreate={showCreate}
+        setShowCreate={setShowCreate}
+        createForm={createForm}
+        setCreateForm={setCreateForm}
+        onCreate={handleCreate}
+      />
     );
   }
 
   // ============ DETAIL VIEW ============
-  if (loading || !detail) return <Spinner />;
-
   return (
-    <div className="animate-fade-in">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <Button variant="secondary" onClick={goBack} className="flex items-center gap-1.5">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="15 18 9 12 15 6"/></svg> Volver
-        </Button>
-        {unsaved && <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold flex items-center gap-1.5 border border-amber-200 animate-fade-in">⚠ Cambios sin guardar</span>}
-        <div className="flex-1" />
-        <Button onClick={handleSaveAll} disabled={saving} className="flex items-center gap-1.5">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-          {saving ? 'Guardando...' : 'Guardar Todo'}
-        </Button>
-        <Button variant="accent" onClick={() => { setNewStatus(detail.status); setShowStatusModal(true); }} className="flex items-center gap-1.5">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Cambiar Estado
-        </Button>
-        <Button variant="secondary" onClick={handleSendClient} className="flex items-center gap-1.5 !bg-blue-50 !text-blue-700 hover:!bg-blue-100">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Actualizar Cliente
-        </Button>
-        <Button variant="danger" onClick={handleDeleteOrder} className="flex items-center gap-1.5">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg> Eliminar
-        </Button>
-      </div>
-
-      {/* Order info card */}
-      <Card className="mb-5">
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 -m-6 mb-6 px-7 py-5 rounded-t-2xl flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-            </div>
-            <h2 className="text-white text-lg font-bold">Expediente {detail.order_number}</h2>
-          </div>
-          <Badge className={statusColor(detail.status) + ' text-sm'}>{STATUS_OPTIONS.find(s=>s.value===detail.status)?.label || detail.status}</Badge>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input label="Cliente" value={detail.customer_name || ''} disabled />
-          <Input label="Email" value={detail.customer_email || ''} disabled />
-          <Input label="Email secundario" value={detail.secondary_email || ''} disabled placeholder="Sin email secundario" />
-          <Input label="Telefono cliente" value={form.customer_phone} onChange={e => { setForm({...form, customer_phone: e.target.value}); setUnsaved(true); }} />
-          <Select label="Tipo servicio" value={form.service_type} onChange={e => { setForm({...form, service_type: e.target.value}); setUnsaved(true); }} options={[{value:'plan_busqueda',label:'Plan Busqueda'},{value:'cotizacion_link',label:'Cotizacion Link'}]} />
-          <Select label="Origen" value={form.origin} onChange={e => { setForm({...form, origin: e.target.value}); setUnsaved(true); }} options={[{value:'web',label:'Web'},{value:'admin',label:'Admin'},{value:'whatsapp',label:'WhatsApp'}]} />
-          <div>
-            <Input label="Plan" value={form.plan_name} onChange={e => { setForm({...form, plan_name: e.target.value}); setUnsaved(true); }} />
-            {(form.plan_name || '').toLowerCase().includes('almirante')
-              ? <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700">Reporte IA incluido</span>
-              : <span className="inline-block mt-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700">Reporte IA: +$15.000 CLP</span>
-            }
-          </div>
-          <Input label="Embarcacion/Objetivo" value={form.asset_name} onChange={e => { setForm({...form, asset_name: e.target.value}); setUnsaved(true); }} />
-          <Input label="Tipo/Zona" value={form.type_zone} onChange={e => { setForm({...form, type_zone: e.target.value}); setUnsaved(true); }} />
-          <Input label="Requerimiento" value={form.requirement_name} onChange={e => { setForm({...form, requirement_name: e.target.value}); setUnsaved(true); }} />
-          <Input label="Agente" value={form.agent_name} onChange={e => { setForm({...form, agent_name: e.target.value}); setUnsaved(true); }} />
-          <Input label="Telefono agente" value={form.agent_phone} onChange={e => { setForm({...form, agent_phone: e.target.value}); setUnsaved(true); }} />
-          <div className="md:col-span-2">
-            <Textarea label="Notas admin (internas)" value={form.admin_notes} onChange={e => { setForm({...form, admin_notes: e.target.value}); setUnsaved(true); }} />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={form.visible_to_client} onChange={e => { setForm({...form, visible_to_client: e.target.checked}); setUnsaved(true); }} className="w-4 h-4 accent-cyan-600 rounded cursor-pointer" />
-            Visible para cliente
-          </label>
-        </div>
-      </Card>
-
-      {/* Timeline */}
-      <Timeline step={detail.timeline_step || 1} onPrev={() => handleTimelineStep(-1)} onNext={() => handleTimelineStep(1)} />
-
-      {/* Links ranking table */}
-      <Card className="mb-5">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            </div>
-            <div>
-              <h3 className="font-bold text-slate-800">Ranking de Opciones en USA <span className="text-xs font-normal text-slate-400">({links.length} {links.length === 1 ? 'fila' : 'filas'})</span></h3>
-              <p className="text-xs text-slate-400">Arrastra las filas para reordenar</p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {links.some(l => !l.url && !l.make && !l.model && !l.image_url) && (
-              <Button variant="secondary" onClick={handleDeleteEmptyLinks} className="flex items-center gap-1.5 !bg-red-50 !text-red-700 !border-red-200 hover:!bg-red-100" title="Borra todas las filas que no tienen URL, marca, modelo ni imagen">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                Borrar vacías
-              </Button>
-            )}
-            <Button variant="secondary" onClick={handleNotifyRanking} className="flex items-center gap-1.5 !bg-amber-50 !text-amber-700 !border-amber-200 hover:!bg-amber-100">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Notificar Ranking
-            </Button>
-            <Button variant="secondary" onClick={handleRescrapeLinks} disabled={rescraping} className="flex items-center gap-1.5 !bg-indigo-50 !text-indigo-700 !border-indigo-200 hover:!bg-indigo-100" title="Vuelve a extraer imagen, titulo y ficha desde los links de este expediente">
-              <svg className={'w-3.5 h-3.5' + (rescraping ? ' animate-spin' : '')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-              {rescraping ? `Rescrapeando ${rescrapeProgress}...` : 'Rescrapear Expediente'}
-            </Button>
-            <Button variant="secondary" onClick={handleAddLink} className="flex items-center gap-1.5 !border-cyan-300 !text-cyan-700 hover:!bg-cyan-50">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar Fila
-            </Button>
-          </div>
-        </div>
-
-        {/* Ranking info bar */}
-        {detail.ranking_author_name ? (
-          <div className="px-4 py-2.5 mb-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs">
-            <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <span className="text-emerald-800 font-medium">Ranking armado por <strong>{detail.ranking_author_name}</strong> ({detail.ranking_author_role === 'admin' ? 'Agente/Admin' : 'Usuario'}) {detail.ranking_updated_at ? `- ${fmtDate(detail.ranking_updated_at)}` : ''}</span>
-          </div>
-        ) : (
-          <div className="px-4 py-2.5 mb-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 text-xs">
-            <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            <span className="text-amber-800 font-medium">Aun no se ha armado un ranking. Arrastra las filas para ordenar las opciones.</span>
-          </div>
-        )}
-
-        {/* Links list — natural page scroll, no internal max-height. */}
-        <div ref={linksContainerRef} className="space-y-3">
-          {links.length === 0 ? (
-            <div className="py-12 text-center text-slate-300 text-sm border border-dashed border-slate-200 rounded-2xl">
-              No hay links. Agrega uno con el botón de arriba.
-            </div>
-          ) : links.map((lk, idx) => (
-            <LinkRow
-              key={lk.id || idx}
-              link={lk}
-              idx={idx}
-              onUpdate={handleLinkUpdate}
-              onDelete={handleDeleteLink}
-              onImageUpload={handleImageUpload}
-              onScrapeResult={handleScrapeResult}
-              onEncolado={refrescarDetalle}
-              onEncolarUrl={encolarUrlLenta}
-              orderId={detail?.id}
-              onCotizar={lk.id ? setCotizandoLink : undefined}
-              onEnviarDesglose={lk.id ? handleEnviarDesglose : undefined}
-              dragHandlers={{
-                onDragStart: e => onDragStart(e, idx),
-                onDragOver,
-                onDrop: e => onDrop(e, idx),
-                onDragEnd,
-              }}
-            />
-          ))}
-        </div>
-      </Card>
-
-      {/* Reports section */}
-      <ReportsSection orderId={detail.id} linksCount={links.filter(l => (l.url || '').trim()).length} customerEmail={detail.customer_email} />
-
-      {/* Files section */}
-      <FilesSection orderId={detail.id} />
-
-      {/* Change status modal */}
-      <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title="Cambiar estado" size="sm">
-        <Select label="Nuevo estado" value={newStatus} onChange={e => setNewStatus(e.target.value)} options={STATUS_OPTIONS.filter(s => s.value)} />
-        <div className="flex gap-3 justify-end mt-4">
-          <Button variant="secondary" onClick={() => setShowStatusModal(false)}>Cancelar</Button>
-          <Button onClick={handleStatusChange} disabled={newStatus === detail?.status}>Aplicar</Button>
-        </div>
-      </Modal>
-
-      <QuoteModal
-        open={!!cotizandoLink}
-        link={cotizandoLink}
-        onClose={() => setCotizandoLink(null)}
-        onBreakdownSent={marcarDesgloseEnviado}
-        onSaved={async () => {
-          if (!detail?.id) return;
-          const cotizadoId = cotizandoLink?.id;
-          // Guardar la cotización copia su total a "valor negociado" en el
-          // servidor. Si había ediciones sin guardar, se persisten tomando ese
-          // valor nuevo del servidor para no pisarlo con el local viejo.
-          if (unsaved) {
-            try {
-              const o = await getOrderDetail(detail.id);
-              const fresco = ((o.order || o).links || []).find(l => l.id === cotizadoId);
-              const merged = links.map(l => (l.id === cotizadoId && fresco
-                ? { ...l, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
-                : l));
-              await updateOrderLinks(detail.id, merged);
-              setUnsaved(false);
-            } catch (e) { toast?.('No se pudieron guardar los cambios pendientes: ' + (e.message || ''), 'error'); }
-          }
-          await refrescarDetalle();
-        }}
-      />
-    </div>
+    <DetalleExpediente
+      loading={loading}
+      detail={detail}
+      links={links}
+      form={form}
+      setForm={setForm}
+      setUnsaved={setUnsaved}
+      unsaved={unsaved}
+      saving={saving}
+      rescraping={rescraping}
+      rescrapeProgress={rescrapeProgress}
+      scraperFaltante={scraperFaltante}
+      onCerrarAvisoScraper={() => setScraperFaltante(null)}
+      linksContainerRef={linksContainerRef}
+      onBack={goBack}
+      onSaveAll={handleSaveAll}
+      onSendClient={handleSendClient}
+      onNotifyRanking={handleNotifyRanking}
+      onRescrape={handleRescrapeLinks}
+      onDeleteOrder={handleDeleteOrder}
+      onTimelineStep={handleTimelineStep}
+      onAddLink={handleAddLink}
+      onDeleteEmptyLinks={handleDeleteEmptyLinks}
+      onLinkUpdate={handleLinkUpdate}
+      onDeleteLink={handleDeleteLink}
+      onImageUpload={handleImageUpload}
+      onScrapeResult={handleScrapeResult}
+      onEncolado={refrescarDetalle}
+      onEncolarUrl={encolarUrlLenta}
+      onCotizar={setCotizandoLink}
+      onEnviarDesglose={handleEnviarDesglose}
+      dragHandlers={{ onDragStart, onDragOver, onDrop, onDragEnd }}
+      showStatusModal={showStatusModal}
+      setShowStatusModal={setShowStatusModal}
+      newStatus={newStatus}
+      setNewStatus={setNewStatus}
+      onStatusChange={handleStatusChange}
+      cotizandoLink={cotizandoLink}
+      onCloseCotizar={() => setCotizandoLink(null)}
+      onBreakdownSent={marcarDesgloseEnviado}
+      onQuoteSaved={async () => {
+        if (!detail?.id) return;
+        const cotizadoId = cotizandoLink?.id;
+        // Guardar la cotización copia su total a "valor negociado" en el
+        // servidor. Si había ediciones sin guardar, se persisten tomando ese
+        // valor nuevo del servidor para no pisarlo con el local viejo.
+        if (unsaved) {
+          try {
+            const o = await getOrderDetail(detail.id);
+            const fresco = ((o.order || o).links || []).find(l => l.id === cotizadoId);
+            const merged = links.map(l => (l.id === cotizadoId && fresco
+              ? { ...l, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
+              : l));
+            await updateOrderLinks(detail.id, merged);
+            setUnsaved(false);
+          } catch (e) { toast?.('No se pudieron guardar los cambios pendientes: ' + (e.message || ''), 'error'); }
+        }
+        await refrescarDetalle();
+      }}
+    />
   );
 }
