@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense, Component } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider, useToast } from '../shared/components/Toast';
 import { SESSION_EXPIRED_EVENT } from '../shared/lib/api-client';
 import Layout from '../shared/components/Layout';
 import NotificationBell from '../shared/components/NotificationBell';
-import { IconButton } from '../shared/components/UI';
+import { IconButton, Skeleton, ErrorState } from '../shared/components/UI';
 import { Search } from '../shared/components/Icons';
 import CommandPalette, { CommandPaletteTrigger, useCommandPalette, ATAJO } from './components/CommandPalette';
 import {
@@ -16,21 +16,47 @@ import {
   getChatUnreadCount,
 } from './api';
 import { STORAGE_KEYS, BRANDING, navItemsFor, homePathFor } from './config';
+// Cada pantalla se descarga cuando se abre, no todas al entrar: el panel
+// arranca con Inicio y lo demás llega en trozos chicos y cacheables.
+function Cargando() {
+  return <div className="p-6"><Skeleton.Detail /></div>;
+}
+// Si una pantalla no alcanza a descargarse (red mala, o un deploy justo en
+// ese momento), en vez de quedar en blanco se ofrece recargar.
+class FalloDeCarga extends Component {
+  constructor(props) { super(props); this.state = { fallo: false }; }
+  static getDerivedStateFromError() { return { fallo: true }; }
+  render() {
+    if (!this.state.fallo) return this.props.children;
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="No pudimos abrir esta sección"
+          message="Puede ser la conexión. Recarga la página para intentarlo de nuevo."
+          onRetry={() => window.location.reload()}
+          retryLabel="Recargar"
+        />
+      </div>
+    );
+  }
+}
+const conCarga = (el) => <FalloDeCarga><Suspense fallback={<Cargando />}>{el}</Suspense></FalloDeCarga>;
+
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Users from './pages/Users';
-import Purchases from './pages/Purchases';
-import Plans from './pages/Plans';
-import Payments from './pages/Payments';
-import Orders from './pages/Orders';
-import Inspections from './pages/Inspections';
-import Leads from './pages/Leads';
-import Tracking from './pages/Tracking';
-import Config from './pages/Config';
-import Security from './pages/Security';
-import Marketplace from './pages/Marketplace';
-import Chat from './pages/Chat';
-import Profile from './pages/Profile';
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Users = lazy(() => import('./pages/Users'));
+const Purchases = lazy(() => import('./pages/Purchases'));
+const Plans = lazy(() => import('./pages/Plans'));
+const Payments = lazy(() => import('./pages/Payments'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Inspections = lazy(() => import('./pages/Inspections'));
+const Leads = lazy(() => import('./pages/Leads'));
+const Tracking = lazy(() => import('./pages/Tracking'));
+const Config = lazy(() => import('./pages/Config'));
+const Security = lazy(() => import('./pages/Security'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();
@@ -122,20 +148,20 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={isAuth ? <Navigate to={afterLogin} replace /> : <Login />} />
       <Route element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-        <Route path="/dashboard" element={guard('/dashboard', <Dashboard />)} />
-        <Route path="/users" element={guard('/users', <Users />)} />
-        <Route path="/purchases" element={guard('/purchases', <Purchases />)} />
-        <Route path="/plans" element={guard('/plans', <Plans />)} />
-        <Route path="/payments" element={guard('/payments', <Payments />)} />
-        <Route path="/orders" element={guard('/orders', <Orders />)} />
-        <Route path="/inspections" element={guard('/inspections', <Inspections />)} />
-        <Route path="/leads" element={guard('/leads', <Leads />)} />
-        <Route path="/tracking" element={guard('/tracking', <Tracking />)} />
-        <Route path="/marketplace" element={guard('/marketplace', <Marketplace />)} />
-        <Route path="/config" element={guard('/config', <Config />)} />
-        <Route path="/security" element={guard('/security', <Security />)} />
-        <Route path="/chat" element={guard('/chat', <Chat />)} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/dashboard" element={guard('/dashboard', conCarga(<Dashboard />))} />
+        <Route path="/users" element={guard('/users', conCarga(<Users />))} />
+        <Route path="/purchases" element={guard('/purchases', conCarga(<Purchases />))} />
+        <Route path="/plans" element={guard('/plans', conCarga(<Plans />))} />
+        <Route path="/payments" element={guard('/payments', conCarga(<Payments />))} />
+        <Route path="/orders" element={guard('/orders', conCarga(<Orders />))} />
+        <Route path="/inspections" element={guard('/inspections', conCarga(<Inspections />))} />
+        <Route path="/leads" element={guard('/leads', conCarga(<Leads />))} />
+        <Route path="/tracking" element={guard('/tracking', conCarga(<Tracking />))} />
+        <Route path="/marketplace" element={guard('/marketplace', conCarga(<Marketplace />))} />
+        <Route path="/config" element={guard('/config', conCarga(<Config />))} />
+        <Route path="/security" element={guard('/security', conCarga(<Security />))} />
+        <Route path="/chat" element={guard('/chat', conCarga(<Chat />))} />
+        <Route path="/profile" element={conCarga(<Profile />)} />
       </Route>
       <Route path="*" element={<Navigate to={isAuth ? home : '/login'} replace />} />
     </Routes>

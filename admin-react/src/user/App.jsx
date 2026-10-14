@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, Component } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '../shared/context/AuthContext';
 import { ToastProvider } from '../shared/components/Toast';
@@ -15,21 +15,48 @@ import {
 import { STORAGE_KEYS, BRANDING, NAV_ITEMS, NAV_GROUPS } from './config';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Expedientes from './pages/Expedientes';
-import Documents from './pages/Documents';
-import Tracking from './pages/Tracking';
-import Messages from './pages/Messages';
-import Payments from './pages/Payments';
-import Profile from './pages/Profile';
-import Marketplace from './pages/Marketplace';
-import Inspections from './pages/Inspections';
-import Imports from './pages/Imports';
-import Plans from './pages/Plans';
-import Quotation from './pages/Quotation';
-import Alerts from './pages/Alerts';
-import Support from './pages/Support';
-import Deckeva from './pages/Deckeva';
+const Expedientes = lazy(() => import('./pages/Expedientes'));
+const Documents = lazy(() => import('./pages/Documents'));
+const Tracking = lazy(() => import('./pages/Tracking'));
+const Messages = lazy(() => import('./pages/Messages'));
+const Payments = lazy(() => import('./pages/Payments'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const Inspections = lazy(() => import('./pages/Inspections'));
+const Imports = lazy(() => import('./pages/Imports'));
+const Plans = lazy(() => import('./pages/Plans'));
+const Quotation = lazy(() => import('./pages/Quotation'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Support = lazy(() => import('./pages/Support'));
+const Deckeva = lazy(() => import('./pages/Deckeva'));
 import ChatWidget from './components/ChatWidget';
+import { Skeleton, ErrorState } from '../shared/components/UI';
+// Cada pantalla se descarga cuando se abre, no todas al entrar: el panel
+// arranca con Inicio y lo demás llega en trozos chicos y cacheables.
+function Cargando() {
+  return <div className="p-6"><Skeleton.Detail /></div>;
+}
+// Si una pantalla no alcanza a descargarse (red mala, o un deploy justo en
+// ese momento), en vez de quedar en blanco se ofrece recargar.
+class FalloDeCarga extends Component {
+  constructor(props) { super(props); this.state = { fallo: false }; }
+  static getDerivedStateFromError() { return { fallo: true }; }
+  render() {
+    if (!this.state.fallo) return this.props.children;
+    return (
+      <div className="p-6">
+        <ErrorState
+          title="No pudimos abrir esta sección"
+          message="Puede ser la conexión. Recarga la página para intentarlo de nuevo."
+          onRetry={() => window.location.reload()}
+          retryLabel="Recargar"
+        />
+      </div>
+    );
+  }
+}
+const conCarga = (el) => <FalloDeCarga><Suspense fallback={<Cargando />}>{el}</Suspense></FalloDeCarga>;
+
 import PostPaymentPopup from './components/PostPaymentPopup';
 
 function ProtectedRoute({ children }) {
@@ -112,20 +139,20 @@ function AppRoutes() {
       <Route path="/login" element={isAuth ? <Navigate to={afterLogin} replace /> : <Login />} />
       <Route element={<ProtectedRoute><UserLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/tracking" element={<Tracking />} />
-        <Route path="/expedientes" element={<Expedientes />} />
-        <Route path="/imports" element={<Imports />} />
-        <Route path="/documents" element={<Documents />} />
-        <Route path="/inspections" element={<Inspections />} />
-        <Route path="/quotation" element={<Quotation />} />
-        <Route path="/marketplace" element={<Marketplace />} />
-        <Route path="/plans" element={<Plans />} />
-        <Route path="/deckeva" element={<Deckeva />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/alerts" element={<Alerts />} />
-        <Route path="/support" element={<Support />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route path="/tracking" element={conCarga(<Tracking />)} />
+        <Route path="/expedientes" element={conCarga(<Expedientes />)} />
+        <Route path="/imports" element={conCarga(<Imports />)} />
+        <Route path="/documents" element={conCarga(<Documents />)} />
+        <Route path="/inspections" element={conCarga(<Inspections />)} />
+        <Route path="/quotation" element={conCarga(<Quotation />)} />
+        <Route path="/marketplace" element={conCarga(<Marketplace />)} />
+        <Route path="/plans" element={conCarga(<Plans />)} />
+        <Route path="/deckeva" element={conCarga(<Deckeva />)} />
+        <Route path="/payments" element={conCarga(<Payments />)} />
+        <Route path="/messages" element={conCarga(<Messages />)} />
+        <Route path="/alerts" element={conCarga(<Alerts />)} />
+        <Route path="/support" element={conCarga(<Support />)} />
+        <Route path="/profile" element={conCarga(<Profile />)} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
