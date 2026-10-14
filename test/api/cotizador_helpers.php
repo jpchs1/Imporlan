@@ -130,9 +130,25 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             }
 
             $lk['quote_pending'] = false;
+            $lk['quote_data'] = cotizadorClientQuoteData($lk['quote_data'] ?? null);
         }
         unset($lk);
         return $links;
+    }
+
+    /**
+     * Reduce a quote_data snapshot to the keys the client panel and the
+     * "cotización lista" email need to draw the summary (Lancha, Servicio
+     * All-Inclusive, IVA, Lujo). Everything else — each USD/CLP line of the
+     * admin sheet and fee_imporlan_clp — is internal and must not leave the
+     * server: the client sees the All-Inclusive as one number, but the full
+     * sheet used to travel in the order JSON and could be read with F12.
+     */
+    function cotizadorClientQuoteData($qd): ?string {
+        if (is_string($qd)) $qd = json_decode($qd, true);
+        if (!is_array($qd)) return null;
+        $keys = ['usd_clp_rate', 'valor_lancha_usd', 'transporte_roro_usd', 'iva_pct', 'lujo_pct', 'lujo_aplica'];
+        return json_encode(array_intersect_key($qd, array_flip($keys)));
     }
 
     /**
