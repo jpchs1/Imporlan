@@ -19,12 +19,17 @@ async function cargarDatos(permisos) {
   const fresco = cache.data && cache.key === key && Date.now() - cache.at < CACHE_MS;
   if (fresco) return cache.data;
   if (cache.promise && cache.key === key) return cache.promise;
+  const previo = cache.key === key ? cache.data : null;
   cache.key = key;
   cache.promise = (async () => {
+    // Una petición que falla no se cachea como "sin resultados" durante 60 s:
+    // se conserva lo último que sí llegó y al volver a abrir se reintenta.
+    let fallo = false;
+    const pedir = (fn, antes) => fn().catch(() => { fallo = true; return antes; });
     const [o, u, p] = await Promise.all([
-      permisos.orders ? getOrders().catch(() => null) : null,
-      permisos.users ? getUsers().catch(() => null) : null,
-      permisos.purchases ? getPurchases().catch(() => null) : null,
+      permisos.orders ? pedir(getOrders, { orders: previo?.orders }) : null,
+      permisos.users ? pedir(getUsers, { users: previo?.users }) : null,
+      permisos.purchases ? pedir(getPurchases, { purchases: previo?.purchases }) : null,
     ]);
     const data = {
       orders: o ? (o.orders || o.items || []) : [],
@@ -32,7 +37,7 @@ async function cargarDatos(permisos) {
       purchases: p ? (p.items || p.purchases || []) : [],
     };
     cache.data = data;
-    cache.at = Date.now();
+    cache.at = fallo ? 0 : Date.now();
     cache.promise = null;
     return data;
   })();

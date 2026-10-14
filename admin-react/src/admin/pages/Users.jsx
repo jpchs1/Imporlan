@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { getUsers, getUserDetail, getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser } from '../api';
 import { fmtCLP, fmtDate, dateValue, downloadCSV, purchaseTypeLabel } from '../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga, fmtNumero } from '../../shared/lib/format';
@@ -45,13 +45,32 @@ export default function Users() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
 
-  const handleViewClient = useCallback(async (row) => {
+  async function handleViewClient(row) {
     setDetail({ ...row, loading: true });
     try {
       const d = await getUserDetail(row.email);
       setDetail({ ...row, ...(d.user || d), loading: false });
     } catch { setDetail({ ...row, loading: false }); }
-  }, []);
+  }
+
+  // La paleta (⌘K) llega con ?email=: abrir la ficha de ese cliente apenas
+  // esté la lista, también si ya se estaba en la página. Al cerrar la ficha se
+  // quita el parámetro, así volver a elegir al mismo cliente la vuelve a abrir.
+  const [params, setParams] = useSearchParams();
+  const emailParam = params.get('email') || '';
+  const abiertoPorUrl = useRef('');
+  useEffect(() => {
+    if (!emailParam || cargando || error || abiertoPorUrl.current === emailParam) return;
+    abiertoPorUrl.current = emailParam;
+    const row = clients.find(c => (c.email || '').toLowerCase() === emailParam.toLowerCase());
+    handleViewClient(row || { email: emailParam });
+  }, [emailParam, cargando, error, clients]);
+
+  function cerrarDetalle() {
+    setDetail(null);
+    abiertoPorUrl.current = '';
+    if (params.has('email')) setParams(p => { const n = new URLSearchParams(p); n.delete('email'); return n; }, { replace: true });
+  }
 
   function openCreate() {
     setEditUser(null);
@@ -232,7 +251,7 @@ export default function Users() {
       {/* Detalle de cliente */}
       <Drawer
         open={!!detail}
-        onClose={() => setDetail(null)}
+        onClose={cerrarDetalle}
         title={detail?.name || detail?.email}
         description={detail?.name ? detail.email : undefined}
         width="lg"

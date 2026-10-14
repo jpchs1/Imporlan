@@ -5,15 +5,25 @@ import { fmtUSD } from '../../shared/lib/format';
 import { Button, IconButton, Input, MoneyInput, Badge, Menu, Spinner } from '../../shared/components/UI';
 import { GripVertical, Image as ImageIcon, Upload, ChevronDown, Receipt, Send, RefreshCw, ExternalLink, Copy, Trash, Info, TriangleAlert, Loader } from '../../shared/components/Icons';
 
-function stripDots(s) { return (s || '').toString().replace(/[$\s.]/g, ''); }
-
 function isBoatTraderUrl(url) {
   return /boattrader\.com|boats\.com/i.test(url || '');
 }
 
+/**
+ * Importe → número. De la base llegan como DECIMAL en texto ("139900.00",
+ * "189400000"); lo que escribe el admin llega como dígitos (el MoneyInput
+ * entrega números) y lo del scraper, como número. Un solo punto con uno o dos
+ * decimales es decimal; los puntos que agrupan de a tres son miles
+ * ("1.234.567") y la coma es decimal ("1.234,50"). Borrar todos los puntos a
+ * ciegas convertía los USD 100.000 de la base ("100000.00") en USD 10.000.000.
+ */
 function num(v) {
-  const n = parseFloat(stripDots(v));
-  return isNaN(n) ? null : n;
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v).replace(/[$\s]/g, '').replace(',', '.');
+  const canon = /^-?\d+(\.\d{1,2})?$/.test(s) ? s : s.replace(/\.(?=\d{3}(?!\d))/g, '');
+  const n = parseFloat(canon);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**

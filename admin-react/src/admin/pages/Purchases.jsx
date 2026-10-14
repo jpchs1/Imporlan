@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getPurchases, updatePurchaseStatus } from '../api';
 import { purchaseTypeLabel, paymentMethodLabel, downloadCSV, statusLabel } from '../../shared/lib/utils';
@@ -31,16 +31,42 @@ export default function Purchases() {
   const [newStatus, setNewStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // La paleta (⌘K) llega con ?id=PUR-…: abrir esa compra apenas esté la lista,
+  // también si ya se estaba en la página. Al cerrar se quita el parámetro, así
+  // volver a elegir la misma compra la vuelve a abrir.
+  const idParam = params.get('id') || '';
+  const abiertaPorUrl = useRef('');
+
+  function abrirDetalle(c) { setSelected(c); setNewStatus(c.status); }
+  function cerrarDetalle() {
+    setSelected(null);
+    abiertaPorUrl.current = '';
+    if (params.has('id')) setParam('id', '');
+  }
+
+  useEffect(() => {
+    if (!idParam || cargando || error || abiertaPorUrl.current === idParam) return;
+    abiertaPorUrl.current = idParam;
+    const c = items.find(i => String(i.purchase_id) === idParam);
+    if (c) abrirDetalle(c);
+    else toast?.(`No se encontró la compra ${idParam}`, 'warning');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idParam, cargando, error, items]);
+
   async function handleStatusChange(nuevo) {
     if (!selected || !nuevo || nuevo === selected.status) return;
-    const cierre = { ...selected, status: nuevo };
+    // updatePurchaseStatus (api/admin_api.php) pone reactivated_at = hoy cuando
+    // la compra pasa a pagada/activa desde otro estado: el plazo de cierre
+    // automático se cuenta desde hoy, no desde la compra original.
+    const reactiva = ['paid', 'active'].includes(nuevo) && !['paid', 'active'].includes(selected.status);
+    const cierre = { ...selected, status: nuevo, ...(reactiva ? { reactivated_at: new Date().toISOString() } : {}) };
     const fechaCierre = autoCloseDate(cierre);
     const ok = await confirm({
       title: `¿Cambiar el estado a "${statusLabel(nuevo, 'compra')}"?`,
       description: `La compra ${selected.purchase_id} pasa de ${statusLabel(selected.status, 'compra')} a ${statusLabel(nuevo, 'compra')}.`,
       detail: [
         selected.order_id ? `También se actualiza el expediente ${selected.order_id} (salvo que esté completado).` : 'También se actualiza el expediente asociado (salvo que esté completado).',
-        fechaCierre ? `Al quedar ${statusLabel(nuevo, 'compra').toLowerCase()}, el plan se cierra solo el ${fmtDateLarga(fechaCierre)} (${PLAN_AUTO_CLOSE_DAYS} días).` : null,
+        fechaCierre ? `Al quedar ${statusLabel(nuevo, 'compra').toLowerCase()}, el plan se cierra solo el ${fmtDateLarga(fechaCierre)} (${PLAN_AUTO_CLOSE_DAYS} días${reactiva ? ' contados desde hoy' : ''}).` : null,
       ].filter(Boolean),
       confirmLabel: 'Actualizar estado',
     });
@@ -49,7 +75,7 @@ export default function Purchases() {
     try {
       const r = await updatePurchaseStatus(selected.purchase_id, nuevo);
       toast?.(r?.message || 'Estado actualizado', 'success');
-      setSelected(null);
+      cerrarDetalle();
       refrescar();
     } catch (e) { toast?.(e.message || 'No se pudo actualizar el estado', 'error'); }
     setSaving(false);
@@ -112,7 +138,7 @@ export default function Purchases() {
           <TablaCompras
             items={filtered}
             loading={cargando}
-            onSelect={r => { setSelected(r); setNewStatus(r.status); }}
+            onSelect={abrirDetalle}
             emptyTitle={hayFiltro ? 'Ninguna compra coincide con los filtros' : 'Sin compras registradas'}
             emptyDescription={hayFiltro ? 'Prueba con otro texto o quita los filtros.' : 'Aquí aparecen los planes, cotizaciones por links y pagos directos.'}
           />
@@ -122,7 +148,7 @@ export default function Purchases() {
       <DetalleCompra
         compra={selected}
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={cerrarDetalle}
         canEdit={canEdit}
         nuevoEstado={newStatus}
         onNuevoEstado={setNewStatus}

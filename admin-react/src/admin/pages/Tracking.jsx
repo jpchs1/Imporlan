@@ -44,11 +44,15 @@ export default function Tracking() {
   const [positions, setPositions] = useState([]);
   const [loadingPos, setLoadingPos] = useState(false);
 
-  // Con dos clics rápidos no deben quedar las posiciones de un barco bajo el nombre de otro.
+  // Con dos clics rápidos no deben quedar las posiciones de un barco bajo el
+  // nombre de otro: la ruta se vacía al cambiar (si no, el mapa seguía
+  // pintando el recorrido del barco anterior hasta que llegaba el nuevo) y las
+  // respuestas que llegan tarde se descartan.
   const posReq = useRef(0);
   async function viewVessel(v) {
     const n = ++posReq.current;
     setSelectedVessel(v);
+    setPositions([]);
     setLoadingPos(true);
     let pos = [];
     try { const res = await getVesselPositions(v.id); pos = res.positions || []; }
