@@ -438,7 +438,9 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         $d = cotizadorDesgloseEtapas(is_array($qd) ? $qd : [], (float)($link['quote_total_clp'] ?? 0));
         $title = cotizadorLinkTitle($link);
         $fmt = fn($n) => '$ ' . number_format(max(0, round($n)), 0, ',', '.');
-        $nombre = explode(' ', trim($userName))[0];
+        // The order may have the name in lowercase («alberto lathrop»): JP
+        // wouldn't write «Hola alberto».
+        $nombre = mb_convert_case(explode(' ', trim($userName))[0], MB_CASE_TITLE, 'UTF-8');
 
         $etapasHtml = '';
         $i = 0;
