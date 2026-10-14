@@ -22,8 +22,8 @@ export default function Timeline({ step = 1, onPrev, onNext }) {
           <span className="text-xs text-cyan-400 font-bold">Paso {step}/5</span>
         </div>
       </div>
-      {/* Los pasos tienen ancho fijo, asi que en un telefono no caben los cinco:
-          sin este scroll horizontal el ultimo queda cortado contra el borde. */}
+      {/* Los pasos tienen ancho fijo, asi que en un teléfono no caben los cinco:
+          sin este scroll horizontal el último queda cortado contra el borde. */}
       <div className="px-4 pb-3 flex items-start justify-start sm:justify-center gap-0 overflow-x-auto">
         {STEPS.map((s, i) => {
           const done = s.num < step;

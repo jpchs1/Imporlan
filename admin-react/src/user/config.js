@@ -27,7 +27,7 @@ export const NAV_ITEMS = [
   // Servicios
   { to: '/quotation', label: 'Cotizador Online', group: 'servicios', accent: 'cyan', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   { to: '/marketplace', label: 'Marketplace', group: 'servicios', accent: 'emerald', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z' },
-  { to: '/plans', label: 'Planes de Busqueda', group: 'servicios', accent: 'amber', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
+  { to: '/plans', label: 'Planes de Búsqueda', group: 'servicios', accent: 'amber', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
   { to: '/deckeva', label: 'Deckeva', group: 'servicios', accent: 'violet', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
   { to: '/payments', label: 'Pagos', group: 'servicios', accent: 'amber', icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
 

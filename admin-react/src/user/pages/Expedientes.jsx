@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getMyOrders, getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyPurchases, getMyReports } from '../api';
-import { fmtDate, fmtCLP, statusColor, statusLabel, cn } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, statusColor, statusLabel, paymentMethodLabel, cn } from '../../shared/lib/utils';
 import { useAuth } from '../../shared/context/AuthContext';
 import { PageHeader, Card, Badge, Button, Spinner, Modal } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -117,7 +117,7 @@ function InspectionModal({ link, orderNumber, open, onClose }) {
   if (!open || !link) return null;
   const title = [link.make, link.model, link.year].filter(Boolean).join(' ') || 'la embarcación';
   const wapText = encodeURIComponent(
-    `Hola, quiero solicitar una inspeccion tecnica para ${title}` +
+    `Hola, quiero solicitar una inspección técnica para ${title}` +
     (orderNumber ? ` del expediente #${orderNumber}` : '') +
     (link.url ? `.\nLink: ${link.url}` : '') + '\nGracias.'
   );
@@ -231,7 +231,7 @@ function OrderCard({ order, onClick }) {
             <p className="font-bold text-slate-800 mt-1 font-mono text-sm">#{order.order_number}</p>
           </div>
           <Badge className={cn(statusColor(order.status), 'text-[10px] uppercase tracking-wider font-bold shrink-0')}>
-            {(order.status || '').replace(/_/g, ' ')}
+            {statusLabel(order.status)}
           </Badge>
         </div>
 
@@ -312,7 +312,7 @@ function sourceName(url) {
  * Los cuatro montos no son cuatro datos sueltos: son dos monedas por dos
  * escenarios. Como cuatro chips sueltos el cliente tenia que restar de cabeza
  * para ver cuanto le ahorra la negociacion, que es justamente lo que paga.
- * Aca la resta esta hecha y es la ultima linea.
+ * Acá la resta esta hecha y es la última linea.
  */
 function PriceMatrix({ link, fmtUsd, fmtClp }) {
   const vU = link.value_usa_usd > 0 ? fmtUsd(link.value_usa_usd) : '';
@@ -417,15 +417,15 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
     }
   }
 
-  // El scraper guarda el titulo del anuncio en link.title; make/model/year casi
-  // nunca vienen. Ignorarlo dejaba todas las tarjetas diciendo "Embarcacion",
+  // El scraper guarda el título del anuncio en link.title; make/model/year casi
+  // nunca vienen. Ignorarlo dejaba todas las tarjetas diciendo "Embarcación",
   // que es la unica cosa que el cliente ya sabe.
   const armado = [link.make, link.model, link.year].filter(Boolean).join(' ');
   const motor = (link.engine || '').trim();
   const title = (link.title || '').trim() || armado || motor || 'Embarcación sin identificar';
   // Cuando lo unico que hay del anuncio es el motor, ese texto termina siendo
-  // el titulo. Repetirlo abajo como spec no agrega nada y hace ver la ficha
-  // mas vacia de lo que ya esta.
+  // el título. Repetirlo abajo como spec no agrega nada y hace ver la ficha
+  // más vacia de lo que ya esta.
   const mostrarMotor = motor && motor !== title;
   const fuente = sourceName(link.url);
 
@@ -509,7 +509,7 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
         </button>
       </div>
 
-      {/* Foto, con el numero de ranking encima: el podio se lee de un vistazo
+      {/* Foto, con el número de ranking encima: el podio se lee de un vistazo
           y la tarjeta gana el ancho que antes ocupaba una columna aparte. */}
       <div
         className={cn(
@@ -555,8 +555,8 @@ function VesselCard({ link, index, dragHandlers, isFirst, isLast, onMoveUp, onMo
       <div className="flex-1 min-w-0">
         {/* Grilla en vez de dos columnas sueltas: los precios ocupan la columna
             derecha entera y los botones suben a llenar el hueco que quedaba
-            bajo el titulo. El orden del codigo es ficha, precios, botones, que
-            es tambien el orden correcto cuando la grilla se desarma en movil. */}
+            bajo el título. El orden del codigo es ficha, precios, botones, que
+            es también el orden correcto cuando la grilla se desarma en movil. */}
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-5 lg:items-start">
           <div className="min-w-0 lg:col-start-1 lg:row-start-1">
             <div className="flex items-start justify-between gap-3">
@@ -888,7 +888,7 @@ function OrderDetail({ orderId, onBack }) {
       await saveRanking(orderId, linkIds);
       const data = await notifyRanking(orderId);
       if (data.success) {
-        toast?.(data.message || 'Notificacion enviada al agente', 'success');
+        toast?.(data.message || 'Notificación enviada al agente', 'success');
       } else {
         toast?.(data.error || 'Error al notificar', 'error');
       }
@@ -1193,8 +1193,8 @@ function OrderDetail({ orderId, onBack }) {
                     <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                       <tr>
                         <th className="text-left px-3 py-2 font-semibold w-10">#</th>
-                        <th className="text-left px-3 py-2 font-semibold">Embarcacion</th>
-                        <th className="text-left px-3 py-2 font-semibold">Ubicacion</th>
+                        <th className="text-left px-3 py-2 font-semibold">Embarcación</th>
+                        <th className="text-left px-3 py-2 font-semibold">Ubicación</th>
                         <th className="text-right px-3 py-2 font-semibold">USD</th>
                         <th className="text-right px-3 py-2 font-semibold">CLP</th>
                         <th className="text-right px-3 py-2 font-semibold">Acciones</th>
@@ -1204,7 +1204,7 @@ function OrderDetail({ orderId, onBack }) {
                       {displayed.map((l, i) => {
                         const realIdx = activeLinks.findIndex(x => x.id === l.id);
                         const isSold = l.link_status === 'sold' || l.link_status === 'unavailable';
-                        const ttl = [l.make, l.model, l.year].filter(Boolean).join(' ') || 'Embarcacion';
+                        const ttl = [l.make, l.model, l.year].filter(Boolean).join(' ') || 'Embarcación';
                         return (
                           <tr key={l.id} className={cn('hover:bg-slate-50', isSold && 'opacity-60')}>
                             <td className="px-3 py-2 font-bold text-slate-700">{realIdx + 1}</td>
@@ -1525,7 +1525,7 @@ export default function Expedientes() {
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis productos contratados</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Expedientes de busqueda, cotizaciones por links y planes de busqueda en un solo lugar.
+              Expedientes de búsqueda, cotizaciones por links y planes de búsqueda en un solo lugar.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1535,7 +1535,7 @@ export default function Expedientes() {
             </Button>
             <a href="#/quotation" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-slate-900 font-semibold hover:bg-slate-100 transition">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
-              Nueva cotizacion
+              Nueva cotización
             </a>
           </div>
         </div>
@@ -1711,8 +1711,8 @@ export default function Expedientes() {
                   <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
                     <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                   </div>
-                  <p className="text-slate-700 font-semibold">Aun no hay expedientes en esta cuenta</p>
-                  <p className="text-sm text-slate-500 mt-1">Cuando contrates un plan o cotizacion aparecera aqui.</p>
+                  <p className="text-slate-700 font-semibold">Aún no hay expedientes en esta cuenta</p>
+                  <p className="text-sm text-slate-500 mt-1">Cuando contrates un plan o cotización aparecerá aquí.</p>
                   <p className="text-[11px] text-slate-400 mt-3">Cuenta: <span className="font-mono text-slate-500">{user?.email || '-'}</span></p>
                   <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
                     <a href="#/quotation" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
@@ -1734,7 +1734,7 @@ export default function Expedientes() {
           ) : filteredOrders.length === 0 ? (
             <Card className="text-center py-12">
               <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-              <p className="text-sm text-slate-500 mt-1">Probá ajustar los filtros o limpiar la busqueda.</p>
+              <p className="text-sm text-slate-500 mt-1">Prueba ajustar los filtros o limpiar la búsqueda.</p>
               <Button variant="secondary" size="sm" className="mt-4" onClick={() => { setStatusFilter('all'); setSearch(''); }}>Limpiar filtros</Button>
             </Card>
           ) : (
@@ -1756,8 +1756,8 @@ export default function Expedientes() {
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
               <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
-            <p className="text-slate-700 font-semibold">No tenes planes contratados</p>
-            <p className="text-sm text-slate-500 mt-1">Contrata un plan de busqueda para que el equipo trabaje activamente en encontrar tu lancha.</p>
+            <p className="text-slate-700 font-semibold">No tienes planes contratados</p>
+            <p className="text-sm text-slate-500 mt-1">Contrata un plan de búsqueda para que el equipo trabaje activamente en encontrar tu lancha.</p>
             <a href="#/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition mt-4">
               Ver planes disponibles
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
@@ -1792,7 +1792,7 @@ export default function Expedientes() {
                       </Badge>
                     </div>
                     {isActive && daysLeft !== null && (
-                      <p className="text-xs text-emerald-700 font-semibold mb-3 -mt-1">{daysLeft > 0 ? `${daysLeft} dias restantes` : 'Vence hoy'}</p>
+                      <p className="text-xs text-emerald-700 font-semibold mb-3 -mt-1">{daysLeft > 0 ? `${daysLeft} días restantes` : 'Vence hoy'}</p>
                     )}
                     {proposalsTotal > 0 && (
                       <div className="mb-4">
@@ -1808,9 +1808,9 @@ export default function Expedientes() {
                     <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs pt-3 border-t border-slate-100">
                       {p.startDate && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Inicio</p><p className="text-slate-700 font-medium">{fmtDate(p.startDate)}</p></div>}
                       {p.endDate && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Vence</p><p className="text-slate-700 font-medium">{fmtDate(p.endDate)}</p></div>}
-                      {p.days && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Duracion</p><p className="text-slate-700 font-medium">{p.days} dias</p></div>}
+                      {p.days && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Duracion</p><p className="text-slate-700 font-medium">{p.days} días</p></div>}
                       {p.price && <div><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Inversion</p><p className="text-slate-700 font-bold">{fmtCLP(p.price)}</p></div>}
-                      {p.payment_method && <div className="col-span-2"><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Metodo de pago</p><p className="text-slate-700 font-medium capitalize">{p.payment_method.replace(/_/g, ' ')}</p></div>}
+                      {p.payment_method && <div className="col-span-2"><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Método de pago</p><p className="text-slate-700 font-medium">{paymentMethodLabel(p.payment_method)}</p></div>}
                     </div>
                   </div>
                 </div>

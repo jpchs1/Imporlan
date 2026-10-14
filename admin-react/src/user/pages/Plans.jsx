@@ -1,24 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getMyPurchases } from '../api';
-import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, cn, statusLabel, paymentMethodLabel } from '../../shared/lib/utils';
 import { Card, Badge, Button } from '../../shared/components/UI';
 
 const PLANS = [
   {
     id: 'fragata', name: 'Fragata', badge: 'Basico',
-    desc: 'Ideal para una primera busqueda rapida',
+    desc: 'Ideal para una primera búsqueda rapida',
     proposals: 5, days: 7, price: 67600, usd: 67.60,
     gradient: 'from-sky-500 to-blue-600', bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200',
     icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
-    features: ['5 propuestas de embarcaciones', 'Monitoreo por 7 dias', 'Busqueda en USA y Chile', 'Soporte por email', 'Panel de seguimiento'],
+    features: ['5 propuestas de embarcaciones', 'Monitoreo por 7 días', 'Búsqueda en USA y Chile', 'Soporte por email', 'Panel de seguimiento'],
   },
   {
     id: 'capitan', name: 'Capitan de Navio', badge: 'Mas Popular', popular: true,
-    desc: 'El plan mas elegido por nuestros clientes',
+    desc: 'El plan más elegido por nuestros clientes',
     proposals: 9, days: 14, price: 119600, usd: 119.60,
     gradient: 'from-indigo-500 to-violet-600', bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-300',
     icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
-    features: ['9 propuestas de embarcaciones', 'Monitoreo por 14 dias', 'Busqueda en USA y Chile', 'Soporte prioritario', 'Panel de seguimiento', 'Agente dedicado'],
+    features: ['9 propuestas de embarcaciones', 'Monitoreo por 14 días', 'Búsqueda en USA y Chile', 'Soporte prioritario', 'Panel de seguimiento', 'Agente dedicado'],
   },
   {
     id: 'almirante', name: 'Almirante', badge: 'Premium',
@@ -26,15 +26,15 @@ const PLANS = [
     proposals: 15, days: 21, price: 189600, usd: 189.60,
     gradient: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200',
     icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z',
-    features: ['15 propuestas de embarcaciones', 'Monitoreo por 21 dias', 'Busqueda en USA y Chile', 'Soporte prioritario 24/7', 'Panel de seguimiento', 'Agente dedicado', 'Reporte IA incluido'],
+    features: ['15 propuestas de embarcaciones', 'Monitoreo por 21 días', 'Búsqueda en USA y Chile', 'Soporte prioritario 24/7', 'Panel de seguimiento', 'Agente dedicado', 'Reporte IA incluido'],
   },
 ];
 
 const FAQS = [
-  { q: 'Que pasa si no encuentro la embarcacion ideal?', a: 'Te ofrecemos opciones adicionales sin costo extra. Si no encuentras nada, podes extender tu plan con un descuento.' },
-  { q: 'Puedo cambiar de plan despues de contratar?', a: 'Si. Si quieres pasar a un plan superior, te descontamos lo pagado del nuevo plan. Hablalo con tu agente.' },
-  { q: 'En que paises buscan embarcaciones?', a: 'Buscamos principalmente en USA y Chile, los dos mercados con mejor relacion precio-calidad para Sudamerica. Tambien evaluamos Europa si lo solicitas.' },
-  { q: 'Cuando empieza a contar el plazo del plan?', a: 'Desde el dia que confirmas el pago. Te avisamos por email y queda visible en este panel.' },
+  { q: '¿Qué pasa si no encuentro la embarcación ideal?', a: 'Te ofrecemos opciones adicionales sin costo extra. Si no encuentras nada, puedes extender tu plan con un descuento.' },
+  { q: '¿Puedo cambiar de plan después de contratar?', a: 'Sí. Si quieres pasar a un plan superior, te descontamos lo pagado del nuevo plan. Háblalo con tu agente.' },
+  { q: '¿En qué países buscan embarcaciones?', a: 'Buscamos principalmente en USA y Chile, los dos mercados con mejor relación precio-calidad para Sudamerica. También evaluamos Europa si lo solicitas.' },
+  { q: '¿Cuándo empieza a contar el plazo del plan?', a: 'Desde el día que confirmas el pago. Te avisamos por email y queda visible en este panel.' },
 ];
 
 function PlanCard({ plan, current, onContract }) {
@@ -85,7 +85,7 @@ function PlanCard({ plan, current, onContract }) {
           </div>
           <div className={cn('flex-1 text-center py-3 rounded-xl', plan.bg)}>
             <p className={cn('text-3xl font-extrabold', plan.text)}>{plan.days}</p>
-            <p className="text-[10px] text-slate-500 uppercase font-semibold mt-0.5">Dias</p>
+            <p className="text-[10px] text-slate-500 uppercase font-semibold mt-0.5">Días</p>
           </div>
         </div>
 
@@ -181,7 +181,7 @@ function ContractedPlanCard({ p }) {
               </Badge>
               {isActive && daysLeft !== null && (
                 <span className="text-[11px] text-slate-500">
-                  {daysLeft > 0 ? `${daysLeft} dias restantes` : 'Vence hoy'}
+                  {daysLeft > 0 ? `${daysLeft} días restantes` : 'Vence hoy'}
                 </span>
               )}
             </div>
@@ -216,7 +216,7 @@ function ContractedPlanCard({ p }) {
           {p.days && (
             <div>
               <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Duracion</p>
-              <p className="text-slate-700 font-medium">{p.days} dias</p>
+              <p className="text-slate-700 font-medium">{p.days} días</p>
             </div>
           )}
           {p.price && (
@@ -227,8 +227,8 @@ function ContractedPlanCard({ p }) {
           )}
           {p.payment_method && (
             <div className="col-span-2">
-              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Metodo de pago</p>
-              <p className="text-slate-700 font-medium capitalize">{p.payment_method.replace(/_/g, ' ')}</p>
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Método de pago</p>
+              <p className="text-slate-700 font-medium">{paymentMethodLabel(p.payment_method)}</p>
             </div>
           )}
         </div>
@@ -274,9 +274,9 @@ export default function Plans() {
               <span className={cn('w-1.5 h-1.5 rounded-full', activePlan ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
               {activePlan ? `Plan activo: ${activePlan.planName || activePlan.plan_name}` : 'Encontremos tu lancha'}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Planes de busqueda</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Planes de búsqueda</h1>
             <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Elegi el plan que mejor se adapte a tus necesidades. Nuestro equipo busca activamente las mejores opciones en USA y Chile, te entrega un ranking ordenado y te acompana hasta la entrega.
+              Elige el plan que mejor se adapte a tus necesidades. Nuestro equipo busca activamente las mejores opciones en USA y Chile, te entrega un ranking ordenado y te acompana hasta la entrega.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -373,7 +373,7 @@ export default function Plans() {
                       <p className="text-sm font-semibold text-slate-700 truncate">{l.url || l.name || 'Link'}</p>
                       <p className="text-[11px] text-slate-400">{fmtDate(l.contractedAt || l.created_at)}</p>
                     </div>
-                    <Badge className={cn(stColor, 'text-[10px] uppercase tracking-wider font-bold')}>{status.replace(/_/g, ' ')}</Badge>
+                    <Badge className={cn(stColor, 'text-[10px] uppercase tracking-wider font-bold')}>{statusLabel(status)}</Badge>
                     {l.url && (
                       <a href={l.url} target="_blank" rel="noreferrer" className="text-xs text-cyan-600 hover:text-cyan-700 font-semibold shrink-0 inline-flex items-center gap-1">
                         Abrir
@@ -393,7 +393,7 @@ export default function Plans() {
         <div className="flex items-end justify-between mb-3 flex-wrap gap-2">
           <div>
             <h2 className="text-lg font-bold text-slate-800">Preguntas frecuentes</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Lo mas consultado por nuestros clientes</p>
+            <p className="text-xs text-slate-400 mt-0.5">Lo más consultado por nuestros clientes</p>
           </div>
           <a href="#/support" className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 inline-flex items-center gap-1">
             Ir a Soporte
@@ -425,7 +425,7 @@ export default function Plans() {
           <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl sm:text-2xl font-bold">Listo para encontrar tu lancha?</h3>
-              <p className="text-sm text-slate-300 mt-1.5">Empezamos a buscar el mismo dia que confirmas el plan.</p>
+              <p className="text-sm text-slate-300 mt-1.5">Empezamos a buscar el mismo día que confirmas el plan.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <a href="https://www.imporlan.cl/#planes" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow-md hover:bg-slate-100 transition">

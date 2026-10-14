@@ -15,10 +15,10 @@ function relativeTime(ts) {
   const h = Math.floor(m / 60);
   if (h < 24) return `hace ${h} hr${h > 1 ? 's' : ''}`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `hace ${d} dia${d > 1 ? 's' : ''}`;
+  if (d < 7) return `hace ${d} día${d > 1 ? 's' : ''}`;
   if (d < 30) return `hace ${Math.floor(d / 7)} semana${Math.floor(d / 7) > 1 ? 's' : ''}`;
   if (d < 365) return `hace ${Math.floor(d / 30)} mes${Math.floor(d / 30) > 1 ? 'es' : ''}`;
-  return `hace ${Math.floor(d / 365)} ano${Math.floor(d / 365) > 1 ? 's' : ''}`;
+  return `hace ${Math.floor(d / 365)} año${Math.floor(d / 365) > 1 ? 's' : ''}`;
 }
 
 function fmtFullDate(ts) {
@@ -297,7 +297,7 @@ export default function Profile() {
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>}
         />
         <StatTile
-          label="Ultimo acceso"
+          label="Último acceso"
           value={lastLoginRel || 'Hoy'}
           sub={lastLoginLabel || ''}
           color="emerald"
@@ -317,7 +317,7 @@ export default function Profile() {
         <Card>
           <SectionHeader
             accent="cyan"
-            title="Informacion personal"
+            title="Información personal"
             subtitle="Datos basicos de tu cuenta"
             icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>}
           />
@@ -345,7 +345,7 @@ export default function Profile() {
             />
             <InfoField
               icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M3 5a2 2 0 012-2h3l2 5-2.5 1.5a11 11 0 005 5L17 12l5 2v3a2 2 0 01-2 2A17 17 0 013 5z"/></svg>}
-              label="Telefono"
+              label="Teléfono"
               value={data.phone}
               action={
                 data.phone ? (
@@ -382,7 +382,7 @@ export default function Profile() {
             />
             <InfoField
               icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>}
-              label="Ultimo acceso"
+              label="Último acceso"
               value={lastLoginLabel || '-'}
               action={lastLoginRel ? <span className="text-[11px] text-slate-400">{lastLoginRel}</span> : null}
             />
@@ -415,7 +415,7 @@ export default function Profile() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">Metodo de acceso</p>
+                  <p className="text-sm font-semibold text-slate-800">Método de acceso</p>
                   <p className="text-[11px] text-slate-400 truncate">{hasPasswordAuth ? 'Email y contrasena' : `Inicias con ${data.provider}`}</p>
                 </div>
               </div>
@@ -496,8 +496,8 @@ export default function Profile() {
       <Modal open={editing} onClose={() => setEditing(false)} title="Editar perfil" size="sm">
         <div className="space-y-4">
           <Input label="Nombre *" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Tu nombre completo" />
-          <Input label="Telefono" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+56 9 XXXX XXXX" />
-          <p className="text-xs text-slate-400">El email no se puede cambiar desde aqui. Si lo necesitas, contacta a soporte.</p>
+          <Input label="Teléfono" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+56 9 XXXX XXXX" />
+          <p className="text-xs text-slate-400">El email no se puede cambiar desde aquí. Si lo necesitas, contacta a soporte.</p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEditing(false)}>Cancelar</Button>
             <Button variant="accent" onClick={handleSave} disabled={saving} className="flex items-center gap-2">
