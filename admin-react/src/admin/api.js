@@ -193,6 +193,16 @@ export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments, publi
   });
 export const deleteQuote = (linkId) =>
   request(`${API_BASE}/orders_api.php?action=admin_delete_quote`, { method: 'POST', body: JSON.stringify({ link_id: linkId }) });
+// Sin revision es la vista previa: no envía nada, devuelve las etapas, el
+// destinatario y la revision. El envío real lleva esa revision de vuelta y el
+// servidor lo rechaza si la cotización cambió entremedio. Espera al SMTP, por
+// eso el plazo largo.
+export const sendQuoteBreakdown = (linkId, revision = null) =>
+  request(`${API_BASE}/orders_api.php?action=admin_send_quote_breakdown`, {
+    method: 'POST',
+    body: JSON.stringify(revision ? { link_id: linkId, revision } : { link_id: linkId, preview: true }),
+    timeoutMs: revision ? 45000 : 15000,
+  });
 
 // Chat
 export const getChatConversations = (status = 'all', assigned = 'all') => {
