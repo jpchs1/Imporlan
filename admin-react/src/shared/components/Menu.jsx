@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useId, cloneElement, isValidElement, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useId, cloneElement, isValidElement, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { useClickOutside } from '../lib/focus';
+import { useClickOutside, useLayer, zAboveLayers, Z_POPOVER } from '../lib/focus';
 import { Ellipsis } from './Icons';
 import { IconButton } from './Button';
 
@@ -20,23 +20,50 @@ import { IconButton } from './Button';
  *   />
  * Sin `trigger` pinta un IconButton "⋯". `align`: end (por defecto) · start.
  * Teclado: flechas, Home/End, Escape; cierra al hacer clic fuera o al navegar.
+ *
+ * Se monta en un portal en `body`, pero se registra en la pila de capas de
+ * `lib/focus.js`: si se abre dentro de un Modal/Drawer/menú móvil (capa con
+ * foco atrapado) se pinta POR ENCIMA de esa capa y, mientras está abierto, es
+ * él quien recibe Escape y Tab (la trampa de abajo no se entera). Al cerrarse
+ * devuelve el foco al disparador, que sí está dentro de la trampa.
  */
 export function Menu({ trigger, items = [], align = 'end', label = 'Más acciones', className, onOpenChange, width = 200 }) {
   const [open, setOpen] = useState(false);
+  const [z, setZ] = useState(Z_POPOVER);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const id = useId();
   const list = items.filter(Boolean);
 
-  const toggle = () => setOpen(o => !o);
+  const toggle = () => {
+    // La altura se decide al abrir: por encima de la capa activa en ese momento.
+    if (!open) setZ(zAboveLayers());
+    setOpen(!open);
+  };
   useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
+
+  const focusTrigger = () => {
+    const el = triggerRef.current?.querySelector('button, a, [tabindex]');
+    if (el && document.contains(el)) el.focus({ preventScroll: true });
+  };
+  const closeAndRestore = () => { setOpen(false); focusTrigger(); };
+
+  // Capa: solo cuando el menú es la capa superior recibe Escape y Tab.
+  useLayer(menuRef, open, {
+    z,
+    onKey: (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeAndRestore(); }
+      else if (e.key === 'Tab') { e.preventDefault(); closeAndRestore(); }
+    },
+  });
 
   // Posición: se calcula y se escribe directo en el nodo antes del pintado
   // (debajo del disparador; arriba si no cabe).
-  useLayoutEffect(() => {
+  const colocar = useCallback(() => {
     const menu = menuRef.current;
-    if (!open || !triggerRef.current || !menu) return;
-    const r = triggerRef.current.getBoundingClientRect();
+    const trig = triggerRef.current;
+    if (!menu || !trig) return;
+    const r = trig.getBoundingClientRect();
     const mh = menu.offsetHeight || 0;
     const mw = menu.offsetWidth || width;
     const spaceBelow = window.innerHeight - r.bottom;
@@ -46,15 +73,37 @@ export function Menu({ trigger, items = [], align = 'end', label = 'Más accione
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
     menu.style.visibility = 'visible';
-  }, [open, align, width]);
+  }, [align, width]);
+  useLayoutEffect(() => { if (open) colocar(); }, [open, colocar]);
 
+  // Scroll y resize: el menú se REPOSICIONA siguiendo al disparador en vez de
+  // cerrarse (antes, cualquier `scroll` lo cerraba: el scroll suave que hace
+  // el navegador para mostrar el botón, o un trackpad que aún se desliza,
+  // cerraban el "⋯" recién abierto). Solo se cierra si el disparador salió de
+  // la vista.
   useEffect(() => {
     if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
-    return () => { window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true); };
-  }, [open]);
+    let raf = null;
+    const seguir = (e) => {
+      if (e?.type === 'scroll' && menuRef.current?.contains(e.target)) return; // scroll interno del menú
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const trig = triggerRef.current;
+        if (!trig) return;
+        const r = trig.getBoundingClientRect();
+        const fuera = r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth;
+        if (fuera) setOpen(false); else colocar();
+      });
+    };
+    window.addEventListener('resize', seguir);
+    window.addEventListener('scroll', seguir, true);
+    return () => {
+      window.removeEventListener('resize', seguir);
+      window.removeEventListener('scroll', seguir, true);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [open, colocar]);
 
   useClickOutside(menuRef, open, (e) => { if (!triggerRef.current?.contains(e.target)) setOpen(false); });
 
@@ -67,12 +116,11 @@ export function Menu({ trigger, items = [], align = 'end', label = 'Más accione
   function onKey(e) {
     const els = Array.from(menuRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])') || []);
     const i = els.indexOf(document.activeElement);
-    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); triggerRef.current?.querySelector('button, a, [tabindex]')?.focus(); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); els[(i + 1) % els.length]?.focus(); }
+    // Escape y Tab los atiende la capa (ver useLayer arriba).
+    if (e.key === 'ArrowDown') { e.preventDefault(); els[(i + 1) % els.length]?.focus(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); els[(i - 1 + els.length) % els.length]?.focus(); }
     else if (e.key === 'Home') { e.preventDefault(); els[0]?.focus(); }
     else if (e.key === 'End') { e.preventDefault(); els[els.length - 1]?.focus(); }
-    else if (e.key === 'Tab') { setOpen(false); }
   }
 
   const controls = open ? id : undefined;
@@ -98,13 +146,13 @@ export function Menu({ trigger, items = [], align = 'end', label = 'Más accione
           role="menu"
           aria-label={label}
           onKeyDown={onKey}
-          style={{ position: 'fixed', top: 0, left: 0, minWidth: width, visibility: 'hidden' }}
-          className="z-popover bg-surface border border-line rounded-md shadow-pop py-1 ov-pop"
+          style={{ position: 'fixed', top: 0, left: 0, minWidth: width, visibility: 'hidden', zIndex: z }}
+          className="bg-surface border border-line rounded-md shadow-pop py-1 ov-pop"
         >
           {list.map((it, i) => it.separator ? (
             <div key={`sep-${i}`} role="separator" className="my-1 border-t border-line" />
           ) : (
-            <MenuItem key={it.key || it.label || i} item={it} close={() => { setOpen(false); }} />
+            <MenuItem key={it.key || it.label || i} item={it} close={closeAndRestore} />
           ))}
         </div>,
         document.body,

@@ -43,6 +43,15 @@ function useScrollShadow() {
  * emptyState (nodo) o emptyMsg · loading (+ loadingRows) · pageSize (0 = sin paginar)
  * mobileCard(row) → tarjeta en < md (si no, scroll horizontal con sombra)
  * bleed: la tabla sangra hasta el borde de la Card con padding (alias Table)
+ *
+ * Paginación y orden en el servidor:
+ *   - `onPageChange(p)`: la tabla deja de recortar `data` (el servidor manda la
+ *     página) y avisa el cambio. Con `page` la página es controlada (0-based);
+ *     sin `page`, la tabla igual lleva el indicador por su cuenta. `total` es
+ *     el total de filas para calcular las páginas.
+ *   - `onSortChange({ col, dir, key })`: la tabla no ordena. Con `sort`
+ *     ({ col: índice | key, dir }) el orden es controlado y alterna al volver a
+ *     hacer clic en la misma columna; sin `sort`, lo lleva por su cuenta.
  */
 export function DataTable({
   columns = [], data = [], rowKey, onRowClick, rowActions,
@@ -83,11 +92,18 @@ export function DataTable({
   const current = Math.min(page, pages - 1);
   const visible = pageSize > 0 && !onPageChange ? sorted.slice(current * pageSize, (current + 1) * pageSize) : sorted;
 
-  function setPage(p) { if (onPageChange) onPageChange(p); else setPageState(p); }
+  // Sin `page` el estado interno se actualiza siempre (aunque haya
+  // onPageChange): así el indicador "Página 2 de 5" no se queda pegado.
+  function setPage(p) {
+    if (pageProp === undefined || pageProp === null) setPageState(p);
+    onPageChange?.(p);
+  }
+  // Activa si el orden apunta a esta columna por índice o por `key`.
+  const isSortCol = (col, i) => sort.col === i || (col.key !== undefined && col.key !== null && sort.col === col.key);
   function toggleSort(i) {
     const col = columns[i];
     if (!col.sortValue && !col.key) return;
-    const next = (sort.col === i) ? { col: i, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col: i, dir: 'desc' };
+    const next = isSortCol(col, i) ? { col: i, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col: i, dir: 'desc' };
     if (onSortChange) onSortChange({ ...next, key: col.key }); else setSortState(next);
     setPage(0);
   }
@@ -118,7 +134,7 @@ export function DataTable({
           <tr>
             {columns.map((col, i) => {
               const sortable = !!(col.sortValue || col.key);
-              const active = sort.col === i || (col.key && sort.col === col.key);
+              const active = isSortCol(col, i);
               return (
                 <th
                   key={col.key || i}
