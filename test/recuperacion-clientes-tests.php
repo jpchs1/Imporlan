@@ -172,6 +172,67 @@ prueba('el CC al correo secundario tambien se salta',
 prueba('si el correo no sale, el token se borra',
     (bool) preg_match('/if \(empty\(\$envio\[.success.\]\)\) \{.*?@unlink\(\$ruta\)/s', $forgotSrc));
 
+// Un 500 solo para las cuentas reales seria, durante una caida del SMTP, la
+// lista de clientes de Imporlan servida en bandeja. Se mira SOLO ese bloque:
+// el catch de mas abajo si contesta 500, y con el archivo entero cualquier
+// comprobacion daria igual.
+$iniBloque = strpos($forgotSrc, "if (empty(\$envio['success'])) {");
+$bloqueFallo = $iniBloque === false ? '' : substr($forgotSrc, $iniBloque, strpos($forgotSrc, 'exit();', $iniBloque) - $iniBloque);
+// La respuesta neutra ya salio antes de intentar el envio, asi que al bloque
+// del fallo solo le queda registrar: no puede contestar nada propio.
+prueba('un fallo de SMTP contesta igual que una cuenta inexistente',
+    $bloqueFallo !== ''
+    && strpos($bloqueFallo, 'http_response_code(500)') === false
+    && strpos($bloqueFallo, 'echo ') === false);
+
+// --------------------------------- el freno de fuerza bruta no se toca
+// El bloqueo de antispam.php es por IP, no por cuenta. Limpiarlo al cambiar la
+// clave le soltaba el freno a todas las cuentas que se intentaran desde esa
+// misma IP: con un solo correo de cliente bajo control se pasaba de cinco
+// intentos cada media hora a cinco cada medio minuto.
+prueba('cambiar la clave no borra el bloqueo por intentos fallidos',
+    strpos($reset, 'urLimpiarBloqueoLogin') === false
+    && strpos(file_get_contents(__DIR__ . '/../api/user_recovery_common.php'), 'function urLimpiarBloqueoLogin') === false);
+
+// ------------------------------------- el uso unico, de verdad
+// rename es atomico: de dos peticiones con el mismo enlace, solo una recibe
+// true. Comprobar y borrar despues dejaba pasar a las dos.
+prueba('el token se reclama antes de tocar la base de datos',
+    strpos($reset, 'if (!@rename($rutaToken, $rutaEnUso)) {') !== false
+    && strpos($reset, 'if (!@rename($rutaToken, $rutaEnUso)) {') < strpos($reset, 'getDbConnection()'));
+
+prueba('un fallo antes de grabar devuelve el enlace a su sitio',
+    (bool) preg_match('/catch \(Exception \$e\) \{\s*(\/\/[^\n]*\n\s*)*@rename\(\$rutaEnUso, \$rutaToken\);/', $reset));
+
+// De verdad atomico: el segundo rename del mismo origen tiene que fallar.
+$tk = emitirToken('carrera@ejemplo.cl');
+$origen = urRutaToken($tk);
+prueba('el primero en reclamar el token se lo lleva', @rename($origen, $origen . '.usando') === true);
+prueba('el segundo se va con las manos vacias', @rename($origen, $origen . '.usando2') === false);
+@unlink($origen . '.usando');
+
+// La poda tiene que barrer tambien los reclamados a medias, o quedan tirados
+// cuando un proceso se muere entremedio.
+$huerfano = emitirToken('huerfano@ejemplo.cl');
+$aMedias = urRutaToken($huerfano) . '.usando';
+rename(urRutaToken($huerfano), $aMedias);
+touch($aMedias, time() - 4 * 3600);
+urPodarTokens(3);
+prueba('la poda barre los tokens reclamados a medias', !file_exists($aMedias));
+
+// --------------------------------- el reloj tampoco puede delatar la cuenta
+// Mismo texto y mismo codigo no alcanzan si el tiempo los separa: un correo
+// sin cuenta contestaba al instante y uno registrado esperaba al SMTP.
+prueba('se contesta antes de mandar el correo',
+    strpos($forgotSrc, 'urResponderYSeguirEnSegundoPlano($respuestaNeutra);') !== false
+    && strpos($forgotSrc, 'urResponderYSeguirEnSegundoPlano($respuestaNeutra);') < strpos($forgotSrc, 'sendPrivateEmail('));
+
+prueba('el catch no escribe encima de una respuesta ya enviada',
+    strpos($forgotSrc, 'if (!urRespuestaYaEnviada()) {') !== false);
+
+prueba('la marca de respuesta enviada no se puede desmarcar',
+    urRespuestaYaEnviada() === false);
+
 // ------------------------------------------------- misma respuesta siempre
 // La frase de exito esta escrita UNA sola vez. Si alguien agregara un segundo
 // texto para el caso "no existe la cuenta", el formulario pasaria a delatar
@@ -201,7 +262,15 @@ prueba('handleLogin ya no filtra por status en el SELECT',
 prueba('handleLogin avisa cuando la cuenta esta desactivada',
     strpos($cuerpoLogin, 'Tu cuenta esta desactivada') !== false);
 prueba('handleLogin solo revela el estado tras verificar la clave',
-    preg_match('/password_verify\(\$password, \$dbUser\[.password_hash.\]\)\s*\n\s*&& \(\$dbUser\[.status.\] \?\? .active.\) !== .active./', $cuerpoLogin) === 1);
+    strpos($cuerpoLogin, 'if ($claveOk && !$cuentaActiva) {') !== false);
+
+// password_verify es lento a proposito. Llamarlo en las dos ramas duplicaba el
+// tiempo de cada login, acertado o no. Se cuenta solo el tramo de admin_users:
+// el de la tabla `users` heredada, mas abajo, es otra cuenta y su propia
+// llamada.
+$tramoAdminUsers = substr($cuerpoLogin, 0, strpos($cuerpoLogin, '// Check panel users'));
+prueba('handleLogin comprueba la clave una sola vez por cuenta',
+    substr_count($tramoAdminUsers, 'password_verify(') === 1);
 
 // --------------------------------------------------------------- limpieza
 foreach (glob($tmp . '/*') ?: [] as $f) @unlink($f);

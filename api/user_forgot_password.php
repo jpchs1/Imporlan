@@ -67,7 +67,7 @@ try {
         // Para el cliente esto se ve igual que un envio correcto. Queda en el
         // log para que, cuando avise que no le llego nada, se sepa que el
         // correo que escribio no tiene cuenta.
-        urRegistrar("sin cuenta  $email  ip=" . urIpParaElLog());
+        urRegistrar("sin cuenta  $email  ip=" . urIpParaElLog() . urPistaTablaHeredada($pdo, $email));
         echo json_encode($respuestaNeutra);
         exit();
     }
@@ -129,6 +129,18 @@ try {
     $html .= '<p style="color:#94a3b8;font-size:12px;text-align:center">Imporlan &middot; contacto@imporlan.cl &middot; +56 9 4021 1459</p>';
     $html .= '</div></body></html>';
 
+    // SE CONTESTA ANTES DE MANDAR EL CORREO, a proposito.
+    //
+    // Mismo texto y mismo codigo no alcanzan si el reloj los delata: un correo
+    // sin cuenta contestaba al instante y uno registrado esperaba al SMTP, que
+    // puede tardar treinta segundos. Cronometrando las respuestas se sacaba
+    // igual la lista de clientes de Imporlan, sin leer una sola palabra.
+    //
+    // Cerrando la respuesta aqui, los dos caminos tardan lo mismo: lo que
+    // demore el correo ya no lo ve nadie. De paso el cliente deja de mirar una
+    // rueda girando medio minuto.
+    urResponderYSeguirEnSegundoPlano($respuestaNeutra);
+
     require_once __DIR__ . '/email_service.php';
     $emailService = new EmailService();
     // sendPrivateEmail y no sendCustomEmail: los correos normales llevan copia
@@ -145,18 +157,22 @@ try {
         $motivo = $envio['error'] ?? 'desconocido';
         urRegistrar("fallo el envio  {$cuenta['email']}  ip=" . urIpParaElLog() . "  motivo=$motivo");
         error_log('user_forgot_password: envio fallido - ' . $motivo);
-        http_response_code(500);
-        echo json_encode(['error' => 'No pudimos enviar el correo en este momento. Escribenos a contacto@imporlan.cl y te ayudamos.']);
         exit();
     }
 
     $aviso = $cuenta['status'] === 'active' ? '' : "  (cuenta en estado {$cuenta['status']})";
     urRegistrar("enlace enviado  {$cuenta['email']}  ip=" . urIpParaElLog() . $aviso);
-
-    echo json_encode($respuestaNeutra);
+    exit();
 } catch (Exception $e) {
     error_log('user_forgot_password: ' . $e->getMessage());
     urRegistrar("error  $email  ip=" . urIpParaElLog() . "  " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['error' => 'Hubo un problema al procesar tu solicitud. Intenta de nuevo o escribenos a contacto@imporlan.cl.']);
+
+    // Si el fallo ocurrio mandando el correo, el cliente ya recibio la
+    // respuesta neutra y la conexion esta cerrada: escribir un 500 aqui no
+    // llega a ninguna parte, y si llegara volveria a delatar que la cuenta
+    // existe. Queda en el log, que es donde sirve.
+    if (!urRespuestaYaEnviada()) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Hubo un problema al procesar tu solicitud. Intenta de nuevo o escribenos a contacto@imporlan.cl.']);
+    }
 }

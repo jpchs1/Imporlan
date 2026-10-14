@@ -44,11 +44,16 @@ function urRutaToken($token) {
     return $dir ? $dir . '/' . hash('sha256', $token) . '.json' : null;
 }
 
-/** Borra lo vencido. Sin esto el directorio crece para siempre. */
+/**
+ * Borra lo vencido. Sin esto el directorio crece para siempre.
+ *
+ * Tambien barre los `.usando`: son tokens que alguien empezo a canjear y que
+ * quedarian tirados si el proceso se muriera entremedio.
+ */
 function urPodarTokens($horas = 3) {
     $dir = urDirectorioTokens();
     if (!$dir) return;
-    foreach (glob($dir . '/*.json') ?: [] as $archivo) {
+    foreach (array_merge(glob($dir . '/*.json') ?: [], glob($dir . '/*.usando') ?: []) as $archivo) {
         if (time() - @filemtime($archivo) > $horas * 3600) @unlink($archivo);
     }
 }
@@ -162,16 +167,25 @@ function urRegistrar($linea) {
     );
 }
 
-/**
- * Un intento de login fallido deja la IP bloqueada 30 minutos
- * (imporlan_login_protection, en antispam.php). Quien acaba de demostrar que
- * controla el correo de la cuenta no tiene por que esperar ese castigo: se le
- * limpia el contador al terminar de cambiar la clave.
+/*
+ * AQUI HABIA UNA FUNCION QUE LIMPIABA EL BLOQUEO POR INTENTOS FALLIDOS
+ * -------------------------------------------------------------------
+ * La idea era amable: cinco claves erradas dejan la IP bloqueada media hora
+ * (imporlan_login_protection, en antispam.php), y quien acaba de demostrar que
+ * controla el correo de la cuenta no tiene por que cumplir ese castigo.
+ *
+ * Pero ese bloqueo NO es por cuenta, es por IP: su clave es md5($ip.'_login')
+ * y nada mas. Limpiarlo le soltaba el freno a todas las cuentas que se
+ * intentaran desde esa misma IP. Quien controlara el correo de un solo cliente
+ * podia gastar sus cinco intentos contra OTRA cuenta, cambiarse su propia
+ * clave para borrar el contador, y seguir — cinco intentos cada medio minuto
+ * en vez de cada media hora.
+ *
+ * Asi que no se limpia. Al cliente que venia bloqueado el panel le dice
+ * "Demasiados intentos de login. Intenta en N minutos", que al menos es un
+ * mensaje claro y con cuenta regresiva. Una espera molesta pero explicada es
+ * mejor que un freno de fuerza bruta con un agujero.
  */
-function urLimpiarBloqueoLogin($ip) {
-    $archivo = sys_get_temp_dir() . '/imporlan_lockout/' . md5($ip . '_login') . '.json';
-    if (file_exists($archivo)) @unlink($archivo);
-}
 
 /**
  * Busca la cuenta del cliente. Todas las vias de registro escriben aqui, con
@@ -190,7 +204,69 @@ function urBuscarCuenta($pdo, $email) {
     return $fila ?: null;
 }
 
+/**
+ * Entrega la respuesta y cierra la conexion, para seguir trabajando sin que el
+ * cliente espere. Devuelve true si realmente se pudo cerrar.
+ *
+ * Es lo que iguala los tiempos entre una cuenta que existe y una que no: el
+ * SMTP tarda cuando el cliente ya se fue.
+ */
+function urResponderYSeguirEnSegundoPlano($cuerpo) {
+    if (urRespuestaYaEnviada()) return true;
+    urRespuestaYaEnviada(true);
+
+    // Sin esto, cerrar la conexion puede matar el proceso antes del correo.
+    ignore_user_abort(true);
+
+    // Sin Content-Length a mano: si el servidor comprime la salida despues,
+    // el largo que calculemos aqui ya no es el que viaja, y un Content-Length
+    // que no cuadra deja al navegador esperando bytes que no llegan. Las
+    // funciones de abajo cierran bien la respuesta por su cuenta.
+    echo json_encode($cuerpo);
+
+    // PHP-FPM la trae de fabrica; LiteSpeed —que es lo que corre en el
+    // hosting— expone la suya con otro nombre.
+    foreach (['fastcgi_finish_request', 'litespeed_finish_request'] as $cerrar) {
+        if (function_exists($cerrar)) { $cerrar(); return true; }
+    }
+
+    // Sin ninguna de las dos no hay forma de cerrar antes de tiempo: se vacian
+    // los buffers y el cliente espera igual. Todo lo demas sigue funcionando;
+    // lo unico que se pierde es la igualdad de tiempos.
+    while (ob_get_level() > 0) @ob_end_flush();
+    @flush();
+    return false;
+}
+
+/** Si ya se contesto, para que el catch del endpoint no escriba encima. */
+function urRespuestaYaEnviada($marcar = false) {
+    static $enviada = false;
+    if ($marcar) $enviada = true;
+    return $enviada;
+}
+
 /** Las cuentas que este formulario puede atender. */
 function urEsCuentaDeCliente($cuenta) {
     return isset($cuenta['role']) && $cuenta['role'] === 'user';
+}
+
+/**
+ * handleLogin() tambien acepta cuentas de una tabla `users` heredada, que no
+ * la crea nada en este repositorio: hoy parece codigo muerto. Si no lo fuera,
+ * esos clientes podrian entrar pero no recuperar su clave, y el sintoma seria
+ * mudo — "pedi el enlace y no me llego nada".
+ *
+ * Esto no cambia el comportamiento: solo deja la pista en el log, para que el
+ * dia que aparezca el caso se vea en vez de adivinarse. Si alguna vez sale una
+ * linea con esta marca, hay que darle soporte de verdad a esa tabla.
+ */
+function urPistaTablaHeredada($pdo, $email) {
+    try {
+        if (!$pdo->query("SHOW TABLES LIKE 'users'")->fetch()) return '';
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1");
+        $stmt->execute([trim($email)]);
+        return $stmt->fetch() ? '  [OJO: existe en la tabla users heredada]' : '';
+    } catch (\Throwable $e) {
+        return '';
+    }
 }
