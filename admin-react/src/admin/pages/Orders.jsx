@@ -8,6 +8,7 @@ import { useToast } from '../../shared/components/Toast';
 import Timeline from '../../shared/components/Timeline';
 import LinkRow from '../components/LinkRow';
 import QuoteModal from '../components/QuoteModal';
+import { enviarDesglose } from '../desglose';
 import ReportsSection from '../components/ReportsSection';
 import FilesSection from '../components/FilesSection';
 
@@ -199,6 +200,26 @@ export default function Orders() {
 
   const linksRef = useRef(links);
   useEffect(() => { linksRef.current = links; }, [links]);
+
+  // Tras enviar el desglose se marca sólo esa fila. No se relee el expediente:
+  // el envío puede tardar y, si mientras tanto se editó otra cosa, releer la
+  // pisaría (Devin y Codex, PR 668). Guardar los links no escribe esta columna.
+  function marcarDesgloseEnviado(linkId, sentAt) {
+    const marcar = l => (l.id === linkId ? { ...l, quote_breakdown_sent_at: sentAt } : l);
+    setLinks(prev => prev.map(marcar));
+    setDetail(prev => (prev ? { ...prev, links: (prev.links || []).map(marcar) } : prev));
+  }
+
+  async function handleEnviarDesglose(lk) {
+    try {
+      const enviado = await enviarDesglose(lk.id);
+      if (!enviado) return;
+      toast?.(`Desglose enviado a ${enviado.email}`, 'success');
+      marcarDesgloseEnviado(lk.id, enviado.sentAt);
+    } catch (e) {
+      toast?.(e.message || 'Error al enviar el desglose', 'error');
+    }
+  }
 
   const refrescarDetalle = useCallback(async () => {
     if (!detail?.id) return;
@@ -688,6 +709,7 @@ export default function Orders() {
               onEncolarUrl={encolarUrlLenta}
               orderId={detail?.id}
               onCotizar={lk.id ? setCotizandoLink : undefined}
+              onEnviarDesglose={lk.id ? handleEnviarDesglose : undefined}
               dragHandlers={{
                 onDragStart: e => onDragStart(e, idx),
                 onDragOver,
@@ -718,9 +740,7 @@ export default function Orders() {
         open={!!cotizandoLink}
         link={cotizandoLink}
         onClose={() => setCotizandoLink(null)}
-        // Releer marca «Desglose enviado»; con ediciones sin guardar se espera
-        // a que las guarden, porque refrescar las pisaría.
-        onBreakdownSent={() => { if (!unsaved) refrescarDetalle(); }}
+        onBreakdownSent={marcarDesgloseEnviado}
         onSaved={async () => {
           if (!detail?.id) return;
           const cotizadoId = cotizandoLink?.id;
