@@ -19,7 +19,9 @@
 // Cargar token desde archivo de configuración (no versionado)
 $configFile = '/home/wwimpo/deploy_config.php';
 if (file_exists($configFile)) {
+    ob_start();
     require_once $configFile;
+    ob_end_clean();
 }
 
 // Token de seguridad (debe estar definido en deploy_config.php)

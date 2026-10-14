@@ -132,7 +132,10 @@ function hcRevisarPasarela($nombre, $fn, $campos) {
     if (!file_exists($cfg)) {
         return [false, 'Falta api/config.php en el servidor.'];
     }
+    // api/config.php tampoco esta en el repo: sin dejar salir lo que imprima.
+    ob_start();
     require_once $cfg;
+    ob_end_clean();
     if (!function_exists($fn)) {
         return [false, "api/config.php no define $fn()."];
     }

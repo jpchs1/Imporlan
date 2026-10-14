@@ -30,7 +30,10 @@ class SecurityAlerts {
         // Load SMTP password from email service config
         $configFile = '/home/wwimpo/email_config.php';
         if (file_exists($configFile)) {
+            // Sin dejar salir lo que imprima (ver email_service.php).
+            ob_start();
             require_once $configFile;
+            ob_end_clean();
             $this->smtpPassword = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
         }
         if (!$this->smtpPassword) {
