@@ -398,10 +398,18 @@ function usersUpdate() {
         // Por id, no por correo: si en la misma edicion tambien se le cambio el
         // correo, el id es el mismo y los tokens vivos —que llevan el id en
         // `sub`— caen igual.
+        //
+        // Empieza en false y solo pasa a true si el modulo existe Y escribio la
+        // marca. Asi un modulo ausente se reporta igual que un disco lleno, en
+        // vez de pasar por un cambio de clave limpio.
         $avisoSesiones = '';
-        if (!empty($input['password']) && file_exists(__DIR__ . '/session_revocation.php')) {
-            require_once __DIR__ . '/session_revocation.php';
-            if (!impInvalidarSesionesDe($id)) {
+        if (!empty($input['password'])) {
+            $sesionesCerradas = false;
+            if (file_exists(__DIR__ . '/session_revocation.php')) {
+                require_once __DIR__ . '/session_revocation.php';
+                $sesionesCerradas = impInvalidarSesionesDe($id);
+            }
+            if (!$sesionesCerradas) {
                 error_log('users_api: la clave cambio pero no se pudieron cerrar las sesiones de la cuenta ' . $id);
                 $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
             }
@@ -642,12 +650,14 @@ function usersSendPasswordReset() {
 
         // La clave vieja ya no sirve, y las sesiones abiertas con ella tampoco.
         $avisoSesiones = '';
+        $sesionesCerradas = false;
         if (file_exists(__DIR__ . '/session_revocation.php')) {
             require_once __DIR__ . '/session_revocation.php';
-            if (!impInvalidarSesionesDe($user['id'])) {
-                error_log('users_api: temporal enviada pero no se pudieron cerrar las sesiones de la cuenta ' . $user['id']);
-                $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
-            }
+            $sesionesCerradas = impInvalidarSesionesDe($user['id']);
+        }
+        if (!$sesionesCerradas) {
+            error_log('users_api: temporal enviada pero no se pudieron cerrar las sesiones de la cuenta ' . $user['id']);
+            $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
         }
 
         // Send email with temporary password

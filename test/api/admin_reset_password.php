@@ -125,18 +125,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // las sesiones dejaba vivo un token robado del administrador una
         // semana, aunque el reseteo de /api ya lo hiciera bien. Mismo corte, y
         // con las marcas de produccion. El administrador principal lleva sub = 1.
+        $sesionesCerradas = false;
         if (file_exists(__DIR__ . '/../../api/session_revocation.php')) {
             require_once __DIR__ . '/../../api/session_revocation.php';
-            if (!impInvalidarSesionesDe(1)) {
-                $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
-            }
+            $sesionesCerradas = impInvalidarSesionesDe(1);
+        }
+        if (!$sesionesCerradas) {
+            $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
         }
 
         error_log('admin_reset_password (test): ' . implode('; ', $log));
 
         echo json_encode([
             'success' => true,
-            'message' => 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
+            // Es la cuenta con mas poder del sitio: si las otras sesiones
+            // quedaron abiertas, quien la recupera tiene que saberlo.
+            'message' => $sesionesCerradas
+                ? 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
+                : 'Contrasena actualizada, pero NO se pudieron cerrar las sesiones que ya estaban abiertas. '
+                . 'Si sospechas de un acceso ajeno, avisa a soporte.'
         ]);
     } catch (Exception $e) {
         error_log("admin_reset_password (test) error: " . $e->getMessage());

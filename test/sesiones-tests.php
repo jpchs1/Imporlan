@@ -50,18 +50,34 @@ prueba('ningun archivo usa las funciones del mecanismo retirado', !$restos);
 // esos espejos estan vivos en produccion, cargan ../../api/credentials.php
 // (el mismo secreto) y deploy-test.sh les copia la base de produccion.
 $verificadores = [];
-foreach (array_merge(glob($raiz . '/api/*.php'), glob($raiz . '/test/api/*.php')) as $php) {
-    $src = file_get_contents($php);
-    if (preg_match('/explode\(\s*[\'"]\.[\'"]\s*,\s*\$token\s*\)/', $src)) {
-        $verificadores[str_replace($raiz . '/', '', $php)] = $src;
+// RECURSIVA. La primera version miraba solo api/*.php y test/api/*.php, y se
+// le escapo api/test/proxy.php: /api/test/auth/me valida el token por su
+// cuenta y index.php lo enruta en produccion.
+$todos = function ($dir) {
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+    foreach ($it as $f) if (substr($f->getFilename(), -4) === '.php') yield $f->getPathname();
+};
+foreach ([$raiz . '/api', $raiz . '/test/api'] as $dir) {
+    foreach ($todos($dir) as $php) {
+        $src = file_get_contents($php);
+        if (preg_match('/explode\(\s*[\'"]\.[\'"]\s*,\s*\$token\s*\)/', $src)) {
+            $verificadores[str_replace($raiz . '/', '', $php)] = $src;
+        }
     }
 }
-// Nueve exactos: un verificador nuevo frena CI hasta que alguien decida a
+// Diez exactos: un verificador nuevo frena CI hasta que alguien decida a
 // conciencia si lleva el corte.
-prueba('hay exactamente nueve verificadores (cinco + cuatro espejos)', count($verificadores) === 9);
+prueba('hay exactamente diez verificadores (contando el proxy de /api/test)', count($verificadores) === 10);
 
 $corte = "if (function_exists('impTokenRevocado') && impTokenRevocado(\$payload)) return null;";
 foreach ($verificadores as $nombre => $src) {
+    if ($nombre === 'api/test/proxy.php') {
+        prueba("$nombre consulta la revocacion",
+            strpos($src, "if (function_exists('impTokenRevocado') && impTokenRevocado(\$payload)) {") !== false);
+        prueba("$nombre carga session_revocation.php con red y de la ruta correcta",
+            strpos($src, "if (file_exists(__DIR__ . '/../session_revocation.php')) require_once") !== false);
+        continue;
+    }
     $esEspejo = strpos($nombre, 'test/api/') === 0;
     prueba("$nombre consulta la revocacion", strpos($src, $corte) !== false);
     // Los espejos tienen que leer las marcas de PRODUCCION. Si apuntaran a su
@@ -101,7 +117,8 @@ prueba('y en el reseteo con clave temporal del panel',
 // test/api/admin_reset_password.php, que cambiaba la clave de PRODUCCION sin
 // cerrar ninguna sesion.
 $escritores = [];
-foreach (array_merge(glob($raiz . '/api/*.php'), glob($raiz . '/test/api/*.php')) as $php) {
+foreach (array_merge(iterator_to_array($todos($raiz . '/api'), false), iterator_to_array($todos($raiz . '/test/api'), false)) as $php) {
+    // Recursiva, por lo mismo que la de verificadores.
     $src = file_get_contents($php);
     if (preg_match('/password_hash = \?/', $src) || strpos($src, "define('IMPORLAN_ADMIN_PASSWORD', '\" .") !== false) {
         $escritores[str_replace($raiz . '/', '', $php)] = $src;
@@ -112,6 +129,18 @@ foreach ($escritores as $nombre => $src) {
     prueba("$nombre cierra las sesiones al cambiar la clave", strpos($src, 'impInvalidarSesionesDe(') !== false);
 }
 
+// Y el resultado del corte EMPIEZA EN FALSE: solo pasa a true si el modulo
+// existe Y escribio la marca. Con la forma vieja —if (file_exists) { if
+// (!corte) avisar }— un modulo ausente se saltaba el aviso entero y el cambio
+// de clave salia como exito limpio con todas las sesiones viejas vivas.
+foreach ($escritores as $nombre => $src) {
+    prueba("$nombre trata el modulo ausente como un fallo del corte",
+        strpos($src, '$sesionesCerradas = false;') !== false
+        || strpos($src, "function_exists('impInvalidarSesionesDe') && impInvalidarSesionesDe(") !== false);
+}
+foreach (['api/admin_reset_password.php', 'test/api/admin_reset_password.php'] as $f) {
+    prueba("$f dice la verdad si el corte fallo", strpos(leer($f), 'NO se pudieron cerrar las sesiones') !== false);
+}
 // Y quien cambio la clave se entera si el corte fallo: es lo unico que le
 // permite actuar.
 prueba('el cliente se entera si sus otras sesiones siguen abiertas',
