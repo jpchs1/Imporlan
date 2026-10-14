@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/credentials.php';
+require_once __DIR__ . '/session_revocation.php';
 
 function handleAuthEndpoint($uriPath) {
     header('Content-Type: application/json');
@@ -91,6 +92,11 @@ function verifyJWTLocal($token) {
 
     $payload = json_decode(base64_decode(strtr($b64Payload, '-_', '+/')), true);
     if (!$payload || ($payload['exp'] ?? 0) < time()) return null;
+
+    // Firma buena y sin vencer no alcanza: si la cuenta cambio de contrasena
+    // despues de que se emitiera este token, no vale. Sin esto, cambiar la
+    // clave no echaba a quien ya estaba dentro.
+    if (impTokenRevocado($payload)) return null;
 
     return $payload;
 }

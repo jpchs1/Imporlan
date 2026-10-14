@@ -126,15 +126,99 @@ function urPermiteSolicitud($email, $ip) {
 }
 
 /**
- * La IP con la que se cuenta el tope. A proposito es REMOTE_ADDR y no
- * X-Forwarded-For: esa cabecera la escribe quien hace la peticion, asi que
- * bastaria con cambiarla en cada intento para estrenar cuota una y otra vez y
- * dejar el tope por IP en nada. REMOTE_ADDR es la unica que no se puede
- * inventar desde fuera.
+ * Rangos desde los que SI se le cree a una cabecera de proxy: los de
+ * Cloudflare, que es el CDN del sitio (DEPLOY-SAFETY.md manda hacerle "Purge
+ * Everything" despues de cada despliegue). Se puede reemplazar la lista desde
+ * db_config.php definiendo UR_PROXIES_CONFIABLES, para el dia que cambie.
+ *
+ * Si Cloudflare agrega un rango y esta lista queda vieja, las peticiones de esa
+ * franja vuelven a contarse por la IP del borde: mas estricto de lo necesario,
+ * nunca mas flojo. Y si alguna vez el proxy esta apagado y las peticiones
+ * llegan derecho al hosting, REMOTE_ADDR no cae en ningun rango y todo se
+ * comporta como antes. Equivocarse siempre hacia ese lado es el punto.
+ */
+function urProxiesDeConfianza() {
+    if (defined('UR_PROXIES_CONFIABLES')) {
+        $valor = UR_PROXIES_CONFIABLES;
+        if (is_array($valor)) return $valor;
+        return array_values(array_filter(array_map('trim', explode(',', (string) $valor))));
+    }
+    return [
+        // cloudflare.com/ips-v4
+        '173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22',
+        '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+        '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13',
+        '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22',
+        // cloudflare.com/ips-v6
+        '2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32',
+        '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32',
+    ];
+}
+
+/** Si una IP cae dentro de un CIDR. Sirve para v4 y v6. */
+function urIpEnRango($ip, $cidr) {
+    $partes = explode('/', $cidr, 2);
+    $binIp  = @inet_pton($ip);
+    $binRed = @inet_pton($partes[0]);
+    if ($binIp === false || $binRed === false || strlen($binIp) !== strlen($binRed)) {
+        return false;
+    }
+    $bits = isset($partes[1]) ? (int) $partes[1] : strlen($binRed) * 8;
+    if ($bits < 0 || $bits > strlen($binRed) * 8) return false;
+
+    $enteros = intdiv($bits, 8);
+    $sueltos = $bits % 8;
+    if ($enteros > 0 && strncmp($binIp, $binRed, $enteros) !== 0) return false;
+    if ($sueltos === 0) return true;
+
+    $mascara = chr((0xff << (8 - $sueltos)) & 0xff);
+    return ($binIp[$enteros] & $mascara) === ($binRed[$enteros] & $mascara);
+}
+
+/**
+ * La IP con la que se cuenta el tope.
+ *
+ * REMOTE_ADDR a secas no servia: en produccion el sitio esta detras de
+ * Cloudflare, asi que REMOTE_ADDR es siempre una IP de borde de Cloudflare y
+ * las 12 solicitudes por hora quedaban repartidas entre TODOS los clientes —
+ * doce recuperaciones por hora en todo el sitio, y un cliente dejando a otro
+ * sin poder recuperar su clave. El tope estaba pensado para que no se pudiera
+ * recorrer una lista de correos desde una maquina, y terminaba castigando a
+ * los clientes de verdad.
+ *
+ * Creerle a la cabecera sin mas tampoco: la escribe quien hace la peticion, asi
+ * que bastaria cambiarla en cada intento para estrenar cuota y dejar el tope en
+ * nada. Era un riesgo real y por eso estaba asi.
+ *
+ * La salida es mirar QUIEN la escribio: se le cree solo cuando REMOTE_ADDR es
+ * de un proxy de confianza, porque ahi la puso el proxy. Desde cualquier otro
+ * sitio manda REMOTE_ADDR, que es lo unico que no se puede inventar.
  */
 function urIpCliente() {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : 'desconocida';
+    $remota = $_SERVER['REMOTE_ADDR'] ?? '';
+    if (!filter_var($remota, FILTER_VALIDATE_IP)) return 'desconocida';
+
+    $deConfianza = false;
+    foreach (urProxiesDeConfianza() as $rango) {
+        if (urIpEnRango($remota, $rango)) { $deConfianza = true; break; }
+    }
+    if (!$deConfianza) return $remota;
+
+    // CF-Connecting-IP la pone Cloudflare y trae una sola IP. De
+    // X-Forwarded-For se toma la ULTIMA, que es la que agrego el proxy; las de
+    // antes las pudo haber escrito el cliente.
+    $candidatas = [];
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        $candidatas[] = trim((string) $_SERVER['HTTP_CF_CONNECTING_IP']);
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $cadena = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+        $candidatas[] = trim((string) end($cadena));
+    }
+    foreach ($candidatas as $ip) {
+        if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+    }
+    return $remota;
 }
 
 /**
