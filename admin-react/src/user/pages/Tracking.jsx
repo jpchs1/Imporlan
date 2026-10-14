@@ -316,7 +316,7 @@ export default function Tracking() {
           {/* Mapa */}
           <div className="lg:col-span-8 relative rounded-lg overflow-hidden border border-line shadow-card bg-neutral-bg min-h-[360px] lg:min-h-[560px] h-[50vh] lg:h-[calc(100dvh-var(--topbar-h)-9rem)]">
             <MapaBarcos vessels={filteredVessels} positions={rutaActual} selectedId={selectedId} onSelectVessel={handleSelectVessel} />
-            <div className="absolute top-3 left-3 z-[2] bg-surface/95 border border-line rounded-md px-3 py-1.5 text-xs text-ink-700 flex items-center gap-3 shadow-card pointer-events-none" aria-hidden="true">
+            <div className="absolute top-3 right-3 z-[500] bg-surface/95 border border-line rounded-md px-3 py-1.5 text-xs text-ink-700 flex items-center gap-3 shadow-card pointer-events-none" aria-hidden="true">
               <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brand-600 border border-white" /> Seleccionado</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-ink-900 border border-white" /> Otros barcos</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 bg-brand-600" /> Ruta recorrida</span>
