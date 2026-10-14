@@ -138,6 +138,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @unlink($tokenFile);
 
+        // Las sesiones abiertas con la clave vieja dejan de valer. Es la cuenta
+        // con mas poder del sitio: si alguien la recupera porque cree que otro
+        // entro, ese otro no puede quedarse una semana mas.
+        require_once __DIR__ . '/credentials.php';
+        if (file_exists(__DIR__ . '/sesiones.php')) {
+            require_once __DIR__ . '/sesiones.php';
+            if (!sesionesCerrarAnteriores(IMPORLAN_ADMIN_EMAIL)) {
+                $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
+            }
+        }
+
         error_log('admin_reset_password: ' . implode('; ', $log));
 
         echo json_encode([

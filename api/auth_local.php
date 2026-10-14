@@ -68,6 +68,10 @@ function getJwtSecretLocal() {
 }
 
 function generateJWT($payload) {
+    // Momento de emision en milisegundos. `iat` va en segundos, y con eso no
+    // se puede saber si un token nacio antes o despues de un cambio de clave
+    // ocurrido en ese mismo segundo. Ver api/sesiones.php.
+    $payload['iat_ms'] = (int) floor(microtime(true) * 1000);
     $secret = getJwtSecretLocal();
     $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
     $b64Header = rtrim(strtr(base64_encode($header), '+/', '-_'), '=');

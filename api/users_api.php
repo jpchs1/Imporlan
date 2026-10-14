@@ -394,13 +394,16 @@ function usersUpdate() {
         // Si se le cambio la contrasena, sus sesiones abiertas dejan de valer.
         // Un administrador que le cambia la clave a alguien suele estar
         // haciendo justamente eso: sacarlo.
+        //
+        // Con el correo de ANTES del cambio: si en la misma edicion se le cambio
+        // tambien el correo, sus tokens vivos siguen llevando el viejo, y una
+        // marca puesta solo al nuevo los dejaba pasar a todos. Se marca el
+        // nuevo tambien, por las dudas de una sesion abierta entremedio.
         if (!empty($input['password'])) {
-            $correo = $pdo->prepare("SELECT email FROM admin_users WHERE id = ?");
-            $correo->execute([$id]);
-            $fila = $correo->fetch(PDO::FETCH_ASSOC);
-            if ($fila) {
-                require_once __DIR__ . '/sesiones.php';
-                sesionesCerrarAnteriores($fila['email']);
+            require_once __DIR__ . '/sesiones.php';
+            if ($targetEmail !== '') sesionesCerrarAnteriores($targetEmail);
+            if (!empty($input['email']) && strcasecmp($input['email'], $targetEmail) !== 0) {
+                sesionesCerrarAnteriores($input['email']);
             }
         }
 

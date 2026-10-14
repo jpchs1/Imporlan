@@ -79,7 +79,7 @@ prueba('sin iat, con un cambio reciente, no sigue',
 // ------------------------------------------------- la marca caduca sola
 // Pasados los siete dias que dura un token, guardar la marca no protege de
 // nada: esos tokens ya vencieron por su cuenta.
-@file_put_contents($archivo, json_encode([$correo => time() - (8 * 24 * 3600)]));
+@file_put_contents($archivo, json_encode([$correo => (int) floor(microtime(true) * 1000) - (8 * 24 * 3600 * 1000)]));
 sesionesLista(true);
 prueba('una marca de hace mas de siete dias ya no echa a nadie',
     sesionSigueValiendo($tokenDe($correo, time() - (9 * 24 * 3600))) === true);
@@ -96,38 +96,84 @@ sesionesLista(true);
 prueba('un archivo corrupto no deja a nadie fuera',
     sesionSigueValiendo($tokenDe($correo, time() - 3600)) === true);
 
-// ------------------------------- las dos verificaciones cortan igual
-$local = file_get_contents(__DIR__ . '/../api/auth_local.php');
-$helper = file_get_contents(__DIR__ . '/../api/auth_helper.php');
+// ------------------------------- las CINCO verificaciones cortan igual
+// Habia cinco copias del verificador de tokens y el corte estaba en dos: el
+// dashboard del administrador, el chat y el marketplace seguian aceptando un
+// token revocado una semana entera. Se buscan por el patron —partir el token
+// en tres—, no por el nombre, que es como se escaparon la primera vez.
 $corte = "if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo(\$payload)) return null;";
-prueba('verifyJWTLocal consulta las sesiones cerradas', strpos($local, $corte) !== false);
-prueba('verifyJWTToken consulta las sesiones cerradas', strpos($helper, $corte) !== false);
-
-// Si el archivo faltara —deploy a medias, o el antivirus del hosting, que ya
-// se llevo lib/link_scraper.php una vez— un require a secas seria un error
-// fatal en la verificacion de TODAS las sesiones y nadie podria entrar.
-foreach (['auth_local' => $local, 'auth_helper' => $helper] as $nombre => $src) {
-    prueba("$nombre no cae si falta sesiones.php",
-        strpos($src, "if (file_exists(__DIR__ . '/sesiones.php')) require_once") !== false
-        && !preg_match("/^\s*require_once __DIR__ \. '\/sesiones\.php';/m", $src));
+$verificadores = [];
+foreach (glob(__DIR__ . '/../api/*.php') as $php) {
+    $src = file_get_contents($php);
+    if (preg_match('/explode\(\s*[\'"]\.[\'"]\s*,\s*\$token\s*\)/', $src)) $verificadores[basename($php)] = $src;
 }
+prueba('se encontraron los cinco verificadores', count($verificadores) === 5);
+foreach ($verificadores as $nombre => $src) {
+    prueba("$nombre consulta las sesiones cerradas", strpos($src, $corte) !== false);
+    prueba("$nombre no cae si falta sesiones.php",
+        strpos($src, "if (file_exists(__DIR__ . '/sesiones.php')) require_once") !== false);
+}
+
+// ------------------------------------- precision: el mismo segundo
+// iat va en segundos. Un token nacido ANTES del cambio pero en ese mismo
+// segundo pasaba como bueno. Ahora los tokens traen iat_ms.
+@unlink($archivo); sesionesLista(true);
+$antesMs = (int) floor(microtime(true) * 1000);
+usleep(3000);
+sesionesCerrarAnteriores('preciso@ejemplo.cl');
+usleep(3000);
+$despuesMs = (int) floor(microtime(true) * 1000);
+$seg = (int) floor($antesMs / 1000);
+prueba('un token del mismo segundo pero ANTERIOR al cambio ya no vale',
+    sesionSigueValiendo(['email' => 'preciso@ejemplo.cl', 'iat' => $seg, 'iat_ms' => $antesMs]) === false);
+prueba('uno del mismo segundo pero POSTERIOR si vale',
+    sesionSigueValiendo(['email' => 'preciso@ejemplo.cl', 'iat' => $seg, 'iat_ms' => $despuesMs]) === true);
+
+$local = file_get_contents(__DIR__ . '/../api/auth_local.php');
+$adminApi = file_get_contents(__DIR__ . '/../api/admin_api.php');
+prueba('generateJWT estampa iat_ms', strpos($local, "\$payload['iat_ms'] = (int) floor(microtime(true) * 1000);") !== false);
+prueba('createJWT estampa iat_ms',   strpos($adminApi, "\$payload['iat_ms'] = (int) floor(microtime(true) * 1000);") !== false);
+
+// --------------------------------------------- escritura atomica
+// Truncar y reescribir dejaba un instante con la lista vacia, y ahi un token
+// revocado pasaba. Ahora se escribe a un temporal y se renombra encima.
+$ses = file_get_contents(__DIR__ . '/../api/sesiones.php');
+prueba('la lista se reemplaza de un golpe, no se trunca',
+    strpos($ses, '@rename($tmp, $archivo)') !== false && strpos($ses, 'ftruncate') === false);
+
+prueba('si no se puede escribir, se avisa en vez de fingir exito',
+    strpos($ses, 'function sesionesCerrarAnteriores') !== false
+    && preg_match('/if \(!\$escrito\) \{[^}]*return false;/s', $ses) === 1);
 
 // --------------------- se cierra en los cuatro sitios donde cambia la clave
 $donde = [
     'api/user_reset_password.php' => 'la recuperacion del cliente',
     'api/users_api.php'           => 'el panel de administracion',
     'api/admin_profile.php'       => 'el cambio de tu propia clave',
+    'api/admin_reset_password.php'=> 'la recuperacion del administrador principal',
 ];
 foreach ($donde as $archivoPhp => $queEs) {
     prueba("se cierran las sesiones en $queEs",
         strpos(file_get_contents(__DIR__ . '/../' . $archivoPhp), 'sesionesCerrarAnteriores(') !== false);
 }
 
+// Si en la misma edicion se cambia el correo, los tokens vivos llevan el
+// VIEJO: la marca tiene que ir a ese.
+$usersApi = file_get_contents(__DIR__ . '/../api/users_api.php');
+prueba('al cambiar clave y correo a la vez se marca el correo anterior',
+    strpos($usersApi, 'sesionesCerrarAnteriores($targetEmail)') !== false);
+
+$resetPrincipal = file_get_contents(__DIR__ . '/../api/admin_reset_password.php');
+prueba('el reseteo del principal marca la cuenta del administrador',
+    strpos($resetPrincipal, 'sesionesCerrarAnteriores(IMPORLAN_ADMIN_EMAIL)') !== false);
+
 // Quien cambia su propia clave no se expulsa a si mismo.
 $perfil = file_get_contents(__DIR__ . '/../api/admin_profile.php');
 prueba('cambiar tu propia clave te devuelve un token nuevo',
     strpos($perfil, "'access_token' => \$tokenNuevo") !== false);
 $apiAdmin = file_get_contents(__DIR__ . '/../admin-react/src/admin/api.js');
+prueba('el token renovado conserva los permisos del agente',
+    strpos($perfil, "'permissions' => \$user['permissions'] ?? null,") !== false);
 prueba('y el panel lo guarda',
     strpos($apiAdmin, 'if (res?.access_token) localStorage.setItem(STORAGE_KEYS.token, res.access_token);') !== false);
 
@@ -142,6 +188,8 @@ prueba('el enlace del cliente va solo al titular',
 
 // --------------------------------------------------------------- limpieza
 if ($habia === null) { @unlink($archivo); } else { @file_put_contents($archivo, $habia); }
+// El candado es un archivo aparte: si no se borra, cada corrida deja uno.
+@unlink($archivo . '.lock');
 if (!$habiaCarpeta) @rmdir(dirname($archivo));
 
 echo str_repeat('-', 54) . "\n";

@@ -42,42 +42,63 @@ function sesionesVentana() {
 /**
  * Deja constancia de que las sesiones de este correo abiertas hasta ahora ya
  * no valen. Se llama al cambiar una contrasena.
+ *
+ * Devuelve false si no pudo escribirse. La clave igual quedo cambiada —eso ya
+ * paso—, pero las sesiones viejas siguen abiertas, y quien llama tiene que
+ * poder saberlo en vez de anunciar un exito a medias.
  */
 function sesionesCerrarAnteriores($email) {
     $email = strtolower(trim((string) $email));
-    if ($email === '') return;
+    if ($email === '') return false;
 
     $archivo = sesionesArchivo();
     $dir = dirname($archivo);
     if (!is_dir($dir)) @mkdir($dir, 0750, true);
 
-    // Con candado: dos cambios a la vez no pueden pisarse la lista.
-    $fh = @fopen($archivo, 'c+');
-    if (!$fh) {
-        error_log('sesiones: no pude abrir ' . $archivo);
-        return;
+    // El candado va sobre un archivo aparte, no sobre la lista. Asi la lista
+    // se puede reemplazar entera de un golpe (ver abajo) sin que dos
+    // escritores se pisen.
+    $fhCandado = @fopen($archivo . '.lock', 'c');
+    if (!$fhCandado || !flock($fhCandado, LOCK_EX)) {
+        if ($fhCandado) fclose($fhCandado);
+        error_log('sesiones: no pude tomar el candado de ' . $archivo);
+        return false;
     }
-    if (!flock($fh, LOCK_EX)) { fclose($fh); return; }
 
-    $lista = json_decode((string) stream_get_contents($fh), true);
+    $lista = is_file($archivo) ? json_decode((string) @file_get_contents($archivo), true) : [];
     if (!is_array($lista)) $lista = [];
 
-    $ahora = time();
-    // Se poda al escribir, que es lo que pasa pocas veces; leer es lo que pasa
-    // en cada peticion y conviene que no haga nada mas que leer.
-    foreach ($lista as $correo => $ts) {
-        if (!is_int($ts) || ($ahora - $ts) > sesionesVentana()) unset($lista[$correo]);
-    }
-    $lista[$email] = $ahora;
+    // En milisegundos. `iat` va en segundos y con eso no se distingue un token
+    // nacido antes del cambio de uno nacido despues, si los dos caen en el
+    // mismo segundo — que es justo lo que pasa con el token nuevo que se le da
+    // a quien cambia su propia clave.
+    $ahoraMs = (int) floor(microtime(true) * 1000);
 
-    rewind($fh);
-    ftruncate($fh, 0);
-    fwrite($fh, json_encode($lista));
-    fflush($fh);
-    flock($fh, LOCK_UN);
-    fclose($fh);
+    // Se poda al escribir, que pasa pocas veces; leer pasa en cada peticion.
+    foreach ($lista as $correo => $ms) {
+        if (!is_int($ms) || ($ahoraMs - $ms) > sesionesVentana() * 1000) unset($lista[$correo]);
+    }
+    $lista[$email] = $ahoraMs;
+
+    // ESCRITURA ATOMICA: se escribe a un temporal y se renombra encima. Quien
+    // lee sin candado —que es cada peticion del sitio— ve la lista vieja o la
+    // nueva, nunca una a medias. Truncar y reescribir en el mismo archivo
+    // dejaba un instante en que la lista estaba vacia, y en ese instante un
+    // token revocado pasaba como bueno.
+    $tmp = $archivo . '.tmp' . getmypid();
+    $escrito = @file_put_contents($tmp, json_encode($lista)) !== false && @rename($tmp, $archivo);
+    if (!$escrito) @unlink($tmp);
+
+    flock($fhCandado, LOCK_UN);
+    fclose($fhCandado);
+
+    if (!$escrito) {
+        error_log('sesiones: NO se pudo registrar el cierre de sesiones de ' . $email);
+        return false;
+    }
 
     sesionesLista(true); // el cache de esta peticion quedo viejo
+    return true;
 }
 
 /** La lista, leida una sola vez por peticion. */
@@ -110,14 +131,22 @@ function sesionSigueValiendo($payload) {
     $lista = sesionesLista();
     if (!isset($lista[$email]) || !is_int($lista[$email])) return true;
 
-    $cambio = $lista[$email];
-    if ((time() - $cambio) > sesionesVentana()) return true; // marca ya inutil
+    $cambioMs = $lista[$email];
+    $ahoraMs = (int) floor(microtime(true) * 1000);
+    if (($ahoraMs - $cambioMs) > sesionesVentana() * 1000) return true; // marca ya inutil
 
-    // Sin iat no hay forma de saber si el token es anterior al cambio. Como la
-    // marca existe —o sea, hubo un cambio de clave reciente en esta cuenta—,
-    // aqui se opta por lo seguro: ese token no sigue.
+    // Los tokens nuevos traen iat_ms y se comparan al milisegundo.
+    if (isset($payload['iat_ms']) && is_int($payload['iat_ms'])) {
+        return $payload['iat_ms'] > $cambioMs;
+    }
+
+    // Los emitidos antes de que existiera iat_ms solo tienen segundos. Si su
+    // segundo empieza antes del cambio no se puede probar que sea posterior, y
+    // como la marca existe —hubo un cambio de clave reciente—, se opta por lo
+    // seguro. Al nuevo de quien cambia su propia clave no le afecta: ese ya
+    // nace con iat_ms.
     $iat = $payload['iat'] ?? null;
     if (!is_int($iat)) return false;
 
-    return $iat >= $cambio;
+    return ($iat * 1000) > $cambioMs;
 }

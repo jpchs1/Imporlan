@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // echaba a nadie y quien tuviera la sesion robada seguia dentro una
         // semana.
         require_once __DIR__ . '/sesiones.php';
-        sesionesCerrarAnteriores($userEmail);
+        $sesionesCerradas = sesionesCerrarAnteriores($userEmail);
 
         // Menos la de quien la esta cambiando: se le da un token nuevo para que
         // siga trabajando. Sin esto, cambiar la contrasena te expulsa a ti
@@ -248,19 +248,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tokenNuevo = null;
         require_once __DIR__ . '/auth_local.php';
         if (function_exists('generateJWT')) {
+            // Con los mismos permisos que traia. handleLogin y handleVerify2FA
+            // los meten en el token; sin copiarlos aqui, un agente que cambia
+            // su clave quedaba con permisos nulos hasta volver a entrar.
             $tokenNuevo = generateJWT([
-                'sub'    => (string) $row['id'],
-                'email'  => $userEmail,
-                'role'   => $user['role'] ?? 'user',
-                'locale' => $user['locale'] ?? 'es',
-                'exp'    => time() + (7 * 24 * 60 * 60),
-                'iat'    => time(),
+                'sub'         => (string) $row['id'],
+                'email'       => $userEmail,
+                'role'        => $user['role'] ?? 'user',
+                'locale'      => $user['locale'] ?? 'es',
+                'permissions' => $user['permissions'] ?? null,
+                'exp'         => time() + (7 * 24 * 60 * 60),
+                'iat'         => time(),
             ]);
         }
 
         echo json_encode(array_filter([
             'success'      => true,
-            'message'      => 'Contrasena actualizada. Se cerraron las otras sesiones abiertas de tu cuenta.',
+            // Se dice lo que paso de verdad. Si el disco no dejo registrar el
+            // cierre, la clave igual cambio, pero las otras sesiones siguen
+            // abiertas — y anunciar lo contrario es justo lo que no se puede.
+            'message'      => $sesionesCerradas
+                ? 'Contrasena actualizada. Se cerraron las otras sesiones abiertas de tu cuenta.'
+                : 'Contrasena actualizada. No pudimos cerrar tus otras sesiones abiertas: si sospechas de un acceso ajeno, avisa a soporte.',
             'access_token' => $tokenNuevo,
         ], function ($v) { return $v !== null; }));
         exit();

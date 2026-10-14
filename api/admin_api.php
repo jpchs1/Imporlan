@@ -81,6 +81,10 @@ function createJWT($payload) {
         $payload['exp'] = time() + (7 * 24 * 60 * 60);
     }
     $payload['iat'] = time();
+    // Momento de emision en milisegundos. `iat` va en segundos, y con eso no
+    // se puede saber si un token nacio antes o despues de un cambio de clave
+    // ocurrido en ese mismo segundo. Ver api/sesiones.php.
+    $payload['iat_ms'] = (int) floor(microtime(true) * 1000);
     
     $base64Header = base64UrlEncode($header);
     $base64Payload = base64UrlEncode(json_encode($payload));
@@ -105,6 +109,12 @@ function verifyJWT($token) {
     $payload = json_decode(base64UrlDecode($base64Payload), true);
     
     if ($payload['exp'] < time()) return null;
+    // El mismo corte que en verifyJWTLocal y verifyJWTToken: un cambio de
+    // contrasena cierra las sesiones abiertas hasta ese momento. Este archivo
+    // tiene su propia copia del verificador, y mientras no pasara por aqui un
+    // token revocado seguia sirviendo en esta parte del sitio una semana entera.
+    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
+    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
     
     return $payload;
 }

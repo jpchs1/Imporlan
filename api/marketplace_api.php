@@ -121,6 +121,12 @@ function verifyJWT($token) {
     if (!hash_equals($expectedSignature, $base64Signature)) return null;
     $payload = json_decode(base64UrlDecode($base64Payload), true);
     if ($payload['exp'] < time()) return null;
+    // El mismo corte que en verifyJWTLocal y verifyJWTToken: un cambio de
+    // contrasena cierra las sesiones abiertas hasta ese momento. Este archivo
+    // tiene su propia copia del verificador, y mientras no pasara por aqui un
+    // token revocado seguia sirviendo en esta parte del sitio una semana entera.
+    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
+    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
     return $payload;
 }
 
