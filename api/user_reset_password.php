@@ -8,7 +8,10 @@
  */
 
 require_once __DIR__ . '/user_recovery_common.php';
-require_once __DIR__ . '/session_revocation.php';
+// Con red: si faltara, un require a secas tumbaria la pagina de recuperacion
+// entera. Faltando, la clave se cambia igual y el cliente se entera de que sus
+// otras sesiones siguen abiertas (ver mas abajo).
+if (file_exists(__DIR__ . '/session_revocation.php')) require_once __DIR__ . '/session_revocation.php';
 
 /** Lee el token del enlace y devuelve [datos, mensajeDeError, vencido]. */
 function urValidarToken($token) {
@@ -105,7 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // existir todo esto es que a alguien le entraron a la cuenta: si los
         // JWT emitidos antes siguieran valiendo sus siete dias, cambiar la
         // clave cerraria la puerta con el intruso adentro.
-        if (!impInvalidarSesionesDe($cuenta['id'])) {
+        $sesionesCerradas = function_exists('impInvalidarSesionesDe') && impInvalidarSesionesDe($cuenta['id']);
+        if (!$sesionesCerradas) {
             urRegistrar("OJO: no se pudo invalidar las sesiones de  {$cuenta['email']}");
         }
 
@@ -137,7 +141,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         echo json_encode([
             'success' => true,
-            'message' => 'Listo. Ya puedes entrar a tu panel con tu contrasena nueva.',
+            // Si no se pudieron cerrar las otras sesiones, se le dice. Quien
+            // recupera una cuenta muchas veces es porque sospecha que otro
+            // entro, y es justo lo que necesita saber para pedir ayuda.
+            'message' => $sesionesCerradas
+                ? 'Listo. Ya puedes entrar a tu panel con tu contrasena nueva.'
+                : 'Tu contrasena quedo guardada, pero no pudimos cerrar las otras sesiones abiertas de tu cuenta. '
+                . 'Si crees que alguien mas entro, escribenos a contacto@imporlan.cl.',
         ]);
     } catch (Exception $e) {
         // Se devuelve el enlace a su sitio. Si la base de datos se cayo, la

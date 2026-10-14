@@ -211,7 +211,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = null;
         $isMainAccount = in_array(strtolower($userEmail), [strtolower(IMPORLAN_ADMIN_EMAIL), strtolower(IMPORLAN_SUPPORT_EMAIL)], true);
         if ($pdo && !$isMainAccount) {
-            $st = $pdo->prepare("SELECT id, password_hash FROM admin_users WHERE email = ?");
+            // SELECT *: el token renovado se arma con lo que la cuenta es HOY
+            // (estado, rol, permisos), no con lo que decia el token viejo.
+            $st = $pdo->prepare("SELECT * FROM admin_users WHERE email = ?");
             $st->execute([$userEmail]);
             $row = $st->fetch(PDO::FETCH_ASSOC);
         }
@@ -231,9 +233,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
+        // Una cuenta suspendida no renueva nada: si no, con el token que le
+        // quedaba y su clave podia sacarse uno nuevo de siete dias.
+        if (($row['status'] ?? 'active') !== 'active') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Tu cuenta no esta activa. Habla con un administrador.']);
+            exit();
+        }
+
         $upd = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
         $upd->execute([password_hash($newPassword, PASSWORD_DEFAULT), $row['id']]);
-        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente.']);
+
+        // Cambiar la clave cierra las sesiones abiertas de esta cuenta. Es el
+        // motivo por el que uno la cambia cuando sospecha: hasta ahora no
+        // echaba a nadie y quien tuviera la sesion robada seguia dentro una
+        // semana.
+        //
+        // Por id de cuenta, como lo hace session_revocation.php: asi sobrevive
+        // sola a un cambio de correo, sin tener que perseguir dos direcciones.
+        $sesionesCerradas = false;
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            $sesionesCerradas = impInvalidarSesionesDe($row['id']);
+        }
+
+        // Menos la de quien la esta cambiando: se le da un token nuevo para que
+        // siga trabajando. Sin esto, cambiar la contrasena te expulsa a ti
+        // mismo en la peticion siguiente, que es un castigo absurdo por hacer
+        // lo correcto.
+        $tokenNuevo = null;
+        require_once __DIR__ . '/auth_local.php';
+        if (function_exists('generateJWT')) {
+            // Rol, idioma y permisos salen de la cuenta en la base, como en
+            // handleLogin: si a alguien le bajaron el rol o le quitaron
+            // permisos despues de entrar, el token nuevo ya no los trae.
+            $tokenNuevo = generateJWT([
+                'sub'         => (string) $row['id'],
+                'email'       => $row['email'] ?? $userEmail,
+                'role'        => $row['role'] ?? 'user',
+                'locale'      => $row['locale'] ?? 'es',
+                'permissions' => $row['permissions'] ?? null,
+                'exp'         => time() + (7 * 24 * 60 * 60),
+                // Nace en el mismo segundo del corte o despues. Como la
+                // comparacion de session_revocation.php es estricta ('<'), este
+                // token sobrevive y los anteriores no.
+                'iat'         => time(),
+            ]);
+        }
+
+        echo json_encode(array_filter([
+            'success'      => true,
+            // Se dice lo que paso de verdad. Si el disco no dejo registrar el
+            // cierre, la clave igual cambio, pero las otras sesiones siguen
+            // abiertas — y anunciar lo contrario es justo lo que no se puede.
+            'message'      => $sesionesCerradas
+                ? 'Contrasena actualizada. Se cerraron las otras sesiones abiertas de tu cuenta.'
+                : 'Contrasena actualizada. No pudimos cerrar tus otras sesiones abiertas: si sospechas de un acceso ajeno, avisa a soporte.',
+            'access_token' => $tokenNuevo,
+        ], function ($v) { return $v !== null; }));
         exit();
     }
 

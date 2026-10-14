@@ -5,7 +5,11 @@
  * JWT secret is loaded from environment variable JWT_SECRET
  */
 
-require_once __DIR__ . '/session_revocation.php';
+// Con red: si este archivo faltara —un deploy a medias, o el antivirus del
+// hosting, que ya se llevo lib/link_scraper.php una vez— un require a secas
+// seria un error fatal en CADA peticion autenticada del sitio. Faltando, se
+// pierde el corte de sesiones y todo lo demas sigue como siempre.
+if (file_exists(__DIR__ . '/session_revocation.php')) require_once __DIR__ . '/session_revocation.php';
 
 function getJwtSecret() {
     if (defined('IMPORLAN_JWT_SECRET')) {
@@ -58,7 +62,7 @@ function verifyJWTToken($token) {
 
     // Si la cuenta cambio de contrasena despues de emitirse este token, no
     // vale: ver session_revocation.php.
-    if (impTokenRevocado($payload)) return null;
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) return null;
 
     return $payload;
 }

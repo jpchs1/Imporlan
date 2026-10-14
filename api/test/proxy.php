@@ -157,7 +157,18 @@ if ($path === '/api/auth/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(['detail' => 'Token expirado']);
         exit();
     }
-    
+
+    // El mismo corte que los demas verificadores (ver session_revocation.php).
+    // Esta ruta (/api/test/auth/me) la enruta index.php en produccion y
+    // valida el token por su cuenta: sin esto, una sesion cerrada por cambio
+    // de clave seguia respondiendo aqui una semana entera.
+    if (file_exists(__DIR__ . '/../session_revocation.php')) require_once __DIR__ . '/../session_revocation.php';
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) {
+        http_response_code(401);
+        echo json_encode(['detail' => 'La sesion se cerro porque cambio la contrasena. Vuelve a entrar.']);
+        exit();
+    }
+
     // Resolve user name: hardcoded users or DB lookup
     $userName = explode('@', $payload['email'] ?? '')[0];
     if (($payload['email'] ?? '') === 'admin@imporlan.cl') {

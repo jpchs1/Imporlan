@@ -1126,7 +1126,11 @@ BASE64;
             </p>';
 
         $subject = 'Tu contrasena ha sido restablecida - Imporlan';
-        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, 'Reseteo de contrasena'), 'password_reset', ['user_email' => $userEmail]);
+        // El ultimo parametro en true: este correo lleva la contrasena escrita
+        // en claro, asi que va SOLO al titular. Hasta ahora salia con la copia
+        // oculta a jpchs1@gmail.com y con CC al correo secundario del cliente,
+        // o sea que la clave de la cuenta aterrizaba en tres buzones.
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, 'Reseteo de contrasena'), 'password_reset', ['user_email' => $userEmail], true);
     }
 
     /**

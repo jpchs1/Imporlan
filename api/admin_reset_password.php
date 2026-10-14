@@ -138,11 +138,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @unlink($tokenFile);
 
+        // Las sesiones abiertas con la clave vieja dejan de valer. Es la cuenta
+        // con mas poder del sitio: si alguien la recupera porque cree que otro
+        // entro, ese otro no puede quedarse una semana mas.
+        require_once __DIR__ . '/credentials.php';
+        //
+        // El administrador principal no vive en la base: sus tokens llevan
+        // sub = 1, fijo en auth_local.php y en admin_api.php, y sus marcas van
+        // bajo 'principal:admin' para no pisarse con la fila 1 de admin_users
+        // (ver impClaveSesion en session_revocation.php).
+        $sesionesCerradas = false;
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            $sesionesCerradas = impInvalidarSesionesDe('principal:admin');
+        }
+        if (!$sesionesCerradas) {
+            $log[] = 'OJO: la clave cambio pero no se pudieron cerrar las sesiones abiertas';
+        }
+
         error_log('admin_reset_password: ' . implode('; ', $log));
 
         echo json_encode([
             'success' => true,
-            'message' => 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
+            // Es la cuenta con mas poder del sitio: si las otras sesiones
+            // quedaron abiertas, quien la recupera tiene que saberlo.
+            'message' => $sesionesCerradas
+                ? 'Contrasena actualizada exitosamente. Ya puedes iniciar sesion con tu nueva contrasena.'
+                : 'Contrasena actualizada, pero NO se pudieron cerrar las sesiones que ya estaban abiertas. '
+                . 'Si sospechas de un acceso ajeno, avisa a soporte.'
         ]);
     } catch (Exception $e) {
         error_log("admin_reset_password error: " . $e->getMessage());

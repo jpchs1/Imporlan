@@ -390,7 +390,32 @@ function usersUpdate() {
         $params[] = $id;
         $stmt = $pdo->prepare("UPDATE admin_users SET " . implode(', ', $sets) . " WHERE id = ?");
         $stmt->execute($params);
-        echo json_encode(['success' => true, 'message' => 'Usuario actualizado']);
+
+        // Si se le cambio la contrasena, sus sesiones abiertas dejan de valer.
+        // Un administrador que le cambia la clave a alguien suele estar
+        // haciendo justamente eso: sacarlo.
+        //
+        // Por id, no por correo: si en la misma edicion tambien se le cambio el
+        // correo, el id es el mismo y los tokens vivos —que llevan el id en
+        // `sub`— caen igual.
+        //
+        // Empieza en false y solo pasa a true si el modulo existe Y escribio la
+        // marca. Asi un modulo ausente se reporta igual que un disco lleno, en
+        // vez de pasar por un cambio de clave limpio.
+        $avisoSesiones = '';
+        if (!empty($input['password'])) {
+            $sesionesCerradas = false;
+            if (file_exists(__DIR__ . '/session_revocation.php')) {
+                require_once __DIR__ . '/session_revocation.php';
+                $sesionesCerradas = impInvalidarSesionesDe($id);
+            }
+            if (!$sesionesCerradas) {
+                error_log('users_api: la clave cambio pero no se pudieron cerrar las sesiones de la cuenta ' . $id);
+                $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
+            }
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Usuario actualizado.' . $avisoSesiones]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al actualizar: ' . $e->getMessage()]);
@@ -623,16 +648,28 @@ function usersSendPasswordReset() {
         $stmtUpdate = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
         $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
 
+        // La clave vieja ya no sirve, y las sesiones abiertas con ella tampoco.
+        $avisoSesiones = '';
+        $sesionesCerradas = false;
+        if (file_exists(__DIR__ . '/session_revocation.php')) {
+            require_once __DIR__ . '/session_revocation.php';
+            $sesionesCerradas = impInvalidarSesionesDe($user['id']);
+        }
+        if (!$sesionesCerradas) {
+            error_log('users_api: temporal enviada pero no se pudieron cerrar las sesiones de la cuenta ' . $user['id']);
+            $avisoSesiones = ' Ojo: no se pudieron cerrar sus sesiones abiertas.';
+        }
+
         // Send email with temporary password
         require_once __DIR__ . '/email_service.php';
         $emailService = new EmailService();
         $result = $emailService->sendPasswordResetEmail($user['email'], $user['name'], $tempPassword);
 
         if ($result['success']) {
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email']]);
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida y email enviado a ' . $user['email'] . '.' . $avisoSesiones]);
         } else {
             // Password was updated but email failed - still report success with warning
-            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido'), 'email_error' => true]);
+            echo json_encode(['success' => true, 'message' => 'Contrasena restablecida pero hubo un error al enviar el email: ' . ($result['error'] ?? 'Error desconocido') . '.' . $avisoSesiones, 'email_error' => true]);
         }
     } catch (PDOException $e) {
         http_response_code(500);

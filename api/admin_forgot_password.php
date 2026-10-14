@@ -96,7 +96,11 @@ $htmlBody .= '</div></body></html>';
 try {
     require_once __DIR__ . '/email_service.php';
     $emailService = new EmailService();
-    $result = $emailService->sendCustomEmail($to, $subject, $htmlBody);
+    // sendPrivateEmail y no sendCustomEmail: este correo lleva un enlace que
+    // cambia la contrasena del administrador. Con sendCustomEmail salia ademas
+    // a la copia oculta y al correo secundario, y una llave repartida en varios
+    // buzones son varias formas de perderla.
+    $result = $emailService->sendPrivateEmail($to, $subject, $htmlBody);
 
     if (!empty($result['success'])) {
         echo json_encode([

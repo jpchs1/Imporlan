@@ -121,6 +121,13 @@ function verifyJWT($token) {
     if (!hash_equals($expectedSignature, $base64Signature)) return null;
     $payload = json_decode(base64UrlDecode($base64Payload), true);
     if ($payload['exp'] < time()) return null;
+    // El mismo corte que en verifyJWTLocal y verifyJWTToken (ver
+    // session_revocation.php). Este archivo tiene su propia copia del
+    // verificador, y mientras no pasara por aqui un token revocado seguia
+    // sirviendo en esta parte del sitio una semana entera. Se carga con red:
+    // si el archivo faltara, se pierde el corte pero no se cae el login.
+    if (file_exists(__DIR__ . '/session_revocation.php')) require_once __DIR__ . '/session_revocation.php';
+    if (function_exists('impTokenRevocado') && impTokenRevocado($payload)) return null;
     return $payload;
 }
 

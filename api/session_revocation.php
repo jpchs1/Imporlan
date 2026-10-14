@@ -86,6 +86,41 @@ function impTokenRevocado($payload) {
     // el panel siempre lo llevan (auth_local.php), asi que esto solo alcanza a
     // tokens de otra forma, y para esos se mantiene lo de antes.
     if ($sub === null || !is_numeric($iat)) return false;
-    $desde = impSesionesInvalidasDesde($sub);
+    $desde = impSesionesInvalidasDesde(impClaveSesion($payload));
     return $desde > 0 && intval($iat) < $desde;
+}
+
+/**
+ * Las dos cuentas principales (administrador y soporte, definidas en la
+ * configuracion del servidor y no en la base) llevan sub 1 y 2 fijos. Pero la
+ * tabla admin_users empieza en 1 tambien: con el sub pelado, recuperar la
+ * clave del administrador echaba al usuario 1 de la base, y al reves. Por eso
+ * esas dos tienen su propia clave, que sale del correo y no del numero.
+ */
+function impCuentasPrincipales() {
+    // Los mismos valores por defecto que credentials.php, que todos los que
+    // verifican tokens ya cargaron antes de llegar aqui.
+    $admin = defined('IMPORLAN_ADMIN_EMAIL') ? IMPORLAN_ADMIN_EMAIL : (getenv('IMPORLAN_ADMIN_EMAIL') ?: 'admin@imporlan.cl');
+    $soporte = defined('IMPORLAN_SUPPORT_EMAIL') ? IMPORLAN_SUPPORT_EMAIL : (getenv('IMPORLAN_SUPPORT_EMAIL') ?: 'soporte@imporlan.cl');
+    // clave => [sub fijo, correo]
+    return [
+        'principal:admin'   => ['1', strtolower(trim($admin))],
+        'principal:soporte' => ['2', strtolower(trim($soporte))],
+    ];
+}
+
+/**
+ * Con que clave se guardan las marcas de este token: la principal si es una
+ * (sub fijo Y su correo), si no el sub. Hacen falta las dos cosas: una fila de
+ * la base con el mismo correo pero otro id sigue siendo esa fila.
+ */
+function impClaveSesion($payload) {
+    $sub = trim((string) ($payload['sub'] ?? ''));
+    $email = strtolower(trim((string) ($payload['email'] ?? '')));
+    if ($email !== '') {
+        foreach (impCuentasPrincipales() as $clave => [$subFijo, $correo]) {
+            if ($correo !== '' && $sub === $subFijo && $email === $correo) return $clave;
+        }
+    }
+    return $payload['sub'] ?? null;
 }

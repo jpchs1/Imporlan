@@ -17,8 +17,11 @@ export const forgotPassword = (email) =>
 export const getProfile = () => request(`${API_BASE}/admin_profile.php`);
 export const updateProfileName = (name) =>
   request(`${API_BASE}/admin_profile.php`, { method: 'POST', body: JSON.stringify({ action: 'update_profile', name }) });
-export const changeProfilePassword = (currentPassword, newPassword, confirmPassword) =>
-  request(`${API_BASE}/admin_profile.php`, {
+// Cambiar la contrasena cierra las demas sesiones de la cuenta. El servidor
+// devuelve un token nuevo para que ESTA siga abierta; sin guardarlo, quien
+// acaba de cambiar su clave se expulsaria a si mismo en la peticion siguiente.
+export const changeProfilePassword = async (currentPassword, newPassword, confirmPassword) => {
+  const res = await request(`${API_BASE}/admin_profile.php`, {
     method: 'POST',
     body: JSON.stringify({
       action: 'change_password',
@@ -27,6 +30,9 @@ export const changeProfilePassword = (currentPassword, newPassword, confirmPassw
       confirm_password: confirmPassword,
     }),
   });
+  if (res?.access_token) localStorage.setItem(STORAGE_KEYS.token, res.access_token);
+  return res;
+};
 export async function uploadProfilePhoto(file) {
   const fd = new FormData();
   fd.append('action', 'update_photo');
