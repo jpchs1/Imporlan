@@ -482,8 +482,11 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             . '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">' . $etapasHtml . '</table>'
             . '</div>'
             . '<div style="background:#f8fafc;border-left:4px solid #94a3b8;padding:12px 16px;border-radius:6px;margin:18px 0;color:#475569;font-size:12px;line-height:1.6">'
-            . 'El <strong>flete marítimo y el seguro</strong> van a costo: son los mismos valores que aparecen en la declaración de aduana. '
+            . 'El <strong>flete marítimo y el seguro</strong> van a costo. '
             . 'Las etapas siguientes cubren cada tramo de la logística, y la última línea es nuestro trabajo: la gestión de Imporlan de principio a fin.'
+            // JP, 14-oct-2026: los montos por etapa se van moviendo unos con
+            // otros; lo que se mantiene es el total.
+            . '<div style="margin-top:8px"><strong>Los montos de cada etapa son referenciales:</strong> se van moviendo unos con otros (tarifas de naviera y puerto, tipo de cambio), pero el total se mantiene muy cerca de lo cotizado.</div>'
             . '</div>'
             . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px">Resumen de la cotización</div>'
             . $resumen
