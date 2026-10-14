@@ -172,6 +172,24 @@ prueba('el CC al correo secundario tambien se salta',
 prueba('si el correo no sale, el token se borra',
     (bool) preg_match('/if \(empty\(\$envio\[.success.\]\)\) \{.*?@unlink\(\$ruta\)/s', $forgotSrc));
 
+// Un 500 solo para las cuentas reales seria, durante una caida del SMTP, la
+// lista de clientes de Imporlan servida en bandeja. Se mira SOLO ese bloque:
+// el catch de mas abajo si contesta 500, y con el archivo entero cualquier
+// comprobacion daria igual.
+$iniBloque = strpos($forgotSrc, "if (empty(\$envio['success'])) {");
+$bloqueFallo = $iniBloque === false ? '' : substr($forgotSrc, $iniBloque, strpos($forgotSrc, 'exit();', $iniBloque) - $iniBloque);
+prueba('un fallo de SMTP contesta igual que una cuenta inexistente',
+    $bloqueFallo !== ''
+    && strpos($bloqueFallo, 'echo json_encode($respuestaNeutra);') !== false
+    && strpos($bloqueFallo, 'http_response_code(500)') === false);
+
+// ------------------------------------- el uso unico, de verdad
+// unlink es atomico: de dos peticiones con el mismo enlace, solo una recibe
+// true. Comprobar y borrar despues dejaba pasar a las dos.
+prueba('el token se reclama antes de tocar la base de datos',
+    strpos($reset, 'if (!@unlink(urRutaToken($token))) {') !== false
+    && strpos($reset, 'if (!@unlink(urRutaToken($token))) {') < strpos($reset, 'getDbConnection()'));
+
 // ------------------------------------------------- misma respuesta siempre
 // La frase de exito esta escrita UNA sola vez. Si alguien agregara un segundo
 // texto para el caso "no existe la cuenta", el formulario pasaria a delatar
@@ -201,7 +219,15 @@ prueba('handleLogin ya no filtra por status en el SELECT',
 prueba('handleLogin avisa cuando la cuenta esta desactivada',
     strpos($cuerpoLogin, 'Tu cuenta esta desactivada') !== false);
 prueba('handleLogin solo revela el estado tras verificar la clave',
-    preg_match('/password_verify\(\$password, \$dbUser\[.password_hash.\]\)\s*\n\s*&& \(\$dbUser\[.status.\] \?\? .active.\) !== .active./', $cuerpoLogin) === 1);
+    strpos($cuerpoLogin, 'if ($claveOk && !$cuentaActiva) {') !== false);
+
+// password_verify es lento a proposito. Llamarlo en las dos ramas duplicaba el
+// tiempo de cada login, acertado o no. Se cuenta solo el tramo de admin_users:
+// el de la tabla `users` heredada, mas abajo, es otra cuenta y su propia
+// llamada.
+$tramoAdminUsers = substr($cuerpoLogin, 0, strpos($cuerpoLogin, '// Check panel users'));
+prueba('handleLogin comprueba la clave una sola vez por cuenta',
+    substr_count($tramoAdminUsers, 'password_verify(') === 1);
 
 // --------------------------------------------------------------- limpieza
 foreach (glob($tmp . '/*') ?: [] as $f) @unlink($f);

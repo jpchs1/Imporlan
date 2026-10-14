@@ -194,3 +194,24 @@ function urBuscarCuenta($pdo, $email) {
 function urEsCuentaDeCliente($cuenta) {
     return isset($cuenta['role']) && $cuenta['role'] === 'user';
 }
+
+/**
+ * handleLogin() tambien acepta cuentas de una tabla `users` heredada, que no
+ * la crea nada en este repositorio: hoy parece codigo muerto. Si no lo fuera,
+ * esos clientes podrian entrar pero no recuperar su clave, y el sintoma seria
+ * mudo — "pedi el enlace y no me llego nada".
+ *
+ * Esto no cambia el comportamiento: solo deja la pista en el log, para que el
+ * dia que aparezca el caso se vea en vez de adivinarse. Si alguna vez sale una
+ * linea con esta marca, hay que darle soporte de verdad a esa tabla.
+ */
+function urPistaTablaHeredada($pdo, $email) {
+    try {
+        if (!$pdo->query("SHOW TABLES LIKE 'users'")->fetch()) return '';
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1");
+        $stmt->execute([trim($email)]);
+        return $stmt->fetch() ? '  [OJO: existe en la tabla users heredada]' : '';
+    } catch (\Throwable $e) {
+        return '';
+    }
+}

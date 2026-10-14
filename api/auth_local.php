@@ -158,8 +158,14 @@ function handleLogin() {
                 $stmt->execute([$email]);
                 $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($dbUser && password_verify($password, $dbUser['password_hash'])
-                    && ($dbUser['status'] ?? 'active') !== 'active') {
+                // password_verify es lento a proposito (es lo que hace cara de
+                // romper una contrasena robada). Se llama UNA vez y se guarda
+                // el resultado: comprobarlo en las dos ramas duplicaba el
+                // tiempo de cada login, acertado o no.
+                $claveOk = $dbUser && password_verify($password, $dbUser['password_hash']);
+                $cuentaActiva = ($dbUser['status'] ?? 'active') === 'active';
+
+                if ($claveOk && !$cuentaActiva) {
                     // El motivo solo lo ve quien acaba de probar que sabe la
                     // clave, asi que no le dice a nadie mas que esta cuenta existe.
                     http_response_code(403);
@@ -167,8 +173,7 @@ function handleLogin() {
                     return;
                 }
 
-                if ($dbUser && ($dbUser['status'] ?? 'active') === 'active'
-                    && password_verify($password, $dbUser['password_hash'])) {
+                if ($claveOk && $cuentaActiva) {
                     $user = [
                         'id' => (int)$dbUser['id'],
                         'email' => $dbUser['email'],

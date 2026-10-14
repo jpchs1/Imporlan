@@ -67,7 +67,7 @@ try {
         // Para el cliente esto se ve igual que un envio correcto. Queda en el
         // log para que, cuando avise que no le llego nada, se sepa que el
         // correo que escribio no tiene cuenta.
-        urRegistrar("sin cuenta  $email  ip=" . urIpParaElLog());
+        urRegistrar("sin cuenta  $email  ip=" . urIpParaElLog() . urPistaTablaHeredada($pdo, $email));
         echo json_encode($respuestaNeutra);
         exit();
     }
@@ -145,8 +145,14 @@ try {
         $motivo = $envio['error'] ?? 'desconocido';
         urRegistrar("fallo el envio  {$cuenta['email']}  ip=" . urIpParaElLog() . "  motivo=$motivo");
         error_log('user_forgot_password: envio fallido - ' . $motivo);
-        http_response_code(500);
-        echo json_encode(['error' => 'No pudimos enviar el correo en este momento. Escribenos a contacto@imporlan.cl y te ayudamos.']);
+
+        // Y se contesta lo mismo que si la cuenta no existiera. Un error aqui
+        // seria un error QUE SOLO VEN LAS CUENTAS REALES: durante una caida del
+        // SMTP bastaria con ir probando correos y quedarse con los que dan 500
+        // para sacar la lista de clientes de Imporlan. El cliente no queda a
+        // ciegas, porque debajo del mensaje el panel muestra el correo y el
+        // WhatsApp de Imporlan para cuando no llega nada.
+        echo json_encode($respuestaNeutra);
         exit();
     }
 

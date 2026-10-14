@@ -50,13 +50,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    // Se reclama el token ANTES de tocar nada. unlink es atomico: si dos
+    // peticiones llegan a la vez con el mismo enlace, solo una recibe true y la
+    // otra se va con las manos vacias. Comprobar y borrar despues dejaba pasar
+    // a las dos, y "un solo uso" era una promesa a medias.
+    if (!@unlink(urRutaToken($token))) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Este enlace ya se uso. Pide uno nuevo desde el panel.']);
+        exit();
+    }
+
     try {
         $pdo = getDbConnection();
         if (!$pdo) throw new Exception('sin conexion a la base de datos');
 
         $cuenta = urBuscarCuenta($pdo, $datos['email']);
         if (!$cuenta) {
-            @unlink(urRutaToken($token));
             http_response_code(400);
             echo json_encode(['error' => 'La cuenta ya no existe. Escribenos a contacto@imporlan.cl.']);
             exit();
@@ -67,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // pasar a administradora. Un token viejo no deberia poder cambiarle la
         // clave a una cuenta del panel.
         if (!urEsCuentaDeCliente($cuenta)) {
-            @unlink(urRutaToken($token));
             urRegistrar("enlace rechazado, cuenta no es de cliente  {$cuenta['email']}  role={$cuenta['role']}");
             http_response_code(403);
             echo json_encode(['error' => 'Esta cuenta no se recupera por aqui. Escribenos a contacto@imporlan.cl.']);
@@ -77,10 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?")
             ->execute([password_hash($nueva, PASSWORD_DEFAULT), $cuenta['id']]);
 
-        // El enlace sirve una sola vez. Y se tiran tambien los otros enlaces
-        // vivos del mismo correo: si alguien pidio tres, los tres dejan de
-        // servir en cuanto uno se usa.
-        @unlink(urRutaToken($token));
+        // El enlace ya se reclamo mas arriba. Aqui se tiran ademas los otros
+        // enlaces vivos del mismo correo: si alguien pidio tres, los tres dejan
+        // de servir en cuanto uno se usa.
         $dir = urDirectorioTokens();
         // Sin este guard, un $dir nulo convertiria el patron en '/*.json' y el
         // glob saldria a recorrer la raiz del servidor.
