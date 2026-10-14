@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { fmtCLP, cn } from '../../shared/lib/utils';
-import { Card, Button, Input } from '../../shared/components/UI';
+import { Card, Button, IconButton, Input, Select, Checkbox, FormGrid, PageHeader, Badge, Money } from '../../shared/components/UI';
+import { Plus, X, Check, Link2, CircleCheck, WebPayIcon, MercadoPagoIcon, WhatsAppIcon, ArrowRight } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 import { createWebPayTransaction, createMercadoPagoPreference } from '../api';
 
@@ -9,28 +10,28 @@ const PRICE_PER_LINK = 9900;
 const MIN_LINKS = 4;
 const MAX_LINKS = 10;
 
+/* Los `value` son los que recibe la API (sin tilde); la etiqueta es lo que se lee. */
 const COUNTRIES = [
-  { value: 'Chile', label: 'Chile', flag: '🇨🇱' },
-  { value: 'Peru', label: 'Peru', flag: '🇵🇪' },
-  { value: 'Colombia', label: 'Colombia', flag: '🇨🇴' },
-  { value: 'Mexico', label: 'Mexico', flag: '🇲🇽' },
-  { value: 'Argentina', label: 'Argentina', flag: '🇦🇷' },
-  { value: 'Otro', label: 'Otro', flag: '🌎' },
+  { value: 'Chile', label: 'Chile' },
+  { value: 'Peru', label: 'Perú' },
+  { value: 'Colombia', label: 'Colombia' },
+  { value: 'Mexico', label: 'México' },
+  { value: 'Argentina', label: 'Argentina' },
+  { value: 'Otro', label: 'Otro país' },
 ];
 
 const PORTALS = [
-  { name: 'BoatTrader', host: 'boattrader.com', color: 'text-blue-700 bg-blue-50 ring-blue-200' },
-  { name: 'YachtWorld', host: 'yachtworld.com', color: 'text-cyan-700 bg-cyan-50 ring-cyan-200' },
-  { name: 'Boats.com', host: 'boats.com', color: 'text-emerald-700 bg-emerald-50 ring-emerald-200' },
-  { name: 'iNautia', host: 'inautia.com', color: 'text-amber-700 bg-amber-50 ring-amber-200' },
-  { name: 'Otros portales', host: '', color: 'text-slate-600 bg-slate-50 ring-slate-200' },
+  { name: 'BoatTrader', host: 'boattrader.com' },
+  { name: 'YachtWorld', host: 'yachtworld.com' },
+  { name: 'Boats.com', host: 'boats.com' },
+  { name: 'iNautia', host: 'inautia.com' },
 ];
 
 const BENEFITS = [
-  'Cotización completa: precio + impuestos + transporte',
-  'Validacion del estado del listing',
-  'Comparativa entre las opciones que enviaste',
-  'Recomendacion del equipo Imporlan',
+  'Precio final puerta a puerta: embarcación, impuestos y transporte',
+  'Validación de que el anuncio sigue disponible',
+  'Comparativa entre los links que enviaste',
+  'Recomendación del equipo de Imporlan',
   'Respuesta en 48 horas hábiles',
 ];
 
@@ -39,6 +40,27 @@ function isValidUrl(s) {
   const t = s.trim();
   if (!t) return false;
   return /^https?:\/\/.+/i.test(t) || t.includes('.');
+}
+
+function detectPortal(url) {
+  const t = (url || '').toLowerCase();
+  for (const p of PORTALS) {
+    if (p.host && t.includes(p.host)) return p;
+  }
+  return null;
+}
+
+function Paso({ n, title, description, meta }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="h-7 w-7 rounded-full bg-brand-600 text-white text-13 font-semibold flex items-center justify-center shrink-0 tabular" aria-hidden="true">{n}</span>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-base font-semibold text-ink-900 leading-7">{title}</h2>
+        {description && <p className="text-13 text-ink-500">{description}</p>}
+      </div>
+      {meta && <div className="shrink-0">{meta}</div>}
+    </div>
+  );
 }
 
 export default function Quotation() {
@@ -51,10 +73,10 @@ export default function Quotation() {
     email: user?.email || user?.user_email || '',
     phone: '',
     country: 'Chile',
-    port: '',
   });
   const [accepted, setAccepted] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [touched, setTouched] = useState({});
 
   useEffect(() => {
     if (user && (!form.name || !form.email)) {
@@ -76,19 +98,12 @@ export default function Quotation() {
   function removeLink(i) { if (links.length > 1) setLinks(links.filter((_, idx) => idx !== i)); }
   function updateLink(i, val) { setLinks(links.map((l, idx) => idx === i ? val : l)); }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
-
-  function detectPortal(url) {
-    const t = (url || '').toLowerCase();
-    for (const p of PORTALS) {
-      if (p.host && t.includes(p.host)) return p;
-    }
-    return null;
-  }
+  function touch(k) { setTouched(t => ({ ...t, [k]: true })); }
 
   async function handlePay(method) {
-    if (validLinks.length === 0) { toast?.('Agrega al menos un link valido', 'error'); return; }
-    if (!form.name || !form.email) { toast?.('Completa tus datos de contacto', 'error'); return; }
-    if (!accepted) { toast?.('Acepta los terminos y condiciones', 'error'); return; }
+    if (validLinks.length === 0) { toast?.({ type: 'error', title: 'Agrega al menos un link válido' }); return; }
+    if (!form.name || !form.email) { toast?.({ type: 'error', title: 'Completa tu nombre y correo' }); return; }
+    if (!accepted) { toast?.({ type: 'error', title: 'Acepta los términos y condiciones' }); return; }
 
     setPaying(true);
     const desc = `Cotización por ${validLinks.length} link${validLinks.length > 1 ? 's' : ''}`;
@@ -117,7 +132,7 @@ export default function Quotation() {
           inp.type = 'hidden'; inp.name = 'token_ws'; inp.value = data.token;
           f.appendChild(inp); document.body.appendChild(f); f.submit();
           return;
-        } else { toast?.('Error al crear transaccion', 'error'); }
+        } else { toast?.({ type: 'error', title: 'No pudimos iniciar el pago con WebPay', description: 'Vuelve a intentarlo o paga con Mercado Pago.' }); }
       } else if (method === 'mercadopago') {
         const data = await createMercadoPagoPreference({
           amount: total,
@@ -133,337 +148,172 @@ export default function Quotation() {
         if (data.success && data.init_point) {
           window.location.href = data.init_point;
           return;
-        } else { toast?.('Error al crear preferencia', 'error'); }
+        } else { toast?.({ type: 'error', title: 'No pudimos iniciar el pago con Mercado Pago', description: 'Vuelve a intentarlo o paga con WebPay.' }); }
       }
-    } catch (e) { toast?.(e.message || 'Error al procesar pago', 'error'); }
+    } catch (e) { toast?.({ type: 'error', title: 'No se pudo procesar el pago', description: e?.message }); }
     setPaying(false);
   }
 
   const formReady = !!form.name && !!form.email;
   const canPay = validLinks.length > 0 && formReady && accepted && !paying;
+  const pendientes = [
+    validLinks.length === 0 && 'Agrega al menos un link',
+    !formReady && 'Completa tu nombre y correo',
+    !accepted && 'Acepta los términos y condiciones',
+  ].filter(Boolean);
 
-  return (
-    <div className="max-w-6xl mx-auto pb-12">
-      {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              Cotización express
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Cotizador online</h1>
-            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Pegá los links de las lanchas que te interesan (BoatTrader, YachtWorld, Boats.com, etc.) y te entregamos un informe completo con precio final puerta a puerta.
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="rounded-2xl bg-white/10 ring-1 ring-white/15 backdrop-blur px-5 py-3 text-right min-w-[180px]">
-              <p className="text-[10px] text-cyan-300 font-semibold uppercase tracking-[0.2em]">Precio fijo</p>
-              <p className="text-3xl font-extrabold leading-none mt-1">{fmtCLP(PRICE_PER_LINK)}</p>
-              <p className="text-[11px] text-slate-300 mt-1">por cada link cotizado</p>
-            </div>
-          </div>
-        </div>
+  const resumen = (
+    <Card className="lg:sticky lg:top-[calc(var(--topbar-h)+16px)]">
+      <p className="eyebrow">Resumen</p>
+      <dl className="mt-3 space-y-2 text-sm">
+        <div className="flex justify-between gap-3"><dt className="text-ink-500">Links válidos</dt><dd className="tabular text-ink-900">{validLinks.length}</dd></div>
+        <div className="flex justify-between gap-3"><dt className="text-ink-500">Precio por link</dt><dd className="tabular text-ink-900">{fmtCLP(PRICE_PER_LINK)}</dd></div>
+        <div className="flex justify-between gap-3"><dt className="text-ink-500">Destino</dt><dd className="text-ink-900">{country?.label || form.country}</dd></div>
+      </dl>
+      <div className="flex items-end justify-between gap-3 mt-4 pt-4 border-t border-line">
+        <span className="text-sm font-semibold text-ink-900">Total</span>
+        <Money clp={total} size="xl" align="right" />
       </div>
 
-      {/* Benefits strip */}
-      <Card className="mb-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {BENEFITS.map((b) => (
-            <div key={b} className="flex items-start gap-2 text-[12px] text-slate-600 leading-snug">
-              <svg className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
+      <div className="mt-5 space-y-2">
+        <Button block icon={WebPayIcon} onClick={() => handlePay('webpay')} disabled={!canPay} loading={paying}>Pagar con WebPay</Button>
+        <Button block variant="secondary" icon={MercadoPagoIcon} onClick={() => handlePay('mercadopago')} disabled={!canPay} loading={paying}>Pagar con Mercado Pago</Button>
+      </div>
+
+      {pendientes.length > 0 ? (
+        <ul className="mt-3 space-y-1 text-13 text-ink-500" aria-label="Falta para pagar">
+          {pendientes.map(p => <li key={p} className="flex items-start gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-warning mt-[7px] shrink-0" aria-hidden="true" />{p}</li>)}
+        </ul>
+      ) : (
+        <p className="mt-3 text-13 text-ink-500">Pago seguro con Transbank o Mercado Pago. Te confirmamos a {form.email}.</p>
+      )}
+
+      <div className="mt-5 pt-4 border-t border-line">
+        <p className="text-13 font-medium text-ink-900 mb-2">Qué incluye</p>
+        <ul className="space-y-1.5">
+          {BENEFITS.map(b => (
+            <li key={b} className="flex items-start gap-2 text-13 text-ink-700">
+              <CircleCheck size={16} className="text-success shrink-0 mt-0.5" />
               <span>{b}</span>
-            </div>
+            </li>
           ))}
-        </div>
-      </Card>
+        </ul>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        {/* Left column: Destino + Contacto */}
-        <div className="space-y-5">
-          {/* Destino */}
-          <Card>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
-              </div>
-              <div>
-                <h2 className="font-bold text-slate-800">Destino de la lancha</h2>
-                <p className="text-xs text-slate-400 mt-0.5">A donde quieres recibirla</p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">País destino</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {COUNTRIES.map(c => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => set('country', c.value)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition',
-                        form.country === c.value
-                          ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm shadow-cyan-500/20'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-cyan-300 hover:text-cyan-700'
-                      )}
-                    >
-                      <span className="text-base leading-none">{c.flag}</span>
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Input label="Puerto / Lugar de entrega" value={form.port} onChange={e => set('port', e.target.value)} placeholder="Ej: Valparaiso, San Antonio, Vina del Mar" />
-            </div>
-          </Card>
+      <div className="mt-5 pt-4 border-t border-line flex flex-col gap-2">
+        <a href="https://wa.me/56940211459?text=Hola%2C%20tengo%20una%20duda%20antes%20de%20cotizar%20mis%20links" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600 hover:underline">
+          <WhatsAppIcon size={16} /> ¿Dudas? Escríbenos por WhatsApp
+        </a>
+        <a href="#/plans" className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600 hover:underline">
+          <ArrowRight size={16} /> ¿Quieres que busquemos por ti? Ver planes
+        </a>
+      </div>
+    </Card>
+  );
 
-          {/* Contacto */}
-          <Card>
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-800">Datos de contacto</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">A donde te enviamos la cotización</p>
-                </div>
-              </div>
-              {user?.email && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold ring-1 ring-emerald-200 shrink-0">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
-                  Identificado
-                </span>
-              )}
-            </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Nombre *" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Tu nombre" />
-                <Input label="Apellidos" value={form.lastName} onChange={e => set('lastName', e.target.value)} placeholder="Tus apellidos" />
-              </div>
-              <Input label="Email *" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="tu@email.com" />
-              <Input label="Teléfono" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+56 9 XXXX XXXX" />
-            </div>
-          </Card>
-        </div>
+  return (
+    <div className="pb-12">
+      <PageHeader
+        title="Cotizar links"
+        description="Pega los links de las lanchas que te interesan y te entregamos el precio final puerta a puerta."
+        meta={<Badge tone="brand">{fmtCLP(PRICE_PER_LINK)} por link</Badge>}
+      />
 
-        {/* Right column: Links */}
-        <div>
-          <Card className="h-full flex flex-col">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-800">Links a cotizar</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Pegá la URL de cada listing</p>
-                </div>
-              </div>
-              <span className={cn(
-                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider',
-                validLinks.length > 0 ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-100 text-slate-500'
-              )}>
-                {validLinks.length} link{validLinks.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Portales chips */}
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {PORTALS.map(p => (
-                <span key={p.name} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ring-1', p.color)}>
-                  {p.name}
-                </span>
-              ))}
-            </div>
-
-            <div className="space-y-2.5 flex-1">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <div className="space-y-6 min-w-0">
+          {/* Paso 1 · Links */}
+          <Card as="section" aria-labelledby="paso-links">
+            <Paso
+              n={1}
+              title={<span id="paso-links">Links a cotizar</span>}
+              description={`Anuncios de ${PORTALS.map(p => p.name).join(', ')} u otros portales. Pagas solo por los links completos.`}
+              meta={<Badge tone={validLinks.length > 0 ? 'success' : 'neutral'}>{validLinks.length} de {links.length}</Badge>}
+            />
+            <div className="mt-5 space-y-3">
               {links.map((link, i) => {
                 const portal = detectPortal(link);
                 const valid = isValidUrl(link);
+                const invalido = link.trim() !== '' && !valid;
                 return (
-                  <div key={i}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        Link {i + 1} {i === 0 && <span className="text-rose-500">*</span>}
-                        {portal && (
-                          <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded text-[9px] ring-1 normal-case tracking-normal', portal.color)}>
-                            {portal.name}
-                          </span>
-                        )}
-                      </label>
-                      {valid && <span className="text-[11px] font-semibold text-emerald-600">+ {fmtCLP(PRICE_PER_LINK)}</span>}
-                    </div>
-                    <div className="relative flex gap-1.5">
-                      <div className="flex-1 relative">
-                        <svg className={cn('w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition', valid ? 'text-emerald-500' : 'text-slate-400')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          {valid ? (
-                            <polyline points="20 6 9 17 4 12"/>
-                          ) : (
-                            <path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
-                          )}
-                        </svg>
-                        <input
-                          type="url"
-                          value={link}
-                          onChange={e => updateLink(i, e.target.value)}
-                          placeholder="https://www.boattrader.com/boat/..."
-                          className={cn(
-                            'w-full pl-9 pr-3 py-2.5 border rounded-xl text-sm focus:ring-2 outline-none transition-all bg-white',
-                            valid
-                              ? 'border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-400'
-                              : 'border-slate-200 focus:ring-cyan-500/20 focus:border-cyan-400'
-                          )}
-                        />
-                      </div>
-                      {links.length > 1 && (
-                        <button type="button" onClick={() => removeLink(i)} className="px-2.5 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition" title="Quitar">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
+                  <div key={i} className="flex items-start gap-2">
+                    <Input
+                      type="url"
+                      className="flex-1 min-w-0"
+                      label={(
+                        <span className="inline-flex items-center gap-2">
+                          Link {i + 1}
+                          {portal && <Badge size="sm" tone="info">{portal.name}</Badge>}
+                          {valid && !portal && <Badge size="sm" tone="success">+ {fmtCLP(PRICE_PER_LINK)}</Badge>}
+                          {valid && portal && <span className="text-xs font-normal text-success tabular">+ {fmtCLP(PRICE_PER_LINK)}</span>}
+                        </span>
                       )}
-                    </div>
+                      required={i === 0}
+                      value={link}
+                      onChange={e => updateLink(i, e.target.value)}
+                      placeholder="https://www.boattrader.com/boat/…"
+                      prefix={valid ? <Check size={16} className="text-success" /> : <Link2 size={16} />}
+                      error={invalido ? 'Pega el link completo, empezando por https://' : undefined}
+                      autoComplete="off"
+                      inputMode="url"
+                    />
+                    {links.length > 1 && (
+                      <IconButton icon={X} aria-label={`Quitar link ${i + 1}`} onClick={() => removeLink(i)} className="mt-6" />
+                    )}
                   </div>
                 );
               })}
             </div>
-
             {links.length < MAX_LINKS && (
-              <button onClick={addLink} className="mt-4 w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-500 hover:border-cyan-400 hover:text-cyan-600 hover:bg-cyan-50/40 transition flex items-center justify-center gap-1.5">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4"/></svg>
-                Agregar otro link <span className="text-slate-400 text-[11px]">({links.length}/{MAX_LINKS})</span>
-              </button>
+              <Button variant="secondary" icon={Plus} onClick={addLink} className="mt-4">
+                Agregar otro link <span className="text-ink-500 font-normal">({links.length}/{MAX_LINKS})</span>
+              </Button>
             )}
-
             {links.length === MIN_LINKS && validLinks.length === 0 && (
-              <p className="text-[11px] text-slate-400 text-center mt-3">
-                Tip: puedes agregar hasta {MAX_LINKS} links y solo pagas por los completos.
-              </p>
+              <p className="text-13 text-ink-500 mt-3">Puedes cotizar hasta {MAX_LINKS} links; los que dejes vacíos no se cobran.</p>
             )}
           </Card>
+
+          {/* Paso 2 · Datos */}
+          <Card as="section" aria-labelledby="paso-datos">
+            <Paso
+              n={2}
+              title={<span id="paso-datos">Tus datos</span>}
+              description="A dónde te enviamos la cotización y a qué país llega la lancha."
+              meta={user?.email ? <Badge tone="success" dot>Sesión iniciada</Badge> : null}
+            />
+            <div className="mt-5 space-y-4">
+              <FormGrid cols={2}>
+                <Input
+                  label="Nombre" required value={form.name} autoComplete="given-name"
+                  onChange={e => set('name', e.target.value)} onBlur={() => touch('name')}
+                  error={touched.name && !form.name ? 'Escribe tu nombre' : undefined}
+                />
+                <Input label="Apellidos" value={form.lastName} autoComplete="family-name" onChange={e => set('lastName', e.target.value)} />
+              </FormGrid>
+              <FormGrid cols={2}>
+                <Input
+                  label="Correo" type="email" required value={form.email} autoComplete="email"
+                  onChange={e => set('email', e.target.value)} onBlur={() => touch('email')}
+                  error={touched.email && !form.email ? 'Necesitamos tu correo para enviarte la cotización' : undefined}
+                />
+                <Input label="Teléfono" type="tel" value={form.phone} autoComplete="tel" onChange={e => set('phone', e.target.value)} placeholder="+56 9 1234 5678" hint="Opcional, por si necesitamos aclarar algo." />
+              </FormGrid>
+              <FormGrid cols={2}>
+                <Select label="País de destino" value={form.country} onChange={e => set('country', e.target.value)} options={COUNTRIES} />
+              </FormGrid>
+              <div className={cn('rounded-lg border px-4 py-3', accepted ? 'border-line bg-surface' : 'border-line bg-canvas')}>
+                <Checkbox
+                  checked={accepted}
+                  onChange={e => setAccepted(e.target.checked)}
+                  label={<>Acepto los <strong className="font-medium text-ink-900">términos y condiciones</strong> y la política de privacidad de Imporlan.</>}
+                  hint="Al pagar, Imporlan prepara la cotización en un plazo de 48 horas hábiles."
+                />
+              </div>
+            </div>
+          </Card>
         </div>
-      </div>
 
-      {/* Total + Pay (sticky-feeling, rich) */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-5 sm:p-6 overflow-hidden shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-indigo-500/20 rounded-full blur-3xl" />
-
-        <div className="relative grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Total breakdown */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 ring-1 ring-cyan-400/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>
-              </div>
-              <div>
-                <p className="text-[10px] text-cyan-300 font-bold uppercase tracking-[0.2em]">Total a pagar</p>
-                <p className="text-3xl font-extrabold leading-none mt-1">{fmtCLP(total)}</p>
-              </div>
-            </div>
-            <div className="bg-white/10 ring-1 ring-white/10 rounded-xl p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">Links validos</span><span className="font-semibold tabular-nums">{validLinks.length}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Precio por link</span><span className="tabular-nums">{fmtCLP(PRICE_PER_LINK)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Destino</span><span>{country?.flag} {country?.label || form.country}</span></div>
-              <div className="flex justify-between border-t border-white/10 pt-1.5 mt-1.5"><span className="font-bold">Total</span><span className="font-bold text-cyan-300 tabular-nums">{fmtCLP(total)}</span></div>
-            </div>
-          </div>
-
-          {/* T&C + Pay buttons */}
-          <div className="lg:col-span-2 flex flex-col">
-            <label className="flex items-start gap-2 text-xs text-slate-300 mb-3 cursor-pointer p-3 rounded-xl bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition">
-              <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="mt-0.5 w-4 h-4 accent-cyan-500 rounded cursor-pointer" />
-              <span>
-                Acepto los <strong className="text-white font-semibold">terminos y condiciones</strong> para recibir esta cotización, y confirmo que he leido la politica de privacidad. Al pagar autorizo a Imporlan a procesar la cotización en un plazo de 48 hrs hábiles.
-              </span>
-            </label>
-
-            <div className="flex-1" />
-
-            {/* Validation hints */}
-            {!canPay && (
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                {validLinks.length === 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 text-[11px] ring-1 ring-amber-400/20">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                    Agregá al menos 1 link
-                  </span>
-                )}
-                {!formReady && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 text-[11px] ring-1 ring-amber-400/20">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                    Completá nombre y email
-                  </span>
-                )}
-                {!accepted && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 text-[11px] ring-1 ring-amber-400/20">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                    Aceptá los terminos
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={() => handlePay('webpay')}
-                disabled={!canPay}
-                className={cn(
-                  'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition shadow-lg',
-                  canPay
-                    ? 'bg-white text-slate-900 hover:bg-slate-100 shadow-white/10'
-                    : 'bg-white/10 text-white/40 cursor-not-allowed shadow-none'
-                )}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                {paying ? 'Procesando...' : 'Pagar con WebPay'}
-              </button>
-              <button
-                onClick={() => handlePay('mercadopago')}
-                disabled={!canPay}
-                className={cn(
-                  'flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm border-2 transition',
-                  canPay
-                    ? 'bg-cyan-500/15 text-cyan-200 border-cyan-400/40 hover:bg-cyan-500/25'
-                    : 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
-                )}
-              >
-                {paying ? 'Procesando...' : 'Pagar con MercadoPago'}
-              </button>
-            </div>
-
-            <p className="text-[11px] text-slate-400 mt-3 text-center sm:text-left">
-              Conexión segura · Procesado por Transbank / Mercado Libre · Recibes confirmación en {form.email || 'tu email'}.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Help footer */}
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <a href="https://wa.me/56940211459?text=Hola%2C%20tengo%20una%20duda%20sobre%20el%20cotizador" target="_blank" rel="noreferrer" className="group flex items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200/70 hover:border-emerald-300 hover:shadow-sm transition">
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">Hablar antes de pagar</p>
-            <p className="text-xs text-slate-500">Resolvemos tus dudas por WhatsApp</p>
-          </div>
-          <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6"/></svg>
-        </a>
-        <a href="#/plans" className="group flex items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200/70 hover:border-cyan-300 hover:shadow-sm transition">
-          <div className="w-9 h-9 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800">Necesitas más que cotizar?</p>
-            <p className="text-xs text-slate-500">Conoce los planes de búsqueda completa</p>
-          </div>
-          <svg className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6"/></svg>
-        </a>
+        <div className="min-w-0">{resumen}</div>
       </div>
     </div>
   );
