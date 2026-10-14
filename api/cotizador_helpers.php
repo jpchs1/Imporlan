@@ -20,6 +20,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             'quote_payments'       => 'JSON NULL',
             'quote_calculated_at'  => 'TIMESTAMP NULL',
             'quote_published_at'   => 'TIMESTAMP NULL',
+            'quote_breakdown_sent_at' => 'TIMESTAMP NULL',
         ];
         try {
             $existing = $pdo->query("
@@ -306,5 +307,182 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         } catch (Exception $e) {
             error_log('cotizadorSendReadyEmail exception: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Split the All-Inclusive the client already saw into four stages, for
+     * the «Enviar desglose» email (JP sends it by hand, only to clients who
+     * ask for it).
+     *
+     * Flete + seguro go at cost: they are printed on the customs declaration
+     * and are the IVA base, so they must match. The other three stages are
+     * service prices: what's left of the All-Inclusive is spread over them in
+     * proportion to their sheet cost, so no line reveals the FEE and the
+     * stages add up, to the peso, to the number the client has in the quote.
+     *
+     * 'cuadra' is false when the saved total doesn't even cover the freight
+     * (a broken quote): the breakdown must not go out like that.
+     */
+    function cotizadorDesgloseEtapas(array $qd, float $totalClp): array {
+        $rate = (float)($qd['usd_clp_rate'] ?? 920) ?: 1;
+        $etapas = [
+            'flete' => [
+                'label'   => 'Flete marítimo y seguro',
+                'detalle' => 'Transporte RORO de Estados Unidos a San Antonio y seguro de la carga.',
+                'usd'     => ['transporte_roro_usd', 'seguro_usd'],
+                'clp'     => [],
+            ],
+            'usa' => [
+                'label'   => 'Gestión y logística en Estados Unidos',
+                'detalle' => 'Inspección técnica, pago seguro al vendedor, retiro, bodegaje y traslado a puerto, fumigación y trámites de exportación.',
+                'usd'     => ['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'fumigacion_usd', 'miami_admin_usd', 'escorte_usd'],
+                'clp'     => ['fee_wire_clp'],
+            ],
+            'chile' => [
+                'label'   => 'Puerto y desaduanaje en Chile',
+                'detalle' => 'Naviera y puerto, agencia de aduanas, despacho y autorizaciones de internación.',
+                'usd'     => ['gastos_naviera_usd', 'congestion_usd', 'thc_usd', 'baf_usd', 'wharfage_usd', 'handling_chile_usd'],
+                'clp'     => ['gastos_puerto_clp', 'agencia_aduana_clp', 'aduana_extra_clp', 'autorizaciones_clp', 'iva_servicios_linea_clp', 'gastos_despachos_clp', 'honorarios_agencia_clp'],
+            ],
+            'entrega' => [
+                'label'   => 'Traslado, revisión y entrega',
+                'detalle' => 'Traslado del puerto a Santiago, chequeo mecánico, pulido y tratamiento, y entrega.',
+                'usd'     => [],
+                'clp'     => ['inland_puerto_clp', 'chequeo_mecanico_clp', 'pulido_clp', 'entrega_clp'],
+            ],
+        ];
+        foreach ($etapas as &$e) {
+            $e['costo'] = 0.0;
+            foreach ($e['usd'] as $k) $e['costo'] += max(0, (float)($qd[$k] ?? 0)) * $rate;
+            foreach ($e['clp'] as $k) $e['costo'] += max(0, (float)($qd[$k] ?? 0));
+        }
+        unset($e);
+
+        // Same All-Inclusive the client sees in the panel and the first email.
+        $lanchaClp = (float)($qd['valor_lancha_usd'] ?? 0) * $rate;
+        $cifClp    = $lanchaClp + (float)($qd['transporte_roro_usd'] ?? 0) * $rate;
+        $ivaPct    = (float)($qd['iva_pct'] ?? 19);
+        $ivaClp    = $cifClp * ($ivaPct / 100);
+        $lujoAplica = !empty($qd['lujo_aplica']);
+        $lujoClp   = $lujoAplica ? $lanchaClp * ((float)($qd['lujo_pct'] ?? 2) / 100) : 0;
+        $allIncl   = round($totalClp - $lanchaClp - $ivaClp - $lujoClp);
+
+        $flete = round($etapas['flete']['costo']);
+        $resto = $allIncl - $flete;
+        $base  = $etapas['usa']['costo'] + $etapas['chile']['costo'] + $etapas['entrega']['costo'];
+        $reparto = function ($redondeo) use ($resto, $base, $etapas) {
+            $chile   = $base > 0 ? round($resto * $etapas['chile']['costo'] / $base, $redondeo) : 0;
+            $entrega = $base > 0 ? round($resto * $etapas['entrega']['costo'] / $base, $redondeo) : 0;
+            return [$resto - $chile - $entrega, $chile, $entrega];
+        };
+        // Chile and entrega rounded to the thousand so they read as prices;
+        // USA keeps the remainder so the four lines add up to the peso.
+        [$usa, $chile, $entrega] = $reparto(-3);
+        if ($usa < 0) [$usa, $chile, $entrega] = $reparto(0);
+
+        $out = [];
+        foreach (['flete' => $flete, 'usa' => $usa, 'chile' => $chile, 'entrega' => $entrega] as $k => $monto) {
+            if ($monto <= 0) continue;
+            $out[] = ['label' => $etapas[$k]['label'], 'detalle' => $etapas[$k]['detalle'], 'clp' => $monto];
+        }
+        return [
+            'etapas'        => $out,
+            'all_inclusive' => $allIncl,
+            'cuadra'        => $resto >= 0 && $allIncl > 0,
+            'lancha'        => $lanchaClp,
+            'iva'           => $ivaClp,
+            'iva_pct'       => $ivaPct,
+            'lujo'          => $lujoClp,
+            'lujo_aplica'   => $lujoAplica,
+            'total'         => $totalClp,
+        ];
+    }
+
+    function cotizadorLinkTitle(array $link): string {
+        $title = trim(($link['year'] ?? '') . ' ' . ($link['make'] ?? '') . ' ' . ($link['model'] ?? ''));
+        return $title !== '' ? $title : 'tu embarcación';
+    }
+
+    /**
+     * The «Desglose de tu cotización» email body, written in JP's voice (he
+     * is the one who sends it). Shape approved by JP on 14-oct-2026.
+     */
+    function cotizadorDesgloseHtml(array $link, string $userName): string {
+        $qd = $link['quote_data'] ?? null;
+        if (is_string($qd)) $qd = json_decode($qd, true);
+        $d = cotizadorDesgloseEtapas(is_array($qd) ? $qd : [], (float)($link['quote_total_clp'] ?? 0));
+        $title = cotizadorLinkTitle($link);
+        $fmt = fn($n) => '$ ' . number_format(max(0, round($n)), 0, ',', '.');
+        $nombre = explode(' ', trim($userName))[0];
+
+        $etapasHtml = '';
+        $i = 0;
+        foreach ($d['etapas'] as $e) {
+            $i++;
+            $etapasHtml .= '<tr>'
+                . '<td style="padding:12px 4px;border-bottom:1px solid #e0f2fe;vertical-align:top;width:26px"><div style="width:22px;height:22px;border-radius:11px;background:#0369a1;color:#fff;font-size:12px;font-weight:700;line-height:22px;text-align:center">' . $i . '</div></td>'
+                . '<td style="padding:12px 8px;border-bottom:1px solid #e0f2fe;vertical-align:top">'
+                . '<div style="color:#0f172a;font-weight:600;font-size:14px">' . htmlspecialchars($e['label']) . '</div>'
+                . '<div style="color:#64748b;font-size:12px;line-height:1.45;margin-top:3px">' . htmlspecialchars($e['detalle']) . '</div></td>'
+                . '<td style="padding:12px 4px;border-bottom:1px solid #e0f2fe;vertical-align:top;text-align:right;white-space:nowrap;color:#0f172a;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums">' . $fmt($e['clp']) . '</td>'
+                . '</tr>';
+        }
+        $etapasHtml .= '<tr><td></td><td style="padding:12px 8px 2px;color:#0f172a;font-weight:700;font-size:14px">Servicio All-Inclusive</td>'
+            . '<td style="padding:12px 4px 2px;text-align:right;white-space:nowrap;color:#1e40af;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums">' . $fmt($d['all_inclusive']) . '</td></tr>';
+
+        $row = function ($label, $value, $muted = false, $bold = false) {
+            $cl = $muted ? '#94a3b8' : ($bold ? '#0f172a' : '#475569');
+            $vc = $muted ? '#94a3b8' : ($bold ? '#1e40af' : '#0f172a');
+            $w = $bold ? '700' : '500';
+            return '<tr><td style="padding:6px 4px;color:' . $cl . ';font-size:13px;font-weight:' . $w . '">' . $label . '</td>'
+                . '<td style="padding:6px 4px;text-align:right;white-space:nowrap;color:' . $vc . ';font-size:13px;font-weight:' . $w . ';font-variant-numeric:tabular-nums">' . $value . '</td></tr>';
+        };
+        $ivaPct = rtrim(rtrim(number_format($d['iva_pct'], 2, '.', ''), '0'), '.');
+        $resumen = '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">'
+            . $row('Valor Lancha', $fmt($d['lancha']))
+            . $row('Servicio All-Inclusive <span style="color:#94a3b8">(arriba en detalle)</span>', $fmt($d['all_inclusive']))
+            . $row('IVA Aduanero (' . $ivaPct . '%)', $fmt($d['iva']))
+            . ($d['lujo_aplica'] ? $row('Impuesto al Lujo', $fmt($d['lujo'])) : $row('Impuesto al Lujo', 'N/A', true))
+            . '<tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding:0"></td></tr>'
+            . $row('TOTAL', $fmt($d['total']), false, true)
+            . '</table>';
+
+        return '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f1f5f9;padding:20px;margin:0">'
+            . '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.08)">'
+            . '<h2 style="color:#1e293b;margin:0 0 6px">Desglose de tu cotización</h2>'
+            . '<div style="color:#64748b;font-size:14px;margin:0 0 18px">' . htmlspecialchars($title) . '</div>'
+            . '<p style="color:#475569;font-size:15px;line-height:1.6;margin:0 0 6px">Hola' . ($nombre !== '' ? ' ' . htmlspecialchars($nombre) : '') . ', como me pediste, te dejo el detalle del <strong>Servicio All-Inclusive</strong>: qué cubre cada etapa, desde que vemos la lancha en Estados Unidos hasta que te la entregamos en Santiago.</p>'
+            . '<div style="background:#f0f9ff;border:1px solid #bae6fd;padding:12px 16px 14px;border-radius:10px;margin:18px 0">'
+            . '<div style="font-size:11px;color:#0369a1;text-transform:uppercase;letter-spacing:.05em;margin:4px 0 2px">Servicio All-Inclusive · por etapa</div>'
+            . '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse">' . $etapasHtml . '</table>'
+            . '</div>'
+            . '<div style="background:#f8fafc;border-left:4px solid #94a3b8;padding:12px 16px;border-radius:6px;margin:18px 0;color:#475569;font-size:12px;line-height:1.6">'
+            . 'El <strong>flete marítimo y el seguro</strong> van a costo: es el mismo valor que aparece en la declaración de aduana, y sobre él se calcula el IVA aduanero. '
+            . 'Las otras tres etapas son el precio de nuestro servicio puerta a puerta: cada una incluye sus costos y nuestra coordinación y gestión, con un solo interlocutor de principio a fin.'
+            . '</div>'
+            . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px">Resumen de la cotización</div>'
+            . $resumen
+            . '<div style="text-align:center;margin:26px 0 22px"><a href="https://www.imporlan.cl/panel/" style="display:inline-block;background:#3b82f6;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600">Ver mi cotización en el panel</a></div>'
+            . '<p style="color:#475569;font-size:14px;line-height:1.6;margin:0">Cualquier duda, respóndeme este correo o escríbeme por WhatsApp.</p>'
+            . '<p style="color:#0f172a;font-size:14px;line-height:1.5;margin:14px 0 0"><strong>Juan Pablo</strong><br><span style="color:#64748b">Imporlan</span></p>'
+            . '</div></body></html>';
+    }
+
+    /**
+     * Send the breakdown email. Unlike the "ready" email this one reports
+     * back, so the admin sees whether it actually went out. EmailService adds
+     * the BCC to jpchs1@gmail.com on its own.
+     */
+    function cotizadorSendDesgloseEmail(string $userEmail, string $userName, array $link): array {
+        if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'error' => 'El expediente no tiene un email de cliente válido'];
+        }
+        require_once __DIR__ . '/email_service.php';
+        $svc = new EmailService();
+        return $svc->sendCustomEmail(
+            $userEmail,
+            'Desglose de tu cotización — ' . cotizadorLinkTitle($link),
+            cotizadorDesgloseHtml($link, $userName)
+        );
     }
 }

@@ -193,6 +193,14 @@ export const saveQuote = (linkId, quoteData, totalClp, totalUsd, payments, publi
   });
 export const deleteQuote = (linkId) =>
   request(`${API_BASE}/orders_api.php?action=admin_delete_quote`, { method: 'POST', body: JSON.stringify({ link_id: linkId }) });
+// preview=true no envía nada: devuelve las etapas y el destinatario para confirmar.
+// El envío espera al SMTP, por eso el plazo largo.
+export const sendQuoteBreakdown = (linkId, preview = false) =>
+  request(`${API_BASE}/orders_api.php?action=admin_send_quote_breakdown`, {
+    method: 'POST',
+    body: JSON.stringify({ link_id: linkId, preview }),
+    timeoutMs: preview ? 15000 : 45000,
+  });
 
 // Chat
 export const getChatConversations = (status = 'all', assigned = 'all') => {

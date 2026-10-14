@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { saveQuote, deleteQuote, getPricing } from '../api';
+import { saveQuote, deleteQuote, getPricing, sendQuoteBreakdown } from '../api';
 import { Button } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 
@@ -90,13 +90,14 @@ function fmtUsd(n) {
 }
 function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
-export default function QuoteModal({ open, link, onClose, onSaved }) {
+export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSent }) {
   const showToast = useToast();
   const [pricing, setPricing] = useState({});
   const [loadingPricing, setLoadingPricing] = useState(true);
   const [q, setQ] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sendingBreakdown, setSendingBreakdown] = useState(false);
   const initOnce = useRef(false);
 
   // Load templates once when modal opens
@@ -237,6 +238,27 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
       showToast(e.message || 'Error al borrar', 'error');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  // «Enviar desglose»: el All-Inclusive por etapa, sin mostrar el FEE. No va
+  // por defecto; JP lo manda a mano a quien lo pida. Primero se pide la vista
+  // previa al servidor para confirmar con los montos exactos que van a salir.
+  async function handleBreakdown() {
+    if (!link?.id) return;
+    setSendingBreakdown(true);
+    try {
+      const p = await sendQuoteBreakdown(link.id, true);
+      const lineas = (p.etapas || []).map((e, i) => `${i + 1}. ${e.label}: ${fmtClp(e.clp)}`).join('\n');
+      if (!confirm(`Enviar el desglose a ${p.email}:\n\n${lineas}\n\nServicio All-Inclusive: ${fmtClp(p.all_inclusive)}\n\nSe usa la cotización guardada (no los cambios sin guardar). ¿Enviar?`)) return;
+      await sendQuoteBreakdown(link.id);
+      showToast(`Desglose enviado a ${p.email}`, 'success');
+      onBreakdownSent?.();
+      onClose?.();
+    } catch (e) {
+      showToast(e.message || 'Error al enviar el desglose', 'error');
+    } finally {
+      setSendingBreakdown(false);
     }
   }
 
@@ -416,11 +438,19 @@ export default function QuoteModal({ open, link, onClose, onSaved }) {
               {link?.quote_calculated_at && (
                 <>Última: {new Date(link.quote_calculated_at).toLocaleString('es-CL')}</>
               )}
+              {link?.quote_breakdown_sent_at && (
+                <> · Desglose enviado: {new Date(link.quote_breakdown_sent_at).toLocaleString('es-CL')}</>
+              )}
             </div>
             <div className="flex flex-wrap gap-2 justify-end">
               {link?.quote_calculated_at && (
                 <Button variant="ghost" className="text-red-600" onClick={handleDelete} disabled={deleting || saving}>
                   {deleting ? 'Borrando...' : 'Borrar cotización'}
+                </Button>
+              )}
+              {link?.quote_published_at && (
+                <Button variant="secondary" onClick={handleBreakdown} disabled={sendingBreakdown || saving || deleting} title="Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE. Solo a quien lo pida.">
+                  {sendingBreakdown ? 'Enviando...' : (link.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose')}
                 </Button>
               )}
               <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>

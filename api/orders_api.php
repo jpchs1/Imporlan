@@ -106,6 +106,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminDeleteQuote();
             break;
+        case 'admin_send_quote_breakdown':
+            requireAdminAuth();
+            adminSendQuoteBreakdown();
+            break;
         case 'save_ranking':
             saveRanking();
             break;
@@ -1340,6 +1344,7 @@ function adminSaveQuote() {
                 quote_payments              = ?,
                 quote_calculated_at         = NOW(),
                 quote_published_at          = $publishedClause,
+                quote_breakdown_sent_at     = NULL,
                 value_chile_negotiated_clp  = ?
             WHERE id = ?
         ");
@@ -1418,6 +1423,7 @@ function adminDeleteQuote() {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
+        cotizadorEnsureOrderLinkColumns($pdo);
         $stmt = $pdo->prepare("
             UPDATE order_links
             SET quote_data = NULL,
@@ -1425,11 +1431,94 @@ function adminDeleteQuote() {
                 quote_total_usd = NULL,
                 quote_payments = NULL,
                 quote_calculated_at = NULL,
-                quote_published_at = NULL
+                quote_published_at = NULL,
+                quote_breakdown_sent_at = NULL
             WHERE id = ?
         ");
         $stmt->execute([$linkId]);
         echo json_encode(['success' => true]);
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * «Enviar desglose»: email the client the All-Inclusive split by stage
+ * (cotizadorDesgloseEtapas). Not shown by default — JP sends it by hand to
+ * the clients who ask. Always uses the quote as saved, never unsaved edits
+ * in the modal.
+ *
+ * Input: { link_id, preview? }. With preview=true nothing is sent: it returns
+ * the stages and the recipient so the admin can confirm exactly what goes out.
+ */
+function adminSendQuoteBreakdown() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $linkId = intval($input['link_id'] ?? 0);
+    $preview = !empty($input['preview']);
+    if (!$linkId) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Falta link_id']);
+        return;
+    }
+    $pdo = getDbConnection();
+    if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
+    try {
+        cotizadorEnsureOrderLinkColumns($pdo);
+        $stmt = $pdo->prepare("
+            SELECT ol.id, ol.order_id, ol.year, ol.make, ol.model,
+                   ol.quote_data, ol.quote_total_clp, ol.quote_published_at,
+                   o.customer_email, o.customer_name
+            FROM order_links ol
+            JOIN orders o ON o.id = ol.order_id
+            WHERE ol.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$linkId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['quote_data'])) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Este link no tiene una cotización guardada']);
+            return;
+        }
+        // The breakdown explains a number the client already has; before the
+        // quote is published it would hand them the quote early.
+        if (empty($row['quote_published_at'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'La cotización todavía no está publicada para el cliente']);
+            return;
+        }
+        $qd = json_decode($row['quote_data'], true);
+        $d = cotizadorDesgloseEtapas(is_array($qd) ? $qd : [], (float)$row['quote_total_clp']);
+        if (!$d['cuadra']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'La cotización guardada no cuadra (el total no alcanza a cubrir el flete). Revísala y vuelve a guardarla.']);
+            return;
+        }
+
+        if ($preview) {
+            echo json_encode([
+                'success'       => true,
+                'email'         => $row['customer_email'],
+                'etapas'        => $d['etapas'],
+                'all_inclusive' => $d['all_inclusive'],
+            ]);
+            return;
+        }
+
+        $res = cotizadorSendDesgloseEmail($row['customer_email'] ?? '', $row['customer_name'] ?? '', $row);
+        if (empty($res['success'])) {
+            http_response_code(502);
+            echo json_encode(['error' => 'No se pudo enviar el correo: ' . ($res['error'] ?? 'error desconocido')]);
+            return;
+        }
+        $pdo->prepare("UPDATE order_links SET quote_breakdown_sent_at = NOW() WHERE id = ?")->execute([$linkId]);
+        try {
+            logOrderEvent($pdo, $row['order_id'], 'quote_breakdown_sent', ['link_id' => $linkId, 'email' => $row['customer_email']]);
+        } catch (PDOException $e) {
+            error_log('adminSendQuoteBreakdown log failed: ' . $e->getMessage());
+        }
+        echo json_encode(['success' => true, 'email' => $row['customer_email'], 'quote_breakdown_sent_at' => date('c')]);
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['error' => $e->getMessage()]);
