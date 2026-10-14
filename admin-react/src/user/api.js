@@ -17,6 +17,12 @@ export const verify2FA = (code, tempToken) =>
 
 export const getMe = () => request(`${API_BASE}/auth/me`);
 
+// Manda al correo del cliente un enlace para crear una contrasena nueva. El
+// servidor contesta lo mismo exista o no la cuenta, para que el formulario no
+// sirva para averiguar quien es cliente de Imporlan.
+export const forgotPassword = (email) =>
+  request(`${API_BASE}/user_forgot_password.php`, { method: 'POST', body: JSON.stringify({ email }) });
+
 export const googleAuth = (credential) =>
   request(`${API_BASE}/auth/google`, { method: 'POST', body: JSON.stringify({ credential }) });
 

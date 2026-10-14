@@ -29,6 +29,9 @@ jobs:
       - name: Tests del contestador de WhatsApp
         run: php test/whatsapp-rehacer-tests.php
 
+      - name: Tests de recuperacion de contrasena de clientes
+        run: php test/recuperacion-clientes-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest

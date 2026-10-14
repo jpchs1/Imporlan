@@ -148,11 +148,27 @@ function handleLogin() {
         try {
             $pdo = getDbConnection();
             if ($pdo) {
-                $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ? AND status = 'active'");
+                // El estado ya no se filtra en el SELECT. Antes una cuenta
+                // desactivada contestaba "credenciales invalidas" aunque la
+                // clave fuera la correcta, asi que el cliente creia tener mal
+                // la contrasena y la cambiaba una y otra vez sin que eso
+                // pudiera arreglar nada. Ahora se comprueba la clave primero y
+                // el estado despues, para poder decirle lo que pasa de verdad.
+                $stmt = $pdo->prepare("SELECT * FROM admin_users WHERE email = ?");
                 $stmt->execute([$email]);
                 $dbUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                if ($dbUser && password_verify($password, $dbUser['password_hash'])) {
+                if ($dbUser && password_verify($password, $dbUser['password_hash'])
+                    && ($dbUser['status'] ?? 'active') !== 'active') {
+                    // El motivo solo lo ve quien acaba de probar que sabe la
+                    // clave, asi que no le dice a nadie mas que esta cuenta existe.
+                    http_response_code(403);
+                    echo json_encode(['detail' => 'Tu cuenta esta desactivada. Escribenos a contacto@imporlan.cl y la reactivamos.']);
+                    return;
+                }
+
+                if ($dbUser && ($dbUser['status'] ?? 'active') === 'active'
+                    && password_verify($password, $dbUser['password_hash'])) {
                     $user = [
                         'id' => (int)$dbUser['id'],
                         'email' => $dbUser['email'],

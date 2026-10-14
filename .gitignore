@@ -58,3 +58,7 @@ send_*.php
 test_*.php
 check_*.php
 get_*.php
+
+# Tokens de recuperacion de contrasena (los crea el servidor en caliente)
+.admin_reset_tokens/
+.user_reset_tokens/
