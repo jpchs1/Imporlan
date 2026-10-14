@@ -102,6 +102,8 @@ foreach (['comisión', 'margen', 'honorarios'] as $palabra) {
     t(stripos($html, $palabra) === false, "el correo no habla de «{$palabra}»");
 }
 t(strpos($html, 'Hola Alberto,') !== false, 'saluda por el nombre de pila');
+$minus = cotizadorDesgloseHtml(['quote_data' => json_encode($qd), 'quote_total_clp' => $total], 'álvaro lathrop');
+t(strpos($minus, 'Hola Álvaro,') !== false, 'con el nombre en minúsculas en el expediente, igual saluda con mayúscula');
 // JP, 14-oct: «deja una nota de que esos valores son referenciales (…) pero el
 // total básicamente se mantiene muy cerca».
 t(strpos($html, 'Los montos de cada etapa son referenciales') !== false
