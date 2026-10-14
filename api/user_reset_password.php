@@ -99,11 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Los intentos fallidos de hace un rato dejaron su IP bloqueada media
-        // hora. Sin esto, cambia la clave y el panel le sigue diciendo
-        // "demasiados intentos".
-        urLimpiarBloqueoLogin(urIpCliente());
-
         urRegistrar("contrasena cambiada  {$cuenta['email']}  ip=" . urIpParaElLog());
 
         if ($cuenta['status'] !== 'active') {

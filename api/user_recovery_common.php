@@ -162,16 +162,25 @@ function urRegistrar($linea) {
     );
 }
 
-/**
- * Un intento de login fallido deja la IP bloqueada 30 minutos
- * (imporlan_login_protection, en antispam.php). Quien acaba de demostrar que
- * controla el correo de la cuenta no tiene por que esperar ese castigo: se le
- * limpia el contador al terminar de cambiar la clave.
+/*
+ * AQUI HABIA UNA FUNCION QUE LIMPIABA EL BLOQUEO POR INTENTOS FALLIDOS
+ * -------------------------------------------------------------------
+ * La idea era amable: cinco claves erradas dejan la IP bloqueada media hora
+ * (imporlan_login_protection, en antispam.php), y quien acaba de demostrar que
+ * controla el correo de la cuenta no tiene por que cumplir ese castigo.
+ *
+ * Pero ese bloqueo NO es por cuenta, es por IP: su clave es md5($ip.'_login')
+ * y nada mas. Limpiarlo le soltaba el freno a todas las cuentas que se
+ * intentaran desde esa misma IP. Quien controlara el correo de un solo cliente
+ * podia gastar sus cinco intentos contra OTRA cuenta, cambiarse su propia
+ * clave para borrar el contador, y seguir — cinco intentos cada medio minuto
+ * en vez de cada media hora.
+ *
+ * Asi que no se limpia. Al cliente que venia bloqueado el panel le dice
+ * "Demasiados intentos de login. Intenta en N minutos", que al menos es un
+ * mensaje claro y con cuenta regresiva. Una espera molesta pero explicada es
+ * mejor que un freno de fuerza bruta con un agujero.
  */
-function urLimpiarBloqueoLogin($ip) {
-    $archivo = sys_get_temp_dir() . '/imporlan_lockout/' . md5($ip . '_login') . '.json';
-    if (file_exists($archivo)) @unlink($archivo);
-}
 
 /**
  * Busca la cuenta del cliente. Todas las vias de registro escriben aqui, con

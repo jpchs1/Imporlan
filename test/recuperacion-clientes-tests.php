@@ -183,6 +183,15 @@ prueba('un fallo de SMTP contesta igual que una cuenta inexistente',
     && strpos($bloqueFallo, 'echo json_encode($respuestaNeutra);') !== false
     && strpos($bloqueFallo, 'http_response_code(500)') === false);
 
+// --------------------------------- el freno de fuerza bruta no se toca
+// El bloqueo de antispam.php es por IP, no por cuenta. Limpiarlo al cambiar la
+// clave le soltaba el freno a todas las cuentas que se intentaran desde esa
+// misma IP: con un solo correo de cliente bajo control se pasaba de cinco
+// intentos cada media hora a cinco cada medio minuto.
+prueba('cambiar la clave no borra el bloqueo por intentos fallidos',
+    strpos($reset, 'urLimpiarBloqueoLogin') === false
+    && strpos(file_get_contents(__DIR__ . '/../api/user_recovery_common.php'), 'function urLimpiarBloqueoLogin') === false);
+
 // ------------------------------------- el uso unico, de verdad
 // unlink es atomico: de dos peticiones con el mismo enlace, solo una recibe
 // true. Comprobar y borrar despues dejaba pasar a las dos.
