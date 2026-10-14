@@ -892,21 +892,20 @@ function handlePoll() {
         return;
     }
     
+    // Solo tokens con firma valida, y nunca el token temporal de 2FA. Igual que
+    // api/chat_api.php, que ya lo tenia arreglado.
+    //
+    // Aqui quedaba la version vieja: si la firma no cuadraba, se decodificaba
+    // el token SIN verificarlo y se aceptaba con tal de que no estuviera
+    // vencido. O sea que cualquiera podia armar un token a mano —un JSON con
+    // "role":"admin" en base64— y leer los chats. Y este espejo esta vivo en
+    // produccion y usa la base de datos de produccion: eran los chats reales
+    // de los clientes. El arreglo de /api nunca llego a esta copia.
     $payload = verifyJWT($token);
-    
-    // If JWT verification fails, try to decode without verifying signature
-    // This handles the case where the admin panel uses a different JWT secret
-    if (!$payload) {
-        $parts = explode('.', $token);
-        if (count($parts) === 3) {
-            $tokenPayload = json_decode(base64UrlDecode($parts[1]), true);
-            if ($tokenPayload && isset($tokenPayload['exp']) && $tokenPayload['exp'] > time()) {
-                // Token is not expired, use it
-                $payload = $tokenPayload;
-            }
-        }
+    if ($payload && ($payload['purpose'] ?? null) === '2fa_pending') {
+        $payload = null;
     }
-    
+
     if (!$payload) {
         http_response_code(401);
         echo json_encode(['detail' => 'Token invalido o expirado']);
