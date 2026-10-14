@@ -378,4 +378,3 @@ function logEmail($data) {
     file_put_contents($logFile, json_encode($logs, JSON_PRETTY_PRINT));
 }
 ?>
-

@@ -18,7 +18,10 @@ require_once __DIR__ . '/db_config.php';
 // WebPay Plus Production Credentials - loaded from external config
 $webpayConfigFile = '/home/wwimpo/webpay_config.php';
 if (file_exists($webpayConfigFile)) {
+    // Sin dejar salir lo que imprima (ver email_service.php).
+    ob_start();
     require_once $webpayConfigFile;
+    ob_end_clean();
 }
 if (!defined('WEBPAY_COMMERCE_CODE')) {
     define('WEBPAY_COMMERCE_CODE', getenv('WEBPAY_COMMERCE_CODE') ?: '');

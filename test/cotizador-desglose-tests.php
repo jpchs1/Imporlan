@@ -11,10 +11,9 @@
  *
  *  1. Las etapas suman, al peso, el All-Inclusive que el cliente ya tiene.
  *  2. El flete y el seguro van a costo (están en la declaración de aduana).
- *  3. El FEE completo no aparece en ninguna línea: la mitad va en una línea
- *     «Gestión Imporlan» y la otra mitad se reparte en las tres etapas de
- *     logística en proporción a su costo (JP, 14-oct: repartido entero, USA
- *     se veía cara para su título).
+ *  3. El FEE va entero en su propia línea, «Gestión Imporlan», y las etapas
+ *     de logística muestran su costo (JP, 14-oct: repartido en las etapas, se
+ *     veían caras para su título; «Gestión Imporlan approx CLP $3.000.000»).
  *  4. Una cotización rota no sale (`cuadra` = false).
  *  5. El botón no lo muestra por defecto: sólo se manda a mano, con la
  *     cotización ya publicada, y re-guardar la cotización borra la marca.
@@ -80,29 +79,25 @@ t($d['etapas'][4]['label'] === 'Gestión Imporlan', 'la gestión va al final');
 /* ── 2 · flete y seguro a costo ──────────────────────────────────────── */
 t($montos['Flete marítimo y seguro'] == (8500 + 320) * $rate, 'flete + seguro va a costo: ' . $montos['Flete marítimo y seguro']);
 
-/* ── 3 · el FEE no aparece entero ────────────────────────────────────── */
+/* ── 3 · el FEE en su línea, la logística a costo ────────────────────── */
 $gestion = $montos['Gestión Imporlan'];
-t($gestion == 1500000, 'Gestión Imporlan es la mitad del margen, a miles: ' . $gestion);
+t($gestion == 3000000, 'Gestión Imporlan es el FEE completo: ' . $gestion);
 $costo = [
     'Inspección, retiro y traslado a puerto (EE.UU.)' => (850 + 2100 + 400 + 150) * $rate + 240000,
     'Puerto y desaduanaje en Chile' => (450 + 160 + 615 + 252 + 150) * $rate + 400000 + 280000 + 220018 + 80000 + 100107 + 47924 + 71951,
     'Traslado, revisión y entrega' => 349000 + 209000 + 186400,
 ];
-$factor = ($d['all_inclusive'] - $montos['Flete marítimo y seguro'] - $gestion) / array_sum($costo);
 foreach ($costo as $etapa => $c) {
-    t($montos[$etapa] > $c, "«{$etapa}» lleva su parte del FEE");
-    t(abs($montos[$etapa] - $c * $factor) < 1000, "«{$etapa}» la lleva en proporción a su costo");
-    // Lo que JP vio caro: USA quedaba 43% sobre su costo. Ahora ninguna pasa de ~21%.
-    t($montos[$etapa] / $c < 1.25, "«{$etapa}» no se ve inflada: " . round(($montos[$etapa] / $c - 1) * 100) . '% sobre su costo');
+    // Lo que JP vio caro: USA quedaba 43% sobre su costo. Ahora cada etapa es su costo (a miles).
+    t(abs($montos[$etapa] - $c) < 1000, "«{$etapa}» va a su costo: " . $montos[$etapa] . ' vs ' . $c);
 }
-t(!in_array(3000000.0, array_map('floatval', $montos), true), 'ninguna línea es el FEE');
 t(fmod($montos['Puerto y desaduanaje en Chile'], 1000) == 0 && fmod($montos['Traslado, revisión y entrega'], 1000) == 0,
     'Chile y entrega redondeadas a miles (se leen como precio)');
 
 $html = cotizadorDesgloseHtml(['year' => 2015, 'make' => 'Chaparral', 'model' => '21 Sport H2O',
     'quote_data' => json_encode($qd), 'quote_total_clp' => $total], 'Alberto Lathrop E.');
-t(stripos($html, 'fee') === false, 'el correo no dice FEE');
-t(strpos($html, '3.000.000') === false, 'ni muestra su monto');
+t(stripos($html, 'fee') === false, 'el correo no dice «FEE»: dice «Gestión Imporlan»');
+t(strpos($html, 'Gestión Imporlan') !== false && strpos($html, '$ 3.000.000') !== false, 'muestra la gestión con su monto');
 foreach (['comisión', 'margen', 'honorarios'] as $palabra) {
     t(stripos($html, $palabra) === false, "el correo no habla de «{$palabra}»");
 }
@@ -111,7 +106,7 @@ t(strpos($html, 'src="https://www.imporlan.cl/images/correo/firma-jp.jpg"') !== 
 t(@md5_file(__DIR__ . '/../images/correo/firma-jp.jpg') === md5_file(__DIR__ . '/../.github/correo/firma-jp.jpg'),
     'la firma publicada es la misma del workflow de correo');
 t(strpos($html, '$ ' . number_format($d['all_inclusive'], 0, ',', '.')) !== false, 'muestra el All-Inclusive');
-t(strpos($html, 'van a costo') !== false && strpos($html, 'la gestión de Imporlan de principio a fin') !== false,
+t(strpos($html, 'van a costo') !== false && strpos($html, 'nuestro trabajo: la gestión de Imporlan de principio a fin') !== false,
     'dice qué va a costo, que las demás son precio de servicio y qué es la última línea');
 // Codex, PR 665: el IVA del cotizador va sobre lancha + flete, sin el seguro;
 // el correo no puede decir que se calcula sobre «flete y seguro».
@@ -144,6 +139,16 @@ foreach ([3101, 2101, 1101, 102] as $allIncl) {
         "resto impar ({$allIncl}): suma {$suma}, sin etapas negativas");
 }
 
+// Devin, PR 675: logística chica ($400) y un FEE que redondea hacia arriba
+// ($1.600 → $2.000) no pueden dejar a la logística en cero.
+$chica = array_merge(array_fill_keys(array_keys($qd), 0), [
+    'usd_clp_rate' => 1, 'iva_pct' => 19, 'lujo_pct' => 2, 'lujo_aplica' => false, 'gastos_puerto_clp' => 400,
+]);
+$r = cotizadorDesgloseEtapas($chica, 2000);
+$m = array_column($r['etapas'], 'clp', 'label');
+t($r['cuadra'] && array_sum($m) == 2000 && ($m['Puerto y desaduanaje en Chile'] ?? 0) > 0 && ($m['Gestión Imporlan'] ?? 0) == 1000,
+    'logística chica: no desaparece, la gestión redondea hacia abajo · ' . json_encode($m, JSON_UNESCAPED_UNICODE));
+
 // Sin costos de servicio cargados, todo el resto queda en USA.
 $soloFlete = array_merge($qd, array_fill_keys(['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'fumigacion_usd',
     'miami_admin_usd', 'escorte_usd', 'gastos_naviera_usd', 'congestion_usd', 'thc_usd', 'baf_usd', 'wharfage_usd',
@@ -151,8 +156,8 @@ $soloFlete = array_merge($qd, array_fill_keys(['trailer_usd', 'inspeccion_usd', 
     'aduana_extra_clp', 'autorizaciones_clp', 'gastos_puerto_clp', 'agencia_aduana_clp', 'iva_servicios_linea_clp',
     'gastos_despachos_clp', 'honorarios_agencia_clp'], 0));
 $s = cotizadorDesgloseEtapas($soloFlete, round(totalAdmin($soloFlete)));
-t(count($s['etapas']) === 3 && $s['etapas'][1]['clp'] == 1500000 && $s['etapas'][2]['clp'] == 1500000 && $s['cuadra'],
-    'sin costos de servicio: flete, una etapa con la mitad y la gestión con la otra');
+t(count($s['etapas']) === 2 && $s['etapas'][1]['label'] === 'Gestión Imporlan' && $s['etapas'][1]['clp'] == 3000000 && $s['cuadra'],
+    'sin costos de servicio: flete y la gestión');
 
 /* ── 5 · sólo a mano, con la cotización publicada ────────────────────── */
 $api = (string) file_get_contents(__DIR__ . '/../api/orders_api.php');

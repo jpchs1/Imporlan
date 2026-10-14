@@ -47,6 +47,9 @@ jobs:
       - name: Nadie lee un token sin verificar la firma (JWT y login con Google)
         run: php test/jwt-firma-tests.php
 
+      - name: Nada sale antes de las cabeceras (401 y redirecciones de pago)
+        run: php test/salida-limpia-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest

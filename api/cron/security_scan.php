@@ -21,7 +21,10 @@ if (!$isCli) {
     // Verify token for web access
     $configFile = '/home/wwimpo/deploy_config.php';
     if (file_exists($configFile)) {
+        // Sin dejar salir lo que imprima (ver email_service.php).
+        ob_start();
         require_once $configFile;
+        ob_end_clean();
     }
     if (!defined('DEPLOY_TOKEN')) {
         http_response_code(500);

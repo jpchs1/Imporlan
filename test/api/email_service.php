@@ -22,7 +22,14 @@ require_once __DIR__ . '/db_config.php';
 //   IMPORLAN_SMTP_USERNAME, IMPORLAN_SMTP_PASSWORD
 $smtpConfigFile = '/home/wwimpo/smtp_config.php';
 if (file_exists($smtpConfigFile)) {
+    // Los archivos de configuracion de /home/wwimpo/ los edita el servidor, no
+    // el repo, y alguno termina con un salto de linea despues de la etiqueta de cierre de PHP. Ese
+    // salto salia como respuesta antes de las cabeceras: los 401 llegaban como
+    // 200 y Webpay no podia devolver al cliente al panel (header('Location')
+    // ya no tenia efecto). Lo que imprima un archivo de configuracion se bota.
+    ob_start();
     require_once $smtpConfigFile;
+    ob_end_clean();
 }
 if (!defined('IMPORLAN_SMTP_HOST'))     define('IMPORLAN_SMTP_HOST',     getenv('IMPORLAN_SMTP_HOST')     ?: 'mail.imporlan.cl');
 if (!defined('IMPORLAN_SMTP_PORT'))     define('IMPORLAN_SMTP_PORT',     (int)(getenv('IMPORLAN_SMTP_PORT') ?: 465));
