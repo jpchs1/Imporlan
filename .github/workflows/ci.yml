@@ -32,6 +32,9 @@ jobs:
       - name: La planilla de la cotización no sale al cliente
         run: php test/cotizador-cliente-tests.php
 
+      - name: Desglose del All-Inclusive (sin el FEE)
+        run: php test/cotizador-desglose-tests.php
+
       - name: Tests de recuperacion de contrasena de clientes
         run: php test/recuperacion-clientes-tests.php
 

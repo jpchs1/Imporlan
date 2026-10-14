@@ -718,6 +718,9 @@ export default function Orders() {
         open={!!cotizandoLink}
         link={cotizandoLink}
         onClose={() => setCotizandoLink(null)}
+        // Releer marca «Desglose enviado»; con ediciones sin guardar se espera
+        // a que las guarden, porque refrescar las pisaría.
+        onBreakdownSent={() => { if (!unsaved) refrescarDetalle(); }}
         onSaved={async () => {
           if (!detail?.id) return;
           const cotizadoId = cotizandoLink?.id;
