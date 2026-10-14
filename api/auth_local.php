@@ -92,6 +92,19 @@ function verifyJWTLocal($token) {
     $payload = json_decode(base64_decode(strtr($b64Payload, '-_', '+/')), true);
     if (!$payload || ($payload['exp'] ?? 0) < time()) return null;
 
+    // Firma buena y sin vencer no basta: si la contrasena de esa cuenta cambio
+    // despues de emitirse este token, la sesion ya no vale. Sin esto, cambiar
+    // la clave no echaba a nadie — a un cliente con la sesion robada, el
+    // ladron le seguia dentro una semana justo cuando mas urgia sacarlo.
+    //
+    // El archivo se carga con red: si faltara —un deploy a medias, o el
+    // antivirus del hosting, que ya se llevo lib/link_scraper.php una vez— un
+    // require a secas seria un error fatal AQUI, en la verificacion de todas
+    // las sesiones, y nadie podria entrar al sitio. Faltando, se pierde este
+    // corte y todo lo demas sigue funcionando como siempre.
+    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
+    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
+
     return $payload;
 }
 

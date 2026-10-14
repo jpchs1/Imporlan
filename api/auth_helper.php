@@ -54,6 +54,16 @@ function verifyJWTToken($token) {
 
     if (isset($payload['exp']) && $payload['exp'] < time()) return null;
 
+    // Mismo corte que en verifyJWTLocal: un cambio de contrasena cierra las
+    // sesiones abiertas hasta ese momento. Va en las dos verificaciones porque
+    // el panel del cliente usa una y el de administracion la otra; dejarlo en
+    // una sola habria sido una puerta cerrada con la ventana abierta.
+    //
+    // Con red, por lo mismo que alla: si el archivo faltara, un require a secas
+    // tumbaria la autenticacion del sitio entero.
+    if (file_exists(__DIR__ . '/sesiones.php')) require_once __DIR__ . '/sesiones.php';
+    if (function_exists('sesionSigueValiendo') && !sesionSigueValiendo($payload)) return null;
+
     return $payload;
 }
 

@@ -110,6 +110,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Las sesiones abiertas con la clave vieja dejan de valer. Si alguien
+        // recupera su cuenta es, muchas veces, porque sospecha que otro entro:
+        // seria absurdo darle una clave nueva y dejar al otro dentro.
+        require_once __DIR__ . '/sesiones.php';
+        sesionesCerrarAnteriores($cuenta['email']);
+
         urRegistrar("contrasena cambiada  {$cuenta['email']}  ip=" . urIpParaElLog());
 
         if ($cuenta['status'] !== 'active') {

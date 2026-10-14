@@ -38,6 +38,9 @@ jobs:
       - name: Tests de recuperacion de contrasena de clientes
         run: php test/recuperacion-clientes-tests.php
 
+      - name: Cambiar la contrasena cierra las sesiones abiertas
+        run: php test/sesiones-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest

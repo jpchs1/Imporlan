@@ -390,6 +390,20 @@ function usersUpdate() {
         $params[] = $id;
         $stmt = $pdo->prepare("UPDATE admin_users SET " . implode(', ', $sets) . " WHERE id = ?");
         $stmt->execute($params);
+
+        // Si se le cambio la contrasena, sus sesiones abiertas dejan de valer.
+        // Un administrador que le cambia la clave a alguien suele estar
+        // haciendo justamente eso: sacarlo.
+        if (!empty($input['password'])) {
+            $correo = $pdo->prepare("SELECT email FROM admin_users WHERE id = ?");
+            $correo->execute([$id]);
+            $fila = $correo->fetch(PDO::FETCH_ASSOC);
+            if ($fila) {
+                require_once __DIR__ . '/sesiones.php';
+                sesionesCerrarAnteriores($fila['email']);
+            }
+        }
+
         echo json_encode(['success' => true, 'message' => 'Usuario actualizado']);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -622,6 +636,10 @@ function usersSendPasswordReset() {
         // Update password in database
         $stmtUpdate = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
         $stmtUpdate->execute([password_hash($tempPassword, PASSWORD_DEFAULT), $user['id']]);
+
+        // La clave vieja ya no sirve, y las sesiones abiertas con ella tampoco.
+        require_once __DIR__ . '/sesiones.php';
+        sesionesCerrarAnteriores($user['email']);
 
         // Send email with temporary password
         require_once __DIR__ . '/email_service.php';

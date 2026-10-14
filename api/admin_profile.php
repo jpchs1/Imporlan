@@ -233,7 +233,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $upd = $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
         $upd->execute([password_hash($newPassword, PASSWORD_DEFAULT), $row['id']]);
-        echo json_encode(['success' => true, 'message' => 'Contrasena actualizada correctamente.']);
+
+        // Cambiar la clave cierra las sesiones abiertas de esta cuenta. Es el
+        // motivo por el que uno la cambia cuando sospecha: hasta ahora no
+        // echaba a nadie y quien tuviera la sesion robada seguia dentro una
+        // semana.
+        require_once __DIR__ . '/sesiones.php';
+        sesionesCerrarAnteriores($userEmail);
+
+        // Menos la de quien la esta cambiando: se le da un token nuevo para que
+        // siga trabajando. Sin esto, cambiar la contrasena te expulsa a ti
+        // mismo en la peticion siguiente, que es un castigo absurdo por hacer
+        // lo correcto.
+        $tokenNuevo = null;
+        require_once __DIR__ . '/auth_local.php';
+        if (function_exists('generateJWT')) {
+            $tokenNuevo = generateJWT([
+                'sub'    => (string) $row['id'],
+                'email'  => $userEmail,
+                'role'   => $user['role'] ?? 'user',
+                'locale' => $user['locale'] ?? 'es',
+                'exp'    => time() + (7 * 24 * 60 * 60),
+                'iat'    => time(),
+            ]);
+        }
+
+        echo json_encode(array_filter([
+            'success'      => true,
+            'message'      => 'Contrasena actualizada. Se cerraron las otras sesiones abiertas de tu cuenta.',
+            'access_token' => $tokenNuevo,
+        ], function ($v) { return $v !== null; }));
         exit();
     }
 
