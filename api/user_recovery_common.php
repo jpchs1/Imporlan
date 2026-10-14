@@ -127,9 +127,11 @@ function urPermiteSolicitud($email, $ip) {
 
 /**
  * Rangos desde los que SI se le cree a una cabecera de proxy: los de
- * Cloudflare, que es el CDN del sitio (DEPLOY-SAFETY.md manda hacerle "Purge
- * Everything" despues de cada despliegue). Se puede reemplazar la lista desde
- * db_config.php definiendo UR_PROXIES_CONFIABLES, para el dia que cambie.
+ * Cloudflare, que es donde esta el DNS del sitio (DEPLOY-SAFETY.md lo nombra en
+ * el runbook, "Purge Everything"). Comprobado el 14-oct-2026: el proxy esta
+ * APAGADO —www.imporlan.cl resuelve a la IP del hosting y la respuesta no trae
+ * cf-ray— asi que hoy ninguna peticion entra por aqui. La lista se puede
+ * reemplazar desde db_config.php definiendo UR_PROXIES_CONFIABLES.
  *
  * Si Cloudflare agrega un rango y esta lista queda vieja, las peticiones de esa
  * franja vuelven a contarse por la IP del borde: mas estricto de lo necesario,
@@ -178,17 +180,17 @@ function urIpEnRango($ip, $cidr) {
 /**
  * La IP con la que se cuenta el tope.
  *
- * REMOTE_ADDR a secas no servia: en produccion el sitio esta detras de
- * Cloudflare, asi que REMOTE_ADDR es siempre una IP de borde de Cloudflare y
- * las 12 solicitudes por hora quedaban repartidas entre TODOS los clientes —
- * doce recuperaciones por hora en todo el sitio, y un cliente dejando a otro
- * sin poder recuperar su clave. El tope estaba pensado para que no se pudiera
- * recorrer una lista de correos desde una maquina, y terminaba castigando a
- * los clientes de verdad.
+ * REMOTE_ADDR a secas alcanza mientras las peticiones lleguen derecho al
+ * hosting, como llegan hoy. Pero el dia que se encienda el proxy, REMOTE_ADDR
+ * pasa a ser una IP de borde y las 12 solicitudes por hora quedarian
+ * repartidas entre TODOS los clientes — doce recuperaciones por hora en todo
+ * el sitio, y un cliente dejando a otro sin poder recuperar su clave. El tope
+ * esta pensado para que no se pueda recorrer una lista de correos desde una
+ * maquina, y terminaria castigando a los clientes de verdad.
  *
  * Creerle a la cabecera sin mas tampoco: la escribe quien hace la peticion, asi
  * que bastaria cambiarla en cada intento para estrenar cuota y dejar el tope en
- * nada. Era un riesgo real y por eso estaba asi.
+ * nada. Es un riesgo real y por eso estaba asi.
  *
  * La salida es mirar QUIEN la escribio: se le cree solo cuando REMOTE_ADDR es
  * de un proxy de confianza, porque ahi la puso el proxy. Desde cualquier otro
