@@ -315,10 +315,14 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
      * ask for it).
      *
      * Flete + seguro go at cost: they are printed on the customs declaration
-     * (and the freight is part of the IVA base), so they must match. The other three stages are
-     * service prices: what's left of the All-Inclusive is spread over them in
-     * proportion to their sheet cost, so no line reveals the FEE and the
-     * stages add up, to the peso, to the number the client has in the quote.
+     * (and the freight is part of the IVA base), so they must match. Half of
+     * the margin (what's left over the sheet costs, i.e. the FEE) goes to its
+     * own «Gestión Imporlan» line; the other half is spread over the three
+     * logistics stages in proportion to their cost. JP, 14-oct-2026: spread
+     * whole, the FEE made the USA stage read 43% over cost for its title; this
+     * way every stage stays ~21% over cost, the client sees that Imporlan
+     * charges for its work, and no line shows the whole FEE. Everything adds
+     * up, to the peso, to the All-Inclusive the client has in the quote.
      *
      * 'cuadra' is false when the saved total doesn't even cover the freight
      * (a broken quote): the breakdown must not go out like that.
@@ -333,8 +337,8 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
                 'clp'     => [],
             ],
             'usa' => [
-                'label'   => 'Gestión y logística en Estados Unidos',
-                'detalle' => 'Inspección técnica, pago seguro al vendedor, retiro, bodegaje y traslado a puerto, fumigación y trámites de exportación.',
+                'label'   => 'Inspección, retiro y traslado a puerto (EE.UU.)',
+                'detalle' => 'Inspección técnica, retiro, bodegaje y traslado al puerto de embarque, fumigación, transferencia internacional y trámites de exportación.',
                 'usd'     => ['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'fumigacion_usd', 'miami_admin_usd', 'escorte_usd'],
                 'clp'     => ['fee_wire_clp'],
             ],
@@ -368,10 +372,14 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         $allIncl   = round($totalClp - $lanchaClp - $ivaClp - $lujoClp);
 
         $montos = ['flete' => round($etapas['flete']['costo'])];
-        $resto = $allIncl - $montos['flete'];
         $servicio = ['usa', 'chile', 'entrega'];
         $base = 0.0;
         foreach ($servicio as $k) $base += $etapas[$k]['costo'];
+        // Half the margin, to the thousand, in its own line. Under $2.000 of
+        // margin there is no line: it would read as a rounding error.
+        $margen = $allIncl - $montos['flete'] - $base;
+        $montos['gestion'] = $margen >= 2000 ? round($margen / 2, -3) : 0;
+        $resto = $allIncl - $montos['flete'] - $montos['gestion'];
         // The costliest stage takes the remainder; the other two are rounded
         // to the thousand so they read as prices. Its share is at least a third
         // of the rest, so their rounding (at most $1.000 between both) can't
@@ -389,7 +397,11 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
         $montos[$mayor] = $resto - $asignado;
 
         $out = [];
-        foreach (['flete', 'usa', 'chile', 'entrega'] as $k) {
+        $etapas['gestion'] = [
+            'label'   => 'Gestión Imporlan',
+            'detalle' => 'Coordinación de todo el proceso: negociación con el vendedor, compra segura, documentación y seguimiento hasta la entrega, con un solo interlocutor.',
+        ];
+        foreach (['flete', 'usa', 'chile', 'entrega', 'gestion'] as $k) {
             if ($montos[$k] <= 0) continue;
             $out[] = ['label' => $etapas[$k]['label'], 'detalle' => $etapas[$k]['detalle'], 'clp' => $montos[$k]];
         }
@@ -469,7 +481,7 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
             . '</div>'
             . '<div style="background:#f8fafc;border-left:4px solid #94a3b8;padding:12px 16px;border-radius:6px;margin:18px 0;color:#475569;font-size:12px;line-height:1.6">'
             . 'El <strong>flete marítimo y el seguro</strong> van a costo: son los mismos valores que aparecen en la declaración de aduana. '
-            . 'Las otras tres etapas son el precio de nuestro servicio puerta a puerta: cada una incluye sus costos y nuestra coordinación y gestión, con un solo interlocutor de principio a fin.'
+            . 'Las etapas siguientes son el precio de nuestro servicio en cada tramo, y la última línea es la gestión de Imporlan de principio a fin.'
             . '</div>'
             . '<div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px">Resumen de la cotización</div>'
             . $resumen
