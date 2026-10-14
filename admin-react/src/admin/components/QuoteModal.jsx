@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { saveQuote, deleteQuote, getPricing } from '../api';
 import { enviarDesglose } from '../desglose';
-import { Button } from '../../shared/components/UI';
+import { Modal, Button, Select, NumberInput, Checkbox, Menu, Money, Spinner, useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
+import { Trash, Send } from '../../shared/components/Icons';
+import { fmtCLP, cn } from '../../shared/lib/utils';
+import { fmtUSD } from '../../shared/lib/format';
 
 // Maps each editable field shown to admin to the cot_* template key in
 // pricing_config. The QuoteModal pre-fills inputs with those defaults the
@@ -11,34 +13,34 @@ import { useToast } from '../../shared/components/Toast';
 // link, that wins (so admin edits stay sticky).
 const USD_FIELDS = [
   { key: 'trailer_usd',                 cot: 'cot_usd_trailer',                 label: 'Trailer (si no trae)' },
-  { key: 'inspeccion_usd',              cot: 'cot_usd_inspeccion_lancha',       label: 'Inspección Técnica USA' },
+  { key: 'inspeccion_usd',              cot: 'cot_usd_inspeccion_lancha',       label: 'Inspección técnica USA' },
   { key: 'inland_usa_usd',              cot: 'cot_usd_inland_usa',              label: 'Inland USA (bodegaje + puerto)' },
-  { key: 'transporte_roro_usd',         cot: 'cot_usd_transporte_roro',         label: 'Transporte Marítimo (RORO)' },
-  { key: 'fumigacion_usd',              cot: 'cot_usd_certificado_fumigacion',  label: 'Certificado Fumigación' },
-  { key: 'seguro_usd',                  cot: 'cot_usd_seguro',                  label: 'Seguro / Insurance' },
-  { key: 'gastos_naviera_usd',          cot: 'cot_usd_gastos_locales_naviera',  label: 'Gastos Locales Naviera' },
-  { key: 'congestion_usd',              cot: 'cot_usd_congestion_surcharge',    label: 'Congestion Surcharge' },
+  { key: 'transporte_roro_usd',         cot: 'cot_usd_transporte_roro',         label: 'Transporte marítimo (RORO)' },
+  { key: 'fumigacion_usd',              cot: 'cot_usd_certificado_fumigacion',  label: 'Certificado de fumigación' },
+  { key: 'seguro_usd',                  cot: 'cot_usd_seguro',                  label: 'Seguro' },
+  { key: 'gastos_naviera_usd',          cot: 'cot_usd_gastos_locales_naviera',  label: 'Gastos locales naviera' },
+  { key: 'congestion_usd',              cot: 'cot_usd_congestion_surcharge',    label: 'Congestion surcharge' },
   { key: 'thc_usd',                     cot: 'cot_usd_thc',                     label: 'THC' },
   { key: 'baf_usd',                     cot: 'cot_usd_baf',                     label: 'BAF' },
-  { key: 'wharfage_usd',                cot: 'cot_usd_wharfage',                label: 'WHARFAGE' },
+  { key: 'wharfage_usd',                cot: 'cot_usd_wharfage',                label: 'Wharfage' },
   { key: 'handling_chile_usd',          cot: 'cot_usd_handling_chile',          label: 'Handling Chile' },
-  { key: 'miami_admin_usd',             cot: 'cot_usd_miami_admin_fee',         label: 'Miami Admin FEE' },
+  { key: 'miami_admin_usd',             cot: 'cot_usd_miami_admin_fee',         label: 'Miami admin fee' },
   { key: 'escorte_usd',                 cot: 'cot_usd_escorte',                 label: 'Escorte (Port Pass)' },
 ];
 
 const CLP_FIELDS = [
-  { key: 'fee_wire_clp',                cot: 'cot_clp_fee_wire_transfer',       label: 'FEE Wire Transferencia' },
-  { key: 'inland_puerto_clp',           cot: 'cot_clp_inland_puerto_santiago',  label: 'Inland Puerto → Santiago' },
-  { key: 'chequeo_mecanico_clp',        cot: 'cot_clp_chequeo_mecanico',        label: 'Chequeo Mecánico' },
-  { key: 'pulido_clp',                  cot: 'cot_clp_pulido_tratamiento',      label: 'Pulido y Tratamiento' },
-  { key: 'entrega_clp',                 cot: 'cot_clp_entrega_traslado',        label: 'Entrega / Traslado' },
+  { key: 'fee_wire_clp',                cot: 'cot_clp_fee_wire_transfer',       label: 'Fee wire transfer' },
+  { key: 'inland_puerto_clp',           cot: 'cot_clp_inland_puerto_santiago',  label: 'Inland puerto → Santiago' },
+  { key: 'chequeo_mecanico_clp',        cot: 'cot_clp_chequeo_mecanico',        label: 'Chequeo mecánico' },
+  { key: 'pulido_clp',                  cot: 'cot_clp_pulido_tratamiento',      label: 'Pulido y tratamiento' },
+  { key: 'entrega_clp',                 cot: 'cot_clp_entrega_traslado',        label: 'Entrega / traslado' },
   { key: 'aduana_extra_clp',            cot: 'cot_clp_aduana_extra',            label: 'Aduana M$1.2 + IVA' },
   { key: 'autorizaciones_clp',          cot: 'cot_clp_autorizaciones',          label: 'Autorizaciones' },
-  { key: 'gastos_puerto_clp',           cot: 'cot_clp_gastos_puerto',           label: 'Gastos de Puerto' },
-  { key: 'agencia_aduana_clp',          cot: 'cot_clp_agencia_aduana',          label: 'Agencia de Aduana' },
-  { key: 'iva_servicios_linea_clp',     cot: 'cot_clp_iva_servicios_linea',     label: 'IVA Servicios (línea)' },
-  { key: 'gastos_despachos_clp',        cot: 'cot_clp_gastos_despachos',        label: 'Gastos de Despachos' },
-  { key: 'honorarios_agencia_clp',      cot: 'cot_clp_honorarios_agencia',      label: 'Honorarios Agencia' },
+  { key: 'gastos_puerto_clp',           cot: 'cot_clp_gastos_puerto',           label: 'Gastos de puerto' },
+  { key: 'agencia_aduana_clp',          cot: 'cot_clp_agencia_aduana',          label: 'Agencia de aduana' },
+  { key: 'iva_servicios_linea_clp',     cot: 'cot_clp_iva_servicios_linea',     label: 'IVA servicios (línea)' },
+  { key: 'gastos_despachos_clp',        cot: 'cot_clp_gastos_despachos',        label: 'Gastos de despachos' },
+  { key: 'honorarios_agencia_clp',      cot: 'cot_clp_honorarios_agencia',      label: 'Honorarios agencia' },
 ];
 
 // Spreadsheet defaults (Planilla de Costos Importación Imporlan 2026, Servicio
@@ -81,18 +83,11 @@ const SPREADSHEET_DEFAULTS = {
   cot_pago_3_pct: 30,
 };
 
-function fmtClp(n) {
-  if (n === null || n === undefined || isNaN(n)) return '$ 0';
-  return '$ ' + Math.round(n).toLocaleString('es-CL');
-}
-function fmtUsd(n) {
-  if (n === null || n === undefined || isNaN(n)) return 'USD 0';
-  return 'USD ' + Math.round(n).toLocaleString('en-US');
-}
 function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
 export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSent }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [pricing, setPricing] = useState({});
   const [loadingPricing, setLoadingPricing] = useState(true);
   const [q, setQ] = useState(null);
@@ -203,7 +198,12 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
 
   async function handleSave(publishNow = false) {
     if (!q || !calc || !link?.id) return;
-    if (publishNow && !confirm('Esto publica la cotización al cliente AHORA (sin esperar las 24 hrs) y le envía un correo. ¿Confirmar?')) return;
+    if (publishNow && !(await confirm({
+      title: '¿Publicar la cotización ahora?',
+      description: 'Esto publica la cotización al cliente AHORA (sin esperar las 24 horas) y le envía un correo.',
+      tone: 'warning',
+      confirmLabel: 'Publicar y enviar',
+    }))) return;
     setSaving(true);
     try {
       const payments = {
@@ -213,9 +213,9 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
       };
       const res = await saveQuote(link.id, q, calc.totalClp, calc.totalUsd, payments, publishNow);
       if (publishNow) {
-        showToast(res?.emailed ? 'Cotización enviada al cliente' : 'Cotización publicada (sin email)', 'success');
+        showToast(res?.emailed ? 'Cotización enviada al cliente' : 'Cotización publicada (sin correo)', 'success');
       } else {
-        showToast('Cotización guardada. El cliente la verá en 24 hrs.', 'success');
+        showToast('Cotización guardada. El cliente la verá en 24 horas.', 'success');
       }
       onSaved?.();
       onClose?.();
@@ -228,7 +228,7 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
 
   async function handleDelete() {
     if (!link?.id || !link?.quote_calculated_at) return;
-    if (!confirm('¿Borrar la cotización guardada de este link?')) return;
+    if (!(await confirm({ title: '¿Borrar la cotización guardada de este link?', description: 'El cliente deja de verla. No se puede deshacer.', tone: 'danger', confirmLabel: 'Borrar cotización' }))) return;
     setDeleting(true);
     try {
       await deleteQuote(link.id);
@@ -259,231 +259,157 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
     }
   }
 
-  const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 outline-none bg-white';
-
   const boatTitle = [link?.year, link?.make, link?.model].filter(Boolean).join(' ') || link?.url || 'Link';
+  const ocupado = saving || deleting || sendingBreakdown;
+  const pagosOk = calc ? Math.abs(calc.pagosSum - 100) < 0.01 : true;
 
-  return createPortal(
-    <>
-      <div className="animate-fade-in" style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
-      <div
-        className="animate-scale-in"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
-          padding: '4vh 1rem',
-          overflowY: 'auto',
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          className="bg-white rounded-2xl shadow-2xl flex flex-col border border-slate-200/60 overflow-hidden"
-          style={{ pointerEvents: 'auto', width: 'min(1080px, 100%)', maxHeight: '92vh' }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 bg-gradient-to-r from-indigo-50 to-cyan-50">
-            <div>
-              <h3 className="font-bold text-slate-800 text-lg">Cotización del link</h3>
-              <p className="text-xs text-slate-500">{boatTitle}</p>
-            </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-white/60">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
+  const extras = [
+    link?.quote_published_at ? { label: sendingBreakdown ? 'Enviando desglose…' : (link.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'), icon: Send, onClick: handleBreakdown, disabled: ocupado } : null,
+    link?.quote_calculated_at && link?.quote_published_at ? { separator: true } : null,
+    link?.quote_calculated_at ? { label: deleting ? 'Borrando…' : 'Borrar cotización', icon: Trash, tone: 'danger', onClick: handleDelete, disabled: ocupado } : null,
+  ].filter(Boolean);
 
-          {/* Body */}
-          {(!q || loadingPricing) ? (
-            <div className="p-12 text-center text-slate-400 text-sm">Cargando datos del cotizador...</div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 flex-1 min-h-0">
-              {/* LEFT — inputs (admin only) */}
-              <div className="lg:col-span-2 overflow-y-auto px-6 py-5 space-y-5 bg-slate-50/30 min-w-0">
+  const meta = [
+    link?.quote_calculated_at ? `Última: ${new Date(link.quote_calculated_at).toLocaleString('es-CL')}` : null,
+    link?.quote_breakdown_sent_at ? `Desglose enviado: ${new Date(link.quote_breakdown_sent_at).toLocaleString('es-CL')}` : null,
+  ].filter(Boolean).join(' · ');
 
-                {/* Generales */}
-                <section>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Generales</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Modalidad</label>
-                      <select className={inputCls} value={q.modalidad} onChange={e => set('modalidad', e.target.value)}>
-                        <option value="RORO">RORO</option>
-                        <option value="Container">Container</option>
-                        <option value="Otro">Otro</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Tipo de cambio</label>
-                      <input type="number" className={inputCls} value={q.usd_clp_rate} onChange={e => set('usd_clp_rate', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase mb-1">Valor Lancha (USD)</label>
-                      <input type="number" className={inputCls} value={q.valor_lancha_usd} onChange={e => set('valor_lancha_usd', e.target.value)} />
-                    </div>
-                  </div>
-                </section>
-
-                {/* Costos USD */}
-                <section>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Costos USD <span className="font-normal normal-case text-slate-400">(suma: {fmtUsd(calc?.usdLogisticosSum)})</span></h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {USD_FIELDS.map(f => (
-                      <div key={f.key}>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">{f.label}</label>
-                        <input type="number" className={inputCls} value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Costos CLP */}
-                <section>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Costos CLP <span className="font-normal normal-case text-slate-400">(suma: {fmtClp(calc?.clpLogisticosSum)})</span></h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {CLP_FIELDS.map(f => (
-                      <div key={f.key}>
-                        <label className="block text-[11px] font-semibold text-slate-500 mb-1">{f.label}</label>
-                        <input type="number" className={inputCls} value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Cargos finales */}
-                <section>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Cargos finales</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">FEE Imporlan (CLP)</label>
-                      <input type="number" className={inputCls} value={q.fee_imporlan_clp} onChange={e => set('fee_imporlan_clp', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">IVA Aduanero (%)</label>
-                      <input type="number" className={inputCls} value={q.iva_pct} onChange={e => set('iva_pct', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Lujo (%)</label>
-                      <input type="number" className={inputCls} value={q.lujo_pct} onChange={e => set('lujo_pct', e.target.value)} />
-                    </div>
-                    <div className="flex items-end pb-2">
-                      <label className="flex items-center gap-2 text-xs text-slate-700">
-                        <input type="checkbox" checked={!!q.lujo_aplica} onChange={e => set('lujo_aplica', e.target.checked)} className="w-4 h-4 accent-indigo-600" />
-                        Aplica Lujo
-                      </label>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Pagos */}
-                <section>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Estructura de pagos <span className={'font-normal normal-case ' + (Math.abs(calc.pagosSum - 100) < 0.01 ? 'text-emerald-600' : 'text-red-500')}>(suma: {calc?.pagosSum?.toFixed(1)}%)</span></h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Pago 1 (%)</label>
-                      <input type="number" className={inputCls} value={q.pago_1_pct} onChange={e => set('pago_1_pct', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Pago 2 (%)</label>
-                      <input type="number" className={inputCls} value={q.pago_2_pct} onChange={e => set('pago_2_pct', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-1">Pago 3 (%)</label>
-                      <input type="number" className={inputCls} value={q.pago_3_pct} onChange={e => set('pago_3_pct', e.target.value)} />
-                    </div>
-                  </div>
-                </section>
-
-              </div>
-
-              {/* RIGHT — preview cliente */}
-              <aside className="lg:col-span-1 overflow-y-auto px-5 py-5 bg-gradient-to-b from-slate-900 to-slate-950 text-white min-w-0">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Lo que verá el cliente</div>
-
-                <div className="space-y-3 text-sm">
-                  <Row label="Valor Lancha" value={fmtClp(calc.lanchaClp)} sub={fmtUsd(calc.lanchaUsd)} />
-                  <Row label="Servicio All-Inclusive" value={fmtClp(calc.allInclusiveTotal)} />
-                  <Row label="IVA Aduanero" value={fmtClp(calc.ivaClp)} sub={`${num(q.iva_pct)}% sobre CIF`} />
-                  {q.lujo_aplica ? (
-                    <Row label="Impuesto al Lujo" value={fmtClp(calc.lujoClp)} sub={`${num(q.lujo_pct)}% sobre lancha`} />
-                  ) : (
-                    <Row label="Impuesto al Lujo" value="N/A" muted />
-                  )}
-                  <hr className="border-white/10 my-1" />
-                  <Row label="TOTAL" value={fmtClp(calc.totalClp)} sub={fmtUsd(calc.totalUsd)} bold large />
-                </div>
-
-                <div className="mt-6 text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Pagos</div>
-                <div className="space-y-1.5 text-xs">
-                  <PayRow n={1} pct={calc.pagos.p1.pct} clp={calc.pagos.p1.clp} />
-                  <PayRow n={2} pct={calc.pagos.p2.pct} clp={calc.pagos.p2.clp} />
-                  <PayRow n={3} pct={calc.pagos.p3.pct} clp={calc.pagos.p3.clp} />
-                </div>
-
-                <div className="mt-6 text-[10px] text-slate-400 leading-relaxed">
-                  El cliente verá esta cotización <span className="text-amber-300 font-semibold">24 horas después</span> de que la guardes. Mientras tanto se le muestra el badge "Cotización en análisis".
-                </div>
-              </aside>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 shrink-0 bg-white">
-            <div className="text-xs text-slate-400">
-              {link?.quote_calculated_at && (
-                <>Última: {new Date(link.quote_calculated_at).toLocaleString('es-CL')}</>
-              )}
-              {link?.quote_breakdown_sent_at && (
-                <> · Desglose enviado: {new Date(link.quote_breakdown_sent_at).toLocaleString('es-CL')}</>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 justify-end">
-              {link?.quote_calculated_at && (
-                <Button variant="ghost" className="text-red-600" onClick={handleDelete} disabled={deleting || saving}>
-                  {deleting ? 'Borrando...' : 'Borrar cotización'}
-                </Button>
-              )}
-              {link?.quote_published_at && (
-                <Button variant="secondary" onClick={handleBreakdown} disabled={sendingBreakdown || saving || deleting} title="Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE. Solo a quien lo pida.">
-                  {sendingBreakdown ? 'Enviando...' : (link.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose')}
-                </Button>
-              )}
-              <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
-              <Button onClick={() => handleSave(false)} disabled={saving || !calc}>
-                {saving ? 'Guardando...' : 'Guardar (24 hrs)'}
-              </Button>
-              <Button variant="accent" onClick={() => handleSave(true)} disabled={saving || !calc} title="Publica al cliente sin esperar las 24 hrs y envía email">
-                {saving ? 'Enviando...' : 'Guardar y enviar ahora'}
-              </Button>
-            </div>
-          </div>
+  return (
+    <Modal
+      open={open}
+      onClose={ocupado ? undefined : onClose}
+      title="Cotización del link"
+      description={boatTitle}
+      size="xl"
+      bodyClassName="p-0"
+      footer={(
+        <div className="flex flex-wrap items-center gap-2 w-full">
+          <span className="hidden sm:block text-xs text-ink-500 tabular flex-1 min-w-0 truncate" title={meta}>{meta}</span>
+          {extras.length > 0 && <Menu items={extras} label="Más acciones de la cotización" />}
+          <Button variant="secondary" onClick={onClose} disabled={ocupado}>Cancelar</Button>
+          <Button variant="secondary" onClick={() => handleSave(true)} disabled={ocupado || !calc} title="Publica al cliente sin esperar las 24 horas y le envía un correo">Guardar y enviar ahora</Button>
+          <Button onClick={() => handleSave(false)} loading={saving} disabled={deleting || sendingBreakdown || !calc}>Guardar (24 h)</Button>
         </div>
-      </div>
-    </>,
-    document.body
+      )}
+    >
+      {(!q || loadingPricing) ? (
+        <Spinner label="Cargando los datos del cotizador…" />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* Izquierda: lo que edita el admin */}
+          <div className="px-5 sm:px-6 py-5 space-y-6 min-w-0">
+            <Seccion titulo="Generales">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Select label="Modalidad" value={q.modalidad} onChange={e => set('modalidad', e.target.value)} options={[{ value: 'RORO', label: 'RORO' }, { value: 'Container', label: 'Container' }, { value: 'Otro', label: 'Otro' }]} />
+                <NumberInput label="Tipo de cambio (CLP por USD)" unit="CLP" value={q.usd_clp_rate} onChange={e => set('usd_clp_rate', e.target.value)} />
+                <NumberInput label="Valor de la lancha" unit="USD" value={q.valor_lancha_usd} onChange={e => set('valor_lancha_usd', e.target.value)} />
+              </div>
+            </Seccion>
+
+            <Seccion titulo="Costos en USD" subtotal={fmtUSD(calc?.usdLogisticosSum)}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {USD_FIELDS.map(f => (
+                  <NumberInput key={f.key} size="sm" label={f.label} unit="USD" value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
+                ))}
+              </div>
+            </Seccion>
+
+            <Seccion titulo="Costos en CLP" subtotal={fmtCLP(calc?.clpLogisticosSum)}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {CLP_FIELDS.map(f => (
+                  <NumberInput key={f.key} size="sm" label={f.label} unit="CLP" value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
+                ))}
+              </div>
+            </Seccion>
+
+            <Seccion titulo="Cargos finales" subtotal={fmtCLP(calc.feeImporlan + calc.ivaClp + calc.lujoClp)}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+                <NumberInput size="sm" label="Fee Imporlan" unit="CLP" value={q.fee_imporlan_clp} onChange={e => set('fee_imporlan_clp', e.target.value)} />
+                <NumberInput size="sm" label="IVA aduanero" unit="%" value={q.iva_pct} onChange={e => set('iva_pct', e.target.value)} />
+                <NumberInput size="sm" label="Impuesto al lujo" unit="%" value={q.lujo_pct} onChange={e => set('lujo_pct', e.target.value)} />
+                <Checkbox label="Aplica lujo" className="pb-1.5" checked={!!q.lujo_aplica} onChange={e => set('lujo_aplica', e.target.checked)} />
+              </div>
+            </Seccion>
+
+            <Seccion
+              titulo="Estructura de pagos"
+              subtotal={<span className={cn(pagosOk ? 'text-success' : 'text-danger')}>{calc?.pagosSum?.toFixed(1)}%</span>}
+              aviso={!pagosOk ? 'Los tres pagos deben sumar 100 %.' : null}
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <NumberInput size="sm" label="Pago 1" unit="%" value={q.pago_1_pct} onChange={e => set('pago_1_pct', e.target.value)} />
+                <NumberInput size="sm" label="Pago 2" unit="%" value={q.pago_2_pct} onChange={e => set('pago_2_pct', e.target.value)} />
+                <NumberInput size="sm" label="Pago 3" unit="%" value={q.pago_3_pct} onChange={e => set('pago_3_pct', e.target.value)} />
+              </div>
+            </Seccion>
+          </div>
+
+          {/* Derecha: lo que verá el cliente */}
+          <aside className="bg-canvas border-t lg:border-t-0 lg:border-l border-line px-5 sm:px-6 py-5 lg:sticky lg:top-0 self-start" aria-label="Lo que verá el cliente">
+            <p className="eyebrow mb-3">Lo que verá el cliente</p>
+            <dl className="space-y-2.5">
+              <Row label="Valor de la lancha"><Money clp={calc.lanchaClp} usd={calc.lanchaUsd} align="right" /></Row>
+              <Row label="Servicio All-Inclusive"><Money clp={calc.allInclusiveTotal} align="right" /></Row>
+              <Row label="IVA aduanero" sub={`${num(q.iva_pct)} % sobre CIF`}><Money clp={calc.ivaClp} align="right" /></Row>
+              {q.lujo_aplica
+                ? <Row label="Impuesto al lujo" sub={`${num(q.lujo_pct)} % sobre la lancha`}><Money clp={calc.lujoClp} align="right" /></Row>
+                : <Row label="Impuesto al lujo"><span className="text-13 text-ink-500">No aplica</span></Row>}
+              <div className="mt-3 pt-3 border-t border-line-strong flex items-start justify-between gap-3">
+                <dt className="text-sm font-semibold text-ink-900 pt-1">Total</dt>
+                <dd><Money clp={calc.totalClp} usd={calc.totalUsd} size="lg" align="right" /></dd>
+              </div>
+            </dl>
+
+            <p className="eyebrow mt-5 mb-2">Pagos</p>
+            <table className="w-full text-13 tabular">
+              <tbody className="divide-y divide-line">
+                <PayRow n={1} pct={calc.pagos.p1.pct} clp={calc.pagos.p1.clp} />
+                <PayRow n={2} pct={calc.pagos.p2.pct} clp={calc.pagos.p2.clp} />
+                <PayRow n={3} pct={calc.pagos.p3.pct} clp={calc.pagos.p3.clp} />
+              </tbody>
+            </table>
+
+            <p className="mt-5 text-xs text-ink-500 leading-relaxed">
+              El cliente verá esta cotización <strong className="text-ink-700">24 horas después</strong> de que la guardes. Mientras tanto, en su panel aparece «Cotización en análisis».
+            </p>
+          </aside>
+        </div>
+      )}
+    </Modal>
   );
 }
 
-function Row({ label, value, sub, bold, large, muted }) {
+function Seccion({ titulo, subtotal, aviso, children }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <div className={'text-slate-300 ' + (bold ? 'font-bold text-white' : '')}>{label}</div>
-      <div className="text-right">
-        <div className={(large ? 'text-xl ' : 'text-sm ') + (bold ? 'font-bold text-white' : (muted ? 'text-slate-500' : 'text-slate-100 font-semibold'))}>{value}</div>
-        {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
+    <section>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h3 className="eyebrow">{titulo}</h3>
+        {subtotal !== undefined && <span className="text-13 font-semibold text-ink-900 tabular">{subtotal}</span>}
       </div>
+      {children}
+      {aviso && <p className="mt-2 text-xs text-danger" role="alert">{aviso}</p>}
+    </section>
+  );
+}
+
+function Row({ label, sub, children }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="text-sm text-ink-700">
+        {label}
+        {sub && <span className="block text-xs text-ink-500">{sub}</span>}
+      </dt>
+      <dd className="text-right">{children}</dd>
     </div>
   );
 }
 
 function PayRow({ n, pct, clp }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 px-2 py-1 bg-white/5 rounded-md">
-      <div className="text-slate-300">Pago {n} <span className="text-slate-500">({pct}%)</span></div>
-      <div className="text-slate-100 font-semibold">{fmtClp(clp)}</div>
-    </div>
+    <tr>
+      <td className="py-1.5 text-ink-700">Pago {n} <span className="text-ink-500">({pct} %)</span></td>
+      <td className="py-1.5 text-right font-semibold text-ink-900">{fmtCLP(clp)}</td>
+    </tr>
   );
 }
 
