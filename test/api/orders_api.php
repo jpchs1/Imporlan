@@ -42,10 +42,11 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             runMigration();
             break;
         case 'user_list':
-            userListOrders();
+            // Sesión obligatoria: el correo sale del token, nunca de la URL.
+            userListOrders(requireUserAuthShared());
             break;
         case 'user_detail':
-            userGetOrderDetail();
+            userGetOrderDetail(requireUserAuthShared());
             break;
         case 'admin_list':
             requireAdminAuth();
@@ -316,8 +317,10 @@ function computeTimelineStep($pdo, $order) {
 }
 
 function userListOrders($authPayload = null) {
-    $userEmail = $authPayload['email'] ?? ($_GET['user_email'] ?? '');
-    $userId = $_GET['user_id'] ?? '';
+    // Sólo lo que dice el token verificado. Antes, sin sesión, bastaba con
+    // ?user_email= para listar los expedientes de cualquier cliente.
+    $userEmail = is_array($authPayload) ? ($authPayload['email'] ?? '') : '';
+    $userId = is_array($authPayload) ? ($authPayload['sub'] ?? '') : '';
 
     if (!$userEmail && !$userId) {
         http_response_code(400);
@@ -364,8 +367,9 @@ function userListOrders($authPayload = null) {
 
 function userGetOrderDetail($authPayload = null) {
     $orderId = intval($_GET['id'] ?? 0);
-    $userEmail = $authPayload['email'] ?? ($_GET['user_email'] ?? '');
-    $userId = $_GET['user_id'] ?? '';
+    // Sólo lo que dice el token verificado (ver userListOrders).
+    $userEmail = is_array($authPayload) ? ($authPayload['email'] ?? '') : '';
+    $userId = is_array($authPayload) ? ($authPayload['sub'] ?? '') : '';
 
     if (!$orderId || (!$userEmail && !$userId)) {
         http_response_code(400);
@@ -1375,6 +1379,10 @@ function saveRanking() {
     try {
         // Verify access: if user role, check email matches order
         if ($authorRole === 'user') {
+            // El correo sale del token, no del cuerpo de la petición: antes
+            // cualquiera podía reordenar o notificar el ranking de otro cliente.
+            $sesion = requireUserAuthShared();
+            $userEmail = $sesion['email'] ?? '';
             $checkStmt = $pdo->prepare("SELECT id FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
             $checkStmt->execute([$orderId, $userEmail]);
             if (!$checkStmt->fetch()) {
@@ -1451,6 +1459,10 @@ function notifyRanking() {
     try {
         // Authenticate based on role
         if ($authorRole === 'user') {
+            // El correo sale del token, no del cuerpo de la petición: antes
+            // cualquiera podía reordenar o notificar el ranking de otro cliente.
+            $sesion = requireUserAuthShared();
+            $userEmail = $sesion['email'] ?? '';
             // Verify user email matches order
             $checkStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
             $checkStmt->execute([$orderId, $userEmail]);
