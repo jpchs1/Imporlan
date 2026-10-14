@@ -1,9 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getMyInspections, getInspectionDetail } from '../api';
-import { fmtDate, cn } from '../../shared/lib/utils';
-import { PageHeader, Card, Badge, Button, Modal, Spinner } from '../../shared/components/UI';
-import { useToast } from '../../shared/components/Toast';
+import { cn } from '../../shared/lib/utils';
+import { fmtDateLarga } from '../../shared/lib/format';
+import { useBreadcrumb } from '../../shared/lib/page-meta';
+import {
+  PageHeader, Card, Badge, StatusBadge, Button, Skeleton, EmptyState, ErrorState, Callout, Accordion, DescriptionList, SearchInput, Lightbox,
+} from '../../shared/components/UI';
+import { ClipboardCheck, ArrowLeft, Printer, ExternalLink, Play, WhatsAppIcon, User, MapPin, Calendar } from '../../shared/components/Icons';
 
+const WHATSAPP_SOLICITAR = 'https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspecci%C3%B3n%20pre-compra';
+
+/**
+ * Reporte de muestra. Solo se abre desde el botón "Ver un reporte de ejemplo"
+ * del estado vacío y se marca como ejemplo en toda la pantalla; nunca se
+ * mezcla con la lista real del cliente.
+ */
 const DEMO_INSPECTION = {
   id: 'demo-1',
   _demo: true,
@@ -15,7 +26,7 @@ const DEMO_INSPECTION = {
   vessel_type: 'Bowrider',
   location: 'Miami, Florida',
   length_ft: '23.25',
-  hull_material: 'Fibra de Vidrio',
+  hull_material: 'Fibra de vidrio',
   engine_brand: 'Mercury',
   engine_model: 'MerCruiser 4.5L',
   engine_hours: '120',
@@ -24,7 +35,7 @@ const DEMO_INSPECTION = {
   marina: 'Miami Beach Marina',
   city: 'Miami',
   country: 'USA',
-  inspector_name: 'Carlos Rodriguez M.',
+  inspector_name: 'Carlos Rodríguez M.',
   status: 'completed',
   report_type: 'PREMIUM',
   overall_rating: 8.3,
@@ -33,27 +44,18 @@ const DEMO_INSPECTION = {
   created_at: '2026-04-07',
   recommendations: 'La embarcación se encuentra en muy buen estado general para su año. El motor Mercury MerCruiser presenta un funcionamiento óptimo con solo 120 horas de uso. Se sugiere:\n\n1. Revisar tapicería del asiento del copiloto (desgaste menor)\n2. Aplicar cera protectora al gelcoat del casco\n3. Reemplazar ánodos de zinc en la próxima temporada\n4. Verificar tensión de la correa del alternador\n\nEn general, es una excelente opción de compra con muy buena relación precio-calidad.',
   section_details: {
-    hull: { rating: 8.5, fields: { 'Estado del gelcoat': 'Buen estado', 'Linea de flotacion': 'Sin osmosis', 'Quilla': 'Sin danos', 'Obra viva': 'Antifouling vigente', 'Cubierta': 'Buen estado general' }, notes: 'Casco en buen estado. Se recomienda aplicar cera protectora.' },
-    engine: { rating: 9.0, fields: { 'Arranque': 'Funcionando correctamente', 'Ralenti': 'Estable', 'Aceite': 'Nivel correcto, color normal', 'Filtros': 'Limpios', 'Correas': 'Buen estado', 'Sistema de enfriamiento': 'Funcionando' }, notes: 'Motor en excelente estado. 120 horas de uso.' },
-    electrical: { rating: 8.0, fields: { 'Bateria': 'Buen estado (12.6V)', 'Alternador': 'Cargando correctamente', 'Luces de navegacion': 'Funcionando todas', 'Panel de instrumentos': 'Operativo', 'Bocina': 'Funcionando' }, notes: 'Sistema electrico operativo. Verificar correa alternador.' },
-    interior: { rating: 7.5, fields: { 'Tapiceria asientos': 'Desgaste menor copiloto', 'Alfombra': 'Buen estado', 'Consola': 'Sin fisuras', 'Almacenamiento': 'Seco, sin humedad', 'Volante': 'Buen estado' }, notes: 'Interior bien cuidado. Tapiceria copiloto con desgaste menor.' },
-    trailer: { rating: 8.0, fields: { 'Estructura': 'Sin oxidacion', 'Neumaticos': 'Buen estado', 'Luces': 'Funcionando', 'Winche': 'Operativo', 'Rodillos': 'Buen estado' }, notes: 'Trailer en condiciones adecuadas para transporte.' },
-    navigation: { rating: 8.5, fields: { 'GPS/Chartplotter': 'Funcionando', 'Ecosonda': 'Operativa', 'Radio VHF': 'Funcionando', 'Compas': 'Calibrado' }, notes: 'Equipos de navegacion operativos y actualizados.' },
-    safety: { rating: 9.0, fields: { 'Chalecos salvavidas': '6 unidades, buen estado', 'Extintor': 'Vigente (2025)', 'Bengalas': 'Vigentes', 'Botiquin': 'Completo', 'Aro salvavidas': 'Presente' }, notes: 'Equipamiento de seguridad completo y vigente.' },
-    test_drive: { rating: 8.0, fields: { 'Aceleración': 'Respuesta normal', 'Velocidad máxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rápido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Test drive satisfactorio. Embarcación responde bien en todas las pruebas.' },
+    hull: { rating: 8.5, fields: { 'Estado del gelcoat': 'Buen estado', 'Línea de flotación': 'Sin osmosis', 'Quilla': 'Sin daños', 'Obra viva': 'Antifouling vigente', 'Cubierta': 'Buen estado general' }, notes: 'Casco en buen estado. Se recomienda aplicar cera protectora.' },
+    engine: { rating: 9.0, fields: { 'Arranque': 'Funcionando correctamente', 'Ralentí': 'Estable', 'Aceite': 'Nivel correcto, color normal', 'Filtros': 'Limpios', 'Correas': 'Buen estado', 'Sistema de enfriamiento': 'Funcionando' }, notes: 'Motor en excelente estado. 120 horas de uso.' },
+    electrical: { rating: 8.0, fields: { 'Batería': 'Buen estado (12,6 V)', 'Alternador': 'Cargando correctamente', 'Luces de navegación': 'Funcionando todas', 'Panel de instrumentos': 'Operativo', 'Bocina': 'Funcionando' }, notes: 'Sistema eléctrico operativo. Verificar correa del alternador.' },
+    interior: { rating: 7.5, fields: { 'Tapicería asientos': 'Desgaste menor copiloto', 'Alfombra': 'Buen estado', 'Consola': 'Sin fisuras', 'Almacenamiento': 'Seco, sin humedad', 'Volante': 'Buen estado' }, notes: 'Interior bien cuidado. Tapicería del copiloto con desgaste menor.' },
+    trailer: { rating: 8.0, fields: { 'Estructura': 'Sin oxidación', 'Neumáticos': 'Buen estado', 'Luces': 'Funcionando', 'Winche': 'Operativo', 'Rodillos': 'Buen estado' }, notes: 'Trailer en condiciones adecuadas para transporte.' },
+    navigation: { rating: 8.5, fields: { 'GPS/Chartplotter': 'Funcionando', 'Ecosonda': 'Operativa', 'Radio VHF': 'Funcionando', 'Compás': 'Calibrado' }, notes: 'Equipos de navegación operativos y actualizados.' },
+    safety: { rating: 9.0, fields: { 'Chalecos salvavidas': '6 unidades, buen estado', 'Extintor': 'Vigente (2025)', 'Bengalas': 'Vigentes', 'Botiquín': 'Completo', 'Aro salvavidas': 'Presente' }, notes: 'Equipamiento de seguridad completo y vigente.' },
+    test_drive: { rating: 8.0, fields: { 'Aceleración': 'Respuesta normal', 'Velocidad máxima': '45 nudos', 'Virajes': 'Estables', 'Planeo': 'Rápido (3-4 seg)', 'Vibraciones': 'Ninguna anormal', 'Ruidos': 'Normales' }, notes: 'Prueba en agua satisfactoria. La embarcación responde bien en todas las pruebas.' },
   },
   metrics: { hull: 8.5, engine: 9.0, electrical: 8.0, interior: 7.5, trailer: 8.0, navigation: 8.5, safety: 9.0, test_drive: 8.0 },
-  // Las fotos originales de este ejemplo apuntaban a una carpeta que no existe
-  // en el servidor, asi que el reporte —el que ve todo cliente que aún no tiene
-  // una inspección— salia con 14 imagenes rotas. En su lugar van dos fotos del
-  // Cobalt CS23 que ya estaban en el sitio, y la embarcación del ejemplo pasa a
-  // ser ese mismo modelo: un informe cuyas fotos no son del barco que describe
-  // se nota, aunque diga "ejemplo". El 4.5L MerCruiser de la ficha es el motor
-  // real del CS23, asi que los datos siguen siendo coherentes.
-  //
-  // Solo va la sección General: son tomas del barco completo. Ponerlas bajo
-  // "Motor" o "Electrica" seria peor que no tener foto. Las secciones sin
-  // fotos no se dibujan, asi que el resto queda limpio.
+  // Dos fotos del Cobalt CS23 que ya estaban en el sitio (solo sección
+  // General: son tomas del barco completo).
   photos_general: [
     '/images/rank-cobalt-cs23.jpg',
     '/panel/assets/cobalt-cs23.jpg',
@@ -61,369 +63,352 @@ const DEMO_INSPECTION = {
   videos_test_drive: ['https://www.youtube.com/watch?v=qAuCVrVybIQ'],
 };
 
+// Clave de `statusMeta` (lib/status.js): va sin tilde a propósito.
+const KIND_ESTADO = 'inspeccion';
 const METRICS = ['hull', 'engine', 'electrical', 'interior', 'trailer', 'navigation', 'safety', 'test_drive'];
-const METRIC_LABELS = { hull: 'Casco', engine: 'Motor', electrical: 'Electrica', interior: 'Interior', trailer: 'Trailer', navigation: 'Navegacion', safety: 'Seguridad', test_drive: 'Prueba' };
-const STATUS_COLORS = { completed: 'bg-emerald-100 text-emerald-700', pending: 'bg-amber-100 text-amber-700', draft: 'bg-slate-100 text-slate-600' };
+const METRIC_LABELS = { hull: 'Casco', engine: 'Motor', electrical: 'Eléctrica', interior: 'Interior', trailer: 'Trailer', navigation: 'Navegación', safety: 'Seguridad', test_drive: 'Prueba en agua' };
 
-function RadarChart({ metrics, size = 200 }) {
-  const cx = size / 2, cy = size / 2, r = size * 0.38;
-  const n = METRICS.length;
-  const points = METRICS.map((k, i) => {
-    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-    const val = Math.min((metrics[k] || 0) / 10, 1);
-    return { x: cx + r * val * Math.cos(angle), y: cy + r * val * Math.sin(angle), lx: cx + (r + 18) * Math.cos(angle), ly: cy + (r + 18) * Math.sin(angle), label: METRIC_LABELS[k], val: metrics[k] || 0 };
-  });
-  const poly = points.map(p => `${p.x},${p.y}`).join(' ');
+/** Tono semántico de una nota sobre 10. */
+function tonoNota(n) {
+  const v = Number(n);
+  if (!isFinite(v) || v <= 0) return 'neutral';
+  if (v >= 7) return 'success';
+  if (v >= 5) return 'warning';
+  return 'danger';
+}
+const TONO_BG = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-ink-400' };
+const TONO_TEXT = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-ink-500' };
+
+function fmtNota(n) {
+  const v = Number(n);
+  return isFinite(v) ? v.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—';
+}
+
+function nombreEmbarcacion(r) {
+  return [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspección';
+}
+
+/** Nota grande (círculo) con color semántico. */
+function Nota({ value, size = 'md' }) {
+  const tono = tonoNota(value);
+  const dims = size === 'lg' ? 'h-16 w-16 text-2xl' : 'h-11 w-11 text-base';
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[280px] mx-auto">
-      {[0.25, 0.5, 0.75, 1].map(s => (
-        <polygon key={s} points={METRICS.map((_, i) => { const a = (Math.PI * 2 * i) / n - Math.PI / 2; return `${cx + r * s * Math.cos(a)},${cy + r * s * Math.sin(a)}`; }).join(' ')} fill="none" stroke="#e2e8f0" strokeWidth="1" />
-      ))}
-      {METRICS.map((_, i) => { const a = (Math.PI * 2 * i) / n - Math.PI / 2; return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(a)} y2={cy + r * Math.sin(a)} stroke="#e2e8f0" strokeWidth="1" />; })}
-      <polygon points={poly} fill="rgba(6,182,212,0.2)" stroke="#0891b2" strokeWidth="2" />
-      {points.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r="3" fill="#0891b2" />
-          <text x={p.lx} y={p.ly} textAnchor="middle" dominantBaseline="middle" className="text-[8px] fill-slate-500 font-medium">{p.label}</text>
-        </g>
-      ))}
-    </svg>
+    <span role="img" className={cn('inline-flex items-center justify-center rounded-full font-semibold tabular shrink-0 text-white', dims, TONO_BG[tono])} aria-label={`Nota ${fmtNota(value)} de 10`}>
+      {fmtNota(value)}
+    </span>
   );
 }
 
-function CountryFlag({ country }) {
-  const isUSA = /usa|united states|estados unidos|florida|miami|texas|california/i.test(country || '');
-  if (isUSA) return <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>;
-  return <svg className="w-5 h-3.5 rounded-sm shrink-0" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>;
-}
-
+/* ---------------------------------------------------------------------------
+   Lista
+   --------------------------------------------------------------------------- */
 function InspectionCard({ report, onClick }) {
   const r = report;
-  const vesselName = [r.brand, r.model, r.vessel_year || r.year].filter(Boolean).join(' ') || r.vessel_name || r.name || 'Inspección';
-  const ratingColor = r.overall_rating >= 7 ? '#10b981' : r.overall_rating >= 5 ? '#f59e0b' : r.overall_rating ? '#ef4444' : '#94a3b8';
-
   return (
-    <Card className="card-hover cursor-pointer border-l-4 p-5" style={{ borderLeftColor: ratingColor }} onClick={() => onClick(report)}>
-      <div className="flex items-start justify-between gap-4">
+    <Card as="button" type="button" onClick={() => onClick(report)}
+      className="w-full text-left transition-colors duration-150 hover:border-ink-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+      <div className="flex items-start gap-4">
+        {r.overall_rating ? <Nota value={r.overall_rating} /> : <span className="h-11 w-11 rounded-full bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><ClipboardCheck size={20} /></span>}
         <div className="flex-1 min-w-0">
-          {/* Title */}
-          <h3 className="font-bold text-slate-800 text-base">{vesselName}</h3>
-          {/* Location with flag */}
-          {r.location && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <CountryFlag country={r.location} />
-              <span className="text-sm text-slate-500">{r.location}</span>
-            </div>
-          )}
-          {/* Specs row */}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
-            {(r.length_ft || r.size) && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>{r.length_ft ? `${r.length_ft} ft` : r.size}</span>}
-            {r.hull_material && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/></svg>{r.hull_material}</span>}
-            {r.inspector_name && <span className="flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>{r.inspector_name}</span>}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h3 className="text-base font-semibold text-ink-900">{nombreEmbarcacion(r)}</h3>
+            <StatusBadge kind={KIND_ESTADO} status={r.status} />
+            {r._demo && <Badge tone="warning">Ejemplo</Badge>}
           </div>
-          {/* Rating */}
-          {r.overall_rating && (
-            <div className="flex items-center gap-2 mt-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: ratingColor }}>{r.overall_rating}</div>
-              <span className="text-sm text-slate-500">/ 10</span>
-            </div>
-          )}
-        </div>
-
-        {/* Right side: report type + date */}
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          {r.report_type && <Badge className="bg-violet-100 text-violet-700 text-[10px] uppercase">{r.report_type}</Badge>}
-          <span className="text-xs text-slate-400 flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            {fmtDate(r.sent_at || r.created_at)}
-          </span>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-13 text-ink-500">
+            {(r.sent_at || r.created_at) && <span className="inline-flex items-center gap-1"><Calendar size={14} /> {fmtDateLarga(r.sent_at || r.created_at)}</span>}
+            {r.inspector_name && <span className="inline-flex items-center gap-1"><User size={14} /> {r.inspector_name}</span>}
+            {r.location && <span className="inline-flex items-center gap-1"><MapPin size={14} /> {r.location}</span>}
+          </div>
+          {r.overall_summary && <p className="text-sm text-ink-700 mt-2 line-clamp-2">{r.overall_summary}</p>}
         </div>
       </div>
     </Card>
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Detalle
+   --------------------------------------------------------------------------- */
+
+/** Título real del video (oEmbed de YouTube); si no se puede, un pie genérico. */
+function useTituloVideo(url) {
+  const [titulo, setTitulo] = useState(null);
+  useEffect(() => {
+    let cancel = false;
+    if (!url || !/youtube\.com|youtu\.be/.test(url)) return undefined;
+    fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancel && d?.title) setTitulo(d.title); })
+      .catch(() => {});
+    return () => { cancel = true; };
+  }, [url]);
+  return titulo;
+}
+
+function VideoCard({ url, index }) {
+  const titulo = useTituloVideo(url);
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  const pie = titulo || `Video ${index + 1} de la prueba en agua`;
+  if (!yt) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 rounded-lg border border-line hover:bg-canvas transition-colors">
+        <span className="h-9 w-9 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><Play size={18} /></span>
+        <span className="text-sm text-ink-900 truncate">{pie}</span>
+        <ExternalLink size={16} className="ml-auto text-ink-500 shrink-0" />
+      </a>
+    );
+  }
+  const id = yt[1];
+  return (
+    <figure className="m-0">
+      <a href={`https://www.youtube.com/watch?v=${id}`} target="_blank" rel="noreferrer" aria-label={`Ver en YouTube: ${pie}`}
+        className="group block relative aspect-video rounded-lg overflow-hidden bg-ink-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+        <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" loading="lazy" />
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="h-14 w-14 rounded-full bg-surface text-ink-900 flex items-center justify-center shadow-pop"><Play size={24} /></span>
+        </span>
+      </a>
+      <figcaption className="mt-2 text-13 text-ink-500 flex items-center gap-1.5"><ExternalLink size={14} /> {pie} · YouTube</figcaption>
+    </figure>
+  );
+}
+
+function tonoValor(value) {
+  if (/malo|dañad|danad|no funciona|roto|oxid|desgaste|fisura|ray/i.test(value)) return 'warning';
+  if (/excelente|buen estado|funcionando|correcto|operativ|complet|vigente|estable|limpi|normal|sin /i.test(value)) return 'success';
+  return 'neutral';
+}
+
 function InspectionDetail({ report, onBack }) {
-  const toast = useToast();
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // El ejemplo ya viene completo; el real se pide a la API.
+  const [detail, setDetail] = useState(report._demo ? report : null);
+  const [loading, setLoading] = useState(!report._demo);
   const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
-    async function load() {
-      if (report._demo) { setDetail(report); setLoading(false); return; }
-      try {
-        const data = await getInspectionDetail(report.id);
-        setDetail(data.report || data);
-      } catch { setDetail(report); }
-      setLoading(false);
-    }
-    load();
+    if (report._demo) return undefined;
+    let cancel = false;
+    getInspectionDetail(report.id)
+      .then(data => { if (!cancel) setDetail(data.report || data); })
+      .catch(() => { if (!cancel) setDetail(report); })
+      .finally(() => { if (!cancel) setLoading(false); });
+    return () => { cancel = true; };
   }, [report]);
 
-  if (loading) return <Spinner />;
   const d = detail || report;
+  const titulo = nombreEmbarcacion(d);
+  useBreadcrumb([d._demo ? 'Reporte de ejemplo' : titulo]);
+
   const metrics = d.metrics || {};
-  const photoSections = [
+  const photoSections = useMemo(() => [
     { key: 'general', label: 'General', photos: d.photos_general || [] },
     { key: 'hull', label: 'Casco', photos: d.photos_hull || [] },
     { key: 'engine', label: 'Motor', photos: d.photos_engine || [] },
-    { key: 'electrical', label: 'Electrica', photos: d.photos_electrical || [] },
+    { key: 'electrical', label: 'Eléctrica', photos: d.photos_electrical || [] },
     { key: 'interior', label: 'Interior', photos: d.photos_interior || [] },
     { key: 'trailer', label: 'Trailer', photos: d.photos_trailer || [] },
-    { key: 'navigation', label: 'Navegacion', photos: d.photos_navigation || [] },
+    { key: 'navigation', label: 'Navegación', photos: d.photos_navigation || [] },
     { key: 'safety', label: 'Seguridad', photos: d.photos_safety || [] },
-    { key: 'test_drive', label: 'Prueba', photos: d.photos_test_drive || [] },
-  ].filter(s => s.photos.length > 0);
-  const allPhotos = photoSections.flatMap(s => s.photos);
+    { key: 'test_drive', label: 'Prueba en agua', photos: d.photos_test_drive || [] },
+  ].filter(s => s.photos.length > 0), [d]);
+  const fotos = useMemo(() => photoSections.flatMap(s => s.photos.map((src, i) => ({ src, alt: `${s.label} ${i + 1}`, caption: `${s.label} · foto ${i + 1} de ${s.photos.length}` }))), [photoSections]);
   const videos = d.videos_test_drive || [];
 
+  const descripcion = [d.vessel_type, d.year || d.vessel_year, (d.size || (d.length_ft && `${d.length_ft} pies`)), d.location].filter(Boolean).join(' · ');
+
+  const datos = [
+    d.brand && { label: 'Marca', value: d.brand },
+    d.model && { label: 'Modelo', value: d.model },
+    (d.year || d.vessel_year) && { label: 'Año', value: d.year || d.vessel_year },
+    d.vessel_type && { label: 'Tipo', value: d.vessel_type },
+    (d.size || d.length_ft) && { label: 'Eslora', value: d.size || `${d.length_ft} pies` },
+    d.hull_material && { label: 'Material del casco', value: d.hull_material },
+    (d.engine_brand || d.engine_model) && { label: 'Motor', value: [d.engine_brand, d.engine_model].filter(Boolean).join(' ') },
+    d.engine_hours && { label: 'Horas de motor', value: d.engine_hours },
+    d.num_engines && { label: 'Motores', value: d.num_engines },
+    d.fuel_type && { label: 'Combustible', value: d.fuel_type },
+    d.location && { label: 'Ubicación', value: d.location },
+    d.marina && { label: 'Marina', value: d.marina },
+  ].filter(Boolean);
+
+  if (loading) {
+    return (
+      <div className="pb-12">
+        <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onBack} className="-ml-2 mb-3">Inspecciones</Button>
+        <Skeleton.Detail />
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4 transition">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="15 18 9 12 15 6" /></svg> Volver
-      </button>
+    <div className="pb-12">
+      <Button variant="ghost" size="sm" icon={ArrowLeft} onClick={onBack} className="-ml-2 mb-3">Inspecciones</Button>
 
       {d._demo && (
-        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl flex items-center gap-3">
-          <svg className="w-5 h-5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-          <div>
-            <p className="text-sm font-semibold text-violet-800">Reporte de ejemplo (informativo)</p>
-            <p className="text-xs text-violet-600">Este es un ejemplo de inspección para que conozcas el formato. Los datos son ilustrativos.</p>
-          </div>
-        </div>
+        <Callout tone="warning" title="Esto es un reporte de ejemplo" className="mb-5">
+          Los datos son ilustrativos y no corresponden a ninguna embarcación tuya. Así se ve una inspección real cuando la solicitas.
+        </Callout>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">{d.vessel_name || d.name}</h1>
-          <p className="text-sm text-slate-400">{d.vessel_type} {d.year && `· ${d.year}`} {d.size && `· ${d.size}`} {d.location && `· ${d.location}`}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge className={STATUS_COLORS[d.status] || STATUS_COLORS.pending}>{d.status}</Badge>
-          <button onClick={() => window.print()} className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-50 transition flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-            PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Overall Rating Card */}
-      {d.overall_rating && (
-        <Card className="mb-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-          <div className="flex items-center gap-5">
-            <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl font-bold ${d.overall_rating >= 7 ? 'border-emerald-400 text-emerald-400' : d.overall_rating >= 5 ? 'border-amber-400 text-amber-400' : 'border-red-400 text-red-400'}`}>
-              {d.overall_rating}
-            </div>
-            <div>
-              <p className="text-sm text-slate-400">Calificacion General</p>
-              <p className="text-xl font-bold">{d.overall_rating} / 10</p>
-              {d.overall_summary && <p className="text-xs text-slate-400 mt-1">{d.overall_summary}</p>}
-              {d.inspector_name && <p className="text-xs text-slate-500 mt-1">Inspector: {d.inspector_name}</p>}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Vessel Data Card */}
-      <Card className="mb-5">
-        <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-          <svg className="w-4 h-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          Datos de la Embarcación
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-sm">
-          {d.vessel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Tipo</p><p className="text-slate-700">{d.vessel_type}</p></div>}
-          {d.brand && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Marca</p><p className="text-slate-700">{d.brand}</p></div>}
-          {d.model && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Modelo</p><p className="text-slate-700">{d.model}</p></div>}
-          {(d.year || d.vessel_year) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ano</p><p className="text-slate-700">{d.year || d.vessel_year}</p></div>}
-          {(d.size || d.length_ft) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Eslora</p><p className="text-slate-700">{d.size || `${d.length_ft} ft`}</p></div>}
-          {d.hull_material && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Material</p><p className="text-slate-700">{d.hull_material}</p></div>}
-          {(d.engine_brand || d.engine_model) && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Motor</p><p className="text-slate-700">{[d.engine_brand, d.engine_model].filter(Boolean).join(' ')}</p></div>}
-          {d.engine_hours && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Horas Motor</p><p className="text-slate-700">{d.engine_hours}</p></div>}
-          {d.num_engines && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Motores</p><p className="text-slate-700">{d.num_engines}</p></div>}
-          {d.fuel_type && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Combustible</p><p className="text-slate-700">{d.fuel_type}</p></div>}
-          {d.location && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Ubicación</p><p className="text-slate-700">{d.city ? `${d.city}, ` : ''}{d.location}</p></div>}
-          {d.marina && <div><p className="text-[11px] font-semibold text-slate-400 uppercase">Marina</p><p className="text-slate-700">{d.marina}</p></div>}
-        </div>
-        {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-600 hover:text-cyan-700 font-medium">Ver listing original <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>}
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        {Object.keys(metrics).length > 0 && (
-          <Card><h3 className="font-bold text-slate-800 mb-4 text-center">Evaluacion General</h3><RadarChart metrics={metrics} /></Card>
+      <PageHeader
+        eyebrow={d._demo ? 'Ejemplo' : 'Inspección'}
+        title={titulo}
+        description={descripcion}
+        meta={<><StatusBadge kind={KIND_ESTADO} status={d.status} />{d.report_type && <Badge tone="neutral">{String(d.report_type).charAt(0) + String(d.report_type).slice(1).toLowerCase()}</Badge>}</>}
+        actions={(
+          <>
+            {d.listing_url && <Button variant="secondary" icon={ExternalLink} onClick={() => window.open(d.listing_url, '_blank', 'noopener')}>Ver anuncio</Button>}
+            <Button variant="secondary" icon={Printer} onClick={() => window.print()}>Imprimir</Button>
+          </>
         )}
-        <Card>
-          <h3 className="font-bold text-slate-800 mb-4">Metricas</h3>
-          <div className="space-y-2">
-            {METRICS.map(k => metrics[k] != null && (
-              <div key={k} className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 w-20">{METRIC_LABELS[k]}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full"><div className="h-full rounded-full" style={{ width: `${(metrics[k] / 10) * 100}%`, background: metrics[k] >= 7 ? '#10b981' : metrics[k] >= 4 ? '#f59e0b' : '#ef4444' }} /></div>
-                <span className="text-xs font-bold text-slate-700 w-8 text-right">{metrics[k]}</span>
-              </div>
-            ))}
+      />
+
+      {d.overall_rating && (
+        <Card className="mb-4">
+          <div className="flex items-start gap-5">
+            <Nota value={d.overall_rating} size="lg" />
+            <div className="min-w-0">
+              <p className="eyebrow">Calificación general</p>
+              <p className="text-xl font-semibold text-ink-900 tabular mt-0.5">{fmtNota(d.overall_rating)} <span className="text-sm font-normal text-ink-500">de 10</span></p>
+              {d.overall_summary && <p className="text-sm text-ink-700 mt-2">{d.overall_summary}</p>}
+              <p className="text-13 text-ink-500 mt-2">
+                {d.inspector_name && <>Inspector: {d.inspector_name}</>}
+                {d.inspector_name && (d.sent_at || d.created_at) && ' · '}
+                {(d.sent_at || d.created_at) && <>Reporte del {fmtDateLarga(d.sent_at || d.created_at)}</>}
+              </p>
+            </div>
           </div>
         </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+        {datos.length > 0 && (
+          <Card className="lg:col-span-3">
+            <Card.Header title="Datos de la embarcación" />
+            <Card.Body><DescriptionList items={datos} cols={3} dense /></Card.Body>
+          </Card>
+        )}
+        {Object.keys(metrics).length > 0 && (
+          <Card className={cn(datos.length > 0 ? 'lg:col-span-2' : 'lg:col-span-5')}>
+            <Card.Header title="Evaluación por área" description="Nota de 1 a 10 por sistema revisado" />
+            <Card.Body>
+              <ul className="space-y-2.5 m-0 p-0 list-none">
+                {METRICS.map(k => metrics[k] != null && (
+                  <li key={k} className="flex items-center gap-3">
+                    <span className="text-13 text-ink-700 w-28 shrink-0">{METRIC_LABELS[k]}</span>
+                    <span className="flex-1 h-2 rounded-full bg-neutral-bg overflow-hidden" role="meter" aria-valuemin={0} aria-valuemax={10} aria-valuenow={Number(metrics[k])} aria-label={METRIC_LABELS[k]}>
+                      <span className={cn('block h-full rounded-full', TONO_BG[tonoNota(metrics[k])])} style={{ width: `${Math.min(100, (Number(metrics[k]) / 10) * 100)}%` }} />
+                    </span>
+                    <span className={cn('text-13 font-semibold tabular w-8 text-right', TONO_TEXT[tonoNota(metrics[k])])}>{fmtNota(metrics[k])}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card.Body>
+          </Card>
+        )}
       </div>
 
-      {/* Section-by-section details */}
       {d.section_details && (
-        <Card className="mb-5">
-          <h3 className="font-bold text-slate-800 mb-4">Detalle por Sección</h3>
-          <div className="space-y-3">
+        <Card className="mb-4">
+          <Card.Header title="Detalle por sección" description="Lo que revisó el inspector en cada sistema" />
+          <Accordion flush>
             {METRICS.map(key => {
               const sec = d.section_details[key];
               if (!sec) return null;
-              const rColor = sec.rating >= 7 ? '#10b981' : sec.rating >= 5 ? '#f59e0b' : '#ef4444';
               return (
-                <details key={key} className="border border-slate-200 rounded-xl overflow-hidden group">
-                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition list-none">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: rColor }}>{sec.rating}</div>
-                    <span className="flex-1 text-sm font-semibold text-slate-700">{METRIC_LABELS[key]}</span>
-                    <svg className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="6 9 12 15 18 9"/></svg>
-                  </summary>
-                  <div className="px-4 pb-4 border-t border-slate-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                      {Object.entries(sec.fields || {}).map(([field, value]) => {
-                        const isBad = /malo|danado|no funciona|roto/i.test(value);
-                        const isGood = /excelente|buen estado|funcionando|correcto|operativ|completo|vigente|estable|limpi|normal/i.test(value);
-                        return (
-                          <div key={field} className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 text-sm">
-                            <span className="text-slate-500 text-xs">{field}</span>
-                            <span className={cn('text-xs font-medium px-2 py-0.5 rounded', isBad ? 'bg-red-100 text-red-700' : isGood ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>{value}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {sec.notes && (
-                      <div className="mt-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex gap-2">
-                        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
-                        {sec.notes}
+                <Accordion.Item key={key} title={METRIC_LABELS[key]} meta={<Badge tone={tonoNota(sec.rating)}>{fmtNota(sec.rating)} / 10</Badge>}>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 m-0">
+                    {Object.entries(sec.fields || {}).map(([field, value]) => (
+                      <div key={field} className="flex items-center justify-between gap-3 py-1.5 border-b border-line">
+                        <dt className="text-13 text-ink-500">{field}</dt>
+                        <dd className="m-0 text-right"><Badge tone={tonoValor(String(value))}>{value}</Badge></dd>
                       </div>
-                    )}
-                  </div>
-                </details>
+                    ))}
+                  </dl>
+                  {sec.notes && <Callout tone="neutral" compact className="mt-3">{sec.notes}</Callout>}
+                </Accordion.Item>
               );
             })}
-          </div>
+          </Accordion>
         </Card>
       )}
 
       {d.recommendations && (
-        <Card className="mb-5 bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200">
-          <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            Recomendaciones del Inspector
-          </h3>
-          <p className="text-sm text-slate-600 whitespace-pre-wrap">{d.recommendations}</p>
+        <Card className="mb-4">
+          <Card.Header title="Recomendaciones del inspector" />
+          <Card.Body><p className="text-sm text-ink-700 whitespace-pre-wrap m-0">{d.recommendations}</p></Card.Body>
         </Card>
       )}
 
       {photoSections.length > 0 && (
-        <Card className="mb-5">
-          <h3 className="font-bold text-slate-800 mb-4">Fotos ({allPhotos.length})</h3>
-          {photoSections.map(section => (
-            <div key={section.key} className="mb-4 last:mb-0">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{section.label} ({section.photos.length})</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {section.photos.map((url, i) => (
-                  <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 cursor-pointer hover:shadow-md transition" onClick={() => setLightbox(url)}>
-                    <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+        <Card className="mb-4">
+          <Card.Header title={`Fotos (${fotos.length})`} />
+          <Card.Body className="space-y-5">
+            {photoSections.map(section => {
+              const offset = fotos.findIndex(f => f.src === section.photos[0] && f.alt === `${section.label} 1`);
+              return (
+                <div key={section.key}>
+                  <p className="eyebrow mb-2">{section.label} · {section.photos.length}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {section.photos.map((url, i) => (
+                      <button key={`${url}-${i}`} type="button" onClick={() => setLightbox(offset + i)} aria-label={`Ver foto ${i + 1} de ${section.label}`}
+                        className="aspect-[4/3] rounded-md overflow-hidden bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+                        <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                </div>
+              );
+            })}
+          </Card.Body>
         </Card>
       )}
 
       {videos.length > 0 && (
-        <Card className="mb-5">
-          <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            Videos Test-Drive ({videos.length})
-          </h3>
-          <div className="space-y-3">
-            {videos.map((url, i) => {
-              const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-              const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-              if (ytMatch) {
-                const videoId = ytMatch[1];
-                return (
-                  <div key={i}>
-                    <p className="text-xs text-slate-500 mb-2">Test Drive - 2007 Monterey 180 FS | Lake Test</p>
-                    <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noreferrer" className="block relative aspect-video rounded-xl overflow-hidden bg-slate-900 group cursor-pointer">
-                      <img src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`} alt="Video Test Drive" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => { e.target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`; }} />
-                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/40 transition">
-                        <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                          <svg className="w-7 h-7 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        </div>
-                      </div>
-                      <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/></svg>
-                        <span className="text-white text-xs font-semibold">Ver en YouTube</span>
-                      </div>
-                    </a>
-                  </div>
-                );
-              }
-              if (vimeoMatch) {
-                return (
-                  <div key={i}>
-                    <a href={url} target="_blank" rel="noreferrer" className="block relative aspect-video rounded-xl overflow-hidden bg-slate-900 group cursor-pointer">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 rounded-full bg-cyan-600 flex items-center justify-center shadow-lg"><svg className="w-7 h-7 text-white ml-1" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
-                      </div>
-                    </a>
-                  </div>
-                );
-              }
-              return (
-                <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 transition">
-                  <div className="w-9 h-9 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><span className="text-white text-[10px] font-bold">VID</span></div>
-                  <span className="text-sm text-slate-700 truncate">Video {i + 1}</span>
-                </a>
-              );
-            })}
-          </div>
+        <Card className="mb-4">
+          <Card.Header title={`Videos de la prueba en agua (${videos.length})`} />
+          <Card.Body className="space-y-4">
+            {videos.map((url, i) => <VideoCard key={`${url}-${i}`} url={url} index={i} />)}
+          </Card.Body>
         </Card>
       )}
 
-      {/* Footer */}
-      <p className="text-center text-xs text-slate-400 mb-5">
-        Reporte generado el {fmtDate(d.sent_at || d.created_at)} {d.report_type && `· Inspección ${d.report_type}`} · Imporlan.cl
+      <p className="text-center text-13 text-ink-500">
+        Reporte del {fmtDateLarga(d.sent_at || d.created_at)} · Imporlan
       </p>
 
-      {lightbox && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer" onClick={() => setLightbox(null)}>
-          <img src={lightbox} alt="" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={e => e.stopPropagation()} />
-          <button className="absolute top-4 right-4 text-white/70 hover:text-white" onClick={() => setLightbox(null)}><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>
-      )}
+      <Lightbox open={lightbox !== null} items={fotos} index={lightbox ?? 0} onIndexChange={setLightbox} onClose={() => setLightbox(null)} />
     </div>
   );
 }
 
+/* ---------------------------------------------------------------------------
+   Página
+   --------------------------------------------------------------------------- */
 export default function Inspections() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
 
+  const listar = () => getMyInspections().then(data => data.reports || data.items || []);
+
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await getMyInspections();
-        const real = data.reports || data.items || [];
-        setReports(real.length > 0 ? real : [DEMO_INSPECTION]);
-      } catch { setReports([DEMO_INSPECTION]); }
-      setLoading(false);
-    }
-    load();
+    let vivo = true;
+    getMyInspections()
+      .then(data => { if (vivo) setReports(data.reports || data.items || []); })
+      .catch(e => { if (vivo) setError(e); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
   }, []);
 
-  const realReports = reports.filter(r => !r._demo);
-  const onlyDemo = reports.length > 0 && reports.every(r => r._demo);
+  function recargar() {
+    setLoading(true);
+    setError(null);
+    listar().then(setReports).catch(setError).finally(() => setLoading(false));
+  }
 
   const term = search.trim().toLowerCase();
   const filtered = reports.filter(r => {
@@ -432,160 +417,54 @@ export default function Inspections() {
     return hay.includes(term);
   });
 
-  const avgScore = realReports.length > 0
-    ? (realReports.reduce((s, r) => s + Number(r.overall_score || 0), 0) / realReports.length).toFixed(1)
-    : null;
-
   if (selected) return <InspectionDetail report={selected} onBack={() => setSelected(null)} />;
 
+  const solicitar = <Button variant="secondary" icon={WhatsAppIcon} onClick={() => window.open(WHATSAPP_SOLICITAR, '_blank', 'noopener')}>Solicitar inspección</Button>;
+
   return (
-    <div className="max-w-6xl mx-auto pb-12">
-      {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-emerald-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-semibold ring-1 ring-emerald-400/20 mb-3">
-              <span className={cn('w-1.5 h-1.5 rounded-full', realReports.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-violet-400')} />
-              {realReports.length > 0
-                ? `${realReports.length} inspección${realReports.length > 1 ? 'es' : ''} en tu cuenta`
-                : 'Sin inspecciones reales aún'}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mis inspecciones</h1>
-            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Reportes tecnicos pre-compra hechos por inspectores certificados. Estructura, motor, sistemas, fotos y video de prueba en agua.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20pre-compra" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-500/30 hover:bg-emerald-400 transition">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-              Solicitar inspección
-            </a>
-          </div>
-        </div>
-      </div>
+    <div className="pb-12">
+      <PageHeader
+        title="Inspecciones"
+        description="Reportes técnicos previos a la compra: estructura, motor, sistemas, fotos y video de la prueba en agua."
+        actions={solicitar}
+      />
 
-      {/* Stats tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{realReports.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Reportes reales</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{realReports.length > 0 ? 'En tu cuenta' : 'Aún ninguno'}</p>
-        </div>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{avgScore || '-'}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Score promedio</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{avgScore ? 'Sobre 10' : 'Sin datos aún'}</p>
-        </div>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">48-72h</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Tiempo de entrega</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Reporte completo en PDF</p>
-        </div>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">USD 850+</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Costo referencial</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Según eslora</p>
-        </div>
-      </div>
-
-      {/* Demo banner */}
-      {onlyDemo && (
-        <div className="mb-5 px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-            <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-violet-900">Inspección de ejemplo (informativo)</p>
-            <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
-              Este reporte es una muestra de como se ve una inspección completa. Cuando solicites una inspección real, aparecerá aquí con los datos de tu embarcación.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Search */}
-      {reports.length > 1 && (
-        <div className="mb-4 relative">
-          <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar embarcación, marca, inspector..."
-            className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* List */}
-      {loading ? (
+      {error ? (
+        <Card padding="none"><ErrorState message="No pudimos cargar tus inspecciones." detail={error} onRetry={recargar} /></Card>
+      ) : loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-100 rounded-2xl animate-pulse" />)}
+          <Skeleton.Card lines={2} />
+          <Skeleton.Card lines={2} />
         </div>
-      ) : filtered.length === 0 ? (
-        <Card className="text-center py-16">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
-            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-          </div>
-          {search ? (
-            <>
-              <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-              <p className="text-sm text-slate-500 mt-1">Prueba con otra palabra clave.</p>
-              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setSearch('')}>Limpiar búsqueda</Button>
-            </>
-          ) : (
-            <>
-              <p className="text-slate-700 font-semibold">Aún no tienes inspecciones</p>
-              <p className="text-sm text-slate-500 mt-1">Cuando solicites una, aparecerá aquí con todo el detalle.</p>
-            </>
-          )}
+      ) : reports.length === 0 ? (
+        <Card padding="none">
+          <EmptyState
+            icon={ClipboardCheck}
+            title="Aún no tienes inspecciones"
+            description="Cuando solicites una, el reporte aparecerá aquí con las notas por sistema, las fotos, el video y las recomendaciones del inspector."
+            primaryAction={<Button icon={WhatsAppIcon} onClick={() => window.open(WHATSAPP_SOLICITAR, '_blank', 'noopener')}>Solicitar inspección</Button>}
+            secondaryAction={<Button variant="ghost" onClick={() => setSelected(DEMO_INSPECTION)}>Ver un reporte de ejemplo</Button>}
+          />
         </Card>
       ) : (
-        <div className="space-y-4">
-          {filtered.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
-        </div>
+        <>
+          {reports.length > 1 && (
+            <SearchInput value={search} onChange={setSearch} placeholder="Buscar embarcación, marca o inspector" className="mb-4 sm:max-w-sm" />
+          )}
+          {filtered.length === 0 ? (
+            <Card padding="none">
+              <EmptyState compact title="Sin coincidencias" description="Prueba con otra palabra." primaryAction={<Button variant="secondary" size="sm" onClick={() => setSearch('')}>Limpiar búsqueda</Button>} />
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map(r => <InspectionCard key={r.id} report={r} onClick={setSelected} />)}
+            </div>
+          )}
+          <p className="text-13 text-ink-500 mt-6">
+            ¿Necesitas otra inspección? Coordinamos inspectores en Estados Unidos y en Chile; escríbenos por WhatsApp.
+          </p>
+        </>
       )}
-
-      {/* Bottom CTA - request new inspection */}
-      <div className="mt-6 relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-7 overflow-hidden shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 bg-emerald-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="max-w-md">
-            <h3 className="text-xl font-bold">Necesitas otra inspección?</h3>
-            <p className="text-sm text-slate-300 mt-1.5">Coordinamos inspectores certificados en USA y Chile. Recibes el reporte completo en 48-72 hrs hábiles.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Chile" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 font-semibold shadow-md hover:bg-slate-100 transition">
-              <svg className="w-5 h-3.5 rounded-sm shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
-              En Chile
-            </a>
-            <a href="https://wa.me/56940211459?text=Hola%2C%20necesito%20una%20inspeccion%20en%20Estados%20Unidos" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 ring-1 ring-white/20 text-white font-semibold hover:bg-white/20 transition">
-              <svg className="w-5 h-3.5 rounded-sm shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
-              En Estados Unidos
-            </a>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

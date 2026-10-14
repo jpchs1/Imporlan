@@ -1,40 +1,32 @@
 import { Link } from 'react-router-dom';
+import { cn } from '../../shared/lib/utils';
+import { ExternalLink } from '../../shared/components/Icons';
 
-// Promoción del partner DECKEVA (pisos de goma EVA antideslizante) dentro del
-// panel de clientes. `context` va en utm_content para medir desde dónde llega
-// cada visita a deckeva.cl.
-const IMG = 'https://deckeva.cl/wp-content/uploads/2024/08/piso-de-lancha.jpg';
+// Tarjeta de partner (una fila, tokens neutros): Deckeva es la empresa de
+// pisos del mismo grupo que Imporlan. `context` va en utm_content para
+// saber desde qué pantalla del panel llega cada visita a deckeva.cl.
+const IMG = `${import.meta.env.BASE_URL}partners/deckeva/piso-de-lancha.webp`;
 
 export default function DeckevaPromo({ context = 'panel', title, className = '' }) {
   const utm = `utm_source=imporlan&utm_medium=panel&utm_campaign=partner_deckeva&utm_content=${encodeURIComponent(context)}`;
   return (
-    <div className={'relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1628] via-[#0c2d52] to-[#0e6ba8] text-white shadow-lg ' + className}>
-      <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr]">
-        <img src={IMG} alt="Piso de goma EVA antideslizante DECKEVA instalado en una lancha"
-          className="w-full h-36 sm:h-full object-cover" loading="lazy" />
-        <div className="p-4 sm:p-5">
-          <span className="inline-block text-[10px] font-extrabold tracking-widest uppercase text-[#0a1628] bg-gradient-to-r from-amber-400 to-amber-300 px-2.5 py-1 rounded-full">
-            Partner oficial · DECKEVA
-          </span>
-          <p className="mt-2 text-base sm:text-lg font-bold leading-snug">
-            {title || 'Estrena tu lancha con piso de goma EVA antideslizante'}
-          </p>
-          <p className="mt-1 text-xs sm:text-sm text-white/75 leading-relaxed">
-            Pisos a medida fabricados en Chile: agarre firme aunque estén mojados, cómodos y resistentes al sol y la sal.
-            Toma de medidas e instalación en terreno · +500 embarcaciones · 4.9★
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <a href={`https://deckeva.cl/cotizador/?${utm}`} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-[#0a1628] text-sm font-extrabold transition">
-              Calcula el precio de tu piso →
-            </a>
-            <Link to="/deckeva"
-              className="inline-flex items-center px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-sm font-bold transition">
-              Ver más
-            </Link>
-          </div>
-        </div>
+    <aside aria-label="Pisos Deckeva" className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 rounded-lg border border-line bg-surface shadow-card px-4 py-3', className)}>
+      <img src={IMG} alt="" loading="lazy" className="h-14 w-14 rounded-md object-cover bg-neutral-bg shrink-0 hidden sm:block" />
+      <div className="min-w-0 flex-1">
+        <p className="eyebrow m-0">Deckeva · empresa del grupo Imporlan</p>
+        <p className="text-sm text-ink-900 mt-0.5 m-0">
+          {title || 'Cuando llegue tu lancha, estrénala con un piso de goma EVA antideslizante, cortado a medida.'}
+        </p>
       </div>
-    </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Link to="/deckeva" className="inline-flex items-center h-8 px-3 rounded-md text-13 font-medium text-ink-700 hover:bg-neutral-bg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+          Ver más
+        </Link>
+        <a href={`https://www.deckeva.cl/?${utm}#cotizar`} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-line-strong bg-surface text-13 font-medium text-ink-700 hover:bg-canvas hover:border-ink-400 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+          Cotizar <ExternalLink size={14} />
+        </a>
+      </div>
+    </aside>
   );
 }
