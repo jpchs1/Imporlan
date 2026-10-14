@@ -50,6 +50,9 @@ jobs:
       - name: Nada sale antes de las cabeceras (401 y redirecciones de pago)
         run: php test/salida-limpia-tests.php
 
+      - name: Ninguna ruta de cliente lee datos de otro cliente (sesion obligatoria)
+        run: php test/acceso-api-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
