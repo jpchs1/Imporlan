@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
 import { login, verify2FA, googleAuth, forgotPassword } from '../api';
@@ -7,9 +7,43 @@ import { ImporlanMark, Eye, EyeOff, Mail, WhatsAppIcon } from '../../shared/comp
 import { whatsappUrl, WHATSAPP_IMPORLAN } from './inicio/whatsapp';
 
 const GOOGLE_CLIENT_ID = '143983416032-4tmdrcn2f2j3tdg0ni5k834729f25og6.apps.googleusercontent.com';
+const GOOGLE_SDK_SRC = 'https://accounts.google.com/gsi/client';
 
-function renderGoogleButton() {
-  const btnContainer = document.getElementById('google-btn');
+/**
+ * «SDK listo» vive fuera del componente: una sola promesa para toda la
+ * sesión de la pestaña. Si el componente se desmonta mientras el script
+ * carga (el cliente navega y vuelve), el siguiente montaje se cuelga de la
+ * misma promesa en vez de perderse el `onload` que ya pasó. Si el script ya
+ * estaba en la página (otro montaje lo puso), se escucha su `load`/`error`
+ * con `addEventListener`, sin pisar manejadores.
+ */
+let sdkGoogle = null;
+function cargarSdkGoogle() {
+  if (sdkGoogle) return sdkGoogle;
+  sdkGoogle = new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) { resolve(window.google.accounts.id); return; }
+    let script = document.querySelector(`script[src^="${GOOGLE_SDK_SRC}"]`);
+    const listo = () => (window.google?.accounts?.id ? resolve(window.google.accounts.id) : reject(new Error('Google Identity no disponible')));
+    // Un script que falló no vuelve a disparar `load`: se saca para que el
+    // próximo intento cree uno nuevo.
+    const fallo = () => { script.remove(); reject(new Error('No se pudo cargar Google Identity')); };
+    if (!script) {
+      script = document.createElement('script');
+      script.src = GOOGLE_SDK_SRC;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener('load', listo);
+    script.addEventListener('error', fallo);
+  });
+  // Si falló (sin red, bloqueado), el próximo montaje vuelve a intentarlo.
+  sdkGoogle.catch(() => { sdkGoogle = null; });
+  return sdkGoogle;
+}
+
+/** Pinta el botón de Google dentro del contenedor que esté montado ahora. */
+function renderGoogleButton(btnContainer) {
   if (!btnContainer || !window.google?.accounts?.id) return false;
   btnContainer.innerHTML = '';
   window.google.accounts.id.renderButton(btnContainer, {
@@ -50,7 +84,10 @@ export default function Login() {
   const [forgotError, setForgotError] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   // 'cargando' | 'listo' | 'no-disponible' (sin red o bloqueado: no se deja un hueco)
-  const [google, setGoogle] = useState('cargando');
+  const [google, setGoogle] = useState(() => (window.google?.accounts?.id ? 'listo' : 'cargando'));
+  // El contenedor del botón de Google: existe sólo en la vista de ingreso
+  // (no en «Recuperar contraseña» ni en el 2FA), así que el ref cambia.
+  const googleBtnRef = useRef(null);
 
   // Antes esta pantalla solo mostraba el correo y el WhatsApp de Imporlan:
   // quien olvidaba la clave quedaba fuera hasta que una persona lo atendiera.
@@ -132,32 +169,31 @@ export default function Login() {
     }
   }, [loginUser, navigate, destination]);
 
+  // 1. SDK listo. Se inicializa con el callback de ESTE montaje (si cambia el
+  //    destino, `initialize` se vuelve a llamar con el nuevo). `activo` evita
+  //    tocar el estado de un componente ya desmontado.
   useEffect(() => {
-    // Load Google Identity Services
-    if (document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
-      const t = setTimeout(() => setGoogle(window.google?.accounts?.id ? 'listo' : 'no-disponible'), 0);
-      return () => clearTimeout(t);
-    }
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.onload = () => {
-      window.google?.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleResponse,
-      });
-      setGoogle(renderGoogleButton() ? 'listo' : 'no-disponible');
-    };
-    script.onerror = () => setGoogle('no-disponible');
-    document.head.appendChild(script);
+    let activo = true;
+    cargarSdkGoogle()
+      .then(id => {
+        if (!activo) return;
+        id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleResponse });
+        setGoogle('listo');
+      })
+      .catch(() => { if (activo) setGoogle('no-disponible'); });
+    return () => { activo = false; };
   }, [handleGoogleResponse]);
 
-  // Re-render Google button when switching views
+  // 2. Botón renderizado: cada vez que el contenedor está montado y el SDK
+  //    listo (volver de «Recuperar contraseña» o del 2FA incluido). Va
+  //    aparte del paso 1 a propósito: si el SDK llega mientras el
+  //    contenedor no existe, no hay nada que pintar todavía y se pinta aquí
+  //    cuando vuelve.
+  const contenedorVisible = !needs2FA && !showForgot;
   useEffect(() => {
-    if (needs2FA || showForgot || google !== 'listo') return;
-    const timer = setTimeout(() => { renderGoogleButton(); }, 100);
-    return () => clearTimeout(timer);
-  }, [needs2FA, showForgot, google]);
+    if (!contenedorVisible || google !== 'listo') return;
+    renderGoogleButton(googleBtnRef.current);
+  }, [contenedorVisible, google]);
 
   const year = new Date().getFullYear();
 
@@ -270,7 +306,7 @@ export default function Login() {
                   {/* Alto fijo: el botón de Google llega después y la tarjeta no salta. */}
                   <div className="relative h-10">
                     {google === 'cargando' && <Skeleton className="absolute inset-0 h-10 w-full rounded-md" />}
-                    <div id="google-btn" className="absolute inset-0 flex items-center justify-center" />
+                    <div ref={googleBtnRef} id="google-btn" className="absolute inset-0 flex items-center justify-center" />
                   </div>
                 </>
               )}

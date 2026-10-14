@@ -4,13 +4,13 @@ import { useAuth } from '../../shared/context/AuthContext';
 import { getMyOrders, getMyPaymentRequests, getMyConversations, getNotifications, markNotificationRead } from '../api';
 import { cn } from '../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../shared/lib/format';
-import { Card, SectionTitle, PageHeader, Money, StatusBadge, ProcessStepper, EmptyState, ErrorState, Skeleton, Callout } from '../../shared/components/UI';
+import { Card, Button, SectionTitle, PageHeader, Money, StatusBadge, ProcessStepper, EmptyState, ErrorState, Skeleton, Callout } from '../../shared/components/UI';
 import { CreditCard, MessageCircle, File, FolderOpen, CircleCheck, WhatsAppIcon, ChevronRight } from '../../shared/components/Icons';
 import DeckevaPromo from '../components/DeckevaPromo';
 import { BotonEnlace } from './inicio/BotonEnlace';
 import { WA_AYUDA } from './inicio/whatsapp';
 import { FilaNotificacion } from './inicio/FilaNotificacion';
-import { irAlEnlace } from './inicio/notificaciones';
+import { esDocumento, abrirNotificacion } from './inicio/notificaciones';
 
 const CERRADOS = new Set(['completed', 'canceled', 'cancelled', 'expired']);
 
@@ -29,10 +29,25 @@ function useCarga(fn, vacio) {
   return { ...estado, recargar };
 }
 
+// `getMyPaymentRequests` y `getNotifications` (user/api.js) atrapan el error de
+// red y devuelven una lista vacía SIN `success`. El servidor, cuando responde
+// bien, manda siempre `success: true` (api/payment_requests_api.php,
+// api/notifications_api.php). Esa es la diferencia entre «no tienes nada
+// pendiente» y «no pudimos saberlo»: sin `success`, es un error.
+function exigirExito(d, mensaje) {
+  if (d?.success === true) return d;
+  throw new Error(d?.error || d?.detail || mensaje);
+}
+
+// `notifications_api.php?action=list` sólo acepta `limit` (máximo 200), no
+// filtra por no leídas. Se piden 100: un documento sin leer más antiguo que
+// las últimas 100 alertas no aparecería en «Qué hacer ahora» (sí en Alertas).
+const LIMITE_ALERTAS = 100;
+
 const cargaOrdenes = () => getMyOrders().then(d => (d?.success && d.orders) ? d.orders : []);
-const cargaPagos = () => getMyPaymentRequests('all').then(d => d?.requests || d?.items || []);
+const cargaPagos = () => getMyPaymentRequests('all').then(d => exigirExito(d, 'No pudimos cargar tus pagos').requests || []);
 const cargaConversaciones = () => getMyConversations().then(d => d?.conversations || []);
-const cargaNotificaciones = () => getNotifications(20).then(d => d?.notifications || []);
+const cargaNotificaciones = () => getNotifications(LIMITE_ALERTAS).then(d => exigirExito(d, 'No pudimos cargar tus alertas').notifications || []);
 const VACIO = [];
 
 function saludoDelDia() {
@@ -70,12 +85,33 @@ function Pendiente({ icon, tone = 'neutral', title, meta, right, children }) {
   );
 }
 
-function QueHacerAhora({ pagos, conversaciones, notificaciones, cargando }) {
+/**
+ * `fuentes`: pagos, conversaciones y alertas, cada una con su `error` y su
+ * `recargar`. «Estás al día» sólo se afirma cuando las tres respondieron
+ * bien; si alguna falló se dice y se ofrece reintentar, sin esconder lo que
+ * sí llegó.
+ */
+function QueHacerAhora({ pagos, conversaciones, notificaciones, cargando, fuentes }) {
   const pendientes = pagos.filter(p => p.status === 'pending');
   const sinLeer = conversaciones.filter(c => Number(c.unread_count || 0) > 0);
   const mensajesSinLeer = sinLeer.reduce((s, c) => s + Number(c.unread_count || 0), 0);
-  const docsNuevos = notificaciones.filter(n => !n.read_at && (n.type === 'document' || n.type === 'report'));
+  const docsNuevos = notificaciones.filter(n => !n.read_at && esDocumento(n));
   const items = pendientes.length + (mensajesSinLeer > 0 ? 1 : 0) + docsNuevos.length;
+  const fallidas = fuentes.filter(f => f.error);
+  const reintentar = () => fallidas.forEach(f => f.recargar());
+
+  const avisoError = fallidas.length > 0 && (
+    <Callout
+      tone="danger"
+      title={fallidas.length === 1 ? `No pudimos revisar tus ${fallidas[0].nombre}` : 'No pudimos revisar todos tus pendientes'}
+      action={<Button variant="secondary" size="sm" onClick={reintentar}>Reintentar</Button>}
+      className={items > 0 ? 'mb-3' : undefined}
+    >
+      {fallidas.length === 1
+        ? 'Puede que tengas algo pendiente que no alcanzamos a ver.'
+        : `Falló la carga de ${fallidas.map(f => f.nombre).join(' y ')}. Puede que tengas algo pendiente que no alcanzamos a ver.`}
+    </Callout>
+  );
 
   return (
     <section aria-labelledby="h-ahora" className="mb-8">
@@ -83,48 +119,58 @@ function QueHacerAhora({ pagos, conversaciones, notificaciones, cargando }) {
       {cargando ? (
         <Skeleton.Card lines={2} />
       ) : items === 0 ? (
-        <Callout tone="success" icon={CircleCheck} title="Estás al día">
-          No tienes pagos pendientes, mensajes sin leer ni documentos nuevos.
-        </Callout>
+        avisoError || (
+          <Callout tone="success" icon={CircleCheck} title="Estás al día">
+            No tienes pagos pendientes, mensajes sin leer ni documentos nuevos.
+          </Callout>
+        )
       ) : (
-        <Card padding="none">
-          <ul className="divide-y divide-line">
-            {pendientes.slice(0, 3).map(p => (
-              <Pendiente
-                key={p.id}
-                icon={CreditCard}
-                tone="warning"
-                title={p.title || 'Solicitud de pago'}
-                meta={[p.metadata?.order_number, p.metadata?.boat_name, p.created_at && `solicitado ${fmtRelativo(p.created_at)}`].filter(Boolean).join(' · ')}
-                right={<><Money clp={p.amount_clp} usd={p.amount_usd} align="right" /><BotonEnlace to="/payments" variant="primary" size="sm">Pagar</BotonEnlace></>}
-              />
-            ))}
-            {pendientes.length > 3 && (
-              <li className="px-(--card-pad) py-2.5 text-13 text-ink-500">
-                Y {pendientes.length - 3} {pendientes.length - 3 === 1 ? 'pago pendiente más' : 'pagos pendientes más'} en <Link to="/payments" className="font-medium text-brand-600 hover:text-brand-700">Pagos</Link>.
-              </li>
-            )}
-            {mensajesSinLeer > 0 && (
-              <Pendiente
-                icon={MessageCircle}
-                tone="brand"
-                title={mensajesSinLeer === 1 ? 'Tienes 1 mensaje sin leer' : `Tienes ${mensajesSinLeer} mensajes sin leer`}
-                meta={`De ${sinLeer.map(c => c.assigned_to_name || 'Equipo Imporlan').filter((v, i, a) => a.indexOf(v) === i).join(', ')}`}
-                right={<BotonEnlace to="/messages" size="sm">Leer</BotonEnlace>}
-              />
-            )}
-            {docsNuevos.slice(0, 3).map(n => (
-              <Pendiente
-                key={n.id}
-                icon={File}
-                tone="info"
-                title={n.title}
-                meta={n.message}
-                right={<BotonEnlace to="/documents" size="sm">Ver</BotonEnlace>}
-              />
-            ))}
-          </ul>
-        </Card>
+        <>
+          {avisoError}
+          <Card padding="none">
+            <ul className="divide-y divide-line">
+              {pendientes.slice(0, 3).map(p => (
+                <Pendiente
+                  key={p.id}
+                  icon={CreditCard}
+                  tone="warning"
+                  title={p.title || 'Solicitud de pago'}
+                  meta={[p.metadata?.order_number, p.metadata?.boat_name, p.created_at && `solicitado ${fmtRelativo(p.created_at)}`].filter(Boolean).join(' · ')}
+                  right={<><Money clp={p.amount_clp} usd={p.amount_usd} align="right" /><BotonEnlace to="/payments" variant="primary" size="sm">Pagar</BotonEnlace></>}
+                />
+              ))}
+              {pendientes.length > 3 && (
+                <li className="px-(--card-pad) py-2.5 text-13 text-ink-500">
+                  Y {pendientes.length - 3} {pendientes.length - 3 === 1 ? 'pago pendiente más' : 'pagos pendientes más'} en <Link to="/payments" className="font-medium text-brand-600 hover:text-brand-700">Pagos</Link>.
+                </li>
+              )}
+              {mensajesSinLeer > 0 && (
+                <Pendiente
+                  icon={MessageCircle}
+                  tone="brand"
+                  title={mensajesSinLeer === 1 ? 'Tienes 1 mensaje sin leer' : `Tienes ${mensajesSinLeer} mensajes sin leer`}
+                  meta={`De ${sinLeer.map(c => c.assigned_to_name || 'Equipo Imporlan').filter((v, i, a) => a.indexOf(v) === i).join(', ')}`}
+                  right={<BotonEnlace to="/messages" size="sm">Leer</BotonEnlace>}
+                />
+              )}
+              {docsNuevos.slice(0, 3).map(n => (
+                <Pendiente
+                  key={n.id}
+                  icon={File}
+                  tone="info"
+                  title={n.title}
+                  meta={n.message}
+                  right={<BotonEnlace to="/documents" size="sm">Ver</BotonEnlace>}
+                />
+              ))}
+              {docsNuevos.length > 3 && (
+                <li className="px-(--card-pad) py-2.5 text-13 text-ink-500">
+                  Y {docsNuevos.length - 3} {docsNuevos.length - 3 === 1 ? 'documento nuevo más' : 'documentos nuevos más'} en <Link to="/documents" className="font-medium text-brand-600 hover:text-brand-700">Documentos</Link>.
+                </li>
+              )}
+            </ul>
+          </Card>
+        </>
       )}
     </section>
   );
@@ -206,7 +252,7 @@ function TusExpedientes({ ordenes, cargando, error, recargar }) {
 /* ---------------------------------------------------------------------------
    Actividad reciente
    --------------------------------------------------------------------------- */
-function Actividad({ notificaciones, cargando, onOpen, onMarkRead }) {
+function Actividad({ notificaciones, cargando, error, recargar, onOpen, onMarkRead }) {
   const lista = notificaciones.slice(0, 6);
   return (
     <section aria-labelledby="h-actividad" className="mb-8">
@@ -214,6 +260,8 @@ function Actividad({ notificaciones, cargando, onOpen, onMarkRead }) {
         <Card.Header title={<span id="h-actividad">Actividad reciente</span>} actions={<BotonEnlace to="/alerts" variant="link" size="sm" iconRight={ChevronRight}>Ver todas</BotonEnlace>} />
         {cargando ? (
           <Skeleton.TableRows rows={3} cols={2} />
+        ) : error ? (
+          <ErrorState compact message="No pudimos cargar tus alertas." detail={error} onRetry={recargar} />
         ) : lista.length === 0 ? (
           <EmptyState compact title="Sin novedades por ahora" description="Cuando haya cambios en tus expedientes, pagos o reportes, los verás aquí." />
         ) : (
@@ -251,9 +299,9 @@ export default function Dashboard() {
     try { await markNotificationRead(n.id); } catch { /* silencioso: se vuelve a intentar desde Alertas */ }
   }
 
-  function abrirNotificacion(n) {
+  function abrir(n) {
     marcarLeida(n);
-    irAlEnlace(n.link, navigate);
+    abrirNotificacion(n, navigate);
   }
 
   return (
@@ -268,11 +316,16 @@ export default function Dashboard() {
         conversaciones={conversaciones.data}
         notificaciones={notifs}
         cargando={pagos.loading || conversaciones.loading || notificaciones.loading}
+        fuentes={[
+          { nombre: 'pagos', error: pagos.error, recargar: pagos.recargar },
+          { nombre: 'mensajes', error: conversaciones.error, recargar: conversaciones.recargar },
+          { nombre: 'alertas', error: notificaciones.error, recargar: notificaciones.recargar },
+        ]}
       />
 
       <TusExpedientes ordenes={ordenes.data} cargando={ordenes.loading} error={ordenes.error} recargar={ordenes.recargar} />
 
-      <Actividad notificaciones={notifs} cargando={notificaciones.loading} onOpen={abrirNotificacion} onMarkRead={marcarLeida} />
+      <Actividad notificaciones={notifs} cargando={notificaciones.loading} error={notificaciones.error} recargar={notificaciones.recargar} onOpen={abrir} onMarkRead={marcarLeida} />
 
       <p className="text-13 text-ink-500 mb-8">
         Respondemos cotizaciones y consultas en 48 a 72 horas hábiles. Para urgencias,{' '}

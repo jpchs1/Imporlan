@@ -45,11 +45,27 @@ function Burbuja({ msg, showAvatar }) {
 }
 
 /**
+ * Une lo que manda el servidor con lo que el cliente acaba de escribir y
+ * todavía está en vuelo. El servidor (`user_messages`) ya trae los mensajes
+ * propios confirmados; los optimistas sin confirmar se conservan al final.
+ */
+function mezclar(servidor, previos) {
+  const ids = new Set(servidor.map(m => String(m.id)));
+  const enVuelo = previos.filter(m => m._optimistic && !ids.has(String(m.id)));
+  return [...servidor, ...enVuelo];
+}
+
+/**
  * Hilo de una conversación: cabecera, mensajes y cuadro de respuesta. Lo usan
  * la bandeja (`Messages`) y el lanzador (`ChatWidget`) con `compact`.
  *
- * El polling (`pollMessages` cada 5 s con deduplicación del optimista) es el
- * mismo de siempre: no se toca.
+ * Polling (`pollMessages`, cada 5 s): el servidor sólo devuelve mensajes de
+ * remitentes distintos de `user` (api/chat_api.php, `action=poll`), así que
+ * los mensajes propios nunca llegan por ahí. Por eso el polling no descarta
+ * nada de lo que ya hay: sólo agrega lo nuevo. El mensaje propio pasa de
+ * optimista («Enviando») a confirmado cuando `user_send` responde con su
+ * `message_id`, y después se vuelve a pedir el hilo completo para quedar con
+ * la marca de tiempo real del servidor.
  */
 export function HiloConversacion({ conversationId, conversations = [], onConversationUpdate, onBack, compact = false, className }) {
   const toast = useToast();
@@ -91,10 +107,10 @@ export function HiloConversacion({ conversationId, conversations = [], onConvers
         const data = await pollMessages(lastCheckRef.current, conversationId);
         if (data.new_messages?.length > 0) {
           setMessages(prev => {
-            const withoutOptimistic = prev.filter(m => !m._optimistic);
-            const existingIds = new Set(withoutOptimistic.map(m => m.id));
-            const newMsgs = data.new_messages.filter(m => !existingIds.has(m.id));
-            return newMsgs.length > 0 ? [...withoutOptimistic, ...newMsgs] : prev;
+            // Nada se borra: ni los confirmados ni los que siguen en vuelo.
+            const existingIds = new Set(prev.map(m => String(m.id)));
+            const newMsgs = data.new_messages.filter(m => !existingIds.has(String(m.id)));
+            return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
           });
           onConversationUpdate?.();
         }
@@ -120,8 +136,19 @@ export function HiloConversacion({ conversationId, conversations = [], onConvers
     const optimistic = { id: `optimistic-${Date.now()}`, _optimistic: true, sender_role: 'user', sender_name: user?.name || 'Tú', message: msg, timestamp: new Date().toISOString() };
     setMessages(prev => [...prev, optimistic]);
     try {
-      await sendMessage(conversationId, msg);
+      const res = await sendMessage(conversationId, msg);
+      // Confirmado: el servidor ya lo guardó (`user_send` → `message_id`).
+      // Deja de decir «Enviando» de inmediato, con el id persistido.
+      const idReal = res?.message_id ?? res?.id;
+      setMessages(prev => prev.map(m => m.id === optimistic.id ? { ...m, id: idReal ?? m.id, _optimistic: false } : m));
       onConversationUpdate?.();
+      // Y se vuelve a pedir el hilo para tener la hora real del servidor; si
+      // falla, el confirmado local se queda tal cual.
+      try {
+        const data = await getMessages(conversationId);
+        const lista = data.messages || data.data;
+        if (Array.isArray(lista)) setMessages(prev => mezclar(lista, prev));
+      } catch { /* el confirmado local vale */ }
     } catch {
       toast?.({ type: 'error', title: 'No se envió el mensaje', description: 'Revisa tu conexión y vuelve a intentarlo.' });
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));

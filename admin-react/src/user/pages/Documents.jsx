@@ -33,14 +33,39 @@ function esPrevisualizable(doc) {
 }
 
 /**
+ * El archivo se sirve `inline` (api/expediente_files_api.php, `download`):
+ * sin el atributo `download` el navegador lo abre en vez de guardarlo. El
+ * atributo sólo vale en el mismo origen; un enlace externo (reportes
+ * alojados fuera) se abre en otra pestaña, que es lo único que se puede.
+ */
+function esMismoOrigen(url) {
+  try { return new URL(url, window.location.href).origin === window.location.origin; } catch { return false; }
+}
+
+function descargar(doc) {
+  if (!doc.download_url) return;
+  if (!esMismoOrigen(doc.download_url)) { window.open(doc.download_url, '_blank', 'noopener'); return; }
+  const a = document.createElement('a');
+  a.href = doc.download_url;
+  a.download = doc.original_name || '';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/**
  * Celda principal: ícono (o miniatura si es foto), nombre completo y
  * descripción. En la tarjeta móvil (`completa`) el nombre no se trunca y
- * debajo va el tipo, la fecha y el tamaño.
+ * debajo va el tipo, la fecha y el tamaño. El nombre es un botón sólo cuando
+ * hay algo que abrir (`onOpen`): una fila sin enlace no promete nada.
  */
-function CeldaArchivo({ doc, completa = false }) {
+function CeldaArchivo({ doc, completa = false, onOpen }) {
   const cat = categoriaDe(doc);
   const Icon = cat.icon;
   const esFoto = doc._category === 'image' && doc.download_url;
+  const abrible = !!doc.download_url && !!onOpen;
+  const nombreCls = cn('text-sm font-medium text-ink-900', completa ? 'break-all' : 'truncate');
   return (
     <div className="flex items-start gap-3 min-w-0">
       {esFoto ? (
@@ -49,11 +74,25 @@ function CeldaArchivo({ doc, completa = false }) {
         <span className="h-10 w-10 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><Icon size={18} /></span>
       )}
       <div className="min-w-0">
-        <p className={cn('text-sm font-medium text-ink-900', completa ? 'break-all' : 'truncate')} title={doc.original_name}>{doc.original_name}</p>
+        {abrible ? (
+          <button
+            type="button"
+            onClick={() => onOpen(doc)}
+            title={doc.original_name}
+            className={cn(nombreCls, 'block max-w-full text-left hover:text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 rounded-sm')}
+          >
+            {doc.original_name}
+          </button>
+        ) : (
+          <p className={nombreCls} title={doc.original_name}>
+            {doc.original_name}
+            {!doc.download_url && <span className="sr-only"> (sin enlace de descarga)</span>}
+          </p>
+        )}
         {doc.description && <p className={cn('text-13 text-ink-500', completa ? '' : 'truncate')} title={doc.description}>{doc.description}</p>}
         {completa && (
           <p className="text-xs text-ink-500 mt-1 tabular">
-            {cat.label} · {fmtDate(doc.created_at)}{doc.file_size || doc.file_size_formatted ? ` · ${tamanoDe(doc)}` : ''}{doc._orderNumber ? ` · #${doc._orderNumber}` : ''}
+            {cat.label} · {fmtDate(doc.created_at)}{doc.file_size || doc.file_size_formatted ? ` · ${tamanoDe(doc)}` : ''}{doc._orderNumber ? ` · #${doc._orderNumber}` : ''}{!doc.download_url ? ' · Sin enlace de descarga' : ''}
           </p>
         )}
       </div>
@@ -175,16 +214,17 @@ export default function Documents() {
   const chips = ORDEN_FILTROS.map(id => ({ id, label: id === 'all' ? 'Todos' : CATEGORIAS[id].label, count: counts[id] }));
 
   const columns = [
-    { key: 'original_name', header: 'Archivo', cell: d => <CeldaArchivo doc={d} />, sortValue: d => d.original_name || '' },
+    { key: 'original_name', header: 'Archivo', cell: d => <CeldaArchivo doc={d} onOpen={abrir} />, sortValue: d => d.original_name || '' },
     { key: 'tipo', header: 'Tipo', width: 120, priority: 2, cell: d => <Badge tone={categoriaDe(d).tone}>{categoriaDe(d).label}</Badge>, sortValue: d => categoriaDe(d).label },
     { key: 'expediente', header: 'Expediente', width: 150, priority: 2, cell: d => d._orderNumber ? <span className="text-ink-900">#{d._orderNumber}</span> : <span className="text-ink-500">—</span>, sortValue: d => d._orderNumber || '' },
     { key: 'created_at', header: 'Fecha', width: 130, cell: d => <span className="tabular whitespace-nowrap">{fmtDate(d.created_at)}</span>, sortValue: d => new Date(d.created_at || 0).getTime() },
     { key: 'tamano', header: 'Tamaño', width: 100, align: 'right', priority: 3, cell: d => <span className="tabular text-ink-500">{tamanoDe(d)}</span>, sortValue: d => Number(d.file_size) || 0 },
   ];
 
+  // Sin enlace no hay acciones: el menú queda vacío y la fila, quieta.
   const acciones = (d) => [
     d.download_url && esPrevisualizable(d) && { label: d._category === 'image' ? 'Ver' : 'Abrir', icon: d._category === 'image' ? Eye : ExternalLink, onClick: () => abrir(d) },
-    d.download_url && { label: 'Descargar', icon: Download, href: d.download_url, target: '_blank' },
+    d.download_url && { label: 'Descargar', icon: Download, onClick: () => descargar(d) },
   ];
 
   const vacio = allDocs.length === 0
@@ -225,14 +265,13 @@ export default function Documents() {
             columns={columns}
             data={filteredDocs}
             rowKey={d => d.id}
-            onRowClick={abrir}
             rowActions={acciones}
             loading={loading}
             loadingRows={6}
             emptyState={vacio}
             aria-label="Documentos"
             pageSize={25}
-            mobileCard={d => <CeldaArchivo doc={d} completa />}
+            mobileCard={d => <CeldaArchivo doc={d} completa onOpen={abrir} />}
           />
           {!loading && filteredDocs.length > 0 && (
             <p className="px-(--card-pad) py-2.5 text-13 text-ink-500 border-t border-line tabular">

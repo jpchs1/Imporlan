@@ -5,9 +5,13 @@ import { Card, Button, PageHeader, FilterChips, EmptyState, ErrorState, Skeleton
 import { Bell, Check } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 import { FilaNotificacion } from './inicio/FilaNotificacion';
-import { irAlEnlace } from './inicio/notificaciones';
+import { familiaDe, abrirNotificacion } from './inicio/notificaciones';
 
-/** Mismo orden y etiquetas (en plural) que los tipos de `FilaNotificacion`. */
+/**
+ * Filtros por familia (`familiaDe` en notificaciones.js): «Mensajes» junta
+ * `message` y `chat`; «Documentos» junta `document` y los archivos que sube
+ * el agente (`expediente_files`). Mismo orden que `TIPOS_NOTIFICACION`.
+ */
 const TIPOS = [
   { id: 'payment', label: 'Pagos' },
   { id: 'message', label: 'Mensajes' },
@@ -16,6 +20,14 @@ const TIPOS = [
   { id: 'ranking', label: 'Ranking' },
   { id: 'inspection', label: 'Inspecciones' },
 ];
+
+// `getNotifications` (user/api.js) atrapa el error y devuelve `{ notifications: [] }`
+// sin `success`; el servidor siempre manda `success: true` cuando responde
+// bien. Sin esa marca no es «estás al día», es «no pudimos cargar».
+function listaDe(data) {
+  if (data?.success !== true) throw new Error(data?.error || data?.detail || 'No pudimos cargar tus alertas');
+  return data.notifications || [];
+}
 
 export default function Alerts() {
   const toast = useToast();
@@ -28,8 +40,9 @@ export default function Alerts() {
 
   useEffect(() => {
     let activo = true;
-    getNotifications(50)
-      .then(data => { if (activo) { setNotifications(data.notifications || []); setError(null); } })
+    // `list` acepta hasta 200 y no filtra por no leídas (api/notifications_api.php).
+    getNotifications(100)
+      .then(data => { const lista = listaDe(data); if (activo) { setNotifications(lista); setError(null); } })
       .catch(e => { if (activo) setError(e); })
       .finally(() => { if (activo) setLoading(false); });
     return () => { activo = false; };
@@ -45,7 +58,7 @@ export default function Alerts() {
 
   function abrir(n) {
     marcarLeida(n);
-    irAlEnlace(n.link, navigate);
+    abrirNotificacion(n, navigate);
   }
 
   async function marcarTodas() {
@@ -63,7 +76,7 @@ export default function Alerts() {
   const conteoPorTipo = useMemo(() => {
     const map = {};
     for (const n of notifications) {
-      const t = n.type === 'chat' ? 'message' : (n.type || 'otro');
+      const t = familiaDe(n.type);
       map[t] = (map[t] || 0) + 1;
     }
     return map;
@@ -78,8 +91,7 @@ export default function Alerts() {
   const visibles = useMemo(() => notifications.filter(n => {
     if (filter === 'all') return true;
     if (filter === 'unread') return !n.read_at;
-    const t = n.type === 'chat' ? 'message' : n.type;
-    return t === filter;
+    return familiaDe(n.type) === filter;
   }), [notifications, filter]);
 
   return (
