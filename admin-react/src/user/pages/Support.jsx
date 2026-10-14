@@ -34,6 +34,9 @@ const FAQS = [
   { cat: 'Pagos', q: '¿Qué medios de pago aceptan?', a: 'WebPay, Mercado Pago, PayPal y transferencia bancaria. Los eliges en la sección Pagos cuando recibes una solicitud de pago.' },
 ];
 
+/** Algo@algo.tld, sin espacios: lo mismo que exige el navegador para `type="email"`, más el punto del dominio. */
+const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 function ContenidoCanal({ icon, label, value, sub }) {
   const Icon = icon;
   return (
@@ -85,7 +88,10 @@ export default function Support() {
     e.preventDefault();
     const nuevos = {};
     if (!form.name.trim()) nuevos.name = 'Escribe tu nombre.';
+    // El formulario es `noValidate` (los errores van en cada campo, con el
+    // kit), así que el formato del correo se revisa aquí.
     if (!form.email.trim()) nuevos.email = 'Escribe tu correo.';
+    else if (!CORREO_VALIDO.test(form.email.trim())) nuevos.email = 'Escribe un correo válido, como nombre@correo.cl.';
     if (!form.subject) nuevos.subject = 'Elige un tema.';
     if (!form.message.trim()) nuevos.message = 'Cuéntanos en qué te ayudamos.';
     if (Object.keys(nuevos).length) { setErrores(nuevos); return; }
