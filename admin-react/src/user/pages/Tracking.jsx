@@ -1,245 +1,224 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { getFeaturedVessels, getVesselDetail, getVesselPositions, refreshVesselPosition } from '../api';
-import { fmtDate, cn } from '../../shared/lib/utils';
-import { Card, Badge, Button, Spinner } from '../../shared/components/UI';
+import { cn } from '../../shared/lib/utils';
+import { fmtDateLarga, fmtRelativo } from '../../shared/lib/format';
+import {
+  Card, Button, PageHeader, StatusBadge, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton, DescriptionList,
+} from '../../shared/components/UI';
+import { Ship, RefreshCw, ArrowRight, WhatsAppIcon } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
-const STATUS_COLORS = {
-  active: 'bg-emerald-100 text-emerald-700',
-  inactive: 'bg-slate-100 text-slate-600',
-  arrived: 'bg-blue-100 text-blue-700',
-  scheduled: 'bg-amber-100 text-amber-700',
-};
+/* ---------------------------------------------------------------------------
+   Mapa (react-leaflet: el mapa se crea una vez; marcadores y ruta son hijos
+   que React agrega y quita sin destruir el mapa → adiós `_leaflet_pos`).
+   --------------------------------------------------------------------------- */
 
-// --- Leaflet loader (idempotent) ---
-function useLeaflet() {
-  const [loaded, setLoaded] = useState(!!window.L);
-  useEffect(() => {
-    if (window.L) { setLoaded(true); return; }
-    // Avoid duplicate loads
-    if (document.querySelector('script[src*="leaflet@1.9.4"]')) {
-      const check = setInterval(() => { if (window.L) { setLoaded(true); clearInterval(check); } }, 100);
-      return () => clearInterval(check);
-    }
-    const css = document.createElement('link');
-    css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(css);
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => setLoaded(true);
-    document.head.appendChild(script);
-  }, []);
-  return loaded;
+/** Valor de un token de color (para lo que Leaflet dibuja en canvas/SVG). */
+function token(nombre, fallback) {
+  if (typeof window === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+  return v || fallback;
 }
 
-// --- Map Component ---
-function VesselMap({ vessels, positions, selectedId, onSelectVessel }) {
-  const mapRef = useRef(null);
-  const mapInstance = useRef(null);
-  const markersRef = useRef([]);
-
-  useEffect(() => {
-    if (!mapRef.current || !window.L) return;
-    const L = window.L;
-
-    // Clean up
-    if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
-    markersRef.current = [];
-
-    const map = L.map(mapRef.current).setView([-15, -70], 3);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-    }).addTo(map);
-    mapInstance.current = map;
-
-    // Plot all vessel markers
-    const bounds = [];
-    (vessels || []).forEach(v => {
-      if (!v.lat || !v.lon) return;
-      const lat = parseFloat(v.lat);
-      const lon = parseFloat(v.lon);
-      if (isNaN(lat) || isNaN(lon)) return;
-      bounds.push([lat, lon]);
-
-      const isSelected = v.id === selectedId;
-      const color = isSelected ? '#0891b2' : '#0f172a';
-      const icon = L.divIcon({
-        html: `<div style="display:flex;flex-direction:column;align-items:center">
-          <div style="background:${color};width:12px;height:12px;border-radius:50%;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>
-          <span style="font-size:10px;font-weight:600;color:${color};white-space:nowrap;margin-top:2px;text-shadow:0 0 3px white,0 0 3px white">${v.display_name || ''}</span>
-        </div>`,
-        className: '', iconSize: [120, 36], iconAnchor: [60, 6],
-      });
-
-      const marker = L.marker([lat, lon], { icon })
-        .bindPopup(`<b>${v.display_name || 'Barco'}</b><br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}${v.speed ? `<br>Velocidad: ${v.speed} kn` : ''}`)
-        .addTo(map);
-      marker.on('click', () => onSelectVessel(v.id));
-      markersRef.current.push(marker);
-    });
-
-    // Plot route for selected vessel
-    if (positions?.length > 1) {
-      const coords = positions.map(p => [parseFloat(p.lat), parseFloat(p.lon || p.lng)]).filter(c => !isNaN(c[0]) && !isNaN(c[1]));
-      if (coords.length > 1) {
-        L.polyline(coords, { color: '#6366f1', weight: 3, opacity: 0.7, dashArray: '8 4' }).addTo(map);
-        coords.slice(1).forEach(c => {
-          L.circleMarker(c, { radius: 3, color: '#94a3b8', fillColor: '#94a3b8', fillOpacity: 0.6, weight: 1 }).addTo(map);
-        });
-        coords.forEach(c => { if (!bounds.some(b => b[0] === c[0] && b[1] === c[1])) bounds.push(c); });
-      }
-    }
-
-    // Fit bounds
-    if (bounds.length > 1) {
-      map.fitBounds(L.latLngBounds(bounds).pad(0.15));
-    } else if (bounds.length === 1) {
-      map.setView(bounds[0], 6);
-    }
-
-    return () => { if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [vessels, positions, selectedId, onSelectVessel]);
-
-  return <div ref={mapRef} className="h-full min-h-[400px] rounded-xl border border-slate-200" style={{ zIndex: 1 }} />;
+function coordenadas(v) {
+  const lat = parseFloat(v?.lat);
+  const lon = parseFloat(v?.lon ?? v?.lng);
+  return (isNaN(lat) || isNaN(lon)) ? null : [lat, lon];
 }
 
-// --- Vessel Card ---
-function VesselCard({ vessel, selected, onClick }) {
+function iconoBarco(nombre, seleccionado) {
+  const color = seleccionado ? 'bg-brand-600 text-brand-700' : 'bg-ink-900 text-ink-900';
+  return L.divIcon({
+    className: '',
+    iconSize: [140, 36],
+    iconAnchor: [70, 7],
+    html: `<div class="flex flex-col items-center">
+      <span class="block h-3.5 w-3.5 rounded-full border-2 border-white shadow-pop ${color.split(' ')[0]}"></span>
+      <span class="mt-0.5 text-xs font-semibold whitespace-nowrap ${color.split(' ')[1]}" style="text-shadow:0 0 3px #fff,0 0 3px #fff">${String(nombre || '').replace(/</g, '&lt;')}</span>
+    </div>`,
+  });
+}
+
+/** Ajusta el encuadre cuando cambian los puntos (una sola vez por cambio). */
+function Encuadre({ puntos }) {
+  const map = useMap();
+  // Se compara por valor (la lista se recrea en cada render con los mismos puntos).
+  const clave = puntos.map(p => p.join(',')).join('|');
+  useEffect(() => {
+    const pts = clave ? clave.split('|').map(s => s.split(',').map(Number)) : [];
+    if (!pts.length) return;
+    if (pts.length === 1) map.setView(pts[0], 6);
+    else map.fitBounds(L.latLngBounds(pts).pad(0.15));
+  }, [map, clave]);
+  useEffect(() => {
+    // El contenedor puede cambiar de tamaño después de montar (columnas,
+    // barra inferior móvil): se recalcula.
+    const t = setTimeout(() => map.invalidateSize(), 50);
+    return () => clearTimeout(t);
+  }, [map]);
+  return null;
+}
+
+function MapaBarcos({ vessels, positions, selectedId, onSelectVessel }) {
+  const ruta = useMemo(() => (positions || []).map(coordenadas).filter(Boolean), [positions]);
+  const marcados = useMemo(() => (vessels || []).map(v => ({ v, c: coordenadas(v) })).filter(x => x.c), [vessels]);
+  const puntos = useMemo(() => {
+    const out = marcados.map(x => x.c);
+    ruta.forEach(c => { if (!out.some(b => b[0] === c[0] && b[1] === c[1])) out.push(c); });
+    return out;
+  }, [marcados, ruta]);
+  const colorRuta = token('--color-brand-600', '#0e7490');
+  const colorPunto = token('--color-ink-400', '#94a3b8');
+
   return (
-    <div
-      onClick={() => onClick(vessel.id)}
-      className={cn(
-        'p-3 rounded-xl border cursor-pointer transition-all',
-        selected
-          ? 'border-cyan-300 bg-cyan-50/50 shadow-sm'
-          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+    <MapContainer center={[-15, -70]} zoom={3} scrollWheelZoom={false} className="h-full w-full" attributionControl>
+      <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      {ruta.length > 1 && (
+        <>
+          <Polyline positions={ruta} pathOptions={{ color: colorRuta, weight: 3, opacity: 0.8, dashArray: '8 4' }} />
+          {ruta.slice(1).map((c, i) => (
+            <CircleMarker key={`${c[0]}-${c[1]}-${i}`} center={c} radius={3} pathOptions={{ color: colorPunto, fillColor: colorPunto, fillOpacity: 0.7, weight: 1 }} />
+          ))}
+        </>
       )}
-    >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <p className="font-semibold text-sm text-slate-800 truncate">{vessel.display_name || 'Sin nombre'}</p>
-        <Badge className={STATUS_COLORS[vessel.status] || STATUS_COLORS.inactive}>
-          {vessel.status || 'N/A'}
-        </Badge>
-      </div>
-      {vessel.client_name && (
-        <p className="text-[11px] text-cyan-600 font-medium">{vessel.client_name}</p>
-      )}
-      {vessel.shipping_line && (
-        <p className="text-[11px] text-slate-400">{vessel.shipping_line}</p>
-      )}
-      {(vessel.origin_label || vessel.destination_label) && (
-        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-500">
-          {vessel.origin_label && <span className="truncate">{vessel.origin_label}</span>}
-          {vessel.origin_label && vessel.destination_label && (
-            <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          )}
-          {vessel.destination_label && <span className="truncate font-medium">{vessel.destination_label}</span>}
-        </div>
-      )}
-      {vessel.speed && (
-        <p className="text-[11px] text-slate-400 mt-1">{vessel.speed} kn</p>
-      )}
-    </div>
+      {marcados.map(({ v, c }) => (
+        <Marker key={v.id} position={c} icon={iconoBarco(v.display_name, v.id === selectedId)} eventHandlers={{ click: () => onSelectVessel(v.id) }}>
+          <Popup>
+            <strong>{v.display_name || 'Barco'}</strong><br />
+            {c[0].toFixed(4)}, {c[1].toFixed(4)}{v.speed ? ` · ${v.speed} nudos` : ''}
+          </Popup>
+        </Marker>
+      ))}
+      <Encuadre puntos={puntos} />
+    </MapContainer>
   );
 }
 
-// --- Detail Panel ---
-function VesselDetailPanel({ vessel, onRefresh, refreshing }) {
-  if (!vessel) return null;
-
-  const eta = vessel.eta_manual || vessel.pos_eta;
-
+/* ---------------------------------------------------------------------------
+   Lista y detalle
+   --------------------------------------------------------------------------- */
+function FilaBarco({ vessel, selected, onClick }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="font-bold text-slate-800 text-lg">{vessel.display_name}</h3>
-        {vessel.shipping_line && <p className="text-sm text-slate-400">{vessel.shipping_line}</p>}
-      </div>
-
-      {/* Info section */}
-      <div className="p-3 bg-slate-50 rounded-lg">
-        <p className="text-[11px] font-semibold text-slate-400 uppercase mb-2">Información</p>
-        <div className="space-y-1.5 text-sm">
-          {vessel.client_name && <div className="flex justify-between"><span className="text-slate-400 text-xs">Cliente</span><span className="text-slate-700 font-medium text-xs">{vessel.client_name}</span></div>}
-          {vessel.shipping_line && <div className="flex justify-between"><span className="text-slate-400 text-xs">Naviera</span><span className="text-slate-700 text-xs">{vessel.shipping_line}</span></div>}
-          {vessel.imo && <div className="flex justify-between"><span className="text-slate-400 text-xs">IMO</span><span className="text-slate-700 font-mono text-xs">{vessel.imo}</span></div>}
-          {vessel.mmsi && <div className="flex justify-between"><span className="text-slate-400 text-xs">MMSI</span><span className="text-slate-700 font-mono text-xs">{vessel.mmsi}</span></div>}
-          {vessel.origin_label && <div className="flex justify-between"><span className="text-slate-400 text-xs">Origen</span><span className="text-slate-700 text-xs">{vessel.origin_label}</span></div>}
-          {vessel.destination_label && <div className="flex justify-between"><span className="text-slate-400 text-xs">Destino</span><span className="text-slate-700 font-medium text-xs">{vessel.destination_label}</span></div>}
-          {eta && <div className="flex justify-between"><span className="text-slate-400 text-xs">ETA</span><span className="text-slate-700 text-xs">{fmtDate(eta)}</span></div>}
-          <div className="flex justify-between"><span className="text-slate-400 text-xs">Estado</span><Badge className={cn(STATUS_COLORS[vessel.status] || STATUS_COLORS.inactive, 'text-[10px]')}>{vessel.status || 'N/A'}</Badge></div>
-        </div>
-      </div>
-
-      {(vessel.lat && vessel.lon) && (
-        <div className="p-3 bg-slate-50 rounded-lg">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1">Posicion Actual</p>
-          <p className="text-sm text-slate-700 font-mono">
-            {parseFloat(vessel.lat).toFixed(4)}, {parseFloat(vessel.lon).toFixed(4)}
-          </p>
-          <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
-            {vessel.speed && <span>Velocidad: {vessel.speed} kn</span>}
-            {vessel.course && <span>Rumbo: {parseFloat(vessel.course).toFixed(0)}°</span>}
-          </div>
-          {vessel.last_position_update && (
-            <p className="text-[11px] text-slate-400 mt-1">Actualizado: {fmtDate(vessel.last_position_update)}</p>
-          )}
-        </div>
-      )}
-
-      {vessel.client_name && (
-        <div>
-          <p className="text-[11px] font-semibold text-slate-400 uppercase">Cliente</p>
-          <p className="text-sm text-slate-700">{vessel.client_name}</p>
-        </div>
-      )}
-
-      <Button
-        variant="accent"
-        size="sm"
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="w-full flex items-center justify-center gap-1.5"
+    <li>
+      <button
+        type="button"
+        onClick={() => onClick(vessel.id)}
+        aria-pressed={selected}
+        className={cn(
+          'w-full text-left px-(--card-pad) py-3 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500',
+          selected ? 'bg-brand-50' : 'hover:bg-canvas',
+        )}
       >
-        <svg className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
-        </svg>
-        {refreshing ? 'Actualizando...' : 'Actualizar Posicion'}
-      </Button>
-    </div>
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm font-medium text-ink-900 truncate" title={vessel.display_name}>{vessel.display_name || 'Sin nombre'}</p>
+          <StatusBadge kind="barco" status={vessel.status} size="sm" />
+        </div>
+        {(vessel.origin_label || vessel.destination_label) && (
+          <p className="flex items-center gap-1.5 mt-1 text-13 text-ink-500 min-w-0">
+            {vessel.origin_label && <span className="truncate">{vessel.origin_label}</span>}
+            {vessel.origin_label && vessel.destination_label && <ArrowRight size={14} className="shrink-0" />}
+            {vessel.destination_label && <span className="truncate text-ink-700">{vessel.destination_label}</span>}
+          </p>
+        )}
+        {vessel.shipping_line && <p className="text-xs text-ink-500 mt-0.5">{vessel.shipping_line}</p>}
+      </button>
+    </li>
   );
 }
 
-// --- Main Page ---
+function DetalleBarco({ vessel, onRefresh, refreshing }) {
+  const eta = vessel.eta_manual || vessel.pos_eta;
+  const pos = coordenadas(vessel);
+  const items = [
+    vessel.shipping_line && { label: 'Naviera', value: vessel.shipping_line },
+    vessel.origin_label && { label: 'Origen', value: vessel.origin_label },
+    vessel.destination_label && { label: 'Destino', value: vessel.destination_label },
+    eta && { label: 'Llegada estimada', value: fmtDateLarga(eta) },
+    vessel.imo && { label: 'IMO', value: vessel.imo, mono: true },
+    vessel.mmsi && { label: 'MMSI', value: vessel.mmsi, mono: true },
+    pos && { label: 'Posición', value: <span className="whitespace-nowrap">{pos[0].toFixed(4)}, {pos[1].toFixed(4)}</span>, mono: true },
+    vessel.speed && { label: 'Velocidad', value: `${vessel.speed} nudos` },
+    vessel.course && { label: 'Rumbo', value: `${parseFloat(vessel.course).toFixed(0)}°` },
+    vessel.last_position_update && { label: 'Última posición', value: <span title={fmtDateLarga(vessel.last_position_update, { hora: true })}>{fmtRelativo(vessel.last_position_update)}</span> },
+  ].filter(Boolean);
+
+  return (
+    <Card>
+      <Card.Header title={vessel.display_name} description={vessel.client_name ? `Embarcación de ${vessel.client_name}` : undefined} actions={<StatusBadge kind="barco" status={vessel.status} dot />} />
+      <Card.Body>
+        <DescriptionList items={items} cols={2} dense />
+      </Card.Body>
+      <Card.Footer align="between">
+        <p className="text-xs text-ink-500 m-0">Los datos vienen del sistema AIS de la naviera.</p>
+        <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={onRefresh}>Actualizar posición</Button>
+      </Card.Footer>
+    </Card>
+  );
+}
+
+const ACTIVOS = ['active', 'en route', 'in_transit', 'sailing'];
+const ARRIBADOS = ['arrived', 'completed', 'delivered'];
+function grupoDe(v) {
+  const s = String(v.status || '').toLowerCase();
+  if (ACTIVOS.includes(s)) return 'active';
+  if (ARRIBADOS.includes(s)) return 'arrived';
+  return 'other';
+}
+
+/* ---------------------------------------------------------------------------
+   Página
+   --------------------------------------------------------------------------- */
 export default function Tracking() {
   const toast = useToast();
-  const leafletLoaded = useLeaflet();
+  const navigate = useNavigate();
   const [vessels, setVessels] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [positions, setPositions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // all | active | arrived | other
 
-  const loadVessels = useCallback(async () => {
-    try {
-      const data = await getFeaturedVessels();
-      const list = data.success && data.vessels ? data.vessels : (Array.isArray(data) ? data : []);
-      setVessels(list);
-      setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
-    } catch (e) {
-      toast?.('Error al cargar seguimiento', 'error');
-    }
-    setLoading(false);
-  }, [toast]);
+  const listaDe = (data) => (data.success && data.vessels ? data.vessels : (Array.isArray(data) ? data : []));
 
-  useEffect(() => { loadVessels(); }, [loadVessels]);
-
-  // Load detail + positions when selection changes
   useEffect(() => {
-    if (!selectedId) { setDetail(null); setPositions([]); return; }
-    let cancelled = false;
+    let vivo = true;
+    getFeaturedVessels()
+      .then(data => {
+        if (!vivo) return;
+        const list = listaDe(data);
+        setVessels(list);
+        setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
+      })
+      .catch(e => { if (vivo) setError(e); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
+  }, []);
 
+  function recargar() {
+    setLoading(true);
+    setError(null);
+    getFeaturedVessels()
+      .then(data => {
+        const list = listaDe(data);
+        setVessels(list);
+        setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
+      })
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }
+
+  // Detalle + ruta del barco seleccionado. El detalle que se pinta es solo
+  // el que corresponde a la selección actual (ver `detalleActual`).
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    let cancelled = false;
     async function load() {
       try {
         const [detailRes, posRes] = await Promise.all([
@@ -247,14 +226,10 @@ export default function Tracking() {
           getVesselPositions(selectedId).catch(() => ({ positions: [] })),
         ]);
         if (cancelled) return;
-        if (detailRes?.success && detailRes.vessel) {
-          setDetail(detailRes.vessel);
-        } else {
-          // Fallback to vessel from list
-          setDetail(vessels.find(v => v.id === selectedId) || null);
-        }
+        if (detailRes?.success && detailRes.vessel) setDetail(detailRes.vessel);
+        else setDetail(vessels.find(v => v.id === selectedId) || null);
         setPositions(posRes.positions || posRes.data || []);
-      } catch (e) {
+      } catch {
         if (!cancelled) setDetail(vessels.find(v => v.id === selectedId) || null);
       }
     }
@@ -262,9 +237,9 @@ export default function Tracking() {
     return () => { cancelled = true; };
   }, [selectedId, vessels]);
 
-  const handleSelectVessel = useCallback((id) => {
-    setSelectedId(id);
-  }, []);
+  const handleSelectVessel = useCallback((id) => { setSelectedId(id); }, []);
+  const detalleActual = detail && selectedId && String(detail.id) === String(selectedId) ? detail : null;
+  const rutaActual = detalleActual ? positions : [];
 
   async function handleRefresh() {
     if (!selectedId) return;
@@ -272,266 +247,107 @@ export default function Tracking() {
     try {
       const data = await refreshVesselPosition(selectedId);
       if (data.success) {
-        toast?.('Posicion actualizada', 'success');
-        // Reload everything
+        toast?.('Posición actualizada', 'success');
         const [detailRes, posRes] = await Promise.all([
           getVesselDetail(selectedId).catch(() => null),
           getVesselPositions(selectedId).catch(() => ({ positions: [] })),
-          getFeaturedVessels().then(d => {
-            const list = d.success && d.vessels ? d.vessels : (Array.isArray(d) ? d : []);
-            setVessels(list);
-          }).catch(() => {}),
+          getFeaturedVessels().then(d => { setVessels(listaDe(d)); }).catch(() => {}),
         ]);
         if (detailRes?.success && detailRes.vessel) setDetail(detailRes.vessel);
         setPositions(posRes?.positions || posRes?.data || []);
       } else {
         toast?.(data.error || data.message || 'No se pudo actualizar', 'warning');
       }
-    } catch (e) {
-      toast?.('Error al actualizar posicion', 'error');
+    } catch {
+      toast?.('No se pudo actualizar la posición', 'error');
     }
     setRefreshing(false);
   }
 
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // all | active | arrived | other
+  const conteo = useMemo(() => {
+    const c = { all: vessels.length, active: 0, arrived: 0, other: 0 };
+    vessels.forEach(v => { c[grupoDe(v)]++; });
+    return c;
+  }, [vessels]);
 
-  const activeVessels = vessels.filter(v => (v.status || '').toLowerCase() === 'active' || (v.status || '').toLowerCase() === 'en route' || v.status === 'in_transit');
-  const arrivedVessels = vessels.filter(v => (v.status || '').toLowerCase() === 'arrived' || v.status === 'completed');
-
-  const filteredVessels = vessels.filter(v => {
-    if (filter === 'active' && !activeVessels.includes(v)) return false;
-    if (filter === 'arrived' && !arrivedVessels.includes(v)) return false;
-    if (filter === 'other' && (activeVessels.includes(v) || arrivedVessels.includes(v))) return false;
+  const filteredVessels = useMemo(() => {
     const t = search.trim().toLowerCase();
-    if (t) {
-      const hay = `${v.name || v.vessel_name || ''} ${v.client_name || ''} ${v.shipping_line || ''} ${v.origin_port || ''} ${v.destination_port || ''} ${v.imo || ''} ${v.mmsi || ''}`.toLowerCase();
-      if (!hay.includes(t)) return false;
-    }
-    return true;
-  });
+    return vessels.filter(v => {
+      if (filter !== 'all' && grupoDe(v) !== filter) return false;
+      if (!t) return true;
+      const hay = `${v.display_name || ''} ${v.name || v.vessel_name || ''} ${v.client_name || ''} ${v.shipping_line || ''} ${v.origin_label || ''} ${v.destination_label || ''} ${v.imo || ''} ${v.mmsi || ''}`.toLowerCase();
+      return hay.includes(t);
+    });
+  }, [vessels, filter, search]);
 
-  const heroLoading = loading || !leafletLoaded;
+  const chips = [
+    { id: 'all', label: 'Todos', count: conteo.all },
+    { id: 'active', label: 'En tránsito', count: conteo.active },
+    { id: 'arrived', label: 'Arribados', count: conteo.arrived },
+    { id: 'other', label: 'Programados', count: conteo.other },
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto pb-12">
-      {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
-              <span className={cn('w-1.5 h-1.5 rounded-full', activeVessels.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400')} />
-              {activeVessels.length > 0
-                ? `${activeVessels.length} envío${activeVessels.length > 1 ? 's' : ''} en transito`
-                : vessels.length > 0 ? `${vessels.length} envío${vessels.length > 1 ? 's' : ''} en seguimiento` : 'Sin envíos activos'}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Seguimiento</h1>
-            <p className="text-sm text-slate-300 mt-1.5 leading-relaxed">
-              Rastrea en tiempo real cada embarcación en transito con datos de AIS: ruta, velocidad, ETA y posicion actual.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { setLoading(true); loadVessels(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
-              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Actualizar todo
-            </Button>
-            {selectedId && (
-              <Button onClick={handleRefresh} disabled={refreshing} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
-                <svg className={cn('w-4 h-4', refreshing && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9"/></svg>
-                {refreshing ? 'Actualizando...' : 'Actualizar posicion'}
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="pb-12">
+      <PageHeader
+        title="Seguimiento"
+        description="Dónde va el barco que trae tu embarcación: ruta, velocidad y fecha estimada de llegada."
+      />
 
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <button
-          type="button"
-          onClick={() => setFilter('all')}
-          className={cn(
-            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
-            filter === 'all' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
-          )}
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{vessels.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Total</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Embarcaciones</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter('active')}
-          className={cn(
-            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
-            filter === 'active' ? 'border-emerald-300 ring-2 ring-emerald-200/60' : 'border-slate-200/70 hover:border-slate-300'
-          )}
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{activeVessels.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">En transito</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{activeVessels.length > 0 ? 'Navegando' : 'Sin movimiento'}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter('arrived')}
-          className={cn(
-            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
-            filter === 'arrived' ? 'border-violet-300 ring-2 ring-violet-200/60' : 'border-slate-200/70 hover:border-slate-300'
-          )}
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{arrivedVessels.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Arribados</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">En puerto destino</p>
-        </button>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">AIS</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Tiempo real</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Datos satelitales</p>
-        </div>
-      </div>
-
-      {heroLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ minHeight: '480px' }}>
-          <div className="lg:col-span-3 space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />)}
-          </div>
-          <div className="lg:col-span-6 bg-slate-100 rounded-2xl animate-pulse" />
-          <div className="lg:col-span-3 bg-slate-100 rounded-2xl animate-pulse" />
+      {error ? (
+        <Card padding="none"><ErrorState message="No pudimos cargar el seguimiento." detail={error} onRetry={recargar} /></Card>
+      ) : loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-8 sk rounded-lg min-h-[360px] lg:min-h-[560px]" aria-hidden="true" />
+          <div className="lg:col-span-4 space-y-3"><Skeleton.Card /><Skeleton.Card /><Skeleton.Card /></div>
         </div>
       ) : vessels.length === 0 ? (
-        <Card className="text-center py-16">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
-            <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          </div>
-          <p className="text-slate-700 font-semibold">No hay envíos en seguimiento</p>
-          <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Cuando tu importación este en camino podrás ver la ubicación en tiempo real con datos de AIS aquí.</p>
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
-            <a href="#/expedientes" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 transition">
-              Ver expedientes
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
-            </a>
-            <a href="https://wa.me/56940211459?text=Hola%2C%20no%20veo%20el%20seguimiento%20de%20mi%20envio" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition">
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-              Hablar con soporte
-            </a>
-          </div>
+        <Card padding="none">
+          <EmptyState
+            icon={Ship}
+            title="No hay envíos en seguimiento"
+            description="Cuando tu embarcación esté embarcada rumbo a Chile, verás aquí el barco que la trae y su posición."
+            primaryAction={<Button onClick={() => navigate('/expedientes')}>Ver expedientes</Button>}
+            secondaryAction={<Button variant="ghost" icon={WhatsAppIcon} onClick={() => window.open('https://wa.me/56940211459?text=Hola%2C%20no%20veo%20el%20seguimiento%20de%20mi%20env%C3%ADo', '_blank', 'noopener')}>Hablar con tu agente</Button>}
+          />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-340px)]" style={{ minHeight: '520px' }}>
-          {/* Left: vessel list with toolbar */}
-          <div className="lg:col-span-3 flex flex-col gap-2 min-h-0">
-            <Card className="p-3 shrink-0">
-              <div className="relative mb-2">
-                <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar nave, naviera, puerto..."
-                  className="w-full pl-7 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white"
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {[
-                  { v: 'all', label: 'Todos', count: vessels.length },
-                  { v: 'active', label: 'En transito', count: activeVessels.length },
-                  { v: 'arrived', label: 'Arribados', count: arrivedVessels.length },
-                ].map(t => (
-                  <button
-                    key={t.v}
-                    onClick={() => setFilter(t.v)}
-                    className={cn(
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition',
-                      filter === t.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
-                    )}
-                  >
-                    {t.label}
-                    <span className={cn('tabular-nums', filter === t.v ? 'text-white/80' : 'text-slate-400')}>{t.count}</span>
-                  </button>
-                ))}
-              </div>
-            </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          {/* Mapa */}
+          <div className="lg:col-span-8 relative rounded-lg overflow-hidden border border-line shadow-card bg-neutral-bg min-h-[360px] lg:min-h-[560px] h-[50vh] lg:h-[calc(100dvh-var(--topbar-h)-9rem)]">
+            <MapaBarcos vessels={filteredVessels} positions={rutaActual} selectedId={selectedId} onSelectVessel={handleSelectVessel} />
+            <div className="absolute top-3 left-3 z-[2] bg-surface/95 border border-line rounded-md px-3 py-1.5 text-xs text-ink-700 flex items-center gap-3 shadow-card pointer-events-none" aria-hidden="true">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brand-600 border border-white" /> Seleccionado</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-ink-900 border border-white" /> Otros barcos</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 bg-brand-600" /> Ruta recorrida</span>
+            </div>
+          </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2 -mr-1 pr-1">
+          {/* Lista + detalle */}
+          <div className="lg:col-span-4 space-y-4">
+            <Card padding="none">
+              <div className="px-(--card-pad) pt-4 pb-3 border-b border-line space-y-3">
+                <SearchInput value={search} onChange={setSearch} placeholder="Buscar barco, naviera o puerto" size="sm" />
+                <FilterChips options={chips} value={filter} onChange={setFilter} size="sm" aria-label="Estado del envío" />
+              </div>
               {filteredVessels.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400">
-                  Sin coincidencias
-                  {(search || filter !== 'all') && (
-                    <button onClick={() => { setSearch(''); setFilter('all'); }} className="block mx-auto mt-2 text-cyan-600 font-semibold hover:text-cyan-700">Limpiar filtros</button>
-                  )}
-                </div>
+                <EmptyState compact title="Sin coincidencias" primaryAction={<Button variant="secondary" size="sm" onClick={() => { setSearch(''); setFilter('all'); }}>Limpiar filtros</Button>} />
               ) : (
-                filteredVessels.map(v => (
-                  <VesselCard
-                    key={v.id}
-                    vessel={v}
-                    selected={v.id === selectedId}
-                    onClick={handleSelectVessel}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Center: map */}
-          <div className="lg:col-span-6 min-h-[360px] rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm relative">
-            <VesselMap
-              vessels={filteredVessels}
-              positions={positions}
-              selectedId={selectedId}
-              onSelectVessel={handleSelectVessel}
-            />
-            {/* Map overlay legend */}
-            <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur ring-1 ring-slate-200 rounded-xl px-3 py-2 text-[11px] flex items-center gap-3 shadow-sm pointer-events-none">
-              <span className="flex items-center gap-1 text-slate-600">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                En transito
-              </span>
-              <span className="flex items-center gap-1 text-slate-600">
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                Arribado
-              </span>
-            </div>
-          </div>
-
-          {/* Right: detail */}
-          <div className="lg:col-span-3 min-h-0">
-            <Card className="h-full overflow-y-auto">
-              {detail ? (
-                <VesselDetailPanel
-                  vessel={detail}
-                  onRefresh={handleRefresh}
-                  refreshing={refreshing}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-                    <svg className="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-700">Selecciona un envío</p>
-                  <p className="text-xs text-slate-400 mt-1">Eligi una embarcación para ver detalles y posicion</p>
-                </div>
+                <ul className="m-0 p-0 list-none divide-y divide-line max-h-[360px] overflow-y-auto scrollbar-thin" aria-label="Barcos en seguimiento">
+                  {filteredVessels.map(v => (
+                    <FilaBarco key={v.id} vessel={v} selected={v.id === selectedId} onClick={handleSelectVessel} />
+                  ))}
+                </ul>
               )}
             </Card>
+
+            {detalleActual ? (
+              <DetalleBarco vessel={detalleActual} onRefresh={handleRefresh} refreshing={refreshing} />
+            ) : (
+              <Card padding="none">
+                <EmptyState compact icon={Ship} title="Elige un barco" description="Selecciona uno de la lista para ver su detalle y su posición." />
+              </Card>
+            )}
           </div>
         </div>
       )}

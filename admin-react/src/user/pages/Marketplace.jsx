@@ -1,18 +1,20 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getMarketplaceListings, getMyListings, createListing, updateListing, deleteListing, renewListing, markListingSold, uploadListingPhoto } from '../api';
-import { fmtDate, cn } from '../../shared/lib/utils';
+import { fmtDate, fmtCLP, cn } from '../../shared/lib/utils';
+import { fmtUSD, fmtDateLarga } from '../../shared/lib/format';
 import { useAuth } from '../../shared/context/AuthContext';
-import { Card, Badge, Button, Modal, Input, Select, Textarea } from '../../shared/components/UI';
+import {
+  Card, Badge, StatusBadge, Button, IconButton, Modal, Input, Select, Textarea, FormGrid, PageHeader, Tabs, FilterChips, SearchInput,
+  DataTable, EmptyState, ErrorState, Money, Avatar, DescriptionList, Lightbox, useConfirm,
+} from '../../shared/components/UI';
+import { Plus, Image as ImageIcon, Images, MapPin, Clock, Ruler, WhatsAppIcon, MessageCircle, Pencil, Trash, RefreshCw, CircleCheck, X, Upload } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
 const TIPOS = ['Bowrider', 'Pesca', 'Jet Boat', 'Yate', 'Velero', 'Moto de Agua', 'Catamaran', 'Otro'];
 const CONDICIONES = ['Excelente', 'Muy Buena', 'Buena', 'Regular', 'Para Reparacion'];
-const STATUS_COLORS = {
-  active: 'bg-emerald-100 text-emerald-700',
-  sold: 'bg-red-100 text-red-700',
-  expired: 'bg-amber-100 text-amber-700',
-  deleted: 'bg-slate-100 text-slate-500',
-};
+const MAX_FOTOS = 8;
+const FORM_VACIO = { nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' };
 
 function parsePhotos(fotos) {
   if (!fotos) return [];
@@ -20,428 +22,300 @@ function parsePhotos(fotos) {
   try { return JSON.parse(fotos); } catch { return []; }
 }
 
-function fmtPrice(price, currency) {
-  if (!price || isNaN(price)) return '-';
-  if (currency === 'CLP') return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(price);
+function formDe(item) {
+  if (!item) return FORM_VACIO;
+  return {
+    nombre: item.nombre || '',
+    tipo: item.tipo || 'Bowrider',
+    ano: item.ano || '',
+    eslora: item.eslora || '',
+    precio: item.precio || '',
+    moneda: item.moneda || 'USD',
+    ubicacion: item.ubicacion || '',
+    estado: item.estado || 'Usada',
+    condicion: item.condicion || 'Buena',
+    horas: item.horas || '',
+    descripcion: item.descripcion || '',
+    tipo_publicacion: item.tipo_publicacion || 'venta',
+  };
 }
 
-// --- Browse Card ---
+/** Precio con moneda explícita (CLP con puntos, USD entero). */
+function Precio({ item, size = 'md', align }) {
+  const n = Number(item.precio);
+  if (!n) return <span className="text-ink-500">Precio a convenir</span>;
+  return (item.moneda || 'USD') === 'CLP' ? <Money clp={n} size={size} align={align} /> : <Money usd={n} size={size} align={align} />;
+}
+
+function precioTexto(item) {
+  const n = Number(item.precio);
+  if (!n) return 'precio a convenir';
+  return (item.moneda || 'USD') === 'CLP' ? fmtCLP(n) : fmtUSD(n);
+}
+
+const TONO_CONDICION = { Excelente: 'success', 'Muy Buena': 'success', Buena: 'neutral', Regular: 'warning', 'Para Reparacion': 'danger' };
+function etiquetaCondicion(c) {
+  return c === 'Para Reparacion' ? 'Para reparación' : c;
+}
+
+/* ---------------------------------------------------------------------------
+   Tarjeta del listado (toda la tarjeta es un botón)
+   --------------------------------------------------------------------------- */
 function ListingCard({ item, onClick }) {
   const photos = parsePhotos(item.fotos);
   const cover = photos[0] || null;
-
+  const specs = [item.tipo, item.ano].filter(Boolean).join(' · ');
   return (
-    <div onClick={() => onClick(item)} className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden cursor-pointer group transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-      {/* Image */}
-      <div className="h-40 sm:h-56 bg-gradient-to-br from-slate-100 to-slate-50 relative overflow-hidden">
-        {cover ? (
-          <img src={cover} alt={item.nombre} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <svg className="w-12 h-12 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span className="text-[10px] text-slate-300 font-medium">Sin imagen</span>
-          </div>
-        )}
-        {/* Gradient overlay at bottom */}
-        {cover && <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />}
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-1.5">
-          {item.tipo_publicacion === 'arriendo' ? (
-            <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold shadow-lg shadow-amber-500/30">EN ARRIENDO</span>
+    <Card as="article" padding="none" className="overflow-hidden">
+      <button type="button" onClick={() => onClick(item)} aria-label={`Ver ${item.nombre}`}
+        className="group block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500 rounded-lg">
+        <div className="relative aspect-[4/3] bg-neutral-bg overflow-hidden rounded-t-lg">
+          {cover ? (
+            <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
           ) : (
-            <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[10px] font-bold shadow-lg shadow-emerald-500/30">EN VENTA</span>
-          )}
-          {item.estado === 'Nueva' && <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-teal-400 to-cyan-500 text-white text-[10px] font-bold shadow-lg shadow-cyan-500/30">NUEVA</span>}
-        </div>
-        {photos.length > 1 && (
-          <span className="absolute top-3 right-3 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            {photos.length}
-          </span>
-        )}
-        {/* Price on image */}
-        {cover && (
-          <div className="absolute bottom-3 left-3 flex items-center gap-2">
-            {(item.moneda || 'USD') === 'CLP' ? (
-              <svg className="w-5 h-3.5 rounded-sm shrink-0 shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect width="640" height="240" y="240" fill="#d52b1e"/><rect width="213" height="240" fill="#0039a6"/><circle cx="107" cy="120" r="48" fill="#fff"/></svg>
-            ) : (
-              <svg className="w-5 h-3.5 rounded-sm shrink-0 shadow" viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><g fill="#b22234">{[0,2,4,6,8,10,12].map(i=><rect key={i} y={i*37} width="640" height="37"/>)}</g><rect width="256" height="259" fill="#3c3b6e"/></svg>
-            )}
-            <span className="text-xl font-extrabold text-white drop-shadow-lg">{fmtPrice(item.precio, item.moneda)}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="min-w-0">
-            <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
-            <p className="text-xs text-slate-400">{[item.tipo, item.ano].filter(Boolean).join(' · ')}</p>
-          </div>
-        </div>
-
-        {/* Price (when no cover image) */}
-        {!cover && (
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
-            <span className="text-xs text-slate-400 font-medium">{item.moneda || 'USD'}</span>
-          </div>
-        )}
-
-        {/* Specs */}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-500">
-          {item.eslora && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>{item.eslora}</span>}
-          {item.horas && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>{item.horas} hrs</span>}
-          {item.ubicacion && <span className="flex items-center gap-1"><svg className="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>{item.ubicacion}</span>}
-        </div>
-
-        {/* Condition badges */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {item.condicion && <Badge className={cn('text-[10px] uppercase font-bold', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : item.condicion === 'Para Reparacion' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>}
-          {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px] uppercase">{item.estado}</Badge>}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">{(item.user_name || 'U')[0].toUpperCase()}</div>
-            <span className="text-[11px] text-slate-400 truncate max-w-[100px]">{item.user_name || 'Vendedor'}</span>
-          </div>
-          <span className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-[11px] font-bold shadow-md shadow-cyan-500/20 group-hover:shadow-lg group-hover:shadow-cyan-500/30 transition-shadow">
-            Ver Detalles
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- My Listing Card ---
-function MyListingCard({ item, onEdit, onDelete, onRenew, onMarkSold }) {
-  const st = STATUS_COLORS[item.status] || STATUS_COLORS.active;
-  const photos = parsePhotos(item.fotos);
-
-  return (
-    <Card className="p-0 overflow-hidden card-hover">
-      <div className="flex flex-col sm:flex-row">
-        {/* Image */}
-        <div className="sm:w-48 h-32 sm:h-auto bg-slate-100 overflow-hidden shrink-0 relative">
-          {photos[0] ? (
-            <img src={photos[0]} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center min-h-[120px]">
-              <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-ink-700">
+              <ImageIcon size={28} />
+              <span className="text-xs">Sin fotos</span>
             </div>
           )}
-          <div className="absolute top-2 left-2">
-            <Badge className={cn(st, 'shadow-sm')}>{item.status === 'active' ? 'Activa' : item.status === 'sold' ? 'Vendida' : item.status === 'expired' ? 'Expirada' : item.status}</Badge>
+          <div className="absolute top-3 left-3 flex gap-1.5">
+            <StatusBadge kind="publicacion" status={item.tipo_publicacion || 'venta'} className="shadow-card" />
+            {item.estado === 'Nueva' && <Badge tone="brand" className="shadow-card">Nueva</Badge>}
           </div>
           {photos.length > 1 && (
-            <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-white text-[10px] font-medium">{photos.length} fotos</span>
+            <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-sm bg-ink-900/70 text-white text-xs px-1.5 h-6">
+              <Images size={14} /> {photos.length}
+            </span>
           )}
         </div>
-
-        {/* Content */}
-        <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
-          <div>
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <div>
-                <p className="font-bold text-slate-800">{item.nombre}</p>
-                <p className="text-xs text-slate-400">{item.tipo}{item.ano ? ` · ${item.ano}` : ''}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-lg font-bold text-blue-700">{fmtPrice(item.precio, item.moneda)}</p>
-              <span className="text-xs text-slate-400">{item.moneda || 'USD'}</span>
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
-              {item.eslora && <span>{item.eslora}</span>}
-              {item.horas && <span>{item.horas} hrs</span>}
-              {item.ubicacion && <span>{item.ubicacion}</span>}
-              <span>{fmtDate(item.created_at)}</span>
-            </div>
-            {item.condicion && (
-              <div className="flex gap-1.5 mt-2">
-                <Badge className={cn('text-[10px]', item.condicion === 'Excelente' || item.condicion === 'Muy Buena' ? 'bg-emerald-100 text-emerald-700' : item.condicion === 'Regular' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600')}>{item.condicion}</Badge>
-                {item.estado && <Badge className="bg-slate-100 text-slate-500 text-[10px]">{item.estado}</Badge>}
-              </div>
-            )}
+        <div className="p-4">
+          <h3 className="text-base font-semibold text-ink-900 truncate group-hover:text-brand-700 transition-colors">{item.nombre}</h3>
+          {specs && <p className="text-13 text-ink-500">{specs}</p>}
+          <div className="mt-2"><Precio item={item} size="lg" /></div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-13 text-ink-500">
+            {item.eslora && <span className="inline-flex items-center gap-1"><Ruler size={14} /> {item.eslora}</span>}
+            {item.horas && <span className="inline-flex items-center gap-1"><Clock size={14} /> {item.horas} h</span>}
+            {item.ubicacion && <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={14} className="shrink-0" /> <span className="truncate">{item.ubicacion}</span></span>}
           </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
-            {item.status === 'active' && (
-              <>
-                <button onClick={() => onEdit(item)} className="px-3 py-1.5 rounded-lg bg-cyan-50 text-cyan-700 text-xs font-semibold hover:bg-cyan-100 transition flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  Editar
-                </button>
-                <button onClick={() => onMarkSold(item.id)} className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                  Marcar Vendido
-                </button>
-              </>
-            )}
-            {(item.status === 'sold' || item.status === 'expired') && (
-              <button onClick={() => onRenew(item.id)} className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                Renovar (+30 días)
-              </button>
-            )}
-            {item.status !== 'deleted' && (
-              <button onClick={() => onDelete(item.id, item.nombre)} className="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                Eliminar
-              </button>
-            )}
+          <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-line">
+            <div className="flex items-center gap-2 min-w-0">
+              <Avatar name={item.user_name || 'Vendedor'} size="sm" />
+              <span className="text-13 text-ink-500 truncate">{item.user_name || 'Vendedor'}</span>
+            </div>
+            {item.condicion && <Badge tone={TONO_CONDICION[item.condicion] || 'neutral'}>{etiquetaCondicion(item.condicion)}</Badge>}
           </div>
         </div>
-      </div>
+      </button>
     </Card>
   );
 }
 
-// --- Detail Modal ---
+/* ---------------------------------------------------------------------------
+   Detalle
+   --------------------------------------------------------------------------- */
 function DetailModal({ item, open, onClose }) {
+  const navigate = useNavigate();
+  const [foto, setFoto] = useState(null);
   if (!item) return null;
   const photos = parsePhotos(item.fotos);
+  const datos = [
+    item.tipo && { label: 'Tipo', value: item.tipo },
+    item.ano && { label: 'Año', value: item.ano },
+    item.eslora && { label: 'Eslora', value: item.eslora },
+    item.horas && { label: 'Horas de motor', value: item.horas },
+    item.ubicacion && { label: 'Ubicación', value: item.ubicacion },
+    item.condicion && { label: 'Condición', value: etiquetaCondicion(item.condicion) },
+    item.estado && { label: 'Estado', value: item.estado },
+  ].filter(Boolean);
+  const wa = `https://wa.me/56940211459?text=${encodeURIComponent(`Hola, me interesa: ${item.nombre} (${precioTexto(item)})`)}`;
 
   return (
-    <Modal open={open} onClose={onClose} title={item.nombre} size="lg">
-      {/* Photos */}
-      {photos.length > 0 && (
-        <div className="mb-5 -mx-6 -mt-6">
-          <div className="relative">
-            <img src={photos[0]} alt="" className="w-full h-72 object-cover" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-4 left-5">
-              <p className="text-2xl font-extrabold text-white drop-shadow-lg">{fmtPrice(item.precio, item.moneda)}</p>
-              <p className="text-xs text-white/70">{item.moneda || 'USD'}</p>
-            </div>
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={item.nombre}
+        description={[item.tipo, item.ano, item.ubicacion].filter(Boolean).join(' · ')}
+        size="lg"
+        footer={(
+          <>
+            <Button variant="secondary" icon={MessageCircle} onClick={() => { onClose(); navigate('/messages'); }}>Escribir por el panel</Button>
+            <Button icon={WhatsAppIcon} onClick={() => window.open(wa, '_blank', 'noopener')}>Consultar por WhatsApp</Button>
+          </>
+        )}
+      >
+        {photos.length > 0 && (
+          <div className="mb-5">
+            <button type="button" onClick={() => setFoto(0)} aria-label="Ver foto 1 ampliada" className="block w-full aspect-[16/10] rounded-lg overflow-hidden bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+              <img src={photos[0]} alt="" className="w-full h-full object-cover" />
+            </button>
+            {photos.length > 1 && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {photos.slice(1, 5).map((p, i) => (
+                  <button key={`${p}-${i}`} type="button" onClick={() => setFoto(i + 1)} aria-label={`Ver foto ${i + 2} ampliada`} className="aspect-[4/3] rounded-md overflow-hidden bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+                    <img src={p} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {photos.length > 1 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 px-5 mt-2">
-              {photos.slice(1, 5).map((p, i) => (
-                <img key={i} src={p} alt="" className="w-full h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition" onClick={() => window.open(p, '_blank')} />
-              ))}
-            </div>
-          )}
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <Precio item={item} size="xl" />
+          <StatusBadge kind="publicacion" status={item.tipo_publicacion || 'venta'} />
         </div>
-      )}
 
-      {photos.length === 0 && <p className="text-2xl font-bold text-slate-900 mb-1">{fmtPrice(item.precio, item.moneda)}</p>}
+        <DescriptionList items={datos} cols={3} dense className="mb-5" />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 my-4 text-sm">
-        {item.tipo && <InfoCell label="Tipo" value={item.tipo} />}
-        {item.ano && <InfoCell label="Ano" value={item.ano} />}
-        {item.eslora && <InfoCell label="Eslora" value={item.eslora} />}
-        {item.horas && <InfoCell label="Horas Motor" value={item.horas} />}
-        {item.ubicacion && <InfoCell label="Ubicación" value={item.ubicacion} />}
-        {item.condicion && <InfoCell label="Condición" value={item.condicion} />}
-        {item.estado && <InfoCell label="Estado" value={item.estado} />}
-      </div>
+        {item.descripcion && (
+          <div className="rounded-lg bg-canvas border border-line p-4 text-sm text-ink-700 whitespace-pre-wrap mb-5">{item.descripcion}</div>
+        )}
 
-      {item.descripcion && (
-        <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-600 whitespace-pre-wrap">{item.descripcion}</div>
-      )}
-
-      {/* Seller info */}
-      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">{(item.user_name || 'V')[0].toUpperCase()}</div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-slate-700">{item.user_name || 'Vendedor'}</p>
-          <p className="text-xs text-slate-400">Publicado: {fmtDate(item.created_at)}</p>
+        <div className="flex items-center gap-3 pt-4 border-t border-line">
+          <Avatar name={item.user_name || 'Vendedor'} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink-900 m-0">{item.user_name || 'Vendedor'}</p>
+            <p className="text-13 text-ink-500 m-0">Publicado el {fmtDateLarga(item.created_at)}</p>
+          </div>
         </div>
-      </div>
-
-      {/* Contact actions */}
-      <div className="flex gap-3 mt-4">
-        <a href={`https://wa.me/56940211459?text=${encodeURIComponent(`Hola, me interesa: ${item.nombre} (${fmtPrice(item.precio, item.moneda)})`)}`} target="_blank" rel="noreferrer" className="flex-1 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold text-center hover:bg-emerald-600 transition flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>
-          WhatsApp
-        </a>
-        <button onClick={() => { onClose(); window.location.hash = '#/messages'; }} className="flex-1 py-2.5 rounded-xl bg-cyan-500 text-white text-sm font-semibold text-center hover:bg-cyan-600 transition flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-          Chatear
-        </button>
-      </div>
-    </Modal>
+      </Modal>
+      <Lightbox
+        open={foto !== null}
+        items={photos.map((src, i) => ({ src, alt: `${item.nombre} · foto ${i + 1}` }))}
+        index={foto ?? 0}
+        onIndexChange={setFoto}
+        onClose={() => setFoto(null)}
+      />
+    </>
   );
 }
 
-function InfoCell({ label, value }) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase">{label}</p>
-      <p className="text-slate-700 font-medium">{value}</p>
-    </div>
-  );
-}
-
-// --- Publish/Edit Form Modal ---
+/* ---------------------------------------------------------------------------
+   Publicar / editar
+   --------------------------------------------------------------------------- */
 function PublishModal({ open, onClose, editItem, onSuccess }) {
   const toast = useToast();
   const { user } = useAuth();
+  // El estado parte del ítem a editar; la página monta el modal con `key`
+  // por publicación, así cada apertura empieza limpia sin efectos.
   const fileRef = useRef(null);
-  const [form, setForm] = useState({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
-  const [photos, setPhotos] = useState([]);
+  const [form, setForm] = useState(() => formDe(editItem));
+  const [photos, setPhotos] = useState(() => parsePhotos(editItem?.fotos));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (editItem) {
-      setForm({
-        nombre: editItem.nombre || '',
-        tipo: editItem.tipo || 'Bowrider',
-        ano: editItem.ano || '',
-        eslora: editItem.eslora || '',
-        precio: editItem.precio || '',
-        moneda: editItem.moneda || 'USD',
-        ubicacion: editItem.ubicacion || '',
-        estado: editItem.estado || 'Usada',
-        condicion: editItem.condicion || 'Buena',
-        horas: editItem.horas || '',
-        descripcion: editItem.descripcion || '',
-        tipo_publicacion: editItem.tipo_publicacion || 'venta',
-      });
-      const existingPhotos = parsePhotos(editItem.fotos);
-      setPhotos(existingPhotos);
-    } else {
-      setForm({ nombre: '', tipo: 'Bowrider', ano: '', eslora: '', precio: '', moneda: 'USD', ubicacion: '', estado: 'Usada', condicion: 'Buena', horas: '', descripcion: '', tipo_publicacion: 'venta' });
-      setPhotos([]);
-    }
-  }, [editItem, open]);
+  const [errores, setErrores] = useState({});
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   async function handleUploadPhoto(files) {
-    if (photos.length + files.length > 8) { toast?.('Máximo 8 fotos', 'error'); return; }
+    if (photos.length + files.length > MAX_FOTOS) { toast?.(`Máximo ${MAX_FOTOS} fotos`, 'error'); return; }
     setUploading(true);
     for (const file of files) {
       try {
         const data = await uploadListingPhoto(editItem?.id || 'new', file);
-        if (data.success && data.url) {
-          setPhotos(p => [...p, data.url]);
-        } else {
-          toast?.(data.error || 'Error al subir foto', 'error');
-        }
-      } catch (e) {
-        toast?.('Error al subir foto', 'error');
+        if (data.success && data.url) setPhotos(p => [...p, data.url]);
+        else toast?.(data.error || 'No se pudo subir la foto', 'error');
+      } catch {
+        toast?.('No se pudo subir la foto', 'error');
       }
     }
     setUploading(false);
   }
 
-  function removePhoto(idx) {
-    setPhotos(p => p.filter((_, i) => i !== idx));
-  }
+  function removePhoto(idx) { setPhotos(p => p.filter((_, i) => i !== idx)); }
 
   async function handleSubmit() {
-    if (!form.nombre.trim()) { toast?.('El nombre es obligatorio', 'error'); return; }
+    if (!form.nombre.trim()) { setErrores({ nombre: 'Escribe el nombre o modelo de la embarcación.' }); return; }
+    setErrores({});
     setSaving(true);
     const email = user?.email || user?.user_email || '';
     const name = user?.name || '';
-    const payload = {
-      ...form,
-      fotos: photos,
-      user_email: email,
-      user_name: name,
-    };
+    const payload = { ...form, fotos: photos, user_email: email, user_name: name };
     try {
-      let data;
-      if (editItem) {
-        data = await updateListing({ ...payload, id: editItem.id });
-      } else {
-        data = await createListing(payload);
-      }
+      const data = editItem ? await updateListing({ ...payload, id: editItem.id }) : await createListing(payload);
       if (data.success) {
         toast?.(editItem ? 'Publicación actualizada' : 'Publicación creada', 'success');
         onSuccess();
         onClose();
       } else {
-        toast?.(data.error || 'Error al guardar', 'error');
+        toast?.(data.error || 'No se pudo guardar', 'error');
       }
-    } catch (e) {
-      toast?.('Error de conexion', 'error');
+    } catch {
+      toast?.('No se pudo guardar. Revisa tu conexión.', 'error');
     }
     setSaving(false);
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={editItem ? 'Editar Publicación' : 'Publicar Embarcación'} size="lg">
-      <div className="space-y-4">
-        {/* Tipo publicación */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Tipo de Publicación</label>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => set('tipo_publicacion', 'venta')} className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border-2', form.tipo_publicacion === 'venta' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
-              Venta
-            </button>
-            <button type="button" onClick={() => set('tipo_publicacion', 'arriendo')} className={cn('flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all border-2', form.tipo_publicacion === 'arriendo' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:border-slate-300')}>
-              Arriendo
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Nombre / Modelo *" value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Sea Ray 250 SLX" />
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editItem ? 'Editar publicación' : 'Publicar embarcación'}
+      description="Los datos se muestran a toda la comunidad Imporlan."
+      size="lg"
+      footer={(
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSubmit} loading={saving}>{editItem ? 'Guardar cambios' : 'Publicar'}</Button>
+        </>
+      )}
+    >
+      <div className="space-y-5">
+        <FormGrid cols={2}>
+          <Select label="Tipo de publicación" value={form.tipo_publicacion} onChange={e => set('tipo_publicacion', e.target.value)} options={[{ value: 'venta', label: 'Venta' }, { value: 'arriendo', label: 'Arriendo' }]} />
+          <Input label="Nombre o modelo" required value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Sea Ray 250 SLX" error={errores.nombre} />
           <Select label="Tipo" value={form.tipo} onChange={e => set('tipo', e.target.value)} options={TIPOS.map(t => ({ value: t, label: t }))} />
-          <Input label="Ano" type="number" value={form.ano} onChange={e => set('ano', e.target.value)} placeholder="2023" />
-          <Input label="Eslora" value={form.eslora} onChange={e => set('eslora', e.target.value)} placeholder="25 ft" />
-          <Input label="Precio" type="number" value={form.precio} onChange={e => set('precio', e.target.value)} placeholder="50000" />
+          <Input label="Año" type="number" inputMode="numeric" value={form.ano} onChange={e => set('ano', e.target.value)} placeholder="2023" />
+          <Input label="Precio" type="number" inputMode="numeric" value={form.precio} onChange={e => set('precio', e.target.value)} placeholder="50000" />
           <Select label="Moneda" value={form.moneda} onChange={e => set('moneda', e.target.value)} options={[{ value: 'USD', label: 'USD' }, { value: 'CLP', label: 'CLP' }]} />
-          <Input label="Ubicación" value={form.ubicacion} onChange={e => set('ubicacion', e.target.value)} placeholder="Vina del Mar, Chile" />
+          <Input label="Eslora" value={form.eslora} onChange={e => set('eslora', e.target.value)} placeholder="25 pies" />
+          <Input label="Horas de motor" type="number" inputMode="numeric" value={form.horas} onChange={e => set('horas', e.target.value)} placeholder="150" />
+          <Input label="Ubicación" value={form.ubicacion} onChange={e => set('ubicacion', e.target.value)} placeholder="Viña del Mar, Valparaíso" />
           <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value)} options={[{ value: 'Nueva', label: 'Nueva' }, { value: 'Usada', label: 'Usada' }]} />
-          <Select label="Condición" value={form.condicion} onChange={e => set('condicion', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: c }))} />
-          <Input label="Horas Motor" type="number" value={form.horas} onChange={e => set('horas', e.target.value)} placeholder="150" />
-        </div>
+          <Select label="Condición" value={form.condicion} onChange={e => set('condicion', e.target.value)} options={CONDICIONES.map(c => ({ value: c, label: etiquetaCondicion(c) }))} />
+        </FormGrid>
 
-        <Textarea label="Descripción" value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Describe tu embarcación..." />
+        <Textarea label="Descripción" value={form.descripcion} onChange={e => set('descripcion', e.target.value)} placeholder="Motor, mantenciones, equipamiento incluido…" rows={4} maxLength={2000} showCount />
 
-        {/* Photos */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Fotos ({photos.length}/8)</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {photos.map((url, i) => (
-              <div key={i} className="relative w-20 h-16 rounded-lg overflow-hidden border border-slate-200 group">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-                <button onClick={() => removePhoto(i)} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] font-bold opacity-0 group-hover:opacity-100 transition flex items-center justify-center">x</button>
-                {i === 0 && <span className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] text-center">Portada</span>}
-              </div>
-            ))}
-            {photos.length < 8 && (
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-20 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-cyan-400 flex items-center justify-center text-slate-400 hover:text-cyan-500 transition"
-              >
-                {uploading ? <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4"/></svg>}
-              </button>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={e => { if (e.target.files.length) handleUploadPhoto(Array.from(e.target.files)); e.target.value = ''; }} />
-        </div>
-
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button variant="accent" onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Guardando...' : (editItem ? 'Guardar' : 'Publicar')}
-          </Button>
+          <p className="text-13 font-medium text-ink-700 mb-1.5">Fotos <span className="text-ink-500 font-normal tabular">({photos.length}/{MAX_FOTOS})</span></p>
+          {photos.length > 0 && (
+            <ul className="flex flex-wrap gap-2 mb-3 m-0 p-0 list-none">
+              {photos.map((url, i) => (
+                <li key={`${url}-${i}`} className="relative w-24 h-18 rounded-md overflow-hidden border border-line bg-neutral-bg">
+                  <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                  <IconButton icon={X} size="sm" variant="secondary" aria-label={`Quitar foto ${i + 1}`} onClick={() => removePhoto(i)} className="absolute top-1 right-1 h-6 w-6" />
+                  {i === 0 && <span className="absolute bottom-0 inset-x-0 bg-ink-900/70 text-white text-xs text-center py-0.5">Portada</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {photos.length < MAX_FOTOS && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary" icon={Upload} loading={uploading} onClick={() => fileRef.current?.click()}>Agregar fotos</Button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" tabIndex={-1} aria-label="Elegir fotos"
+                onChange={e => { if (e.target.files?.length) handleUploadPhoto(Array.from(e.target.files)); e.target.value = ''; }} />
+              <p className="text-xs text-ink-500 m-0">JPG, PNG o WebP. La primera es la portada.</p>
+            </div>
+          )}
         </div>
       </div>
     </Modal>
   );
 }
 
-// --- Main Page ---
+/* ---------------------------------------------------------------------------
+   Página
+   --------------------------------------------------------------------------- */
 export default function Marketplace() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [tab, setTab] = useState('browse');
   const [listings, setListings] = useState([]);
   const [myListings, setMyListingsState] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [showPublish, setShowPublish] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -449,23 +323,38 @@ export default function Marketplace() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterPub, setFilterPub] = useState('all'); // all | venta | arriendo
-  const [mineView, setMineView] = useState('cards');
 
-  const load = useCallback(async () => {
-    try {
-      const [allRes, myRes] = await Promise.all([
-        getMarketplaceListings().catch(() => ({ listings: [] })),
-        getMyListings().catch(() => ({ listings: [] })),
-      ]);
-      setListings(allRes.listings || allRes.data || []);
-      setMyListingsState(myRes.listings || myRes.data || []);
-    } catch {
-      toast?.('Error al cargar marketplace', 'error');
-    }
-    setLoading(false);
-  }, [toast]);
+  // Trae las dos listas; el estado lo escribe quien llama (efecto o botón).
+  const cargar = useCallback(() => Promise.all([
+    getMarketplaceListings().catch(() => ({ listings: [] })),
+    getMyListings().catch(() => ({ listings: [] })),
+  ]).then(([allRes, myRes]) => ({
+    todas: allRes.listings || allRes.data || [],
+    mias: myRes.listings || myRes.data || [],
+  })), []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let vivo = true;
+    cargar()
+      .then(({ todas, mias }) => { if (vivo) { setListings(todas); setMyListingsState(mias); } })
+      .catch(e => { if (vivo) setError(e); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
+  }, [cargar]);
+
+  // Tras crear, editar, vender o eliminar: se vuelve a pedir sin skeleton.
+  const load = useCallback(() => cargar()
+    .then(({ todas, mias }) => { setListings(todas); setMyListingsState(mias); })
+    .catch(() => {}), [cargar]);
+
+  function recargar() {
+    setLoading(true);
+    setError(null);
+    cargar()
+      .then(({ todas, mias }) => { setListings(todas); setMyListingsState(mias); })
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -485,343 +374,167 @@ export default function Marketplace() {
     return new Date(b.created_at) - new Date(a.created_at);
   }), [filtered, sort]);
 
-  const myActive = useMemo(() => myListings.filter(l => l.status === 'active'), [myListings]);
-  const mySold = useMemo(() => myListings.filter(l => l.status === 'sold'), [myListings]);
+  const conteoPub = useMemo(() => ({
+    all: listings.length,
+    venta: listings.filter(l => l.tipo_publicacion !== 'arriendo').length,
+    arriendo: listings.filter(l => l.tipo_publicacion === 'arriendo').length,
+  }), [listings]);
 
-  async function handleDelete(id, nombre) {
-    if (!confirm(`Eliminar "${nombre}"?`)) return;
+  function abrirPublicar(item = null) { setEditItem(item); setShowPublish(true); }
+
+  async function handleDelete(item) {
+    const ok = await confirm({ title: `¿Eliminar "${item.nombre}"?`, description: 'La publicación deja de verse en el Marketplace. No se puede deshacer.', tone: 'danger', confirmLabel: 'Eliminar' });
+    if (!ok) return;
     try {
-      const data = await deleteListing(id);
+      const data = await deleteListing(item.id);
       if (data.success) { toast?.('Publicación eliminada', 'success'); load(); }
-      else toast?.(data.error || 'Error', 'error');
-    } catch { toast?.('Error de conexion', 'error'); }
+      else toast?.(data.error || 'No se pudo eliminar', 'error');
+    } catch { toast?.('No se pudo eliminar. Revisa tu conexión.', 'error'); }
   }
 
-  async function handleRenew(id) {
+  async function handleRenew(item) {
     try {
-      const data = await renewListing(id);
+      const data = await renewListing(item.id);
       if (data.success) { toast?.('Publicación renovada por 30 días', 'success'); load(); }
-      else toast?.(data.error || 'Error', 'error');
-    } catch { toast?.('Error de conexion', 'error'); }
+      else toast?.(data.error || 'No se pudo renovar', 'error');
+    } catch { toast?.('No se pudo renovar. Revisa tu conexión.', 'error'); }
   }
 
-  async function handleMarkSold(id) {
-    if (!confirm('¿Marcar como vendido?')) return;
+  async function handleMarkSold(item) {
+    const ok = await confirm({ title: `¿Marcar "${item.nombre}" como vendida?`, description: 'La publicación pasa a Vendida y deja de aparecer en Comprar. Puedes renovarla después si cambias de idea.', confirmLabel: 'Marcar como vendida' });
+    if (!ok) return;
     try {
-      const data = await markListingSold(id);
-      if (data.success) { toast?.('Marcado como vendido', 'success'); load(); }
-      else toast?.(data.error || 'Error', 'error');
-    } catch { toast?.('Error de conexion', 'error'); }
+      const data = await markListingSold(item.id);
+      if (data.success) { toast?.('Marcada como vendida', 'success'); load(); }
+      else toast?.(data.error || 'No se pudo marcar', 'error');
+    } catch { toast?.('No se pudo marcar. Revisa tu conexión.', 'error'); }
   }
 
-  function clearFilters() {
-    setSearch(''); setFilterType(''); setFilterPub('all'); setSort('recent');
-  }
-
+  function clearFilters() { setSearch(''); setFilterType(''); setFilterPub('all'); setSort('recent'); }
   const filtersActive = !!search || !!filterType || filterPub !== 'all' || sort !== 'recent';
 
+  const columnasMias = [
+    {
+      key: 'nombre', header: 'Embarcación',
+      cell: item => {
+        const photos = parsePhotos(item.fotos);
+        return (
+          <div className="flex items-center gap-3 min-w-0">
+            {photos[0] ? <img src={photos[0]} alt="" className="h-10 w-14 rounded-md object-cover bg-neutral-bg shrink-0" /> : <span className="h-10 w-14 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><ImageIcon size={16} /></span>}
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink-900 truncate m-0">{item.nombre}</p>
+              <p className="text-13 text-ink-500 m-0">{[item.tipo, item.ano, item.eslora].filter(Boolean).join(' · ')}</p>
+            </div>
+          </div>
+        );
+      },
+      sortValue: item => item.nombre || '',
+    },
+    { key: 'precio', header: 'Precio', align: 'right', width: 150, cell: item => <Precio item={item} align="right" />, sortValue: item => Number(item.precio) || 0 },
+    { key: 'status', header: 'Estado', width: 130, cell: item => <StatusBadge kind="publicacion" status={item.status} dot />, sortValue: item => item.status || '' },
+    { key: 'tipo_publicacion', header: 'Modalidad', width: 130, priority: 2, cell: item => <StatusBadge kind="publicacion" status={item.tipo_publicacion || 'venta'} />, sortValue: item => item.tipo_publicacion || '' },
+    { key: 'created_at', header: 'Publicada', width: 120, priority: 2, cell: item => <span className="tabular">{fmtDate(item.created_at)}</span>, sortValue: item => new Date(item.created_at || 0).getTime() },
+  ];
+
+  const accionesMias = (item) => [
+    { label: 'Ver como comprador', icon: Images, onClick: () => setDetailItem(item) },
+    item.status === 'active' && { label: 'Editar', icon: Pencil, onClick: () => abrirPublicar(item) },
+    item.status === 'active' && { label: 'Marcar como vendida', icon: CircleCheck, onClick: () => handleMarkSold(item) },
+    (item.status === 'sold' || item.status === 'expired') && { label: 'Renovar 30 días', icon: RefreshCw, onClick: () => handleRenew(item) },
+    item.status !== 'deleted' && { separator: true },
+    item.status !== 'deleted' && { label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDelete(item) },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto pb-12">
-      {/* Hero */}
-      <div className="relative rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950 text-white p-6 sm:p-8 overflow-hidden mb-6 shadow-xl">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-semibold ring-1 ring-cyan-400/20 mb-3">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {listings.length} publicaciones activas
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Marketplace</h1>
-            <p className="text-sm text-slate-300 mt-1.5 max-w-lg">Compra, vende o arrienda embarcaciones entre la comunidad Imporlan. Publicaciones verificadas y contacto directo.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { setLoading(true); load(); }} className="bg-white/10 text-white hover:bg-white/20 border border-white/10 flex items-center gap-1.5">
-              <svg className={cn('w-4 h-4', loading && 'animate-spin')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Actualizar
-            </Button>
-            <Button onClick={() => { setEditItem(null); setShowPublish(true); }} className="bg-white text-slate-900 hover:bg-slate-100 flex items-center gap-1.5 font-semibold">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path d="M12 4v16m8-8H4"/></svg>
-              Publicar embarcación
-            </Button>
-          </div>
-        </div>
-      </div>
+    <div className="pb-12">
+      <PageHeader
+        title="Marketplace"
+        description="Compra, vende o arrienda embarcaciones entre la comunidad Imporlan."
+        actions={<Button icon={Plus} onClick={() => abrirPublicar(null)}>Publicar embarcación</Button>}
+      />
 
-      {/* Stats clickeables como tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <button
-          type="button"
-          onClick={() => setTab('browse')}
-          className={cn(
-            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
-            tab === 'browse' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
-          )}
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-500/10 text-cyan-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Comprar</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Activas en la comunidad</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('mine')}
-          className={cn(
-            'group relative bg-white border rounded-2xl p-4 text-left transition hover:shadow-sm hover:-translate-y-0.5',
-            tab === 'mine' ? 'border-cyan-300 ring-2 ring-cyan-200/60' : 'border-slate-200/70 hover:border-slate-300'
-          )}
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/15 to-purple-500/10 text-violet-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{myListings.length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Mis Publicaciones</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{myActive.length} activas, {mySold.length} vendidas</p>
-        </button>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.filter(l => l.estado === 'Nueva').length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">Nuevas</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Recien publicadas</p>
-        </div>
-        <div className="bg-white border border-slate-200/70 rounded-2xl p-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 text-amber-600 flex items-center justify-center mb-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h18M3 12h18M3 21h18"/></svg>
-          </div>
-          <p className="text-2xl font-bold text-slate-800 leading-none">{listings.filter(l => l.tipo_publicacion === 'arriendo').length}</p>
-          <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-1">En arriendo</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">Para arrendar</p>
-        </div>
-      </div>
+      <Tabs
+        className="mb-5"
+        aria-label="Secciones del Marketplace"
+        tabs={[{ id: 'browse', label: 'Comprar', count: listings.length }, { id: 'mine', label: 'Mis publicaciones', count: myListings.length }]}
+        value={tab}
+        onChange={setTab}
+      />
 
-      {/* Tabs pills */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-0.5">
-          <button onClick={() => setTab('browse')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'browse' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-            Comprar
-            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'browse' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500')}>{listings.length}</span>
-          </button>
-          <button onClick={() => setTab('mine')} className={cn('px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-1.5', tab === 'mine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-800')}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-            Mis Publicaciones
-            <span className={cn('text-[10px] tabular-nums px-1.5 rounded-full', tab === 'mine' ? 'bg-white/20 text-white' : 'bg-cyan-100 text-cyan-700')}>{myListings.length}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Browse tab */}
-      {tab === 'browse' && (
+      {error ? (
+        <Card padding="none"><ErrorState message="No pudimos cargar el Marketplace." detail={error} onRetry={recargar} /></Card>
+      ) : tab === 'browse' ? (
         <>
-          {/* Toolbar */}
-          <Card className="mb-4">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-2">
-                <div className="flex-1 min-w-[220px] relative">
-                  <svg className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                  <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar marca, modelo, ubicación..." className="w-full pl-9 pr-9 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-400 outline-none bg-white" />
-                  {search && (
-                    <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700" aria-label="Limpiar">
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                  )}
-                </div>
-                <Select value={filterType} onChange={e => setFilterType(e.target.value)} options={[{ value: '', label: 'Todos los tipos' }, ...TIPOS.map(t => ({ value: t, label: t }))]} className="w-44" />
-                <Select value={sort} onChange={e => setSort(e.target.value)} options={[{ value: 'recent', label: 'Mas recientes' }, { value: 'price_asc', label: 'Menor precio' }, { value: 'price_desc', label: 'Mayor precio' }, { value: 'year', label: 'Mas nuevas' }]} className="w-44" />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { v: 'all', label: 'Todas' },
-                  { v: 'venta', label: 'En venta' },
-                  { v: 'arriendo', label: 'En arriendo' },
-                ].map(o => (
-                  <button
-                    key={o.v}
-                    onClick={() => setFilterPub(o.v)}
-                    className={cn(
-                      'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition',
-                      filterPub === o.v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                    )}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-                {filtersActive && (
-                  <button onClick={clearFilters} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-400 hover:text-slate-700">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    Limpiar filtros
-                  </button>
-                )}
-                <span className="ml-auto text-[11px] text-slate-400 self-center">
-                  Mostrando <strong className="text-slate-700 tabular-nums">{sorted.length}</strong> de {listings.length}
-                </span>
-              </div>
+          <div className="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
+            <FilterChips
+              aria-label="Modalidad"
+              options={[{ id: 'all', label: 'Todas', count: conteoPub.all }, { id: 'venta', label: 'En venta', count: conteoPub.venta }, { id: 'arriendo', label: 'En arriendo', count: conteoPub.arriendo }]}
+              value={filterPub}
+              onChange={setFilterPub}
+            />
+            <div className="flex flex-col sm:flex-row gap-2 lg:justify-end">
+              <SearchInput value={search} onChange={setSearch} placeholder="Buscar marca, modelo o lugar" className="sm:w-64" />
+              <Select aria-label="Tipo de embarcación" value={filterType} onChange={e => setFilterType(e.target.value)} options={[{ value: '', label: 'Todos los tipos' }, ...TIPOS.map(t => ({ value: t, label: t }))]} className="sm:w-44" />
+              <Select aria-label="Ordenar por" value={sort} onChange={e => setSort(e.target.value)} options={[{ value: 'recent', label: 'Más recientes' }, { value: 'price_asc', label: 'Menor precio' }, { value: 'price_desc', label: 'Mayor precio' }, { value: 'year', label: 'Año más nuevo' }]} className="sm:w-44" />
             </div>
-          </Card>
+          </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-[400px] bg-slate-100 rounded-2xl animate-pulse" />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-hidden="true">
+              {[1, 2, 3].map(i => <div key={i} className="sk rounded-lg h-80" />)}
             </div>
           ) : sorted.length === 0 ? (
-            <Card className="text-center py-16">
-              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center">
-                <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-              </div>
+            <Card padding="none">
               {filtersActive ? (
-                <>
-                  <p className="text-slate-700 font-semibold">Sin coincidencias</p>
-                  <p className="text-sm text-slate-500 mt-1">Prueba ajustar los filtros o limpiar la búsqueda.</p>
-                  <Button variant="secondary" size="sm" className="mt-4" onClick={clearFilters}>Limpiar filtros</Button>
-                </>
+                <EmptyState compact title="Sin coincidencias" description="Prueba con otra palabra o limpia los filtros." primaryAction={<Button variant="secondary" size="sm" onClick={clearFilters}>Limpiar filtros</Button>} />
               ) : (
-                <>
-                  <p className="text-slate-700 font-semibold">No hay publicaciones activas</p>
-                  <p className="text-sm text-slate-500 mt-1">Sé el primero en publicar una embarcación.</p>
-                  <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>Publicar embarcación</Button>
-                </>
+                <EmptyState icon={Images} title="Todavía no hay publicaciones" description="Sé la primera persona en publicar una embarcación en la comunidad." primaryAction={<Button icon={Plus} onClick={() => abrirPublicar(null)}>Publicar embarcación</Button>} />
               )}
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sorted.map(item => (
-                <ListingCard key={item.id} item={item} onClick={setDetailItem} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sorted.map(item => <ListingCard key={item.id} item={item} onClick={setDetailItem} />)}
+              </div>
+              <p className="text-13 text-ink-500 mt-4 tabular">{filtersActive ? `${sorted.length} de ${listings.length} publicaciones` : `${listings.length} publicación${listings.length === 1 ? '' : 'es'}`}</p>
+            </>
           )}
         </>
-      )}
-
-      {/* My listings tab */}
-      {tab === 'mine' && (
-        myListings.length === 0 ? (
-          <Card className="text-center py-16">
-            <svg className="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path d="M12 4v16m8-8H4"/></svg>
-            <p className="text-slate-500 font-medium">No tienes publicaciones</p>
-            <p className="text-sm text-slate-400 mt-1">Publica tu primera embarcación.</p>
-            <Button variant="accent" size="sm" className="mt-4" onClick={() => { setEditItem(null); setShowPublish(true); }}>
-              Publicar Embarcación
-            </Button>
-          </Card>
-        ) : (
-          <>
-            <div className="flex justify-end mb-4">
-              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-medium">
-                <button
-                  onClick={() => setMineView('cards')}
-                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'cards' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
-                  title="Vista tarjetas"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                  Tarjetas
-                </button>
-                <button
-                  onClick={() => setMineView('table')}
-                  className={cn('px-3 py-1.5 rounded-lg transition flex items-center gap-1.5', mineView === 'table' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700')}
-                  title="Vista tabla"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-                  Tabla
-                </button>
-              </div>
-            </div>
-
-            {mineView === 'cards' ? (
-              <div className="space-y-3">
-                {myListings.map(item => (
-                  <MyListingCard
-                    key={item.id}
-                    item={item}
-                    onEdit={(it) => { setEditItem(it); setShowPublish(true); }}
-                    onDelete={handleDelete}
-                    onRenew={handleRenew}
-                    onMarkSold={handleMarkSold}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card className="p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
-                      <tr>
-                        <th className="text-left px-4 py-3 font-semibold">Embarcación</th>
-                        <th className="text-left px-4 py-3 font-semibold">Tipo</th>
-                        <th className="text-right px-4 py-3 font-semibold">Precio</th>
-                        <th className="text-left px-4 py-3 font-semibold">Estado</th>
-                        <th className="text-left px-4 py-3 font-semibold">Publicada</th>
-                        <th className="text-right px-4 py-3 font-semibold">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {myListings.map(item => {
-                        const photos = parsePhotos(item.fotos);
-                        const st = STATUS_COLORS[item.status] || STATUS_COLORS.active;
-                        return (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0">
-                                  {photos[0] ? <img src={photos[0]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-slate-800 truncate">{item.nombre}</p>
-                                  <p className="text-[11px] text-slate-400">{item.ano || '-'}{item.eslora ? ` · ${item.eslora}` : ''}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">{item.tipo || '-'}</td>
-                            <td className="px-4 py-3 text-right font-bold text-blue-700 whitespace-nowrap">{fmtPrice(item.precio, item.moneda)}</td>
-                            <td className="px-4 py-3"><Badge className={cn(st, 'text-[10px]')}>{item.status === 'active' ? 'Activa' : item.status === 'sold' ? 'Vendida' : item.status === 'expired' ? 'Expirada' : item.status}</Badge></td>
-                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtDate(item.created_at)}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-end gap-1">
-                                {item.status === 'active' && (
-                                  <>
-                                    <button onClick={() => { setEditItem(item); setShowPublish(true); }} className="p-1.5 rounded-md text-cyan-600 hover:bg-cyan-50" title="Editar">
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                    </button>
-                                    <button onClick={() => handleMarkSold(item.id)} className="p-1.5 rounded-md text-amber-600 hover:bg-amber-50" title="Marcar vendido">
-                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    </button>
-                                  </>
-                                )}
-                                {(item.status === 'sold' || item.status === 'expired') && (
-                                  <button onClick={() => handleRenew(item.id)} className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50" title="Renovar">
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                  </button>
-                                )}
-                                <button onClick={() => handleDelete(item.id, item.nombre)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50" title="Eliminar">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
+      ) : (
+        <Card padding="none">
+          <DataTable
+            columns={columnasMias}
+            data={myListings}
+            rowKey={item => item.id}
+            onRowClick={setDetailItem}
+            rowActions={accionesMias}
+            loading={loading}
+            aria-label="Mis publicaciones"
+            emptyState={(
+              <EmptyState icon={Images} title="No tienes publicaciones" description="Publica tu embarcación para venderla o arrendarla a la comunidad Imporlan." primaryAction={<Button icon={Plus} onClick={() => abrirPublicar(null)}>Publicar embarcación</Button>} />
             )}
-          </>
-        )
+            mobileCard={item => {
+              const photos = parsePhotos(item.fotos);
+              return (
+                <div className="flex items-start gap-3 min-w-0">
+                  {photos[0] ? <img src={photos[0]} alt="" className="h-14 w-20 rounded-md object-cover bg-neutral-bg shrink-0" /> : <span className="h-14 w-20 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><ImageIcon size={18} /></span>}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-ink-900 truncate m-0">{item.nombre}</p>
+                    <p className="text-13 text-ink-500 m-0">{[item.tipo, item.ano].filter(Boolean).join(' · ')}</p>
+                    <div className={cn('flex flex-wrap items-center gap-2 mt-1.5')}>
+                      <Precio item={item} size="sm" />
+                      <StatusBadge kind="publicacion" status={item.status} size="sm" dot />
+                    </div>
+                  </div>
+                </div>
+              );
+            }}
+          />
+        </Card>
       )}
 
-      {/* Detail modal */}
       <DetailModal item={detailItem} open={!!detailItem} onClose={() => setDetailItem(null)} />
-
-      {/* Publish/Edit modal */}
-      <PublishModal
-        open={showPublish}
-        onClose={() => { setShowPublish(false); setEditItem(null); }}
-        editItem={editItem}
-        onSuccess={load}
-      />
+      <PublishModal key={showPublish ? (editItem?.id || 'nueva') : 'cerrado'} open={showPublish} onClose={() => { setShowPublish(false); setEditItem(null); }} editItem={editItem} onSuccess={load} />
     </div>
   );
 }
