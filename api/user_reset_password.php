@@ -70,7 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // servir en cuanto uno se usa.
         @unlink(urRutaToken($token));
         $dir = urDirectorioTokens();
-        foreach (glob(($dir ?: '') . '/*.json') ?: [] as $archivo) {
+        // Sin este guard, un $dir nulo convertiria el patron en '/*.json' y el
+        // glob saldria a recorrer la raiz del servidor.
+        foreach (($dir ? glob($dir . '/*.json') : []) ?: [] as $archivo) {
             $otro = json_decode((string) @file_get_contents($archivo), true);
             if (is_array($otro) && isset($otro['email'])
                 && strcasecmp($otro['email'], $cuenta['email']) === 0) {
