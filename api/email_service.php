@@ -1051,6 +1051,19 @@ BASE64;
     }
 
     /**
+     * Correo que va SOLO al titular: sin la copia oculta a jpchs1@gmail.com y
+     * sin el CC al correo secundario.
+     *
+     * Todos los demas correos llevan esas copias a proposito, para tener
+     * registro de lo que se le dijo al cliente. Pero un enlace de recuperacion
+     * no es un aviso: es la llave de la cuenta, y quien lo reciba puede entrar.
+     * Mandarlo a tres buzones es multiplicar por tres las formas de perderla.
+     */
+    public function sendPrivateEmail($to, $subject, $htmlContent) {
+        return $this->sendEmail($to, $subject, $htmlContent, 'credencial', ['tipo' => 'enlace_privado'], true);
+    }
+
+    /**
      * Send password reset email with temporary password
      */
     public function sendPasswordResetEmail($userEmail, $userName, $temporaryPassword) {
@@ -1112,12 +1125,14 @@ BASE64;
         }
     }
 
-    protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null) {
+    protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null, $soloDestinatario = false) {
         // Store original recipient for logging
         $originalRecipient = $to;
-        
+
         // Look up secondary email before test override
-        $secondaryEmail = $this->getSecondaryEmail($originalRecipient);
+        // $soloDestinatario lo usan los correos que llevan una credencial (ver
+        // sendPrivateEmail): ahi ni el CC al secundario ni la copia oculta.
+        $secondaryEmail = $soloDestinatario ? null : $this->getSecondaryEmail($originalRecipient);
         
         // TEST ENVIRONMENT OVERRIDE: Redirect all emails to test recipient
         if ($this->isTestEnvironment) {
@@ -1173,7 +1188,7 @@ BASE64;
 
             // BCC recipients (added as RCPT TO in SMTP, not in headers - truly hidden)
             $bccRecipients = [];
-            if (!$this->isTestEnvironment && !empty($this->bccEmails)) {
+            if (!$this->isTestEnvironment && !empty($this->bccEmails) && !$soloDestinatario) {
                 $bccRecipients = $this->bccEmails;
             }
 

@@ -49,7 +49,7 @@ if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 $ip = urIpCliente();
 
 if (!urPermiteSolicitud($email, $ip)) {
-    urRegistrar("limite alcanzado  $email  ip=$ip");
+    urRegistrar("limite alcanzado  $email  ip=" . urIpParaElLog());
     http_response_code(429);
     echo json_encode(['error' => 'Ya pediste varios enlaces seguidos. Espera una hora o escribenos a contacto@imporlan.cl.']);
     exit();
@@ -67,7 +67,18 @@ try {
         // Para el cliente esto se ve igual que un envio correcto. Queda en el
         // log para que, cuando avise que no le llego nada, se sepa que el
         // correo que escribio no tiene cuenta.
-        urRegistrar("sin cuenta  $email  ip=$ip");
+        urRegistrar("sin cuenta  $email  ip=" . urIpParaElLog());
+        echo json_encode($respuestaNeutra);
+        exit();
+    }
+
+    if (!urEsCuentaDeCliente($cuenta)) {
+        // Este formulario es publico: si atendiera tambien a los
+        // administradores, cualquiera podria disparar el cambio de clave de uno
+        // con solo escribir su correo. Ellos tienen admin_forgot_password.php.
+        // Queda anotado por si alguna vez un cliente de verdad quedara aqui con
+        // el role equivocado: se veria en el log en vez de ser un misterio.
+        urRegistrar("cuenta no es de cliente  {$cuenta['email']}  role={$cuenta['role']}  ip=" . urIpParaElLog());
         echo json_encode($respuestaNeutra);
         exit();
     }
@@ -120,13 +131,19 @@ try {
 
     require_once __DIR__ . '/email_service.php';
     $emailService = new EmailService();
-    $envio = $emailService->sendCustomEmail($cuenta['email'], 'Recupera el acceso a tu panel Imporlan', $html);
+    // sendPrivateEmail y no sendCustomEmail: los correos normales llevan copia
+    // oculta a jpchs1@gmail.com y CC al correo secundario del cliente, y este
+    // lleva la llave de la cuenta. Tiene que llegar a un solo buzon.
+    $envio = $emailService->sendPrivateEmail($cuenta['email'], 'Recupera el acceso a tu panel Imporlan', $html);
 
     if (empty($envio['success'])) {
-        // El token queda vivo: si el correo falla por SMTP, el enlace del log
-        // sigue sirviendo para destrabar al cliente a mano.
+        // Se borra el token. Dejarlo vivo no le sirve a nadie —en disco solo
+        // esta su hash, asi que el enlace ya no se puede reconstruir para
+        // entregarlo a mano— y mientras tanto seguiria siendo un enlace valido
+        // sin que el cliente sepa que existe.
+        @unlink($ruta);
         $motivo = $envio['error'] ?? 'desconocido';
-        urRegistrar("fallo el envio  {$cuenta['email']}  ip=$ip  motivo=$motivo");
+        urRegistrar("fallo el envio  {$cuenta['email']}  ip=" . urIpParaElLog() . "  motivo=$motivo");
         error_log('user_forgot_password: envio fallido - ' . $motivo);
         http_response_code(500);
         echo json_encode(['error' => 'No pudimos enviar el correo en este momento. Escribenos a contacto@imporlan.cl y te ayudamos.']);
@@ -134,12 +151,12 @@ try {
     }
 
     $aviso = $cuenta['status'] === 'active' ? '' : "  (cuenta en estado {$cuenta['status']})";
-    urRegistrar("enlace enviado  {$cuenta['email']}  ip=$ip$aviso");
+    urRegistrar("enlace enviado  {$cuenta['email']}  ip=" . urIpParaElLog() . $aviso);
 
     echo json_encode($respuestaNeutra);
 } catch (Exception $e) {
     error_log('user_forgot_password: ' . $e->getMessage());
-    urRegistrar("error  $email  ip=$ip  " . $e->getMessage());
+    urRegistrar("error  $email  ip=" . urIpParaElLog() . "  " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Hubo un problema al procesar tu solicitud. Intenta de nuevo o escribenos a contacto@imporlan.cl.']);
 }

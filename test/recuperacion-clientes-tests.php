@@ -120,6 +120,58 @@ for ($i = 0; $i < 12; $i++) {
 }
 prueba('un rechazo por correo no consume la cuota de la IP', $sobrevivientes === 12);
 
+// ------------------------------------------------- solo cuentas de cliente
+// admin_users guarda tambien a los administradores, y este formulario es
+// publico: sin este filtro cualquiera podria disparar el cambio de clave de un
+// administrador escribiendo su correo.
+prueba('una cuenta con role user si se atiende',
+    urEsCuentaDeCliente(['role' => 'user']) === true);
+prueba('una cuenta de administrador no se atiende',
+    urEsCuentaDeCliente(['role' => 'admin']) === false);
+prueba('una cuenta de soporte no se atiende',
+    urEsCuentaDeCliente(['role' => 'support']) === false);
+prueba('una fila sin role no se atiende',
+    urEsCuentaDeCliente(['email' => 'x@y.cl']) === false);
+
+$reset = file_get_contents(__DIR__ . '/../api/user_reset_password.php');
+prueba('la pagina de cambio tambien comprueba el role',
+    strpos($reset, 'urEsCuentaDeCliente($cuenta)') !== false);
+
+// --------------------------------------------- el tope no se puede esquivar
+// Si urIpCliente leyera X-Forwarded-For, bastaria con cambiar esa cabecera en
+// cada intento para estrenar cuota una y otra vez.
+$_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.77';
+prueba('el tope se cuenta por REMOTE_ADDR, no por la cabecera del proxy',
+    urIpCliente() === '203.0.113.9');
+prueba('el log si conserva la cabecera del proxy',
+    strpos(urIpParaElLog(), '198.51.100.77') !== false);
+
+$_SERVER['REMOTE_ADDR'] = 'no-es-una-ip';
+prueba('una REMOTE_ADDR rara no se usa como clave',
+    urIpCliente() === 'desconocida');
+unset($_SERVER['HTTP_X_FORWARDED_FOR']);
+
+// ---------------------------------------- el enlace va a un solo buzon
+// Los correos normales llevan copia oculta a jpchs1@gmail.com y CC al correo
+// secundario del cliente. Este lleva la llave de la cuenta.
+$forgotSrc = file_get_contents(__DIR__ . '/../api/user_forgot_password.php');
+prueba('el enlace se manda con sendPrivateEmail',
+    strpos($forgotSrc, 'sendPrivateEmail(') !== false
+    && strpos($forgotSrc, 'sendCustomEmail(') === false);
+
+$mailer = file_get_contents(__DIR__ . '/../api/email_service.php');
+prueba('sendPrivateEmail pide envio solo al destinatario',
+    (bool) preg_match('/function sendPrivateEmail.*?sendEmail\(.*?,\s*true\s*\)/s', $mailer));
+prueba('la copia oculta se salta cuando es solo al destinatario',
+    strpos($mailer, '!empty($this->bccEmails) && !$soloDestinatario') !== false);
+prueba('el CC al correo secundario tambien se salta',
+    strpos($mailer, '$soloDestinatario ? null : $this->getSecondaryEmail(') !== false);
+
+// ------------------------------------------ nada de tokens huerfanos
+prueba('si el correo no sale, el token se borra',
+    (bool) preg_match('/if \(empty\(\$envio\[.success.\]\)\) \{.*?@unlink\(\$ruta\)/s', $forgotSrc));
+
 // ------------------------------------------------- misma respuesta siempre
 // La frase de exito esta escrita UNA sola vez. Si alguien agregara un segundo
 // texto para el caso "no existe la cuenta", el formulario pasaria a delatar

@@ -62,6 +62,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
+        // Se vuelve a comprobar aqui, no solo al emitir el enlace: entre una
+        // cosa y la otra pasa hasta una hora, y en ese rato la cuenta pudo
+        // pasar a administradora. Un token viejo no deberia poder cambiarle la
+        // clave a una cuenta del panel.
+        if (!urEsCuentaDeCliente($cuenta)) {
+            @unlink(urRutaToken($token));
+            urRegistrar("enlace rechazado, cuenta no es de cliente  {$cuenta['email']}  role={$cuenta['role']}");
+            http_response_code(403);
+            echo json_encode(['error' => 'Esta cuenta no se recupera por aqui. Escribenos a contacto@imporlan.cl.']);
+            exit();
+        }
+
         $pdo->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?")
             ->execute([password_hash($nueva, PASSWORD_DEFAULT), $cuenta['id']]);
 
@@ -85,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // "demasiados intentos".
         urLimpiarBloqueoLogin(urIpCliente());
 
-        urRegistrar("contrasena cambiada  {$cuenta['email']}  ip=" . urIpCliente());
+        urRegistrar("contrasena cambiada  {$cuenta['email']}  ip=" . urIpParaElLog());
 
         if ($cuenta['status'] !== 'active') {
             // Se dice la verdad en vez de dejarlo chocar contra un
