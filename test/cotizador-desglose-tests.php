@@ -102,6 +102,12 @@ foreach (['comisión', 'margen', 'honorarios'] as $palabra) {
     t(stripos($html, $palabra) === false, "el correo no habla de «{$palabra}»");
 }
 t(strpos($html, 'Hola Alberto,') !== false, 'saluda por el nombre de pila');
+// JP, 14-oct: «deja una nota de que esos valores son referenciales (…) pero el
+// total básicamente se mantiene muy cerca».
+t(strpos($html, 'Los montos de cada etapa son referenciales') !== false
+    && strpos($html, 'el total se mantiene muy cerca de lo cotizado') !== false, 'avisa que los montos por etapa son referenciales');
+t(strpos($html, 'mismos valores que aparecen en la declaración de aduana') === false,
+    'no promete que el flete calce con la declaración de aduana si los montos son referenciales');
 t(strpos($html, 'src="https://www.imporlan.cl/images/correo/firma-jp.jpg"') !== false, 'va con la firma gráfica de Juan Pablo');
 t(@md5_file(__DIR__ . '/../images/correo/firma-jp.jpg') === md5_file(__DIR__ . '/../.github/correo/firma-jp.jpg'),
     'la firma publicada es la misma del workflow de correo');
