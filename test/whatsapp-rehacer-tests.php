@@ -79,19 +79,33 @@ t(strpos($src, 'array_slice($todas, -IWA_APRENDIDO_MAX)') !== false,
     'al pasar el tope se cae la más vieja, no la más nueva');
 t(strpos($src, '. iwa_aprendido_prompt();') !== false, 'lo aprendido entra en el prompt de sistema');
 
-// Con el archivo de aprendizaje vacío, el prompt queda como estaba.
-// Se borra la carpeta entera, no sólo el archivo: iwa_aprender() tiene que
-// poder crearla. Antes no lo hacía, y como escribe con @ el fallo no se veía
-// por ninguna parte — JP corregía el borrador y lo aprendido se perdía.
+// LO PRIMERO, ANTES DE TOCAR NADA: copiar lo que de verdad hay.
+// Esta prueba trabaja sobre el archivo real de aprendizaje, el mismo que
+// alimenta las respuestas. Si lo borrara sin copiarlo antes se llevaria por
+// delante las correcciones de JP — justo lo que este arreglo existe para
+// proteger.
 $carpetaLogs = __DIR__ . '/../api/logs';
 $archivo = $carpetaLogs . '/whatsapp-aprendido.json';
-if (is_file($archivo)) @unlink($archivo);
-if (is_dir($carpetaLogs) && !glob($carpetaLogs . '/*')) @rmdir($carpetaLogs);
-iwa_aprender(['mensajes' => [['dir' => 'in', 'texto' => 'hola']]], 'prueba de carpeta');
-t(is_file($archivo), 'iwa_aprender() crea la carpeta logs/ si no existe');
-
 $habia = is_file($archivo) ? (string) file_get_contents($archivo) : null;
+
+// Que la carpeta se cree sola. Sin esto la escritura falla y la @ se come
+// hasta el aviso: JP corrige el borrador y lo aprendido no queda en ninguna
+// parte. Se comprueba en el codigo porque es la unica forma que no depende de
+// que la carpeta se pueda vaciar: en el servidor tiene otros archivos dentro.
+t(strpos($src, 'if (!is_dir(dirname(iwa_archivo_aprendido()))) @mkdir(') !== false,
+    'iwa_aprender() crea la carpeta logs/ si no existe');
+
+// Y cuando se puede vaciar de verdad —en CI, por ejemplo— se comprueba
+// ademas que funciona, no solo que la linea esta escrita.
 @unlink($archivo);
+if (is_dir($carpetaLogs) && !glob($carpetaLogs . '/*')) {
+    @rmdir($carpetaLogs);
+    iwa_aprender(['mensajes' => [['dir' => 'in', 'texto' => 'hola']]], 'prueba de carpeta');
+    t(is_file($archivo), 'y con la carpeta borrada, la vuelve a crear');
+    @unlink($archivo);
+}
+
+// Con el archivo de aprendizaje vacío, el prompt queda como estaba.
 $sinNada = iwa_sistema();
 t(strpos($sinNada, 'Lo que Juan Pablo te fue corrigiendo') === false, 'sin indicaciones el prompt no cambia');
 
