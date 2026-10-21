@@ -124,6 +124,15 @@ export const setImportStep = (orderId, step, done, notifyClient = false) =>
     body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient }),
     timeoutMs: 45000,
   });
+// Resultado de la inspección técnica: 'no_apta' con la nota para el cliente
+// (va en su panel y en el correo), o null para deshacerlo. La aprobada se
+// marca con el hito «inspeccion». Con notify manda correo: plazo largo.
+export const inspeccionResultado = (orderId, resultado, nota = '', notify = false) =>
+  request(`${API_BASE}/orders_api.php?action=admin_inspeccion_resultado`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: orderId, resultado: resultado || null, nota, notify_client: !!notify }),
+    timeoutMs: 45000,
+  });
 
 // Cobros (solicitudes de pago). Crear y cambiar de estado mandan correo al
 // cliente: por eso el plazo largo.
