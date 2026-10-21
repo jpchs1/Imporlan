@@ -594,6 +594,15 @@
             font-size: 0.85rem;
         }
         .bank-row:last-of-type { border-bottom: none; }
+        .bank-group {
+            margin: 14px 0 2px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--gold-light);
+        }
+        .bank-group:first-of-type { margin-top: 0; }
         .bank-label { color: var(--silver-mid); }
         .bank-value {
             color: var(--white);
@@ -1413,7 +1422,7 @@
                                     </div>
                                     <div class="method-body">
                                         <div class="method-name">Transferencia</div>
-                                        <div class="method-tagline">Banco Santander · CLP/USD</div>
+                                        <div class="method-tagline">Global66 · CLP/USD</div>
                                     </div>
                                 </div>
                                 <div class="method-tags">
@@ -1428,44 +1437,29 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
                                 Datos para transferencia
                             </h4>
+                            <p class="bank-group">Pesos chilenos (CLP)</p>
                             <div class="bank-row">
                                 <span class="bank-label">Banco</span>
-                                <span class="bank-value">Banco Santander</span>
+                                <span class="bank-value">Global66 / Global Card S.A.</span>
                                 <span></span>
                             </div>
                             <div class="bank-row">
-                                <span class="bank-label">Cuenta Corriente (CLP)</span>
-                                <span class="bank-value" data-copy="74233813">74233813</span>
-                                <button type="button" class="bank-copy" data-copy-target="74233813" aria-label="Copiar cuenta CLP">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                    Copiar
-                                </button>
-                            </div>
-                            <div class="bank-row">
-                                <span class="bank-label">Cuenta Corriente (USD)</span>
-                                <span class="bank-value" data-copy="5100369305">5100369305</span>
-                                <button type="button" class="bank-copy" data-copy-target="5100369305" aria-label="Copiar cuenta USD">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                    Copiar
-                                </button>
-                            </div>
-                            <div class="bank-row">
-                                <span class="bank-label">Código SWIFT</span>
-                                <span class="bank-value">BSCHCLRM</span>
-                                <button type="button" class="bank-copy" data-copy-target="BSCHCLRM" aria-label="Copiar SWIFT">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                    Copiar
-                                </button>
-                            </div>
-                            <div class="bank-row">
-                                <span class="bank-label">Razón Social</span>
+                                <span class="bank-label">Titular</span>
                                 <span class="bank-value">Imporlan SpA</span>
                                 <span></span>
                             </div>
                             <div class="bank-row">
+                                <span class="bank-label">Cuenta Vista</span>
+                                <span class="bank-value" data-copy="11678410">11678410</span>
+                                <button type="button" class="bank-copy" data-copy-target="11678410" aria-label="Copiar cuenta vista CLP">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
                                 <span class="bank-label">RUT</span>
-                                <span class="bank-value">76.914.409-9</span>
-                                <button type="button" class="bank-copy" data-copy-target="76914409-9" aria-label="Copiar RUT">
+                                <span class="bank-value" data-copy="769144099">76.914.409-9</span>
+                                <button type="button" class="bank-copy" data-copy-target="769144099" aria-label="Copiar RUT">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                     Copiar
                                 </button>
@@ -1473,6 +1467,46 @@
                             <div class="bank-row">
                                 <span class="bank-label">Email</span>
                                 <span class="bank-value">contacto@imporlan.cl</span>
+                                <span></span>
+                            </div>
+                            <p class="bank-group">Dólares (USD)</p>
+                            <div class="bank-row">
+                                <span class="bank-label">Account Holder</span>
+                                <span class="bank-value">IMPORLAN SPA</span>
+                                <span></span>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Account Number</span>
+                                <span class="bank-value" data-copy="8336089772">8336089772</span>
+                                <button type="button" class="bank-copy" data-copy-target="8336089772" aria-label="Copiar account number USD">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Routing Number</span>
+                                <span class="bank-value" data-copy="026073150">026073150</span>
+                                <button type="button" class="bank-copy" data-copy-target="026073150" aria-label="Copiar routing number">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Swift / BIC</span>
+                                <span class="bank-value" data-copy="CMFGUS33">CMFGUS33</span>
+                                <button type="button" class="bank-copy" data-copy-target="CMFGUS33" aria-label="Copiar Swift">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                    Copiar
+                                </button>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Bank Name</span>
+                                <span class="bank-value">Community Federal Savings Bank</span>
+                                <span></span>
+                            </div>
+                            <div class="bank-row">
+                                <span class="bank-label">Bank Address</span>
+                                <span class="bank-value">5 Penn Plaza, 14th Floor, New York, NY 10001, US</span>
                                 <span></span>
                             </div>
                             <div class="bank-note">
