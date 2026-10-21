@@ -36,7 +36,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 // En la consola ya hay salida: el código HTTP se anota en vez de mandarse.
@@ -61,7 +61,7 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     chosen_note TEXT NULL, import_steps TEXT NULL)");
 $BD->exec("CREATE TABLE order_links (id INTEGER PRIMARY KEY, order_id INTEGER, row_index INTEGER, url TEXT, title TEXT,
     image_url TEXT, link_status TEXT DEFAULT 'active', make TEXT, model TEXT, year INTEGER,
-    value_chile_clp REAL, value_chile_negotiated_clp REAL, quote_total_clp REAL, quote_published_at TEXT)");
+    value_chile_clp REAL, value_chile_negotiated_clp REAL, quote_total_clp REAL, quote_total_usd REAL, quote_payments TEXT, quote_published_at TEXT)");
 $BD->exec("CREATE TABLE order_events (id INTEGER PRIMARY KEY, order_id INTEGER, event_type TEXT, meta_json TEXT, user_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $CORREOS = [];
 
@@ -78,10 +78,17 @@ function sembrar() {
     $bd->exec("INSERT INTO order_links (id, order_id, row_index, url, title, image_url, link_status, value_chile_negotiated_clp, quote_total_clp, quote_published_at) VALUES
         (11, 35, 1, 'https://www.facebook.com/marketplace/item/1', '2015 Chaparral 21 Sport H2O', 'https://img.example/c.jpg', 'active', 42685440, 41000000, NULL),
         (12, 35, 2, 'https://www.boattrader.com/boat/2', '2018 Cobalt R30', '', 'active', NULL, 98000000, '2026-10-10 10:00:00'),
+        (15, 35, 5, 'https://www.boattrader.com/boat/5', '2020 Sea Ray SPX 210', '', 'active', NULL, 50000000, '2026-10-12 10:00:00'),
         (13, 35, 3, 'https://www.boattrader.com/boat/3', 'Vendida', '', 'sold', NULL, NULL, NULL),
         (14, 35, 4, '', '', '', 'active', NULL, NULL, NULL),
         (21, 36, 1, 'https://www.boattrader.com/boat/9', 'Ajena', '', 'active', NULL, NULL, NULL),
         (31, 37, 1, 'https://www.boattrader.com/boat/7', 'En vencido', '', 'active', NULL, NULL, NULL)");
+    // Plan de pagos de las cotizaciones publicadas (7 / 63 / 30, como el cotizador).
+    $bd->exec("UPDATE order_links SET quote_total_usd = 103000, quote_payments = '{\"p1_pct\":7,\"p1_clp\":6860000,\"p2_pct\":63,\"p2_clp\":61740000,\"p3_pct\":30,\"p3_clp\":29400000}' WHERE id = 12");
+    $bd->exec("UPDATE order_links SET quote_payments = '{\"p1_pct\":7,\"p1_clp\":3500000,\"p2_pct\":63,\"p2_clp\":31500000,\"p3_pct\":30,\"p3_clp\":15000000}' WHERE id = 15");
+    // El Chaparral tiene plan pero la cotización NO está publicada: no hay Pago 1 automático.
+    $bd->exec("UPDATE order_links SET quote_payments = '{\"p1_pct\":7,\"p1_clp\":2870000}' WHERE id = 11");
+    file_put_contents(impArchivoCobros(), json_encode(['requests' => []]));
     $GLOBALS['CORREOS'] = [];
 }
 
@@ -204,6 +211,56 @@ $ev = $BD->query("SELECT event_type FROM order_events WHERE order_id = 35 ORDER 
 ok(in_array('lancha_elegida', $ev, true) && in_array('hito_importacion', $ev, true) && in_array('eleccion_deshecha', $ev, true), 'todo queda en el historial del expediente');
 
 // ---------------------------------------------------------------------------
+echo "\nPago 1 (7%) al elegir: la inspección no se cobra aparte\n";
+function cobros() { return json_decode(file_get_contents(impArchivoCobros()), true)['requests']; }
+function vigentes() { return array_values(array_filter(cobros(), function ($r) { return $r['status'] !== 'cancelled'; })); }
+sembrar();
+[$c, $r] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+$v = vigentes();
+ok($c === 200 && count($v) === 1, 'elegir con cotización publicada crea un cobro');
+ok(($v[0]['amount_clp'] ?? 0) === 6860000 && strpos($v[0]['title'], 'Pago 1 · 2018 Cobalt R30 (7%)') === 0, 'es el Pago 1 por el 7% de la cotización: ' . ($v[0]['title'] ?? '—'));
+ok(($v[0]['metadata']['order_id'] ?? 0) === 35 && ($v[0]['metadata']['custom_fields']['pago'] ?? 0) === 1 && ($v[0]['user_email'] ?? '') === 'alberto@example.com', 'ligado al expediente y al cliente');
+ok(($v[0]['amount_usd'] ?? 0) == 7210, 'con su referencia en dólares (7% del total USD)');
+ok(($r['pago1']['id'] ?? '') === $v[0]['id'] && ($r['pago1']['amount_clp'] ?? 0) === 6860000, 'la respuesta trae el Pago 1 para el botón «Pagar»');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(strpos($cli[0]['html'] ?? '', 'Pagar el Pago 1') !== false && strpos($cli[0]['html'], '#/payments?pagar=' . $v[0]['id']) !== false, 'el correo al cliente lleva el botón para pagar ese cobro');
+ok(strpos($cli[0]['html'], 'USD 850') === false && strpos($cli[0]['html'], 'incluida en la operación') !== false, 'y dice que la inspección va incluida, sin precio aparte');
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => false]);
+ok(count(vigentes()) === 1, 'volver a confirmar la misma lancha no duplica el cobro');
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15]);
+$v = vigentes();
+ok(count($v) === 1 && $v[0]['amount_clp'] === 3500000, 'cambiar de lancha anula el Pago 1 pendiente y crea el de la nueva');
+ok(count(array_filter(cobros(), function ($r) { return $r['status'] === 'cancelled' && $r['cancelled_reason'] === 'Cambió de lancha'; })) === 1, 'el anterior queda anulado con motivo');
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 11]);
+ok(vigentes() === [], 'una lancha sin cotización publicada no genera cobro (y anula el pendiente de la otra)');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(strpos(end($cli)['html'], 'apenas esté lista tu cotización final') !== false, 'y el correo dice que el Pago 1 llega con la cotización');
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
+llamar('userUnchooseLink', $alberto, ['order_id' => 35]);
+ok(vigentes() === [], 'deshacer la elección anula el Pago 1 pendiente');
+// Pagado: ya no se cambia ni se deshace.
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
+$data = json_decode(file_get_contents(impArchivoCobros()), true);
+foreach ($data['requests'] as &$q) { if ($q['status'] === 'pending') $q['status'] = 'paid'; }
+unset($q);
+file_put_contents(impArchivoCobros(), json_encode($data));
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15]);
+ok($c === 409 && intval(orden(35)['chosen_link_id']) === 12, 'con el Pago 1 pagado el cliente no cambia de lancha');
+[$c] = llamar('userUnchooseLink', $alberto, ['order_id' => 35]);
+ok($c === 409, 'ni deshace la elección');
+ok(impEleccionParaPanel(orden(35))['client_can_change'] === false, 'y el panel lo sabe (client_can_change = false)');
+echo "\nEl equipo marca la elección: también pide el Pago 1\n";
+sembrar();
+[$c, $r] = llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 12, 'inspection' => true, 'notify_client' => false]);
+ok($c === 200 && count(vigentes()) === 1 && ($r['pago1']['amount_clp'] ?? 0) === 6860000, 'marcar la elección crea el Pago 1');
+ok($CORREOS === [], 'sin «avisar al cliente», sin correos');
+sembrar();
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 12, 'inspection' => true, 'request_pago1' => false]);
+ok(vigentes() === [], 'con request_pago1 = false no se crea');
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 12, 'request_pago1' => true]);
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 0]);
+ok(vigentes() === [], 'quitar la elección anula el Pago 1 pendiente');
+
 echo "\nLas rutas exigen sesión y no leen el correo del cuerpo\n";
 $api = file_get_contents("$raiz/api/orders_api.php");
 ok(preg_match("/case 'user_choose_link':\s*userChooseLink\(requireUserAuthShared\(\)\);/", $api) === 1, 'user_choose_link exige sesión de cliente');
