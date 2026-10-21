@@ -2885,6 +2885,15 @@ function adminSetImportStep($admin, $input = null) {
             'hito' => $paso, 'admin' => $admin['email'] ?? $admin['sub'] ?? 'admin',
         ]);
 
+        // El hito puede gatillar el Pago 2 o el Pago 3 (impPagoPorHito): se crea
+        // solo, con el monto de la cotización publicada, y va en el mismo aviso.
+        $pagoHito = null;
+        $nPago = ($hecho && !$yaEstaba) ? impPagoPorHito($order, $paso) : 0;
+        if ($nPago) {
+            $pagoHito = impSolicitarPago($order, impLeerLink($pdo, $orderId, $order['chosen_link_id']), $nPago, 'sistema · hito ' . $paso);
+            if ($avisar) impAvisarCobroEnChat($pagoHito);
+        }
+
         $notificado = false;
         if ($hecho && !$yaEstaba && $avisar && !empty($order['customer_email'])) {
             try {
@@ -2902,6 +2911,8 @@ function adminSetImportStep($admin, $input = null) {
                     'order_number' => $order['order_number'] ?? '',
                     'order_id' => $orderId,
                     'hechos' => ['Lancha elegida' => true] + $hechos,
+                    'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
+                        ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,
                 ]);
                 $notificado = !empty($r['success']);
             } catch (\Throwable $e) {
@@ -2919,6 +2930,10 @@ function adminSetImportStep($admin, $input = null) {
             'eleccion' => impEleccionPublica($order),
             'notified' => $notificado,
             'usa_requested' => $pedidoUsa,
+            'pago' => $pagoHito && !empty($pagoHito['cobro']) ? [
+                'n' => $nPago, 'id' => $pagoHito['cobro']['id'], 'amount_clp' => intval($pagoHito['cobro']['amount_clp']),
+                'status' => $pagoHito['cobro']['status'], 'creado' => !empty($pagoHito['creado']),
+            ] : null,
         ]);
     } catch (PDOException $e) {
         error_log('adminSetImportStep: ' . $e->getMessage());
