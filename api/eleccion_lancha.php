@@ -68,7 +68,15 @@ function impEtapaPorEleccion($order) {
 
 /** El cliente puede cambiar o deshacer su elección hasta que el equipo marque un hito. */
 function impClientePuedeCambiar($order) {
+    // Inspección no apta: el cliente vuelve a elegir (su Pago 1 se abona a la
+    // nueva lancha), salvo que haya pedido la devolución.
+    if (impInspeccionNoApta($order)) return empty($order['refund_requested_at']);
     return impPasos($order) === [];
+}
+
+/** La inspección recomendó no comprar la lancha elegida. */
+function impInspeccionNoApta($order) {
+    return impTieneEleccion($order) && ($order['inspection_result'] ?? '') === 'no_apta';
 }
 
 function impExpedienteCerrado($order) {
@@ -102,6 +110,13 @@ function impEleccionPublica($order) {
         'note'           => (string) ($order['chosen_note'] ?? ''),
         'steps'          => (object) impPasos($order),
         'client_can_change' => impClientePuedeCambiar($order),
+        // Inspección no apta (JP: «si sale no apto se ahorra un problema y
+        // conviene ver otra opción»): resultado, nota del equipo y si el
+        // cliente pidió la devolución del Pago 1 en vez de elegir otra.
+        'inspection_result' => impInspeccionNoApta($order) ? 'no_apta' : null,
+        'inspection_result_at' => impInspeccionNoApta($order) ? ($order['inspection_result_at'] ?? null) : null,
+        'inspection_note' => impInspeccionNoApta($order) ? (string) ($order['inspection_note'] ?? '') : '',
+        'refund_requested_at' => $order['refund_requested_at'] ?? null,
     ];
 }
 
@@ -134,6 +149,10 @@ function impAsegurarColumnas($pdo) {
             'chosen_inspection' => "ALTER TABLE orders ADD COLUMN chosen_inspection TINYINT(1) NULL",
             'chosen_note'       => "ALTER TABLE orders ADD COLUMN chosen_note TEXT NULL",
             'import_steps'      => "ALTER TABLE orders ADD COLUMN import_steps TEXT NULL",
+            'inspection_result' => "ALTER TABLE orders ADD COLUMN inspection_result VARCHAR(10) NULL",
+            'inspection_result_at' => "ALTER TABLE orders ADD COLUMN inspection_result_at DATETIME NULL",
+            'inspection_note'   => "ALTER TABLE orders ADD COLUMN inspection_note TEXT NULL",
+            'refund_requested_at' => "ALTER TABLE orders ADD COLUMN refund_requested_at DATETIME NULL",
         ];
         foreach ($faltan as $col => $sql) {
             if (!in_array($col, $cols, true)) $pdo->exec($sql);

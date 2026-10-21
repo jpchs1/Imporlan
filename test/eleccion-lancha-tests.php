@@ -59,7 +59,8 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     status TEXT, visible_to_client INTEGER DEFAULT 1, timeline_step INTEGER DEFAULT 1, vessel_id INTEGER NULL,
     chosen_link_id INTEGER NULL, chosen_at TEXT NULL, chosen_by TEXT NULL, chosen_inspection INTEGER NULL,
     chosen_note TEXT NULL, import_steps TEXT NULL, usa_token TEXT NULL, usa_link_id INTEGER NULL,
-    usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL)");
+    usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL,
+    inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL)");
 $BD->exec("CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY, order_id INTEGER, note TEXT, file_ids TEXT, shared_text TEXT NULL, shared_at TEXT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE expediente_files (id INTEGER PRIMARY KEY, order_id INTEGER, original_name TEXT, stored_name TEXT, mime_type TEXT, file_size INTEGER, category TEXT, description TEXT, uploaded_by TEXT, visible_to_client INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE order_client_data (order_id INTEGER PRIMARY KEY, user_email TEXT, data TEXT, ci_front_id INTEGER, ci_back_id INTEGER, terms_version TEXT, terms_accepted_at TEXT, terms_ip TEXT, terms_ua TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
@@ -474,6 +475,62 @@ sembrar();
 llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 11, 'inspection' => true]);
 [$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true]);
 ok($c === 200 && ($r['pago'] ?? null) === null, 'sin cotización publicada no hay monto: no se crea el Pago 2 (lo crea el equipo a mano)');
+
+echo "\nInspección no apta: otra lancha (Pago 1 abonado) o devolución\n";
+function pagarPago1() {
+    $data = json_decode(file_get_contents(impArchivoCobros()), true);
+    foreach ($data['requests'] as &$q) { if ($q['status'] === 'pending' && ($q['metadata']['custom_fields']['pago'] ?? 0) === 1) $q['status'] = 'paid'; }
+    unset($q);
+    file_put_contents(impArchivoCobros(), json_encode($data));
+}
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+pagarPago1();
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+ok(impEleccionParaPanel(orden(35))['client_can_change'] === false, 'antes: con Pago 1 pagado y un hito, no puede cambiar');
+$CORREOS = [];
+[$c, $r] = llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta', 'nota' => 'Humedad en el casco y motor con baja compresión.', 'notify_client' => true]);
+ok($c === 200 && ($r['eleccion']['inspection_result'] ?? '') === 'no_apta' && $r['eleccion']['inspection_note'] === 'Humedad en el casco y motor con baja compresión.', 'el equipo marca la inspección como no apta, con su nota');
+ok($r['eleccion']['client_can_change'] === true, 'y el cliente puede volver a elegir aunque haya pagado el Pago 1');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['subject'], 'Resultado de la inspección') === 0 && strpos($cli[0]['html'], 'te ahorraste un problema') !== false && strpos($cli[0]['html'], 'se abona a la nueva') !== false, 'al cliente le llega el resultado con calma y sus dos opciones');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['subject'], 'On hold') !== false, 'a David se le pide pausar esa lancha');
+ok(timelineStepDesdeDatos(orden(35), true, 0) === 3, 'la etapa queda en Inspección');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15, 'inspection' => true]);
+$o = orden(35);
+ok($c === 200 && intval($o['chosen_link_id']) === 15 && $o['inspection_result'] === null && $o['import_steps'] === null, 'elige otra lancha: empieza de cero');
+ok(count(vigentes()) === 1 && vigentes()[0]['status'] === 'paid', 'y su Pago 1 pagado se abona: no se le cobra otro');
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+pagarPago1();
+[$c] = llamar('userPedirDevolucion', $alberto, ['order_id' => 35]);
+ok($c === 409, 'sin inspección no apta, la devolución no se pide por el panel');
+llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta', 'nota' => 'x']);
+[$c] = llamar('userPedirDevolucion', $intruso, ['order_id' => 35]);
+ok($c === 403, 'otro cliente no pide la devolución por él');
+$CORREOS = [];
+[$c, $r] = llamar('userPedirDevolucion', $alberto, ['order_id' => 35]);
+ok($c === 200 && !empty(orden(35)['refund_requested_at']) && $r['pago1_pagado'] === 6860000, 'el cliente pide la devolución del Pago 1');
+ok(count($CORREOS) === 1 && $CORREOS[0]['to'] === 'contacto@imporlan.cl' && strpos($CORREOS[0]['html'], '6.860.000') !== false, 'el equipo recibe el aviso con el monto pagado');
+ok(impEleccionParaPanel(orden(35))['client_can_change'] === false, 'con la devolución pedida ya no elige otra');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15]);
+ok($c === 409, 'y el servidor lo bloquea');
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta']);
+llamar('userPedirDevolucion', $alberto, ['order_id' => 35]);
+ok(vigentes() === [], 'si el Pago 1 no estaba pagado, se anula (no hay nada que devolver)');
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta']);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true]);
+ok(orden(35)['inspection_result'] === null, 'si después se aprueba (otra revisión), el «no apta» deja de valer');
+[$c] = llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta']);
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => false]);
+[$c] = llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta']);
+ok($c === 409, 'si eligió sin inspección, no hay resultado de inspección que marcar');
+ok(preg_match("/case 'user_pedir_devolucion':\s*userPedirDevolucion\(requireUserAuthShared\(\)\);/", $api) === 1 && preg_match("/case 'admin_inspeccion_resultado':\s*adminInspeccionResultado\(requireAdminAuth\(\)\);/", $api) === 1, 'las rutas nuevas exigen sesión');
 
 echo "\nA nombre de quién se importa\n";
 [$d, $e] = impValidarDatos(datosAlberto());
