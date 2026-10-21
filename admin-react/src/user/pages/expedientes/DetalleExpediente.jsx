@@ -4,13 +4,12 @@ import { useToast } from '../../../shared/components/Toast';
 import { useBreadcrumb } from '../../../shared/lib/page-meta';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { sePuedeElegir, linkElegido } from '../../../shared/lib/importacion';
+import { sePuedeElegir, linkElegido, pctPago1Comun } from '../../../shared/lib/importacion';
 import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Printer, Search, WhatsAppIcon } from '../../../shared/components/Icons';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
 import SeccionReportes from './SeccionReportes';
 import SeccionArchivos from './SeccionArchivos';
-import ModalInspeccion from './ModalInspeccion';
 import TarjetaPartner from './TarjetaPartner';
 import BotonEnlace from './BotonEnlace';
 import GuiaEleccion from './GuiaEleccion';
@@ -24,9 +23,11 @@ import { nombreExpediente, tipoExpediente, etapaDe, esCerrado, fraseEtapa, whats
  * 30 s, arrastrar) es la misma de siempre; cambia cómo se ve.
  *
  * Con una lancha elegida (`order.eleccion`) lo primero es «Tu importación»
- * (TuImportacion) y el ranking baja plegado como «Otras opciones». Sin
- * elección, el protagonista es elegir: GuiaEleccion + «Elegir esta lancha»
- * en cada tarjeta, que abre AsistenteEleccion.
+ * (TuImportacion, con las novedades que compartió el equipo y las fotos y
+ * videos que llegan desde Estados Unidos) y el ranking baja plegado como
+ * «Otras opciones». Sin elección, el protagonista es elegir: GuiaEleccion +
+ * «Elegir esta lancha» en cada tarjeta, que abre AsistenteEleccion (también
+ * desde el menú «Elegir con inspección técnica»).
  */
 export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) {
   const toast = useToast();
@@ -41,14 +42,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [notifying, setNotifying] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { items: [{src, alt, caption, downloadUrl}], index }
-  const [inspectionLink, setInspectionLink] = useState(null);
-  const [asistenteLink, setAsistenteLink] = useState(null);
+  const [asistente, setAsistente] = useState(null); // { link, inspection } mientras el asistente está abierto
   const [otrasAbiertas, setOtrasAbiertas] = useState(false);
   const [loadError, setLoadError] = useState('');
   const dragSrc = useRef(null);
   const pollRef = useRef(null);
   const lastRankingTs = useRef(null);
   const lastEleccion = useRef(null);
+  const lastNovedades = useRef(null);
   const rankingRef = useRef(null);
 
   useBreadcrumb(order?.order_number ? [order.order_number] : null);
@@ -84,6 +85,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         setLinks(ord.links || []);
         lastRankingTs.current = ord.ranking_updated_at || null;
         lastEleccion.current = JSON.stringify(ord.eleccion || null);
+        lastNovedades.current = JSON.stringify(ord.novedades || []);
         loadReports(ord);
         if (ord.eleccion) loadPagos();
       } else if (data?.error) {
@@ -113,7 +115,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   }, [loadDetail, loadFiles]);
 
   // Polling (30 s): cambios de ranking hechos por el equipo y avances de la
-  // importación (hitos que marca el agente, elección registrada por él).
+  // importación (hitos que marca el agente, elección registrada por él,
+  // novedades que comparte; con una novedad nueva pueden venir fotos).
   useEffect(() => {
     pollRef.current = setInterval(async () => {
       try {
@@ -121,26 +124,28 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         if (data.success && data.order) {
           const newTs = data.order.ranking_updated_at;
           const eleccionJson = JSON.stringify(data.order.eleccion || null);
+          const novedadesJson = JSON.stringify(data.order.novedades || []);
           const cambioRanking = newTs && newTs !== lastRankingTs.current;
           const cambioEleccion = eleccionJson !== lastEleccion.current;
-          if (!cambioRanking && !cambioEleccion) return;
+          const cambioNovedades = novedadesJson !== lastNovedades.current;
+          if (!cambioRanking && !cambioEleccion && !cambioNovedades) return;
           lastRankingTs.current = newTs || lastRankingTs.current;
           lastEleccion.current = eleccionJson;
+          lastNovedades.current = novedadesJson;
           setOrder(data.order);
           setLinks(data.order.links || []);
           if (cambioRanking) {
             const who = data.order.ranking_author_role === 'admin' ? 'el equipo Imporlan' : data.order.ranking_author_name;
             toast?.(`Ranking actualizado por ${who}`, 'success');
           }
-          if (cambioEleccion && data.order.eleccion) {
-            loadPagos();
-            toast?.('Tu importación tiene novedades', 'success');
-          }
+          if (cambioEleccion && data.order.eleccion) loadPagos();
+          if (cambioNovedades) loadFiles();
+          if ((cambioEleccion && data.order.eleccion) || cambioNovedades) toast?.('Tu importación tiene novedades', 'success');
         }
       } catch { /* silencioso */ }
     }, 30000);
     return () => clearInterval(pollRef.current);
-  }, [orderId, toast, loadPagos]);
+  }, [orderId, toast, loadPagos, loadFiles]);
 
   // --- Ranking: arrastrar, flechas, guardar, avisar ---------------------------
   async function doSaveRanking(currentLinks) {
@@ -247,8 +252,12 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
 
   // --- Visor de imágenes --------------------------------------------------------
   const imagenes = files.filter(esImagen);
+  // `lista` son archivos del expediente (fotos); `i` el que se abre.
+  function abrirFotos(lista, i) {
+    setLightbox({ items: lista.map(f => ({ src: f.download_url, alt: f.original_name, caption: f.original_name, downloadUrl: f.download_url })), index: i });
+  }
   function abrirFotoArchivo(i) {
-    setLightbox({ items: imagenes.map(f => ({ src: f.download_url, alt: f.original_name, caption: f.original_name, downloadUrl: f.download_url })), index: i });
+    abrirFotos(imagenes, i);
   }
   function abrirFotoEmbarcacion(url, titulo) {
     setLightbox({ items: [{ src: url, alt: titulo, caption: titulo }], index: 0 });
@@ -291,6 +300,9 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const puedeElegir = (l) => !cerrado && sePuedeElegir(l) && (!eleccion || eleccion.client_can_change) && Number(l.id) !== Number(eleccion?.link_id);
   const hayElegibles = activeLinks.some(puedeElegir);
   const otras = eleccion ? activeLinks.filter(l => Number(l.id) !== Number(eleccion.link_id)).length : 0;
+  // El % del Pago 1 para la guía: el que comparten las cotizaciones publicadas
+  // de las lanchas elegibles (null si no hay ninguna: no se inventa).
+  const pctPago1 = pctPago1Comun(activeLinks.filter(puedeElegir));
 
   return (
     <div className="pb-12">
@@ -320,10 +332,13 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           link={elegido}
           eleccion={eleccion}
           requests={pagos}
+          novedades={order.novedades || []}
+          files={files}
           onCambiar={handleCambiar}
           onDeshacer={handleDeshacer}
           deshaciendo={deshaciendo}
           onPreviewImage={abrirFotoEmbarcacion}
+          onPreviewFiles={abrirFotos}
         />
       )}
 
@@ -374,7 +389,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
 
       <div className="space-y-6">
         <div className="min-w-0 space-y-6">
-          {!eleccion && !cerrado && hayElegibles && <GuiaEleccion agente={order.agent_name} />}
+          {!eleccion && !cerrado && hayElegibles && <GuiaEleccion agente={order.agent_name} pct={pctPago1} />}
 
           {activeLinks.length > 0 ? (
             <RankingEmbarcaciones
@@ -387,9 +402,9 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
               dnd={dnd}
               onMoveUp={handleMoveUp}
               onMoveDown={handleMoveDown}
-              onRequestInspection={setInspectionLink}
+              onElegirConInspeccion={(l) => setAsistente({ link: l, inspection: true })}
               onPreviewImage={abrirFotoEmbarcacion}
-              onElegir={setAsistenteLink}
+              onElegir={(l) => setAsistente({ link: l })}
               puedeElegir={puedeElegir}
               eleccion={eleccion}
               titulo={eleccion ? `Otras opciones (${otras})` : undefined}
@@ -409,7 +424,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           )}
 
           <SeccionReportes reports={reports} />
-          <SeccionArchivos files={files} onPreview={abrirFotoArchivo} />
+          <SeccionArchivos id="archivos" files={files} onPreview={abrirFotoArchivo} />
         </div>
       </div>
 
@@ -421,16 +436,15 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         onClose={() => setLightbox(null)}
       />
 
-      <ModalInspeccion link={inspectionLink} orderNumber={order.order_number} open={!!inspectionLink} onClose={() => setInspectionLink(null)} />
-
       {/* Se monta solo abierto: cada apertura parte en el paso 1, limpia. */}
-      {asistenteLink && (
+      {asistente && (
         <AsistenteEleccion
           open
-          link={asistenteLink}
+          link={asistente.link}
           order={order}
           anterior={elegido}
-          onClose={() => setAsistenteLink(null)}
+          inspeccionInicial={asistente.inspection ?? true}
+          onClose={() => setAsistente(null)}
           onSuccess={handleEleccionGuardada}
         />
       )}

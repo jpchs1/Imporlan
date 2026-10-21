@@ -20,8 +20,11 @@ function ordinal(n) {
  * Elegir: `onElegir` pone el botón «Elegir esta lancha» (primario) o, si ya
  * hay otra elegida y se puede cambiar, «Cambiar a esta lancha» (secundario,
  * `modoCambio`). `elegida` marca la tarjeta como «Tu elección», sin botón.
+ * `onElegirConInspeccion` va en el menú «⋯»: abre el mismo asistente con la
+ * inspección técnica preseleccionada (no es un cobro aparte: va incluida en
+ * la operación).
  */
-export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onRequestInspection, onPreviewImage, onElegir, elegida = false, modoCambio = false }) {
+export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, elegida = false, modoCambio = false }) {
   const toast = useToast();
   const [imgError, setImgError] = useState(false);
   const [imgRetry, setImgRetry] = useState(0);
@@ -49,7 +52,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
   const acciones = [
     link.url && { label: 'Copiar link del anuncio', icon: Copy, onClick: copiar },
     link.url && { label: 'Compartir por WhatsApp', icon: WhatsAppIcon, href: `https://wa.me/?text=${encodeURIComponent(link.url)}` },
-    !vendida && onRequestInspection && { label: 'Solicitar inspección técnica', icon: ClipboardCheck, onClick: () => onRequestInspection(link) },
+    onElegir && !elegida && onElegirConInspeccion && { label: 'Elegir con inspección técnica', icon: ClipboardCheck, onClick: () => onElegirConInspeccion(link) },
   ].filter(Boolean);
 
   return (
