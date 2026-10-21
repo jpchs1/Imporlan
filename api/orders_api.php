@@ -556,7 +556,7 @@ function userGetOrderDetail($authPayload = null) {
         $order['eleccion'] = impEleccionParaPanel($order);
         // Lo que el equipo compartió de la operación en EE. UU. (nunca las notas de David).
         $order['novedades'] = opuNovedadesCliente($pdo, $orderId);
-        $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId))];
+        $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId), !impTieneEleccion($order))];
         // El link privado de David y su estado no son del cliente.
         unset($order['usa_token'], $order['usa_link_id'], $order['usa_requested_at'], $order['usa_updated_at'], $order['admin_notes']);
 
@@ -716,7 +716,7 @@ function adminGetOrderDetail($sesion = null) {
         }
 
         if (($sesion['role'] ?? '') !== 'agent') {
-            $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId))];
+            $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId), !impTieneEleccion($order))];
         }
         // El agente (operación en EE. UU.) no ve cómo contactar al cliente.
         $order = ocultarContactoParaAgente($order, $sesion);
