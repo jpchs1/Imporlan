@@ -192,3 +192,27 @@ export const FUENTE_PRECIO = {
 export function sePuedeElegir(link) {
   return !!(link && (link.url || '').trim() && !['sold', 'unavailable'].includes(link.link_status));
 }
+
+/** Título legible de una lancha del ranking (igual que impTituloLancha en el servidor). */
+export function tituloLancha(link) {
+  const l = link || {};
+  const t = (l.title || '').trim();
+  if (t) return t;
+  const armado = [l.year, l.make, l.model].filter(Boolean).join(' ');
+  return armado || 'Opción sin identificar';
+}
+
+/**
+ * Etapa (1-5) que impone la elección y sus hitos, la misma cuenta que
+ * impEtapaPorEleccion en el servidor: con inspección queda en 3 hasta que
+ * se apruebe; sin inspección pasa a 4; viaje, aduana y entrega la llevan a 5.
+ * 0 si no hay elección.
+ */
+export function etapaPorEleccion(eleccion) {
+  if (!eleccion) return 0;
+  const steps = eleccion.steps || {};
+  let etapa = 3;
+  if (!eleccion.inspection || steps.inspeccion) etapa = 4;
+  for (const h of HITOS) if (steps[h.id] && h.etapa > etapa) etapa = h.etapa;
+  return etapa;
+}

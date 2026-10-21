@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage } from '../api';
+import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage, chooseLinkAdmin, setImportStep, getPaymentRequestsAdmin, createPaymentRequest, updatePaymentRequestStatus } from '../api';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 import { useBreadcrumb } from '../../shared/lib/page-meta';
+import { fmtCLP } from '../../shared/lib/utils';
+import { cobrosDelExpediente, hitosDe } from '../../shared/lib/importacion';
 import { enviarDesglose } from '../desglose';
 import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
 import ListaExpedientes from './orders/ListaExpedientes';
@@ -37,6 +39,12 @@ export default function Orders() {
   const [newStatus, setNewStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const [cotizandoLink, setCotizandoLink] = useState(null);
+
+  // Cobros (solicitudes de pago) del expediente abierto, para la sección
+  // Importación. Se piden aparte: viven en payment_requests_api.php.
+  const [cobros, setCobros] = useState([]);
+  const [cargandoCobros, setCargandoCobros] = useState(false);
+  const cobrosDeRef = useRef(null);
 
   // Filters
   const [filters, setFilters] = useState(FILTROS_VACIOS);
@@ -122,6 +130,22 @@ export default function Orders() {
     return list;
   }
 
+  // Los cobros se filtran por correo en el servidor y por expediente aquí
+  // (metadata.order_id). Si el admin cambió de expediente antes de que
+  // respondiera, la respuesta vieja se descarta.
+  const cargarCobros = useCallback(async (orderId, email) => {
+    cobrosDeRef.current = orderId;
+    setCargandoCobros(true);
+    try {
+      const r = await getPaymentRequestsAdmin(email || '');
+      if (cobrosDeRef.current !== orderId) return;
+      setCobros(cobrosDelExpediente(r.requests || [], orderId));
+    } catch {
+      if (cobrosDeRef.current === orderId) setCobros([]);
+    }
+    if (cobrosDeRef.current === orderId) setCargandoCobros(false);
+  }, []);
+
   async function openDetail(orderId) {
     setLoading(true);
     try {
@@ -129,6 +153,8 @@ export default function Orders() {
       const order = o.order || o;
       setDetail(order);
       setLinks(JSON.parse(JSON.stringify(order.links || [])));
+      setCobros([]);
+      cargarCobros(order.id, order.customer_email);
       setForm({
         customer_phone: order.customer_phone || '',
         service_type: order.service_type || 'plan_busqueda',
@@ -532,6 +558,103 @@ export default function Orders() {
   }
   function onDragEnd(e) { e.currentTarget.style.opacity = '1'; dragIdx.current = null; }
 
+  // ---- IMPORTACIÓN: lancha elegida, hitos y cobros ----
+  // Tras marcar la elección o un hito se relee el expediente: la elección y
+  // la etapa las calcula el servidor. Las filas del ranking se reemplazan
+  // sólo si no hay cambios sin guardar (la elección vive en `detail`, no en
+  // `links`, así que no se pierde nada por no reemplazarlas).
+  async function recargarDetalle() {
+    if (!detail?.id) return;
+    const o = await getOrderDetail(detail.id);
+    const orden = o.order || o;
+    setDetail(orden);
+    if (!unsaved) setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+  }
+
+  async function handleElegirLancha({ linkId, inspection, note, notify }) {
+    try {
+      const r = await chooseLinkAdmin(detail.id, linkId, { inspection, note, notifyClient: notify });
+      toast?.(r?.notified ? 'Lancha elegida guardada. Avisamos al cliente por correo.' : 'Lancha elegida guardada', 'success');
+      await recargarDetalle();
+      return true;
+    } catch (e) {
+      toast?.(e.message || 'No se pudo guardar la elección', 'error');
+      return false;
+    }
+  }
+
+  async function handleQuitarEleccion() {
+    const hechos = hitosDe(detail?.eleccion).filter(h => h.hecho).length;
+    if (!(await confirm({
+      title: '¿Quitar la lancha elegida?',
+      description: 'El expediente vuelve a quedar sin elección y la etapa se recalcula. Al cliente no se le avisa por correo.',
+      detail: hechos ? [`Se borran ${hechos} hito${hechos === 1 ? '' : 's'} marcado${hechos === 1 ? '' : 's'}. Los cobros quedan.`] : undefined,
+      tone: 'danger',
+      confirmLabel: 'Quitar elección',
+    }))) return;
+    try {
+      await chooseLinkAdmin(detail.id, 0);
+      toast?.('Elección quitada');
+      await recargarDetalle();
+    } catch (e) { toast?.(e.message || 'No se pudo quitar la elección', 'error'); }
+  }
+
+  // Marcar pasa por ModalHito (con el interruptor de aviso); desmarcar, por aquí.
+  async function handleHito(hito, done, notify) {
+    if (!done && !(await confirm({
+      title: `¿Desmarcar «${hito.corto}»?`,
+      description: 'Vuelve a quedar pendiente y la etapa se recalcula. Al cliente no se le avisa.',
+      tone: 'warning',
+      confirmLabel: 'Desmarcar',
+    }))) return false;
+    try {
+      const r = await setImportStep(detail.id, hito.id, done, notify);
+      if (!done) toast?.(`«${hito.corto}» desmarcado`);
+      else toast?.(r?.notified ? `«${hito.corto}» marcado. Avisamos al cliente.` : `«${hito.corto}» marcado`, 'success');
+      await recargarDetalle();
+      return true;
+    } catch (e) {
+      toast?.(e.message || 'No se pudo guardar el hito', 'error');
+      return false;
+    }
+  }
+
+  async function handleCrearCobro(data) {
+    try {
+      await createPaymentRequest({ ...data, user_email: detail.customer_email, order_id: detail.id });
+      toast?.(data.send_email ? 'Cobro creado y enviado al cliente' : 'Cobro creado', 'success');
+      cargarCobros(detail.id, detail.customer_email);
+      return true;
+    } catch (e) {
+      // 403: el rol agente no crea cobros (payment_requests_api exige admin o soporte).
+      const sinPermiso = /denegado|403|no autorizado/i.test(e.message || '');
+      toast?.({
+        type: 'error',
+        title: sinPermiso ? 'Tu cuenta no puede crear cobros' : 'No se pudo crear el cobro',
+        description: sinPermiso ? 'Sólo administradores y soporte. Pídele a uno de ellos que lo cree.' : (e.message || ''),
+      });
+      return false;
+    }
+  }
+
+  async function handleEstadoCobro(cobro, estado) {
+    const pagado = estado === 'paid';
+    if (!(await confirm({
+      title: pagado ? '¿Marcar este cobro como pagado?' : '¿Anular este cobro?',
+      description: pagado
+        ? 'Para transferencias que ya llegaron. Al cliente se le confirma por correo.'
+        : 'El cliente recibe un correo avisando que el cobro quedó anulado.',
+      detail: [`${cobro.title} · ${fmtCLP(cobro.amount_clp)}`],
+      tone: pagado ? 'primary' : 'danger',
+      confirmLabel: pagado ? 'Marcar pagado' : 'Anular cobro',
+    }))) return;
+    try {
+      await updatePaymentRequestStatus(cobro.id, estado, pagado ? { payment_method: 'transferencia_bancaria' } : { reason: 'Anulado por el equipo' });
+      toast?.(pagado ? 'Cobro marcado como pagado' : 'Cobro anulado');
+      cargarCobros(detail.id, detail.customer_email);
+    } catch (e) { toast?.(e.message || 'No se pudo cambiar el cobro', 'error'); }
+  }
+
   // ---- CREATE ORDER ----
   async function handleCreate() {
     if (!createForm.customer_email) { toast?.('Falta el email del cliente', 'error'); return; }
@@ -620,6 +743,16 @@ export default function Orders() {
       cotizandoLink={cotizandoLink}
       onCloseCotizar={() => setCotizandoLink(null)}
       onBreakdownSent={marcarDesgloseEnviado}
+      importacion={{
+        cobros,
+        cargandoCobros,
+        puedeCobrar: ['admin', 'support'].includes(user?.role),
+        onElegir: handleElegirLancha,
+        onQuitar: handleQuitarEleccion,
+        onHito: handleHito,
+        onCrearCobro: handleCrearCobro,
+        onEstadoCobro: handleEstadoCobro,
+      }}
       onQuoteSaved={async () => {
         if (!detail?.id) return;
         const cotizadoId = cotizandoLink?.id;
