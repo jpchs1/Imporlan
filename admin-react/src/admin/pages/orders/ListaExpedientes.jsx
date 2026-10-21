@@ -1,9 +1,25 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { fmtDate, dateValue } from '../../../shared/lib/utils';
-import { PageHeader, Card, Button, Input, Select, Field, FilterChips, SearchInput, DataTable, StatusBadge, EmptyState, ProcessStepper } from '../../../shared/components/UI';
+import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
+import { PageHeader, Card, Button, Input, Select, Field, Checkbox, FilterChips, SearchInput, DataTable, StatusBadge, Badge, EmptyState, ProcessStepper } from '../../../shared/components/UI';
 import { Plus, FolderOpen } from '../../../shared/components/Icons';
 import { STATUS_OPTIONS, SERVICE_TYPES, FILTROS_VACIOS, serviceTypeLabel } from './constantes';
 import ModalNuevoExpediente from './ModalNuevoExpediente';
+
+const TRES_DIAS = 3 * 86400000;
+
+/* «Lancha elegida» en la lista: destacado (y con el «hace…») si la elección
+   es de los últimos tres días, para ver de un vistazo quién acaba de decidir. */
+function ChipEleccion({ o, ahora }) {
+  if (!o.chosen_link_id) return null;
+  const cuando = dateValue(o.chosen_at);
+  const reciente = cuando > 0 && ahora - cuando < TRES_DIAS;
+  return (
+    <Badge tone={reciente ? 'success' : 'brand'} dot={reciente} size="sm" title={cuando ? `Lancha elegida el ${fmtDateLarga(o.chosen_at, { hora: true })}` : 'Lancha elegida'}>
+      {reciente ? `Lancha elegida · ${fmtRelativo(o.chosen_at)}` : 'Lancha elegida'}
+    </Badge>
+  );
+}
 
 /**
  * Lista de expedientes: cabecera, filtros que se aplican solos y tabla con
@@ -12,14 +28,21 @@ import ModalNuevoExpediente from './ModalNuevoExpediente';
 export default function ListaExpedientes({ orders, conteos, loading, filters, setFilters, onOpen, showCreate, setShowCreate, createForm, setCreateForm, onCreate }) {
   const set = (k, v) => setFilters({ ...filters, [k]: v });
   const hayFiltros = Object.entries(filters).some(([k, v]) => k !== 'status' && v);
+  // Filtro local (la API no lo tiene): sólo los que ya tienen lancha elegida.
+  const [soloElegidas, setSoloElegidas] = useState(false);
+  const conEleccion = orders.filter(o => o.chosen_link_id).length;
+  // «Hace…» se calcula una vez por montaje (la lista se recarga sola al filtrar).
+  const [ahora] = useState(() => Date.now());
 
   // Orden por fecha de compra/creación, el más nuevo primero (como siempre);
   // la tabla permite reordenar por columna encima.
-  const sorted = useMemo(() => [...orders].sort((a, b) => {
-    const da = new Date(a.purchase_date || a.created_at || 0).getTime();
-    const db = new Date(b.purchase_date || b.created_at || 0).getTime();
-    return db - da;
-  }), [orders]);
+  const sorted = useMemo(() => [...orders]
+    .filter(o => !soloElegidas || o.chosen_link_id)
+    .sort((a, b) => {
+      const da = new Date(a.purchase_date || a.created_at || 0).getTime();
+      const db = new Date(b.purchase_date || b.created_at || 0).getTime();
+      return db - da;
+    }), [orders, soloElegidas]);
 
   const chips = [{ id: '', label: 'Todos', count: conteos[''] }].concat(
     STATUS_OPTIONS.map(s => ({ id: s.value, label: s.label, count: conteos[s.value] || 0 })),
@@ -45,7 +68,15 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
         </div>
       ),
     },
-    { key: 'status', header: 'Estado', width: 130, cell: r => <StatusBadge kind="expediente" status={r.status} /> },
+    {
+      key: 'status', header: 'Estado', width: 150,
+      cell: r => (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge kind="expediente" status={r.status} />
+          <ChipEleccion o={r} ahora={ahora} />
+        </div>
+      ),
+    },
     { key: 'timeline_step', header: 'Etapa', width: 170, priority: 2, sortValue: r => Number(r.timeline_step || 1), cell: r => <ProcessStepper current={r.timeline_step || 1} compact /> },
     { key: 'agent_name', header: 'Agente', priority: 3, cell: r => r.agent_name || <span className="text-ink-500">Sin asignar</span> },
     { key: 'updated_at', header: 'Actualizado', width: 120, priority: 2, sortValue: r => dateValue(r.updated_at || r.purchase_date || r.created_at), cell: r => <span className="tabular text-ink-500">{fmtDate(r.updated_at || r.purchase_date || r.created_at)}</span> },
@@ -55,7 +86,7 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
     <>
       <PageHeader
         title="Expedientes"
-        description={loading ? 'Cargando…' : `${orders.length} expediente${orders.length === 1 ? '' : 's'}${filters.status || hayFiltros ? ' con los filtros actuales' : ''}`}
+        description={loading ? 'Cargando…' : `${sorted.length} expediente${sorted.length === 1 ? '' : 's'}${filters.status || hayFiltros || soloElegidas ? ' con los filtros actuales' : ''}`}
         actions={<Button icon={Plus} onClick={() => setShowCreate(true)}>Nuevo expediente</Button>}
       />
 
@@ -70,8 +101,11 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
           </div>
           <Button variant="ghost" onClick={() => setFilters({ ...FILTROS_VACIOS, status: filters.status })} disabled={!hayFiltros} className="sm:justify-self-end">Limpiar</Button>
         </div>
-        <div className="px-(--card-pad) pb-3">
+        <div className="px-(--card-pad) pb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <FilterChips aria-label="Filtrar por estado" options={chips} value={filters.status} onChange={v => set('status', v)} />
+          {(conEleccion > 0 || soloElegidas) && (
+            <Checkbox label={`Solo con lancha elegida (${conEleccion})`} checked={soloElegidas} onChange={e => setSoloElegidas(e.target.checked)} className="text-13" />
+          )}
         </div>
       </Card>
 
@@ -89,8 +123,8 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
             <EmptyState
               compact
               icon={FolderOpen}
-              title={filters.status || hayFiltros ? 'No hay expedientes con estos filtros' : 'Aún no hay expedientes'}
-              description={filters.status || hayFiltros ? 'Prueba con otro estado o limpia los filtros.' : 'Crea el primero con «Nuevo expediente».'}
+              title={filters.status || hayFiltros || soloElegidas ? 'No hay expedientes con estos filtros' : 'Aún no hay expedientes'}
+              description={filters.status || hayFiltros || soloElegidas ? 'Prueba con otro estado o limpia los filtros.' : 'Crea el primero con «Nuevo expediente».'}
             />
           )}
           mobileCard={r => (
@@ -100,6 +134,7 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
                 <StatusBadge kind="expediente" status={r.status} size="sm" />
               </div>
               <p className="text-sm text-ink-900 truncate">{r.customer_name || '—'}</p>
+              {r.chosen_link_id && <ChipEleccion o={r} ahora={ahora} />}
               <p className="text-13 text-ink-500 truncate">{r.plan_name || serviceTypeLabel(r.service_type)}{r.agent_name ? ` · ${r.agent_name}` : ''}</p>
               <ProcessStepper current={r.timeline_step || 1} compact />
             </div>

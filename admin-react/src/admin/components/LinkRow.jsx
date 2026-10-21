@@ -1,9 +1,10 @@
 import { useRef, useState, useCallback } from 'react';
 import { scrapeBoatTrader, scrapeLink, rescrapeOrderLink } from '../api';
 import { cn, fmtCLP } from '../../shared/lib/utils';
-import { fmtUSD } from '../../shared/lib/format';
+import { fmtUSD, fmtDateLarga } from '../../shared/lib/format';
+import { sePuedeElegir } from '../../shared/lib/importacion';
 import { Button, IconButton, Input, MoneyInput, Badge, Menu, Spinner } from '../../shared/components/UI';
-import { GripVertical, Image as ImageIcon, Upload, ChevronDown, Receipt, Send, RefreshCw, ExternalLink, Copy, Trash, Info, TriangleAlert, Loader } from '../../shared/components/Icons';
+import { GripVertical, Image as ImageIcon, Upload, ChevronDown, Receipt, Send, RefreshCw, ExternalLink, Copy, Trash, Info, TriangleAlert, Loader, BadgeCheck } from '../../shared/components/Icons';
 
 function isBoatTraderUrl(url) {
   return /boattrader\.com|boats\.com/i.test(url || '');
@@ -44,8 +45,10 @@ const aTexto = v => (v === null || v === undefined ? '' : String(v));
 /**
  * Fila del ranking: cabecera (posición, foto, título, estado, selección,
  * acciones) y cuerpo colapsable con la ficha y la matriz de precios.
+ * `elegida` la distingue como la lancha con la que el cliente avanza;
+ * `onMarcarElegida(lk)` abre el modal de elección con esta fila.
  */
-export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl, onCotizar, onEnviarDesglose, dragHandlers }) {
+export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl, onCotizar, onEnviarDesglose, dragHandlers, elegida = false, eleccion = null, onMarcarElegida }) {
   const fileRef = useRef(null);
   const lk = link;
   const [scraping, setScraping] = useState(false);
@@ -195,6 +198,11 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
     lk.url ? { label: 'Abrir el anuncio', icon: ExternalLink, href: lk.url.startsWith('http') ? lk.url : 'https://' + lk.url } : null,
     { label: 'Copiar el link', icon: Copy, onClick: copyUrl, disabled: !lk.url },
     { label: lk.image_url ? 'Cambiar la foto' : 'Subir una foto', icon: Upload, onClick: () => fileRef.current?.click() },
+    // La lancha con la que el cliente avanza (lo dijo por WhatsApp o correo).
+    onMarcarElegida && (lk.url || '').trim() ? { separator: true } : null,
+    onMarcarElegida && (lk.url || '').trim()
+      ? { label: elegida ? 'Editar la elección' : 'Marcar como elegida', icon: BadgeCheck, onClick: () => onMarcarElegida(lk), disabled: !elegida && !sePuedeElegir(lk) }
+      : null,
     { separator: true },
     { label: 'Eliminar esta opción', icon: Trash, tone: 'danger', onClick: () => onDelete(lk.id) },
   ];
@@ -203,11 +211,11 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
     <article
       data-link-id={lk.id || ''}
       draggable
-      aria-label={`Opción ${idx + 1}: ${title}`}
+      aria-label={`Opción ${idx + 1}: ${title}${elegida ? ' (elegida)' : ''}`}
       aria-busy={scraping || undefined}
       className={cn(
         'rounded-lg border bg-surface shadow-card transition-colors duration-150',
-        scrapeIncompleto && !enCola ? 'border-warning-line' : 'border-line',
+        elegida ? 'border-brand-500 ring-1 ring-brand-500/40' : scrapeIncompleto && !enCola ? 'border-warning-line' : 'border-line',
         scraping && 'opacity-70',
       )}
       {...dragHandlers}
@@ -240,6 +248,12 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
         <div className="flex-1 min-w-0 basis-40">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
             <h3 className="text-sm font-semibold text-ink-900 truncate max-w-full">{title}</h3>
+            {elegida && (
+              <Badge tone="brand" size="sm" title={eleccion?.at ? `Elegida el ${fmtDateLarga(eleccion.at, { hora: true })}` : undefined}>
+                <BadgeCheck size={12} />
+                {eleccion?.by === 'equipo' ? 'Elegida' : 'Elegida por el cliente'}{eleccion?.at ? ` · ${fmtDateLarga(eleccion.at)}` : ''}
+              </Badge>
+            )}
             {scraping ? (
               <Badge tone="info" size="sm"><Spinner inline size="sm" label="Extrayendo datos" className="text-info" /> Extrayendo datos…</Badge>
             ) : enCola ? (
