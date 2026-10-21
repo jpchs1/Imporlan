@@ -243,3 +243,29 @@ export const DESCRIPCION_DESDE_USA = 'Desde Estados Unidos';
 export function esDesdeUsa(file) {
   return (file?.description || '').trim() === DESCRIPCION_DESDE_USA;
 }
+
+/**
+ * El Pago 1 que el servidor crea solo al elegir (impPlanPago1): sólo con la
+ * cotización PUBLICADA. En el admin las filas traen el plan aunque esté en
+ * análisis, así que aquí se exige `quote_published_at`. { n, pct, clp } o null.
+ */
+export function pago1AlElegir(link) {
+  if (!link?.quote_published_at) return null;
+  const plan = planDePagos(link);
+  return plan.find(p => p.n === 1) || null;
+}
+
+/** Un hito por su id (null si no existe). */
+export function hitoPorId(id) {
+  return HITOS.find(h => h.id === id) || null;
+}
+
+/**
+ * Operación en EE. UU. (api/operador_usa.php): los hitos que hace el
+ * operador allá. Después de éstos, lo que sigue es en Chile.
+ */
+export const HITOS_USA = ['disponibilidad', 'inspeccion', 'compra', 'transporte'];
+
+/** Archivos que subió el operador de EE. UU. (uploaded_by y description). */
+export const ORIGEN_ARCHIVO_USA = 'operador_usa';
+export const DESCRIPCION_ARCHIVO_USA = DESCRIPCION_DESDE_USA;

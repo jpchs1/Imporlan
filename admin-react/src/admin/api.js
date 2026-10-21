@@ -94,13 +94,26 @@ export const notifyRanking = (orderId, authorName) =>
   request(`${API_BASE}/orders_api.php?action=notify_ranking`, { method: 'POST', body: JSON.stringify({ order_id: parseInt(orderId), author_name: authorName, author_role: 'admin' }) });
 
 // Importación: la lancha elegida y sus hitos (reglas en api/eleccion_lancha.php).
-// link_id 0 quita la elección; cambiar de lancha borra los hitos.
-export const chooseLinkAdmin = (orderId, linkId, { inspection = false, note = '', notifyClient = false } = {}) =>
+// link_id 0 quita la elección; cambiar de lancha borra los hitos. Con
+// request_pago1 el servidor crea el cobro del Pago 1 desde la cotización
+// publicada y lo devuelve en `pago1` (null si no hay cotización publicada).
+export const chooseLinkAdmin = (orderId, linkId, { inspection = false, note = '', notifyClient = false, requestPago1 = true } = {}) =>
   request(`${API_BASE}/orders_api.php?action=admin_choose_link`, {
     method: 'POST',
-    body: JSON.stringify({ order_id: orderId, link_id: linkId, inspection, note, notify_client: notifyClient }),
+    body: JSON.stringify({ order_id: orderId, link_id: linkId, inspection, note, notify_client: notifyClient, request_pago1: !!requestPago1 }),
     timeoutMs: 45000,
   });
+
+// Operación en EE. UU. (api/operador_usa.php): el feed de David, pedirle una
+// actualización, compartirla con el cliente y renovar su link privado. Sólo
+// admin y support. Pedir y compartir mandan correo: plazo largo.
+export const getOperacionUsa = (orderId) => request(`${API_BASE}/operador_usa.php?r=admin_estado&order_id=${orderId}`);
+export const pedirActualizacionUsa = (orderId, message = '') =>
+  request(`${API_BASE}/operador_usa.php?r=admin_pedir`, { method: 'POST', body: JSON.stringify({ order_id: orderId, message }), timeoutMs: 45000 });
+export const compartirActualizacionUsa = (updateId, text) =>
+  request(`${API_BASE}/operador_usa.php?r=admin_compartir`, { method: 'POST', body: JSON.stringify({ update_id: updateId, text }), timeoutMs: 45000 });
+export const nuevoLinkUsa = (orderId) =>
+  request(`${API_BASE}/operador_usa.php?r=admin_nuevo_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
 export const setImportStep = (orderId, step, done, notifyClient = false) =>
   request(`${API_BASE}/orders_api.php?action=admin_set_import_step`, {
     method: 'POST',

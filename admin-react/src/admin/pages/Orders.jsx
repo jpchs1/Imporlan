@@ -8,6 +8,7 @@ import { useBreadcrumb } from '../../shared/lib/page-meta';
 import { fmtCLP } from '../../shared/lib/utils';
 import { cobrosDelExpediente, hitosDe } from '../../shared/lib/importacion';
 import { enviarDesglose } from '../desglose';
+import { esEquipoChile } from '../config';
 import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
 import ListaExpedientes from './orders/ListaExpedientes';
 import DetalleExpediente from './orders/DetalleExpediente';
@@ -27,6 +28,9 @@ export default function Orders() {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
+  // Admin y soporte cobran, comparten con el cliente y llevan la operación en
+  // EE. UU.; el rol agente ve el expediente sin contacto del cliente ni cobros.
+  const equipoChile = esEquipoChile(user?.role);
   const [orders, setOrders] = useState([]);
   const [conteos, setConteos] = useState({});
   const [loading, setLoading] = useState(true);
@@ -154,7 +158,8 @@ export default function Orders() {
       setDetail(order);
       setLinks(JSON.parse(JSON.stringify(order.links || [])));
       setCobros([]);
-      cargarCobros(order.id, order.customer_email);
+      // El agente no ve cobros (y payment_requests_api se lo negaría).
+      if (equipoChile) cargarCobros(order.id, order.customer_email);
       setForm({
         customer_phone: order.customer_phone || '',
         service_type: order.service_type || 'plan_busqueda',
@@ -571,11 +576,26 @@ export default function Orders() {
     if (!unsaved) setLinks(JSON.parse(JSON.stringify(orden.links || [])));
   }
 
-  async function handleElegirLancha({ linkId, inspection, note, notify }) {
+  // Al marcar (o cambiar) la lancha, el servidor crea solo el cobro del Pago 1
+  // desde la cotización publicada (`request_pago1`) y lo devuelve en `pago1`.
+  async function handleElegirLancha({ linkId, inspection, note, notify, requestPago1 = true }) {
     try {
-      const r = await chooseLinkAdmin(detail.id, linkId, { inspection, note, notifyClient: notify });
-      toast?.(r?.notified ? 'Lancha elegida guardada. Avisamos al cliente por correo.' : 'Lancha elegida guardada', 'success');
+      const r = await chooseLinkAdmin(detail.id, linkId, { inspection, note, notifyClient: notify, requestPago1 });
+      const p1 = r?.pago1;
+      const avisado = r?.notified ? ' Avisamos al cliente por correo.' : '';
+      if (!equipoChile) {
+        toast?.('Lancha elegida guardada.' + avisado, 'success');
+      } else if (p1?.creado) {
+        toast?.({ type: 'success', title: 'Lancha elegida guardada.' + avisado, description: `Pago 1 creado: ${fmtCLP(p1.amount_clp)}${p1.pct ? ` (${p1.pct}%)` : ''}. El cliente lo ve en Pagos.` });
+      } else if (p1) {
+        toast?.({ type: 'success', title: 'Lancha elegida guardada.' + avisado, description: `El Pago 1 ya existía (${fmtCLP(p1.amount_clp)}, ${p1.status === 'paid' ? 'pagado' : 'pendiente'}).` });
+      } else if (requestPago1) {
+        toast?.({ type: 'success', title: 'Lancha elegida guardada.' + avisado, description: 'Sin cotización publicada: crea el Pago 1 cuando la publiques.' });
+      } else {
+        toast?.('Lancha elegida guardada.' + avisado, 'success');
+      }
       await recargarDetalle();
+      cargarCobros(detail.id, detail.customer_email);
       return true;
     } catch (e) {
       toast?.(e.message || 'No se pudo guardar la elección', 'error');
@@ -585,10 +605,14 @@ export default function Orders() {
 
   async function handleQuitarEleccion() {
     const hechos = hitosDe(detail?.eleccion).filter(h => h.hecho).length;
+    const detalle = [
+      ...(hechos ? [`Se borran ${hechos} hito${hechos === 1 ? '' : 's'} marcado${hechos === 1 ? '' : 's'}.`] : []),
+      ...(equipoChile ? ['Los cobros quedan, salvo el Pago 1 pendiente, que se anula. A la operación en EE. UU. se le avisa que pare.'] : []),
+    ];
     if (!(await confirm({
       title: '¿Quitar la lancha elegida?',
       description: 'El expediente vuelve a quedar sin elección y la etapa se recalcula. Al cliente no se le avisa por correo.',
-      detail: hechos ? [`Se borran ${hechos} hito${hechos === 1 ? '' : 's'} marcado${hechos === 1 ? '' : 's'}. Los cobros quedan.`] : undefined,
+      detail: detalle.length ? detalle : undefined,
       tone: 'danger',
       confirmLabel: 'Quitar elección',
     }))) return;
@@ -596,6 +620,8 @@ export default function Orders() {
       await chooseLinkAdmin(detail.id, 0);
       toast?.('Elección quitada');
       await recargarDetalle();
+      // El Pago 1 pendiente se anula en el servidor al quitar la elección.
+      cargarCobros(detail.id, detail.customer_email);
     } catch (e) { toast?.(e.message || 'No se pudo quitar la elección', 'error'); }
   }
 
@@ -746,7 +772,8 @@ export default function Orders() {
       importacion={{
         cobros,
         cargandoCobros,
-        puedeCobrar: ['admin', 'support'].includes(user?.role),
+        puedeCobrar: equipoChile,
+        operacionUsa: equipoChile,
         onElegir: handleElegirLancha,
         onQuitar: handleQuitarEleccion,
         onHito: handleHito,

@@ -5,11 +5,14 @@ import { ArrowLeft, SquarePen, Mail, Bell, RefreshCw, Trash } from '../../../sha
  * Barra sticky del detalle: Volver · título · estado · "Cambios sin guardar" ·
  * Guardar (único primario) · menú ⋯ con el resto (Eliminar sólo ahí).
  */
-export default function BarraAcciones({ detail, unsaved, saving, rescraping, rescrapeProgress, onBack, onSave, onChangeStatus, onSendClient, onNotifyRanking, onRescrape, onDelete }) {
+export default function BarraAcciones({ detail, unsaved, saving, rescraping, rescrapeProgress, onBack, onSave, onChangeStatus, onSendClient, onNotifyRanking, onRescrape, onDelete, contactoOculto = false }) {
+  // Los correos al cliente los manda el equipo en Chile, no el agente de EE. UU.
   const items = [
     { label: 'Cambiar estado', icon: SquarePen, onClick: onChangeStatus },
-    { label: 'Enviar actualización al cliente', icon: Mail, onClick: onSendClient },
-    { label: 'Notificar ranking al cliente', icon: Bell, onClick: onNotifyRanking },
+    ...(contactoOculto ? [] : [
+      { label: 'Enviar actualización al cliente', icon: Mail, onClick: onSendClient },
+      { label: 'Notificar ranking al cliente', icon: Bell, onClick: onNotifyRanking },
+    ]),
     { label: rescraping ? `Rescrapeando ${rescrapeProgress}…` : 'Rescrapear los links', icon: RefreshCw, onClick: onRescrape, disabled: rescraping },
     { separator: true },
     { label: 'Eliminar expediente', icon: Trash, tone: 'danger', onClick: onDelete },

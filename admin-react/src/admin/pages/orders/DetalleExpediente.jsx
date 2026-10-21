@@ -8,6 +8,7 @@ import LinkRow from '../../components/LinkRow';
 import QuoteModal from '../../components/QuoteModal';
 import ReportsSection from '../../components/ReportsSection';
 import FilesSection from '../../components/FilesSection';
+import { useExpedienteFiles } from '../../components/useExpedienteFiles';
 import { STATUS_OPTIONS } from './constantes';
 import BarraAcciones from './BarraAcciones';
 import FormularioExpediente from './FormularioExpediente';
@@ -18,6 +19,7 @@ const SECCIONES = [
   { id: 'datos', label: 'Datos' },
   { id: 'etapa', label: 'Etapa' },
   { id: 'importacion', label: 'Importación' },
+  { id: 'operacion-usa', label: 'EE. UU.', soloConEleccion: true, soloEquipoChile: true },
   { id: 'ranking', label: 'Ranking' },
   { id: 'reportes', label: 'Reportes' },
   { id: 'archivos', label: 'Archivos' },
@@ -25,22 +27,26 @@ const SECCIONES = [
 
 /* Anclas laterales (≥ xl). Con HashRouter un <a href="#id"> cambiaría de ruta,
    así que se desplaza con scrollIntoView. */
-function Anclas() {
+function Anclas({ conEleccion, equipoChile }) {
   const [activa, setActiva] = useState('datos');
+  const secciones = SECCIONES.filter(s => (!s.soloConEleccion || conEleccion) && (!s.soloEquipoChile || equipoChile));
+  const ids = secciones.map(s => s.id).join(',');
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;
     const obs = new IntersectionObserver((entries) => {
       const visibles = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
       if (visibles[0]) setActiva(visibles[0].target.id);
     }, { rootMargin: '-140px 0px -60% 0px', threshold: 0 });
-    SECCIONES.forEach(s => { const el = document.getElementById(s.id); if (el) obs.observe(el); });
-    return () => obs.disconnect();
-  }, []);
+    // Se observa al montar y cada vez que aparece o desaparece una sección
+    // (la de EE. UU. nace con la elección y se pinta tras cargar).
+    const t = setTimeout(() => ids.split(',').forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el); }), 300);
+    return () => { clearTimeout(t); obs.disconnect(); };
+  }, [ids]);
   const ir = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   return (
     <nav aria-label="Secciones del expediente" className="sticky top-[calc(var(--topbar-h)+72px)]">
       <ul className="space-y-0.5">
-        {SECCIONES.map(s => (
+        {secciones.map(s => (
           <li key={s.id}>
             <button
               type="button"
@@ -75,12 +81,18 @@ export default function DetalleExpediente(p) {
   const [modalEleccion, setModalEleccion] = useState(null);
   const abrirEleccion = (lk) => setModalEleccion({ linkId: lk?.id ?? null });
 
+  // Los archivos se piden una vez y los comparten Archivos y «Operación en
+  // EE. UU.» (las miniaturas de cada actualización salen de aquí por id).
+  const archivos = useExpedienteFiles(detail?.id);
+
   if (loading || !detail) return <Skeleton.Detail />;
 
   const hayVacias = links.some(l => !l.url && !l.make && !l.model && !l.image_url);
   const conUrl = links.filter(l => (l.url || '').trim()).length;
   const eleccion = detail.eleccion || null;
   const etapaEleccion = etapaPorEleccion(eleccion);
+  // El rol agente (operación en EE. UU.) no ve el contacto del cliente ni cobra.
+  const equipoChile = importacion.puedeCobrar !== false;
 
   return (
     <div>
@@ -97,13 +109,14 @@ export default function DetalleExpediente(p) {
         onNotifyRanking={onNotifyRanking}
         onRescrape={onRescrape}
         onDelete={onDeleteOrder}
+        contactoOculto={!equipoChile}
       />
 
       <div className="xl:grid xl:grid-cols-[150px_minmax(0,1fr)] xl:gap-8">
-        <aside className="hidden xl:block"><Anclas /></aside>
+        <aside className="hidden xl:block"><Anclas conEleccion={!!eleccion} equipoChile={equipoChile} /></aside>
 
         <div className="min-w-0 space-y-4">
-          <FormularioExpediente detail={detail} form={form} setForm={setForm} setUnsaved={setUnsaved} />
+          <FormularioExpediente detail={detail} form={form} setForm={setForm} setUnsaved={setUnsaved} contactoOculto={!equipoChile} />
 
           <Card id="etapa" className="scroll-mt-32">
             <Card.Header title="Etapa del proceso" description="La etapa actual se muestra en el panel del cliente." />
@@ -128,6 +141,7 @@ export default function DetalleExpediente(p) {
             importacion={importacion}
             onMarcarElegida={abrirEleccion}
             onCotizar={onCotizar}
+            archivos={archivos}
           />
 
           <Card id="ranking" className="scroll-mt-32">
@@ -212,7 +226,7 @@ export default function DetalleExpediente(p) {
           </div>
 
           <div id="archivos" className="scroll-mt-32">
-            <FilesSection orderId={detail.id} />
+            <FilesSection orderId={detail.id} archivos={archivos} />
           </div>
         </div>
       </div>
@@ -250,6 +264,7 @@ export default function DetalleExpediente(p) {
           eleccion={eleccion}
           linkIdInicial={modalEleccion.linkId}
           onConfirmar={importacion.onElegir}
+          puedeCobrar={equipoChile}
         />
       )}
     </div>
