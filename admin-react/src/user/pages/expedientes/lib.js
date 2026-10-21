@@ -83,6 +83,19 @@ export function tituloEmbarcacion(link) {
   return (l.title || '').trim() || armado || motor || 'Embarcación sin identificar';
 }
 
+/** Ficha en una línea: año · ubicación · horas · motor (si no repite el título). */
+export function specsEmbarcacion(link) {
+  const l = link || {};
+  const title = tituloEmbarcacion(l);
+  const motor = (l.engine || '').trim();
+  return [
+    l.year && String(l.year),
+    l.location,
+    l.hours && `${l.hours} h de uso`,
+    motor && motor !== title && motor,
+  ].filter(Boolean);
+}
+
 export function estaVendida(link) {
   return link?.link_status === 'sold' || link?.link_status === 'unavailable';
 }
@@ -134,6 +147,11 @@ export function whatsappExpediente(order) {
   const texto = encodeURIComponent(`Hola, tengo una consulta sobre expediente #${order?.order_number || ''}`);
   const tel = (order?.agent_phone || '').replace(/[^0-9]/g, '');
   return `https://wa.me/${tel || WA_SOPORTE}?text=${texto}`;
+}
+
+/** Ruta a Pagos que abre directo el modal de ese cobro (Payments.jsx lee `pagar`). */
+export function rutaPagar(cobro) {
+  return `/payments?pagar=${encodeURIComponent(cobro.id)}`;
 }
 
 export function esImagen(f) {

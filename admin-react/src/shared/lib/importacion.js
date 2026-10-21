@@ -10,7 +10,12 @@
  * En la lista del cliente trae además `title` e `image_url`.
  */
 
-/** Hitos que marca el equipo, en orden (mismas claves que impHitos()). */
+/**
+ * Hitos que marca el equipo, en orden (mismas claves que impHitos()).
+ *   label / corto   el hito ya hecho («Compra cerrada»)
+ *   enCurso         la frase mientras se hace
+ *   enCursoCorto    lo mismo en dos o tres palabras, para un chip
+ */
 export const HITOS = [
   {
     id: 'disponibilidad',
@@ -18,6 +23,7 @@ export const HITOS = [
     corto: 'Disponibilidad confirmada',
     etapa: 3,
     enCurso: 'Tu agente está confirmando con el vendedor que la lancha sigue disponible y el precio final.',
+    enCursoCorto: 'Confirmando disponibilidad',
   },
   {
     id: 'inspeccion',
@@ -26,6 +32,7 @@ export const HITOS = [
     etapa: 3,
     soloConInspeccion: true,
     enCurso: 'Estamos coordinando la inspección técnica. Te mandamos el reporte antes de comprar.',
+    enCursoCorto: 'Coordinando la inspección',
   },
   {
     id: 'compra',
@@ -33,6 +40,7 @@ export const HITOS = [
     corto: 'Compra cerrada',
     etapa: 4,
     enCurso: 'Estamos cerrando la compra con el vendedor, a tu nombre.',
+    enCursoCorto: 'Cerrando la compra',
   },
   {
     id: 'transporte',
@@ -40,6 +48,7 @@ export const HITOS = [
     corto: 'En camino',
     etapa: 5,
     enCurso: 'Estamos coordinando el transporte de la lancha a Chile.',
+    enCursoCorto: 'Coordinando el transporte',
   },
   {
     id: 'aduana',
@@ -47,6 +56,7 @@ export const HITOS = [
     corto: 'En aduana',
     etapa: 5,
     enCurso: 'La lancha llega a Chile y pasa por aduana para la internación.',
+    enCursoCorto: 'En aduana',
   },
   {
     id: 'entrega',
@@ -54,6 +64,7 @@ export const HITOS = [
     corto: 'Entregada',
     etapa: 5,
     enCurso: 'Coordinamos contigo la entrega.',
+    enCursoCorto: 'Coordinando la entrega',
   },
 ];
 
@@ -69,6 +80,28 @@ export function hitosDe(eleccion) {
 /** El primer hito sin hacer (el que está «en curso»), o null si están todos. */
 export function hitoEnCurso(eleccion) {
   return hitosDe(eleccion).find(h => !h.hecho) || null;
+}
+
+/** La lancha elegida dentro de `order.links`, o null. */
+export function linkElegido(order) {
+  const id = Number(order?.eleccion?.link_id);
+  if (!id) return null;
+  return (order?.links || []).find(l => Number(l.id) === id) || null;
+}
+
+/**
+ * Lo que sigue en la importación, en orden de prioridad: si hay un cobro por
+ * pagar es lo primero (le toca al cliente); si no, el hito en curso (lo hace
+ * el agente); si no queda nada, está entregada.
+ *   { tipo: 'pago', pago }  ·  { tipo: 'hito', hito }  ·  { tipo: 'listo' }
+ * `pagos` es el resultado de pagosConCobros (o null si no hay plan).
+ */
+export function queSigue(eleccion, pagos) {
+  const porPagar = [...(pagos?.pagos || []).filter(p => p.estado === 'por_pagar'), ...(pagos?.otros || []).filter(r => r.status === 'pending').map(r => ({ n: null, cobro: r, estado: 'por_pagar' }))];
+  if (porPagar.length) return { tipo: 'pago', pago: porPagar[0] };
+  const hito = hitoEnCurso(eleccion);
+  if (hito) return { tipo: 'hito', hito };
+  return { tipo: 'listo' };
 }
 
 /** Costo referencial de la inspección técnica según eslora (el mismo de siempre). */

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { cn } from '../../../shared/lib/utils';
-import { Badge, IconButton, Menu } from '../../../shared/components/UI';
-import { ChevronUp, ChevronDown, GripVertical, ExternalLink, Copy, ClipboardCheck, Image, MessageSquareText, WhatsAppIcon } from '../../../shared/components/Icons';
+import { Badge, Button, IconButton, Menu } from '../../../shared/components/UI';
+import { ChevronUp, ChevronDown, GripVertical, ExternalLink, Copy, ClipboardCheck, Image, MessageSquareText, Check, WhatsAppIcon } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import MatrizPrecios from './MatrizPrecios';
 import ResumenCotizacion from './ResumenCotizacion';
 import BotonEnlace from './BotonEnlace';
-import { tituloEmbarcacion, fuenteAnuncio, urlAbsoluta, estaVendida } from './lib';
+import { tituloEmbarcacion, specsEmbarcacion, fuenteAnuncio, urlAbsoluta, estaVendida } from './lib';
 
 function ordinal(n) {
   return `${n}.ª`;
@@ -16,24 +16,21 @@ function ordinal(n) {
  * Una embarcación del ranking: foto con el puesto, ficha en una línea, la
  * nota del agente, los precios a la derecha y la cotización debajo.
  * Reordenar: flechas (teclado) y arrastre en escritorio.
+ *
+ * Elegir: `onElegir` pone el botón «Elegir esta lancha» (primario) o, si ya
+ * hay otra elegida y se puede cambiar, «Cambiar a esta lancha» (secundario,
+ * `modoCambio`). `elegida` marca la tarjeta como «Tu elección», sin botón.
  */
-export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onRequestInspection, onPreviewImage }) {
+export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onRequestInspection, onPreviewImage, onElegir, elegida = false, modoCambio = false }) {
   const toast = useToast();
   const [imgError, setImgError] = useState(false);
   const [imgRetry, setImgRetry] = useState(0);
 
   const vendida = estaVendida(link);
   const title = tituloEmbarcacion(link);
-  const motor = (link.engine || '').trim();
-  const mostrarMotor = motor && motor !== title;
   const fuente = fuenteAnuncio(link.url);
   const url = urlAbsoluta(link.url);
-  const specs = [
-    link.year && String(link.year),
-    link.location,
-    link.hours && `${link.hours} h de uso`,
-    mostrarMotor && motor,
-  ].filter(Boolean);
+  const specs = specsEmbarcacion(link);
   const puedeOrdenar = !!(onMoveUp || onMoveDown);
   const tituloPuesto = `Puesto ${index + 1} en tu ranking` + (link.selection_order ? ` · Agregada ${ordinal(link.selection_order)} por Imporlan` : '');
   const hayFoto = link.image_url && !imgError;
@@ -58,10 +55,11 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
   return (
     <article
       draggable={!!dragHandlers}
-      aria-label={`${index + 1}. ${title}`}
+      aria-label={`${index + 1}. ${title}${elegida ? ' (tu elección)' : ''}`}
       className={cn(
-        'relative flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 shadow-card transition-colors duration-150 sm:flex-row sm:gap-4',
-        vendida ? 'bg-canvas' : 'hover:border-ink-400',
+        'relative flex flex-col gap-3 rounded-lg border bg-surface p-4 shadow-card transition-colors duration-150 sm:flex-row sm:gap-4',
+        elegida ? 'border-brand-600' : 'border-line',
+        vendida ? 'bg-canvas' : !elegida && 'hover:border-ink-400',
         dragHandlers && 'sm:cursor-grab sm:active:cursor-grabbing',
       )}
       {...dragHandlers}
@@ -117,6 +115,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
             <div className="flex items-start justify-between gap-3">
               <h4 className={cn('text-base font-semibold leading-6 line-clamp-2', vendida ? 'text-ink-500' : 'text-ink-900')} title={title}>{title}</h4>
               {vendida && <Badge tone="neutral" className="shrink-0">{link.link_status === 'sold' ? 'Vendida' : 'No disponible'}</Badge>}
+              {elegida && <Badge tone="brand" dot className="shrink-0">Tu elección</Badge>}
             </div>
             {(specs.length > 0 || fuente) && (
               <p className="mt-1 text-13 text-ink-500">
@@ -134,6 +133,11 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
+              {onElegir && !elegida && (
+                <Button size="sm" variant={modoCambio ? 'secondary' : 'primary'} icon={Check} onClick={() => onElegir(link)}>
+                  {modoCambio ? 'Cambiar a esta lancha' : 'Elegir esta lancha'}
+                </Button>
+              )}
               {url && <BotonEnlace href={url} size="sm" icon={ExternalLink}>Ver anuncio</BotonEnlace>}
               {acciones.length > 0 && <Menu items={acciones} label={`Más acciones de ${title}`} />}
             </div>

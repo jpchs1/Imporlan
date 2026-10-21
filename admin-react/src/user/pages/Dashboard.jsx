@@ -5,14 +5,21 @@ import { getMyOrders, getMyPaymentRequests, getMyConversations, getNotifications
 import { cn } from '../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../shared/lib/format';
 import { Card, Button, SectionTitle, PageHeader, Money, StatusBadge, ProcessStepper, EmptyState, ErrorState, Skeleton, Callout } from '../../shared/components/UI';
-import { CreditCard, MessageCircle, File, FolderOpen, CircleCheck, WhatsAppIcon, ChevronRight } from '../../shared/components/Icons';
+import { CreditCard, MessageCircle, File, FolderOpen, CircleCheck, WhatsAppIcon, ChevronRight, Ship } from '../../shared/components/Icons';
+import { hitoEnCurso } from '../../shared/lib/importacion';
 import DeckevaPromo from '../components/DeckevaPromo';
 import { BotonEnlace } from './inicio/BotonEnlace';
 import { WA_AYUDA } from './inicio/whatsapp';
 import { FilaNotificacion } from './inicio/FilaNotificacion';
 import { esDocumento, abrirNotificacion } from './inicio/notificaciones';
+import { LanchaElegida } from './expedientes/TarjetaExpediente';
 
 const CERRADOS = new Set(['completed', 'canceled', 'cancelled', 'expired']);
+
+/** Expedientes abiertos con una lancha elegida: la importación en curso. */
+function importacionesActivas(ordenes) {
+  return ordenes.filter(o => o.eleccion && !CERRADOS.has(o.status));
+}
 
 /** Carga independiente por sección: cada bloque pinta apenas llega su dato. */
 function useCarga(fn, vacio) {
@@ -86,17 +93,35 @@ function Pendiente({ icon, tone = 'neutral', title, meta, right, children }) {
 }
 
 /**
+ * La importación en curso (lancha elegida): qué sigue, en una línea. Si hay
+ * un cobro pendiente de ese expediente, ya aparece arriba como pago; aquí va
+ * el hito que está haciendo el agente, para que el cliente sepa en qué va.
+ */
+function FilaImportacion({ o }) {
+  const hito = hitoEnCurso(o.eleccion);
+  return (
+    <Pendiente
+      icon={Ship}
+      tone="brand"
+      title={`Tu importación: ${o.eleccion.title || o.asset_name || o.order_number}`}
+      meta={hito ? hito.enCurso : 'Tu lancha fue entregada.'}
+      right={<BotonEnlace to={`/expedientes?id=${o.id}`} size="sm">Ver avance</BotonEnlace>}
+    />
+  );
+}
+
+/**
  * `fuentes`: pagos, conversaciones y alertas, cada una con su `error` y su
  * `recargar`. «Estás al día» sólo se afirma cuando las tres respondieron
  * bien; si alguna falló se dice y se ofrece reintentar, sin esconder lo que
  * sí llegó.
  */
-function QueHacerAhora({ pagos, conversaciones, notificaciones, cargando, fuentes }) {
+function QueHacerAhora({ pagos, conversaciones, notificaciones, importaciones, cargando, fuentes }) {
   const pendientes = pagos.filter(p => p.status === 'pending');
   const sinLeer = conversaciones.filter(c => Number(c.unread_count || 0) > 0);
   const mensajesSinLeer = sinLeer.reduce((s, c) => s + Number(c.unread_count || 0), 0);
   const docsNuevos = notificaciones.filter(n => !n.read_at && esDocumento(n));
-  const items = pendientes.length + (mensajesSinLeer > 0 ? 1 : 0) + docsNuevos.length;
+  const items = pendientes.length + (mensajesSinLeer > 0 ? 1 : 0) + docsNuevos.length + importaciones.length;
   const fallidas = fuentes.filter(f => f.error);
   const reintentar = () => fallidas.forEach(f => f.recargar());
 
@@ -144,6 +169,7 @@ function QueHacerAhora({ pagos, conversaciones, notificaciones, cargando, fuente
                   Y {pendientes.length - 3} {pendientes.length - 3 === 1 ? 'pago pendiente más' : 'pagos pendientes más'} en <Link to="/payments" className="font-medium text-brand-600 hover:text-brand-700">Pagos</Link>.
                 </li>
               )}
+              {importaciones.map(o => <FilaImportacion key={o.id} o={o} />)}
               {mensajesSinLeer > 0 && (
                 <Pendiente
                   icon={MessageCircle}
@@ -184,12 +210,13 @@ function TarjetaExpediente({ o }) {
   const titulo = o.asset_name || o.requirement_name || o.plan_name || `Expediente ${o.order_number || ''}`.trim();
   const etapa = Number(o.timeline_step) || 1;
   return (
-    <Card as={Link} to="/expedientes" className="block min-w-0 hover:border-ink-400 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" aria-label={`${o.order_number || 'Expediente'}: ${titulo}`}>
+    <Card as={Link} to={`/expedientes?id=${o.id}`} className="block min-w-0 hover:border-ink-400 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" aria-label={`${o.order_number || 'Expediente'}: ${titulo}`}>
       <div className="flex items-start justify-between gap-3">
         <p className="eyebrow truncate">{[o.order_number, o.plan_name].filter(Boolean).join(' · ')}</p>
         <StatusBadge kind="expediente" status={o.status} size="sm" />
       </div>
       <p className="mt-1 text-base font-semibold text-ink-900 leading-6 line-clamp-2">{titulo}</p>
+      {o.eleccion && !cerrado && <LanchaElegida eleccion={o.eleccion} className="mt-3" />}
       <div className="mt-4">
         {cerrado ? (
           <p className="text-13 text-ink-500">Cerrado · {fmtDateLarga(o.updated_at || o.created_at)}</p>
@@ -210,11 +237,15 @@ function TarjetaExpediente({ o }) {
 }
 
 function TusExpedientes({ ordenes, cargando, error, recargar }) {
+  // Primero las importaciones en curso (lancha elegida), después el resto de
+  // los activos por fecha, y al final los cerrados.
   const lista = useMemo(() => {
     const t = (o) => new Date(o.updated_at || o.created_at || 0).getTime() || 0;
-    const activos = ordenes.filter(o => !CERRADOS.has(o.status)).sort((a, b) => t(b) - t(a));
-    const cerrados = ordenes.filter(o => CERRADOS.has(o.status)).sort((a, b) => t(b) - t(a));
-    return [...activos, ...cerrados].slice(0, 3);
+    const porFecha = (a, b) => t(b) - t(a);
+    const importando = importacionesActivas(ordenes).sort(porFecha);
+    const activos = ordenes.filter(o => !CERRADOS.has(o.status) && !o.eleccion).sort(porFecha);
+    const cerrados = ordenes.filter(o => CERRADOS.has(o.status)).sort(porFecha);
+    return [...importando, ...activos, ...cerrados].slice(0, 3);
   }, [ordenes]);
 
   return (
@@ -315,6 +346,7 @@ export default function Dashboard() {
         pagos={pagos.data}
         conversaciones={conversaciones.data}
         notificaciones={notifs}
+        importaciones={importacionesActivas(ordenes.data)}
         cargando={pagos.loading || conversaciones.loading || notificaciones.loading}
         fuentes={[
           { nombre: 'pagos', error: pagos.error, recargar: pagos.recargar },
