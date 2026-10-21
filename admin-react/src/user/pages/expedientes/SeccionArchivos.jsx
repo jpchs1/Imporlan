@@ -2,6 +2,7 @@ import { fmtDate } from '../../../shared/lib/utils';
 import { fmtDateLarga, fmtBytes } from '../../../shared/lib/format';
 import { Card, DataTable, Callout, Badge } from '../../../shared/components/UI';
 import { Eye, Download, Video, File } from '../../../shared/components/Icons';
+import { esDesdeUsa } from '../../../shared/lib/importacion';
 import BotonEnlace from './BotonEnlace';
 import { esImagen, esVideo } from './lib';
 
@@ -20,21 +21,25 @@ function Acciones({ f }) {
 }
 
 /**
- * Archivos que el equipo subió al expediente: fotos como galería (abren el
- * visor), videos y documentos como lista con Ver / Descargar.
+ * Archivos del expediente: fotos como galería (abren el visor), videos y
+ * documentos como lista con Ver / Descargar. Incluye lo que sube el equipo y
+ * las fotos y videos que llegan desde Estados Unidos (`id` permite llegar
+ * aquí desde «Ver todos» de Tu importación).
  */
-export default function SeccionArchivos({ files, onPreview }) {
+export default function SeccionArchivos({ files, onPreview, id }) {
   if (!files?.length) return null;
   const imagenes = files.filter(esImagen);
   const otros = files.filter(f => !esImagen(f));
   // La descripción que el equipo escribe al subir un lote queda en cada
   // archivo del lote; se muestra la primera, venga de una foto, un video o un
-  // documento (un lote solo de fotos también trae nota).
-  const nota = files.find(f => f.description)?.description;
+  // documento (un lote solo de fotos también trae nota). La marca «Desde
+  // Estados Unidos» no es una nota del equipo: se muestra en cada archivo.
+  const nota = files.find(f => f.description && !esDesdeUsa(f))?.description;
+  const deUsa = files.filter(esDesdeUsa).length;
 
   return (
-    <Card>
-      <Card.Header title={`Documentos y fotos (${files.length})`} description="Lo que el equipo subió a este expediente." />
+    <Card id={id} className={id ? 'scroll-mt-20' : undefined}>
+      <Card.Header title={`Documentos y fotos (${files.length})`} description={deUsa > 0 ? `Lo que el equipo subió a este expediente y lo que llega desde Estados Unidos (${deUsa}).` : 'Lo que el equipo subió a este expediente.'} />
       {(nota || imagenes.length > 0) && (
         <Card.Body className="space-y-5">
           {nota && <Callout tone="info" compact>{nota}</Callout>}
@@ -52,7 +57,9 @@ export default function SeccionArchivos({ files, onPreview }) {
                     >
                       <img src={f.download_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </button>
-                    <p className="mt-1 truncate text-xs text-ink-500" title={f.original_name}>{f.original_name}</p>
+                    <p className="mt-1 truncate text-xs text-ink-500" title={esDesdeUsa(f) ? `${f.original_name} · Desde Estados Unidos` : f.original_name}>
+                      {esDesdeUsa(f) && <span className="font-medium text-ink-700">EE. UU. · </span>}{f.original_name}
+                    </p>
                   </li>
                 ))}
               </ul>

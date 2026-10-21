@@ -9,17 +9,26 @@ import ResumenCotizacion from './ResumenCotizacion';
 import MatrizPrecios from './MatrizPrecios';
 import AvanceImportacion from './AvanceImportacion';
 import PlanDePagos from './PlanDePagos';
-import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, etapaDe, rutaPagar } from './lib';
+import { Novedades, GaleriaUsa } from './NovedadesImportacion';
+import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, etapaDe, rutaPagar, archivosDesdeUsa } from './lib';
 
 /**
  * «Tu importación»: lo primero que ve el cliente cuando ya eligió. Arriba,
  * qué sigue en una frase (si hay un cobro por pagar, eso manda); después la
- * lancha elegida, su avance (hitos + pagos) y el plan de pagos. Todo sale de
- * shared/lib/importacion.js; aquí solo se pinta.
+ * lancha elegida, su avance (hitos + pagos); luego las novedades que
+ * compartió el equipo y las fotos y videos que llegan desde Estados Unidos
+ * (`novedades` y `files` del expediente); al final, el plan de pagos. Todo
+ * sale de shared/lib/importacion.js; aquí solo se pinta.
  */
-export default function TuImportacion({ order, link, eleccion, requests, onCambiar, onDeshacer, deshaciendo, onPreviewImage }) {
+export default function TuImportacion({ order, link, eleccion, requests, novedades, files, onCambiar, onDeshacer, deshaciendo, onPreviewImage, onPreviewFiles }) {
   const [verCotizacion, setVerCotizacion] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const desdeUsa = archivosDesdeUsa(files);
+  const hayNovedades = (novedades || []).some(n => (n.text || '').trim());
+
+  function irAArchivos() {
+    document.getElementById('archivos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   const title = link ? tituloEmbarcacion(link) : (eleccion.title || 'Tu lancha');
   const specs = link ? specsEmbarcacion(link) : [];
@@ -144,6 +153,15 @@ export default function TuImportacion({ order, link, eleccion, requests, onCambi
           <AvanceImportacion eleccion={eleccion} pagos={pagos} tituloLancha={title} agente={agente} className="min-w-0" />
         </div>
       </Card.Body>
+
+      {(hayNovedades || desdeUsa.length > 0) && (
+        <Card.Body className="border-t border-line">
+          <div className={cn('grid grid-cols-1 gap-8', hayNovedades && desdeUsa.length > 0 && 'lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]')}>
+            {hayNovedades && <Novedades novedades={novedades} files={files} onPreview={onPreviewFiles} className="min-w-0" />}
+            {desdeUsa.length > 0 && <GaleriaUsa archivos={desdeUsa} onPreview={onPreviewFiles} onVerTodos={irAArchivos} className="min-w-0" />}
+          </div>
+        </Card.Body>
+      )}
 
       {(pagos.pagos.length > 0 || pagos.otros.length > 0) && (
         <Card.Body className="border-t border-line">
