@@ -6,17 +6,21 @@ import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, Rot
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
 import ModalCobro from './ModalCobro';
 import ModalHito from './ModalHito';
+import OperacionUsa from './OperacionUsa';
 
 /**
  * Importación: la lancha elegida (por el cliente desde su panel, o marcada
- * por el equipo cuando lo dijo por WhatsApp), los hitos que marca el equipo
- * y los cobros del plan de pagos de la cotización. Lo que se marca aquí lo
- * ve el cliente en «Tu importación».
+ * por el equipo cuando lo dijo por WhatsApp), los hitos que marca el equipo,
+ * los cobros del plan de pagos de la cotización y la operación en EE. UU.
+ * (lo que manda David). Lo que se marca aquí lo ve el cliente en «Tu
+ * importación».
  *
- * `importacion` viene del contenedor (Orders.jsx): cobros del expediente y
- * los handlers que hablan con la API.
+ * `importacion` viene del contenedor (Orders.jsx): cobros del expediente,
+ * los handlers que hablan con la API y qué puede ver el rol. El agente
+ * (operación en EE. UU.) ve la lancha y los hitos, nada de cobros ni del
+ * bloque de EE. UU. (es él quien manda esas actualizaciones).
  */
-export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar }) {
+export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
   const link = eleccion ? links.find(l => l.id === eleccion.link_id) : null;
   const [modalCobro, setModalCobro] = useState(null); // { pago } · { manual: true }
@@ -28,14 +32,15 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const plan = planDePagos(link);
   const { pagos, otros } = pagosConCobros(plan, importacion.cobros);
   const precio = precioChile(link);
-  const puedeCobrar = importacion.puedeCobrar !== false;
-  const sinPermiso = puedeCobrar ? undefined : 'Sólo administradores y soporte pueden crear cobros';
+  const equipoChile = importacion.puedeCobrar !== false;
 
   return (
     <Card id="importacion" className="scroll-mt-32">
       <Card.Header
         title="Importación"
-        description="La lancha elegida, los hitos y los cobros. El cliente lo ve en su panel como «Tu importación»."
+        description={equipoChile
+          ? 'La lancha elegida, los hitos, los cobros y lo que manda la operación en EE. UU. El cliente lo ve en su panel como «Tu importación».'
+          : 'La lancha elegida y los hitos. El cliente lo ve en su panel como «Tu importación».'}
         actions={eleccion ? (
           <>
             <Button variant="secondary" size="sm" icon={Pencil} onClick={() => onMarcarElegida(link || { id: eleccion.link_id })}>Cambiar</Button>
@@ -122,14 +127,15 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               </ol>
             </section>
 
-            {/* ── Cobros ── */}
+            {/* ── Cobros (sólo el equipo en Chile) ── */}
+            {equipoChile && (
             <section aria-labelledby="importacion-cobros">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
                 <h3 id="importacion-cobros" className="eyebrow flex items-center gap-2">
                   Cobros
                   {importacion.cargandoCobros && <Spinner inline size="sm" label="Cargando cobros" />}
                 </h3>
-                <Button size="sm" variant="ghost" icon={Plus} onClick={() => setModalCobro({ manual: true })} disabled={!puedeCobrar} title={sinPermiso}>Cobro manual</Button>
+                <Button size="sm" variant="ghost" icon={Plus} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
               </div>
 
               {plan.length === 0 ? (
@@ -150,7 +156,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       clp={p.clp}
                       cobro={p.cobro}
                       accion={p.estado === 'por_cobrar'
-                        ? <Button size="sm" variant="secondary" icon={Receipt} onClick={() => setModalCobro({ pago: p })} disabled={!puedeCobrar} title={sinPermiso}>Crear cobro</Button>
+                        ? <Button size="sm" variant="secondary" icon={Receipt} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
                         : <MenuCobro cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}
@@ -181,6 +187,12 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 </div>
               )}
             </section>
+            )}
+
+            {/* ── Operación en EE. UU. (sólo el equipo en Chile) ── */}
+            {equipoChile && importacion.operacionUsa !== false && (
+              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} />
+            )}
           </>
         )}
       </Card.Body>

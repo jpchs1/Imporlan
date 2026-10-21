@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getExpedienteFiles, deleteExpedienteFile, uploadExpedienteFiles } from '../api';
+import { useState } from 'react';
+import { deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { fmtBytes } from '../../shared/lib/format';
+import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA } from '../../shared/lib/importacion';
 import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
 import { Upload, Eye, Download, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
+import { useExpedienteFiles, categoriaArchivo } from './useExpedienteFiles';
 
 function fileCategory(mime) {
-  if (!mime) return 'other';
-  if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
-  if (mime === 'application/pdf' || mime.includes('word') || mime.includes('excel') || mime.includes('sheet') || mime.includes('presentation') || mime.includes('text')) return 'document';
-  return 'other';
+  return categoriaArchivo({ mime_type: mime });
 }
 
 const CATS = {
@@ -21,30 +19,34 @@ const CATS = {
   other:    { icon: FileIcon,  label: 'Archivo' },
 };
 
-export default function FilesSection({ orderId }) {
+/* De dónde viene y quién lo ve: «Desde EE. UU.» si lo subió el operador de
+   allá; «Sólo equipo» si el cliente no lo ve (sus PDF, hasta que se comparten). */
+export function ChipsArchivo({ f, size = 'sm' }) {
+  const deUsa = f.uploaded_by === ORIGEN_ARCHIVO_USA;
+  const interno = f.visible_to_client !== undefined && f.visible_to_client !== null && Number(f.visible_to_client) === 0;
+  if (!deUsa && !interno) return null;
+  return (
+    <>
+      {deUsa && <Badge tone="info" size={size} title="Lo subió el operador de EE. UU.">Desde EE. UU.</Badge>}
+      {interno && <Badge tone="neutral" size={size} title="El cliente no lo ve">Sólo equipo</Badge>}
+    </>
+  );
+}
+
+/**
+ * Archivos del expediente. `archivos` es lo que devuelve useExpedienteFiles
+ * (lo comparte el detalle con «Operación en EE. UU.»); sin él, los pide solo.
+ */
+export default function FilesSection({ orderId, archivos }) {
   const toast = useToast();
   const confirm = useConfirm();
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const propios = useExpedienteFiles(archivos ? null : orderId);
+  const { files, loading, recargar: loadFiles } = archivos || propios;
   const [showUpload, setShowUpload] = useState(false);
   const [pending, setPending] = useState([]);
   const [description, setDescription] = useState('');
   const [notifyClient, setNotifyClient] = useState(true);
   const [uploading, setUploading] = useState(false);
-
-  const loadFiles = useCallback(async () => {
-    if (!orderId) return;
-    try {
-      const data = await getExpedienteFiles(orderId);
-      setFiles(data.success && data.files ? data.files : []);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  }, [orderId]);
-
-  useEffect(() => {
-    const t = setTimeout(loadFiles, 0);
-    return () => clearTimeout(t);
-  }, [loadFiles]);
 
   function handleFilesSelected(fileList) {
     setPending(Array.from(fileList));
@@ -97,7 +99,11 @@ export default function FilesSection({ orderId }) {
             <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>
             <div className="min-w-0">
               <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
-              {f.description && <p className="text-xs text-ink-500 truncate">{f.description}</p>}
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
+                <ChipsArchivo f={f} />
+                {/* La descripción fija del operador repite el chip: no se pinta dos veces. */}
+                {f.description && !(f.uploaded_by === ORIGEN_ARCHIVO_USA && f.description === DESCRIPCION_ARCHIVO_USA) && <span className="truncate">{f.description}</span>}
+              </p>
             </div>
           </div>
         );
@@ -126,7 +132,7 @@ export default function FilesSection({ orderId }) {
       <Card>
         <Card.Header
           title="Archivos"
-          description="Documentos, fotos y videos que el cliente ve en su expediente."
+          description="Documentos, fotos y videos del expediente. El cliente ve todos salvo los marcados «Sólo equipo»."
           actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
         />
         <DataTable
@@ -145,6 +151,7 @@ export default function FilesSection({ orderId }) {
               <div className="min-w-0">
                 <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
                 <p className="text-13 text-ink-500">{cat.label} · {f.file_size_formatted || fmtBytes(f.file_size)} · {fmtDate(f.created_at)}</p>
+                <p className="flex flex-wrap gap-1.5 mt-1 empty:hidden"><ChipsArchivo f={f} /></p>
                 <a href={f.download_url} download className="inline-flex items-center gap-1 mt-1.5 text-13 font-medium text-brand-600 hover:underline"><Download size={14} /> Descargar</a>
               </div>
             );

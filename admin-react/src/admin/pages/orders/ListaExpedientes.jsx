@@ -55,7 +55,8 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
       cell: r => (
         <div className="min-w-0">
           <p className="font-medium text-ink-900 truncate">{r.customer_name || '—'}</p>
-          <p className="text-xs text-ink-500 truncate">{r.customer_email}</p>
+          {/* El rol agente recibe el correo vacío (no ve el contacto del cliente). */}
+          {r.customer_email && <p className="text-xs text-ink-500 truncate">{r.customer_email}</p>}
         </div>
       ),
     },

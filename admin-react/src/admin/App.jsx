@@ -76,9 +76,11 @@ function RoleRoute({ path, children }) {
 }
 
 // Chats sin leer en el menú lateral (cada 30 s, sólo con la pestaña visible).
-function useChatUnread() {
+// Un rol sin Chat en el menú no consulta (el servidor igual se lo negaría).
+function useChatUnread(conChat) {
   const [n, setN] = useState(0);
   useEffect(() => {
+    if (!conChat) return;
     let alive = true;
     const tick = () => {
       if (document.hidden) return;
@@ -88,7 +90,7 @@ function useChatUnread() {
     const id = setInterval(tick, 30000);
     document.addEventListener('visibilitychange', tick);
     return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', tick); };
-  }, []);
+  }, [conChat]);
   return n;
 }
 
@@ -105,8 +107,8 @@ function SessionExpiredNotice() {
 
 function AdminLayout() {
   const { user } = useAuth();
-  const chatUnread = useChatUnread();
   const navItems = navItemsFor(user?.role);
+  const chatUnread = useChatUnread(navItems.some(n => n.to === '/chat'));
   // Paleta de comandos (⌘K / Ctrl K): buscador en el topbar en escritorio,
   // ícono en móvil; solo navega a las secciones que el rol puede ver.
   const paleta = useCommandPalette();
