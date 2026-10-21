@@ -320,7 +320,7 @@ function impAnularPago1Pendiente($orderId, $motivo) {
 // (operación en EE. UU.) no la ve, y sólo el equipo la descarga.
 
 /** Versión vigente de los Términos (la fecha de «Última actualización» de la página). */
-define('IMP_TERMINOS_VERSION', '2026-06-19');
+define('IMP_TERMINOS_VERSION', '2026-10-21');
 define('IMP_TERMINOS_URL', 'https://www.imporlan.cl/terminos-y-condiciones/');
 
 /** Campos del formulario: clave => [etiqueta, máximo de caracteres]. Todos obligatorios. */
