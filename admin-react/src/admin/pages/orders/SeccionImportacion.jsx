@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, EmptyState, Spinner } from '../../../shared/components/UI';
-import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck } from '../../../shared/components/Icons';
+import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet } from '../../../shared/components/Icons';
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
+import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
 import ModalCobro from './ModalCobro';
 import ModalHito from './ModalHito';
+import ModalNoApta from './ModalNoApta';
 import OperacionUsa from './OperacionUsa';
 import DatosCliente from './DatosCliente';
 
@@ -21,12 +23,18 @@ import DatosCliente from './DatosCliente';
  * (operación en EE. UU.) ve la lancha y los hitos, nada de cobros, de los
  * datos del cliente ni del bloque de EE. UU. (es él quien manda esas
  * actualizaciones).
+ *
+ * La inspección tiene dos salidas: «Marcar hecho» (= apta, crea el Pago 2) y
+ * «Marcar no apta» (ModalNoApta, sólo admin y soporte). Con no apta el hito
+ * queda en advertencia —no en error: el cliente se ahorró un problema— y él
+ * elige otra lancha o pide la devolución del Pago 1.
  */
 export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
   const link = eleccion ? links.find(l => l.id === eleccion.link_id) : null;
   const [modalCobro, setModalCobro] = useState(null); // { pago } · { manual: true }
   const [modalHito, setModalHito] = useState(null);   // el hito a marcar
+  const [modalNoApta, setModalNoApta] = useState(false);
 
   const hitos = hitosDe(eleccion);
   const enCurso = hitoEnCurso(eleccion);
@@ -35,6 +43,11 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const { pagos, otros } = pagosConCobros(plan, importacion.cobros);
   const precio = precioChile(link);
   const equipoChile = importacion.puedeCobrar !== false;
+  const noApta = inspeccionNoApta(eleccion);
+  const devolucion = devolucionPedida(eleccion);
+  const puedeNoApta = equipoChile && typeof importacion.onInspeccionResultado === 'function';
+  const pago1 = pagos.find(p => p.n === 1) || null;
+  const pago1Pagado = pago1?.estado === 'pagado' ? pago1 : null;
 
   return (
     <Card id="importacion" className="scroll-mt-32">
@@ -78,6 +91,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <h3 className="text-sm font-semibold text-ink-900">{link ? tituloLancha(link) : 'Lancha elegida'}</h3>
                   <Badge tone={eleccion.inspection ? 'info' : 'neutral'} size="sm">{eleccion.inspection ? 'Con inspección' : 'Sin inspección'}</Badge>
+                  {noApta && <Badge tone="warning" dot size="sm">No apta según inspección</Badge>}
                   {link?.link_status === 'sold' && <Badge tone="danger" size="sm">Vendida</Badge>}
                 </div>
                 <p className="text-13 text-ink-500 mt-0.5">
@@ -96,6 +110,38 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 )}
               </div>
             </div>
+
+            {/* ── Inspección no apta: qué espera la operación. Sólo el equipo en
+                   Chile (lleva montos); el detalle y la nota van en el hito. ── */}
+            {equipoChile && noApta && !devolucion && (
+              <Callout tone="warning" compact title="La inspección recomendó no comprar esta lancha: el cliente decide">
+                Puede elegir otra del ranking —su Pago 1{pago1Pagado ? ` (${fmtCLP(pago1Pagado.clp)}, pagado)` : ''} se abona a la nueva— o pedir la devolución. A David le pedimos pausar esta lancha. Lo ve en su panel{eleccion.inspection_result_at ? ` desde el ${fmtDateLarga(eleccion.inspection_result_at)}` : ''}.
+              </Callout>
+            )}
+
+            {/* ── El cliente pidió la devolución del Pago 1. Anular o devolver
+                   el cobro sigue siendo a mano, en Cobros. ── */}
+            {equipoChile && devolucion && (
+              <Callout
+                tone="warning"
+                icon={Wallet}
+                title={`El cliente pidió la devolución del Pago 1 el ${fmtDateLarga(eleccion.refund_requested_at)}`}
+                action={pago1Pagado && (
+                  <Button size="sm" variant="secondary" onClick={() => document.getElementById('importacion-cobros')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Ir a Cobros</Button>
+                )}
+              >
+                {pago1Pagado ? (
+                  <>
+                    Pagó <span className="font-semibold text-ink-900 tabular">{fmtCLP(pago1Pagado.clp)}</span>
+                    {pago1Pagado.cobro?.paid_at ? ` el ${fmtDateLarga(pago1Pagado.cobro.paid_at)}` : ''}
+                    {pago1Pagado.cobro?.payment_method ? ` (${paymentMethodLabel(pago1Pagado.cobro.payment_method)})` : ''}.
+                    {' '}Se devuelve descontando los costos de terceros ya incurridos, como la inspección (Términos, cláusula 5). Contáctalo para coordinarla; el cobro se marca a mano en Cobros.
+                  </>
+                ) : (
+                  <>El Pago 1 no estaba pagado: el cobro pendiente se anuló solo y no hay nada que devolver. Desde su panel ya no puede elegir otra lancha; si quiere retomar, márcala tú desde «Cambiar».</>
+                )}
+              </Callout>
+            )}
           </>
         )}
 
@@ -111,28 +157,63 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
             <section aria-labelledby="importacion-hitos">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
                 <h3 id="importacion-hitos" className="eyebrow">Hitos · {hechos} de {hitos.length}</h3>
-                <span className="text-xs text-ink-500">{enCurso ? <>En curso: <span className="text-ink-700 font-medium">{enCurso.corto}</span></> : 'Importación completa'}</span>
+                <span className="text-xs text-ink-500">
+                  {noApta
+                    ? <>En pausa: <span className="text-warning font-medium">inspección no apta</span></>
+                    : enCurso ? <>En curso: <span className="text-ink-700 font-medium">{enCurso.corto}</span></> : 'Importación completa'}
+                </span>
               </div>
-              <ol className="rounded-md border border-line divide-y divide-line">
+              <ol className="rounded-md border border-line divide-y divide-line overflow-hidden">
                 {hitos.map(h => {
-                  const actual = enCurso?.id === h.id;
-                  const Icono = h.hecho ? CircleCheck : actual ? CircleDot : Circle;
+                  // Con no apta, el hito de inspección es el protagonista en
+                  // advertencia y nada más está «en curso»: la operación espera
+                  // al cliente (otra lancha o devolución).
+                  const esNoApta = noApta && h.id === 'inspeccion';
+                  const actual = !noApta && enCurso?.id === h.id;
+                  const Icono = h.hecho ? CircleCheck : esNoApta ? TriangleAlert : actual ? CircleDot : Circle;
+                  const esInspeccionPendiente = !h.hecho && !esNoApta && h.id === 'inspeccion';
                   return (
-                    <li key={h.id} className="flex items-center gap-3 px-3 py-2">
-                      <Icono size={18} className={cn('shrink-0', h.hecho ? 'text-success' : actual ? 'text-brand-600' : 'text-ink-400')} />
+                    <li key={h.id} className={cn('flex gap-3 px-3 py-2', esNoApta ? 'items-start bg-warning-bg' : 'items-center')}>
+                      <Icono size={18} className={cn('shrink-0', esNoApta && 'mt-0.5', h.hecho ? 'text-success' : esNoApta ? 'text-warning' : actual ? 'text-brand-600' : 'text-ink-400')} />
                       <div className="flex-1 min-w-0">
-                        <p className={cn('text-sm', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}</p>
-                        <p className="text-xs text-ink-500 tabular">
-                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? 'En curso' : 'Pendiente'}
+                        <p className={cn('text-sm', h.hecho ? 'text-ink-700' : esNoApta || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>
+                          {esNoApta ? 'Inspección técnica: no apta' : h.label}
                         </p>
+                        <p className="text-xs text-ink-500 tabular">
+                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}`
+                            : esNoApta ? <>No apta{eleccion.inspection_result_at ? ` · ${fmtDateLarga(eleccion.inspection_result_at)}` : ''} · {devolucion ? 'el cliente pidió la devolución del Pago 1' : 'el cliente elige otra lancha o pide la devolución'}</>
+                            : actual ? (esInspeccionPendiente && puedeNoApta ? 'En curso · si el reporte recomienda no comprar, márcala no apta desde el menú' : 'En curso')
+                            : 'Pendiente'}
+                        </p>
+                        {esNoApta && eleccion.inspection_note && (
+                          <blockquote className="mt-1.5 text-sm text-ink-700 border-l-2 border-warning bg-surface rounded-r-md px-3 py-2">
+                            «{eleccion.inspection_note}»
+                            <span className="block text-xs text-ink-500 mt-0.5">Lo que le contamos al cliente</span>
+                          </blockquote>
+                        )}
                       </div>
                       {h.hecho ? (
                         <Menu
                           label={`Acciones del hito ${h.corto}`}
                           items={[{ label: 'Desmarcar', icon: RotateCw, onClick: () => importacion.onHito(h, false, false) }]}
                         />
+                      ) : esNoApta ? (
+                        puedeNoApta ? (
+                          <Menu
+                            label={`Acciones del hito ${h.corto}`}
+                            items={[{ label: 'Deshacer no apta', icon: RotateCw, onClick: () => importacion.onInspeccionResultado(null) }]}
+                          />
+                        ) : null
                       ) : (
-                        <Button size="sm" variant="secondary" icon={Check} onClick={() => setModalHito(h)} className="shrink-0">Marcar hecho</Button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="secondary" icon={Check} onClick={() => setModalHito(h)}>Marcar hecho</Button>
+                          {esInspeccionPendiente && puedeNoApta && (
+                            <Menu
+                              label={`Más acciones del hito ${h.corto}`}
+                              items={[{ label: 'Marcar no apta', icon: TriangleAlert, onClick: () => setModalNoApta(true) }]}
+                            />
+                          )}
+                        </div>
                       )}
                     </li>
                   );
@@ -227,6 +308,16 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
           hito={modalHito}
           eleccion={eleccion}
           onConfirmar={importacion.onHito}
+          puedeNoApta={puedeNoApta}
+        />
+      )}
+      {modalNoApta && (
+        <ModalNoApta
+          open
+          onClose={() => setModalNoApta(false)}
+          link={link}
+          pago1={pago1}
+          onConfirmar={importacion.onInspeccionResultado}
         />
       )}
     </Card>

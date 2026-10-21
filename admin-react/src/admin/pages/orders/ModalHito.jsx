@@ -8,8 +8,11 @@ import { etapaPorEleccion, pagoQueGatilla } from '../../../shared/lib/importacio
  * con el interruptor «Avisar al cliente por correo» (encendido). Dice si
  * la etapa del expediente se mueve con este hito y si crea el Pago 2 o el
  * Pago 3 (JP: inspección aprobada / lancha en el puerto de EE. UU.).
+ *
+ * `puedeNoApta`: en el hito de inspección, recuerda que marcarlo hecho es
+ * «apta» y que el otro resultado va por «Marcar no apta» (admin y soporte).
  */
-export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar }) {
+export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, puedeNoApta = false }) {
   const [notify, setNotify] = useState(true);
   const [guardando, setGuardando] = useState(false);
   if (!hito) return null;
@@ -47,6 +50,11 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar }
           <span className="font-medium text-ink-900">{hito.label}.</span> Queda con la fecha de hoy y el cliente lo ve en su importación.
           {mueve && <> La etapa del expediente pasa a <span className="font-medium text-ink-900">{mueve}</span>.</>}
         </p>
+        {hito.id === 'inspeccion' && puedeNoApta && (
+          <p className="text-13 text-ink-500">
+            Marcarlo hecho significa que la inspección fue favorable (apta). Si el reporte recomienda no comprar, cancela y usa «Marcar no apta» en el menú del hito.
+          </p>
+        )}
         {nPago > 0 && (
           <Callout tone="info" compact title={`Se crea el Pago ${nPago}`}>
             Con el % y el monto de la cotización publicada (si ya existe un cobro del Pago {nPago}, no se crea otro). El cliente lo ve en Pagos de su panel.

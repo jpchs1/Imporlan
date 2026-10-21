@@ -22,9 +22,10 @@ function ordinal(n) {
  * `modoCambio`). `elegida` marca la tarjeta como «Tu elección», sin botón.
  * `onElegirConInspeccion` va en el menú «⋯»: abre el mismo asistente con la
  * inspección técnica preseleccionada (no es un cobro aparte: va incluida en
- * la operación).
+ * la operación). `noApta` marca la lancha que la inspección recomendó no
+ * comprar: queda como referencia, sin botón para elegirla.
  */
-export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, elegida = false, modoCambio = false }) {
+export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, elegida = false, modoCambio = false, noApta = false }) {
   const toast = useToast();
   const [imgError, setImgError] = useState(false);
   const [imgRetry, setImgRetry] = useState(0);
@@ -49,20 +50,21 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
       .catch(() => toast?.('No pudimos copiar el link', 'error'));
   }
 
+  const puedeElegir = !!onElegir && !elegida && !noApta;
   const acciones = [
     link.url && { label: 'Copiar link del anuncio', icon: Copy, onClick: copiar },
     link.url && { label: 'Compartir por WhatsApp', icon: WhatsAppIcon, href: `https://wa.me/?text=${encodeURIComponent(link.url)}` },
-    onElegir && !elegida && onElegirConInspeccion && { label: 'Elegir con inspección técnica', icon: ClipboardCheck, onClick: () => onElegirConInspeccion(link) },
+    puedeElegir && onElegirConInspeccion && { label: 'Elegir con inspección técnica', icon: ClipboardCheck, onClick: () => onElegirConInspeccion(link) },
   ].filter(Boolean);
 
   return (
     <article
       draggable={!!dragHandlers}
-      aria-label={`${index + 1}. ${title}${elegida ? ' (tu elección)' : ''}`}
+      aria-label={`${index + 1}. ${title}${noApta ? ' (no apta según inspección)' : elegida ? ' (tu elección)' : ''}`}
       className={cn(
         'relative flex flex-col gap-3 rounded-lg border bg-surface p-4 shadow-card transition-colors duration-150 sm:flex-row sm:gap-4',
-        elegida ? 'border-brand-600' : 'border-line',
-        vendida ? 'bg-canvas' : !elegida && 'hover:border-ink-400',
+        noApta ? 'border-warning-line' : elegida ? 'border-brand-600' : 'border-line',
+        vendida || noApta ? 'bg-canvas' : !elegida && 'hover:border-ink-400',
         dragHandlers && 'sm:cursor-grab sm:active:cursor-grabbing',
       )}
       {...dragHandlers}
@@ -90,7 +92,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
               key={imgRetry}
               src={link.image_url + (imgRetry ? `?r=${imgRetry}` : '')}
               alt=""
-              className={cn('h-full w-full object-cover', vendida && 'opacity-60 grayscale')}
+              className={cn('h-full w-full object-cover', (vendida || noApta) && 'opacity-60 grayscale')}
               onError={handleImgError}
               loading="lazy"
             />
@@ -116,9 +118,10 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
         <div className="@2xl:grid @2xl:grid-cols-[minmax(0,1fr)_320px] @2xl:items-start @2xl:gap-x-5">
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
-              <h4 className={cn('text-base font-semibold leading-6 line-clamp-2', vendida ? 'text-ink-500' : 'text-ink-900')} title={title}>{title}</h4>
+              <h4 className={cn('text-base font-semibold leading-6 line-clamp-2', vendida || noApta ? 'text-ink-500' : 'text-ink-900')} title={title}>{title}</h4>
               {vendida && <Badge tone="neutral" className="shrink-0">{link.link_status === 'sold' ? 'Vendida' : 'No disponible'}</Badge>}
-              {elegida && <Badge tone="brand" dot className="shrink-0">Tu elección</Badge>}
+              {elegida && !noApta && <Badge tone="brand" dot className="shrink-0">Tu elección</Badge>}
+              {noApta && <Badge tone="warning" dot className="shrink-0">No apta según inspección</Badge>}
             </div>
             {(specs.length > 0 || fuente) && (
               <p className="mt-1 text-13 text-ink-500">
@@ -136,7 +139,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {onElegir && !elegida && (
+              {puedeElegir && (
                 <Button size="sm" variant={modoCambio ? 'secondary' : 'primary'} icon={Check} onClick={() => onElegir(link)}>
                   {modoCambio ? 'Cambiar a esta lancha' : 'Elegir esta lancha'}
                 </Button>

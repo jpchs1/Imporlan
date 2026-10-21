@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage, chooseLinkAdmin, setImportStep, getPaymentRequestsAdmin, createPaymentRequest, updatePaymentRequestStatus } from '../api';
+import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage, chooseLinkAdmin, setImportStep, inspeccionResultado, getPaymentRequestsAdmin, createPaymentRequest, updatePaymentRequestStatus } from '../api';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
 import { useBreadcrumb } from '../../shared/lib/page-meta';
 import { fmtCLP } from '../../shared/lib/utils';
 import { cobrosDelExpediente, hitosDe } from '../../shared/lib/importacion';
+import { devolucionPedida } from '../../shared/lib/inspeccion';
 import { enviarDesglose } from '../desglose';
 import { esEquipoChile } from '../config';
 import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
@@ -650,6 +651,36 @@ export default function Orders() {
     }
   }
 
+  // Inspección no apta (JP): el reporte recomienda no comprar. Marcarla pasa
+  // por ModalNoApta (la nota para el cliente y el aviso); deshacerla, por aquí.
+  // `resultado` = 'no_apta' | null.
+  async function handleInspeccionResultado(resultado, nota = '', notify = false) {
+    if (!resultado && !(await confirm({
+      title: '¿Deshacer «no apta»?',
+      description: 'La inspección vuelve a quedar en curso y el cliente deja de ver las opciones de elegir otra lancha o pedir la devolución. No se le avisa por correo.',
+      detail: devolucionPedida(detail?.eleccion) ? ['También se borra la solicitud de devolución del Pago 1 que hizo el cliente.'] : undefined,
+      tone: 'warning',
+      confirmLabel: 'Deshacer no apta',
+    }))) return false;
+    try {
+      const r = await inspeccionResultado(detail.id, resultado, nota, notify);
+      if (resultado === 'no_apta') {
+        toast?.({
+          type: 'success',
+          title: 'Inspección marcada como no apta.' + (r?.notified ? ' Avisamos al cliente por correo.' : ''),
+          description: 'El cliente puede elegir otra lancha o pedir la devolución. A David le pedimos pausar esta lancha.',
+        });
+      } else {
+        toast?.('«No apta» deshecho: la inspección sigue en curso');
+      }
+      await recargarDetalle();
+      return true;
+    } catch (e) {
+      toast?.(e.message || 'No se pudo guardar el resultado de la inspección', 'error');
+      return false;
+    }
+  }
+
   async function handleCrearCobro(data) {
     try {
       await createPaymentRequest({ ...data, user_email: detail.customer_email, order_id: detail.id });
@@ -782,6 +813,9 @@ export default function Orders() {
         onElegir: handleElegirLancha,
         onQuitar: handleQuitarEleccion,
         onHito: handleHito,
+        // «Marcar no apta» y «Deshacer no apta»: sólo admin y soporte (el
+        // servidor se lo permitiría al agente; el panel no se lo muestra).
+        onInspeccionResultado: equipoChile ? handleInspeccionResultado : null,
         onCrearCobro: handleCrearCobro,
         onEstadoCobro: handleEstadoCobro,
       }}
