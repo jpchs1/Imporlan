@@ -1,0 +1,1 @@
+var e=`+56 9 4021 1459`;function t(e){return`https://wa.me/56940211459${e?`?text=${encodeURIComponent(e)}`:``}`}var n=t(`Hola, necesito ayuda con mi cuenta de Imporlan`);export{e as n,t as r,n as t};

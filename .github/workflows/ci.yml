@@ -56,6 +56,9 @@ jobs:
       - name: Datos para transferir son los de Global66 (no Santander)
         run: php test/datos-bancarios-tests.php
 
+      - name: Elegir la lancha e importar (reglas, acciones y correos)
+        run: php test/eleccion-lancha-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest

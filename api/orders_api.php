@@ -23,6 +23,7 @@ require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/cotizador_helpers.php';
 require_once __DIR__ . '/scraper_locator.php';
+require_once __DIR__ . '/eleccion_lancha.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     require_once __DIR__ . '/cors_helper.php';
@@ -110,6 +111,18 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         case 'admin_send_quote_breakdown':
             requireAdminAuth();
             adminSendQuoteBreakdown();
+            break;
+        case 'user_choose_link':
+            userChooseLink(requireUserAuthShared());
+            break;
+        case 'user_unchoose_link':
+            userUnchooseLink(requireUserAuthShared());
+            break;
+        case 'admin_choose_link':
+            adminChooseLink(requireAdminAuth());
+            break;
+        case 'admin_set_import_step':
+            adminSetImportStep(requireAdminAuth());
             break;
         case 'save_ranking':
             saveRanking();
@@ -274,6 +287,8 @@ function runMigration() {
             $pdo->exec("ALTER TABLE orders ADD COLUMN ranking_updated_at TIMESTAMP NULL AFTER ranking_author_role");
         }
 
+        impAsegurarColumnas($pdo);
+
         echo json_encode(['success' => true, 'message' => 'Tables created/updated successfully']);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -341,6 +356,11 @@ function timelineStepDesdeDatos($order, $tieneLinksConUrl, $inspeccionesCliente)
     if ($step >= 3 && in_array($order['status'] ?? '', ['completed'])) {
         $step = 4;
     }
+
+    // Elegir la lancha la lleva a Inspección o Compra; los hitos de viaje,
+    // aduana y entrega, a Logística (ver eleccion_lancha.php).
+    $porEleccion = impEtapaPorEleccion($order);
+    if ($porEleccion > $step) $step = $porEleccion;
 
     // Step 5: vessel assigned (tracking active)
     if (!empty($order['vessel_id'])) {
@@ -417,6 +437,12 @@ function userListOrders($authPayload = null) {
         // vessel_id lo agrega la migracion de tracking_api.php; puede no existir.
         $columns = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
         $vesselSel = in_array('vessel_id', $columns) ? 'o.vessel_id' : 'NULL AS vessel_id';
+        // La lancha elegida (eleccion_lancha.php): columnas que pueden no existir aún.
+        $eleccionSel = in_array('chosen_link_id', $columns)
+            ? "o.chosen_link_id, o.chosen_at, o.chosen_by, o.chosen_inspection, o.import_steps,
+               (SELECT ol.title FROM order_links ol WHERE ol.id = o.chosen_link_id AND ol.order_id = o.id) AS chosen_title,
+               (SELECT ol.image_url FROM order_links ol WHERE ol.id = o.chosen_link_id AND ol.order_id = o.id) AS chosen_image"
+            : 'NULL AS chosen_link_id, NULL AS chosen_title, NULL AS chosen_image';
 
         // Los links con URL se cuentan en la misma consulta (subconsulta
         // correlacionada sobre order_links) para que la etapa efectiva de
@@ -425,7 +451,7 @@ function userListOrders($authPayload = null) {
             SELECT o.id, o.order_number, o.customer_email, o.customer_name, o.customer_phone,
                    o.plan_name, o.requirement_name, o.asset_name, o.type_zone, o.service_type,
                    o.agent_name, o.agent_phone, o.status, o.timeline_step, o.created_at, o.updated_at,
-                   $vesselSel,
+                   $vesselSel, $eleccionSel,
                    (SELECT COUNT(*) FROM order_links l WHERE l.order_id = o.id AND l.url IS NOT NULL AND l.url <> '') AS links_con_url
             FROM orders o
             $where
@@ -446,7 +472,13 @@ function userListOrders($authPayload = null) {
         foreach ($orders as &$o) {
             $insp = $inspecciones[strtolower(trim((string) ($o['customer_email'] ?? '')))] ?? 0;
             $o['timeline_step'] = timelineStepDesdeDatos($o, intval($o['links_con_url']) > 0, $insp);
-            unset($o['links_con_url'], $o['vessel_id']);
+            $o['eleccion'] = impEleccionPublica($o);
+            if ($o['eleccion']) {
+                $o['eleccion']['title'] = $o['chosen_title'] ?? null;
+                $o['eleccion']['image_url'] = $o['chosen_image'] ?? null;
+            }
+            unset($o['links_con_url'], $o['vessel_id'], $o['chosen_link_id'], $o['chosen_at'], $o['chosen_by'],
+                  $o['chosen_inspection'], $o['import_steps'], $o['chosen_title'], $o['chosen_image']);
         }
         unset($o);
 
@@ -514,6 +546,7 @@ function userGetOrderDetail($authPayload = null) {
 
         // Auto-detect timeline step from real data
         $order['timeline_step'] = computeTimelineStep($pdo, $order);
+        $order['eleccion'] = impEleccionPublica($order);
 
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
@@ -563,11 +596,14 @@ function adminListOrders() {
 
         $whereClause = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
 
+        $cols = $pdo->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        $eleccionSel = in_array('chosen_link_id', $cols) ? ', chosen_link_id, chosen_at' : '';
+
         $stmt = $pdo->prepare("
             SELECT id, order_number, customer_email, customer_name, customer_phone,
                    plan_name, requirement_name, asset_name, type_zone, service_type,
                    agent_name, agent_phone, status, timeline_step, origin, admin_notes,
-                   visible_to_client, purchase_id, created_at, updated_at
+                   visible_to_client, purchase_id, created_at, updated_at $eleccionSel
             FROM orders
             $whereClause
             ORDER BY created_at DESC
@@ -647,6 +683,7 @@ function adminGetOrderDetail() {
 
         // Auto-detect timeline step from real data
         $order['timeline_step'] = computeTimelineStep($pdo, $order);
+        $order['eleccion'] = impEleccionPublica($order);
 
         // Lookup secondary email from user_secondary_emails table
         $order['secondary_email'] = null;
@@ -2508,5 +2545,297 @@ function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
         } catch (\Throwable $e) {
             error_log("autoScrapeAndUpdateOrderLinks: failed for url={$url}: " . $e->getMessage());
         }
+    }
+}
+
+// ============================================================
+// ELEGIR LA LANCHA E IMPORTAR (reglas en eleccion_lancha.php)
+// ============================================================
+
+/** Precio puesto en Chile para los correos: la cotización publicada, o el negociado, o el publicado. */
+function impPrecioChileTexto($link) {
+    $v = 0;
+    if (!empty($link['quote_published_at']) && floatval($link['quote_total_clp'] ?? 0) > 0) $v = floatval($link['quote_total_clp']);
+    elseif (floatval($link['value_chile_negotiated_clp'] ?? 0) > 0) $v = floatval($link['value_chile_negotiated_clp']);
+    elseif (floatval($link['value_chile_clp'] ?? 0) > 0) $v = floatval($link['value_chile_clp']);
+    return $v > 0 ? '$' . number_format($v, 0, ',', '.') . ' CLP' : '';
+}
+
+function impPrimerNombre($order) {
+    $n = trim((string) ($order['customer_name'] ?? ''));
+    if ($n === '') return '';
+    $partes = preg_split('/\s+/u', $n);
+    return $partes[0];
+}
+
+function impLeerLink($pdo, $orderId, $linkId) {
+    if (!$linkId) return null;
+    $st = $pdo->prepare("SELECT * FROM order_links WHERE id = ? AND order_id = ?");
+    $st->execute([intval($linkId), intval($orderId)]);
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+function impResponderError($codigo, $mensaje) {
+    http_response_code($codigo);
+    echo json_encode(['success' => false, 'error' => $mensaje]);
+}
+
+/** Expediente del cliente de la sesión (por correo del token), o null. */
+function impExpedienteDelCliente($pdo, $sesion, $orderId) {
+    $email = is_array($sesion) ? ($sesion['email'] ?? '') : '';
+    if (!$email || !$orderId) return null;
+    $st = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND customer_email = ? AND visible_to_client = 1");
+    $st->execute([intval($orderId), $email]);
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+/** Correos de la elección. Nunca rompen la respuesta: si fallan, queda en el log. */
+function impAvisarEleccion($order, $link, $accion, $por, $conInspeccion, $nota, $antes, $avisarCliente) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $svc = new EmailService();
+        $titulo = impTituloLancha($link);
+        if ($por === 'cliente') {
+            $svc->sendEleccionLanchaEquipo([
+                'accion' => $accion,
+                'cliente' => $order['customer_name'] ?? '',
+                'correo' => $order['customer_email'] ?? '',
+                'order_number' => $order['order_number'] ?? '',
+                'order_id' => $order['id'] ?? 0,
+                'titulo' => $titulo,
+                'url' => $link['url'] ?? '',
+                'con_inspeccion' => $conInspeccion,
+                'precio_chile' => impPrecioChileTexto($link),
+                'nota' => $nota,
+                'antes' => $antes,
+            ]);
+        }
+        if ($accion === 'eligio' && $avisarCliente && !empty($order['customer_email'])) {
+            $svc->sendEleccionLanchaCliente($order['customer_email'], impPrimerNombre($order), [
+                'order_number' => $order['order_number'] ?? '',
+                'order_id' => $order['id'] ?? 0,
+                'titulo' => $titulo,
+                'image_url' => $link['image_url'] ?? '',
+                'con_inspeccion' => $conInspeccion,
+                'precio_chile' => impPrecioChileTexto($link),
+                'por' => $por,
+            ]);
+        }
+    } catch (\Throwable $e) {
+        error_log('impAvisarEleccion: ' . $e->getMessage());
+    }
+}
+
+/**
+ * POST ?action=user_choose_link  { order_id, link_id, inspection: bool, note }
+ * El cliente elige la lancha con la que quiere avanzar.
+ */
+function userChooseLink($sesion, $input = null) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkId = intval($input['link_id'] ?? 0);
+    $conInspeccion = !empty($input['inspection']);
+    $nota = mb_substr(trim((string) ($input['note'] ?? '')), 0, 1000);
+    if (!$orderId || !$linkId) return impResponderError(400, 'Se requiere order_id y link_id');
+
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+
+    try {
+        $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
+        if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
+        $link = impLeerLink($pdo, $orderId, $linkId);
+        $error = impValidarEleccionCliente($order, $link);
+        if ($error) return impResponderError($error[0], $error[1]);
+
+        $antes = null;
+        if (impTieneEleccion($order) && intval($order['chosen_link_id']) !== $linkId) {
+            $antes = impTituloLancha(impLeerLink($pdo, $orderId, $order['chosen_link_id']));
+        }
+
+        $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'cliente', chosen_inspection = ?, chosen_note = ?, import_steps = NULL WHERE id = ?")
+            ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, $orderId]);
+        logOrderEvent($pdo, $orderId, 'lancha_elegida', [
+            'link_id' => $linkId, 'titulo' => impTituloLancha($link), 'inspeccion' => $conInspeccion,
+            'por' => 'cliente', 'antes' => $antes,
+        ], $sesion['sub'] ?? null);
+
+        impAvisarEleccion($order, $link, 'eligio', 'cliente', $conInspeccion, $nota, $antes, true);
+
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        echo json_encode(['success' => true, 'eleccion' => impEleccionPublica($st->fetch(PDO::FETCH_ASSOC))]);
+    } catch (PDOException $e) {
+        error_log('userChooseLink: ' . $e->getMessage());
+        impResponderError(500, 'No pudimos guardar tu elección');
+    }
+}
+
+/**
+ * POST ?action=user_unchoose_link  { order_id }
+ * Deshacer la elección (sólo mientras el equipo no marcó ningún hito).
+ */
+function userUnchooseLink($sesion, $input = null) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    if (!$orderId) return impResponderError(400, 'Se requiere order_id');
+
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+
+    try {
+        $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
+        if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
+        if (!impTieneEleccion($order)) return impResponderError(409, 'No hay una lancha elegida');
+        if (!impClientePuedeCambiar($order)) return impResponderError(409, 'Tu importación ya avanzó. Para cambiar de lancha, habla con tu agente.');
+
+        $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+        $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL WHERE id = ?")
+            ->execute([$orderId]);
+        logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id']), 'titulo' => impTituloLancha($link), 'por' => 'cliente'], $sesion['sub'] ?? null);
+
+        impAvisarEleccion($order, $link ?: [], 'libero', 'cliente', false, '', null, false);
+        echo json_encode(['success' => true, 'eleccion' => null]);
+    } catch (PDOException $e) {
+        error_log('userUnchooseLink: ' . $e->getMessage());
+        impResponderError(500, 'No pudimos deshacer la elección');
+    }
+}
+
+/**
+ * POST ?action=admin_choose_link  { order_id, link_id (0 = quitar), inspection, note, notify_client }
+ * El equipo marca la lancha que el cliente eligió por WhatsApp o correo, la
+ * cambia o la quita. Cambiar de lancha borra los hitos (eran de la otra).
+ */
+function adminChooseLink($admin, $input = null) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    $linkId = intval($input['link_id'] ?? 0);
+    $conInspeccion = !empty($input['inspection']);
+    $nota = mb_substr(trim((string) ($input['note'] ?? '')), 0, 1000);
+    $avisar = !empty($input['notify_client']);
+    if (!$orderId) return impResponderError(400, 'Se requiere order_id');
+
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+
+    try {
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$order) return impResponderError(404, 'Expediente no encontrado');
+        $quien = $admin['email'] ?? $admin['sub'] ?? 'admin';
+
+        if ($linkId === 0) {
+            $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL WHERE id = ?")
+                ->execute([$orderId]);
+            logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id'] ?? 0), 'por' => 'equipo', 'admin' => $quien]);
+            echo json_encode(['success' => true, 'eleccion' => null]);
+            return;
+        }
+
+        $link = impLeerLink($pdo, $orderId, $linkId);
+        if (!$link) return impResponderError(404, 'Esa lancha no está en este expediente');
+        if (trim((string) ($link['url'] ?? '')) === '') return impResponderError(400, 'Esa fila no tiene anuncio');
+
+        $misma = intval($order['chosen_link_id'] ?? 0) === $linkId;
+        if ($misma) {
+            // Misma lancha: sólo se corrige inspección o nota; los hitos quedan.
+            $pdo->prepare("UPDATE orders SET chosen_inspection = ?, chosen_note = ? WHERE id = ?")
+                ->execute([$conInspeccion ? 1 : 0, $nota, $orderId]);
+        } else {
+            $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'equipo', chosen_inspection = ?, chosen_note = ?, import_steps = NULL WHERE id = ?")
+                ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, $orderId]);
+        }
+        logOrderEvent($pdo, $orderId, $misma ? 'eleccion_editada' : 'lancha_elegida', [
+            'link_id' => $linkId, 'titulo' => impTituloLancha($link), 'inspeccion' => $conInspeccion, 'por' => 'equipo', 'admin' => $quien,
+        ]);
+        if (!$misma && $avisar) impAvisarEleccion($order, $link, 'eligio', 'equipo', $conInspeccion, $nota, null, true);
+
+        $st->execute([$orderId]);
+        echo json_encode(['success' => true, 'eleccion' => impEleccionPublica($st->fetch(PDO::FETCH_ASSOC)), 'notified' => !$misma && $avisar]);
+    } catch (PDOException $e) {
+        error_log('adminChooseLink: ' . $e->getMessage());
+        impResponderError(500, 'No se pudo guardar la elección');
+    }
+}
+
+/**
+ * POST ?action=admin_set_import_step  { order_id, step, done: bool, notify_client: bool }
+ * Marca o desmarca un hito de la importación.
+ */
+function adminSetImportStep($admin, $input = null) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    $paso = (string) ($input['step'] ?? '');
+    $hecho = !empty($input['done']);
+    $avisar = !empty($input['notify_client']);
+    $hitos = impHitos();
+    if (!$orderId || !isset($hitos[$paso])) return impResponderError(400, 'Se requiere order_id y un step válido');
+
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+
+    try {
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$order) return impResponderError(404, 'Expediente no encontrado');
+        if (!impTieneEleccion($order)) return impResponderError(409, 'Primero marca la lancha elegida');
+        if (!empty($hitos[$paso]['solo_con_inspeccion']) && empty($order['chosen_inspection'])) {
+            return impResponderError(409, 'Este cliente eligió sin inspección');
+        }
+
+        $pasos = impPasos($order);
+        $yaEstaba = isset($pasos[$paso]);
+        if ($hecho) { if (!$yaEstaba) $pasos[$paso] = date('Y-m-d H:i:s'); } else unset($pasos[$paso]);
+        // Guardar en el orden de impHitos, para que el JSON se lea igual que la lista.
+        $ordenados = [];
+        foreach ($hitos as $k => $_) if (isset($pasos[$k])) $ordenados[$k] = $pasos[$k];
+
+        $pdo->prepare("UPDATE orders SET import_steps = ? WHERE id = ?")
+            ->execute([$ordenados ? json_encode($ordenados) : null, $orderId]);
+        logOrderEvent($pdo, $orderId, $hecho ? 'hito_importacion' : 'hito_importacion_deshecho', [
+            'hito' => $paso, 'admin' => $admin['email'] ?? $admin['sub'] ?? 'admin',
+        ]);
+
+        $notificado = false;
+        if ($hecho && !$yaEstaba && $avisar && !empty($order['customer_email'])) {
+            try {
+                require_once __DIR__ . '/email_service.php';
+                $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+                $hechos = [];
+                foreach ($hitos as $k => $h) {
+                    if (!empty($h['solo_con_inspeccion']) && empty($order['chosen_inspection'])) continue;
+                    $hechos[$h['label']] = isset($ordenados[$k]);
+                }
+                $r = (new EmailService())->sendHitoImportacion($order['customer_email'], impPrimerNombre($order), [
+                    'hito' => $paso,
+                    'hito_label' => $hitos[$paso]['label'],
+                    'titulo' => impTituloLancha($link),
+                    'order_number' => $order['order_number'] ?? '',
+                    'order_id' => $orderId,
+                    'hechos' => ['Lancha elegida' => true] + $hechos,
+                ]);
+                $notificado = !empty($r['success']);
+            } catch (\Throwable $e) {
+                error_log('adminSetImportStep email: ' . $e->getMessage());
+            }
+        }
+
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC);
+        echo json_encode([
+            'success' => true,
+            'eleccion' => impEleccionPublica($order),
+            'notified' => $notificado,
+        ]);
+    } catch (PDOException $e) {
+        error_log('adminSetImportStep: ' . $e->getMessage());
+        impResponderError(500, 'No se pudo guardar el hito');
     }
 }

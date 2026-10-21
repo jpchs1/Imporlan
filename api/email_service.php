@@ -1053,6 +1053,153 @@ BASE64;
      * Public method to send a custom email with arbitrary HTML content.
      * Used by the report generation system to send report notification emails.
      */
+    // ------------------------------------------------------------------
+    // Elegir la lancha e importar (api/eleccion_lancha.php)
+    // ------------------------------------------------------------------
+
+    /**
+     * Al cliente, cuando elige la lancha en el panel (o el equipo la marca
+     * por él). $d: order_number, order_id, titulo, image_url, con_inspeccion,
+     * precio_chile (texto ya formateado o ''), por ('cliente'|'equipo').
+     */
+    public function sendEleccionLanchaCliente($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'tu lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $porEquipo = ($d['por'] ?? 'cliente') === 'equipo';
+        $subject = ($porEquipo ? 'Confirmamos tu lancha: ' : 'Elegiste tu lancha: ') . $titulo . ($orderNumber ? ' · ' . $orderNumber : '') . ' - Imporlan';
+
+        $pasos = ['Tu agente confirma con el vendedor que sigue disponible y el precio final.'];
+        if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica y te mandamos el reporte antes de comprar.';
+        $pasos[] = 'Te enviamos el primer cobro para iniciar la compra, según el plan de pagos de tu cotización.';
+        $pasos[] = 'Compra, transporte, aduana y entrega: lo sigues paso a paso en tu panel.';
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('success', 'Lancha elegida') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">
+                Hola ' . htmlspecialchars($firstName) . ', ' . ($porEquipo
+                    ? 'tal como lo conversamos, avanzamos con esta lancha. Ya quedó registrada en tu expediente.'
+                    : 'quedó registrado que quieres avanzar con esta lancha. Tu agente ya está avisado.') . '
+            </p>'
+            . $this->impImagenLancha($d['image_url'] ?? '', $titulo)
+            . $this->impListaPasos('Lo que sigue', $pasos)
+            . $this->getInfoCard('Resumen', array_filter([
+                'Expediente' => $orderNumber,
+                'Inspección técnica' => !empty($d['con_inspeccion']) ? 'Sí, antes de comprar' : 'No',
+                'Precio puesto en Chile' => (string) ($d['precio_chile'] ?? ''),
+            ], 'strlen'))
+            . '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'eleccion_lancha', ['order_number' => $orderNumber, 'titulo' => $titulo]);
+    }
+
+    /**
+     * Al equipo (contacto@), cuando el cliente elige, cambia o deshace la
+     * elección en el panel. $d: accion ('eligio'|'libero'), cliente, correo,
+     * order_number, order_id, titulo, url, con_inspeccion, precio_chile, nota,
+     * antes (título de la lancha anterior, si cambió).
+     */
+    public function sendEleccionLanchaEquipo($d) {
+        $c = $this->colors;
+        $libero = ($d['accion'] ?? 'eligio') === 'libero';
+        $cliente = (string) (($d['cliente'] ?? '') ?: ($d['correo'] ?? 'El cliente'));
+        $titulo = (string) ($d['titulo'] ?? '');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = $libero
+            ? $cliente . ' deshizo su elección de lancha (' . $orderNumber . ')'
+            : $cliente . ' eligió ' . $titulo . ' (' . $orderNumber . ')';
+
+        $items = ['Cliente' => $cliente, 'Correo' => (string) ($d['correo'] ?? ''), 'Expediente' => $orderNumber, 'Lancha' => $titulo];
+        if (!$libero) {
+            $items['Inspección técnica'] = !empty($d['con_inspeccion']) ? 'Sí, la quiere antes de comprar' : 'No';
+            if (!empty($d['precio_chile'])) $items['Precio puesto en Chile'] = (string) $d['precio_chile'];
+            if (!empty($d['antes'])) $items['Antes había elegido'] = (string) $d['antes'];
+        }
+        $nota = trim((string) ($d['nota'] ?? ''));
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge($libero ? 'warning' : 'success', $libero ? 'Elección deshecha' : 'Lancha elegida') . '</div>
+            <h2 style="margin: 0 0 18px 0; color: ' . $c['text_dark'] . '; font-size: 20px; font-weight: 600; text-align: center;">' . htmlspecialchars($subject) . '</h2>'
+            . $this->getInfoCard('Detalle', array_filter($items, 'strlen'))
+            . ($nota !== '' ? '<div style="margin: 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['primary'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Nota del cliente:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
+            . ($libero ? '' : $this->impListaPasos('Lo que sigue en el admin', [
+                'Confirmar con el vendedor disponibilidad y precio, y marcarlo como hecho.',
+                !empty($d['con_inspeccion']) ? 'Coordinar la inspección técnica.' : 'Pasar a la compra (no pidió inspección).',
+                'Crear el primer cobro desde la cotización (botón «Crear cobro»).',
+            ]))
+            . (!empty($d['url']) ? '<p style="margin: 14px 0; font-size: 13px; color: ' . $c['text_muted'] . ';">Anuncio: <a href="' . htmlspecialchars($d['url']) . '">' . htmlspecialchars(mb_substr($d['url'], 0, 80)) . '</a></p>' : '')
+            . '<div style="margin-top: 22px;">' . $this->getButton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($d['order_id'] ?? 0)) . '</div>';
+
+        $html = $this->getBaseTemplate($content, $subject);
+        $ok = false;
+        foreach ($this->adminEmails as $adminEmail) {
+            $r = $this->sendEmail($adminEmail, $subject, $html, 'internal_eleccion_lancha', ['order_number' => $orderNumber]);
+            if (!empty($r['success'])) $ok = true;
+        }
+        return ['success' => $ok];
+    }
+
+    /**
+     * Al cliente, cuando el equipo marca un hito de la importación.
+     * $d: hito (clave de impHitos), hito_label, titulo, order_number,
+     * order_id, hechos ([label => bool] en orden, para la lista de avance).
+     */
+    public function sendHitoImportacion($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'tu lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $frases = [
+            'disponibilidad' => 'El vendedor confirmó que ' . $titulo . ' sigue disponible y el precio. Seguimos con el siguiente paso.',
+            'inspeccion' => 'La inspección técnica de ' . $titulo . ' salió aprobada. El reporte queda en tu panel.',
+            'compra' => 'Cerramos la compra de ' . $titulo . ' en Estados Unidos.',
+            'transporte' => $titulo . ' ya va en camino a Chile. Puedes seguir el viaje desde tu panel.',
+            'aduana' => $titulo . ' llegó a Chile y está en aduana para la internación.',
+            'entrega' => $titulo . ' fue entregada. ¡Que la disfrutes!',
+        ];
+        $hito = (string) ($d['hito'] ?? '');
+        $label = (string) ($d['hito_label'] ?? 'Avance de tu importación');
+        $subject = $label . ' · ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+
+        $lista = '';
+        foreach ((array) ($d['hechos'] ?? []) as $l => $hecho) {
+            $lista .= '<tr><td style="padding: 6px 0; width: 26px; vertical-align: top; color: ' . ($hecho ? $c['success'] : '#cbd5e1') . '; font-size: 15px;">' . ($hecho ? '&#10003;' : '&#9675;') . '</td>'
+                . '<td style="padding: 6px 0; font-size: 14px; color: ' . ($hecho ? $c['text_dark'] : $c['text_muted']) . ';">' . htmlspecialchars($l) . '</td></tr>';
+        }
+
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Avance de tu importación') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($label) . '</h2>
+            <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . '</p>'
+            . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '')
+            . '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'hito_importacion', ['order_number' => $orderNumber, 'hito' => $hito]);
+    }
+
+    protected function impUrlPanel($orderId) {
+        $id = intval($orderId);
+        return 'https://www.imporlan.cl/panel/#/expedientes' . ($id > 0 ? '?id=' . $id : '');
+    }
+
+    protected function impImagenLancha($url, $alt) {
+        $url = trim((string) $url);
+        if ($url === '' || !preg_match('#^https?://#i', $url)) return '';
+        return '<div style="margin: 0 0 22px 0; text-align: center;"><img src="' . htmlspecialchars($url) . '" alt="' . htmlspecialchars($alt) . '" width="496" style="max-width: 100%; height: auto; border-radius: 12px; display: block; margin: 0 auto;"></div>';
+    }
+
+    protected function impListaPasos($titulo, $pasos) {
+        $c = $this->colors;
+        $filas = '';
+        foreach (array_values($pasos) as $i => $p) {
+            $filas .= '<tr><td style="padding: 7px 0; width: 30px; vertical-align: top;"><span style="display: inline-block; width: 22px; height: 22px; line-height: 22px; border-radius: 11px; background: ' . $c['primary'] . '; color: #fff; font-size: 12px; font-weight: 700; text-align: center;">' . ($i + 1) . '</span></td>'
+                . '<td style="padding: 7px 0; font-size: 14px; color: ' . $c['text_dark'] . '; line-height: 1.5;">' . htmlspecialchars($p) . '</td></tr>';
+        }
+        return '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;">'
+            . '<div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">' . htmlspecialchars($titulo) . '</div>'
+            . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $filas . '</table></div>';
+    }
+
     public function sendCustomEmail($to, $subject, $htmlContent) {
         return $this->sendEmail($to, $subject, $htmlContent, 'custom_report', ['type' => 'report_notification']);
     }

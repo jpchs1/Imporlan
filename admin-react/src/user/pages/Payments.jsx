@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getMyPaymentRequests, getMyOrders, createWebPayTransaction, createMercadoPagoPreference } from '../api';
 import { fmtDate, fmtCLP, cn, paymentMethodLabel } from '../../shared/lib/utils';
 import { fmtDateLarga } from '../../shared/lib/format';
@@ -501,6 +502,9 @@ export default function Payments() {
   const [tab, setTab] = useState(null);
   const ordersById = useMisExpedientes();
   const expedienteDe = useCallback((r) => referenciaExpediente(r, ordersById), [ordersById]);
+  const [params, setParams] = useSearchParams();
+  const pagarParam = params.get('pagar');
+  const pagarAtendido = useRef(null);
 
   // Sin setState síncrono antes del await: la carga inicial parte con
   // loading=true y `recargar` (botón / reintentar) lo vuelve a poner.
@@ -510,6 +514,27 @@ export default function Payments() {
     .finally(() => { setLoading(false); }), []);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
+
+  // Enlace directo `#/payments?pagar=<id>` (desde «Tu importación»): con la
+  // lista cargada se abre el modal de pago de esa solicitud; si ya está
+  // pagada o cancelada, su detalle. El parámetro se quita de la URL para que
+  // cerrar el modal no lo vuelva a abrir. Se atiende una sola vez por id.
+  useEffect(() => {
+    if (!pagarParam || loading || pagarAtendido.current === pagarParam) return;
+    const req = requests.find(r => String(r.id) === String(pagarParam));
+    const t = setTimeout(() => {
+      pagarAtendido.current = pagarParam;
+      if (req) {
+        if (req.status === 'pending') setPayTarget(req); else setDetalle(req);
+      } else if (requests.length > 0) {
+        toast?.({ type: 'error', title: 'No encontramos ese cobro', description: 'Puede que ya no esté vigente. Revisa la lista.' });
+      }
+      const next = new URLSearchParams(params);
+      next.delete('pagar');
+      setParams(next, { replace: true });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [pagarParam, loading, requests, params, setParams, toast]);
 
   function recargar() {
     setLoading(true);

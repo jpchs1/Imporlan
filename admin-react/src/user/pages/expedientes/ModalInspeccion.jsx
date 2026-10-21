@@ -1,26 +1,14 @@
 import { Modal, Button } from '../../../shared/components/UI';
 import { Check, WhatsAppIcon } from '../../../shared/components/Icons';
+import { INSPECCION_PRECIOS as PRECIOS, INSPECCION_INCLUYE as INCLUYE } from '../../../shared/lib/importacion';
 import BotonEnlace from './BotonEnlace';
 import { WA_SOPORTE } from './lib';
 
-const PRECIOS = [
-  { rango: 'Hasta 25 pies', precio: 'USD 850' },
-  { rango: '26 a 30 pies', precio: 'USD 1.200' },
-  { rango: '31 pies o más', precio: 'USD 1.800' },
-];
-
-const INCLUYE = [
-  'Inspección visual de casco, cubierta y estructura',
-  'Pruebas de motor (compresión, presión, fugas)',
-  'Sistema eléctrico, baterías e instrumentación',
-  'Equipamiento de seguridad y navegación',
-  'Galería fotográfica completa con fechas y notas',
-  'Reporte detallado en PDF entregado en 48 a 72 horas',
-];
-
 /**
  * Solicitar una inspección técnica de una embarcación del ranking. Manda a
- * WhatsApp con el mismo texto de siempre (no cambia qué se envía).
+ * WhatsApp con el mismo texto de siempre (no cambia qué se envía). Qué
+ * incluye y el costo por eslora viven en shared/lib/importacion.js, los
+ * mismos que muestra el asistente de elección.
  */
 export default function ModalInspeccion({ link, orderNumber, open, onClose }) {
   if (!open || !link) return null;

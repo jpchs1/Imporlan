@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports } from '../../api';
+import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports, getMyPaymentRequests, unchooseLink } from '../../api';
 import { useToast } from '../../../shared/components/Toast';
 import { useBreadcrumb } from '../../../shared/lib/page-meta';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox } from '../../../shared/components/UI';
+import { sePuedeElegir, linkElegido } from '../../../shared/lib/importacion';
+import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Printer, Search, WhatsAppIcon } from '../../../shared/components/Icons';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
 import SeccionReportes from './SeccionReportes';
@@ -12,28 +13,43 @@ import SeccionArchivos from './SeccionArchivos';
 import ModalInspeccion from './ModalInspeccion';
 import TarjetaPartner from './TarjetaPartner';
 import BotonEnlace from './BotonEnlace';
-import { nombreExpediente, tipoExpediente, etapaDe, esCerrado, fraseEtapa, whatsappExpediente, esImagen } from './lib';
+import GuiaEleccion from './GuiaEleccion';
+import AsistenteEleccion from './AsistenteEleccion';
+import TuImportacion from './TuImportacion';
+import { nombreExpediente, tipoExpediente, etapaDe, esCerrado, fraseEtapa, whatsappExpediente, esImagen, tituloEmbarcacion } from './lib';
 
 /**
  * Detalle de un expediente: avance, agente, ranking de embarcaciones,
  * reportes y archivos. La lógica de ranking (guardar, avisar, polling de
  * 30 s, arrastrar) es la misma de siempre; cambia cómo se ve.
+ *
+ * Con una lancha elegida (`order.eleccion`) lo primero es «Tu importación»
+ * (TuImportacion) y el ranking baja plegado como «Otras opciones». Sin
+ * elección, el protagonista es elegir: GuiaEleccion + «Elegir esta lancha»
+ * en cada tarjeta, que abre AsistenteEleccion.
  */
 export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [order, setOrder] = useState(null);
   const [links, setLinks] = useState([]);
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);
+  const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState(false);
+  const [deshaciendo, setDeshaciendo] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { items: [{src, alt, caption, downloadUrl}], index }
   const [inspectionLink, setInspectionLink] = useState(null);
+  const [asistenteLink, setAsistenteLink] = useState(null);
+  const [otrasAbiertas, setOtrasAbiertas] = useState(false);
   const [loadError, setLoadError] = useState('');
   const dragSrc = useRef(null);
   const pollRef = useRef(null);
   const lastRankingTs = useRef(null);
+  const lastEleccion = useRef(null);
+  const rankingRef = useRef(null);
 
   useBreadcrumb(order?.order_number ? [order.order_number] : null);
 
@@ -50,6 +66,15 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     } catch { /* silencioso */ }
   }, [orderId]);
 
+  // Los cobros (solicitudes de pago) solo importan cuando hay una lancha
+  // elegida: son el plan de pagos de «Tu importación».
+  const loadPagos = useCallback(async () => {
+    try {
+      const data = await getMyPaymentRequests('all');
+      setPagos(data?.requests || data?.items || []);
+    } catch { /* silencioso: sin cobros se muestra el plan igual */ }
+  }, []);
+
   const loadDetail = useCallback(async () => {
     try {
       const data = await getMyOrderDetail(orderId);
@@ -58,7 +83,9 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         setOrder(ord);
         setLinks(ord.links || []);
         lastRankingTs.current = ord.ranking_updated_at || null;
+        lastEleccion.current = JSON.stringify(ord.eleccion || null);
         loadReports(ord);
+        if (ord.eleccion) loadPagos();
       } else if (data?.error) {
         setLoadError(String(data.error));
       } else {
@@ -69,7 +96,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       toast?.('No pudimos cargar el expediente', 'error');
     }
     setLoading(false);
-  }, [orderId, toast, loadReports]);
+  }, [orderId, toast, loadReports, loadPagos]);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -85,25 +112,35 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     return () => clearTimeout(t);
   }, [loadDetail, loadFiles]);
 
-  // Polling de cambios de ranking hechos por el equipo (30 s)
+  // Polling (30 s): cambios de ranking hechos por el equipo y avances de la
+  // importación (hitos que marca el agente, elección registrada por él).
   useEffect(() => {
     pollRef.current = setInterval(async () => {
       try {
         const data = await getMyOrderDetail(orderId);
         if (data.success && data.order) {
           const newTs = data.order.ranking_updated_at;
-          if (newTs && newTs !== lastRankingTs.current) {
-            lastRankingTs.current = newTs;
-            setOrder(data.order);
-            setLinks(data.order.links || []);
+          const eleccionJson = JSON.stringify(data.order.eleccion || null);
+          const cambioRanking = newTs && newTs !== lastRankingTs.current;
+          const cambioEleccion = eleccionJson !== lastEleccion.current;
+          if (!cambioRanking && !cambioEleccion) return;
+          lastRankingTs.current = newTs || lastRankingTs.current;
+          lastEleccion.current = eleccionJson;
+          setOrder(data.order);
+          setLinks(data.order.links || []);
+          if (cambioRanking) {
             const who = data.order.ranking_author_role === 'admin' ? 'el equipo Imporlan' : data.order.ranking_author_name;
             toast?.(`Ranking actualizado por ${who}`, 'success');
+          }
+          if (cambioEleccion && data.order.eleccion) {
+            loadPagos();
+            toast?.('Tu importación tiene novedades', 'success');
           }
         }
       } catch { /* silencioso */ }
     }, 30000);
     return () => clearInterval(pollRef.current);
-  }, [orderId, toast]);
+  }, [orderId, toast, loadPagos]);
 
   // --- Ranking: arrastrar, flechas, guardar, avisar ---------------------------
   async function doSaveRanking(currentLinks) {
@@ -171,6 +208,43 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     doSaveRanking(next);
   }
 
+  // --- Elegir la lancha ----------------------------------------------------------
+  // El asistente guarda y, con éxito, el detalle se vuelve a pedir: el
+  // servidor manda la elección y la etapa nueva; aquí no se calcula nada.
+  function handleEleccionGuardada() {
+    loadDetail();
+  }
+
+  async function handleDeshacer() {
+    const elegido = linkElegido(order);
+    const ok = await confirm({
+      title: '¿Deshacer tu elección?',
+      description: `${elegido ? tituloEmbarcacion(elegido) : 'La lancha elegida'} vuelve al ranking como una opción más y se lo avisamos a tu agente. Puedes elegir de nuevo cuando quieras.`,
+      tone: 'danger',
+      confirmLabel: 'Deshacer elección',
+    });
+    if (!ok) return;
+    setDeshaciendo(true);
+    try {
+      const data = await unchooseLink(orderId);
+      if (data?.success) {
+        toast?.('Listo, deshicimos tu elección', 'success');
+        await loadDetail();
+      } else {
+        toast?.(data?.error || 'No pudimos deshacer la elección', 'error');
+      }
+    } catch (e) {
+      toast?.(e?.message || 'Error de conexión', 'error');
+    }
+    setDeshaciendo(false);
+  }
+
+  function handleCambiar() {
+    setOtrasAbiertas(true);
+    // El ranking está más abajo: al abrirlo, se lleva la vista hasta ahí.
+    setTimeout(() => rankingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
   // --- Visor de imágenes --------------------------------------------------------
   const imagenes = files.filter(esImagen);
   function abrirFotoArchivo(i) {
@@ -206,9 +280,17 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const etapaInfo = ETAPAS_EXPEDIENTE[etapa - 1];
   const cerrado = esCerrado(order);
   const activeLinks = links.filter(l => l.url);
-  const frase = fraseEtapa(order, activeLinks[0]);
+  const eleccion = order.eleccion || null;
+  const elegido = eleccion ? linkElegido({ ...order, links }) : null;
+  const frase = fraseEtapa(order, elegido || activeLinks[0]);
   const wa = whatsappExpediente(order);
   const completadas = order.status === 'completed' ? Object.fromEntries(ETAPAS_EXPEDIENTE.map(s => [s.num, null])) : {};
+
+  // Qué lanchas se pueden elegir hoy: con anuncio y disponibles, en un
+  // expediente abierto, y si ya hay elección, solo mientras se pueda cambiar.
+  const puedeElegir = (l) => !cerrado && sePuedeElegir(l) && (!eleccion || eleccion.client_can_change) && Number(l.id) !== Number(eleccion?.link_id);
+  const hayElegibles = activeLinks.some(puedeElegir);
+  const otras = eleccion ? activeLinks.filter(l => Number(l.id) !== Number(eleccion.link_id)).length : 0;
 
   return (
     <div className="pb-12">
@@ -230,6 +312,19 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         <Callout tone={order.status === 'expired' ? 'warning' : 'neutral'} title={order.status === 'expired' ? 'Este expediente venció' : 'Este expediente fue cancelado'} className="mb-6">
           {frase}
         </Callout>
+      )}
+
+      {eleccion && (
+        <TuImportacion
+          order={order}
+          link={elegido}
+          eleccion={eleccion}
+          requests={pagos}
+          onCambiar={handleCambiar}
+          onDeshacer={handleDeshacer}
+          deshaciendo={deshaciendo}
+          onPreviewImage={abrirFotoEmbarcacion}
+        />
       )}
 
       {/* Arriba: el avance (con los datos del expediente) y, al lado, el agente.
@@ -279,8 +374,11 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
 
       <div className="space-y-6">
         <div className="min-w-0 space-y-6">
+          {!eleccion && !cerrado && hayElegibles && <GuiaEleccion agente={order.agent_name} />}
+
           {activeLinks.length > 0 ? (
             <RankingEmbarcaciones
+              ref={rankingRef}
               order={order}
               links={activeLinks}
               saving={saving}
@@ -291,6 +389,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
               onMoveDown={handleMoveDown}
               onRequestInspection={setInspectionLink}
               onPreviewImage={abrirFotoEmbarcacion}
+              onElegir={setAsistenteLink}
+              puedeElegir={puedeElegir}
+              eleccion={eleccion}
+              titulo={eleccion ? `Otras opciones (${otras})` : undefined}
+              descripcion={eleccion ? (eleccion.client_can_change ? 'Las demás embarcaciones de tu ranking. Puedes cambiar a cualquiera mientras tu agente no haya avanzado.' : 'Las demás embarcaciones de tu ranking, como referencia.') : undefined}
+              colapsable={!!eleccion}
+              abierto={otrasAbiertas}
+              onToggle={setOtrasAbiertas}
             />
           ) : (
             <Card padding="none">
@@ -316,6 +422,18 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       />
 
       <ModalInspeccion link={inspectionLink} orderNumber={order.order_number} open={!!inspectionLink} onClose={() => setInspectionLink(null)} />
+
+      {/* Se monta solo abierto: cada apertura parte en el paso 1, limpia. */}
+      {asistenteLink && (
+        <AsistenteEleccion
+          open
+          link={asistenteLink}
+          order={order}
+          anterior={elegido}
+          onClose={() => setAsistenteLink(null)}
+          onSuccess={handleEleccionGuardada}
+        />
+      )}
     </div>
   );
 }

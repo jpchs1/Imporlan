@@ -93,6 +93,37 @@ export const sendClientUpdate = (orderId) =>
 export const notifyRanking = (orderId, authorName) =>
   request(`${API_BASE}/orders_api.php?action=notify_ranking`, { method: 'POST', body: JSON.stringify({ order_id: parseInt(orderId), author_name: authorName, author_role: 'admin' }) });
 
+// Importación: la lancha elegida y sus hitos (reglas en api/eleccion_lancha.php).
+// link_id 0 quita la elección; cambiar de lancha borra los hitos.
+export const chooseLinkAdmin = (orderId, linkId, { inspection = false, note = '', notifyClient = false } = {}) =>
+  request(`${API_BASE}/orders_api.php?action=admin_choose_link`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: orderId, link_id: linkId, inspection, note, notify_client: notifyClient }),
+    timeoutMs: 45000,
+  });
+export const setImportStep = (orderId, step, done, notifyClient = false) =>
+  request(`${API_BASE}/orders_api.php?action=admin_set_import_step`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient }),
+    timeoutMs: 45000,
+  });
+
+// Cobros (solicitudes de pago). Crear y cambiar de estado mandan correo al
+// cliente: por eso el plazo largo.
+export const getPaymentRequestsAdmin = (userEmail = '') => {
+  const params = new URLSearchParams({ action: 'admin_list', limit: 100 });
+  if (userEmail) params.append('user_email', userEmail);
+  return request(`${API_BASE}/payment_requests_api.php?${params}`);
+};
+export const createPaymentRequest = (data) =>
+  request(`${API_BASE}/payment_requests_api.php?action=admin_create`, { method: 'POST', body: JSON.stringify(data), timeoutMs: 45000 });
+export const updatePaymentRequestStatus = (requestId, newStatus, extra = {}) =>
+  request(`${API_BASE}/payment_requests_api.php?action=update_status`, {
+    method: 'POST',
+    body: JSON.stringify({ request_id: requestId, new_status: newStatus, ...extra }),
+    timeoutMs: 45000,
+  });
+
 // Inspections
 export const getInspections = () => request(`${API_BASE}/inspection_api.php?action=admin_list`);
 

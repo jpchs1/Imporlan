@@ -1,15 +1,19 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { StatusBadge, ProcessStepper, Avatar } from '../../../shared/components/UI';
-import { ChevronRight } from '../../../shared/components/Icons';
+import { hitoEnCurso } from '../../../shared/lib/importacion';
+import { StatusBadge, ProcessStepper, Avatar, Badge } from '../../../shared/components/UI';
+import { ChevronRight, Ship } from '../../../shared/components/Icons';
 import { nombreExpediente, tipoExpediente, etapaDe, esCerrado } from './lib';
 
 /**
  * Una tarjeta por expediente: número y tipo, qué se busca, la etapa, el
  * agente y cuándo cambió por última vez. Toda la tarjeta es el enlace al
  * detalle (el nombre accesible es "IMP-00035 · Búsqueda <lancha>").
+ * Con una lancha elegida (`order.eleccion`, que en la lista trae título y
+ * foto) muestra «Elegiste: …» y el hito en curso como chip.
  */
 export default function TarjetaExpediente({ order, href }) {
   const nombre = nombreExpediente(order);
@@ -34,6 +38,8 @@ export default function TarjetaExpediente({ order, href }) {
 
       {mostrarPlan && <p className="-mt-2 text-13 text-ink-500 truncate">{order.plan_name}</p>}
 
+      {order.eleccion && !cerrado && <LanchaElegida eleccion={order.eleccion} />}
+
       {cerrado ? (
         <p className="text-13 text-ink-500 tabular">Se cerró en la etapa {etapa} de {ETAPAS_EXPEDIENTE.length} · {ETAPAS_EXPEDIENTE[etapa - 1]?.label}</p>
       ) : (
@@ -53,5 +59,24 @@ export default function TarjetaExpediente({ order, href }) {
         </span>
       </div>
     </article>
+  );
+}
+
+/** «Elegiste: {lancha}» con mini foto y el hito en curso como chip. */
+export function LanchaElegida({ eleccion, className }) {
+  const [imgError, setImgError] = useState(false);
+  const hito = hitoEnCurso(eleccion);
+  const chip = hito ? hito.enCursoCorto : 'Entregada';
+  const hayFoto = eleccion.image_url && !imgError;
+  return (
+    <div className={cn('flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2', className)}>
+      <span className="flex h-10 w-12 shrink-0 items-center justify-center overflow-hidden rounded-sm border border-line bg-neutral-bg text-ink-500">
+        {hayFoto ? <img src={eleccion.image_url} alt="" className="h-full w-full object-cover" onError={() => setImgError(true)} /> : <Ship size={16} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-13 text-ink-900"><span className="font-medium">Elegiste:</span> {eleccion.title || 'tu lancha'}</span>
+        <Badge tone={hito ? 'brand' : 'success'} size="sm" className="mt-1">{chip}</Badge>
+      </span>
+    </div>
   );
 }

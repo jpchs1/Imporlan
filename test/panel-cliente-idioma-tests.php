@@ -83,6 +83,8 @@ foreach ($sinTilde as $p) {
              . '|\.\s*' . $p . '\b'          // propiedad leida de la API
              . '|' . $p . '_'                // parte de una clave compuesta
              . "|'" . $p . "'"               // literal suelto: valor interno
+             . '|\/' . $p . "['\"]"          // ruta de import (shared/lib/importacion)
+             . '|' . $p . '-|-' . $p . '\b'  // id o clase con guion (cotizacion-elegida)
              . '/i';
     $enTexto = buscar($archivos, "/['\">][^'\"<]*\b" . $p . "\b/i", $excluir);
     $malos = array_merge($malos, $enTexto);

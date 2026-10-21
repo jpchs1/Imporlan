@@ -75,6 +75,21 @@ export const notifyRanking = (orderId) => {
   });
 };
 
+// Elegir la lancha e importar (eleccion_lancha.php). La sesión va en el
+// Bearer que ya pone `request`; el servidor valida que el expediente sea del
+// cliente y responde con un `error` legible (403/404/409) que se muestra tal cual.
+export const chooseLink = (orderId, linkId, inspection, note = '') =>
+  request(`${API_BASE}/orders_api.php?action=user_choose_link`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: parseInt(orderId), link_id: parseInt(linkId), inspection: !!inspection, note: String(note || '').slice(0, 1000) }),
+  });
+
+export const unchooseLink = (orderId) =>
+  request(`${API_BASE}/orders_api.php?action=user_unchoose_link`, {
+    method: 'POST',
+    body: JSON.stringify({ order_id: parseInt(orderId) }),
+  });
+
 // Marketplace (user)
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fmtDate, cn } from '../../../shared/lib/utils';
 import { Card, Button, Modal, Select, Menu, Callout, ErrorState, EmptyState, Skeleton, ProcessStepper, Spinner } from '../../../shared/components/UI';
-import { Plus, Trash, Link2 } from '../../../shared/components/Icons';
+import { Plus, Trash, Link2, Info } from '../../../shared/components/Icons';
+import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
+import { etapaPorEleccion } from '../../../shared/lib/importacion';
 import LinkRow from '../../components/LinkRow';
 import QuoteModal from '../../components/QuoteModal';
 import ReportsSection from '../../components/ReportsSection';
@@ -9,10 +11,13 @@ import FilesSection from '../../components/FilesSection';
 import { STATUS_OPTIONS } from './constantes';
 import BarraAcciones from './BarraAcciones';
 import FormularioExpediente from './FormularioExpediente';
+import SeccionImportacion from './SeccionImportacion';
+import ModalEleccion from './ModalEleccion';
 
 const SECCIONES = [
   { id: 'datos', label: 'Datos' },
   { id: 'etapa', label: 'Etapa' },
+  { id: 'importacion', label: 'Importación' },
   { id: 'ranking', label: 'Ranking' },
   { id: 'reportes', label: 'Reportes' },
   { id: 'archivos', label: 'Archivos' },
@@ -62,12 +67,20 @@ export default function DetalleExpediente(p) {
     onCotizar, onEnviarDesglose, dragHandlers,
     showStatusModal, setShowStatusModal, newStatus, setNewStatus, onStatusChange,
     cotizandoLink, onCloseCotizar, onBreakdownSent, onQuoteSaved,
+    importacion,
   } = p;
+
+  // Modal «Marcar lancha elegida»: lo abren la sección Importación y el menú
+  // de cada fila del ranking (con esa fila preseleccionada). { linkId } | null.
+  const [modalEleccion, setModalEleccion] = useState(null);
+  const abrirEleccion = (lk) => setModalEleccion({ linkId: lk?.id ?? null });
 
   if (loading || !detail) return <Skeleton.Detail />;
 
   const hayVacias = links.some(l => !l.url && !l.make && !l.model && !l.image_url);
   const conUrl = links.filter(l => (l.url || '').trim()).length;
+  const eleccion = detail.eleccion || null;
+  const etapaEleccion = etapaPorEleccion(eleccion);
 
   return (
     <div>
@@ -96,8 +109,26 @@ export default function DetalleExpediente(p) {
             <Card.Header title="Etapa del proceso" description="La etapa actual se muestra en el panel del cliente." />
             <Card.Body>
               <ProcessStepper current={detail.timeline_step || 1} onPrev={() => onTimelineStep(-1)} onNext={() => onTimelineStep(1)} showDescription={false} />
+              {eleccion && etapaEleccion > 0 && (
+                <p className="mt-4 flex items-start gap-2 text-13 text-ink-500">
+                  <Info size={16} className="shrink-0 mt-0.5 text-ink-400" />
+                  <span>
+                    Etapa por la elección: <span className="font-medium text-ink-900">{ETAPAS_EXPEDIENTE.find(e => e.num === etapaEleccion)?.label}</span>
+                    {eleccion.inspection && !eleccion.steps?.inspeccion ? ', hasta que se apruebe la inspección' : ''}.
+                    {' '}Se mueve sola con los hitos de Importación.
+                  </span>
+                </p>
+              )}
             </Card.Body>
           </Card>
+
+          <SeccionImportacion
+            detail={detail}
+            links={links}
+            importacion={importacion}
+            onMarcarElegida={abrirEleccion}
+            onCotizar={onCotizar}
+          />
 
           <Card id="ranking" className="scroll-mt-32">
             <Card.Header
@@ -161,6 +192,9 @@ export default function DetalleExpediente(p) {
                     orderId={detail?.id}
                     onCotizar={lk.id ? onCotizar : undefined}
                     onEnviarDesglose={lk.id ? onEnviarDesglose : undefined}
+                    elegida={!!eleccion && eleccion.link_id === lk.id}
+                    eleccion={eleccion}
+                    onMarcarElegida={lk.id ? abrirEleccion : undefined}
                     dragHandlers={{
                       onDragStart: e => dragHandlers.onDragStart(e, idx),
                       onDragOver: dragHandlers.onDragOver,
@@ -207,6 +241,17 @@ export default function DetalleExpediente(p) {
         onBreakdownSent={onBreakdownSent}
         onSaved={onQuoteSaved}
       />
+
+      {modalEleccion && (
+        <ModalEleccion
+          open
+          onClose={() => setModalEleccion(null)}
+          links={links}
+          eleccion={eleccion}
+          linkIdInicial={modalEleccion.linkId}
+          onConfirmar={importacion.onElegir}
+        />
+      )}
     </div>
   );
 }
