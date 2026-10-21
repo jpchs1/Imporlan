@@ -61,6 +61,12 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   inspección **no se cobra aparte**: va dentro de los 3 pagos de la
   operación. Reglas en `api/eleccion_lancha.php`; pruebas en
   `test/eleccion-lancha-tests.php`.
+- **Pago 2** se cobra solo al marcar el hito «Inspección técnica aprobada».
+  Si el cliente eligió sin inspección, se cobra al confirmar con el vendedor
+  la disponibilidad, el precio y la fecha de compra o retiro. **Pago 3**
+  llega con «En camino a Chile» (foto de la lancha en el puerto de EE. UU.).
+- **Inspección no apta** (`admin_inspeccion_resultado`): el cliente elige
+  otra lancha (el Pago 1 se abona) o pide la devolución. Nunca se le obliga.
 - **David Morris** (ddm4me25@gmail.com) lleva la operación en EE. UU. Le
   llegan correos en inglés pidiendo la actualización que toca. Contesta en
   un link privado por expediente (`api/operador_usa.php?r=portal`), con nota

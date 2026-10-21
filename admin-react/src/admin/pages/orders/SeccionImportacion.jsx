@@ -3,7 +3,8 @@ import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/uti
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, EmptyState, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet } from '../../../shared/components/Icons';
-import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha, inspeccionNoApta, devolucionPedida } from '../../../shared/lib/importacion';
+import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
+import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
 import ModalCobro from './ModalCobro';
 import ModalHito from './ModalHito';
 import ModalNoApta from './ModalNoApta';

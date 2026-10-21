@@ -330,20 +330,3 @@ export function pagoQueGatilla(hitoId, eleccion) {
   if (hitoId === 'transporte') return 3;
   return 0;
 }
-
-/**
- * Inspección no apta (JP, 21-oct-2026): el equipo marcó que la inspección
- * recomienda no comprar la lancha elegida (admin_inspeccion_resultado). El
- * cliente elige otra —su Pago 1 se abona a la nueva— o pide la devolución.
- * `order.eleccion` trae inspection_result ('no_apta' | null),
- * inspection_result_at, inspection_note (la nota del equipo para el cliente)
- * y refund_requested_at.
- */
-export function inspeccionNoApta(eleccion) {
-  return !!eleccion && eleccion.inspection_result === 'no_apta';
-}
-
-/** Con la inspección no apta, el cliente pidió la devolución del Pago 1. */
-export function devolucionPedida(eleccion) {
-  return inspeccionNoApta(eleccion) && !!eleccion.refund_requested_at;
-}
