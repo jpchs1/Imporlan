@@ -17,8 +17,10 @@ const OPCIONES_INSPECCION = [
  *
  * `puedeCobrar`: false para el rol agente, que no ve cobros; el servidor igual
  * aplica la regla del Pago 1, aquí sólo no se le muestra.
+ * `datosCompletos`: false si al cliente le faltan sus datos, la cédula o los
+ * Términos (order.datos_importacion.completo); el correo se los pide.
  */
-export default function ModalEleccion({ open, onClose, links, eleccion, linkIdInicial, onConfirmar, puedeCobrar = true }) {
+export default function ModalEleccion({ open, onClose, links, eleccion, linkIdInicial, onConfirmar, puedeCobrar = true, datosCompletos = null }) {
   const id = useId();
   const [linkId, setLinkId] = useState(() => String(linkIdInicial ?? eleccion?.link_id ?? ''));
   const [inspection, setInspection] = useState(() => (eleccion ? !!eleccion.inspection : true));
@@ -154,7 +156,8 @@ export default function ModalEleccion({ open, onClose, links, eleccion, linkIdIn
             ))}
             <Switch
               label="Avisar al cliente por correo"
-              hint={pago1 && pedirPago1 && puedeCobrar ? 'Recibe «Confirmamos tu lancha», con el botón para pagar el Pago 1.' : 'Recibe «Confirmamos tu lancha», con lo que sigue en su importación.'}
+              hint={(pago1 && pedirPago1 && puedeCobrar ? 'Recibe «Confirmamos tu lancha», con el botón para pagar el Pago 1.' : 'Recibe «Confirmamos tu lancha», con lo que sigue en su importación.')
+                + (datosCompletos === false && puedeCobrar ? ' Como le faltan sus datos o su cédula, el correo también se los pide.' : '')}
               checked={notify}
               onChange={setNotify}
             />

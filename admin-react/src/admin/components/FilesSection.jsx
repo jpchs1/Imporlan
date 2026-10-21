@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { fmtBytes } from '../../shared/lib/format';
-import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA } from '../../shared/lib/importacion';
+import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA, esCedulaCliente } from '../../shared/lib/importacion';
 import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
 import { Upload, Eye, Download, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
@@ -20,13 +20,17 @@ const CATS = {
 };
 
 /* De dónde viene y quién lo ve: «Desde EE. UU.» si lo subió el operador de
-   allá; «Sólo equipo» si el cliente no lo ve (sus PDF, hasta que se comparten). */
+   allá; «Sólo equipo» si el cliente no lo ve (sus PDF, hasta que se comparten);
+   «Cédula · privada» la que subió el cliente al elegir (sólo la ve el equipo:
+   ni el cliente entre sus archivos ni el agente de EE. UU.). */
 export function ChipsArchivo({ f, size = 'sm' }) {
+  const cedula = esCedulaCliente(f);
   const deUsa = f.uploaded_by === ORIGEN_ARCHIVO_USA;
-  const interno = f.visible_to_client !== undefined && f.visible_to_client !== null && Number(f.visible_to_client) === 0;
-  if (!deUsa && !interno) return null;
+  const interno = !cedula && f.visible_to_client !== undefined && f.visible_to_client !== null && Number(f.visible_to_client) === 0;
+  if (!cedula && !deUsa && !interno) return null;
   return (
     <>
+      {cedula && <Badge tone="warning" size={size} title="Cédula de identidad del cliente: sólo la ve el equipo en Chile">Cédula · privada</Badge>}
       {deUsa && <Badge tone="info" size={size} title="Lo subió el operador de EE. UU.">Desde EE. UU.</Badge>}
       {interno && <Badge tone="neutral" size={size} title="El cliente no lo ve">Sólo equipo</Badge>}
     </>
@@ -78,7 +82,10 @@ export default function FilesSection({ orderId, archivos }) {
   }
 
   async function handleDeleteFile(f) {
-    if (!(await confirm({ title: '¿Eliminar este archivo?', description: `${f.original_name} deja de estar disponible para el cliente. No se puede deshacer.`, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
+    const descripcion = esCedulaCliente(f)
+      ? `Es la cédula del cliente (${f.original_name}). Si la eliminas, sus datos quedan incompletos y tendrá que volver a subirla. No se puede deshacer.`
+      : `${f.original_name} deja de estar disponible para el cliente. No se puede deshacer.`;
+    if (!(await confirm({ title: '¿Eliminar este archivo?', description: descripcion, tone: 'danger', confirmLabel: 'Eliminar' }))) return;
     try {
       const data = await deleteExpedienteFile(f.id);
       if (data.success) { toast?.('Archivo eliminado', 'success'); loadFiles(); }
@@ -132,7 +139,7 @@ export default function FilesSection({ orderId, archivos }) {
       <Card>
         <Card.Header
           title="Archivos"
-          description="Documentos, fotos y videos del expediente. El cliente ve todos salvo los marcados «Sólo equipo»."
+          description="Documentos, fotos y videos del expediente. El cliente ve todos salvo los marcados «Sólo equipo» y su cédula, que es privada."
           actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
         />
         <DataTable

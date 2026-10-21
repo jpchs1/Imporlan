@@ -265,6 +265,7 @@ export default function DetalleExpediente(p) {
           linkIdInicial={modalEleccion.linkId}
           onConfirmar={importacion.onElegir}
           puedeCobrar={equipoChile}
+          datosCompletos={equipoChile && detail.datos_importacion ? !!detail.datos_importacion.completo : null}
         />
       )}
     </div>
