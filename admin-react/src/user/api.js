@@ -1,8 +1,51 @@
-import { createApiClient } from '../shared/lib/api-client';
+import { createApiClient, SESSION_EXPIRED_EVENT } from '../shared/lib/api-client';
 import { STORAGE_KEYS } from './config';
 
 const client = createApiClient(STORAGE_KEYS);
 const { request, uploadFile, getToken, getUserEmail, API_BASE } = client;
+
+/**
+ * Como `request`/`uploadFile`, pero el error que lanza conserva lo que mandó
+ * el servidor: `status`, `code` (p. ej. 'faltan_datos') y `errores` por campo.
+ * Para las respuestas en que el panel tiene que distinguir el motivo, no sólo
+ * mostrar el mensaje. `body` es un objeto (va como JSON) o un FormData.
+ */
+async function requestDetallado(url, { body, timeoutMs = 15000 } = {}) {
+  const tokenEnviado = getToken();
+  const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers = { ...(multipart ? {} : { 'Content-Type': 'application/json' }), ...(tokenEnviado ? { Authorization: `Bearer ${tokenEnviado}` } : {}) };
+  let res;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    res = await fetch(url, { method: 'POST', headers, body: multipart ? body : JSON.stringify(body || {}), signal: controller.signal });
+    clearTimeout(timeout);
+  } catch (e) {
+    throw new Error(e?.name === 'AbortError' ? 'El servidor tardó demasiado en responder. Vuelve a intentarlo.' : 'Error de conexión. Revisa tu internet y vuelve a intentarlo.');
+  }
+  if (res.status === 401) {
+    // Mismo cierre de sesión que api-client: sólo si el token sigue siendo éste.
+    if (!getToken() || getToken() === tokenEnviado) {
+      localStorage.removeItem(STORAGE_KEYS.token);
+      localStorage.removeItem(STORAGE_KEYS.user);
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { storageKeys: STORAGE_KEYS } }));
+    }
+    throw new Error('No autorizado');
+  }
+  const text = await res.text();
+  let json = {};
+  if (text) {
+    try { json = JSON.parse(text); } catch { json = { error: 'Respuesta inválida del servidor' }; }
+  }
+  if (!res.ok) {
+    const err = new Error(json.detail || json.error || `Error ${res.status}`);
+    err.status = res.status;
+    err.code = json.code || null;
+    err.errores = json.errores && typeof json.errores === 'object' ? json.errores : null;
+    throw err;
+  }
+  return json;
+}
 
 function userJson() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || '{}'); } catch { return {}; }
@@ -78,11 +121,31 @@ export const notifyRanking = (orderId) => {
 // Elegir la lancha e importar (eleccion_lancha.php). La sesión va en el
 // Bearer que ya pone `request`; el servidor valida que el expediente sea del
 // cliente y responde con un `error` legible (403/404/409) que se muestra tal cual.
+// Con 409 y `code: 'faltan_datos'` el asistente vuelve al paso «Tus datos»;
+// por eso va con requestDetallado (conserva el código del servidor).
 export const chooseLink = (orderId, linkId, inspection, note = '') =>
-  request(`${API_BASE}/orders_api.php?action=user_choose_link`, {
-    method: 'POST',
-    body: JSON.stringify({ order_id: parseInt(orderId), link_id: parseInt(linkId), inspection: !!inspection, note: String(note || '').slice(0, 1000) }),
+  requestDetallado(`${API_BASE}/orders_api.php?action=user_choose_link`, {
+    body: { order_id: parseInt(orderId), link_id: parseInt(linkId), inspection: !!inspection, note: String(note || '').slice(0, 1000) },
   });
+
+// Datos del cliente, cédula por ambos lados y Términos (user_import_data).
+// GET: lo que hay (de este expediente o precargado de otro). POST multipart:
+// los 10 campos + acepta_terminos, terminos_version, reusar_cedula y los
+// archivos ci_frente / ci_reverso. Con 400 el error trae `errores` por campo.
+export const getImportData = (orderId) =>
+  request(`${API_BASE}/orders_api.php?action=user_import_data&order_id=${encodeURIComponent(orderId)}`);
+
+export function saveImportData(orderId, { datos, aceptaTerminos, terminosVersion, reusarCedula, ciFrente, ciReverso }) {
+  const fd = new FormData();
+  fd.append('order_id', String(orderId));
+  for (const [k, v] of Object.entries(datos || {})) fd.append(k, String(v ?? '').trim());
+  if (aceptaTerminos) fd.append('acepta_terminos', '1');
+  if (terminosVersion) fd.append('terminos_version', String(terminosVersion));
+  if (reusarCedula) fd.append('reusar_cedula', '1');
+  if (ciFrente) fd.append('ci_frente', ciFrente, ciFrente.name);
+  if (ciReverso) fd.append('ci_reverso', ciReverso, ciReverso.name);
+  return requestDetallado(`${API_BASE}/orders_api.php?action=user_import_data`, { body: fd, timeoutMs: 120000 });
+}
 
 export const unchooseLink = (orderId) =>
   request(`${API_BASE}/orders_api.php?action=user_unchoose_link`, {

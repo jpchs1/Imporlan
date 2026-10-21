@@ -2,7 +2,7 @@ import { Card } from '../../../shared/components/UI';
 
 function pasos(pct) {
   return [
-    { n: 1, titulo: 'Eliges la lancha', texto: 'Desde el ranking, con el botón «Elegir esta lancha». Con o sin inspección técnica.' },
+    { n: 1, titulo: 'Eliges la lancha', texto: 'Desde el ranking, con «Elegir esta lancha». Ahí te pedimos tus datos y tu cédula, para importar a tu nombre.' },
     { n: 2, titulo: pct ? `Pagas el Pago 1 · ${pct}%` : 'Pagas el Pago 1', texto: 'Te llega al confirmar y pone en marcha la operación. Lo pagas en Pagos, con tarjeta o transferencia.' },
     { n: 3, titulo: 'Inspección, compra y traslado', texto: 'Inspección si la pediste, compra a tu nombre y viaje a Chile. Lo sigues aquí mismo, paso a paso.' },
   ];

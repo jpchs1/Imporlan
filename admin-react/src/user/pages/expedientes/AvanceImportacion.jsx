@@ -1,6 +1,7 @@
 import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
-import { Check, Receipt } from '../../../shared/components/Icons';
+import { Button } from '../../../shared/components/UI';
+import { Check, Receipt, User } from '../../../shared/components/Icons';
 import { hitosDe } from '../../../shared/lib/importacion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import { rutaPagar } from './lib';
@@ -10,11 +11,13 @@ import { rutaPagar } from './lib';
  * elección (hecha, con fecha), sigue con los hitos que marca el equipo
  * (hitosDe) y mete los pagos donde corresponden: los pagados entre lo hecho,
  * ordenados por fecha; el que está por pagar justo antes del hito en curso,
- * porque es lo que le toca al cliente. Lo hecho lleva fecha; lo en curso va
- * destacado con quién lo hace; lo pendiente, atenuado.
+ * porque es lo que le toca al cliente. Si faltan los datos del cliente
+ * (`datosPendientes`, cuando la elección la marcó el equipo), ese es el
+ * primer pendiente. Lo hecho lleva fecha; lo en curso va destacado con quién
+ * lo hace; lo pendiente, atenuado.
  */
-export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, className }) {
-  const items = construirItems(eleccion, pagos, tituloLancha, agente);
+export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, datosPendientes = false, onCompletarDatos, className }) {
+  const items = construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos);
 
   return (
     <section aria-labelledby="tu-avance" className={className}>
@@ -23,7 +26,8 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
         {items.map((it, i) => {
           const alFinal = i === items.length - 1;
           const hecho = it.estado === 'hecho';
-          const curso = it.estado === 'curso' || it.estado === 'pago';
+          const teToca = it.estado === 'pago' || it.estado === 'datos';
+          const curso = it.estado === 'curso' || teToca;
           return (
             <li key={it.id} className={cn('relative flex gap-3', !alFinal && 'pb-5')} aria-current={curso ? 'step' : undefined}>
               {!alFinal && <span aria-hidden="true" className={cn('absolute bottom-0 left-[11px] top-7 w-0.5', hecho ? 'bg-brand-600' : 'bg-line')} />}
@@ -33,15 +37,16 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
                   'relative z-[1] mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
                   hecho && 'bg-brand-600 text-white',
                   it.estado === 'curso' && 'border-2 border-brand-600 bg-surface',
-                  it.estado === 'pago' && 'border-2 border-warning bg-surface text-warning',
+                  teToca && 'border-2 border-warning bg-surface text-warning',
                   it.estado === 'pendiente' && 'border border-line-strong bg-surface',
                 )}
               >
                 {hecho && <Check size={14} strokeWidth={2.5} />}
                 {it.estado === 'curso' && <span className="h-2 w-2 rounded-full bg-brand-600" />}
                 {it.estado === 'pago' && <Receipt size={12} />}
+                {it.estado === 'datos' && <User size={12} />}
               </span>
-              <div className={cn('min-w-0 flex-1', curso && 'rounded-md border px-3 py-2.5 -mt-1', it.estado === 'curso' && 'border-brand-200 bg-brand-50', it.estado === 'pago' && 'border-warning-line bg-warning-bg')}>
+              <div className={cn('min-w-0 flex-1', curso && 'rounded-md border px-3 py-2.5 -mt-1', it.estado === 'curso' && 'border-brand-200 bg-brand-50', teToca && 'border-warning-line bg-warning-bg')}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                   <p className={cn('text-sm', hecho ? 'font-medium text-ink-900' : curso ? 'font-semibold text-ink-900' : 'text-ink-500')}>{it.titulo}</p>
                   {it.fecha && <time className="text-xs text-ink-500 tabular" dateTime={it.fecha} title={fmtDateLarga(it.fecha, { hora: true })}>{fmtDateLarga(it.fecha)}</time>}
@@ -58,7 +63,7 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
   );
 }
 
-function construirItems(eleccion, pagos, tituloLancha, agente) {
+function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos) {
   const quien = agente ? `Lo hace ${agente}` : 'Lo hace tu agente';
   const hechos = [];
   const porPagar = [];
@@ -70,6 +75,18 @@ function construirItems(eleccion, pagos, tituloLancha, agente) {
     fecha: eleccion.at,
     detalle: tituloLancha,
   });
+
+  // Sin los datos del cliente no se puede comprar a su nombre: va antes que
+  // cualquier pago, y es lo primero que le toca a él.
+  if (datosPendientes) {
+    porPagar.push({
+      id: 'datos',
+      estado: 'datos',
+      titulo: 'Te toca: completa tus datos y sube tu cédula',
+      detalle: 'Los necesitamos para comprar e importar la lancha a tu nombre.',
+      accion: <Button variant="secondary" size="sm" icon={User} onClick={onCompletarDatos}>Completar</Button>,
+    });
+  }
 
   for (const p of pagos?.pagos || []) {
     if (p.estado === 'pagado') {

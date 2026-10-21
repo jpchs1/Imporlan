@@ -1073,9 +1073,13 @@ BASE64;
         // inspección incluida (no se cobra aparte).
         $pago1 = $d['pago1'] ?? null;
         $pago1Txt = $pago1 ? 'Pago 1 (' . rtrim(rtrim(number_format((float) $pago1['pct'], 2, ',', ''), '0'), ',') . '%): $' . number_format((float) $pago1['amount_clp'], 0, ',', '.') : '';
-        $pasos = [$pago1
+        $pasos = [];
+        if (array_key_exists('datos_completos', $d) && !$d['datos_completos']) {
+            $pasos[] = 'Completas en tu panel tus datos, subes tu cédula por ambos lados y aceptas los Términos y Condiciones. Sin esto no podemos importar a tu nombre.';
+        }
+        $pasos[] = $pago1
             ? 'Pagas el ' . $pago1Txt . ' para iniciar la operación. Lo encuentras en Pagos de tu panel, con tarjeta o transferencia.'
-            : 'Te enviamos el Pago 1 de la operación apenas esté lista tu cotización final.'];
+            : 'Te enviamos el Pago 1 de la operación apenas esté lista tu cotización final.';
         $pasos[] = 'Tu agente confirma con el vendedor que sigue disponible y el precio final.';
         if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica (va incluida en la operación) y te mandamos el reporte antes de comprar.';
         $pasos[] = 'Compra, transporte, aduana y entrega: lo sigues paso a paso en tu panel.';

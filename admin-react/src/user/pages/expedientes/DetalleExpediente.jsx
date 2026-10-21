@@ -5,6 +5,7 @@ import { useBreadcrumb } from '../../../shared/lib/page-meta';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
 import { sePuedeElegir, linkElegido, pctPago1Comun } from '../../../shared/lib/importacion';
+import { faltanDatosImportacion } from '../../../shared/lib/datos-importacion';
 import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Printer, Search, WhatsAppIcon } from '../../../shared/components/Icons';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
@@ -14,8 +15,14 @@ import TarjetaPartner from './TarjetaPartner';
 import BotonEnlace from './BotonEnlace';
 import GuiaEleccion from './GuiaEleccion';
 import AsistenteEleccion from './AsistenteEleccion';
+import ModalDatos from './ModalDatos';
 import TuImportacion from './TuImportacion';
 import { nombreExpediente, tipoExpediente, etapaDe, esCerrado, fraseEtapa, whatsappExpediente, esImagen, tituloEmbarcacion } from './lib';
+
+/** Lo que el polling compara para saber si la importación cambió (elección y datos del cliente). */
+function firmaImportacion(ord) {
+  return JSON.stringify([ord?.eleccion || null, ord?.datos_importacion || null]);
+}
 
 /**
  * Detalle de un expediente: avance, agente, ranking de embarcaciones,
@@ -43,6 +50,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { items: [{src, alt, caption, downloadUrl}], index }
   const [asistente, setAsistente] = useState(null); // { link, inspection } mientras el asistente está abierto
+  const [modalDatos, setModalDatos] = useState(false); // «Completa tus datos» (elección marcada por el equipo)
   const [otrasAbiertas, setOtrasAbiertas] = useState(false);
   const [loadError, setLoadError] = useState('');
   const dragSrc = useRef(null);
@@ -84,7 +92,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         setOrder(ord);
         setLinks(ord.links || []);
         lastRankingTs.current = ord.ranking_updated_at || null;
-        lastEleccion.current = JSON.stringify(ord.eleccion || null);
+        lastEleccion.current = firmaImportacion(ord);
         lastNovedades.current = JSON.stringify(ord.novedades || []);
         loadReports(ord);
         if (ord.eleccion) loadPagos();
@@ -123,7 +131,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         const data = await getMyOrderDetail(orderId);
         if (data.success && data.order) {
           const newTs = data.order.ranking_updated_at;
-          const eleccionJson = JSON.stringify(data.order.eleccion || null);
+          const eleccionJson = firmaImportacion(data.order);
           const novedadesJson = JSON.stringify(data.order.novedades || []);
           const cambioRanking = newTs && newTs !== lastRankingTs.current;
           const cambioEleccion = eleccionJson !== lastEleccion.current;
@@ -220,6 +228,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     loadDetail();
   }
 
+  // El cliente completó sus datos desde «Tu importación» (elección marcada
+  // por el equipo): el servidor ya los tiene, el detalle se vuelve a pedir.
+  function handleDatosGuardados() {
+    setModalDatos(false);
+    toast?.('Listo: recibimos tus datos y tu cédula', 'success');
+    loadDetail();
+  }
+
   async function handleDeshacer() {
     const elegido = linkElegido(order);
     const ok = await confirm({
@@ -291,6 +307,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const activeLinks = links.filter(l => l.url);
   const eleccion = order.eleccion || null;
   const elegido = eleccion ? linkElegido({ ...order, links }) : null;
+  const datosPendientes = !cerrado && faltanDatosImportacion(order);
   const frase = fraseEtapa(order, elegido || activeLinks[0]);
   const wa = whatsappExpediente(order);
   const completadas = order.status === 'completed' ? Object.fromEntries(ETAPAS_EXPEDIENTE.map(s => [s.num, null])) : {};
@@ -334,6 +351,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           requests={pagos}
           novedades={order.novedades || []}
           files={files}
+          datosPendientes={datosPendientes}
+          onCompletarDatos={() => setModalDatos(true)}
           onCambiar={handleCambiar}
           onDeshacer={handleDeshacer}
           deshaciendo={deshaciendo}
@@ -447,6 +466,10 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           onClose={() => setAsistente(null)}
           onSuccess={handleEleccionGuardada}
         />
+      )}
+
+      {modalDatos && (
+        <ModalDatos open order={order} onClose={() => setModalDatos(false)} onGuardado={handleDatosGuardados} />
       )}
     </div>
   );

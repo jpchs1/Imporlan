@@ -112,6 +112,13 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             requireAdminAuth();
             adminSendQuoteBreakdown();
             break;
+        case 'user_import_data':
+            userImportData(requireUserAuthShared());
+            break;
+        case 'admin_import_data':
+            // El equipo en Chile: el agente (operación en EE. UU.) no ve datos ni cédula del cliente.
+            adminImportData(requireAdminAuthShared(['admin', 'support']));
+            break;
         case 'user_choose_link':
             userChooseLink(requireUserAuthShared());
             break;
@@ -549,6 +556,7 @@ function userGetOrderDetail($authPayload = null) {
         $order['eleccion'] = impEleccionParaPanel($order);
         // Lo que el equipo compartió de la operación en EE. UU. (nunca las notas de David).
         $order['novedades'] = opuNovedadesCliente($pdo, $orderId);
+        $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId), !impTieneEleccion($order))];
         // El link privado de David y su estado no son del cliente.
         unset($order['usa_token'], $order['usa_link_id'], $order['usa_requested_at'], $order['usa_updated_at'], $order['admin_notes']);
 
@@ -707,6 +715,9 @@ function adminGetOrderDetail($sesion = null) {
             }
         }
 
+        if (($sesion['role'] ?? '') !== 'agent') {
+            $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId), !impTieneEleccion($order))];
+        }
         // El agente (operación en EE. UU.) no ve cómo contactar al cliente.
         $order = ocultarContactoParaAgente($order, $sesion);
         if (($sesion['role'] ?? '') === 'agent') {
@@ -2652,7 +2663,10 @@ function impAvisarEleccion($order, $link, $accion, $por, $conInspeccion, $nota, 
             ]);
         }
         if ($accion === 'eligio' && $avisarCliente && !empty($order['customer_email'])) {
+            $pdoDatos = getDbConnection();
+            $datosCompletos = $pdoDatos ? impDatosCompletos(impFilaDatos($pdoDatos, $order['id'] ?? 0)) : true;
             $svc->sendEleccionLanchaCliente($order['customer_email'], impPrimerNombre($order), [
+                'datos_completos' => $datosCompletos,
                 'order_number' => $order['order_number'] ?? '',
                 'order_id' => $order['id'] ?? 0,
                 'titulo' => $titulo,
@@ -2690,6 +2704,13 @@ function userChooseLink($sesion, $input = null) {
         $link = impLeerLink($pdo, $orderId, $linkId);
         $error = impValidarEleccionCliente($order, $link);
         if ($error) return impResponderError($error[0], $error[1]);
+        // Antes de elegir: datos, cédula por ambos lados y Términos aceptados.
+        impAsegurarDatosCliente($pdo);
+        if (!impDatosCompletos(impFilaDatos($pdo, $orderId))) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'code' => 'faltan_datos', 'error' => 'Antes de elegir, completa tus datos, sube tu cédula por ambos lados y acepta los Términos y Condiciones.']);
+            return;
+        }
 
         $antes = null;
         if (impTieneEleccion($order) && intval($order['chosen_link_id']) !== $linkId) {
@@ -2903,4 +2924,61 @@ function adminSetImportStep($admin, $input = null) {
         error_log('adminSetImportStep: ' . $e->getMessage());
         impResponderError(500, 'No se pudo guardar el hito');
     }
+}
+
+/**
+ * ?action=user_import_data&order_id=  (GET: lo que hay; POST multipart: guardar)
+ * Datos del cliente, cédula por ambos lados y aceptación de los Términos.
+ * Campos POST: los de impCamposDatos(), acepta_terminos=1, terminos_version,
+ * reusar_cedula=1; archivos ci_frente y ci_reverso.
+ */
+function userImportData($sesion) {
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarDatosCliente($pdo);
+    $orderId = intval($_GET['order_id'] ?? ($_POST['order_id'] ?? 0));
+    $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
+    if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
+    $email = $sesion['email'] ?? '';
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (empty($_POST) && intval($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+            return impResponderError(413, 'Las fotos son muy pesadas para enviarlas juntas. Prueba con fotos más livianas (menos de 10 MB cada una).');
+        }
+        $archivos = [];
+        foreach (['frente' => 'ci_frente', 'reverso' => 'ci_reverso'] as $cara => $campo) {
+            if (isset($_FILES[$campo])) $archivos[$cara] = $_FILES[$campo];
+        }
+        try {
+            [$ok, $errores] = impGuardarDatosCliente($pdo, $order, $email, $_POST, $archivos, $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        } catch (PDOException $e) {
+            error_log('userImportData: ' . $e->getMessage());
+            return impResponderError(500, 'No pudimos guardar tus datos. Intenta de nuevo.');
+        }
+        if (!$ok) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => reset($errores), 'errores' => $errores]);
+            return;
+        }
+        logOrderEvent($pdo, $orderId, 'datos_cliente', ['terminos' => IMP_TERMINOS_VERSION], $sesion['sub'] ?? null);
+    }
+    $fila = impFilaDatos($pdo, $orderId);
+    echo json_encode(['success' => true] + impDatosPublicos($pdo, $fila, $fila ? null : impFilaDatosAnterior($pdo, $email, $orderId)));
+}
+
+/** ?action=admin_import_data&order_id=  Lo que el cliente completó, con enlaces a la cédula (1 hora). */
+function adminImportData($sesion) {
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarDatosCliente($pdo);
+    $orderId = intval($_GET['order_id'] ?? 0);
+    $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+    $st->execute([$orderId]);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order) return impResponderError(404, 'Expediente no encontrado');
+    $fila = impFilaDatos($pdo, $orderId);
+    $pub = impDatosPublicos($pdo, $fila, null, true);
+    // Igual que admin_detail: con la elección hecha vale la versión que aceptó.
+    $pub['completo'] = impDatosCompletos($fila, !impTieneEleccion($order));
+    echo json_encode(['success' => true, 'recibido' => (bool) $fila] + $pub);
 }

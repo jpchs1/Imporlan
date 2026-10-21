@@ -7,18 +7,20 @@ import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_
 import ModalCobro from './ModalCobro';
 import ModalHito from './ModalHito';
 import OperacionUsa from './OperacionUsa';
+import DatosCliente from './DatosCliente';
 
 /**
  * Importación: la lancha elegida (por el cliente desde su panel, o marcada
- * por el equipo cuando lo dijo por WhatsApp), los hitos que marca el equipo,
- * los cobros del plan de pagos de la cotización y la operación en EE. UU.
- * (lo que manda David). Lo que se marca aquí lo ve el cliente en «Tu
- * importación».
+ * por el equipo cuando lo dijo por WhatsApp), los datos del cliente con su
+ * cédula y los Términos, los hitos que marca el equipo, los cobros del plan
+ * de pagos de la cotización y la operación en EE. UU. (lo que manda David).
+ * Lo que se marca aquí lo ve el cliente en «Tu importación».
  *
  * `importacion` viene del contenedor (Orders.jsx): cobros del expediente,
  * los handlers que hablan con la API y qué puede ver el rol. El agente
- * (operación en EE. UU.) ve la lancha y los hitos, nada de cobros ni del
- * bloque de EE. UU. (es él quien manda esas actualizaciones).
+ * (operación en EE. UU.) ve la lancha y los hitos, nada de cobros, de los
+ * datos del cliente ni del bloque de EE. UU. (es él quien manda esas
+ * actualizaciones).
  */
 export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
@@ -39,7 +41,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
       <Card.Header
         title="Importación"
         description={equipoChile
-          ? 'La lancha elegida, los hitos, los cobros y lo que manda la operación en EE. UU. El cliente lo ve en su panel como «Tu importación».'
+          ? 'La lancha elegida, los datos del cliente, los hitos, los cobros y lo que manda la operación en EE. UU. El cliente lo ve en su panel como «Tu importación».'
           : 'La lancha elegida y los hitos. El cliente lo ve en su panel como «Tu importación».'}
         actions={eleccion ? (
           <>
@@ -54,7 +56,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
         )}
       />
       <Card.Body className="space-y-5">
-        {!eleccion ? (
+        {!eleccion && (
           <EmptyState
             compact
             icon={Anchor}
@@ -62,7 +64,8 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
             description="Cuando decida —desde su panel o por WhatsApp— márcala aquí: parte la importación, se mueve la etapa y se crean los cobros desde la cotización."
             primaryAction={<Button size="sm" variant="secondary" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button>}
           />
-        ) : (
+        )}
+        {eleccion && (
           <>
             {/* ── La lancha ── */}
             <div className="flex flex-wrap items-start gap-3 sm:gap-4">
@@ -93,7 +96,17 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 )}
               </div>
             </div>
+          </>
+        )}
 
+        {/* ── Datos del cliente, cédula y Términos (sólo el equipo en Chile).
+               Van antes de los hitos: sin ellos no se compra a su nombre. ── */}
+        {equipoChile && importacion.datosCliente !== false && (
+          <DatosCliente detail={detail} eleccion={eleccion} link={link} />
+        )}
+
+        {eleccion && (
+          <>
             {/* ── Hitos ── */}
             <section aria-labelledby="importacion-hitos">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">

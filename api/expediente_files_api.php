@@ -317,6 +317,9 @@ function listFiles($auth) {
         $cols = $pdo->query("SHOW COLUMNS FROM expediente_files")->fetchAll(PDO::FETCH_COLUMN);
         $conVisible = in_array('visible_to_client', $cols, true);
         $soloVisibles = ($conVisible && !$isStaff) ? ' AND visible_to_client = 1' : '';
+        // La cédula del cliente es sólo para el equipo en Chile: el agente
+        // (operación en EE. UU.) no la ve.
+        if (($auth['role'] ?? '') === 'agent') $soloVisibles .= " AND (uploaded_by IS NULL OR uploaded_by <> 'cliente_identidad')";
         $visibleSel = $conVisible ? ', visible_to_client' : ', 1 AS visible_to_client';
         $stmt = $pdo->prepare("
             SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at $visibleSel
