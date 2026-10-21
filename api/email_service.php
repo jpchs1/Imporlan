@@ -1219,6 +1219,31 @@ BASE64;
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'novedad_importacion', ['order_number' => $orderNumber]);
     }
 
+    /**
+     * Al cliente: la inspección recomendó no comprar. Tono tranquilo: se
+     * ahorró un problema; elige otra lancha (su Pago 1 se abona) o pide la
+     * devolución. $d: titulo, order_number, order_id, nota, pago1_pagado.
+     */
+    public function sendInspeccionNoApta($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'la lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = 'Resultado de la inspección: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $nota = trim((string) ($d['nota'] ?? ''));
+        $opciones = [
+            'Elegir otra lancha de tu ranking' . (!empty($d['pago1_pagado']) ? ': tu Pago 1 se abona a la nueva.' : '.'),
+            'O, si prefieres, pedir la devolución' . (!empty($d['pago1_pagado']) ? ' del Pago 1 (se descuentan los costos de terceros ya incurridos, como la inspección).' : '.'),
+        ];
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('warning', 'Inspección no favorable') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', la inspección técnica recomienda no comprar esta lancha. Para eso existe la inspección: te ahorraste un problema a futuro.</p>'
+            . ($nota !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['warning'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Lo que encontró la inspección:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
+            . $this->impListaPasos('Lo que puedes hacer', $opciones)
+            . '<div style="margin-top: 24px;">' . $this->getButton('Ver opciones en mi panel', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'inspeccion_no_apta', ['order_number' => $orderNumber]);
+    }
+
     protected function impUrlPanel($orderId) {
         $id = intval($orderId);
         return 'https://www.imporlan.cl/panel/#/expedientes' . ($id > 0 ? '?id=' . $id : '');
