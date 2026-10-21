@@ -2972,9 +2972,13 @@ function adminImportData($sesion) {
     if (!$pdo) return impResponderError(500, 'Database connection failed');
     impAsegurarDatosCliente($pdo);
     $orderId = intval($_GET['order_id'] ?? 0);
-    $st = $pdo->prepare("SELECT id FROM orders WHERE id = ?");
+    $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
     $st->execute([$orderId]);
-    if (!$st->fetch()) return impResponderError(404, 'Expediente no encontrado');
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order) return impResponderError(404, 'Expediente no encontrado');
     $fila = impFilaDatos($pdo, $orderId);
-    echo json_encode(['success' => true, 'recibido' => (bool) $fila] + impDatosPublicos($pdo, $fila, null, true));
+    $pub = impDatosPublicos($pdo, $fila, null, true);
+    // Igual que admin_detail: con la elección hecha vale la versión que aceptó.
+    $pub['completo'] = impDatosCompletos($fila, !impTieneEleccion($order));
+    echo json_encode(['success' => true, 'recibido' => (bool) $fila] + $pub);
 }
