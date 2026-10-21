@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { cn, fmtCLP } from '../../../shared/lib/utils';
+import { fmtDateLarga } from '../../../shared/lib/format';
 import { Modal, Button, Callout, Textarea, Money, Badge } from '../../../shared/components/UI';
 import { Check, Image, MessageSquareText, ExternalLink, ClipboardCheck, Receipt } from '../../../shared/components/Icons';
 import { precioChile, FUENTE_PRECIO, INSPECCION_INCLUYE, hitosDe, planDePagos, pago1De } from '../../../shared/lib/importacion';
@@ -7,23 +8,30 @@ import { chooseLink } from '../../api';
 import MatrizPrecios from './MatrizPrecios';
 import ResumenCotizacion from './ResumenCotizacion';
 import BotonEnlace from './BotonEnlace';
+import FormularioDatos from './FormularioDatos';
 import { BotonEnlace as BotonRuta } from '../inicio/BotonEnlace';
 import { tituloEmbarcacion, specsEmbarcacion, fuenteAnuncio, urlAbsoluta, rutaPagar } from './lib';
 
 const PASOS = [
   { n: 1, label: 'Revisa la lancha' },
   { n: 2, label: 'Inspección técnica' },
-  { n: 3, label: 'Confirma' },
+  { n: 3, label: 'Tus datos' },
+  { n: 4, label: 'Confirma' },
 ];
 
+const FORM_DATOS = 'asistente-datos';
+
 /**
- * «Elegir esta lancha»: tres pasos cortos (revisar · inspección · confirmar)
- * y un estado de éxito dentro del mismo modal.
+ * «Elegir esta lancha»: cuatro pasos cortos (revisar · inspección · tus
+ * datos · confirmar) y un estado de éxito dentro del mismo modal.
  *
- * Al confirmar, el servidor crea el cobro del Pago 1 (el primer pago del
- * plan de la cotización publicada) y lo devuelve en `pago1`; la inspección
- * no se cobra aparte, va dentro de la operación. Sin cotización publicada
- * no hay Pago 1 todavía: le llega al cliente cuando esté lista.
+ * En «Tus datos» (FormularioDatos) el cliente deja sus datos, la cédula por
+ * ambos lados y acepta los Términos: sin eso el servidor no deja elegir
+ * (409 `faltan_datos`, que devuelve a ese paso). Al confirmar, el servidor
+ * crea el cobro del Pago 1 (el primer pago del plan de la cotización
+ * publicada) y lo devuelve en `pago1`; la inspección no se cobra aparte, va
+ * dentro de la operación. Sin cotización publicada no hay Pago 1 todavía: le
+ * llega al cliente cuando esté lista.
  *
  * Se monta solo abierto, así cada vez parte limpio.
  *
@@ -38,6 +46,10 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
   const [error, setError] = useState('');
   const [exito, setExito] = useState(false);
   const [pago1, setPago1] = useState(null); // lo que respondió el servidor al elegir
+  const [datos, setDatos] = useState(null); // respuesta de user_import_data (se cachea entre pasos)
+  const [estadoDatos, setEstadoDatos] = useState({ cargando: true, enviando: false, resumen: false });
+  const [avisoDatos, setAvisoDatos] = useState(''); // el 409 faltan_datos del servidor
+  const borradorDatos = useRef(null);
   const tituloRef = useRef(null);
 
   // Al cambiar de paso, el cuerpo del modal vuelve arriba (en móvil el paso 2
@@ -74,7 +86,16 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
         setError(data?.error || 'No pudimos guardar tu elección. Vuelve a intentarlo.');
       }
     } catch (e) {
-      setError(e?.message || 'Error de conexión. Revisa tu internet y vuelve a intentarlo.');
+      if (e?.code === 'faltan_datos') {
+        // Al servidor le faltan los datos, la cédula o los Términos vigentes:
+        // de vuelta a «Tus datos», pidiéndolos de nuevo (sin caché ni borrador).
+        setDatos(null);
+        borradorDatos.current = null;
+        setAvisoDatos(e.message || 'Completa tus datos, sube tu cédula y acepta los Términos para poder elegir.');
+        setPaso(3);
+      } else {
+        setError(e?.message || 'Error de conexión. Revisa tu internet y vuelve a intentarlo.');
+      }
     }
     setEnviando(false);
   }
@@ -113,10 +134,26 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
         <Button onClick={() => setPaso(3)}>Continuar</Button>
       </>
     );
+  } else if (paso === 3) {
+    // Con el formulario a la vista, «Continuar» lo envía (guarda con POST y
+    // recién entonces pasa a «Confirma»); con el resumen, sólo avanza.
+    // La `key` del botón de envío importa: sin ella React reutiliza el nodo
+    // del «Continuar» del paso 2 y el navegador, al terminar ese mismo clic,
+    // ya lo ve como submit y manda el formulario recién montado.
+    footer = (
+      <>
+        <Button variant="secondary" onClick={() => setPaso(2)} disabled={estadoDatos.enviando}>Atrás</Button>
+        {estadoDatos.resumen ? (
+          <Button onClick={() => setPaso(4)}>Continuar</Button>
+        ) : (
+          <Button key="guardar-datos" type="submit" form={FORM_DATOS} loading={estadoDatos.enviando} disabled={estadoDatos.cargando}>Guardar y continuar</Button>
+        )}
+      </>
+    );
   } else {
     footer = (
       <>
-        <Button variant="secondary" onClick={() => setPaso(2)} disabled={enviando}>Atrás</Button>
+        <Button variant="secondary" onClick={() => setPaso(3)} disabled={enviando}>Atrás</Button>
         <Button onClick={confirmar} loading={enviando} icon={Check}>Confirmar mi elección</Button>
       </>
     );
@@ -149,6 +186,18 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
             />
           )}
           {paso === 3 && (
+            <PasoDatos
+              order={order}
+              datos={datos}
+              borrador={borradorDatos}
+              aviso={avisoDatos}
+              onDatos={setDatos}
+              onGuardado={(d) => { setDatos(d); setAvisoDatos(''); setPaso(4); }}
+              onEstado={setEstadoDatos}
+              tituloRef={tituloRef}
+            />
+          )}
+          {paso === 4 && (
             <PasoConfirmar
               link={link}
               title={title}
@@ -157,6 +206,7 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
               primerPago={primerPago}
               inspection={inspection}
               nota={nota}
+              datos={datos}
               agente={agente}
               reemplaza={reemplaza}
               error={error}
@@ -365,9 +415,34 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, primerPago, cu
 }
 
 /* ---------------------------------------------------------------------------
-   Paso 3 · Confirma
+   Paso 3 · Tus datos (FormularioDatos). `datos` es la respuesta ya cargada,
+   si la hay; `borrador` guarda lo escrito al ir y volver entre pasos.
    --------------------------------------------------------------------------- */
-function PasoConfirmar({ link, title, precio, plan, primerPago, inspection, nota, agente, reemplaza, error, tituloRef }) {
+function PasoDatos({ order, datos, borrador, aviso, onDatos, onGuardado, onEstado, tituloRef }) {
+  return (
+    <div className="space-y-4">
+      <h3 ref={tituloRef} tabIndex={-1} className="text-base font-semibold leading-6 text-ink-900 outline-none">Tus datos para la importación</h3>
+      {aviso && <Callout tone="warning" title="Antes de confirmar, completa tus datos">{aviso}</Callout>}
+      <FormularioDatos
+        formId={FORM_DATOS}
+        orderId={order.id}
+        inicial={datos}
+        prefillNombre={order.customer_name || ''}
+        prefillTelefono={order.customer_phone || ''}
+        resumenSiCompleto
+        borrador={borrador}
+        onCargado={onDatos}
+        onGuardado={onGuardado}
+        onEstado={onEstado}
+      />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Paso 4 · Confirma
+   --------------------------------------------------------------------------- */
+function PasoConfirmar({ link, title, precio, plan, primerPago, inspection, nota, datos, agente, reemplaza, error, tituloRef }) {
   const [imgError, setImgError] = useState(false);
   const specs = specsEmbarcacion(link);
   const hitos = hitosDe({ inspection, steps: {} });
@@ -433,6 +508,18 @@ function PasoConfirmar({ link, title, precio, plan, primerPago, inspection, nota
               </ul>
             </FilaResumen>
           )}
+          <FilaResumen label="Tus datos y tu cédula">
+            <span className="inline-flex flex-wrap items-center gap-x-1.5">
+              <Check size={14} className="text-success" />
+              Listos{datos?.datos?.rut ? <span className="text-ink-700"> · RUT {datos.datos.rut}</span> : null}
+            </span>
+          </FilaResumen>
+          <FilaResumen label="Términos y Condiciones">
+            <span className="inline-flex flex-wrap items-center gap-x-1.5">
+              <Check size={14} className="text-success" />
+              Aceptaste los Términos{datos?.terminos?.aceptados_at ? <span className="text-ink-700"> · {fmtDateLarga(datos.terminos.aceptados_at)}</span> : null}
+            </span>
+          </FilaResumen>
           {nota.trim() && <FilaResumen label="Para tu agente"><span className="whitespace-pre-line">{nota.trim()}</span></FilaResumen>}
         </dl>
       </div>

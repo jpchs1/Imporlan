@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Money, Badge } from '../../../shared/components/UI';
-import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText } from '../../../shared/components/Icons';
+import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText, User } from '../../../shared/components/Icons';
 import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue, hitosDe } from '../../../shared/lib/importacion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import ResumenCotizacion from './ResumenCotizacion';
@@ -19,8 +19,12 @@ import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, e
  * compartió el equipo y las fotos y videos que llegan desde Estados Unidos
  * (`novedades` y `files` del expediente); al final, el plan de pagos. Todo
  * sale de shared/lib/importacion.js; aquí solo se pinta.
+ *
+ * Con `datosPendientes` (la elección la marcó el equipo y el cliente aún no
+ * deja sus datos, su cédula y los Términos) «Qué sigue» pide eso antes que
+ * nada, y `onCompletarDatos` abre el formulario.
  */
-export default function TuImportacion({ order, link, eleccion, requests, novedades, files, onCambiar, onDeshacer, deshaciendo, onPreviewImage, onPreviewFiles }) {
+export default function TuImportacion({ order, link, eleccion, requests, novedades, files, datosPendientes = false, onCompletarDatos, onCambiar, onDeshacer, deshaciendo, onPreviewImage, onPreviewFiles }) {
   const [verCotizacion, setVerCotizacion] = useState(false);
   const [imgError, setImgError] = useState(false);
   const desdeUsa = archivosDesdeUsa(files);
@@ -54,7 +58,7 @@ export default function TuImportacion({ order, link, eleccion, requests, novedad
         actions={enViaje ? <BotonEnlace to="/tracking" size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
       />
 
-      <QueSigue sigue={sigue} agente={agente} />
+      <QueSigue sigue={sigue} agente={agente} datosPendientes={datosPendientes} onCompletarDatos={onCompletarDatos} />
 
       <Card.Body>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
@@ -150,7 +154,7 @@ export default function TuImportacion({ order, link, eleccion, requests, novedad
           </div>
 
           {/* Avance */}
-          <AvanceImportacion eleccion={eleccion} pagos={pagos} tituloLancha={title} agente={agente} className="min-w-0" />
+          <AvanceImportacion eleccion={eleccion} pagos={pagos} tituloLancha={title} agente={agente} datosPendientes={datosPendientes} onCompletarDatos={onCompletarDatos} className="min-w-0" />
         </div>
       </Card.Body>
 
@@ -173,16 +177,23 @@ export default function TuImportacion({ order, link, eleccion, requests, novedad
 }
 
 /* ---------------------------------------------------------------------------
-   «Qué sigue», en una frase. Si hay un cobro por pagar, eso va primero.
+   «Qué sigue», en una frase. Si faltan los datos del cliente, eso manda;
+   si no, un cobro por pagar; si no, el hito en curso.
    --------------------------------------------------------------------------- */
-function QueSigue({ sigue, agente }) {
+function QueSigue({ sigue, agente, datosPendientes, onCompletarDatos }) {
   let icono = Clock;
   let tono = 'brand';
   let titulo;
   let detalle;
   let accion = null;
 
-  if (sigue.tipo === 'pago') {
+  if (datosPendientes) {
+    icono = User;
+    tono = 'warning';
+    titulo = 'Te toca: completa tus datos y sube tu cédula';
+    detalle = 'Los necesitamos para comprar e importar la lancha a tu nombre. Tu cédula es privada: sólo la ve el equipo.';
+    accion = <Button icon={User} onClick={onCompletarDatos}>Completar mis datos</Button>;
+  } else if (sigue.tipo === 'pago') {
     const { pago } = sigue;
     const cobro = pago.cobro;
     icono = Receipt;
