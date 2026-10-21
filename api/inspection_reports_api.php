@@ -44,12 +44,10 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             runInspectionMigration();
             break;
         case 'admin_list':
-            requireAdminAuthShared($agentAllowed);
-            adminListInspections();
+            adminListInspections(requireAdminAuthShared($agentAllowed));
             break;
         case 'admin_detail':
-            requireAdminAuthShared($agentAllowed);
-            adminDetailInspection();
+            adminDetailInspection(requireAdminAuthShared($agentAllowed));
             break;
         case 'admin_create':
             requireAdminAuthShared();
@@ -182,7 +180,7 @@ function runInspectionMigration() {
 // ADMIN ENDPOINTS
 // ============================================================
 
-function adminListInspections() {
+function adminListInspections($sesion = null) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
@@ -214,6 +212,7 @@ function adminListInspections() {
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $rows = array_map(function ($r) use ($sesion) { return ocultarContactoParaAgente($r, $sesion); }, $rows);
         echo json_encode(['success' => true, 'inspections' => $rows]);
     } catch (PDOException $e) {
         http_response_code(500);
@@ -221,7 +220,7 @@ function adminListInspections() {
     }
 }
 
-function adminDetailInspection() {
+function adminDetailInspection($sesion = null) {
     $pdo = getDbConnection();
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
 
@@ -248,6 +247,7 @@ function adminDetailInspection() {
             }
         }
 
+        $row = ocultarContactoParaAgente($row, $sesion);
         echo json_encode(['success' => true, 'inspection' => $row]);
     } catch (PDOException $e) {
         http_response_code(500);

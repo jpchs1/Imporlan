@@ -1069,9 +1069,15 @@ BASE64;
         $porEquipo = ($d['por'] ?? 'cliente') === 'equipo';
         $subject = ($porEquipo ? 'Confirmamos tu lancha: ' : 'Elegiste tu lancha: ') . $titulo . ($orderNumber ? ' · ' . $orderNumber : '') . ' - Imporlan';
 
-        $pasos = ['Tu agente confirma con el vendedor que sigue disponible y el precio final.'];
-        if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica y te mandamos el reporte antes de comprar.';
-        $pasos[] = 'Te enviamos el primer cobro para iniciar la compra, según el plan de pagos de tu cotización.';
+        // El Pago 1 (7% de la operación) se pide al elegir: con él parte todo,
+        // inspección incluida (no se cobra aparte).
+        $pago1 = $d['pago1'] ?? null;
+        $pago1Txt = $pago1 ? 'Pago 1 (' . rtrim(rtrim(number_format((float) $pago1['pct'], 2, ',', ''), '0'), ',') . '%): $' . number_format((float) $pago1['amount_clp'], 0, ',', '.') : '';
+        $pasos = [$pago1
+            ? 'Pagas el ' . $pago1Txt . ' para iniciar la operación. Lo encuentras en Pagos de tu panel, con tarjeta o transferencia.'
+            : 'Te enviamos el Pago 1 de la operación apenas esté lista tu cotización final.'];
+        $pasos[] = 'Tu agente confirma con el vendedor que sigue disponible y el precio final.';
+        if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica (va incluida en la operación) y te mandamos el reporte antes de comprar.';
         $pasos[] = 'Compra, transporte, aduana y entrega: lo sigues paso a paso en tu panel.';
 
         $content = '
@@ -1088,8 +1094,11 @@ BASE64;
                 'Expediente' => $orderNumber,
                 'Inspección técnica' => !empty($d['con_inspeccion']) ? 'Sí, antes de comprar' : 'No',
                 'Precio puesto en Chile' => (string) ($d['precio_chile'] ?? ''),
+                'Para iniciar' => $pago1Txt,
             ], 'strlen'))
-            . '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+            . '<div style="margin-top: 24px;">' . ($pago1 && ($pago1['status'] ?? 'pending') === 'pending'
+                ? $this->getButton('Pagar el Pago 1', 'https://www.imporlan.cl/panel/#/payments?pagar=' . rawurlencode($pago1['id']))
+                : $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null))) . '</div>';
 
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'eleccion_lancha', ['order_number' => $orderNumber, 'titulo' => $titulo]);
     }
@@ -1115,6 +1124,9 @@ BASE64;
             $items['Inspección técnica'] = !empty($d['con_inspeccion']) ? 'Sí, la quiere antes de comprar' : 'No';
             if (!empty($d['precio_chile'])) $items['Precio puesto en Chile'] = (string) $d['precio_chile'];
             if (!empty($d['antes'])) $items['Antes había elegido'] = (string) $d['antes'];
+            $items['Pago 1'] = !empty($d['pago1'])
+                ? '$' . number_format((float) $d['pago1']['amount_clp'], 0, ',', '.') . (($d['pago1']['status'] ?? '') === 'paid' ? ' (ya pagado)' : ' (cobro enviado al cliente)')
+                : 'Sin cotización publicada: créalo al publicarla';
         }
         $nota = trim((string) ($d['nota'] ?? ''));
 
@@ -1126,7 +1138,7 @@ BASE64;
             . ($libero ? '' : $this->impListaPasos('Lo que sigue en el admin', [
                 'Confirmar con el vendedor disponibilidad y precio, y marcarlo como hecho.',
                 !empty($d['con_inspeccion']) ? 'Coordinar la inspección técnica.' : 'Pasar a la compra (no pidió inspección).',
-                'Crear el primer cobro desde la cotización (botón «Crear cobro»).',
+                !empty($d['pago1']) ? 'Revisar que entre el Pago 1.' : 'Publicar la cotización y crear el Pago 1 (botón «Crear cobro»).',
             ]))
             . (!empty($d['url']) ? '<p style="margin: 14px 0; font-size: 13px; color: ' . $c['text_muted'] . ';">Anuncio: <a href="' . htmlspecialchars($d['url']) . '">' . htmlspecialchars(mb_substr($d['url'], 0, 80)) . '</a></p>' : '')
             . '<div style="margin-top: 22px;">' . $this->getButton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($d['order_id'] ?? 0)) . '</div>';
@@ -1175,6 +1187,25 @@ BASE64;
             . '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
 
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'hito_importacion', ['order_number' => $orderNumber, 'hito' => $hito]);
+    }
+
+    /**
+     * Al cliente, cuando el equipo comparte una novedad de la operación en
+     * EE. UU. (el texto lo escribe el equipo; nunca va la nota del operador).
+     * $d: titulo, order_number, order_id, texto.
+     */
+    public function sendNovedadImportacion($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'tu lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = 'Novedades de tu lancha: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Novedades de tu importación') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">Hola ' . htmlspecialchars($firstName) . ', te contamos cómo va.</p>
+            <div style="margin: 0 0 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.6;">' . nl2br(htmlspecialchars((string) ($d['texto'] ?? ''))) . '</div>
+            <div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'novedad_importacion', ['order_number' => $orderNumber]);
     }
 
     protected function impUrlPanel($orderId) {

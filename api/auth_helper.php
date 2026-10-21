@@ -166,3 +166,27 @@ function correoClienteDesdeSesion(array $sesion, $pedido = null) {
     echo json_encode(['error' => 'Acceso denegado']);
     exit();
 }
+
+/**
+ * El agente (operación en Estados Unidos) no se comunica con clientes
+ * (JP, 21-oct-2026): ve los expedientes y las inspecciones para trabajar,
+ * pero sin cómo contactar al cliente. Para él se borran correos y
+ * teléfonos, y el nombre queda sólo en el primero.
+ *
+ *   $fila     un expediente o una inspección (array asociativo)
+ *   $sesion   lo que devolvió requireAdminAuthShared()
+ */
+function ocultarContactoParaAgente(array $fila, $sesion) {
+    if (!is_array($sesion) || ($sesion['role'] ?? '') !== 'agent') return $fila;
+    foreach ($fila as $k => $v) {
+        if (!is_string($k) || is_array($v)) continue;
+        // customer_email, secondary_email, user_phone… (no agent_*: es el agente de Imporlan)
+        if (preg_match('/(^|_)(email|phone|telefono|whatsapp)$/i', $k) && stripos($k, 'agent_') !== 0) {
+            $fila[$k] = '';
+        } elseif (preg_match('/^(customer|user|client)_name$/i', $k) && is_string($v)) {
+            $partes = preg_split('/\s+/u', trim($v));
+            $fila[$k] = $partes[0] ?? '';
+        }
+    }
+    return $fila;
+}

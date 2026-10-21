@@ -212,7 +212,9 @@ function requireAdminAuth() {
         exit();
     }
 
-    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support', 'agent'])) {
+    // Sin 'agent': el operador en EE. UU. no se comunica con clientes
+    // (JP, 21-oct-2026). El chat es del equipo en Chile.
+    if (!isset($payload['role']) || !in_array($payload['role'], ['admin', 'support'])) {
         http_response_code(403);
         echo json_encode(['detail' => 'Acceso denegado']);
         exit();

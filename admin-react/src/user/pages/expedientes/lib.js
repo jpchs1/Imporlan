@@ -3,6 +3,8 @@
  * texto y reglas que se usan en la lista, el detalle y el ranking.
  */
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
+import { dateValue } from '../../../shared/lib/utils';
+import { esDesdeUsa } from '../../../shared/lib/importacion';
 
 /** WhatsApp de soporte de Imporlan (el mismo de siempre). */
 export const WA_SOPORTE = '56940211459';
@@ -160,4 +162,14 @@ export function esImagen(f) {
 
 export function esVideo(f) {
   return (f?.category || '') === 'video' || (f?.mime_type || '').startsWith('video/');
+}
+
+/** Cuántas fotos y videos muestra la galería de «Tu importación» antes de «Ver todos». */
+export const GALERIA_USA_MAX = 8;
+
+/** Fotos y videos del expediente que llegaron desde Estados Unidos, los más nuevos primero. */
+export function archivosDesdeUsa(files) {
+  return (files || [])
+    .filter(f => esDesdeUsa(f) && (esImagen(f) || esVideo(f)))
+    .sort((a, b) => dateValue(b.created_at) - dateValue(a.created_at) || Number(b.id) - Number(a.id));
 }

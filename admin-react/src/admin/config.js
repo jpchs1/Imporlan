@@ -26,7 +26,8 @@ export const NAV_ITEMS = [
   { to: '/inspections', roles: ALL, label: 'Inspecciones', icon: ClipboardCheck },
   { to: '/tracking', roles: ALL, label: 'Seguimiento', icon: Ship },
   { to: '/marketplace', roles: STAFF, label: 'Marketplace', icon: Store },
-  { to: '/chat', roles: ALL, label: 'Chat', icon: MessageCircle, badgeTone: 'danger' },
+  // El agente (operación en EE. UU.) no habla con el cliente: sin chat.
+  { to: '/chat', roles: STAFF, label: 'Chat', icon: MessageCircle, badgeTone: 'danger' },
   { to: '/config', roles: STAFF, label: 'Configuración', icon: Settings },
   { to: '/security', roles: ADMIN, label: 'Seguridad', icon: ShieldCheck },
 ];
@@ -34,6 +35,15 @@ export const NAV_ITEMS = [
 /** Pantallas visibles para un rol. */
 export function navItemsFor(role) {
   return NAV_ITEMS.filter(n => !n.roles || n.roles.includes(role || 'admin'));
+}
+
+/**
+ * El equipo en Chile (admin y soporte): cobra, comparte con el cliente y
+ * lleva la operación en EE. UU. El rol `agent` es quien está en EE. UU.: ve
+ * el expediente sin el contacto del cliente, sin cobros y sin chat.
+ */
+export function esEquipoChile(role) {
+  return STAFF.includes(role || 'admin');
 }
 
 /** Pantalla de inicio según el rol (un agente trabaja en Expedientes). */

@@ -54,6 +54,25 @@ es la vía rápida mientras tanto.
 La indicación va en el **mensaje** y no en el prompt de sistema, a propósito:
 el sistema es lo que vale para todos los chats, y esto es sobre éste.
 
+## Elegir la lancha, Pago 1 y operación en EE. UU. (JP, 21-oct-2026)
+
+- Al elegir la lancha (cliente en el panel, o el equipo por él en el admin)
+  se pide solo el **Pago 1** (el % de la cotización, 7% por defecto). La
+  inspección **no se cobra aparte**: va dentro de los 3 pagos de la
+  operación. Reglas en `api/eleccion_lancha.php`; pruebas en
+  `test/eleccion-lancha-tests.php`.
+- **David Morris** (ddm4me25@gmail.com) lleva la operación en EE. UU. Le
+  llegan correos en inglés pidiendo la actualización que toca. Contesta en
+  un link privado por expediente (`api/operador_usa.php?r=portal`), con nota
+  y fotos/videos.
+  - Fotos y videos → el cliente los ve.
+  - Nota y PDF → sólo el equipo, que comparte con el cliente lo que quiera,
+    con su texto.
+- **No debe existir comunicación alguna entre David y el cliente.** Su rol
+  (`agent`) no tiene chat ni ve correo/teléfono de clientes
+  (`ocultarContactoParaAgente()` en `api/auth_helper.php`). Nada que se le
+  mande a David lleva datos de contacto del cliente ni precios.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

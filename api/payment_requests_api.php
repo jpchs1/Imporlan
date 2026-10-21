@@ -398,6 +398,15 @@ function updateRequestStatus() {
     }
     
     $updated = updateRequestInFile($requestId, $updates);
+    if ($newStatus === 'paid' && ($request['status'] ?? '') !== 'paid' && $updated) {
+        // Pago 1 pagado (p. ej. una transferencia): se le avisa a la operación en EE. UU.
+        try {
+            require_once __DIR__ . '/operador_usa.php';
+            opuAlPagarCobro($updated);
+        } catch (\Throwable $e) {
+            logPaymentRequest('OPU_HOOK_ERROR', ['id' => $requestId, 'error' => $e->getMessage()]);
+        }
+    }
     
     logPaymentRequest('STATUS_UPDATED', ['id' => $requestId, 'from' => $request['status'], 'to' => $newStatus, 'admin' => $admin['email'] ?? 'admin']);
     

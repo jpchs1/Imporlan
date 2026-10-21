@@ -25,14 +25,15 @@ const VISTAS = [
  * filtra, ordena y pinta.
  *
  * Elegir: `puedeElegir(link)` decide qué tarjetas llevan el botón y
- * `onElegir(link)` abre el asistente. Con una lancha ya elegida
- * (`eleccion`), la tarjeta queda marcada «Tu elección» y el resto ofrece
- * «Cambiar a esta lancha» si todavía se puede.
+ * `onElegir(link)` abre el asistente; `onElegirConInspeccion(link)` es lo
+ * mismo desde el menú, con la inspección preseleccionada. Con una lancha ya
+ * elegida (`eleccion`), la tarjeta queda marcada «Tu elección» y el resto
+ * ofrece «Cambiar a esta lancha» si todavía se puede.
  *
  * Plegable: con `colapsable`, el cuerpo se muestra solo cuando `abierto`
  * (es la vista «Otras opciones (n)» de un expediente con elección).
  */
-export default function RankingEmbarcaciones({ ref, order, links, saving, notifying, onNotify, dnd, onMoveUp, onMoveDown, onRequestInspection, onPreviewImage, onElegir, puedeElegir, eleccion, titulo, descripcion, colapsable = false, abierto = true, onToggle }) {
+export default function RankingEmbarcaciones({ ref, order, links, saving, notifying, onNotify, dnd, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, puedeElegir, eleccion, titulo, descripcion, colapsable = false, abierto = true, onToggle }) {
   const [search, setSearch] = useState('');
   const [filtros, setFiltros] = useState([]);
   const [sortBy, setSortBy] = useState('rank');
@@ -165,8 +166,8 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
               aria-label="Embarcaciones del ranking"
               rowActions={r => [
                 elegible(r) && !esElegida(r) && { label: idElegida ? 'Cambiar a esta lancha' : 'Elegir esta lancha', icon: Check, onClick: () => onElegir(r) },
+                elegible(r) && !esElegida(r) && onElegirConInspeccion && { label: 'Elegir con inspección técnica', icon: ClipboardCheck, onClick: () => onElegirConInspeccion(r) },
                 r.url && { label: 'Ver anuncio', icon: ExternalLink, href: urlAbsoluta(r.url) },
-                !estaVendida(r) && onRequestInspection && { label: 'Solicitar inspección técnica', icon: ClipboardCheck, onClick: () => onRequestInspection(r) },
               ]}
               mobileCard={r => (
                 <div className="flex items-start gap-3">
@@ -191,7 +192,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
                       dragHandlers={isRankView ? dnd(realIdx) : undefined}
                       onMoveUp={isRankView ? () => onMoveUp(realIdx) : undefined}
                       onMoveDown={isRankView ? () => onMoveDown(realIdx) : undefined}
-                      onRequestInspection={onRequestInspection}
+                      onElegirConInspeccion={elegible(link) ? onElegirConInspeccion : undefined}
                       onPreviewImage={onPreviewImage}
                       onElegir={elegible(link) ? onElegir : undefined}
                       elegida={esElegida(link)}

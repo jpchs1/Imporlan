@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { Modal, Button, Callout, Textarea, Money, Badge } from '../../../shared/components/UI';
-import { Check, Image, MessageSquareText, ExternalLink, ClipboardCheck } from '../../../shared/components/Icons';
-import { precioChile, FUENTE_PRECIO, INSPECCION_PRECIOS, INSPECCION_INCLUYE, hitosDe, planDePagos } from '../../../shared/lib/importacion';
+import { Check, Image, MessageSquareText, ExternalLink, ClipboardCheck, Receipt } from '../../../shared/components/Icons';
+import { precioChile, FUENTE_PRECIO, INSPECCION_INCLUYE, hitosDe, planDePagos, pago1De } from '../../../shared/lib/importacion';
 import { chooseLink } from '../../api';
 import MatrizPrecios from './MatrizPrecios';
 import ResumenCotizacion from './ResumenCotizacion';
 import BotonEnlace from './BotonEnlace';
-import { tituloEmbarcacion, specsEmbarcacion, fuenteAnuncio, urlAbsoluta } from './lib';
+import { BotonEnlace as BotonRuta } from '../inicio/BotonEnlace';
+import { tituloEmbarcacion, specsEmbarcacion, fuenteAnuncio, urlAbsoluta, rutaPagar } from './lib';
 
 const PASOS = [
   { n: 1, label: 'Revisa la lancha' },
@@ -17,19 +18,26 @@ const PASOS = [
 
 /**
  * «Elegir esta lancha»: tres pasos cortos (revisar · inspección · confirmar)
- * y un estado de éxito dentro del mismo modal. Elegir no es pagar, y se dice
- * en el paso 3 y al final. Se monta solo abierto, así cada vez parte limpio.
+ * y un estado de éxito dentro del mismo modal.
+ *
+ * Al confirmar, el servidor crea el cobro del Pago 1 (el primer pago del
+ * plan de la cotización publicada) y lo devuelve en `pago1`; la inspección
+ * no se cobra aparte, va dentro de la operación. Sin cotización publicada
+ * no hay Pago 1 todavía: le llega al cliente cuando esté lista.
+ *
+ * Se monta solo abierto, así cada vez parte limpio.
  *
  *   <AsistenteEleccion open link={link} order={order} anterior={linkElegido}
- *                      onClose={…} onSuccess={eleccion => recargar()} />
+ *                      inspeccionInicial onClose={…} onSuccess={eleccion => recargar()} />
  */
-export default function AsistenteEleccion({ open, onClose, link, order, anterior, onSuccess }) {
+export default function AsistenteEleccion({ open, onClose, link, order, anterior, inspeccionInicial = true, onSuccess }) {
   const [paso, setPaso] = useState(1);
-  const [inspection, setInspection] = useState(true);
+  const [inspection, setInspection] = useState(!!inspeccionInicial);
   const [nota, setNota] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState(false);
+  const [pago1, setPago1] = useState(null); // lo que respondió el servidor al elegir
   const tituloRef = useRef(null);
 
   // Al cambiar de paso, el cuerpo del modal vuelve arriba (en móvil el paso 2
@@ -50,6 +58,7 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
   const agente = order?.agent_name || 'tu agente';
   const precio = precioChile(link);
   const plan = planDePagos(link);
+  const primerPago = pago1De(link);
   const reemplaza = anterior && Number(anterior.id) !== Number(link.id) ? tituloEmbarcacion(anterior) : null;
 
   async function confirmar() {
@@ -58,6 +67,7 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
     try {
       const data = await chooseLink(order.id, link.id, inspection, nota);
       if (data?.success) {
+        setPago1(data.pago1 || null);
         setExito(true);
         onSuccess?.(data.eleccion || null);
       } else {
@@ -75,10 +85,20 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
   }
 
   const pasoActual = PASOS[paso - 1];
+  const pago1Pendiente = pago1 && pago1.status === 'pending' && pago1.id;
 
   let footer;
   if (exito) {
-    footer = <Button onClick={verImportacion}>Ver mi importación</Button>;
+    // Con un Pago 1 por pagar, pagarlo es el primario; ver la importación
+    // queda como secundario.
+    footer = pago1Pendiente ? (
+      <>
+        <Button variant="secondary" onClick={verImportacion} className="w-full sm:w-auto">Ver mi importación</Button>
+        <BotonRuta to={rutaPagar(pago1)} variant="primary" icon={Receipt} className="w-full sm:w-auto">Pagar el Pago 1 · {fmtCLP(pago1.amount_clp)}</BotonRuta>
+      </>
+    ) : (
+      <Button onClick={verImportacion}>Ver mi importación</Button>
+    );
   } else if (paso === 1) {
     footer = (
       <>
@@ -112,18 +132,29 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
       footer={footer}
     >
       {exito ? (
-        <Exito title={title} agente={agente} inspection={inspection} tituloRef={tituloRef} />
+        <Exito title={title} agente={agente} inspection={inspection} pago1={pago1} tituloRef={tituloRef} />
       ) : (
         <div className="space-y-5">
           <IndicadorPasos paso={paso} />
           {paso === 1 && <PasoRevisar link={link} title={title} precio={precio} tituloRef={tituloRef} />}
-          {paso === 2 && <PasoInspeccion inspection={inspection} onInspection={setInspection} nota={nota} onNota={setNota} tituloRef={tituloRef} />}
+          {paso === 2 && (
+            <PasoInspeccion
+              inspection={inspection}
+              onInspection={setInspection}
+              nota={nota}
+              onNota={setNota}
+              primerPago={primerPago}
+              cuantosPagos={plan.length}
+              tituloRef={tituloRef}
+            />
+          )}
           {paso === 3 && (
             <PasoConfirmar
               link={link}
               title={title}
               precio={precio}
               plan={plan}
+              primerPago={primerPago}
               inspection={inspection}
               nota={nota}
               agente={agente}
@@ -136,6 +167,13 @@ export default function AsistenteEleccion({ open, onClose, link, order, anterior
       )}
     </Modal>
   );
+}
+
+/** «Pago 1 · 7% · $12.523.000» o, sin plan, «el Pago 1». */
+function nombrePago1(primerPago, { capital = false } = {}) {
+  const base = capital ? 'El Pago 1' : 'el Pago 1';
+  if (!primerPago) return base;
+  return `${base} (${primerPago.pct}% · ${fmtCLP(primerPago.clp)})`;
 }
 
 /* ---------------------------------------------------------------------------
@@ -263,7 +301,8 @@ function OpcionInspeccion({ checked, onSelect, titulo, badge, texto, children })
   );
 }
 
-function PasoInspeccion({ inspection, onInspection, nota, onNota, tituloRef }) {
+function PasoInspeccion({ inspection, onInspection, nota, onNota, primerPago, cuantosPagos, tituloRef }) {
+  const pagos = cuantosPagos > 0 ? cuantosPagos : 3;
   return (
     <div className="space-y-5">
       <div>
@@ -279,7 +318,7 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, tituloRef }) {
           badge="Recomendada"
           texto="Sabes en qué estado está la lancha antes de pagarla. El reporte queda en tu expediente."
         >
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div>
               <p className="eyebrow mb-1.5">Qué incluye</p>
               <ul className="space-y-1">
@@ -291,19 +330,14 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, tituloRef }) {
                 ))}
               </ul>
             </div>
-            <div className="sm:w-56">
-              <p className="eyebrow mb-1.5">Costo referencial según eslora</p>
-              <table className="w-full text-13">
-                <tbody className="divide-y divide-brand-200">
-                  {INSPECCION_PRECIOS.map(p => (
-                    <tr key={p.rango}>
-                      <th scope="row" className="py-1.5 pr-3 text-left font-normal text-ink-700">{p.rango}</th>
-                      <td className="py-1.5 text-right font-semibold text-ink-900 tabular">{p.precio}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-1.5 text-xs text-ink-500">Puede variar según la ubicación y la eslora exacta. Te lo confirmamos antes de coordinar; no se cobra al elegir.</p>
+            <div className="self-start rounded-md border border-brand-200 bg-surface px-3.5 py-3">
+              <p className="eyebrow mb-1">Cuánto cuesta</p>
+              <p className="text-sm font-medium text-ink-900">Va incluida en la operación</p>
+              <p className="mt-1 text-13 text-ink-700">
+                {primerPago
+                  ? <>La operación se paga en {pagos} pagos. {nombrePago1(primerPago, { capital: true })} es el que la pone en marcha, y te llega al confirmar.</>
+                  : <>La operación se paga en {pagos} pagos. El Pago 1 es el que la pone en marcha y te llega apenas esté lista tu cotización final.</>}
+              </p>
             </div>
           </div>
         </OpcionInspeccion>
@@ -333,11 +367,14 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, tituloRef }) {
 /* ---------------------------------------------------------------------------
    Paso 3 · Confirma
    --------------------------------------------------------------------------- */
-function PasoConfirmar({ link, title, precio, plan, inspection, nota, agente, reemplaza, error, tituloRef }) {
+function PasoConfirmar({ link, title, precio, plan, primerPago, inspection, nota, agente, reemplaza, error, tituloRef }) {
   const [imgError, setImgError] = useState(false);
   const specs = specsEmbarcacion(link);
   const hitos = hitosDe({ inspection, steps: {} });
   const hayFoto = link.image_url && !imgError;
+  const conPago1 = primerPago
+    ? `Es el que inicia la operación: lo pagas en Pagos, con tarjeta o transferencia. Con él ${inspection ? 'coordinamos la inspección técnica y confirmamos' : 'confirmamos'} la compra con el vendedor.`
+    : `Es el que inicia la operación: lo pagas en Pagos, con tarjeta o transferencia, y con él ${inspection ? 'coordinamos la inspección técnica y confirmamos' : 'confirmamos'} la compra con el vendedor. Hasta entonces no tienes nada que pagar.`;
 
   return (
     <div className="space-y-5">
@@ -348,7 +385,7 @@ function PasoConfirmar({ link, title, precio, plan, inspection, nota, agente, re
 
       {reemplaza && (
         <Callout tone="warning" title={`Reemplaza a ${reemplaza}`}>
-          Tu elección anterior queda sin efecto y se lo avisamos a {agente}.
+          Tu elección anterior queda sin efecto y se lo avisamos a {agente}. Si tenías un Pago 1 pendiente de esa lancha, se anula y te llega el de esta.
         </Callout>
       )}
 
@@ -370,7 +407,7 @@ function PasoConfirmar({ link, title, precio, plan, inspection, nota, agente, re
           <FilaResumen label="Inspección técnica">
             <span className="inline-flex items-center gap-1.5">
               {inspection && <ClipboardCheck size={14} className="text-success" />}
-              {inspection ? 'Sí, antes de comprar' : 'No'}
+              {inspection ? 'Sí, antes de comprar · incluida en la operación' : 'No'}
             </span>
           </FilaResumen>
           <FilaResumen label="Precio puesto en Chile">
@@ -383,10 +420,13 @@ function PasoConfirmar({ link, title, precio, plan, inspection, nota, agente, re
           </FilaResumen>
           {plan.length > 0 && (
             <FilaResumen label="Plan de pagos">
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {plan.map(p => (
-                  <li key={p.n} className="flex items-baseline justify-between gap-3 tabular">
-                    <span className="text-ink-700">Pago {p.n} · {p.pct}%</span>
+                  <li key={p.n} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 tabular">
+                    <span className="inline-flex items-center gap-2 text-ink-700">
+                      Pago {p.n} · {p.pct}%
+                      {p.n === 1 && <Badge tone="warning" size="sm">Al confirmar</Badge>}
+                    </span>
                     <span className="font-medium text-ink-900">{fmtCLP(p.clp)}</span>
                   </li>
                 ))}
@@ -401,14 +441,19 @@ function PasoConfirmar({ link, title, precio, plan, inspection, nota, agente, re
         <h4 id="que-pasa-despues" className="eyebrow">Qué pasa después</h4>
         <ol className="mt-2 space-y-2">
           <PasoDespues n={1} titulo={`Le avisamos a ${agente}`} texto="Hoy mismo, con tu nota." />
+          <PasoDespues
+            n={2}
+            titulo={primerPago ? `Pagas el Pago 1 · ${primerPago.pct}% · ${fmtCLP(primerPago.clp)}` : 'Pagas el Pago 1'}
+            texto={primerPago ? 'Te llega al confirmar. Lo pagas en Pagos, con tarjeta o transferencia.' : 'Te llega apenas esté lista tu cotización final. Lo pagas en Pagos, con tarjeta o transferencia.'}
+          />
           {hitos.map((h, i) => (
-            <PasoDespues key={h.id} n={i + 2} titulo={h.label} texto={h.enCurso} />
+            <PasoDespues key={h.id} n={i + 3} titulo={h.label} texto={h.enCurso} />
           ))}
         </ol>
       </section>
 
-      <Callout tone="info" title="Elegir no es un pago">
-        El primer cobro te llega cuando {agente} confirme la disponibilidad y el precio. Lo verás aquí y en Pagos; hasta entonces no tienes nada que pagar.
+      <Callout tone="info" title={primerPago ? `Al confirmar te llega el Pago 1 · ${primerPago.pct}% · ${fmtCLP(primerPago.clp)}` : 'El Pago 1 te llega apenas esté lista tu cotización final'}>
+        {conPago1}
       </Callout>
 
       {error && (
@@ -440,19 +485,27 @@ function PasoDespues({ n, titulo, texto }) {
 }
 
 /* ---------------------------------------------------------------------------
-   Éxito
+   Éxito. `pago1` es lo que respondió el servidor: null sin cotización
+   publicada; con status 'pending' el pie ofrece pagarlo.
    --------------------------------------------------------------------------- */
-function Exito({ title, agente, inspection, tituloRef }) {
+function Exito({ title, agente, inspection, pago1, tituloRef }) {
+  let siguiente;
+  if (pago1?.status === 'pending') {
+    siguiente = <>Le avisamos a {agente}. Para iniciar la operación te llega el <span className="font-medium text-ink-900">Pago 1{pago1.pct ? ` · ${pago1.pct}%` : ''} · {fmtCLP(pago1.amount_clp)}</span>: lo pagas en Pagos, con tarjeta o transferencia. Con él {inspection ? 'coordinamos la inspección técnica y confirmamos' : 'confirmamos'} la compra con el vendedor.</>;
+  } else if (pago1?.status === 'paid') {
+    siguiente = <>Le avisamos a {agente}. Tu Pago 1 ya está pagado, así que seguimos directo con {inspection ? 'la inspección técnica y la compra' : 'la compra'}.</>;
+  } else {
+    siguiente = <>Le avisamos a {agente}. El Pago 1 te llega apenas esté lista tu cotización final; lo verás aquí y en Pagos. Hasta entonces no tienes nada que pagar.</>;
+  }
+
   return (
     <div className="flex flex-col items-center py-4 text-center sm:py-6" role="status">
       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success-bg text-success">
         <Check size={28} strokeWidth={2.5} />
       </span>
       <h3 ref={tituloRef} tabIndex={-1} className="mt-4 text-xl font-semibold leading-7 text-ink-900 outline-none">Listo, elegiste {title}</h3>
-      <p className="mt-2 max-w-md text-sm text-ink-700">
-        Le avisamos a {agente}. Te escribe cuando confirme con el vendedor que sigue disponible y el precio final; recién ahí te llega el primer cobro.
-      </p>
-      {inspection && <p className="mt-2 text-13 text-ink-500">Pediste inspección técnica: la coordinamos antes de comprar.</p>}
+      <p className="mt-2 max-w-md text-sm text-ink-700">{siguiente}</p>
+      {inspection && pago1?.status !== 'pending' && <p className="mt-2 text-13 text-ink-500">Pediste inspección técnica: la coordinamos antes de comprar.</p>}
     </div>
   );
 }

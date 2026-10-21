@@ -104,13 +104,10 @@ export function queSigue(eleccion, pagos) {
   return { tipo: 'listo' };
 }
 
-/** Costo referencial de la inspección técnica según eslora (el mismo de siempre). */
-export const INSPECCION_PRECIOS = [
-  { rango: 'Hasta 25 pies', precio: 'USD 850' },
-  { rango: '26 a 30 pies', precio: 'USD 1.200' },
-  { rango: '31 pies o más', precio: 'USD 1.800' },
-];
-
+/**
+ * Qué incluye la inspección técnica. No tiene precio aparte: va dentro de la
+ * operación, que se paga con el plan de pagos (Pago 1 al elegir).
+ */
 export const INSPECCION_INCLUYE = [
   'Inspección visual de casco, cubierta y estructura',
   'Pruebas de motor (compresión, presión, fugas)',
@@ -216,3 +213,59 @@ export function etapaPorEleccion(eleccion) {
   for (const h of HITOS) if (steps[h.id] && h.etapa > etapa) etapa = h.etapa;
   return etapa;
 }
+
+/**
+ * El Pago 1 que se le pide al cliente al elegir: el primer pago del plan de
+ * la lancha ({ n, pct, clp }), o null sin cotización publicada. En ese caso
+ * no se inventa el %: el Pago 1 le llega cuando la cotización esté lista.
+ */
+export function pago1De(link) {
+  return planDePagos(link)[0] || null;
+}
+
+/**
+ * El % del Pago 1 que comparten las lanchas con cotización publicada, para
+ * hablar del plan antes de que haya elección. null si ninguna tiene plan o
+ * si difieren entre sí.
+ */
+export function pctPago1Comun(links) {
+  const pcts = new Set((links || []).map(l => pago1De(l)?.pct).filter(p => p > 0));
+  return pcts.size === 1 ? [...pcts][0] : null;
+}
+
+/**
+ * Archivos que mandó la operación en Estados Unidos (operador_usa.php los
+ * guarda con esta descripción). El cliente ve las fotos y los videos; nunca
+ * quién los mandó.
+ */
+export const DESCRIPCION_DESDE_USA = 'Desde Estados Unidos';
+
+export function esDesdeUsa(file) {
+  return (file?.description || '').trim() === DESCRIPCION_DESDE_USA;
+}
+
+/**
+ * El Pago 1 que el servidor crea solo al elegir (impPlanPago1): sólo con la
+ * cotización PUBLICADA. En el admin las filas traen el plan aunque esté en
+ * análisis, así que aquí se exige `quote_published_at`. { n, pct, clp } o null.
+ */
+export function pago1AlElegir(link) {
+  if (!link?.quote_published_at) return null;
+  const plan = planDePagos(link);
+  return plan.find(p => p.n === 1) || null;
+}
+
+/** Un hito por su id (null si no existe). */
+export function hitoPorId(id) {
+  return HITOS.find(h => h.id === id) || null;
+}
+
+/**
+ * Operación en EE. UU. (api/operador_usa.php): los hitos que hace el
+ * operador allá. Después de éstos, lo que sigue es en Chile.
+ */
+export const HITOS_USA = ['disponibilidad', 'inspeccion', 'compra', 'transporte'];
+
+/** Archivos que subió el operador de EE. UU. (uploaded_by y description). */
+export const ORIGEN_ARCHIVO_USA = 'operador_usa';
+export const DESCRIPCION_ARCHIVO_USA = DESCRIPCION_DESDE_USA;

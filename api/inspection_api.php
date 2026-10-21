@@ -29,11 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'admin_list') {
     require_once __DIR__ . '/db_config.php';
     require_once __DIR__ . '/auth_helper.php';
-    requireAdminAuthShared(['admin', 'support', 'agent']);
+    $sesion = requireAdminAuthShared(['admin', 'support', 'agent']);
     try {
         $pdo = getDbConnection();
         ensureLeadsTable($pdo);
         $rows = $pdo->query("SELECT * FROM wp_inspection_leads ORDER BY created_at DESC LIMIT 1000")->fetchAll(PDO::FETCH_ASSOC);
+        $rows = array_map(function ($r) use ($sesion) { return ocultarContactoParaAgente($r, $sesion); }, $rows);
         echo json_encode(['success' => true, 'items' => $rows]);
     } catch (Exception $e) {
         http_response_code(500);
