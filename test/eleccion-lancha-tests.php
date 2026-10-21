@@ -62,6 +62,7 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL)");
 $BD->exec("CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY, order_id INTEGER, note TEXT, file_ids TEXT, shared_text TEXT NULL, shared_at TEXT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE expediente_files (id INTEGER PRIMARY KEY, order_id INTEGER, original_name TEXT, stored_name TEXT, mime_type TEXT, file_size INTEGER, category TEXT, description TEXT, uploaded_by TEXT, visible_to_client INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+$BD->exec("CREATE TABLE order_client_data (order_id INTEGER PRIMARY KEY, user_email TEXT, data TEXT, ci_front_id INTEGER, ci_back_id INTEGER, terms_version TEXT, terms_accepted_at TEXT, terms_ip TEXT, terms_ua TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE notifications (id INTEGER PRIMARY KEY, user_email TEXT, type TEXT, title TEXT, message TEXT, link TEXT)");
 $BD->exec("CREATE TABLE order_links (id INTEGER PRIMARY KEY, order_id INTEGER, row_index INTEGER, url TEXT, title TEXT,
     image_url TEXT, location TEXT, hours TEXT, engine TEXT, link_status TEXT DEFAULT 'active', make TEXT, model TEXT, year INTEGER,
@@ -77,7 +78,7 @@ require "$caja/orders_api.php";
 
 function sembrar() {
     $bd = $GLOBALS['BD'];
-    $bd->exec('DELETE FROM orders; DELETE FROM order_links; DELETE FROM order_events; DELETE FROM order_usa_updates; DELETE FROM expediente_files; DELETE FROM notifications;');
+    $bd->exec('DELETE FROM orders; DELETE FROM order_links; DELETE FROM order_events; DELETE FROM order_usa_updates; DELETE FROM expediente_files; DELETE FROM notifications; DELETE FROM order_client_data;');
     $bd->exec("INSERT INTO orders (id, order_number, customer_email, customer_name, status) VALUES
         (35, 'IMP-00035', 'alberto@example.com', 'Alberto Lathrop', 'in_progress'),
         (36, 'IMP-00036', 'otra@example.com', 'Otra Persona', 'in_progress'),
@@ -96,7 +97,21 @@ function sembrar() {
     // El Chaparral tiene plan pero la cotización NO está publicada: no hay Pago 1 automático.
     $bd->exec("UPDATE order_links SET quote_payments = '{\"p1_pct\":7,\"p1_clp\":2870000}' WHERE id = 11");
     file_put_contents(impArchivoCobros(), json_encode(['requests' => []]));
+    // Alberto ya completó sus datos, su cédula y aceptó los Términos en IMP-00035 y IMP-00037.
+    foreach ([35, 37] as $id) datosListos($id);
     $GLOBALS['CORREOS'] = [];
+}
+
+/** Datos válidos de Alberto (RUT 11.111.111-1 es válido por módulo 11). */
+function datosAlberto() {
+    return ['nombre' => 'Alberto Lathrop Vicuña', 'rut' => '11111111-1', 'fecha_nacimiento' => '1975-03-14', 'nacionalidad' => 'Chilena',
+        'estado_civil' => 'Casado/a', 'profesion' => 'Ingeniero', 'telefono' => '+56 9 1234 5678', 'direccion' => 'Av. Apoquindo 1234, depto 56',
+        'comuna' => 'Las Condes', 'region' => 'Metropolitana'];
+}
+
+function datosListos($orderId) {
+    $GLOBALS['BD']->prepare("INSERT OR REPLACE INTO order_client_data (order_id, user_email, data, ci_front_id, ci_back_id, terms_version, terms_accepted_at) VALUES (?, 'alberto@example.com', ?, 901, 902, ?, '2026-10-21 10:00:00')")
+        ->execute([$orderId, json_encode(datosAlberto()), IMP_TERMINOS_VERSION]);
 }
 
 function orden($id) {
@@ -370,6 +385,64 @@ $chat = file_get_contents("$raiz/api/chat_api.php");
 ok(preg_match("/function requireAdminAuth\(\).*?in_array\(\\\$payload\['role'\], \['admin', 'support'\]\)/s", $chat) === 1, 'el chat del equipo no admite al agente');
 ok(strpos(file_get_contents("$raiz/admin-react/src/admin/config.js"), "{ to: '/chat', roles: STAFF") !== false, 'y el menú no le muestra el Chat');
 ok(strpos($api, "unset(\$order['usa_token']") !== false, 'el cliente no recibe el link privado de David');
+
+echo "\nDatos del cliente, cédula y Términos antes de elegir\n";
+ok(impRutValido('11.111.111-1') && impRutValido('76914409-9') && !impRutValido('11.111.111-2') && !impRutValido('12-3'), 'el RUT se valida con módulo 11');
+ok(impRutFormato('769144099') === '76.914.409-9', 'y se guarda con formato');
+[$d, $e] = impValidarDatos(datosAlberto());
+ok($e === [] && $d['rut'] === '11.111.111-1', 'datos completos y válidos pasan');
+[, $e] = impValidarDatos(['nombre' => 'X'] + array_fill_keys(['rut', 'fecha_nacimiento'], ''));
+ok(isset($e['rut'], $e['comuna'], $e['estado_civil']), 'cada campo que falta se informa');
+[, $e] = impValidarDatos(['fecha_nacimiento' => date('Y-m-d', strtotime('-10 years'))] + datosAlberto());
+ok(isset($e['fecha_nacimiento']), 'un menor de edad no puede');
+sembrar();
+$BD->exec("DELETE FROM order_client_data WHERE order_id = 35");
+[$c, $r] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
+ok($c === 409 && ($r['code'] ?? '') === 'faltan_datos' && orden(35)['chosen_link_id'] === null, 'sin datos, cédula ni Términos no se puede elegir (409 faltan_datos)');
+ok(vigentes() === [] && $CORREOS === [], 'y no se crea el Pago 1 ni sale ningún correo');
+$tmp = sys_get_temp_dir() . '/ci-' . getmypid();
+@mkdir($tmp);
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+foreach (['f1', 'r1', 'f2'] as $n) file_put_contents("$tmp/$n.png", $png);
+file_put_contents("$tmp/malo.txt", "hola");
+$o = orden(35);
+$archivo = function ($n) use ($tmp) { return ['name' => "$n", 'tmp_name' => "$tmp/$n", 'size' => filesize("$tmp/$n"), 'error' => 0]; };
+[$ok, $err] = impGuardarDatosCliente($BD, $o, 'alberto@example.com', datosAlberto(), ['frente' => $archivo('f1.png'), 'reverso' => $archivo('r1.png')], '1.2.3.4', 'Test', 'copy');
+ok(!$ok && isset($err['terminos']), 'sin aceptar los Términos no se guarda');
+[$ok, $err] = impGuardarDatosCliente($BD, $o, 'alberto@example.com', datosAlberto() + ['acepta_terminos' => 1], ['frente' => $archivo('f1.png')], '1.2.3.4', 'Test', 'copy');
+ok(!$ok && isset($err['ci_reverso']), 'falta el reverso: no se guarda');
+[$ok, $err] = impGuardarDatosCliente($BD, $o, 'alberto@example.com', datosAlberto() + ['acepta_terminos' => 1], ['frente' => $archivo('f1.png'), 'reverso' => $archivo('malo.txt')], '1.2.3.4', 'Test', 'copy');
+ok(!$ok && isset($err['ci_reverso']), 'un archivo que no es foto ni PDF se rechaza');
+[$ok, $err] = impGuardarDatosCliente($BD, $o, 'alberto@example.com', datosAlberto() + ['acepta_terminos' => 1, 'terminos_version' => IMP_TERMINOS_VERSION], ['frente' => $archivo('f2.png'), 'reverso' => $archivo('r1.png')], '1.2.3.4', 'Mozilla/5.0', 'copy');
+$fila = impFilaDatos($BD, 35);
+ok($ok && impDatosCompletos($fila), 'con todo, queda completo: ' . json_encode($err));
+ok($fila['terms_version'] === IMP_TERMINOS_VERSION && $fila['terms_ip'] === '1.2.3.4' && $fila['terms_accepted_at'], 'se guarda qué versión de los Términos aceptó, cuándo y desde qué IP');
+$ci = $BD->query("SELECT uploaded_by, visible_to_client, description FROM expediente_files WHERE uploaded_by = 'cliente_identidad' ORDER BY id")->fetchAll();
+ok(count($ci) === 2 && $ci[0]['visible_to_client'] == 0 && strpos($ci[0]['description'], 'Cédula') === 0, 'la cédula queda como archivo interno (no se mezcla con las fotos de la lancha)');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
+ok($c === 200 && intval(orden(35)['chosen_link_id']) === 12, 'ahora sí elige');
+$BD->exec("UPDATE order_client_data SET terms_version = '2020-01-01' WHERE order_id = 35");
+ok(!impDatosCompletos(impFilaDatos($BD, 35)), 'si cambia la versión de los Términos, hay que aceptarlos de nuevo');
+// Otro expediente: se reusan datos y cédula, con aceptación nueva.
+$BD->exec("INSERT INTO orders (id, order_number, customer_email, customer_name, status) VALUES (38, 'IMP-00038', 'alberto@example.com', 'Alberto Lathrop', 'in_progress')");
+$BD->exec("UPDATE order_client_data SET terms_version = '" . IMP_TERMINOS_VERSION . "' WHERE order_id = 35");
+$pub = impDatosPublicos($BD, null, impFilaDatosAnterior($BD, 'alberto@example.com', 38));
+ok($pub['de_otro_expediente'] && $pub['datos']['comuna'] === 'Las Condes' && $pub['ci_frente'] && !$pub['completo'], 'en otro expediente se precargan los datos y la cédula anteriores, sin darlo por completo');
+ok(!isset($pub['ci_frente_url']), 'el cliente no recibe enlaces de descarga de la cédula');
+[$ok] = impGuardarDatosCliente($BD, orden(38), 'alberto@example.com', datosAlberto() + ['acepta_terminos' => 1, 'reusar_cedula' => 1], [], '5.6.7.8', 'Test', 'copy');
+ok($ok && impDatosCompletos(impFilaDatos($BD, 38)), 'reusando la cédula anterior basta con confirmar datos y Términos');
+$adm = impDatosPublicos($BD, impFilaDatos($BD, 35), null, true);
+ok(strpos($adm['ci_frente_url'] ?? '', '/api/expediente_files_api.php?action=download&id=') === 0 && $adm['terminos_ip'] === '1.2.3.4', 'el equipo recibe enlaces firmados a la cédula y el IP de la aceptación');
+array_map('unlink', glob("$tmp/*")); @rmdir($tmp);
+array_map('unlink', glob("$caja/expediente_files/*")); @unlink("$caja/expediente_files/.htaccess"); @rmdir("$caja/expediente_files");
+ok(preg_match("/case 'admin_import_data':\s*\/\/[^\n]*\n\s*adminImportData\(requireAdminAuthShared\(\['admin', 'support'\]\)\);/", $api) === 1, 'los datos y la cédula del cliente no los ve el agente (sólo admin y support)');
+ok(preg_match("/case 'user_import_data':\s*userImportData\(requireUserAuthShared\(\)\);/", $api) === 1, 'el cliente sólo con su sesión');
+ok(strpos(file_get_contents("$raiz/api/expediente_files_api.php"), "uploaded_by <> 'cliente_identidad'") !== false, 'y la lista de archivos del agente no incluye la cédula');
+sembrar();
+$BD->exec("DELETE FROM order_client_data WHERE order_id = 35");
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 12, 'notify_client' => true]);
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com' && strpos($m['subject'], 'Confirmamos tu lancha') === 0; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'subes tu cédula por ambos lados') !== false, 'si el equipo marca la elección y faltan datos, el correo se los pide');
 
 echo "\nLas rutas exigen sesión y no leen el correo del cuerpo\n";
 $api = file_get_contents("$raiz/api/orders_api.php");
