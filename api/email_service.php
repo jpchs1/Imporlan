@@ -1189,6 +1189,25 @@ BASE64;
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'hito_importacion', ['order_number' => $orderNumber, 'hito' => $hito]);
     }
 
+    /**
+     * Al cliente, cuando el equipo comparte una novedad de la operación en
+     * EE. UU. (el texto lo escribe el equipo; nunca va la nota del operador).
+     * $d: titulo, order_number, order_id, texto.
+     */
+    public function sendNovedadImportacion($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'tu lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = 'Novedades de tu lancha: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Novedades de tu importación') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">Hola ' . htmlspecialchars($firstName) . ', te contamos cómo va.</p>
+            <div style="margin: 0 0 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.6;">' . nl2br(htmlspecialchars((string) ($d['texto'] ?? ''))) . '</div>
+            <div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'novedad_importacion', ['order_number' => $orderNumber]);
+    }
+
     protected function impUrlPanel($orderId) {
         $id = intval($orderId);
         return 'https://www.imporlan.cl/panel/#/expedientes' . ($id > 0 ? '?id=' . $id : '');

@@ -312,10 +312,16 @@ function listFiles($auth) {
             }
         }
 
+        // Los documentos que manda la operación en EE. UU. quedan internos
+        // (visible_to_client = 0) hasta que el equipo los comparte.
+        $cols = $pdo->query("SHOW COLUMNS FROM expediente_files")->fetchAll(PDO::FETCH_COLUMN);
+        $conVisible = in_array('visible_to_client', $cols, true);
+        $soloVisibles = ($conVisible && !$isStaff) ? ' AND visible_to_client = 1' : '';
+        $visibleSel = $conVisible ? ', visible_to_client' : ', 1 AS visible_to_client';
         $stmt = $pdo->prepare("
-            SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at
+            SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at $visibleSel
             FROM expediente_files
-            WHERE order_id = ?
+            WHERE order_id = ?$soloVisibles
             ORDER BY created_at DESC
         ");
         $stmt->execute([$orderId]);
@@ -328,6 +334,8 @@ function listFiles($auth) {
             $exp = time() + FILE_LINK_TTL;
             $f['download_url'] = $baseUrl . '?action=download&id=' . $f['id'] . '&exp=' . $exp . '&sig=' . fileLinkSignature($f['id'], $exp);
             unset($f['stored_name']);
+            // Quién lo subió es del equipo: el cliente no ve al operador en EE. UU.
+            if (!$isStaff) unset($f['uploaded_by']);
             $f['file_size_formatted'] = formatFileSize($f['file_size']);
         }
 

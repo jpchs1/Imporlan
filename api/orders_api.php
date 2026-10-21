@@ -24,6 +24,7 @@ require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/cotizador_helpers.php';
 require_once __DIR__ . '/scraper_locator.php';
 require_once __DIR__ . '/eleccion_lancha.php';
+require_once __DIR__ . '/operador_usa.php';
 
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     require_once __DIR__ . '/cors_helper.php';
@@ -37,6 +38,8 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 
     require_once __DIR__ . '/plan_expiration.php';
     maybeExpireStalePlans();
+    // Recordatorios a la operación en EE. UU. (como mucho una vez por hora).
+    opuQuizasRecordar();
 
     $action = $_GET['action'] ?? '';
 
@@ -53,16 +56,13 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             userGetOrderDetail(requireUserAuthShared());
             break;
         case 'admin_list':
-            requireAdminAuth();
-            adminListOrders();
+            adminListOrders(requireAdminAuth());
             break;
         case 'admin_detail':
-            requireAdminAuth();
-            adminGetOrderDetail();
+            adminGetOrderDetail(requireAdminAuth());
             break;
         case 'admin_update':
-            requireAdminAuth();
-            adminUpdateOrder();
+            adminUpdateOrder(requireAdminAuth());
             break;
         case 'admin_update_links':
             requireAdminAuth();
@@ -547,6 +547,10 @@ function userGetOrderDetail($authPayload = null) {
         // Auto-detect timeline step from real data
         $order['timeline_step'] = computeTimelineStep($pdo, $order);
         $order['eleccion'] = impEleccionParaPanel($order);
+        // Lo que el equipo compartió de la operación en EE. UU. (nunca las notas de David).
+        $order['novedades'] = opuNovedadesCliente($pdo, $orderId);
+        // El link privado de David y su estado no son del cliente.
+        unset($order['usa_token'], $order['usa_link_id'], $order['usa_requested_at'], $order['usa_updated_at'], $order['admin_notes']);
 
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
@@ -556,7 +560,7 @@ function userGetOrderDetail($authPayload = null) {
     }
 }
 
-function adminListOrders() {
+function adminListOrders($sesion = null) {
     $pdo = getDbConnection();
     if (!$pdo) {
         http_response_code(500);
@@ -628,6 +632,9 @@ function adminListOrders() {
             }
         }
 
+        // El agente (operación en EE. UU.) no ve cómo contactar al cliente.
+        $orders = array_map(function ($o) use ($sesion) { return ocultarContactoParaAgente($o, $sesion); }, $orders);
+
         $countStmt = $pdo->query("SELECT COUNT(*) as total FROM orders");
         $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
@@ -639,7 +646,7 @@ function adminListOrders() {
     }
 }
 
-function adminGetOrderDetail() {
+function adminGetOrderDetail($sesion = null) {
     $orderId = intval($_GET['id'] ?? 0);
 
     if (!$orderId) {
@@ -700,6 +707,14 @@ function adminGetOrderDetail() {
             }
         }
 
+        // El agente (operación en EE. UU.) no ve cómo contactar al cliente.
+        $order = ocultarContactoParaAgente($order, $sesion);
+        if (($sesion['role'] ?? '') === 'agent') {
+            $order['chosen_note'] = '';
+            if (!empty($order['eleccion'])) $order['eleccion']['note'] = '';
+            $order['events'] = [];
+        }
+
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
         error_log("Error getting admin order detail: " . $e->getMessage());
@@ -708,7 +723,7 @@ function adminGetOrderDetail() {
     }
 }
 
-function adminUpdateOrder() {
+function adminUpdateOrder($sesion = null) {
     $input = json_decode(file_get_contents('php://input'), true);
     $orderId = intval($input['id'] ?? 0);
 
@@ -735,6 +750,11 @@ function adminUpdateOrder() {
         'status', 'timeline_step', 'customer_name', 'customer_email', 'customer_phone',
         'origin', 'admin_notes', 'visible_to_client'
     ];
+    // El agente recibe el contacto del cliente oculto (ocultarContactoParaAgente):
+    // si guardara esos campos, borraría los datos reales.
+    if (($sesion['role'] ?? '') === 'agent') {
+        $allowedFields = array_values(array_diff($allowedFields, ['customer_name', 'customer_email', 'customer_phone']));
+    }
 
     $sets = [];
     $params = [];
@@ -2568,13 +2588,6 @@ function impPrimerNombre($order) {
     return $partes[0];
 }
 
-function impLeerLink($pdo, $orderId, $linkId) {
-    if (!$linkId) return null;
-    $st = $pdo->prepare("SELECT * FROM order_links WHERE id = ? AND order_id = ?");
-    $st->execute([intval($linkId), intval($orderId)]);
-    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
-}
-
 /** Lo que el panel y los correos necesitan del Pago 1 ($res de impSolicitarPago1). */
 function impPago1Publico($res) {
     $c = is_array($res) ? ($res['cobro'] ?? null) : null;
@@ -2697,6 +2710,8 @@ function userChooseLink($sesion, $input = null) {
         ], $sesion['sub'] ?? null);
 
         impAvisarEleccion($order, $link, 'eligio', 'cliente', $conInspeccion, $nota, $antes, true, $pago1);
+        // A David (operación en EE. UU.) se le pide confirmar la lancha; si estaba en otra, que la pause.
+        if (intval($order['chosen_link_id'] ?? 0) !== $linkId) opuAlElegir($pdo, $orderId, intval($order['chosen_link_id'] ?? 0));
 
         $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
         $st->execute([$orderId]);
@@ -2732,6 +2747,7 @@ function userUnchooseLink($sesion, $input = null) {
             ->execute([$orderId]);
         logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id']), 'titulo' => impTituloLancha($link), 'por' => 'cliente'], $sesion['sub'] ?? null);
         impAnularPago1Pendiente($orderId, 'Deshizo la elección de lancha');
+        opuAlDeshacer($pdo, $order);
 
         impAvisarEleccion($order, $link ?: [], 'libero', 'cliente', false, '', null, false);
         echo json_encode(['success' => true, 'eleccion' => null]);
@@ -2773,6 +2789,7 @@ function adminChooseLink($admin, $input = null) {
                 ->execute([$orderId]);
             logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id'] ?? 0), 'por' => 'equipo', 'admin' => $quien]);
             impAnularPago1Pendiente($orderId, 'El equipo quitó la elección de lancha');
+            opuAlDeshacer($pdo, $order);
             echo json_encode(['success' => true, 'eleccion' => null]);
             return;
         }
@@ -2797,6 +2814,7 @@ function adminChooseLink($admin, $input = null) {
         if (!$misma && !$pago1) impAnularPago1Pendiente($orderId, 'Cambió de lancha');
         if ($avisar) impAvisarCobroEnChat($pago1);
         if (!$misma && $avisar) impAvisarEleccion($order, $link, 'eligio', 'equipo', $conInspeccion, $nota, null, true, $pago1);
+        if (!$misma) opuAlElegir($pdo, $orderId, intval($order['chosen_link_id'] ?? 0));
 
         $st->execute([$orderId]);
         echo json_encode(['success' => true, 'eleccion' => impEleccionParaPanel($st->fetch(PDO::FETCH_ASSOC)), 'notified' => !$misma && $avisar, 'pago1' => impPago1Publico($pago1)]);
@@ -2870,12 +2888,16 @@ function adminSetImportStep($admin, $input = null) {
             }
         }
 
+        // Si lo que sigue es del lado de EE. UU., se le pide a David.
+        $pedidoUsa = ($hecho && !$yaEstaba) ? opuAlMarcarHito($pdo, $orderId, $paso) : false;
+
         $st->execute([$orderId]);
         $order = $st->fetch(PDO::FETCH_ASSOC);
         echo json_encode([
             'success' => true,
             'eleccion' => impEleccionPublica($order),
             'notified' => $notificado,
+            'usa_requested' => $pedidoUsa,
         ]);
     } catch (PDOException $e) {
         error_log('adminSetImportStep: ' . $e->getMessage());

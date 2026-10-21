@@ -89,6 +89,7 @@ if (!function_exists('handlePaymentRequestPaid')) {
                         'method' => $paymentMethod,
                         'user' => $request['user_email']
                     ]) . "\n", FILE_APPEND);
+                    $pagado = $request;
                     
                     break;
                 }
@@ -96,7 +97,13 @@ if (!function_exists('handlePaymentRequestPaid')) {
             
             flock($fp, LOCK_UN);
             fclose($fp);
-        } catch (Exception $e) {
+            // Con el Pago 1 pagado la operación queda confirmada: se le avisa a
+            // la operación en EE. UU. (ya con el archivo liberado).
+            if (!empty($pagado)) {
+                require_once __DIR__ . '/operador_usa.php';
+                opuAlPagarCobro($pagado);
+            }
+        } catch (\Throwable $e) {
             $logFile = __DIR__ . '/payment_requests.log';
             file_put_contents($logFile, date('Y-m-d H:i:s') . ' - HANDLE_PAID_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
         }

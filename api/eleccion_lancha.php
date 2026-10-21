@@ -114,6 +114,13 @@ function impTituloLancha($link) {
     return $armado !== '' ? $armado : 'la embarcación';
 }
 
+function impLeerLink($pdo, $orderId, $linkId) {
+    if (!$linkId) return null;
+    $st = $pdo->prepare("SELECT * FROM order_links WHERE id = ? AND order_id = ?");
+    $st->execute([intval($linkId), intval($orderId)]);
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
 /** Crea las columnas si faltan. Barato: una consulta de columnas. */
 function impAsegurarColumnas($pdo) {
     static $hecho = false;
