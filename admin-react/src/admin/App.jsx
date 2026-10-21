@@ -76,9 +76,10 @@ function RoleRoute({ path, children }) {
 }
 
 // Chats sin leer en el menú lateral (cada 30 s, sólo con la pestaña visible).
-function useChatUnread() {
+function useChatUnread(activo = true) {
   const [n, setN] = useState(0);
   useEffect(() => {
+    if (!activo) return undefined;
     let alive = true;
     const tick = () => {
       if (document.hidden) return;
@@ -88,7 +89,7 @@ function useChatUnread() {
     const id = setInterval(tick, 30000);
     document.addEventListener('visibilitychange', tick);
     return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', tick); };
-  }, []);
+  }, [activo]);
   return n;
 }
 
@@ -105,7 +106,8 @@ function SessionExpiredNotice() {
 
 function AdminLayout() {
   const { user } = useAuth();
-  const chatUnread = useChatUnread();
+  // El agente (operación en EE. UU.) no tiene chat: no habla con clientes.
+  const chatUnread = useChatUnread(user?.role !== 'agent');
   const navItems = navItemsFor(user?.role);
   // Paleta de comandos (⌘K / Ctrl K): buscador en el topbar en escritorio,
   // ícono en móvil; solo navega a las secciones que el rol puede ver.

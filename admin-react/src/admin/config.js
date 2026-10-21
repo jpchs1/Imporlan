@@ -26,7 +26,8 @@ export const NAV_ITEMS = [
   { to: '/inspections', roles: ALL, label: 'Inspecciones', icon: ClipboardCheck },
   { to: '/tracking', roles: ALL, label: 'Seguimiento', icon: Ship },
   { to: '/marketplace', roles: STAFF, label: 'Marketplace', icon: Store },
-  { to: '/chat', roles: ALL, label: 'Chat', icon: MessageCircle, badgeTone: 'danger' },
+  // Chat: sin agentes. El operador en EE. UU. no se comunica con clientes (JP, 21-oct-2026).
+  { to: '/chat', roles: STAFF, label: 'Chat', icon: MessageCircle, badgeTone: 'danger' },
   { to: '/config', roles: STAFF, label: 'Configuración', icon: Settings },
   { to: '/security', roles: ADMIN, label: 'Seguridad', icon: ShieldCheck },
 ];
