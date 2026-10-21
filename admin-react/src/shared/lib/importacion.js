@@ -269,3 +269,43 @@ export const HITOS_USA = ['disponibilidad', 'inspeccion', 'compra', 'transporte'
 /** Archivos que subió el operador de EE. UU. (uploaded_by y description). */
 export const ORIGEN_ARCHIVO_USA = 'operador_usa';
 export const DESCRIPCION_ARCHIVO_USA = DESCRIPCION_DESDE_USA;
+
+/**
+ * Datos del cliente para la importación (api/eleccion_lancha.php, «Datos del
+ * cliente, cédula y Términos»): la cédula queda en expediente_files con este
+ * uploaded_by y visible_to_client = 0. El cliente no la ve entre sus archivos
+ * y el agente de EE. UU. tampoco; sólo el equipo en Chile.
+ */
+export const ORIGEN_ARCHIVO_IDENTIDAD = 'cliente_identidad';
+
+export function esCedulaCliente(file) {
+  return file?.uploaded_by === ORIGEN_ARCHIVO_IDENTIDAD;
+}
+
+/**
+ * Orden y etiquetas de los 10 campos del formulario (los mismos que
+ * impCamposDatos() en el servidor). La API los manda en `campos`; esto es el
+ * respaldo si no vienen, y fija el orden en que se muestran.
+ */
+export const CAMPOS_DATOS_IMPORTACION = [
+  ['nombre', 'Nombre completo'],
+  ['rut', 'RUT'],
+  ['fecha_nacimiento', 'Fecha de nacimiento'],
+  ['nacionalidad', 'Nacionalidad'],
+  ['estado_civil', 'Estado civil'],
+  ['profesion', 'Profesión u oficio'],
+  ['telefono', 'Teléfono'],
+  ['direccion', 'Dirección'],
+  ['comuna', 'Comuna'],
+  ['region', 'Región'],
+];
+
+/** [{ clave, etiqueta, valor }] en orden, con las etiquetas que mandó la API si vinieron. */
+export function camposDatosImportacion(datos, campos) {
+  const d = datos && typeof datos === 'object' ? datos : {};
+  return CAMPOS_DATOS_IMPORTACION.map(([clave, etiqueta]) => ({
+    clave,
+    etiqueta: (campos && campos[clave]) || etiqueta,
+    valor: typeof d[clave] === 'string' ? d[clave].trim() : (d[clave] ?? ''),
+  }));
+}
