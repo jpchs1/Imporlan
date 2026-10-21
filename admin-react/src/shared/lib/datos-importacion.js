@@ -116,6 +116,12 @@ export function validarDatos(datos, estados = ESTADOS_CIVILES) {
   }
   if (!errores.estado_civil && !(estados || []).includes(d.estado_civil)) errores.estado_civil = 'Elige tu estado civil';
   if (!errores.telefono && String(d.telefono).replace(/\D/g, '').length < 8) errores.telefono = 'Revisa el teléfono: faltan dígitos';
+  // A nombre de otra persona o empresa (opcional; por defecto, del cliente).
+  if (d.titular_tipo === 'otro') {
+    if (!String(d.titular_nombre ?? '').trim()) errores.titular_nombre = 'Falta el nombre o la razón social';
+    if (!String(d.titular_rut ?? '').trim()) errores.titular_rut = 'Falta el RUT';
+    else if (!rutValido(d.titular_rut)) errores.titular_rut = 'El RUT no es válido: revisa el dígito verificador';
+  }
   return errores;
 }
 
@@ -143,4 +149,4 @@ export function faltanDatosImportacion(order) {
 }
 
 /** Orden en que se recorren los errores para enfocar el primero. */
-export const ORDEN_ERRORES = [...CAMPOS_DATOS.map(c => c.id), 'ci_frente', 'ci_reverso', 'terminos'];
+export const ORDEN_ERRORES = [...CAMPOS_DATOS.map(c => c.id), 'titular_nombre', 'titular_rut', 'ci_frente', 'ci_reverso', 'terminos'];

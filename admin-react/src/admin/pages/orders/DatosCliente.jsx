@@ -122,7 +122,14 @@ export default function DatosCliente({ detail, eleccion, link }) {
                       ? (c.clave === 'fecha_nacimiento' ? <span className="tabular">{fmtDateLarga(fechaSola(c.valor))}</span> : c.clave === 'rut' || c.clave === 'telefono' ? <span className="tabular">{c.valor}</span> : c.valor)
                       : <span className="text-warning">Falta</span>,
                     full: c.clave === 'direccion',
-                  }))}
+                  })).concat(recibido ? [{
+                    key: 'titular',
+                    label: 'Se importa a nombre de',
+                    value: datos?.datos?.titular_tipo === 'otro'
+                      ? <span className="font-medium text-ink-900">{titularTexto(datos.datos)}</span>
+                      : 'El cliente (por defecto)',
+                    full: true,
+                  }] : [])}
                 />
               </div>
 
@@ -207,10 +214,18 @@ function faltanDe(datos, campos, conEleccion) {
 }
 
 /* Texto plano con todo, para pegarlo en un mandato o mandárselo al agente de aduana. */
+/** A nombre de quién se importa: el cliente (por defecto) u otra persona o empresa. */
+function titularTexto(d) {
+  return d?.titular_tipo === 'otro' && d?.titular_nombre
+    ? `${d.titular_nombre} (RUT ${d.titular_rut})`
+    : 'el cliente (por defecto)';
+}
+
 function textoParaCopiar({ detail, link, campos, datos }) {
   const lineas = [
     `Datos del cliente · ${detail.order_number || `Expediente ${detail.id}`}${link ? ` · ${tituloLancha(link)}` : ''}`,
     ...campos.map(c => `${c.etiqueta}: ${c.clave === 'fecha_nacimiento' && c.valor ? fmtDate(fechaSola(c.valor)) : (c.valor || '—')}`),
+    `Se importa a nombre de: ${titularTexto(datos?.datos)}`,
   ];
   const caras = [datos?.ci_frente && 'frente', datos?.ci_reverso && 'reverso'].filter(Boolean);
   lineas.push(`Cédula de identidad: ${caras.length === 2 ? 'frente y reverso recibidos (en el expediente)' : caras.length === 1 ? `sólo ${caras[0]} recibido` : 'pendiente'}`);

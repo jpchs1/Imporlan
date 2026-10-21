@@ -309,3 +309,24 @@ export function camposDatosImportacion(datos, campos) {
     valor: typeof d[clave] === 'string' ? d[clave].trim() : (d[clave] ?? ''),
   }));
 }
+
+/**
+ * Cuándo llega cada pago del plan (JP, 21-oct-2026), igual que
+ * impPagoPorHito() en el servidor: el Pago 1 al elegir, el Pago 2 con la
+ * inspección aprobada (sin inspección, con la disponibilidad confirmada) y el
+ * Pago 3 con la lancha entregada en el puerto de EE. UU.
+ */
+export function cuandoLlegaPago(n, eleccion) {
+  if (n === 1) return 'Llega al elegir la lancha, apenas esté publicada tu cotización final';
+  if (n === 2) return eleccion?.inspection ? 'Llega cuando se apruebe la inspección técnica' : 'Llega cuando el vendedor confirme disponibilidad y precio';
+  if (n === 3) return 'Llega cuando la lancha esté en el puerto de EE. UU., lista para viajar a Chile';
+  return 'Te lo enviamos cuando corresponda';
+}
+
+/** El hito del admin que crea el pago N (para avisar al equipo al marcarlo). */
+export function pagoQueGatilla(hitoId, eleccion) {
+  if (hitoId === 'inspeccion') return 2;
+  if (hitoId === 'disponibilidad' && !eleccion?.inspection) return 2;
+  if (hitoId === 'transporte') return 3;
+  return 0;
+}

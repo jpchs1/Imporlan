@@ -4,15 +4,16 @@ import { Money, StatusBadge, Badge } from '../../../shared/components/UI';
 import { Check, Receipt } from '../../../shared/components/Icons';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import { rutaPagar } from './lib';
+import { cuandoLlegaPago } from '../../../shared/lib/importacion';
 
 /**
  * Plan de pagos de la lancha elegida (Pago 1/2/3 con su % y monto) cruzado
  * con los cobros que el equipo ya creó: Pagado (fecha) · Por pagar (botón) ·
- * «Te lo enviamos cuando corresponda». Los cobros del expediente que no
+ * cuándo llega (cuandoLlegaPago, el mismo hito que lo crea en el servidor). Los cobros del expediente que no
  * calzan con un pago del plan van en «Otros cobros». Recibe el resultado de
  * pagosConCobros(); no calcula nada.
  */
-export default function PlanDePagos({ pagos, otros, className }) {
+export default function PlanDePagos({ pagos, otros, eleccion, className }) {
   const plan = pagos || [];
   const extra = otros || [];
   if (plan.length === 0 && extra.length === 0) return null;
@@ -27,7 +28,7 @@ export default function PlanDePagos({ pagos, otros, className }) {
             <p className="text-13 text-ink-500 tabular">{pagados} de {plan.length} {pagados === 1 ? 'pagado' : 'pagados'}</p>
           </div>
           <ol className="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line" aria-label="Pagos del plan">
-            {plan.map(p => <FilaPago key={p.n} pago={p} />)}
+            {plan.map(p => <FilaPago key={p.n} pago={p} eleccion={eleccion} />)}
           </ol>
         </>
       )}
@@ -44,7 +45,7 @@ export default function PlanDePagos({ pagos, otros, className }) {
   );
 }
 
-function FilaPago({ pago }) {
+function FilaPago({ pago, eleccion }) {
   const { n, pct, clp, cobro, estado } = pago;
   const monto = cobro ? Number(cobro.amount_clp) : clp;
   const pagado = estado === 'pagado';
@@ -53,7 +54,7 @@ function FilaPago({ pago }) {
   let detalle;
   if (pagado) detalle = `Pagado${cobro?.paid_at ? ` el ${fmtDateLarga(cobro.paid_at)}` : ''}`;
   else if (porPagar) detalle = `Solicitado el ${fmtDateLarga(cobro.created_at)}`;
-  else detalle = 'Te lo enviamos cuando corresponda';
+  else detalle = cuandoLlegaPago(n, eleccion);
 
   return (
     <li className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3', porPagar && 'bg-warning-bg/40', estado === 'por_cobrar' && 'text-ink-500')}>
