@@ -370,6 +370,22 @@ function impValidarDatos($entrada) {
     }
     if (isset($datos['estado_civil']) && !in_array($datos['estado_civil'], impEstadosCiviles(), true)) $errores['estado_civil'] = 'Elige tu estado civil';
     if (isset($datos['telefono']) && strlen(preg_replace('/\D/', '', $datos['telefono'])) < 8) $errores['telefono'] = 'Revisa el teléfono';
+
+    // A nombre de quién se importa (JP: «si el cliente nos dice a nombre de
+    // quién; si no nos indica, por default a su nombre y con los datos del
+    // formulario»). Opcional: titular_tipo = 'otro' + nombre o razón social + RUT.
+    if (($entrada['titular_tipo'] ?? '') === 'otro') {
+        $nombre = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) ($entrada['titular_nombre'] ?? ''))), 0, 160);
+        $rut = trim((string) ($entrada['titular_rut'] ?? ''));
+        if ($nombre === '') $errores['titular_nombre'] = 'Falta el nombre o la razón social';
+        if ($rut === '') $errores['titular_rut'] = 'Falta el RUT';
+        elseif (!impRutValido($rut)) $errores['titular_rut'] = 'El RUT no es válido';
+        if ($nombre !== '' && $rut !== '' && impRutValido($rut)) {
+            $datos['titular_tipo'] = 'otro';
+            $datos['titular_nombre'] = $nombre;
+            $datos['titular_rut'] = impRutFormato($rut);
+        }
+    }
     return [$datos, $errores];
 }
 
@@ -562,4 +578,79 @@ function impGuardarDatosCliente($pdo, $order, $email, $entrada, $archivos, $ip, 
             ->execute(array_merge($valores, [strtolower($email), $orderId]));
     }
     return [true, []];
+}
+
+// ---------------------------------------------------------------------------
+// Pagos 2 y 3 por hito (JP, 21-oct-2026)
+// ---------------------------------------------------------------------------
+// «El pago 2 lo gatilla la carga de la inspección con resultado positivo, y
+// el pago 3 la carga de la foto en sistema de la embarcación entregada en el
+// puerto de USA con destino a Chile.» Si el cliente compra sin inspección,
+// el Pago 2 sale al confirmar el vendedor la disponibilidad y el precio.
+
+/** Qué pago del plan dispara un hito (0 = ninguno). */
+function impPagoPorHito($order, $hito) {
+    if ($hito === 'inspeccion') return 2;
+    if ($hito === 'disponibilidad' && empty($order['chosen_inspection'])) return 2;
+    if ($hito === 'transporte') return 3;
+    return 0;
+}
+
+/** El pago N según la cotización publicada de la lancha: ['pct','clp','usd'] o null. */
+function impPlanPago($link, $n) {
+    if (empty($link['quote_published_at']) || floatval($link['quote_total_clp'] ?? 0) <= 0) return null;
+    $pay = $link['quote_payments'] ?? null;
+    if (is_string($pay)) $pay = json_decode($pay, true);
+    if (!is_array($pay) || floatval($pay["p{$n}_clp"] ?? 0) <= 0) return null;
+    $pct = floatval($pay["p{$n}_pct"] ?? 0);
+    $usd = floatval($link['quote_total_usd'] ?? 0) > 0 && $pct > 0 ? round(floatval($link['quote_total_usd']) * $pct / 100, 2) : null;
+    return ['pct' => $pct, 'clp' => intval(round(floatval($pay["p{$n}_clp"]))), 'usd' => $usd];
+}
+
+function impEsPagoDelExpediente($r, $orderId, $n) {
+    $meta = $r['metadata'] ?? [];
+    if (strval($meta['order_id'] ?? '') !== strval($orderId)) return false;
+    if (intval($meta['custom_fields']['pago'] ?? 0) === intval($n)) return true;
+    return (bool) preg_match('/pago\s*' . intval($n) . '\b/i', (string) ($r['title'] ?? ''));
+}
+
+/**
+ * Pide el pago N (2 o 3) de la lancha elegida. Si ya hay uno vigente (creado
+ * a mano o antes), no crea otro. Devuelve ['cobro', 'creado'] o null si la
+ * lancha no tiene cotización publicada con ese pago.
+ */
+function impSolicitarPago($order, $link, $n, $creadoPor) {
+    $plan = impPlanPago($link, $n);
+    if (!$plan) return null;
+    $orderId = intval($order['id']);
+    $titulo = impTituloLancha($link);
+    $pctTxt = rtrim(rtrim(number_format($plan['pct'], 2, '.', ''), '0'), '.');
+    return impConCobros(function (&$data) use ($order, $orderId, $link, $n, $titulo, $plan, $pctTxt, $creadoPor) {
+        foreach ($data['requests'] as $r) {
+            if (impEsPagoDelExpediente($r, $orderId, $n) && ($r['status'] ?? '') !== 'cancelled') return ['cobro' => $r, 'creado' => false];
+        }
+        $nuevo = [
+            'id' => 'pr_' . uniqid(),
+            'user_email' => strtolower(trim((string) ($order['customer_email'] ?? ''))),
+            'title' => 'Pago ' . $n . ' · ' . $titulo . ' (' . $pctTxt . '%)',
+            'description' => 'Pago ' . $n . ' de 3 (' . $pctTxt . '%) de la operación de ' . $titulo . ', expediente ' . ($order['order_number'] ?? '') . '.',
+            'amount_clp' => $plan['clp'],
+            'amount_usd' => $plan['usd'],
+            'status' => 'pending',
+            'created_by' => $creadoPor,
+            'created_at' => date('Y-m-d H:i:s'),
+            'paid_at' => null,
+            'payment_id' => null,
+            'payment_method' => null,
+            'purchase_id' => null,
+            'cancelled_reason' => null,
+            'metadata' => [
+                'order_id' => $orderId,
+                'boat_name' => $titulo,
+                'custom_fields' => ['pago' => $n, 'link_id' => intval($link['id']), 'auto' => 'hito'],
+            ],
+        ];
+        $data['requests'][] = $nuevo;
+        return ['cobro' => $nuevo, 'creado' => true, 'guardar' => true];
+    });
 }

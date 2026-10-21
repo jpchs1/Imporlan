@@ -169,7 +169,7 @@ export default function TuImportacion({ order, link, eleccion, requests, novedad
 
       {(pagos.pagos.length > 0 || pagos.otros.length > 0) && (
         <Card.Body className="border-t border-line">
-          <PlanDePagos pagos={pagos.pagos} otros={pagos.otros} />
+          <PlanDePagos pagos={pagos.pagos} otros={pagos.otros} eleccion={eleccion} />
         </Card.Body>
       )}
     </Card>

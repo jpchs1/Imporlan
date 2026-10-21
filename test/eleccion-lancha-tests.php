@@ -444,6 +444,45 @@ llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 12, 'notify_cl
 $cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com' && strpos($m['subject'], 'Confirmamos tu lancha') === 0; }));
 ok(count($cli) === 1 && strpos($cli[0]['html'], 'subes tu cédula por ambos lados') !== false, 'si el equipo marca la elección y faltan datos, el correo se los pide');
 
+echo "\nPago 2 y Pago 3 por hito (JP: inspección aprobada / lancha en el puerto de EE. UU.)\n";
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+$CORREOS = [];
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true, 'notify_client' => true]);
+ok(($r['pago'] ?? null) === null && count(vigentes()) === 1, 'con inspección pedida, la disponibilidad no gatilla pagos');
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true, 'notify_client' => true]);
+$v = vigentes();
+$p2 = array_values(array_filter($v, function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 2; }));
+ok(count($p2) === 1 && $p2[0]['amount_clp'] === 61740000 && strpos($p2[0]['title'], 'Pago 2 · 2018 Cobalt R30 (63%)') === 0, 'inspección aprobada: se crea el Pago 2 por el 63%');
+ok(($r['pago']['n'] ?? 0) === 2 && !empty($r['pago']['creado']), 'y la respuesta lo informa al admin');
+$hito = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com' && strpos($m['subject'], 'Inspección técnica aprobada') === 0; }));
+ok(count($hito) === 1 && strpos($hito[0]['html'], 'Pagar el Pago 2') !== false && strpos($hito[0]['html'], '#/payments?pagar=' . $p2[0]['id']) !== false, 'el aviso del hito al cliente trae el botón para pagar el Pago 2');
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => false]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true]);
+ok(count(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 2; })) === 1, 'desmarcar y volver a marcar no duplica el Pago 2');
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true]);
+ok(count(vigentes()) === 2, 'la compra cerrada no gatilla pagos');
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'notify_client' => false]);
+$p3 = array_values(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 3; }));
+ok(count($p3) === 1 && $p3[0]['amount_clp'] === 29400000 && ($r['pago']['n'] ?? 0) === 3, 'lancha entregada en el puerto de EE. UU. (en camino): se crea el Pago 3 por el 30%');
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => false]);
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+ok(($r['pago']['n'] ?? 0) === 2, 'sin inspección, el Pago 2 sale al confirmar disponibilidad y precio');
+ok(impPagoPorHito(['chosen_inspection' => 1], 'disponibilidad') === 0 && impPagoPorHito([], 'aduana') === 0 && impPagoPorHito([], 'entrega') === 0, 'aduana y entrega no gatillan pagos');
+sembrar();
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 11, 'inspection' => true]);
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true]);
+ok($c === 200 && ($r['pago'] ?? null) === null, 'sin cotización publicada no hay monto: no se crea el Pago 2 (lo crea el equipo a mano)');
+
+echo "\nA nombre de quién se importa\n";
+[$d, $e] = impValidarDatos(datosAlberto());
+ok($e === [] && !isset($d['titular_tipo']), 'por defecto, a nombre del cliente (sin campos extra)');
+[$d, $e] = impValidarDatos(datosAlberto() + ['titular_tipo' => 'otro', 'titular_nombre' => 'Inversiones Lathrop SpA', 'titular_rut' => '76914409-9']);
+ok($e === [] && $d['titular_nombre'] === 'Inversiones Lathrop SpA' && $d['titular_rut'] === '76.914.409-9', 'a nombre de una empresa: razón social y RUT');
+[, $e] = impValidarDatos(datosAlberto() + ['titular_tipo' => 'otro', 'titular_rut' => '76914409-8']);
+ok(isset($e['titular_nombre'], $e['titular_rut']), 'si indica otro titular, nombre y RUT válido son obligatorios');
+
 echo "\nLas rutas exigen sesión y no leen el correo del cuerpo\n";
 $api = file_get_contents("$raiz/api/orders_api.php");
 ok(preg_match("/case 'user_choose_link':\s*userChooseLink\(requireUserAuthShared\(\)\);/", $api) === 1, 'user_choose_link exige sesión de cliente');

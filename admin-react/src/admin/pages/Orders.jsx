@@ -636,7 +636,12 @@ export default function Orders() {
     try {
       const r = await setImportStep(detail.id, hito.id, done, notify);
       if (!done) toast?.(`«${hito.corto}» desmarcado`);
-      else toast?.(r?.notified ? `«${hito.corto}» marcado. Avisamos al cliente.` : `«${hito.corto}» marcado`, 'success');
+      else {
+        // El hito puede crear el Pago 2 o el Pago 3 (impPagoPorHito en el servidor).
+        const pago = r?.pago?.creado ? ` Se creó el Pago ${r.pago.n}.` : '';
+        toast?.(`«${hito.corto}» marcado.${pago}${r?.notified ? ' Avisamos al cliente.' : ''}`, 'success');
+        if (r?.pago) cargarCobros(detail.id, detail.customer_email);
+      }
       await recargarDetalle();
       return true;
     } catch (e) {

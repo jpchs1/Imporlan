@@ -1187,8 +1187,15 @@ BASE64;
             <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Avance de tu importación') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($label) . '</h2>
             <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . '</p>'
-            . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '')
-            . '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+            . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '');
+        // Con el hito sale el pago que corresponde (Pago 2 o Pago 3): el botón lleva a pagarlo.
+        $cobro = $d['cobro'] ?? null;
+        if ($cobro) {
+            $content .= '<div style="margin: 18px 0; padding: 16px 18px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Te toca: Pago ' . intval($cobro['n']) . '</strong> · $' . number_format((float) $cobro['amount_clp'], 0, ',', '.') . '<br>Lo pagas en Pagos de tu panel, con tarjeta o transferencia.</div>'
+                . '<div style="margin-top: 24px;">' . $this->getButton('Pagar el Pago ' . intval($cobro['n']), 'https://www.imporlan.cl/panel/#/payments?pagar=' . rawurlencode($cobro['id'])) . '</div>';
+        } else {
+            $content .= '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        }
 
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'hito_importacion', ['order_number' => $orderNumber, 'hito' => $hito]);
     }

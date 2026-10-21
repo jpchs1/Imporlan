@@ -9,7 +9,7 @@ import {
 } from '../../../shared/lib/datos-importacion';
 import { getImportData, saveImportData } from '../../api';
 
-const VACIO = Object.fromEntries(CAMPOS_DATOS.map(c => [c.id, '']));
+const VACIO = { ...Object.fromEntries(CAMPOS_DATOS.map(c => [c.id, ''])), titular_tipo: '', titular_nombre: '', titular_rut: '' };
 const CARAS = [
   { id: 'frente', label: 'Frente', campo: 'ci_frente' },
   { id: 'reverso', label: 'Reverso', campo: 'ci_reverso' },
@@ -243,6 +243,49 @@ export default function FormularioDatos({
           </div>
         </section>
 
+        {/* A nombre de quién (JP: si el cliente no indica, va a su nombre con estos datos). */}
+        <section aria-labelledby={`${formId}-h-titular`}>
+          <h4 id={`${formId}-h-titular`} className="eyebrow mb-3">A nombre de quién importamos</h4>
+          <Checkbox
+            label="Importar a nombre de otra persona o de una empresa"
+            hint="Si no lo marcas, la lancha se compra e importa a tu nombre, con los datos de arriba."
+            checked={valores.titular_tipo === 'otro'}
+            onChange={e => {
+              set('titular_tipo', e.target.checked ? 'otro' : '');
+              if (!e.target.checked) setErrores(prev => ({ ...prev, titular_nombre: undefined, titular_rut: undefined }));
+            }}
+          />
+          {valores.titular_tipo === 'otro' && (
+            <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+              <Input
+                ref={el => { refs.current.titular_nombre = el; }}
+                id={inputId('titular_nombre')}
+                label="Nombre o razón social"
+                required
+                value={valores.titular_nombre}
+                error={errores.titular_nombre}
+                onChange={e => set('titular_nombre', e.target.value)}
+                maxLength={160}
+                autoComplete="organization"
+              />
+              <Input
+                ref={el => { refs.current.titular_rut = el; }}
+                id={inputId('titular_rut')}
+                label="RUT"
+                required
+                value={valores.titular_rut}
+                error={errores.titular_rut}
+                onChange={e => set('titular_rut', rutFormato(e.target.value))}
+                placeholder="76.123.456-7"
+                autoCapitalize="characters"
+                spellCheck={false}
+                maxLength={12}
+                inputClassName="tabular"
+              />
+            </div>
+          )}
+        </section>
+
         <section aria-labelledby={`${formId}-h-cedula`}>
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h4 id={`${formId}-h-cedula`} className="eyebrow">Cédula de identidad</h4>
@@ -330,6 +373,7 @@ function estadoInicial(data, prefillNombre, prefillTelefono, borrador) {
   const d = data?.datos && typeof data.datos === 'object' ? data.datos : {};
   const valores = { ...VACIO };
   for (const c of CAMPOS_DATOS) valores[c.id] = String(d[c.id] ?? '');
+  if (d.titular_tipo === 'otro') Object.assign(valores, { titular_tipo: 'otro', titular_nombre: String(d.titular_nombre ?? ''), titular_rut: String(d.titular_rut ?? '') });
   if (!valores.nombre && prefillNombre) valores.nombre = String(prefillNombre);
   if (!valores.telefono && prefillTelefono) valores.telefono = String(prefillTelefono);
   const t = data?.terminos || {};
@@ -445,6 +489,7 @@ function Resumen({ data, onEditar }) {
           </p>
           <ul className="mt-2 space-y-1 text-13 text-ink-700">
             <li>{[d.nombre, d.rut && `RUT ${d.rut}`].filter(Boolean).join(' · ')}</li>
+            {d.titular_tipo === 'otro' && <li>Se importa a nombre de {d.titular_nombre} (RUT {d.titular_rut})</li>}
             <li>Cédula recibida, frente y reverso</li>
             <li>Términos aceptados{t.aceptados_at ? ` el ${fmtDateLarga(t.aceptados_at)}` : ''}</li>
           </ul>
