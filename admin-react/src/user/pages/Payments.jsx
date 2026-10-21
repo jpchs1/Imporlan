@@ -5,8 +5,9 @@ import { fmtDateLarga } from '../../shared/lib/format';
 import { useAuth } from '../../shared/context/AuthContext';
 import {
   Card, Button, IconButton, Modal, Input, MoneyInput, PageHeader, Tabs, DataTable, Money,
-  StatusBadge, EmptyState, ErrorState, Skeleton, Callout, DescriptionList, SectionTitle,
+  StatusBadge, EmptyState, ErrorState, Skeleton, Callout, DescriptionList, SectionTitle, SegmentedControl,
 } from '../../shared/components/UI';
+import { CUENTAS } from '../../shared/lib/banco';
 import { Plus, Copy, Check, Banknote, Ship, Receipt, RefreshCw, WebPayIcon, MercadoPagoIcon, WhatsAppIcon } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 
@@ -17,17 +18,7 @@ import { useToast } from '../../shared/components/Toast';
 const METODOS = [
   { id: 'webpay', label: 'WebPay', desc: 'Tarjeta de crédito o débito · Transbank', icon: WebPayIcon },
   { id: 'mercadopago', label: 'Mercado Pago', desc: 'Cuenta Mercado Pago o tarjeta', icon: MercadoPagoIcon },
-  { id: 'transfer', label: 'Transferencia bancaria', desc: 'Banco Santander · te mostramos los datos', icon: Banknote },
-];
-
-const BANCO = [
-  { label: 'Banco', value: 'Banco Santander' },
-  { label: 'Titular', value: 'Imporlan SpA' },
-  { label: 'RUT', value: '76.914.409-9' },
-  { label: 'Cuenta corriente CLP', value: '74233813' },
-  { label: 'Cuenta USD', value: '5100369305' },
-  { label: 'SWIFT', value: 'BSCHCLRM' },
-  { label: 'Correo', value: 'contacto@imporlan.cl' },
+  { id: 'transfer', label: 'Transferencia bancaria', desc: 'Global66 · en pesos o en dólares', icon: Banknote },
 ];
 
 /*
@@ -134,6 +125,8 @@ function SelectorMedio({ value, onChange, disabled }) {
 function DatosTransferencia({ amount, concepto }) {
   const toast = useToast();
   const [copiado, setCopiado] = useState(null);
+  const [moneda, setMoneda] = useState('clp');
+  const cuenta = CUENTAS.find(c => c.id === moneda) || CUENTAS[0];
 
   async function copiar(campo, valor) {
     try {
@@ -146,18 +139,32 @@ function DatosTransferencia({ amount, concepto }) {
   }
 
   // El monto se ve con formato pero se copia como número, listo para el banco.
-  const filas = [...BANCO, { label: 'Monto', value: fmtCLP(amount), copy: String(Math.round(Number(amount) || 0)), bold: true }];
-  if (concepto) filas.push({ label: 'Glosa', value: concepto });
+  // Va solo en la cuenta en pesos: el cobro está en CLP; en dólares, el monto
+  // se coordina con el tipo de cambio del día.
+  const filas = [...cuenta.filas];
+  if (moneda === 'clp') filas.push({ label: 'Monto', value: fmtCLP(amount), copy: String(Math.round(Number(amount) || 0)), bold: true });
+  if (concepto) filas.push({ label: moneda === 'clp' ? 'Glosa' : 'Reference', value: concepto });
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ink-700">Transfiere a esta cuenta y envíanos el comprobante. Confirmamos el pago en el mismo día hábil.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink-700">Transfiere a esta cuenta y envíanos el comprobante. Confirmamos el pago en el mismo día hábil.</p>
+        <SegmentedControl
+          size="sm"
+          aria-label="Moneda de la transferencia"
+          options={CUENTAS.map(c => ({ id: c.id, label: c.etiqueta }))}
+          value={moneda}
+          onChange={setMoneda}
+          className="shrink-0 self-start"
+        />
+      </div>
+      <p className="eyebrow">{cuenta.resumen}</p>
       <dl className="rounded-lg border border-line divide-y divide-line">
         {filas.map(f => (
           <div key={f.label} className="flex items-center gap-3 px-3.5 py-2.5">
-            <dt className="text-13 text-ink-500 w-36 shrink-0">{f.label}</dt>
+            <dt className="text-13 text-ink-500 w-32 shrink-0 sm:w-36">{f.label}</dt>
             <dd className="flex-1 min-w-0 flex items-center gap-2">
-              <span className={cn('flex-1 min-w-0 text-sm text-ink-900 break-all tabular', f.bold && 'font-semibold')}>{f.value}</span>
+              <span className={cn('flex-1 min-w-0 text-sm text-ink-900 break-words tabular', f.bold && 'font-semibold')}>{f.value}</span>
               <IconButton
                 size="sm"
                 icon={copiado === f.label ? Check : Copy}
@@ -169,6 +176,11 @@ function DatosTransferencia({ amount, concepto }) {
           </div>
         ))}
       </dl>
+      {moneda === 'usd' && (
+        <Callout tone="neutral" compact>
+          El cobro está en pesos ({fmtCLP(amount)}). Si prefieres pagar en dólares, pídele el monto en USD a tu agente antes de transferir.
+        </Callout>
+      )}
       <Callout tone="info" title="Envía el comprobante a contacto@imporlan.cl">
         También puedes mandarlo por{' '}
         <a href="https://wa.me/56940211459?text=Hola%2C%20les%20env%C3%ADo%20el%20comprobante%20de%20mi%20transferencia" target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:underline">WhatsApp</a>.

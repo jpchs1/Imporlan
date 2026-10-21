@@ -652,12 +652,12 @@
       '<div style="padding:20px 28px">' +
       '<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:14px;padding:20px;margin-bottom:16px">' +
       '<div style="display:grid;gap:12px">' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Banco</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Banco Santander</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Empresa</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Imporlan SpA</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Banco</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Global66 / Global Card S.A.</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Titular</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">Imporlan SpA</p></div>' +
       '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">RUT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">76.914.409-9</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Cuenta Corriente (CLP)</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">74233813</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Cuenta Corriente (USD)</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">5100369305</p></div>' +
-      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Codigo SWIFT</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">BSCHCLRM</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Cuenta Vista (CLP)</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">11678410</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">USD · Account Number</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">8336089772 · Community Federal Savings Bank</p></div>' +
+      '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">USD · Routing / Swift</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">026073150 · CMFGUS33</p></div>' +
       '<div><span style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Email</span><p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#0f172a">contacto@imporlan.cl</p></div>' +
       '</div></div>' +
       '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px">' +

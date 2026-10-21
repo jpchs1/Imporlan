@@ -374,7 +374,7 @@
       '        <button type="button" class="impdiy-method is-active" data-method="webpay"><span class="impdiy-method-ico">' + icoCard + '</span><span>WebPay<small>Débito y crédito</small></span></button>',
       '        <button type="button" class="impdiy-method" data-method="mercadopago"><span class="impdiy-method-ico">' + icoWallet + '</span><span>MercadoPago<small>Cuotas disponibles</small></span></button>',
       '        <button type="button" class="impdiy-method" data-method="paypal"><span class="impdiy-method-ico">' + icoGlobe + '</span><span>PayPal<small>Pago internacional</small></span></button>',
-      '        <button type="button" class="impdiy-method" data-method="transfer"><span class="impdiy-method-ico">' + icoBank + '</span><span>Transferencia<small>Banco Santander</small></span></button>',
+      '        <button type="button" class="impdiy-method" data-method="transfer"><span class="impdiy-method-ico">' + icoBank + '</span><span>Transferencia<small>Global66 · CLP o USD</small></span></button>',
       '      </div>',
       '      <button type="button" class="impdiy-pay" id="impdiy-pay"><span class="impdiy-spin"></span><span id="impdiy-pay-label">Pagar</span></button>',
       '      <div id="impdiy-paypal"></div>',
@@ -445,8 +445,8 @@
     if (method === 'transfer') {
       transferBox.innerHTML = [
         '<b>Datos para transferencia</b><br>',
-        'Banco Santander · Cuenta Corriente (CLP) <b>74233813</b><br>',
-        'Razón social: <b>Imporlan SpA</b> · RUT <b>76.914.409-9</b><br>',
+        'Global66 / Global Card S.A. · Cuenta Vista (CLP) <b>11678410</b><br>',
+        'Titular: <b>Imporlan SpA</b> · RUT <b>76.914.409-9</b><br>',
         'Email: <b>' + CONTACT_EMAIL + '</b><br>',
         'Monto: <b>' + clp(currentPlan.price) + ' CLP</b><br>',
         'Asunto: <b>' + esc(currentPlan.name) + '</b><br><br>',

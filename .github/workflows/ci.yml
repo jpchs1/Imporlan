@@ -53,6 +53,9 @@ jobs:
       - name: Ninguna ruta de cliente lee datos de otro cliente (sesion obligatoria)
         run: php test/acceso-api-tests.php
 
+      - name: Datos para transferir son los de Global66 (no Santander)
+        run: php test/datos-bancarios-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
