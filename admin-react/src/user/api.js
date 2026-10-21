@@ -153,6 +153,14 @@ export const unchooseLink = (orderId) =>
     body: JSON.stringify({ order_id: parseInt(orderId) }),
   });
 
+// Inspección no apta: en vez de elegir otra lancha, el cliente pide la
+// devolución del Pago 1 (user_pedir_devolucion). Responde {success, eleccion,
+// pago1_pagado}; 409 con mensaje si la inspección no salió no apta.
+export const pedirDevolucion = (orderId) =>
+  requestDetallado(`${API_BASE}/orders_api.php?action=user_pedir_devolucion`, {
+    body: { order_id: parseInt(orderId) },
+  });
+
 // Marketplace (user)
 export const getMarketplaceListings = () => request(`${API_BASE}/marketplace_api.php?action=list`);
 

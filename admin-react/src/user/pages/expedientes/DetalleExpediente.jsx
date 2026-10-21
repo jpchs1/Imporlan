@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports, getMyPaymentRequests, unchooseLink } from '../../api';
+import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports, getMyPaymentRequests, getMyInspections, unchooseLink, pedirDevolucion } from '../../api';
 import { useToast } from '../../../shared/components/Toast';
 import { useBreadcrumb } from '../../../shared/lib/page-meta';
 import { fmtDateLarga } from '../../../shared/lib/format';
+import { fmtCLP } from '../../../shared/lib/utils';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { sePuedeElegir, linkElegido, pctPago1Comun } from '../../../shared/lib/importacion';
+import { sePuedeElegir, linkElegido, pctPago1Comun, planDePagos, cobrosDelExpediente, pagosConCobros } from '../../../shared/lib/importacion';
+import { inspeccionNoApta, devolucionPedida, reporteInspeccionDe } from '../../../shared/lib/inspeccion';
 import { faltanDatosImportacion } from '../../../shared/lib/datos-importacion';
 import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Printer, Search, WhatsAppIcon } from '../../../shared/components/Icons';
@@ -35,6 +37,12 @@ function firmaImportacion(ord) {
  * «Otras opciones». Sin elección, el protagonista es elegir: GuiaEleccion +
  * «Elegir esta lancha» en cada tarjeta, que abre AsistenteEleccion (también
  * desde el menú «Elegir con inspección técnica»).
+ *
+ * Con la inspección no apta (`eleccion.inspection_result`), «Tu importación»
+ * ofrece elegir otra lancha (abre «Otras opciones», con la no apta marcada y
+ * el Pago 1 abonado a la nueva) o pedir la devolución (`pedirDevolucion`,
+ * con confirmación). Los reportes de inspección del cliente se piden para
+ * enlazar el de la lancha elegida, si ya está.
  */
 export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) {
   const toast = useToast();
@@ -43,11 +51,13 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [links, setLinks] = useState([]);
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);
+  const [inspecciones, setInspecciones] = useState([]);
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
+  const [pidiendoDevolucion, setPidiendoDevolucion] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { items: [{src, alt, caption, downloadUrl}], index }
   const [asistente, setAsistente] = useState(null); // { link, inspection } mientras el asistente está abierto
   const [modalDatos, setModalDatos] = useState(false); // «Completa tus datos» (elección marcada por el equipo)
@@ -84,6 +94,15 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     } catch { /* silencioso: sin cobros se muestra el plan igual */ }
   }, []);
 
+  // Los reportes de inspección del cliente (inspection_reports_api), sólo
+  // cuando eligió con inspección: para enlazar el de la lancha elegida.
+  const loadInspecciones = useCallback(async () => {
+    try {
+      const data = await getMyInspections();
+      if (data?.success) setInspecciones(data.inspections || data.reports || data.items || []);
+    } catch { /* silencioso: sin reporte no hay enlace */ }
+  }, []);
+
   const loadDetail = useCallback(async () => {
     try {
       const data = await getMyOrderDetail(orderId);
@@ -96,6 +115,10 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         lastNovedades.current = JSON.stringify(ord.novedades || []);
         loadReports(ord);
         if (ord.eleccion) loadPagos();
+        if (ord.eleccion?.inspection) loadInspecciones();
+        // Con la inspección no apta, lo que sigue es elegir otra: el ranking
+        // parte desplegado.
+        if (inspeccionNoApta(ord.eleccion) && !devolucionPedida(ord.eleccion)) setOtrasAbiertas(true);
       } else if (data?.error) {
         setLoadError(String(data.error));
       } else {
@@ -106,7 +129,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       toast?.('No pudimos cargar el expediente', 'error');
     }
     setLoading(false);
-  }, [orderId, toast, loadReports, loadPagos]);
+  }, [orderId, toast, loadReports, loadPagos, loadInspecciones]);
 
   const loadFiles = useCallback(async () => {
     try {
@@ -147,13 +170,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
             toast?.(`Ranking actualizado por ${who}`, 'success');
           }
           if (cambioEleccion && data.order.eleccion) loadPagos();
+          if (cambioEleccion && data.order.eleccion?.inspection) loadInspecciones();
           if (cambioNovedades) loadFiles();
           if ((cambioEleccion && data.order.eleccion) || cambioNovedades) toast?.('Tu importación tiene novedades', 'success');
         }
       } catch { /* silencioso */ }
     }, 30000);
     return () => clearInterval(pollRef.current);
-  }, [orderId, toast, loadPagos, loadFiles]);
+  }, [orderId, toast, loadPagos, loadFiles, loadInspecciones]);
 
   // --- Ranking: arrastrar, flechas, guardar, avisar ---------------------------
   async function doSaveRanking(currentLinks) {
@@ -266,6 +290,37 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     setTimeout(() => rankingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
+  // Inspección no apta: en vez de elegir otra lancha, el cliente prefiere la
+  // devolución del Pago 1. Se confirma antes (se descuentan los costos de
+  // terceros ya incurridos, y después ya no puede elegir otra).
+  async function handlePedirDevolucion(pago1) {
+    const pagado = pago1?.estado === 'pagado';
+    const monto = pagado ? Number(pago1.cobro?.amount_clp || pago1.clp) : 0;
+    const ok = await confirm({
+      title: '¿Pedir la devolución del Pago 1?',
+      description: pagado
+        ? `Te devolvemos los ${fmtCLP(monto)} del Pago 1 descontando los costos de terceros ya incurridos, como la inspección (Términos, cláusula 5). Te contactamos para coordinarla.`
+        : 'Tu Pago 1 no está pagado: anulamos el cobro pendiente y no hay nada que devolver.',
+      detail: ['Después no podrás elegir otra lancha en este expediente.', 'Si prefieres seguir buscando, elige otra lancha: tu Pago 1 se abona a la nueva.'],
+      confirmLabel: 'Pedir la devolución',
+      cancelLabel: 'Volver',
+    });
+    if (!ok) return;
+    setPidiendoDevolucion(true);
+    try {
+      const data = await pedirDevolucion(orderId);
+      if (data?.success) {
+        toast?.('Listo: pediste la devolución. Te contactamos para coordinarla.', 'success');
+        await loadDetail();
+      } else {
+        toast?.(data?.error || 'No pudimos registrar tu solicitud', 'error');
+      }
+    } catch (e) {
+      toast?.(e?.message || 'Error de conexión', 'error');
+    }
+    setPidiendoDevolucion(false);
+  }
+
   // --- Visor de imágenes --------------------------------------------------------
   const imagenes = files.filter(esImagen);
   // `lista` son archivos del expediente (fotos); `i` el que se abre.
@@ -312,11 +367,31 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const wa = whatsappExpediente(order);
   const completadas = order.status === 'completed' ? Object.fromEntries(ETAPAS_EXPEDIENTE.map(s => [s.num, null])) : {};
 
+  // Inspección no apta: la lancha elegida queda descartada; el cliente elige
+  // otra (su Pago 1 pagado se abona a la nueva) o pide la devolución.
+  const noApta = inspeccionNoApta(eleccion);
+  const devolucion = devolucionPedida(eleccion);
+  const pago1Elegida = elegido ? pagosConCobros(planDePagos(elegido), cobrosDelExpediente(pagos, order.id)).pagos.find(p => p.n === 1) || null : null;
+  const pago1Abonado = noApta && pago1Elegida?.estado === 'pagado';
+  const reporteInspeccion = eleccion?.inspection ? reporteInspeccionDe(inspecciones, elegido, order) : null;
+
   // Qué lanchas se pueden elegir hoy: con anuncio y disponibles, en un
-  // expediente abierto, y si ya hay elección, solo mientras se pueda cambiar.
+  // expediente abierto, y si ya hay elección, solo mientras se pueda cambiar
+  // (y nunca la que salió no apta en la inspección).
   const puedeElegir = (l) => !cerrado && sePuedeElegir(l) && (!eleccion || eleccion.client_can_change) && Number(l.id) !== Number(eleccion?.link_id);
   const hayElegibles = activeLinks.some(puedeElegir);
   const otras = eleccion ? activeLinks.filter(l => Number(l.id) !== Number(eleccion.link_id)).length : 0;
+  let tituloOtras;
+  let descripcionOtras;
+  if (eleccion && noApta && !devolucion) {
+    tituloOtras = `Elige otra lancha (${otras})`;
+    descripcionOtras = otras > 0
+      ? `Las demás embarcaciones de tu ranking. Elige con cuál seguir: ${pago1Abonado ? 'tu Pago 1 se abona a la que elijas' : 'con ella partimos de cero'}.`
+      : 'No quedan otras embarcaciones en tu ranking. Escríbele a tu agente para sumar opciones, o pide la devolución.';
+  } else if (eleccion) {
+    tituloOtras = `Otras opciones (${otras})`;
+    descripcionOtras = eleccion.client_can_change && !devolucion ? 'Las demás embarcaciones de tu ranking. Puedes cambiar a cualquiera mientras tu agente no haya avanzado.' : 'Las demás embarcaciones de tu ranking, como referencia.';
+  }
   // El % del Pago 1 para la guía: el que comparten las cotizaciones publicadas
   // de las lanchas elegibles (null si no hay ninguna: no se inventa).
   const pctPago1 = pctPago1Comun(activeLinks.filter(puedeElegir));
@@ -352,10 +427,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           novedades={order.novedades || []}
           files={files}
           datosPendientes={datosPendientes}
+          reporteInspeccion={reporteInspeccion}
           onCompletarDatos={() => setModalDatos(true)}
           onCambiar={handleCambiar}
           onDeshacer={handleDeshacer}
           deshaciendo={deshaciendo}
+          onElegirOtra={handleCambiar}
+          onPedirDevolucion={() => handlePedirDevolucion(pago1Elegida)}
+          pidiendoDevolucion={pidiendoDevolucion}
           onPreviewImage={abrirFotoEmbarcacion}
           onPreviewFiles={abrirFotos}
         />
@@ -426,8 +505,9 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
               onElegir={(l) => setAsistente({ link: l })}
               puedeElegir={puedeElegir}
               eleccion={eleccion}
-              titulo={eleccion ? `Otras opciones (${otras})` : undefined}
-              descripcion={eleccion ? (eleccion.client_can_change ? 'Las demás embarcaciones de tu ranking. Puedes cambiar a cualquiera mientras tu agente no haya avanzado.' : 'Las demás embarcaciones de tu ranking, como referencia.') : undefined}
+              noAptaId={noApta ? eleccion.link_id : null}
+              titulo={tituloOtras}
+              descripcion={descripcionOtras}
               colapsable={!!eleccion}
               abierto={otrasAbiertas}
               onToggle={setOtrasAbiertas}
@@ -462,6 +542,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           link={asistente.link}
           order={order}
           anterior={elegido}
+          anteriorNoApta={noApta}
+          pago1Abonado={pago1Abonado}
           inspeccionInicial={asistente.inspection ?? true}
           onClose={() => setAsistente(null)}
           onSuccess={handleEleccionGuardada}
