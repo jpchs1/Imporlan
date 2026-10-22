@@ -127,7 +127,7 @@ export default function DetalleExpediente(p) {
                   <Info size={16} className="shrink-0 mt-0.5 text-ink-400" />
                   <span>
                     Etapa por la elección: <span className="font-medium text-ink-900">{ETAPAS_EXPEDIENTE.find(e => e.num === etapaEleccion)?.label}</span>
-                    {eleccion.inspection && !eleccion.steps?.inspeccion ? ', hasta que se apruebe la inspección' : ''}.
+                    {eleccion.inspection && !eleccion.steps?.inspeccion ? ', hasta que el cliente apruebe la inspección' : ''}.
                     {' '}Se mueve sola con los hitos de Importación.
                   </span>
                 </p>

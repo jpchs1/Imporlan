@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, EmptyState, Spinner } from '../../../shared/components/UI';
-import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet } from '../../../shared/components/Icons';
+import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
+import ReporteEspanol from '../../../shared/components/ReporteEspanol';
 import ModalCobro from './ModalCobro';
 import ModalHito from './ModalHito';
-import ModalNoApta from './ModalNoApta';
+import ModalDeclinada from './ModalDeclinada';
+import ModalReporteInspeccion from './ModalReporteInspeccion';
 import OperacionUsa from './OperacionUsa';
 import DatosCliente from './DatosCliente';
+import { useReporteInspeccion } from './useReporteInspeccion';
 
 /**
  * Importación: la lancha elegida (por el cliente desde su panel, o marcada
@@ -24,17 +27,26 @@ import DatosCliente from './DatosCliente';
  * datos del cliente ni del bloque de EE. UU. (es él quien manda esas
  * actualizaciones).
  *
- * La inspección tiene dos salidas: «Marcar hecho» (= apta, crea el Pago 2) y
- * «Marcar no apta» (ModalNoApta, sólo admin y soporte). Con no apta el hito
- * queda en advertencia —no en error: el cliente se ahorró un problema— y él
- * elige otra lancha o pide la devolución del Pago 1.
+ * La inspección no la decide el equipo (JP, 21-oct-2026: «nosotros cumplimos
+ * con cargar el reporte, pero el cliente es el que toma la decisión»). El
+ * hito «Inspección técnica aprobada» va por `eleccion.inspection_stage`:
+ *   coordinando    → «Cargar reporte» (ModalReporteInspeccion)
+ *   reporte_listo  → esperando la decisión del cliente; chip de traducción,
+ *                    «Ver reporte», «Reemplazar reporte» y, por si lo dijo por
+ *                    teléfono, «Registrar decisión del cliente»
+ *   aprobada       → por el cliente, o registrada por el equipo
+ *   declinada      → por el cliente (con su motivo), o registrada por el
+ *                    equipo (ModalDeclinada); él elige otra lancha o pide la
+ *                    devolución del Pago 1
  */
 export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
   const link = eleccion ? links.find(l => l.id === eleccion.link_id) : null;
   const [modalCobro, setModalCobro] = useState(null); // { pago } · { manual: true }
   const [modalHito, setModalHito] = useState(null);   // el hito a marcar
-  const [modalNoApta, setModalNoApta] = useState(false);
+  const [modalDeclinada, setModalDeclinada] = useState(false);
+  const [modalReporte, setModalReporte] = useState(null); // { reemplazar: bool }
+  const [visor, setVisor] = useState(false);
 
   const hitos = hitosDe(eleccion);
   const enCurso = hitoEnCurso(eleccion);
@@ -45,9 +57,36 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const equipoChile = importacion.puedeCobrar !== false;
   const noApta = inspeccionNoApta(eleccion);
   const devolucion = devolucionPedida(eleccion);
-  const puedeNoApta = equipoChile && typeof importacion.onInspeccionResultado === 'function';
   const pago1 = pagos.find(p => p.n === 1) || null;
   const pago1Pagado = pago1?.estado === 'pagado' ? pago1 : null;
+
+  // La inspección: etapa, reporte y quién decidió (impEleccionPublica).
+  const stage = etapaInspeccion(eleccion);
+  const reporte = eleccion?.inspection_report || null;
+  const decididoPor = eleccion?.inspection_decided_by || null;
+  const porCliente = decididoPor === 'cliente';
+  // Cargar, reemplazar, reintentar y registrar decisiones: sólo admin y soporte.
+  const puedeGestionar = equipoChile && typeof importacion.onCargarReporte === 'function';
+  const puedeRegistrar = equipoChile && typeof importacion.onInspeccionResultado === 'function';
+
+  const onEstadoTraduccion = useCallback(() => { importacion.onRecargar?.(); }, [importacion]);
+  const rep = useReporteInspeccion(detail.id, reporte, { onEstado: onEstadoTraduccion });
+
+  function abrirVisor() {
+    setVisor(true);
+    if (!rep.data && !rep.loading) rep.cargar();
+  }
+  async function reintentarTraduccion() {
+    const ok = await importacion.onTraducirReporte?.();
+    if (ok) rep.cargar({ silencioso: true });
+  }
+  async function cargarReporte(datos) {
+    const ok = await importacion.onCargarReporte(datos);
+    if (ok) archivos?.recargar?.();
+    return ok;
+  }
+
+  const motivo = porCliente ? motivoDeclinada(detail) : '';
 
   return (
     <Card id="importacion" className="scroll-mt-32">
@@ -91,7 +130,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <h3 className="text-sm font-semibold text-ink-900">{link ? tituloLancha(link) : 'Lancha elegida'}</h3>
                   <Badge tone={eleccion.inspection ? 'info' : 'neutral'} size="sm">{eleccion.inspection ? 'Con inspección' : 'Sin inspección'}</Badge>
-                  {noApta && <Badge tone="warning" dot size="sm">No apta según inspección</Badge>}
+                  {noApta && <Badge tone="warning" dot size="sm">Declinada tras la inspección</Badge>}
                   {link?.link_status === 'sold' && <Badge tone="danger" size="sm">Vendida</Badge>}
                 </div>
                 <p className="text-13 text-ink-500 mt-0.5">
@@ -111,10 +150,17 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               </div>
             </div>
 
-            {/* ── Inspección no apta: qué espera la operación. Sólo el equipo en
-                   Chile (lleva montos); el detalle y la nota van en el hito. ── */}
+            {/* ── El cliente declinó la lancha tras la inspección: qué espera la
+                   operación. Sólo el equipo en Chile (lleva montos); el detalle y
+                   las notas van en el hito. ── */}
             {equipoChile && noApta && !devolucion && (
-              <Callout tone="warning" compact title="La inspección recomendó no comprar esta lancha: el cliente decide">
+              <Callout
+                tone="warning"
+                compact
+                title={porCliente
+                  ? 'El cliente declinó esta lancha tras leer el reporte: ahora elige otra o pide la devolución'
+                  : 'No seguimos con esta lancha (lo registró el equipo): el cliente elige otra o pide la devolución'}
+              >
                 Puede elegir otra del ranking —su Pago 1{pago1Pagado ? ` (${fmtCLP(pago1Pagado.clp)}, pagado)` : ''} se abona a la nueva— o pedir la devolución. A David le pedimos pausar esta lancha. Lo ve en su panel{eleccion.inspection_result_at ? ` desde el ${fmtDateLarga(eleccion.inspection_result_at)}` : ''}.
               </Callout>
             )}
@@ -159,61 +205,61 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 <h3 id="importacion-hitos" className="eyebrow">Hitos · {hechos} de {hitos.length}</h3>
                 <span className="text-xs text-ink-500">
                   {noApta
-                    ? <>En pausa: <span className="text-warning font-medium">inspección no apta</span></>
-                    : enCurso ? <>En curso: <span className="text-ink-700 font-medium">{enCurso.corto}</span></> : 'Importación completa'}
+                    ? <>En pausa: <span className="text-warning font-medium">{porCliente ? 'el cliente declinó la lancha' : 'no seguimos con esta lancha'}</span></>
+                    : stage === 'reporte_listo'
+                      ? <>Le toca al cliente: <span className="text-brand-700 font-medium">decidir con el reporte</span></>
+                      : enCurso ? <>En curso: <span className="text-ink-700 font-medium">{enCurso.corto}</span></> : 'Importación completa'}
                 </span>
               </div>
               <ol className="rounded-md border border-line divide-y divide-line overflow-hidden">
                 {hitos.map(h => {
-                  // Con no apta, el hito de inspección es el protagonista en
-                  // advertencia y nada más está «en curso»: la operación espera
-                  // al cliente (otra lancha o devolución).
-                  const esNoApta = noApta && h.id === 'inspeccion';
+                  if (h.id === 'inspeccion') {
+                    return (
+                      <HitoInspeccion
+                        key={h.id}
+                        hito={h}
+                        stage={stage}
+                        actual={!noApta && enCurso?.id === h.id}
+                        eleccion={eleccion}
+                        reporte={reporte}
+                        esStatus={rep.esStatus}
+                        esAt={rep.esAt}
+                        porCliente={porCliente}
+                        devolucion={devolucion}
+                        motivo={motivo}
+                        puedeGestionar={puedeGestionar}
+                        puedeRegistrar={puedeRegistrar}
+                        onVer={abrirVisor}
+                        onCargar={() => setModalReporte({ reemplazar: false })}
+                        onReemplazar={() => setModalReporte({ reemplazar: true })}
+                        onReintentar={reintentarTraduccion}
+                        onAprobo={() => setModalHito(h)}
+                        onDeclino={() => setModalDeclinada(true)}
+                        onDesmarcar={() => importacion.onHito(h, false, false)}
+                        onDeshacer={() => importacion.onInspeccionResultado(null)}
+                      />
+                    );
+                  }
+                  // Con la lancha declinada nada más está «en curso»: la
+                  // operación espera al cliente (otra lancha o devolución).
                   const actual = !noApta && enCurso?.id === h.id;
-                  const Icono = h.hecho ? CircleCheck : esNoApta ? TriangleAlert : actual ? CircleDot : Circle;
-                  const esInspeccionPendiente = !h.hecho && !esNoApta && h.id === 'inspeccion';
+                  const Icono = h.hecho ? CircleCheck : actual ? CircleDot : Circle;
                   return (
-                    <li key={h.id} className={cn('flex gap-3 px-3 py-2', esNoApta ? 'items-start bg-warning-bg' : 'items-center')}>
-                      <Icono size={18} className={cn('shrink-0', esNoApta && 'mt-0.5', h.hecho ? 'text-success' : esNoApta ? 'text-warning' : actual ? 'text-brand-600' : 'text-ink-400')} />
+                    <li key={h.id} className="flex items-center gap-3 px-3 py-2">
+                      <Icono size={18} className={cn('shrink-0', h.hecho ? 'text-success' : actual ? 'text-brand-600' : 'text-ink-400')} />
                       <div className="flex-1 min-w-0">
-                        <p className={cn('text-sm', h.hecho ? 'text-ink-700' : esNoApta || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>
-                          {esNoApta ? 'Inspección técnica: no apta' : h.label}
-                        </p>
+                        <p className={cn('text-sm', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}</p>
                         <p className="text-xs text-ink-500 tabular">
-                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}`
-                            : esNoApta ? <>No apta{eleccion.inspection_result_at ? ` · ${fmtDateLarga(eleccion.inspection_result_at)}` : ''} · {devolucion ? 'el cliente pidió la devolución del Pago 1' : 'el cliente elige otra lancha o pide la devolución'}</>
-                            : actual ? (esInspeccionPendiente && puedeNoApta ? 'En curso · si el reporte recomienda no comprar, márcala no apta desde el menú' : 'En curso')
-                            : 'Pendiente'}
+                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? 'En curso' : 'Pendiente'}
                         </p>
-                        {esNoApta && eleccion.inspection_note && (
-                          <blockquote className="mt-1.5 text-sm text-ink-700 border-l-2 border-warning bg-surface rounded-r-md px-3 py-2">
-                            «{eleccion.inspection_note}»
-                            <span className="block text-xs text-ink-500 mt-0.5">Lo que le contamos al cliente</span>
-                          </blockquote>
-                        )}
                       </div>
                       {h.hecho ? (
                         <Menu
                           label={`Acciones del hito ${h.corto}`}
                           items={[{ label: 'Desmarcar', icon: RotateCw, onClick: () => importacion.onHito(h, false, false) }]}
                         />
-                      ) : esNoApta ? (
-                        puedeNoApta ? (
-                          <Menu
-                            label={`Acciones del hito ${h.corto}`}
-                            items={[{ label: 'Deshacer no apta', icon: RotateCw, onClick: () => importacion.onInspeccionResultado(null) }]}
-                          />
-                        ) : null
                       ) : (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button size="sm" variant="secondary" icon={Check} onClick={() => setModalHito(h)}>Marcar hecho</Button>
-                          {esInspeccionPendiente && puedeNoApta && (
-                            <Menu
-                              label={`Más acciones del hito ${h.corto}`}
-                              items={[{ label: 'Marcar no apta', icon: TriangleAlert, onClick: () => setModalNoApta(true) }]}
-                            />
-                          )}
-                        </div>
+                        <Button size="sm" variant="secondary" icon={Check} onClick={() => setModalHito(h)}>Marcar hecho</Button>
                       )}
                     </li>
                   );
@@ -308,20 +354,202 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
           hito={modalHito}
           eleccion={eleccion}
           onConfirmar={importacion.onHito}
-          puedeNoApta={puedeNoApta}
+          conReporte={!!reporte}
         />
       )}
-      {modalNoApta && (
-        <ModalNoApta
+      {modalDeclinada && (
+        <ModalDeclinada
           open
-          onClose={() => setModalNoApta(false)}
+          onClose={() => setModalDeclinada(false)}
           link={link}
           pago1={pago1}
+          conReporte={!!reporte}
           onConfirmar={importacion.onInspeccionResultado}
+        />
+      )}
+      {modalReporte && (
+        <ModalReporteInspeccion
+          open
+          onClose={() => setModalReporte(null)}
+          link={link}
+          archivos={archivos}
+          reporte={modalReporte.reemplazar ? reporte : null}
+          onCargar={cargarReporte}
+        />
+      )}
+      {visor && (
+        <ReporteEspanol
+          open
+          onClose={() => setVisor(false)}
+          data={rep.data}
+          loading={rep.loading}
+          error={rep.error}
+          onRetry={rep.error ? () => rep.cargar() : (puedeGestionar && rep.esStatus === 'error' ? reintentarTraduccion : undefined)}
         />
       )}
     </Card>
   );
+}
+
+/**
+ * En qué va la inspección (impEtapaInspeccion). Viene del servidor en
+ * `inspection_stage`; si falta (detalle viejo), se deduce.
+ */
+function etapaInspeccion(eleccion) {
+  if (!eleccion?.inspection) return null;
+  if (eleccion.inspection_stage) return eleccion.inspection_stage;
+  if (inspeccionNoApta(eleccion)) return 'declinada';
+  if (eleccion.steps?.inspeccion) return 'aprobada';
+  return eleccion.inspection_report ? 'reporte_listo' : 'coordinando';
+}
+
+/** Lo que escribió el cliente al declinar (evento `inspeccion_declinada`), o ''. */
+function motivoDeclinada(detail) {
+  const ev = (detail?.events || []).find(e => e?.event_type === 'inspeccion_declinada');
+  if (!ev) return '';
+  try {
+    const meta = typeof ev.meta_json === 'string' ? JSON.parse(ev.meta_json) : (ev.meta_json || ev.meta || {});
+    return String(meta?.motivo || '').trim();
+  } catch { return ''; }
+}
+
+/* El hito «Inspección técnica aprobada», por etapa. Las acciones van debajo
+   del texto (no a la derecha) porque son varias y en móvil no caben. */
+function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, esAt, porCliente, devolucion, motivo, puedeGestionar, puedeRegistrar, onVer, onCargar, onReemplazar, onReintentar, onAprobo, onDeclino, onDesmarcar, onDeshacer }) {
+  const declinada = stage === 'declinada';
+  const esperando = stage === 'reporte_listo';
+  const aprobada = stage === 'aprobada' || !!h.hecho;
+  const Icono = aprobada ? CircleCheck : declinada ? TriangleAlert : esperando || actual ? CircleDot : Circle;
+  const colorIcono = aprobada ? 'text-success' : declinada ? 'text-warning' : esperando || actual ? 'text-brand-600' : 'text-ink-400';
+  const destacado = esperando || declinada;
+
+  let titulo = h.label;
+  if (declinada) titulo = porCliente ? 'Inspección técnica: el cliente declinó esta lancha' : 'Inspección técnica: no seguimos con esta lancha';
+  else if (esperando) titulo = 'Inspección técnica: esperando la decisión del cliente';
+
+  let subtitulo;
+  if (aprobada) {
+    subtitulo = <>{porCliente ? 'Aprobada por el cliente' : 'Aprobada (registrada por el equipo)'}{h.hecho ? ` · ${fmtDateLarga(h.hecho)}` : ''}</>;
+  } else if (declinada) {
+    subtitulo = <>
+      {porCliente ? 'Declinada por el cliente' : 'Registrado por el equipo'}
+      {eleccion.inspection_result_at ? ` · ${fmtDateLarga(eleccion.inspection_result_at)}` : ''}
+      {' · '}{devolucion ? 'pidió la devolución del Pago 1' : 'elige otra lancha o pide la devolución'}
+    </>;
+  } else if (esperando) {
+    subtitulo = <>Reporte cargado{reporte?.at ? ` el ${fmtDateLarga(reporte.at)}` : ''} · el cliente lo revisa en su panel y aprueba o declina</>;
+  } else if (actual) {
+    subtitulo = puedeGestionar ? 'En curso · Carga el reporte del inspector: el cliente lo lee en inglés y en español y decide' : 'En curso · cuando llegue el reporte, el cliente decide desde su panel';
+  } else {
+    subtitulo = 'Pendiente';
+  }
+
+  const chipTraduccion = reporte ? <ChipTraduccion status={esStatus} at={esAt} onReintentar={puedeGestionar ? onReintentar : null} /> : null;
+
+  return (
+    <li className={cn('flex items-start gap-3 px-3 py-2.5', declinada && 'bg-warning-bg', esperando && 'bg-brand-50/60')}>
+      <Icono size={18} className={cn('shrink-0 mt-0.5', colorIcono)} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className={cn('text-sm', aprobada ? 'text-ink-700' : destacado || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{titulo}</p>
+            <p className="text-xs text-ink-500 tabular flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span>{subtitulo}</span>
+              {chipTraduccion}
+            </p>
+          </div>
+          {/* El «⋯»: deshacer, desmarcar o registrar por el cliente. */}
+          {aprobada ? (
+            <Menu label={`Acciones del hito ${h.corto}`} items={[{ label: 'Desmarcar', icon: RotateCw, onClick: onDesmarcar }]} />
+          ) : declinada ? (
+            puedeRegistrar ? <Menu label={`Acciones del hito ${h.corto}`} items={[{ label: 'Deshacer la decisión', icon: RotateCw, onClick: onDeshacer }]} /> : null
+          ) : stage === 'coordinando' && puedeRegistrar ? (
+            <Menu
+              label={`Más acciones del hito ${h.corto}`}
+              items={[
+                { label: 'Registrar que el cliente aprobó', icon: CircleCheck, onClick: onAprobo },
+                { label: 'Registrar que el cliente declinó', icon: CircleX, onClick: onDeclino },
+              ]}
+            />
+          ) : null}
+        </div>
+
+        {/* Resumen del equipo (reporte_listo) · motivo del cliente · nota del equipo */}
+        {esperando && reporte?.summary && (
+          <blockquote className="mt-1.5 text-sm text-ink-700 border-l-2 border-brand-500 bg-surface rounded-r-md px-3 py-2 whitespace-pre-wrap break-words">
+            {reporte.summary}
+            <span className="block text-xs text-ink-500 mt-0.5">Lo que vemos en el reporte · lo lee el cliente</span>
+          </blockquote>
+        )}
+        {declinada && motivo && (
+          <blockquote className="mt-1.5 text-sm text-ink-700 border-l-2 border-warning bg-surface rounded-r-md px-3 py-2 whitespace-pre-wrap break-words">
+            «{motivo}»
+            <span className="block text-xs text-ink-500 mt-0.5">Lo que nos contó el cliente al declinar</span>
+          </blockquote>
+        )}
+        {declinada && !porCliente && eleccion.inspection_note && (
+          <blockquote className="mt-1.5 text-sm text-ink-700 border-l-2 border-warning bg-surface rounded-r-md px-3 py-2 whitespace-pre-wrap break-words">
+            «{eleccion.inspection_note}»
+            <span className="block text-xs text-ink-500 mt-0.5">Nota del equipo al cliente</span>
+          </blockquote>
+        )}
+
+        {/* Acciones */}
+        {stage === 'coordinando' && puedeGestionar && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Button size="sm" variant={actual ? 'primary' : 'secondary'} icon={Upload} onClick={onCargar}>Cargar reporte</Button>
+          </div>
+        )}
+        {esperando && (
+          <>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" icon={FileSearch} onClick={onVer}>Ver reporte</Button>
+              {puedeGestionar && <Button size="sm" variant="secondary" icon={Upload} onClick={onReemplazar}>Reemplazar reporte</Button>}
+              {puedeRegistrar && (
+                <Menu
+                  label="Registrar decisión del cliente"
+                  width={260}
+                  trigger={<Button size="sm" variant="secondary" iconRight={ChevronDown}>Registrar decisión del cliente</Button>}
+                  items={[
+                    { label: 'El cliente aprobó', icon: CircleCheck, onClick: onAprobo },
+                    { label: 'El cliente declinó', icon: CircleX, onClick: onDeclino },
+                  ]}
+                />
+              )}
+            </div>
+            {puedeRegistrar && (
+              <p className="mt-1.5 text-xs text-ink-500">Normalmente decide el cliente desde su panel. Regístrala tú sólo si te la dio por teléfono o WhatsApp.</p>
+            )}
+          </>
+        )}
+        {(aprobada || declinada) && reporte && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" icon={FileSearch} onClick={onVer}>Ver reporte</Button>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/* Chip del estado de la traducción al español: traduciendo (con sondeo),
+   en español, o falló (con «Reintentar» para admin y soporte). */
+function ChipTraduccion({ status, at, onReintentar }) {
+  if (status === 'listo') {
+    return <Badge tone="success" size="sm" title={at ? `Traducido el ${fmtDateLarga(at, { hora: true })}` : undefined}><Languages size={12} aria-hidden="true" />En español ✓</Badge>;
+  }
+  if (status === 'error') {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Badge tone="warning" size="sm" title="La traducción automática no terminó. El cliente ve el original."><Languages size={12} aria-hidden="true" />Traducción falló</Badge>
+        {onReintentar && <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onReintentar}>Reintentar</Button>}
+      </span>
+    );
+  }
+  if (status === 'pendiente') {
+    return <Badge tone="info" size="sm" title="La IA está traduciendo el reporte al español (1 a 5 minutos)"><Spinner inline size="sm" label="Traduciendo" className="text-info" />Traduciendo…</Badge>;
+  }
+  return null;
 }
 
 /* Una fila del plan: Pago n · % · monto · estado · acción. En móvil se

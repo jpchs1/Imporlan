@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage, chooseLinkAdmin, setImportStep, inspeccionResultado, getPaymentRequestsAdmin, createPaymentRequest, updatePaymentRequestStatus } from '../api';
+import { getOrders, getOrderDetail, updateOrder, createOrder, deleteOrder as apiDeleteOrder, addOrderLink, deleteOrderLink, updateOrderLinks, reorderOrderLinks, rescrapeOrderLink, changeOrderStatus, sendClientUpdate, notifyRanking, uploadLinkImage, chooseLinkAdmin, setImportStep, inspeccionResultado, cargarReporteInspeccion, traducirReporteInspeccion, getPaymentRequestsAdmin, createPaymentRequest, updatePaymentRequestStatus } from '../api';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
@@ -640,7 +640,8 @@ export default function Orders() {
       else {
         // El hito puede crear el Pago 2 o el Pago 3 (impPagoPorHito en el servidor).
         const pago = r?.pago?.creado ? ` Se creó el Pago ${r.pago.n}.` : '';
-        toast?.(`«${hito.corto}» marcado.${pago}${r?.notified ? ' Avisamos al cliente.' : ''}`, 'success');
+        const titulo = hito.id === 'inspeccion' ? 'Registramos que el cliente aprobó la inspección.' : `«${hito.corto}» marcado.`;
+        toast?.(`${titulo}${pago}${r?.notified ? ' Avisamos al cliente.' : ''}`, 'success');
         if (r?.pago) cargarCobros(detail.id, detail.customer_email);
       }
       await recargarDetalle();
@@ -651,32 +652,60 @@ export default function Orders() {
     }
   }
 
-  // Inspección no apta (JP): el reporte recomienda no comprar. Marcarla pasa
-  // por ModalNoApta (la nota para el cliente y el aviso); deshacerla, por aquí.
-  // `resultado` = 'no_apta' | null.
+  // El cliente declinó la lancha tras la inspección y lo dijo por teléfono o
+  // WhatsApp: el equipo lo registra por él (ModalDeclinada, con la nota y el
+  // aviso); deshacerlo pasa por aquí. `resultado` = 'no_apta' | null.
   async function handleInspeccionResultado(resultado, nota = '', notify = false) {
     if (!resultado && !(await confirm({
-      title: '¿Deshacer «no apta»?',
-      description: 'La inspección vuelve a quedar en curso y el cliente deja de ver las opciones de elegir otra lancha o pedir la devolución. No se le avisa por correo.',
+      title: '¿Deshacer la decisión del cliente?',
+      description: 'La lancha vuelve a quedar elegida: la inspección queda esperando su decisión (o en curso, si aún no hay reporte) y el cliente deja de ver las opciones de elegir otra o pedir la devolución. No se le avisa por correo.',
       detail: devolucionPedida(detail?.eleccion) ? ['También se borra la solicitud de devolución del Pago 1 que hizo el cliente.'] : undefined,
       tone: 'warning',
-      confirmLabel: 'Deshacer no apta',
+      confirmLabel: 'Deshacer la decisión',
     }))) return false;
     try {
       const r = await inspeccionResultado(detail.id, resultado, nota, notify);
       if (resultado === 'no_apta') {
         toast?.({
           type: 'success',
-          title: 'Inspección marcada como no apta.' + (r?.notified ? ' Avisamos al cliente por correo.' : ''),
-          description: 'El cliente puede elegir otra lancha o pedir la devolución. A David le pedimos pausar esta lancha.',
+          title: 'Registramos que el cliente declinó esta lancha.' + (r?.notified ? ' Le avisamos por correo.' : ''),
+          description: 'Desde su panel elige otra lancha (su Pago 1 se abona) o pide la devolución. A David le pedimos pausar esta lancha.',
         });
       } else {
-        toast?.('«No apta» deshecho: la inspección sigue en curso');
+        toast?.('Decisión deshecha: la inspección vuelve a esperar al cliente');
       }
       await recargarDetalle();
       return true;
     } catch (e) {
-      toast?.(e.message || 'No se pudo guardar el resultado de la inspección', 'error');
+      toast?.(e.message || 'No se pudo guardar la decisión', 'error');
+      return false;
+    }
+  }
+
+  // El reporte de la inspección (JP: «nosotros cumplimos con cargarlo, pero el
+  // cliente es el que toma la decisión»). El modal muestra el progreso y los
+  // errores (400 / 409 / 413); aquí sólo el aviso y la relectura.
+  async function handleCargarReporte({ archivo, fileId, resumen, notify, onProgress }) {
+    await cargarReporteInspeccion(detail.id, { archivo, fileId, resumen, notify, onProgress });
+    toast?.({
+      type: 'success',
+      title: 'Reporte cargado. Lo estamos traduciendo al español.',
+      description: notify
+        ? 'El cliente ya puede ver el original en su panel; le avisamos por correo cuando esté la traducción y ahí decide.'
+        : 'El cliente ya puede verlo en su panel (en inglés) y decide ahí. No le mandamos correo.',
+    });
+    await recargarDetalle();
+    return true;
+  }
+
+  async function handleTraducirReporte() {
+    try {
+      await traducirReporteInspeccion(detail.id);
+      toast?.('Traduciendo de nuevo. Tarda de 1 a 5 minutos.');
+      await recargarDetalle();
+      return true;
+    } catch (e) {
+      toast?.(e.message || 'No se pudo reintentar la traducción', 'error');
       return false;
     }
   }
@@ -813,9 +842,13 @@ export default function Orders() {
         onElegir: handleElegirLancha,
         onQuitar: handleQuitarEleccion,
         onHito: handleHito,
-        // «Marcar no apta» y «Deshacer no apta»: sólo admin y soporte (el
-        // servidor se lo permitiría al agente; el panel no se lo muestra).
+        onRecargar: recargarDetalle,
+        // Registrar que el cliente declinó (y deshacerlo), cargar o reemplazar
+        // el reporte y reintentar la traducción: sólo admin y soporte. El
+        // agente ve el estado y el reporte (el servidor le niega cargar).
         onInspeccionResultado: equipoChile ? handleInspeccionResultado : null,
+        onCargarReporte: equipoChile ? handleCargarReporte : null,
+        onTraducirReporte: equipoChile ? handleTraducirReporte : null,
         onCrearCobro: handleCrearCobro,
         onEstadoCobro: handleEstadoCobro,
       }}
