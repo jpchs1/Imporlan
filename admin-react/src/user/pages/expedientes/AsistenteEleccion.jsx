@@ -372,7 +372,7 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, primerPago, cu
     <div className="space-y-5">
       <div>
         <h3 ref={tituloRef} tabIndex={-1} className="text-base font-semibold leading-6 text-ink-900 outline-none">¿Quieres una inspección técnica antes de comprar?</h3>
-        <p className="mt-1 text-13 text-ink-500">Un inspector revisa la lancha en Estados Unidos y te manda el reporte antes de que pagues la compra.</p>
+        <p className="mt-1 text-13 text-ink-500">Un inspector revisa la lancha en Estados Unidos y el reporte te llega, en inglés y en español, antes de que pagues la compra. Tú decides si seguimos.</p>
       </div>
 
       {/* Por qué inspeccionar (JP): conocer el estado real y, según el
@@ -389,7 +389,7 @@ function PasoInspeccion({ inspection, onInspection, nota, onNota, primerPago, cu
           onSelect={() => onInspection(true)}
           titulo="Con inspección"
           badge="Recomendada"
-          texto="Sabes en qué estado está la lancha antes de pagarla. El reporte queda en tu expediente."
+          texto="Sabes en qué estado está la lancha antes de pagarla. El reporte queda en tu expediente, en inglés y en español, y tú decides si seguimos."
         >
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div>
