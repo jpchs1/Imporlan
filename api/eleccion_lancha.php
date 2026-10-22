@@ -93,6 +93,9 @@ function impValidarEleccionCliente($order, $link) {
     if (!$link || intval($link['order_id'] ?? 0) !== intval($order['id'] ?? -1)) return [404, 'Esa lancha no está en tu expediente'];
     if (trim((string) ($link['url'] ?? '')) === '') return [400, 'Esa opción todavía no tiene anuncio'];
     if (in_array($link['link_status'] ?? 'active', ['sold', 'unavailable'], true)) return [409, 'Esa lancha ya no está disponible'];
+    if (in_array(intval($link['id'] ?? 0), impLanchasDeclinadas($order), true)) {
+        return [409, 'Decidiste no seguir con esa lancha tras la inspección. Elige otra de tu ranking.'];
+    }
     if (impTieneEleccion($order) && !impClientePuedeCambiar($order)) {
         return [409, 'Tu importación ya avanzó. Para cambiar de lancha, habla con tu agente.'];
     }
@@ -117,7 +120,78 @@ function impEleccionPublica($order) {
         'inspection_result_at' => impInspeccionNoApta($order) ? ($order['inspection_result_at'] ?? null) : null,
         'inspection_note' => impInspeccionNoApta($order) ? (string) ($order['inspection_note'] ?? '') : '',
         'refund_requested_at' => $order['refund_requested_at'] ?? null,
+        // JP, 21-oct-2026: «Nosotros cumplimos con cargar el reporte, pero el
+        // cliente es el que toma la decisión si aprueba o declina la compra».
+        'inspection_stage' => impEtapaInspeccion($order),
+        'inspection_decided_by' => impInspeccionNoApta($order) || isset(impPasos($order)['inspeccion'])
+            ? ($order['inspection_decided_by'] ?? null) : null,
+        'inspection_report' => impReporteInspeccion($order),
     ];
+}
+
+/** Lanchas que el cliente declinó tras la inspección: ya no se pueden volver a elegir. */
+function impLanchasDeclinadas($order) {
+    $raw = $order['declined_link_ids'] ?? null;
+    $ids = is_string($raw) && $raw !== '' ? json_decode($raw, true) : $raw;
+    $out = [];
+    foreach ((array) $ids as $id) if (intval($id) > 0) $out[] = intval($id);
+    // La elegida que está declinada también cuenta (aún no elige otra).
+    if (impInspeccionNoApta($order)) $out[] = intval($order['chosen_link_id']);
+    return array_values(array_unique($out));
+}
+
+/**
+ * Dónde va la inspección de la lancha elegida:
+ *   null           sin elección o sin inspección
+ *   'coordinando'  pedida, aún sin reporte
+ *   'reporte_listo' el equipo cargó el reporte: el cliente decide
+ *   'aprobada'     el cliente aprobó (hito «inspeccion» hecho)
+ *   'declinada'    el cliente no sigue con esta lancha
+ */
+function impEtapaInspeccion($order) {
+    if (!impTieneEleccion($order) || empty($order['chosen_inspection'])) return null;
+    if (impInspeccionNoApta($order)) return 'declinada';
+    if (isset(impPasos($order)['inspeccion'])) return 'aprobada';
+    return !empty($order['inspection_report_at']) ? 'reporte_listo' : 'coordinando';
+}
+
+/** Minutos sin terminar tras los que una traducción en curso se da por caída. */
+define('IMP_TRADUCCION_VENCE_MIN', 20);
+
+/** Estado de la traducción al español: 'pendiente' | 'listo' | 'error' | null. */
+function impEstadoTraduccion($order) {
+    $st = $order['inspection_es_status'] ?? null;
+    if ($st === 'pendiente' && !empty($order['inspection_es_at'])
+        && strtotime($order['inspection_es_at']) < time() - IMP_TRADUCCION_VENCE_MIN * 60) return 'error';
+    return in_array($st, ['pendiente', 'listo', 'error'], true) ? $st : null;
+}
+
+/** El reporte de inspección cargado (sin el texto traducido, que va aparte), o null. */
+function impReporteInspeccion($order) {
+    if (empty($order['inspection_report_at']) || empty($order['chosen_inspection'])) return null;
+    return [
+        'at' => $order['inspection_report_at'],
+        'file_id' => intval($order['inspection_report_file_id'] ?? 0) ?: null,
+        'summary' => (string) ($order['inspection_summary'] ?? ''),
+        'es_status' => impEstadoTraduccion($order),
+        'es_at' => impEstadoTraduccion($order) === 'listo' ? ($order['inspection_es_at'] ?? null) : null,
+    ];
+}
+
+/**
+ * Lo que se limpia al cambiar de lancha o deshacer la elección: el resultado,
+ * el reporte y su traducción son de la lancha anterior.
+ */
+function impSqlLimpiarInspeccion() {
+    return "inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, inspection_decided_by = NULL, "
+        . "inspection_report_file_id = NULL, inspection_report_at = NULL, inspection_summary = NULL, "
+        . "inspection_es = NULL, inspection_es_status = NULL, inspection_es_at = NULL, inspection_es_error = NULL";
+}
+
+/** La lista de declinadas con la lancha elegida agregada si el cliente la declinó. */
+function impDeclinadasAlCambiar($order) {
+    $ids = impLanchasDeclinadas($order);
+    return $ids ? json_encode($ids) : ($order['declined_link_ids'] ?? null);
 }
 
 /** Título legible de una lancha del ranking (igual que tituloEmbarcacion en el panel). */
@@ -153,6 +227,15 @@ function impAsegurarColumnas($pdo) {
             'inspection_result_at' => "ALTER TABLE orders ADD COLUMN inspection_result_at DATETIME NULL",
             'inspection_note'   => "ALTER TABLE orders ADD COLUMN inspection_note TEXT NULL",
             'refund_requested_at' => "ALTER TABLE orders ADD COLUMN refund_requested_at DATETIME NULL",
+            'inspection_decided_by' => "ALTER TABLE orders ADD COLUMN inspection_decided_by VARCHAR(10) NULL",
+            'inspection_report_file_id' => "ALTER TABLE orders ADD COLUMN inspection_report_file_id INT NULL",
+            'inspection_report_at' => "ALTER TABLE orders ADD COLUMN inspection_report_at DATETIME NULL",
+            'inspection_summary' => "ALTER TABLE orders ADD COLUMN inspection_summary TEXT NULL",
+            'inspection_es' => "ALTER TABLE orders ADD COLUMN inspection_es MEDIUMTEXT NULL",
+            'inspection_es_status' => "ALTER TABLE orders ADD COLUMN inspection_es_status VARCHAR(12) NULL",
+            'inspection_es_at' => "ALTER TABLE orders ADD COLUMN inspection_es_at DATETIME NULL",
+            'inspection_es_error' => "ALTER TABLE orders ADD COLUMN inspection_es_error VARCHAR(255) NULL",
+            'declined_link_ids' => "ALTER TABLE orders ADD COLUMN declined_link_ids TEXT NULL",
         ];
         foreach ($faltan as $col => $sql) {
             if (!in_array($col, $cols, true)) $pdo->exec($sql);
@@ -672,4 +755,215 @@ function impSolicitarPago($order, $link, $n, $creadoPor) {
         $data['requests'][] = $nuevo;
         return ['cobro' => $nuevo, 'creado' => true, 'guardar' => true];
     });
+}
+
+// ---------------------------------------------------------------------------
+// Reporte de inspección: lo carga el equipo, el cliente lo lee y decide
+// (JP, 21-oct-2026)
+// ---------------------------------------------------------------------------
+// «Nosotros cumplimos con cargarlo pero el cliente es el que toma la decisión
+// si aprueba o declina la compra. La inspección siempre vendrá en inglés:
+// ¿puede él verlo en español o descargarlo en español?»
+//
+// El equipo sube el PDF del inspector (o elige uno que ya está en el
+// expediente, como el que manda David). Queda visible para el cliente tal
+// cual, y una IA lo traduce al español completo: el panel lo muestra y lo
+// deja descargar. Después el cliente aprueba (hito «inspeccion» → Pago 2) o
+// declina (elige otra lancha con el Pago 1 abonado, o pide la devolución).
+
+/** El PDF más pesado que se manda a traducir (el pedido a la API tope 32 MB, en base64). */
+define('IMP_TRADUCCION_MAX_BYTES', 22 * 1024 * 1024);
+define('IMP_TRADUCCION_MODELO', 'claude-opus-5-5');
+
+function impMimesReporte() {
+    return ['application/pdf' => 'pdf'];
+}
+
+/** Guarda el PDF del reporte, visible para el cliente. Devuelve [file_id, error]. */
+function impGuardarReporte($pdo, $orderId, $f, $mover = 'move_uploaded_file') {
+    if (!is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($f['tmp_name'])) {
+        return [0, 'No llegó el archivo. Sube el PDF del reporte.'];
+    }
+    if (intval($f['size'] ?? 0) > 60 * 1024 * 1024) return [0, 'El PDF pesa más de 60 MB.'];
+    $mime = function_exists('finfo_open') ? (finfo_file(finfo_open(FILEINFO_MIME_TYPE), $f['tmp_name']) ?: '') : '';
+    if (!isset(impMimesReporte()[$mime])) return [0, 'El reporte tiene que ser un PDF.'];
+    $dir = __DIR__ . '/expediente_files/';
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    if (!file_exists($dir . '.htaccess')) {
+        @file_put_contents($dir . '.htaccess', "Require all denied\nOptions -Indexes\n<IfModule mod_php.c>\nphp_flag engine off\n</IfModule>\nRemoveHandler .php .phtml .php5 .php7 .phar\nRemoveType .php .phtml .php5 .php7 .phar\n");
+    }
+    $guardado = 'exp_' . intval($orderId) . '_inspeccion_' . bin2hex(random_bytes(8)) . '.pdf';
+    if (!$mover($f['tmp_name'], $dir . $guardado)) return [0, 'No se pudo guardar el PDF. Intenta de nuevo.'];
+    $nombre = trim((string) ($f['name'] ?? '')) ?: 'reporte-inspeccion.pdf';
+    $pdo->prepare("INSERT INTO expediente_files (order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, visible_to_client) VALUES (?, ?, ?, ?, ?, 'document', ?, 'inspeccion_reporte', 1)")
+        ->execute([intval($orderId), mb_substr($nombre, 0, 200), $guardado, $mime, intval($f['size'] ?? 0), 'Reporte de la inspección técnica (original en inglés)']);
+    return [intval($pdo->lastInsertId()), null];
+}
+
+/** Un PDF que ya está en el expediente pasa a ser el reporte (y el cliente lo ve). */
+function impUsarArchivoComoReporte($pdo, $orderId, $fileId) {
+    $st = $pdo->prepare("SELECT id, mime_type FROM expediente_files WHERE id = ? AND order_id = ?");
+    $st->execute([intval($fileId), intval($orderId)]);
+    $f = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$f) return [0, 'Ese archivo no está en este expediente.'];
+    if (!isset(impMimesReporte()[$f['mime_type']])) return [0, 'El reporte tiene que ser un PDF.'];
+    $pdo->prepare("UPDATE expediente_files SET visible_to_client = 1 WHERE id = ?")->execute([intval($f['id'])]);
+    return [intval($f['id']), null];
+}
+
+function impRutaArchivo($pdo, $fileId) {
+    $st = $pdo->prepare("SELECT stored_name FROM expediente_files WHERE id = ?");
+    $st->execute([intval($fileId)]);
+    $n = $st->fetchColumn();
+    return $n ? __DIR__ . '/expediente_files/' . basename($n) : null;
+}
+
+/** La llave de Claude: la misma de la puerta de WhatsApp (credentials_config.php). */
+function impLlaveClaude() {
+    $cred = '/home/wwimpo/credentials_config.php';
+    if (is_file($cred)) require_once $cred;
+    foreach (['IMPORLAN_ANTHROPIC', 'IMPORLAN_WA_ANTHROPIC'] as $n) {
+        if (defined($n) && trim((string) constant($n)) !== '') return trim((string) constant($n));
+        $v = getenv($n);
+        if ($v !== false && trim($v) !== '') return trim($v);
+    }
+    return '';
+}
+
+function impInstruccionesTraduccion() {
+    return "Eres traductor técnico náutico. Te paso el reporte de una inspección técnica (marine survey) de una embarcación en Estados Unidos, en inglés. "
+        . "Tradúcelo al español de Chile para el comprador, que no lee inglés.\n\n"
+        . "Reglas:\n"
+        . "- Completo y fiel: todo el contenido, en el mismo orden. No resumas, no omitas hallazgos ni advertencias, no agregues opiniones, conclusiones ni recomendaciones que no estén en el original.\n"
+        . "- Respeta cifras, unidades, valores, fechas, nombres propios, marcas, modelos y números de serie tal como están. Si el original da un valor de mercado o de reposición, tradúcelo igual, con su moneda.\n"
+        . "- Usa los términos náuticos habituales en español (survey → inspección, surveyor → inspector, hull → casco, transom → espejo de popa, bilge → sentina, stringers → largueros, moisture → humedad, delamination → delaminación, gelcoat → gelcoat, outdrive → pata o cola, trailer → carro).\n"
+        . "- Formato Markdown simple: '# ' para el título, '## ' para secciones, '### ' para subsecciones, párrafos, listas con '- ', tablas con '|' y **negrita** para lo que el original destaca. Nada de HTML, imágenes ni enlaces.\n"
+        . "- Fotos: si una foto tiene leyenda, escribe la leyenda traducida como '- Foto: …'. Sin leyenda, omítela.\n"
+        . "- Si algo no se lee, escribe [ilegible]. Omite encabezados y pies de página que se repiten en cada hoja.\n"
+        . "- Empieza directo con el contenido, sin presentarte ni comentar la traducción.";
+}
+
+/**
+ * Traduce el PDF. Devuelve ['ok' => bool, 'texto' => markdown, 'error' => ''].
+ * $http (para las pruebas): function($url, $headers, $body, $timeout) → ['code', 'body'].
+ */
+function impTraducirReporte($rutaPdf, $http = null) {
+    if (!$rutaPdf || !is_file($rutaPdf)) return ['ok' => false, 'error' => 'No se encontró el PDF'];
+    if (filesize($rutaPdf) > IMP_TRADUCCION_MAX_BYTES) return ['ok' => false, 'error' => 'El PDF es muy pesado para traducirlo automáticamente (más de 22 MB)'];
+    $http = $http ?: ($GLOBALS['impClaudeHttp'] ?? null);
+    $llave = impLlaveClaude();
+    if ($llave === '' && !$http) return ['ok' => false, 'error' => 'Falta la llave de Claude en el servidor'];
+    $http = $http ?: 'impPostClaude';
+    $cuerpo = json_encode([
+        'model' => IMP_TRADUCCION_MODELO,
+        'max_tokens' => 64000,
+        'stream' => true,
+        'fallbacks' => 'default',
+        'output_config' => ['effort' => 'low'],
+        'system' => impInstruccionesTraduccion(),
+        'messages' => [['role' => 'user', 'content' => [
+            ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode(file_get_contents($rutaPdf))]],
+            ['type' => 'text', 'text' => 'Traduce este reporte de inspección al español, completo.'],
+        ]]],
+    ]);
+    $r = $http('https://api.anthropic.com/v1/messages', [
+        'x-api-key' => $llave, 'anthropic-version' => '2023-06-01',
+        'anthropic-beta' => 'server-side-fallback-2026-07-01', 'content-type' => 'application/json',
+    ], $cuerpo, 600);
+    if (($r['code'] ?? 0) !== 200) {
+        $j = json_decode((string) ($r['body'] ?? ''), true);
+        return ['ok' => false, 'error' => 'Claude HTTP ' . intval($r['code'] ?? 0) . (isset($j['error']['message']) ? ': ' . mb_substr($j['error']['message'], 0, 150) : '')];
+    }
+    [$texto, $fin, $err] = impLeerStreamClaude((string) $r['body']);
+    if ($err !== '') return ['ok' => false, 'error' => $err];
+    if ($fin === 'refusal') return ['ok' => false, 'error' => 'La IA no tradujo este documento'];
+    $texto = trim($texto);
+    if ($texto === '') return ['ok' => false, 'error' => 'La traducción salió vacía'];
+    if ($fin === 'max_tokens') $texto .= "\n\n[La traducción llega hasta aquí por el largo del reporte. El resto está en el original en inglés.]";
+    return ['ok' => true, 'texto' => $texto];
+}
+
+/** Lee la respuesta en stream (SSE): [texto, stop_reason, error]. Si hubo cambio de modelo, vale lo del último. */
+function impLeerStreamClaude($sse) {
+    $texto = '';
+    $fin = '';
+    foreach (preg_split('/\r?\n/', $sse) as $linea) {
+        if (strncmp($linea, 'data:', 5) !== 0) continue;
+        $e = json_decode(trim(substr($linea, 5)), true);
+        if (!is_array($e)) continue;
+        $tipo = $e['type'] ?? '';
+        if ($tipo === 'error') return ['', '', 'Claude: ' . ($e['error']['message'] ?? 'error')];
+        if ($tipo === 'content_block_start' && ($e['content_block']['type'] ?? '') === 'fallback') $texto = '';
+        if ($tipo === 'content_block_delta' && ($e['delta']['type'] ?? '') === 'text_delta') $texto .= (string) $e['delta']['text'];
+        if ($tipo === 'message_delta' && !empty($e['delta']['stop_reason'])) $fin = $e['delta']['stop_reason'];
+    }
+    return [$texto, $fin, ''];
+}
+
+function impPostClaude($url, $headers, $body, $timeout) {
+    $h = '';
+    foreach ($headers as $k => $v) $h .= $k . ': ' . $v . "\r\n";
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => $h, 'content' => $body, 'timeout' => $timeout, 'ignore_errors' => true]]);
+    $resp = @file_get_contents($url, false, $ctx);
+    $code = 0;
+    foreach ((array) ($http_response_header ?? []) as $l) if (preg_match('#^HTTP/\S+\s+(\d{3})#', $l, $m)) $code = (int) $m[1];
+    return ['code' => $code, 'body' => $resp === false ? '' : $resp];
+}
+
+/**
+ * Traduce el reporte cargado y guarda el resultado. Se llama después de
+ * contestarle al panel (la traducción tarda minutos). Si el reporte cambió
+ * mientras tanto, no pisa nada.
+ */
+function impTraducirYGuardar($pdo, $orderId, $fileId) {
+    @set_time_limit(900);
+    $res = impTraducirReporte(impRutaArchivo($pdo, $fileId));
+    $pdo->prepare("UPDATE orders SET inspection_es = ?, inspection_es_status = ?, inspection_es_at = NOW(), inspection_es_error = ? WHERE id = ? AND inspection_report_file_id = ?")
+        ->execute([$res['ok'] ? $res['texto'] : null, $res['ok'] ? 'listo' : 'error', $res['ok'] ? null : mb_substr($res['error'], 0, 250), intval($orderId), intval($fileId)]);
+    if (!$res['ok']) error_log('impTraducirYGuardar ' . $orderId . ': ' . $res['error']);
+    return $res['ok'];
+}
+
+/**
+ * El Markdown de la traducción en bloques para el panel, sin HTML:
+ * {t:'h', n:1-3, x} · {t:'p', x} · {t:'ul', items:[x]} · {t:'table', rows:[[x]]}.
+ * Los ** de negrita quedan en el texto; el panel los pinta.
+ */
+function impMarkdownABloques($md) {
+    $bloques = [];
+    $parrafo = [];
+    $lista = null;
+    $tabla = null;
+    $cerrar = function () use (&$bloques, &$parrafo, &$lista, &$tabla) {
+        if ($parrafo) { $bloques[] = ['t' => 'p', 'x' => implode(' ', $parrafo)]; $parrafo = []; }
+        if ($lista !== null) { $bloques[] = ['t' => 'ul', 'items' => $lista]; $lista = null; }
+        if ($tabla !== null) { if ($tabla) $bloques[] = ['t' => 'table', 'rows' => $tabla]; $tabla = null; }
+    };
+    foreach (preg_split('/\r?\n/', (string) $md) as $l) {
+        $l = rtrim($l);
+        $t = trim($l);
+        if ($t === '') { $cerrar(); continue; }
+        if (preg_match('/^(#{1,6})\s+(.*)$/', $t, $m)) {
+            $cerrar();
+            $bloques[] = ['t' => 'h', 'n' => min(3, strlen($m[1])), 'x' => trim($m[2], " #")];
+            continue;
+        }
+        if ($t[0] === '|') {
+            if ($tabla === null) { $cerrar(); $tabla = []; }
+            $celdas = array_map('trim', explode('|', trim($t, '|')));
+            if (preg_match('/^[\s:|-]+$/', $t)) continue; // la línea |---|---|
+            $tabla[] = $celdas;
+            continue;
+        }
+        if (preg_match('/^[-*•]\s+(.*)$/u', $t, $m) || preg_match('/^\d+[.)]\s+(.*)$/', $t, $m)) {
+            if ($lista === null) { $cerrar(); $lista = []; }
+            $lista[] = $m[1];
+            continue;
+        }
+        if ($lista !== null && preg_match('/^\s{2,}/', $l)) { $lista[count($lista) - 1] .= ' ' . $t; continue; }
+        if ($lista !== null || $tabla !== null) $cerrar();
+        $parrafo[] = $t;
+    }
+    $cerrar();
+    return $bloques;
 }

@@ -49,7 +49,12 @@ $firma = 'protected function sendEmail($to, $subject, $htmlContent, $template, $
 ok(strpos($es, $firma) !== false, 'la copia encuentra sendEmail para capturar los correos');
 $es = str_replace($firma, $firma . "\n        \$GLOBALS['CORREOS'][] = ['to' => \$to, 'subject' => \$subject, 'html' => \$htmlContent, 'template' => \$template];\n        return ['success' => true];", $es);
 file_put_contents("$caja/email_service.php", $es);
-register_shutdown_function(function () use ($caja) { array_map('unlink', glob("$caja/*")); @rmdir($caja); });
+register_shutdown_function(function () use ($caja) {
+    array_map('unlink', glob("$caja/expediente_files/{,.}*", GLOB_BRACE) ?: []);
+    @rmdir("$caja/expediente_files");
+    array_map('unlink', array_filter(glob("$caja/*"), 'is_file'));
+    @rmdir($caja);
+});
 
 $BD = new PDO('sqlite::memory:');
 $BD->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -60,7 +65,9 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     chosen_link_id INTEGER NULL, chosen_at TEXT NULL, chosen_by TEXT NULL, chosen_inspection INTEGER NULL,
     chosen_note TEXT NULL, import_steps TEXT NULL, usa_token TEXT NULL, usa_link_id INTEGER NULL,
     usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL,
-    inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL)");
+    inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL,
+    inspection_decided_by TEXT NULL, inspection_report_file_id INTEGER NULL, inspection_report_at TEXT NULL, inspection_summary TEXT NULL,
+    inspection_es TEXT NULL, inspection_es_status TEXT NULL, inspection_es_at TEXT NULL, inspection_es_error TEXT NULL, declined_link_ids TEXT NULL)");
 $BD->exec("CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY, order_id INTEGER, note TEXT, file_ids TEXT, shared_text TEXT NULL, shared_at TEXT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE expediente_files (id INTEGER PRIMARY KEY, order_id INTEGER, original_name TEXT, stored_name TEXT, mime_type TEXT, file_size INTEGER, category TEXT, description TEXT, uploaded_by TEXT, visible_to_client INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE order_client_data (order_id INTEGER PRIMARY KEY, user_email TEXT, data TEXT, ci_front_id INTEGER, ci_back_id INTEGER, terms_version TEXT, terms_accepted_at TEXT, terms_ip TEXT, terms_ua TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
@@ -493,7 +500,7 @@ $CORREOS = [];
 ok($c === 200 && ($r['eleccion']['inspection_result'] ?? '') === 'no_apta' && $r['eleccion']['inspection_note'] === 'Humedad en el casco y motor con baja compresión.', 'el equipo marca la inspección como no apta, con su nota');
 ok($r['eleccion']['client_can_change'] === true, 'y el cliente puede volver a elegir aunque haya pagado el Pago 1');
 $cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
-ok(count($cli) === 1 && strpos($cli[0]['subject'], 'Resultado de la inspección') === 0 && strpos($cli[0]['html'], 'te ahorraste un problema') !== false && strpos($cli[0]['html'], 'se abona a la nueva') !== false, 'al cliente le llega el resultado con calma y sus dos opciones');
+ok(count($cli) === 1 && strpos($cli[0]['subject'], 'No seguimos con') === 0 && strpos($cli[0]['html'], 'te ahorraste un problema') !== false && strpos($cli[0]['html'], 'se abona a la nueva') !== false, 'al cliente le llega el resultado con calma y sus dos opciones');
 ok(count(aDavid()) === 1 && strpos(aDavid()[0]['subject'], 'On hold') !== false, 'a David se le pide pausar esa lancha');
 ok(timelineStepDesdeDatos(orden(35), true, 0) === 3, 'la etapa queda en Inspección');
 [$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15, 'inspection' => true]);
@@ -531,6 +538,137 @@ llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspecti
 [$c] = llamar('adminInspeccionResultado', $admin, ['order_id' => 35, 'resultado' => 'no_apta']);
 ok($c === 409, 'si eligió sin inspección, no hay resultado de inspección que marcar');
 ok(preg_match("/case 'user_pedir_devolucion':\s*userPedirDevolucion\(requireUserAuthShared\(\)\);/", $api) === 1 && preg_match("/case 'admin_inspeccion_resultado':\s*adminInspeccionResultado\(requireAdminAuth\(\)\);/", $api) === 1, 'las rutas nuevas exigen sesión');
+
+echo "\nReporte de inspección: el equipo lo carga, el cliente lo lee en español y decide\n";
+/** Respuesta en stream de la API, como la manda Claude. */
+function sseClaude($texto, $fin = 'end_turn', $previo = null) {
+    $ev = [['type' => 'message_start']];
+    if ($previo !== null) {
+        $ev[] = ['type' => 'content_block_start', 'index' => 0, 'content_block' => ['type' => 'text', 'text' => '']];
+        $ev[] = ['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => $previo]];
+        $ev[] = ['type' => 'content_block_start', 'index' => 1, 'content_block' => ['type' => 'fallback']];
+    }
+    foreach (str_split($texto, 40) as $trozo) $ev[] = ['type' => 'content_block_delta', 'index' => 2, 'delta' => ['type' => 'text_delta', 'text' => $trozo]];
+    $ev[] = ['type' => 'message_delta', 'delta' => ['stop_reason' => $fin]];
+    $out = '';
+    foreach ($ev as $e) $out .= 'event: ' . $e['type'] . "\ndata: " . json_encode($e) . "\n\n";
+    return $out;
+}
+$TRADUCCION = "# Reporte de inspección\n\n## Casco\n\nSe encontró **humedad** bajo la línea de flotación.\n\n- Gelcoat con grietas menores\n- Espejo de popa firme\n\n| Ítem | Estado |\n|---|---|\n| Motor | Bueno |\n";
+$PEDIDOS_CLAUDE = [];
+$GLOBALS['impClaudeHttp'] = function ($url, $h, $body, $t) {
+    $GLOBALS['PEDIDOS_CLAUDE'][] = ['url' => $url, 'h' => $h, 'body' => json_decode($body, true)];
+    return $GLOBALS['RESPUESTA_CLAUDE'];
+};
+$RESPUESTA_CLAUDE = ['code' => 200, 'body' => sseClaude($TRADUCCION)];
+$pdf = sys_get_temp_dir() . '/reporte-' . getmypid() . '.pdf';
+function pdfDePrueba() { file_put_contents($GLOBALS['pdf'], "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n"); return ['name' => 'Survey Chaparral.pdf', 'tmp_name' => $GLOBALS['pdf'], 'size' => filesize($GLOBALS['pdf']), 'error' => UPLOAD_ERR_OK]; }
+function cargarReporte($entrada, $archivo = null) {
+    return llamar('adminCargarReporte', $GLOBALS['admin'], $entrada, $archivo ?? pdfDePrueba(), 'copy', false);
+}
+
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+pagarPago1();
+ok(impEleccionPublica(orden(35))['inspection_stage'] === 'coordinando', 'recién elegida con inspección: se está coordinando');
+[$c] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'aprobar']);
+ok($c === 409 && !isset(impPasos(orden(35))['inspeccion']), 'sin reporte, el cliente todavía no puede decidir');
+[$c] = cargarReporte(['order_id' => 35], ['name' => 'x.pdf', 'tmp_name' => __FILE__, 'size' => 10, 'error' => UPLOAD_ERR_OK]);
+ok($c === 400, 'el reporte tiene que ser un PDF (se mira el contenido, no el nombre)');
+$CORREOS = [];
+[$c, $r] = cargarReporte(['order_id' => 35, 'resumen' => 'El casco tiene humedad localizada; el resto en buen estado.', 'notify_client' => '1']);
+$o = orden(35);
+ok($c === 200 && $r['eleccion']['inspection_stage'] === 'reporte_listo', 'el equipo carga el reporte: ahora decide el cliente');
+$f = $BD->query("SELECT * FROM expediente_files WHERE id = " . intval($o['inspection_report_file_id']))->fetch();
+ok($f && intval($f['visible_to_client']) === 1 && $f['uploaded_by'] === 'inspeccion_reporte' && is_file($caja . '/expediente_files/' . $f['stored_name']), 'el PDF queda en el expediente, visible para el cliente');
+ok($o['inspection_es_status'] === 'listo' && $o['inspection_es'] === trim($TRADUCCION), 'y se traduce al español');
+$p = $PEDIDOS_CLAUDE[0]['body'] ?? [];
+ok(($p['model'] ?? '') === 'claude-opus-5-5' && !empty($p['stream']) && ($p['messages'][0]['content'][0]['source']['media_type'] ?? '') === 'application/pdf' && strpos($p['system'] ?? '', 'No resumas') !== false, 'la traducción manda el PDF a Claude y pide traducción completa, sin resumir');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && $cli[0]['template'] === 'inspeccion_reporte' && strpos($cli[0]['html'], 'traducción completa al español') !== false && strpos($cli[0]['html'], 'humedad localizada') !== false && strpos($cli[0]['html'], 'Tú decides') !== false, 'al cliente le llega el aviso: reporte en inglés y en español, y que él decide');
+$_GET = ['order_id' => 35];
+[$c, $r] = llamar('verReporteInspeccion', $alberto, false);
+ok($c === 200 && $r['original']['original_name'] === 'Survey Chaparral.pdf' && strpos($r['original']['download_url'], 'action=download') !== false, 'el cliente ve el original en inglés (enlace firmado)');
+$tipos = array_column($r['es']['bloques'], 't');
+ok($r['es']['status'] === 'listo' && $tipos === ['h', 'h', 'p', 'ul', 'table'] && $r['es']['bloques'][3]['items'][0] === 'Gelcoat con grietas menores' && $r['es']['bloques'][4]['rows'][1] === ['Motor', 'Bueno'], 'y la traducción en bloques: títulos, párrafos, listas y tablas');
+ok($r['es']['error'] === null && !isset($r['reporte']['inspection_es']), 'sin errores internos ni el texto crudo');
+[$c] = llamar('verReporteInspeccion', $intruso, false);
+ok($c === 403, 'otro cliente no ve el reporte');
+$_GET = [];
+[$c] = llamar('userInspeccionDecision', $intruso, ['order_id' => 35, 'decision' => 'aprobar']);
+ok($c === 403, 'otro cliente no decide por él');
+$CORREOS = [];
+[$c, $r] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'aprobar']);
+$o = orden(35);
+ok($c === 200 && isset(impPasos($o)['inspeccion']) && $o['inspection_decided_by'] === 'cliente' && $r['eleccion']['inspection_stage'] === 'aprobada', 'el cliente aprueba: queda «Inspección técnica aprobada», por él');
+ok(($r['pago']['n'] ?? 0) === 2 && $r['pago']['amount_clp'] === 61740000, 'y se crea el Pago 2');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['subject'], 'aprobó la inspección') !== false && strpos($eq[0]['html'], '61.740.000') !== false, 'el equipo recibe el aviso con el Pago 2');
+ok(count(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com' && strpos($m['html'], 'Pago 2') !== false; })) === 1, 'y al cliente le llega el Pago 2 para pagar');
+[$c] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'declinar']);
+ok($c === 409, 'ya decidió: no cambia la decisión desde el panel');
+[$c] = cargarReporte(['order_id' => 35]);
+ok($c === 409, 'con la decisión tomada, el equipo no cambia el reporte');
+
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+pagarPago1();
+cargarReporte(['order_id' => 35, 'notify_client' => '0']);
+$CORREOS = [];
+[$c, $r] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'declinar', 'motivo' => 'Prefiero no arriesgarme con la humedad.']);
+$o = orden(35);
+ok($c === 200 && $r['eleccion']['inspection_stage'] === 'declinada' && $o['inspection_decided_by'] === 'cliente' && $r['eleccion']['client_can_change'] === true, 'el cliente declina: puede elegir otra lancha aunque pagó el Pago 1');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['subject'], 'On hold') !== false, 'a David se le pide pausar esa lancha');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'declinó') !== false && strpos($eq[0]['html'], 'no arriesgarme') !== false, 'el equipo recibe la decisión con su motivo');
+ok(count(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; })) === 0, 'al cliente no se le manda correo: lo decidió él');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+ok($c === 409, 'no puede volver a elegir la que declinó');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 15, 'inspection' => true]);
+$o = orden(35);
+ok($c === 200 && intval($o['chosen_link_id']) === 15 && $o['inspection_report_at'] === null && $o['inspection_es'] === null && impEtapaInspeccion($o) === 'coordinando', 'elige otra: el reporte era de la anterior, la nueva parte de cero');
+ok(impLanchasDeclinadas($o) === [12], 'la declinada queda recordada');
+[$c] = llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+ok($c === 409, 'y sigue sin poder elegirse');
+ok(count(vigentes()) === 1 && vigentes()[0]['status'] === 'paid', 'su Pago 1 pagado se abona a la nueva');
+
+echo "\nTraducción: errores, reintento y lectura del stream\n";
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+$RESPUESTA_CLAUDE = ['code' => 529, 'body' => json_encode(['type' => 'error', 'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded']])];
+$CORREOS = [];
+cargarReporte(['order_id' => 35]);
+$o = orden(35);
+ok($o['inspection_es_status'] === 'error' && strpos($o['inspection_es_error'], '529') !== false && impEtapaInspeccion($o) === 'reporte_listo', 'si la traducción falla, el reporte igual queda y el cliente puede decidir');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'en unos minutos') !== false, 'el aviso al cliente dice que la versión en español llega después');
+$_GET = ['order_id' => 35];
+[, $r] = llamar('verReporteInspeccion', $admin, true);
+ok($r['es']['status'] === 'error' && strpos($r['es']['error'], '529') !== false && $r['es']['bloques'] === [], 'el equipo ve por qué falló');
+[, $r] = llamar('verReporteInspeccion', $alberto, false);
+ok($r['es']['error'] === null, 'el cliente no ve el error técnico');
+$_GET = [];
+$RESPUESTA_CLAUDE = ['code' => 200, 'body' => sseClaude($TRADUCCION)];
+[$c] = llamar('adminTraducirReporte', $admin, ['order_id' => 35], false);
+ok($c === 200 && orden(35)['inspection_es_status'] === 'listo', 'el equipo reintenta y queda traducido');
+$BD->exec("UPDATE orders SET inspection_es_status = 'pendiente', inspection_es_at = '2026-01-01 10:00:00' WHERE id = 35");
+ok(impEstadoTraduccion(orden(35)) === 'error', 'una traducción que no termina en 20 minutos se da por caída (se puede reintentar)');
+$BD->exec("UPDATE orders SET inspection_es_at = NOW() WHERE id = 35");
+[$c] = llamar('adminTraducirReporte', $admin, ['order_id' => 35], false);
+ok($c === 409, 'mientras está en curso no se lanza otra');
+[$t, $fin] = impLeerStreamClaude(sseClaude('Texto bueno', 'end_turn', 'Texto del modelo que se negó'));
+ok($t === 'Texto bueno' && $fin === 'end_turn', 'si hubo cambio de modelo, vale el texto del último');
+$RESPUESTA_CLAUDE = ['code' => 200, 'body' => sseClaude('# Parcial', 'max_tokens')];
+$r = impTraducirReporte($caja . '/expediente_files/' . $BD->query("SELECT stored_name FROM expediente_files ORDER BY id DESC LIMIT 1")->fetchColumn());
+ok($r['ok'] && strpos($r['texto'], 'El resto está en el original') !== false, 'si el reporte es muy largo, se avisa dónde termina la traducción');
+$RESPUESTA_CLAUDE = ['code' => 200, 'body' => sseClaude('', 'refusal')];
+ok(impTraducirReporte($pdf)['ok'] === false, 'si la IA no traduce, queda como error');
+ok(impMarkdownABloques("1. Uno\n2. Dos\n\nTexto\nsigue")[1] === ['t' => 'p', 'x' => 'Texto sigue'], 'listas numeradas y párrafos de varias líneas');
+ok(preg_match("/case 'user_inspeccion_decision':\s*userInspeccionDecision\(requireUserAuthShared\(\)\);/", $api) === 1
+    && preg_match("/case 'user_inspeccion_reporte':\s*verReporteInspeccion\(requireUserAuthShared\(\), false\);/", $api) === 1
+    && preg_match("/adminCargarReporte\(requireAdminAuthShared\(\['admin', 'support'\]\)\)/", $api) === 1
+    && preg_match("/case 'admin_inspeccion_traducir':\s*adminTraducirReporte\(requireAdminAuthShared\(\['admin', 'support'\]\)\);/", $api) === 1, 'las rutas del reporte exigen sesión; cargar y traducir, sólo el equipo en Chile');
+@unlink($pdf);
 
 echo "\nA nombre de quién se importa\n";
 [$d, $e] = impValidarDatos(datosAlberto());

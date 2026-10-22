@@ -1228,20 +1228,46 @@ BASE64;
         $c = $this->colors;
         $titulo = (string) ($d['titulo'] ?? 'la lancha');
         $orderNumber = (string) ($d['order_number'] ?? '');
-        $subject = 'Resultado de la inspección: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $subject = 'No seguimos con ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
         $nota = trim((string) ($d['nota'] ?? ''));
         $opciones = [
             'Elegir otra lancha de tu ranking' . (!empty($d['pago1_pagado']) ? ': tu Pago 1 se abona a la nueva.' : '.'),
             'O, si prefieres, pedir la devolución' . (!empty($d['pago1_pagado']) ? ' del Pago 1 (se descuentan los costos de terceros ya incurridos, como la inspección).' : '.'),
         ];
         $content = '
-            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('warning', 'Inspección no favorable') . '</div>
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('warning', 'No seguimos con esta lancha') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
-            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', la inspección técnica recomienda no comprar esta lancha. Para eso existe la inspección: te ahorraste un problema a futuro.</p>'
-            . ($nota !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['warning'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Lo que encontró la inspección:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', según el reporte de la inspección técnica, no seguimos con esta lancha. Para eso existe la inspección: te ahorraste un problema a futuro.</p>'
+            . ($nota !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['warning'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Nota del equipo:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
             . $this->impListaPasos('Lo que puedes hacer', $opciones)
             . '<div style="margin-top: 24px;">' . $this->getButton('Ver opciones en mi panel', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'inspeccion_no_apta', ['order_number' => $orderNumber]);
+    }
+
+    /**
+     * El reporte de la inspección está listo: el cliente lo revisa (en inglés
+     * y en español) y decide si sigue con la compra (JP, 21-oct-2026).
+     */
+    public function sendInspeccionReporte($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'la lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = 'Ya está el reporte de la inspección: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $resumen = trim((string) ($d['resumen'] ?? ''));
+        $pasos = [
+            'Revisa el reporte en tu panel: ' . (!empty($d['en_espanol']) ? 'está el original del inspector, en inglés, y su traducción completa al español, que puedes descargar.' : 'está el original del inspector, en inglés; la traducción al español te queda en el panel en unos minutos.'),
+            'Si te parece bien, apruébalo y seguimos con la compra: te llega el Pago 2.',
+            'Si prefieres no seguir con esta lancha, eliges otra de tu ranking' . (!empty($d['pago1_pagado']) ? ' (tu Pago 1 se abona a la nueva)' : '') . ' o pides la devolución.',
+        ];
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Reporte de inspección listo') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', el inspector ya revisó la lancha y está su reporte. Así conoces su estado real antes de comprarla. Tú decides si seguimos.</p>'
+            . ($resumen !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['primary'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Lo que vemos en el reporte:</strong><br>' . nl2br(htmlspecialchars($resumen)) . '</div>' : '')
+            . $this->impListaPasos('Qué sigue', $pasos)
+            . '<p style="margin: 14px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; line-height: 1.6;">¿Dudas sobre algo del reporte? Respóndenos este correo o escríbenos por el chat del panel antes de decidir.</p>'
+            . '<div style="margin-top: 24px;">' . $this->getButton('Revisar el reporte y decidir', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'inspeccion_reporte', ['order_number' => $orderNumber]);
     }
 
     protected function impUrlPanel($orderId) {
