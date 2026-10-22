@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Money, Badge } from '../../../shared/components/UI';
-import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText, User, TriangleAlert, Banknote } from '../../../shared/components/Icons';
+import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText, User, TriangleAlert, Banknote, FileSearch } from '../../../shared/components/Icons';
 import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue, hitosDe } from '../../../shared/lib/importacion';
-import { estadoInspeccion, inspeccionNoApta, devolucionPedida, CAMINO_INSPECCION } from '../../../shared/lib/inspeccion';
+import { estadoInspeccion, etapaInspeccion, inspeccionDeclinada, devolucionPedida, CAMINO_INSPECCION } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import ResumenCotizacion from './ResumenCotizacion';
 import MatrizPrecios from './MatrizPrecios';
 import AvanceImportacion from './AvanceImportacion';
 import PlanDePagos from './PlanDePagos';
 import InspeccionNoApta from './InspeccionNoApta';
+import ReporteListo from './ReporteListo';
 import { Novedades, GaleriaUsa } from './NovedadesImportacion';
 import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, etapaDe, rutaPagar, archivosDesdeUsa } from './lib';
 
@@ -26,15 +27,19 @@ import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, e
  * deja sus datos, su cédula y los Términos) «Qué sigue» pide eso antes que
  * nada, y `onCompletarDatos` abre el formulario.
  *
- * Con la inspección **no apta** (`eleccion.inspection_result`) el estado
- * especial va arriba de todo (InspeccionNoApta): elegir otra lancha
- * (`onElegirOtra`, con el Pago 1 abonado) o pedir la devolución
- * (`onPedirDevolucion`). Ningún cobro de esa lancha se pide mientras tanto.
- * `reporteInspeccion` es el reporte de la lancha elegida, si ya está.
+ * La inspección técnica (etapaInspeccion) manda sobre la tarjeta:
+ *   - 'reporte_listo': ReporteListo arriba de todo. El cliente lee el reporte
+ *     (`onLeerReporte`, en español y el original) y decide: `onAprobar`
+ *     (llega el Pago 2) o `onDeclinar` (elige otra o pide la devolución).
+ *   - 'declinada': InspeccionNoApta, con los dos caminos (`onElegirOtra`,
+ *     `onPedirDevolucion`). Ningún cobro de esa lancha se pide mientras tanto.
+ * `reporte` es la respuesta del GET del reporte (o null); `reporteInspeccion`
+ * es el reporte antiguo (inspection_reports_api), como respaldo.
  */
 export default function TuImportacion({
-  order, link, eleccion, requests, novedades, files, datosPendientes = false, reporteInspeccion = null,
-  onCompletarDatos, onCambiar, onDeshacer, deshaciendo, onElegirOtra, onPedirDevolucion, pidiendoDevolucion, onPreviewImage, onPreviewFiles,
+  order, link, eleccion, requests, novedades, files, datosPendientes = false, reporteInspeccion = null, reporte = null,
+  onCompletarDatos, onCambiar, onDeshacer, deshaciendo, onElegirOtra, onPedirDevolucion, pidiendoDevolucion,
+  onLeerReporte, onAprobar, onDeclinar, decidiendo = null, onPreviewImage, onPreviewFiles,
 }) {
   const [verCotizacion, setVerCotizacion] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -56,21 +61,25 @@ export default function TuImportacion({
   const cobros = cobrosDelExpediente(requests, order.id);
   const pagos = pagosConCobros(plan, cobros);
   const inspeccion = estadoInspeccion(eleccion);
-  const noApta = inspeccionNoApta(eleccion);
+  const etapaInsp = etapaInspeccion(eleccion);
+  const declinada = inspeccionDeclinada(eleccion);
+  const reporteListo = etapaInsp === 'reporte_listo';
   const devolucion = devolucionPedida(eleccion);
-  const sigue = noApta ? { tipo: devolucion ? 'devolucion' : 'no_apta' } : queSigue(eleccion, pagos);
+  const sigue = declinada ? { tipo: devolucion ? 'devolucion' : 'declinada' } : reporteListo ? { tipo: 'reporte_listo' } : queSigue(eleccion, pagos);
   const hitos = hitosDe(eleccion);
   const enViaje = hitos.some(h => h.id === 'transporte' && h.hecho) || etapaDe(order) === 5;
   const agente = order.agent_name || '';
   const tieneCotizacion = !!(link && (link.quote_total_clp || link.quote_pending));
   const pago1 = pagos.pagos.find(p => p.n === 1) || null;
+  const pago2 = pagos.pagos.find(p => p.n === 2) || null;
 
   const chipInspeccion = {
     sin_inspeccion: { icono: ClipboardCheck, texto: 'Sin inspección técnica', cls: 'text-ink-500', ico: 'text-ink-400' },
     pendiente: { icono: ClipboardCheck, texto: 'Con inspección técnica', cls: 'text-ink-700', ico: 'text-success' },
     en_curso: { icono: ClipboardCheck, texto: 'Inspección técnica en curso', cls: 'text-ink-700', ico: 'text-brand-600' },
+    reporte_listo: { icono: FileSearch, texto: 'Reporte de inspección listo: tú decides', cls: 'text-ink-700', ico: 'text-brand-600' },
     aprobada: { icono: CircleCheck, texto: 'Inspección técnica aprobada', cls: 'text-ink-700', ico: 'text-success' },
-    no_apta: { icono: TriangleAlert, texto: 'Inspección técnica: no apta', cls: 'text-warning', ico: 'text-warning' },
+    declinada: { icono: TriangleAlert, texto: 'Declinada tras la inspección', cls: 'text-warning', ico: 'text-warning' },
   }[inspeccion];
   const ChipIcono = chipInspeccion.icono;
 
@@ -82,16 +91,33 @@ export default function TuImportacion({
         actions={enViaje ? <BotonEnlace to="/tracking" size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
       />
 
-      <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !noApta} onCompletarDatos={onCompletarDatos} />
+      <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} />
 
       <Card.Body>
-        {noApta && (
+        {reporteListo && (
+          <ReporteListo
+            order={order}
+            eleccion={eleccion}
+            titulo={title}
+            reporte={reporte}
+            pago1={pago1}
+            pago2={pago2}
+            onLeer={onLeerReporte}
+            onAprobar={onAprobar}
+            onDeclinar={onDeclinar}
+            decidiendo={decidiendo}
+            className="mb-6"
+          />
+        )}
+
+        {declinada && (
           <InspeccionNoApta
             order={order}
             eleccion={eleccion}
             titulo={title}
             pago1={pago1}
             reporte={reporteInspeccion}
+            onLeerReporte={onLeerReporte}
             onElegirOtra={onElegirOtra}
             onPedirDevolucion={onPedirDevolucion}
             pidiendo={pidiendoDevolucion}
@@ -110,7 +136,7 @@ export default function TuImportacion({
                   className="block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-500"
                   aria-label={`Ver foto grande de ${title}`}
                 >
-                  <img src={imagen} alt="" className={cn('h-full w-full object-cover', noApta && 'opacity-70 grayscale')} onError={() => setImgError(true)} />
+                  <img src={imagen} alt="" className={cn('h-full w-full object-cover', declinada && 'opacity-70 grayscale')} onError={() => setImgError(true)} />
                 </button>
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-700">
@@ -118,8 +144,8 @@ export default function TuImportacion({
                   <span className="text-xs font-medium">Sin foto</span>
                 </div>
               )}
-              {noApta
-                ? <Badge tone="warning" dot className="absolute left-3 top-3 shadow-card">No apta según inspección</Badge>
+              {declinada
+                ? <Badge tone="warning" dot className="absolute left-3 top-3 shadow-card">Declinada tras la inspección</Badge>
                 : <Badge tone="brand" dot className="absolute left-3 top-3 shadow-card">Tu elección</Badge>}
             </div>
 
@@ -130,13 +156,13 @@ export default function TuImportacion({
               <div className="min-w-0">
                 <p className="eyebrow">Precio puesto en Chile</p>
                 {precio ? (
-                  <Money clp={precio.clp} usd={precio.usd || undefined} size="lg" tone={noApta ? 'muted' : undefined} />
+                  <Money clp={precio.clp} usd={precio.usd || undefined} size="lg" tone={declinada ? 'muted' : undefined} />
                 ) : (
                   <p className="mt-1 text-sm text-ink-700">Por confirmar con tu agente</p>
                 )}
               </div>
               <div className="flex flex-col items-end gap-1.5">
-                {precio && <Badge tone={precio.fuente === 'cotizacion' && !noApta ? 'success' : 'neutral'}>{FUENTE_PRECIO[precio.fuente]}</Badge>}
+                {precio && <Badge tone={precio.fuente === 'cotizacion' && !declinada ? 'success' : 'neutral'}>{FUENTE_PRECIO[precio.fuente]}</Badge>}
                 <span className={cn('inline-flex items-center gap-1.5 text-13', chipInspeccion.cls)}>
                   <ChipIcono size={14} className={chipInspeccion.ico} />
                   {chipInspeccion.texto}
@@ -175,8 +201,8 @@ export default function TuImportacion({
             )}
 
             {/* Cambiar o deshacer: sólo mientras el agente no avanzó. Con la
-                inspección no apta los caminos están arriba (InspeccionNoApta). */}
-            {!noApta && (
+                lancha declinada los caminos están arriba (InspeccionNoApta). */}
+            {!declinada && (
               <div className="mt-4 border-t border-line pt-3">
                 {eleccion.client_can_change ? (
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -203,9 +229,10 @@ export default function TuImportacion({
             pagos={pagos}
             tituloLancha={title}
             agente={agente}
-            datosPendientes={datosPendientes && !noApta}
+            datosPendientes={datosPendientes && !declinada}
             onCompletarDatos={onCompletarDatos}
             reporteInspeccion={reporteInspeccion}
+            onLeerReporte={onLeerReporte}
             className="min-w-0"
           />
         </div>
@@ -231,9 +258,10 @@ export default function TuImportacion({
 
 /* ---------------------------------------------------------------------------
    «Qué sigue», en una frase. Si faltan los datos del cliente, eso manda;
-   si no, un cobro por pagar; si no, el hito en curso. Con la inspección no
-   apta: le toca elegir otra lancha o pedir la devolución (los caminos están
-   justo debajo), o ya pidió la devolución.
+   si no, un cobro por pagar; si no, el hito en curso. Con el reporte de la
+   inspección listo: le toca leerlo y decidir (la tarjeta está justo debajo).
+   Con la lancha declinada: le toca elegir otra o pedir la devolución, o ya
+   pidió la devolución.
    --------------------------------------------------------------------------- */
 function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos }) {
   let icono = Clock;
@@ -242,11 +270,16 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos }) 
   let detalle;
   let accion = null;
 
-  if (sigue.tipo === 'no_apta') {
+  if (sigue.tipo === 'reporte_listo') {
+    icono = FileSearch;
+    tono = 'brand';
+    tituloQue = 'Te toca: revisa el reporte y decide';
+    detalle = `El reporte de la inspección de ${titulo} ya está, en inglés y en español. Léelo con calma; con lo que decidas, seguimos.`;
+  } else if (sigue.tipo === 'declinada') {
     icono = TriangleAlert;
     tono = 'warning';
     tituloQue = 'Te toca: elige otra lancha o pide la devolución';
-    detalle = `La inspección recomienda no comprar ${titulo}. Tienes los dos caminos aquí abajo; con el que elijas, seguimos.`;
+    detalle = `No sigues con ${titulo}. Tienes los dos caminos aquí abajo; con el que elijas, seguimos.`;
   } else if (sigue.tipo === 'devolucion') {
     icono = Banknote;
     detalle = 'Te contactamos para coordinarla. Por ahora no tienes nada pendiente.';
@@ -269,7 +302,7 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos }) 
     tituloQue = sigue.hito.enCurso;
     const quien = agente ? `Lo hace ${agente}` : 'Lo hace tu agente';
     detalle = sigue.hito.id === 'inspeccion'
-      ? `${quien}. ${CAMINO_INSPECCION.apta.label}: ${CAMINO_INSPECCION.apta.corto} ${CAMINO_INSPECCION.no_apta.label}: ${CAMINO_INSPECCION.no_apta.corto}`
+      ? `${quien}. Cuando esté el reporte, tú lo revisas (${CAMINO_INSPECCION.revisas.corto.replace(/\.$/, '')}) y decides. ${CAMINO_INSPECCION.apta.label}: ${CAMINO_INSPECCION.apta.corto} ${CAMINO_INSPECCION.no_apta.label}: ${CAMINO_INSPECCION.no_apta.corto}`
       : `${quien}. Por ahora no tienes nada pendiente; te avisamos cuando haya novedades.`;
   } else {
     icono = CircleCheck;

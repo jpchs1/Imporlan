@@ -10,15 +10,16 @@ const { request, uploadFile, getToken, getUserEmail, API_BASE } = client;
  * Para las respuestas en que el panel tiene que distinguir el motivo, no sólo
  * mostrar el mensaje. `body` es un objeto (va como JSON) o un FormData.
  */
-async function requestDetallado(url, { body, timeoutMs = 15000 } = {}) {
+async function requestDetallado(url, { body, timeoutMs = 15000, method = 'POST' } = {}) {
   const tokenEnviado = getToken();
   const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
-  const headers = { ...(multipart ? {} : { 'Content-Type': 'application/json' }), ...(tokenEnviado ? { Authorization: `Bearer ${tokenEnviado}` } : {}) };
+  const esGet = method === 'GET';
+  const headers = { ...(multipart || esGet ? {} : { 'Content-Type': 'application/json' }), ...(tokenEnviado ? { Authorization: `Bearer ${tokenEnviado}` } : {}) };
   let res;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    res = await fetch(url, { method: 'POST', headers, body: multipart ? body : JSON.stringify(body || {}), signal: controller.signal });
+    res = await fetch(url, { method, headers, body: esGet ? undefined : multipart ? body : JSON.stringify(body || {}), signal: controller.signal });
     clearTimeout(timeout);
   } catch (e) {
     throw new Error(e?.name === 'AbortError' ? 'El servidor tardó demasiado en responder. Vuelve a intentarlo.' : 'Error de conexión. Revisa tu internet y vuelve a intentarlo.');
@@ -159,6 +160,21 @@ export const unchooseLink = (orderId) =>
 export const pedirDevolucion = (orderId) =>
   requestDetallado(`${API_BASE}/orders_api.php?action=user_pedir_devolucion`, {
     body: { order_id: parseInt(orderId) },
+  });
+
+// El reporte de la inspección (user_inspeccion_reporte): el original en
+// inglés (enlace firmado por 1 hora) y la traducción al español en bloques
+// ({t:'h'|'p'|'ul'|'table'}). 404 si el equipo aún no lo carga.
+export const inspeccionReporte = (orderId) =>
+  requestDetallado(`${API_BASE}/orders_api.php?action=user_inspeccion_reporte&order_id=${encodeURIComponent(orderId)}`, { method: 'GET' });
+
+// El cliente leyó el reporte y decide (user_inspeccion_decision): 'aprobar'
+// marca el hito y crea el Pago 2 ({eleccion, pago}); 'declinar' deja la
+// lancha fuera ({eleccion}) y después elige otra o pide la devolución. 409 si
+// aún no hay reporte o si ya decidió.
+export const inspeccionDecision = (orderId, decision, motivo = '') =>
+  requestDetallado(`${API_BASE}/orders_api.php?action=user_inspeccion_decision`, {
+    body: { order_id: parseInt(orderId), decision, motivo: String(motivo || '').trim().slice(0, 1000) },
   });
 
 // Marketplace (user)

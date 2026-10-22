@@ -1,9 +1,9 @@
 import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
-import { Check, Receipt, User, TriangleAlert, FileSearch, Banknote } from '../../../shared/components/Icons';
+import { Check, Receipt, User, TriangleAlert, FileSearch, Languages, Banknote } from '../../../shared/components/Icons';
 import { hitosDe } from '../../../shared/lib/importacion';
-import { inspeccionNoApta, devolucionPedida, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
+import { etapaInspeccion, devolucionPedida, decidioInspeccion, reporteDe, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import CaminoInspeccion from './CaminoInspeccion';
 import { rutaPagar } from './lib';
@@ -18,14 +18,18 @@ import { rutaPagar } from './lib';
  * primer pendiente. Lo hecho lleva fecha; lo en curso va destacado con quién
  * lo hace; lo pendiente, atenuado.
  *
- * La inspección técnica, cuando es el hito en curso, lleva además qué pasa
- * según el resultado (CaminoInspeccion compacto) y el reporte si ya está
- * (`reporteInspeccion`). Con el resultado **no apta** el camino de esta
- * lancha termina ahí: el hito se marca en advertencia (no en error), no se
- * piden cobros y no se listan los hitos que venían después.
+ * La inspección técnica tiene sus propios estados (etapaInspeccion):
+ *   - coordinando: el hito en curso, con qué pasa después (CaminoInspeccion compacto);
+ *   - reporte_listo: «Te toca decidir» en acento primario (no es una advertencia:
+ *     es su momento), con el botón para leer el reporte;
+ *   - aprobada: hecho, «aprobaste el reporte el …» (o lo registró el agente);
+ *   - declinada: el camino de esta lancha termina ahí, en advertencia (no en
+ *     error), sin cobros ni los hitos que venían después.
+ * `onLeerReporte` abre el reporte en español; `reporteInspeccion` es el
+ * reporte antiguo (inspection_reports_api), como respaldo cuando no hay.
  */
-export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, datosPendientes = false, onCompletarDatos, reporteInspeccion = null, className }) {
-  const items = construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos, reporteInspeccion);
+export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, datosPendientes = false, onCompletarDatos, reporteInspeccion = null, onLeerReporte, className }) {
+  const items = construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos, reporteInspeccion, onLeerReporte);
 
   return (
     <section aria-labelledby="tu-avance" className={className}>
@@ -35,8 +39,9 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
           const alFinal = i === items.length - 1;
           const hecho = it.estado === 'hecho';
           const teToca = it.estado === 'pago' || it.estado === 'datos';
-          const noApta = it.estado === 'no_apta';
-          const curso = it.estado === 'curso' || teToca || noApta;
+          const decidir = it.estado === 'decidir';
+          const declinada = it.estado === 'declinada';
+          const curso = it.estado === 'curso' || teToca || decidir || declinada;
           return (
             <li key={it.id} className={cn('relative flex gap-3', !alFinal && 'pb-5')} aria-current={curso ? 'step' : undefined}>
               {!alFinal && <span aria-hidden="true" className={cn('absolute bottom-0 left-[11px] top-7 w-0.5', hecho ? 'bg-brand-600' : 'bg-line')} />}
@@ -46,18 +51,20 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
                   'relative z-[1] mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
                   hecho && 'bg-brand-600 text-white',
                   it.estado === 'curso' && 'border-2 border-brand-600 bg-surface',
+                  decidir && 'bg-brand-600 text-white',
                   teToca && 'border-2 border-warning bg-surface text-warning',
-                  noApta && 'bg-warning text-white',
+                  declinada && 'bg-warning text-white',
                   it.estado === 'pendiente' && 'border border-line-strong bg-surface',
                 )}
               >
                 {hecho && <Check size={14} strokeWidth={2.5} />}
                 {it.estado === 'curso' && (it.icono ? <it.icono size={12} className="text-brand-600" /> : <span className="h-2 w-2 rounded-full bg-brand-600" />)}
+                {decidir && <FileSearch size={13} strokeWidth={2.25} />}
                 {it.estado === 'pago' && <Receipt size={12} />}
                 {it.estado === 'datos' && <User size={12} />}
-                {noApta && <TriangleAlert size={13} strokeWidth={2.25} />}
+                {declinada && <TriangleAlert size={13} strokeWidth={2.25} />}
               </span>
-              <div className={cn('min-w-0 flex-1', curso && 'rounded-md border px-3 py-2.5 -mt-1', it.estado === 'curso' && 'border-brand-200 bg-brand-50', (teToca || noApta) && 'border-warning-line bg-warning-bg')}>
+              <div className={cn('min-w-0 flex-1', curso && 'rounded-md border px-3 py-2.5 -mt-1', (it.estado === 'curso' || decidir) && 'border-brand-200 bg-brand-50', (teToca || declinada) && 'border-warning-line bg-warning-bg')}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                   <p className={cn('text-sm', hecho ? 'font-medium text-ink-900' : curso ? 'font-semibold text-ink-900' : 'text-ink-500')}>{it.titulo}</p>
                   {it.fecha && <time className="text-xs text-ink-500 tabular" dateTime={it.fecha} title={fmtDateLarga(it.fecha, { hora: true })}>{fmtDateLarga(it.fecha)}</time>}
@@ -75,11 +82,16 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
   );
 }
 
-function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos, reporteInspeccion) {
+function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos, reporteInspeccion, onLeerReporte) {
   const quien = agente ? `Lo hace ${agente}` : 'Lo hace tu agente';
-  const noApta = inspeccionNoApta(eleccion);
+  const etapaInsp = etapaInspeccion(eleccion);
+  const declinada = etapaInsp === 'declinada';
   const devolucion = devolucionPedida(eleccion);
-  const verReporte = reporteInspeccion ? <BotonEnlace to="/inspections" variant="secondary" size="sm" icon={FileSearch}>Ver el reporte</BotonEnlace> : null;
+  const porCliente = decidioInspeccion(eleccion) === 'cliente';
+  const hayReporteEs = !!reporteDe(eleccion) && !!onLeerReporte;
+  const verReporte = hayReporteEs
+    ? <Button variant="secondary" size="sm" icon={Languages} onClick={onLeerReporte}>Leer el reporte en español</Button>
+    : reporteInspeccion ? <BotonEnlace to="/inspections" variant="secondary" size="sm" icon={FileSearch}>Ver el reporte</BotonEnlace> : null;
   const hechos = [];
   const porPagar = [];
 
@@ -93,7 +105,7 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
 
   // Sin los datos del cliente no se puede comprar a su nombre: va antes que
   // cualquier pago, y es lo primero que le toca a él.
-  if (datosPendientes && !noApta) {
+  if (datosPendientes && !declinada) {
     porPagar.push({
       id: 'datos',
       estado: 'datos',
@@ -103,13 +115,13 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
     });
   }
 
-  // Con la inspección no apta no se le pide ningún pago de esta lancha: lo
-  // pendiente se anula o lo reemplaza el de la que elija.
+  // Con la lancha declinada no se le pide ningún pago de ésta: lo pendiente
+  // se anula o lo reemplaza el de la que elija.
   for (const p of pagos?.pagos || []) {
     if (p.estado === 'pagado') {
       const abonado = pago1AbonadoDeOtra(p.cobro, eleccion);
       hechos.push({ id: `pago-${p.n}`, estado: 'hecho', titulo: `Pagaste el Pago ${p.n} · ${p.pct}%`, fecha: p.cobro.paid_at || p.cobro.created_at, detalle: `${fmtCLP(p.cobro.amount_clp)}${abonado ? ' · abonado desde tu elección anterior' : ''}` });
-    } else if (p.estado === 'por_pagar' && !noApta) {
+    } else if (p.estado === 'por_pagar' && !declinada) {
       porPagar.push({
         id: `pago-${p.n}`,
         estado: 'pago',
@@ -122,7 +134,7 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
   for (const r of pagos?.otros || []) {
     if (r.status === 'paid') {
       hechos.push({ id: `cobro-${r.id}`, estado: 'hecho', titulo: `Pagaste: ${r.title}`, fecha: r.paid_at || r.created_at, detalle: fmtCLP(r.amount_clp) });
-    } else if (r.status === 'pending' && !noApta) {
+    } else if (r.status === 'pending' && !declinada) {
       porPagar.push({
         id: `cobro-${r.id}`,
         estado: 'pago',
@@ -137,18 +149,26 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
   const pendientes = [];
   let enCursoVisto = false;
   for (const h of hitos) {
+    const esInspeccion = h.id === 'inspeccion';
     if (h.hecho) {
-      hechos.push({ id: h.id, estado: 'hecho', titulo: h.label, fecha: h.hecho, accion: h.id === 'inspeccion' ? verReporte : null });
-    } else if (noApta && h.id === 'inspeccion') {
+      hechos.push({
+        id: h.id,
+        estado: 'hecho',
+        titulo: h.label,
+        fecha: h.hecho,
+        detalle: esInspeccion ? (porCliente ? `Aprobaste el reporte el ${fmtDateLarga(h.hecho)}.` : `Tu agente registró tu aprobación el ${fmtDateLarga(h.hecho)}.`) : undefined,
+        accion: esInspeccion ? verReporte : null,
+      });
+    } else if (declinada && esInspeccion) {
       // El camino de esta lancha termina aquí.
       pendientes.push({
         id: h.id,
-        estado: 'no_apta',
-        titulo: 'Inspección técnica: no apta',
+        estado: 'declinada',
+        titulo: porCliente ? 'Decidiste no seguir con esta lancha' : 'No seguimos con esta lancha',
         fecha: eleccion.inspection_result_at || null,
         detalle: devolucion
-          ? 'La inspección recomienda no comprar esta lancha. Te ahorraste un problema a futuro.'
-          : 'La inspección recomienda no comprar esta lancha. Te ahorraste un problema: elige otra (tu Pago 1 se abona a la nueva) o pide la devolución.',
+          ? 'Para eso existe la inspección: te ahorraste un problema a futuro.'
+          : 'Para eso existe la inspección: te ahorraste un problema. Elige otra lancha (tu Pago 1 se abona a la nueva) o pide la devolución.',
         accion: verReporte,
       });
       if (devolucion) {
@@ -165,16 +185,25 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
       break;
     } else if (!enCursoVisto) {
       enCursoVisto = true;
-      const esInspeccion = h.id === 'inspeccion';
-      pendientes.push({
-        id: h.id,
-        estado: 'curso',
-        titulo: h.enCursoCorto,
-        detalle: h.enCurso,
-        camino: esInspeccion,
-        quien,
-        accion: esInspeccion ? verReporte : null,
-      });
+      if (esInspeccion && etapaInsp === 'reporte_listo') {
+        pendientes.push({
+          id: h.id,
+          estado: 'decidir',
+          titulo: 'Te toca decidir: revisa el reporte',
+          detalle: 'Está listo, en inglés y en español. Si apruebas, seguimos con la compra (Pago 2); si declinas, eliges otra lancha o pides la devolución.',
+          accion: verReporte,
+        });
+      } else {
+        pendientes.push({
+          id: h.id,
+          estado: 'curso',
+          titulo: h.enCursoCorto,
+          detalle: esInspeccion ? 'Estamos coordinando la inspección técnica. Te avisamos apenas esté el reporte.' : h.enCurso,
+          camino: esInspeccion,
+          quien,
+          accion: esInspeccion ? verReporte : null,
+        });
+      }
     } else {
       pendientes.push({ id: h.id, estado: 'pendiente', titulo: h.label });
     }
