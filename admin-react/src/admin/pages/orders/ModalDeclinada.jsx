@@ -1,34 +1,32 @@
 import { useState } from 'react';
 import { fmtCLP } from '../../../shared/lib/utils';
-import { Modal, Button, Textarea, Switch } from '../../../shared/components/UI';
+import { Modal, Button, Textarea, Switch, Callout } from '../../../shared/components/UI';
 import { Ship, Wallet, Globe } from '../../../shared/components/Icons';
 import { tituloLancha } from '../../../shared/lib/importacion';
 
 /**
- * «Marcar no apta»: la inspección técnica recomienda no comprar la lancha
- * elegida (JP: «si sale no apto se ahorra un problema a futuro y será
- * conveniente ver otra opción»). La nota va al cliente tal cual, en su panel
- * y en el correo; después él elige otra lancha (su Pago 1 se abona a la
- * nueva) o pide la devolución. A David se le pide pausar esa lancha.
+ * «Registrar que el cliente declinó»: leyó el reporte de la inspección y no
+ * quiere seguir con esta lancha, pero lo dijo por teléfono o WhatsApp en vez
+ * de decidirlo en su panel (JP, 21-oct-2026: «el cliente es el que toma la
+ * decisión si aprueba o declina la compra»; el equipo sólo la registra por
+ * él). La nota es opcional y va al cliente tal cual, en su panel y en el
+ * correo. Después él elige otra lancha (su Pago 1 se abona a la nueva) o
+ * pide la devolución. A David se le pide pausar esa lancha.
  * Sólo admin y soporte. Se monta sólo mientras está abierto.
  *
  * `pago1`: el Pago 1 del plan con su cobro ({ clp, estado }) o null, para
- * decir con cifras qué pasa con lo que ya pagó.
+ * decir con cifras qué pasa con lo que ya pagó. `conReporte`: si hay reporte.
  */
-export default function ModalNoApta({ open, onClose, link, pago1, onConfirmar }) {
+export default function ModalDeclinada({ open, onClose, link, pago1, onConfirmar, conReporte = false }) {
   const [nota, setNota] = useState('');
   const [notify, setNotify] = useState(true);
-  const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const pagado = pago1?.estado === 'pagado';
 
   async function confirmar() {
-    const texto = nota.trim();
-    if (!texto) { setError('Cuéntale al cliente qué encontró la inspección: es lo que lee en su panel y en el correo.'); return; }
-    setError('');
     setGuardando(true);
     try {
-      const ok = await onConfirmar('no_apta', texto, notify);
+      const ok = await onConfirmar('no_apta', nota.trim(), notify);
       if (ok) onClose();
     } finally {
       setGuardando(false);
@@ -55,33 +53,36 @@ export default function ModalNoApta({ open, onClose, link, pago1, onConfirmar })
     <Modal
       open={open}
       onClose={guardando ? undefined : onClose}
-      title="Marcar la inspección como no apta"
-      description={`${tituloLancha(link)}. El hito queda en advertencia y el cliente lo ve en «Tu importación».`}
+      title="Registrar que el cliente declinó"
+      description={`${tituloLancha(link)}. Para cuando te lo dijo por teléfono o WhatsApp: normalmente decide él desde su panel.`}
       size="md"
       footer={(
         <>
           <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-          <Button onClick={confirmar} loading={guardando}>Marcar no apta</Button>
+          <Button onClick={confirmar} loading={guardando}>Registrar que declinó</Button>
         </>
       )}
     >
       <div className="space-y-4">
+        {!conReporte && (
+          <Callout tone="warning" compact>
+            Todavía no hay reporte cargado. Si lo tienes, conviene cargarlo primero: el cliente lo conserva en inglés y en español aunque no siga con esta lancha.
+          </Callout>
+        )}
         <Textarea
-          label="Lo que le contamos al cliente"
+          label="Nota para el cliente (opcional)"
           value={nota}
-          onChange={e => { setNota(e.target.value); if (error) setError(''); }}
-          rows={5}
+          onChange={e => setNota(e.target.value)}
+          rows={4}
           maxLength={2000}
           showCount
-          required
-          error={error}
-          hint={!error ? 'En español y con tus palabras: qué encontró la inspección y por qué no conviene comprarla. Se muestra tal cual en su panel y en el correo.' : undefined}
-          placeholder="Ej.: El inspector encontró humedad en el casco bajo la línea de flotación y el motor de babor pierde compresión. No conviene comprarla."
+          hint="En español y con tus palabras: lo que conversaron o lo que vale la pena dejar por escrito. Se muestra tal cual en su panel y en el correo."
+          placeholder="Ej.: Como conversamos, con la humedad que encontró el inspector en el casco no conviene seguir. Tu Pago 1 queda abonado para la que elijas."
           data-autofocus
         />
 
-        <section aria-labelledby="no-apta-despues" className="rounded-md border border-line bg-canvas px-3 py-2.5">
-          <h3 id="no-apta-despues" className="eyebrow mb-1.5">Qué pasa después</h3>
+        <section aria-labelledby="declino-despues" className="rounded-md border border-line bg-canvas px-3 py-2.5">
+          <h3 id="declino-despues" className="eyebrow mb-1.5">Qué pasa después</h3>
           <ul className="space-y-1.5">
             {despues.map((item, i) => {
               const Icono = item.icon;
@@ -97,7 +98,7 @@ export default function ModalNoApta({ open, onClose, link, pago1, onConfirmar })
 
         <Switch
           label="Avisar al cliente por correo"
-          hint="Un correo tranquilo —«te ahorraste un problema»— con tu nota y sus dos opciones. Si lo apagas, lo ve igual en su panel."
+          hint="Un correo neutro —«No seguimos con esta lancha»— con tu nota y sus dos caminos. Si lo apagas, lo ve igual en su panel."
           checked={notify}
           onChange={setNotify}
         />
