@@ -5,7 +5,8 @@ $box = sys_get_temp_dir() . '/inspection-upload-' . getmypid();
 mkdir($box, 0700, true);
 foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
 file_put_contents("$box/db_config.php", '<?php function getDbConnection() { return $GLOBALS["db"]; }');
-file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { return ["success"=>true]; } }');
+file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { return ["success"=>true]; } function sendInspectionUploadEmail($to,$mail,$metadata) { $GLOBALS["RECEIPTS_CAPTURE"][] = compact("to","mail","metadata"); return ["success"=>empty($GLOBALS["RECEIPT_SHOULD_FAIL"])]; } }');
+$RECEIPTS_CAPTURE = [];
 ini_set('error_log', '/dev/null');
 require "$box/operador_usa.php";
 $db = new PDO('sqlite::memory:');
@@ -57,6 +58,7 @@ check(opuInspectionReceived($db,$request) === ['report'=>false,'photos'=>false,'
 $res = opuGuardarActualizacion($db, opuOrden($db,35), '', [$file($photo), $file($pdf)], 'copy', $id);
 check(count($res['files']) === 2 && opuInspectionReceived($db,$request) === ['report'=>true,'photos'=>true,'videos'=>false], 'real PDF and image satisfy only their categories');
 check(requestRow($id)['status'] === 'pending', 'partial upload keeps request open');
+check($RECEIPTS_CAPTURE === [], 'a partial upload never receives a complete-package thank-you');
 $sent = [];
 opuInspectionRun($db, at('2026-10-25T11:00:00Z'), $send);
 check(count($sent) === 1 && strpos($sent[0]['mail']['html'], '2 OF 3 RECEIVED') !== false, 'next reminder shows exactly what was received');
@@ -67,6 +69,14 @@ check(opuInspectionReceived($db,$other) === ['report'=>false,'photos'=>false,'vi
 $res = opuGuardarActualizacion($db, opuOrden($db,35), '', [$file($video)], 'copy', $id);
 check(count($res['files']) === 1 && $res['files'][0]['category'] === 'video', 'actual MIME-checked video is saved');
 check(requestRow($id)['status'] === 'completed' && requestRow($id)['completed_at'], 'all three uploads stop the request immediately');
+check(count($RECEIPTS_CAPTURE) === 1 && $RECEIPTS_CAPTURE[0]['to'] === 'ddm4me25@gmail.com', 'completing the actual upload immediately thanks the assigned operator');
+$thanks = $RECEIPTS_CAPTURE[0];
+check(strpos($thanks['mail']['subject'],'Thank you: inspection files received') !== false && strpos($thanks['mail']['html'],'3 OF 3 RECEIVED') !== false, 'professional thank-you confirms all three file types');
+check(strpos($thanks['mail']['text'],'coordinate the next steps in the acquisition process') !== false && strpos($thanks['mail']['text'],'Please wait for our confirmation') !== false, 'explains the next buyer steps without authorizing the purchase');
+check(stripos($thanks['mail']['html'],'lathrop') === false && stripos($thanks['mail']['html'],'alathrop') === false && strpos($thanks['mail']['html'],'CLP') === false, 'thank-you does not expose customer identity, contact or prices');
+check($thanks['metadata']['event'] === 'inspection_upload_received', 'receipt has its own auditable event metadata');
+opuInspectionFinish($db, $request);
+check(opuInspectionAcknowledge($db,$id) === null && count($RECEIPTS_CAPTURE) === 1, 'repeated completion, reloads and cron cannot thank twice');
 check(opuInspectionRun($db, at('2026-10-26T11:00:00Z'), $send)['sent'] === 1 && end($sent)['to'] === 'operator@example.com', 'completed request stops; another assigned operator gets only their own request');
 $portal = opuPaginaPortal($db, opuOrden($db,35));
 check(strpos($portal,'Inspection package received') !== false && strpos($portal,'inspection_request_id') === false, 'portal confirms receipt and removes the pending form binding');
@@ -90,6 +100,32 @@ check(opuInspectionDue(['status'=>'pending','last_sent_at'=>'2026-06-01','last_a
 check(!opuInspectionDue(['status'=>'pending','last_sent_at'=>'2026-06-01','last_attempt_on'=>'2026-06-01'], at('2026-06-02T11:00:00Z')), 'winter 07:00 is not mistaken for summer 08:00');
 $escaped = opuInspectionEmail(['boat'=>'<script>alert(1)</script>', 'portal_url'=>'https://example.com/?a=1&b=2']);
 check(strpos($escaped['html'],'<script>') === false && strpos($escaped['html'],'&lt;script&gt;') !== false, 'listing content is escaped in the email');
+
+// Completed packages from before deployment receive exactly one acknowledgement.
+$db->exec('DELETE FROM order_usa_upload_receipts WHERE request_id=' . intval($id));
+$backfill = [];
+$receiptSend = function ($to,$mail,$metadata) use (&$backfill) { $backfill[] = compact('to','mail','metadata'); return true; };
+check(opuInspectionDrainReceipts($db,$receiptSend)['sent'] === 1 && count($backfill) === 1, 'backfills the already completed operation once');
+check(opuInspectionDrainReceipts($db,$receiptSend)['sent'] === 0 && count($backfill) === 1, 'subsequent deployment cron does not resend the receipt');
+$db->exec("UPDATE order_usa_upload_receipts SET status='sending' WHERE request_id=" . intval($id));
+check(opuInspectionAcknowledge($db,$id,$receiptSend) === null && count($backfill) === 1, 'a concurrent or uncertain claimed send is never repeated');
+$db->exec("UPDATE order_usa_upload_receipts SET status='sent' WHERE request_id=" . intval($id));
+
+// A future request honours its assigned operator and handles a failed receipt safely.
+$db->exec("UPDATE orders SET refund_requested_at=NULL WHERE id=36");
+$assigned = opuInspectionRequest($db,opuOrden($db,36),['nombre'=>'Assigned Operator','email'=>'operator@example.com'],'receipt-assigned');
+$res = opuGuardarActualizacion($db,opuOrden($db,36),'',[$file($photo),$file($pdf),$file($video)],'copy',$assigned['id']);
+check(count($res['files']) === 3 && end($RECEIPTS_CAPTURE)['to'] === 'operator@example.com', 'future completed packages thank their actual assigned operator');
+$db->exec('DELETE FROM order_usa_upload_receipts WHERE request_id=' . intval($assigned['id']));
+opuInspectionQueueReceipt($db,$assigned['id']);
+check(opuInspectionAcknowledge($db,$assigned['id'],function(){ return false; }) === false, 'receipt SMTP failure remains distinguishable from success');
+$status = $db->query('SELECT status FROM order_usa_upload_receipts WHERE request_id=' . intval($assigned['id']))->fetchColumn();
+check($status === 'failed' && opuInspectionDrainReceipts($db,$receiptSend)['sent'] === 0, 'failed or uncertain receipts are not silently resent');
+$db->exec('DELETE FROM order_usa_upload_receipts WHERE request_id=' . intval($assigned['id']));
+opuInspectionQueueReceipt($db,$assigned['id']);
+$db->exec("UPDATE orders SET status='cancelled' WHERE id=36");
+check(opuInspectionAcknowledge($db,$assigned['id'],$receiptSend) === null && count($backfill) === 1, 'a closed operation does not receive a stale acknowledgement');
+check(empty(opuOrden($db,35)['import_steps']) && empty(opuOrden($db,36)['import_steps']), 'acknowledgements do not approve inspections or trigger payment milestones');
 
 // Canary: removing the video requirement would incorrectly stop a partial request.
 check(count(array_filter(['report'=>true,'photos'=>true,'videos'=>false])) !== 3, 'canary protects the video requirement');
