@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, Textarea, Lightbox, useConfirm } from '../../../shared/components/UI';
-import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
+import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, Image as ImageIcon, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
 import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa } from '../../api';
@@ -111,7 +111,18 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2">
         <h3 id="importacion-usa" className="eyebrow flex items-center gap-1.5"><Globe size={14} className="text-ink-400" aria-hidden="true" />Operación en EE. UU.</h3>
         <div className="flex items-center gap-1.5">
-          <Button size="sm" variant="secondary" icon={Send} onClick={() => setModalPedir(true)} disabled={!estado}>Pedir actualización</Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={Send}
+            onClick={() => setModalPedir(true)}
+            disabled={!estado || !!estado.inspection_upload?.owns_stage}
+            title={estado?.inspection_upload?.owns_stage
+              ? estado.inspection_upload.status === 'completed'
+                ? 'Entrega resuelta; el equipo debe continuar la revisión'
+                : 'El seguimiento de esta entrega es automático. Se solicitan sólo los requisitos pendientes, una vez al día por la mañana.'
+              : undefined}
+          >Pedir actualización</Button>
           <Button size="sm" variant="ghost" icon={Copy} onClick={copiarLink} disabled={!estado?.portal_url} aria-label={`Copiar link de ${nombre}`}>
             <span className="sr-only sm:not-sr-only">Copiar link de {nombre}</span>
           </Button>
@@ -164,6 +175,14 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
             </div>
           </dl>
 
+          {estado?.inspection_upload && (
+            <RequisitosInspeccion
+              carga={estado.inspection_upload}
+              nombre={nombre}
+              onRefresh={() => cargar({ silencioso: true })}
+            />
+          )}
+
           {/* ── Feed ── */}
           {updates.length === 0 ? (
             <EmptyState
@@ -201,6 +220,112 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
   );
 }
 
+const REQUISITOS_INSPECCION = [
+  { key: 'report', label: 'Informe PDF', icon: FileText },
+  { key: 'photos', label: 'Fotografías', icon: ImageIcon },
+  { key: 'videos', label: 'Videos', icon: Video },
+];
+
+// Las fechas de seguimiento se guardan en UTC; el recordatorio se programa
+// según el calendario de Chile, aunque el administrador esté en otro país.
+function fechaAvisoInspeccion(value) {
+  const raw = String(value || '');
+  const date = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`);
+  if (Number.isNaN(date.getTime())) return 'Fecha no disponible';
+  return new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(date);
+}
+
+/** La entrega de archivos se comprueba por tipo, sin confundir el número de
+ * adjuntos de una actualización con una inspección completa. Los motivos se
+ * muestran sólo aquí, en la vista privada del equipo. */
+function RequisitosInspeccion({ carga, nombre, onRefresh }) {
+  const requisitos = REQUISITOS_INSPECCION.map(item => {
+    const detail = carga.requirements?.[item.key];
+    const received = !!(detail?.received ?? carga.received?.[item.key]);
+    const exception = !received && detail?.exception?.reason?.trim() ? detail.exception : null;
+    return { ...item, received, exception, resolved: received || !!exception, count: detail?.count, files: detail?.files || [] };
+  });
+  const recibidos = requisitos.filter(item => item.received).length;
+  const resueltos = requisitos.filter(item => item.resolved).length;
+  const faltantes = requisitos.filter(item => !item.resolved);
+  const conMotivos = requisitos.some(item => item.exception);
+  const completa = carga.status === 'completed';
+
+  return (
+    <section aria-labelledby="requisitos-inspeccion" className="rounded-md border border-line bg-surface overflow-hidden">
+      <div className="px-3 py-3 border-b border-line space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 id="requisitos-inspeccion" className="text-sm font-semibold text-ink-900">Carga de inspección</h4>
+            <p role="status" aria-live="polite" className="text-xs text-ink-500 mt-0.5">{recibidos} de 3 tipos recibidos · {resueltos} de 3 requisitos resueltos</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge tone={completa ? (conMotivos ? 'warning' : 'success') : 'info'} size="sm">
+              {completa ? (conMotivos ? 'Resuelta con motivos' : 'Carga completa') : 'En seguimiento'}
+            </Badge>
+            <Button variant="ghost" size="sm" icon={RefreshCw} onClick={onRefresh} aria-label="Actualizar requisitos de inspección">
+              <span className="sr-only sm:not-sr-only">Actualizar</span>
+            </Button>
+          </div>
+        </div>
+        <div role="progressbar" aria-label="Requisitos de inspección resueltos" aria-valuemin={0} aria-valuemax={3} aria-valuenow={resueltos} className="h-1.5 rounded-full bg-line overflow-hidden">
+          <div className={cn('h-full rounded-full transition-all duration-200', completa && !conMotivos ? 'bg-success' : 'bg-brand-600')} style={{ width: `${resueltos / 3 * 100}%` }} />
+        </div>
+      </div>
+
+      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3">
+        {requisitos.map(item => {
+          const { key, label, icon: Icon, received, exception, count, files } = item;
+          return (
+          <li key={key} className="min-w-0 rounded-md border border-line bg-canvas px-3 py-2.5">
+            <div className="flex items-center gap-2 text-ink-700">
+              <Icon size={16} aria-hidden="true" className="shrink-0 text-ink-500" />
+              <h5 className="text-13 font-medium">{label}</h5>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2">
+              <Badge tone={received ? 'success' : exception ? 'warning' : 'neutral'} size="sm">
+                {received ? 'Recibido' : exception ? 'No disponible' : 'Pendiente'}
+              </Badge>
+              {received && Number.isInteger(count) && <span className="text-xs text-ink-500 tabular">{count} archivo{count === 1 ? '' : 's'}</span>}
+            </div>
+            {received && files.length > 0 && (
+              <details className="mt-2 text-xs text-ink-500">
+                <summary className="cursor-pointer rounded-sm text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">Ver archivos recibidos</summary>
+                <ul className="mt-1.5 max-h-28 overflow-y-auto space-y-1">
+                  {files.map(file => <li key={file.id} className="break-words" title={file.mime_type}>{file.original_name}</li>)}
+                </ul>
+              </details>
+            )}
+            {exception && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs font-medium text-ink-700">Motivo registrado · Sólo equipo</p>
+                <p className="text-13 text-ink-700 whitespace-pre-wrap break-words">{exception.reason}</p>
+                {exception.created_at && <time className="block text-xs text-ink-500" dateTime={exception.created_at}>{fechaAvisoInspeccion(exception.created_at)} · Chile</time>}
+              </div>
+            )}
+            {!received && !exception && <p className="mt-2 text-xs text-ink-500">Falta cargar este material o explicar por qué no está disponible.</p>}
+          </li>
+          );
+        })}
+      </ul>
+
+      <div className="border-t border-line px-3 py-2.5 space-y-1.5">
+        {completa ? (
+          <p className="text-13 text-ink-700">El seguimiento de carga terminó. El equipo puede continuar la revisión de la inspección{conMotivos ? ' considerando los motivos registrados' : ''}.</p>
+        ) : (
+          <>
+            <p className="text-13 text-ink-700"><span className="font-medium">Falta resolver:</span> {faltantes.map(item => item.label).join(', ') || 'comprobando la entrega'}.</p>
+            <p className="text-xs text-ink-500">El sistema le pide a {nombre} sólo los requisitos pendientes, una vez al día por la mañana (hora de Chile). Puede cargarlos o registrar el motivo si no están disponibles.</p>
+          </>
+        )}
+        {carga.last_sent_at && <p className="text-xs text-ink-500">Último aviso: <time dateTime={carga.last_sent_at}>{fechaAvisoInspeccion(carga.last_sent_at)}</time> · hora de Chile</p>}
+      </div>
+    </section>
+  );
+}
+
 /* Una actualización: fecha, nota (interna, en inglés), sus archivos y si ya
    se compartió con el cliente. */
 function Actualizacion({ update: u, nombre, porId, cargandoArchivos, onCompartir, onVerImagen }) {
@@ -226,7 +351,7 @@ function Actualizacion({ update: u, nombre, porId, cargandoArchivos, onCompartir
           <p lang="en" className="text-sm text-ink-700 whitespace-pre-wrap break-words min-w-0">{u.note}</p>
         </div>
       ) : (
-        <p className="text-13 text-ink-500">Sin nota: sólo mandó archivos.</p>
+        <p className="text-13 text-ink-500">{archivos.length ? 'Sin nota: sólo mandó archivos.' : 'Sin nota adicional. Revisa los motivos registrados en los requisitos de inspección.'}</p>
       )}
 
       {archivos.length > 0 && (
@@ -387,7 +512,7 @@ function ModalCompartirUsa({ open, onClose, update: u, nombre, porId, onComparti
           </p>
           {(u.note || '').trim()
             ? <p lang="en" className="text-sm text-ink-700 whitespace-pre-wrap break-words max-h-40 overflow-y-auto scrollbar-thin">{u.note}</p>
-            : <p className="text-13 text-ink-500">Sin nota: sólo mandó archivos.</p>}
+            : <p className="text-13 text-ink-500">{archivos.length ? 'Sin nota: sólo mandó archivos.' : 'Sin nota adicional. Revisa los motivos registrados en los requisitos de inspección.'}</p>}
           {archivos.length > 0 && (
             <p className="text-xs text-ink-500 mt-1.5">
               {archivos.length} archivo{archivos.length === 1 ? '' : 's'}

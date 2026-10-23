@@ -22,7 +22,9 @@ jobs:
       - name: Install isolated browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/imporlan-browser-tests" --no-package-lock --no-audit --no-fund playwright@1.57.0
-          "$RUNNER_TEMP/imporlan-browser-tests/node_modules/.bin/playwright" install --with-deps chromium
+          # GitHub's Ubuntu image already has Chromium's runtime libraries.
+          # Avoid apt mirror updates and download only the headless browser used here.
+          "$RUNNER_TEMP/imporlan-browser-tests/node_modules/.bin/playwright" install chromium --only-shell
       - name: Preview real HEIC files with the production security policy
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-image-preview-tests.mjs
 

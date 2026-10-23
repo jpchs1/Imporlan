@@ -5,8 +5,10 @@ $box = sys_get_temp_dir() . '/inspection-upload-' . getmypid();
 mkdir($box, 0700, true);
 foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
 file_put_contents("$box/db_config.php", '<?php function getDbConnection() { return $GLOBALS["db"]; }');
-file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { return ["success"=>true]; } function sendInspectionUploadEmail($to,$mail,$metadata) { $GLOBALS["RECEIPTS_CAPTURE"][] = compact("to","mail","metadata"); return ["success"=>empty($GLOBALS["RECEIPT_SHOULD_FAIL"])]; } }');
+file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { $GLOBALS["STAFF_CAPTURE"][] = $args; return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { $GLOBALS["CLIENT_UPLOAD_CAPTURE"][] = $args; return ["success"=>true]; } function sendInspectionUploadEmail($to,$mail,$metadata) { $GLOBALS["RECEIPTS_CAPTURE"][] = compact("to","mail","metadata"); return ["success"=>empty($GLOBALS["RECEIPT_SHOULD_FAIL"])]; } }');
 $RECEIPTS_CAPTURE = [];
+$STAFF_CAPTURE = [];
+$CLIENT_UPLOAD_CAPTURE = [];
 ini_set('error_log', '/dev/null');
 require "$box/operador_usa.php";
 $db = new PDO('sqlite::memory:');
@@ -126,6 +128,132 @@ opuInspectionQueueReceipt($db,$assigned['id']);
 $db->exec("UPDATE orders SET status='cancelled' WHERE id=36");
 check(opuInspectionAcknowledge($db,$assigned['id'],$receiptSend) === null && count($backfill) === 1, 'a closed operation does not receive a stale acknowledgement');
 check(empty(opuOrden($db,35)['import_steps']) && empty(opuOrden($db,36)['import_steps']), 'acknowledgements do not approve inspections or trigger payment milestones');
+
+// Separate evidence and explicit unavailability are different, auditable states.
+$db->exec("INSERT INTO orders (id,order_number,status,chosen_link_id,chosen_inspection) VALUES
+    (37,'IMP-TEST-37','in_progress',137,1),(38,'IMP-TEST-38','in_progress',138,1),
+    (39,'IMP-TEST-39','in_progress',139,1),(40,'IMP-TEST-40','in_progress',140,1),
+    (41,'IMP-TEST-41','in_progress',141,1),(42,'IMP-TEST-42','in_progress',142,1)");
+$db->exec("INSERT INTO order_links (id,order_id,title) VALUES
+    (137,37,'Exception test boat'),(138,38,'Reason-only test boat'),
+    (139,39,'Scope test boat'),(140,40,'Reminder test boat'),
+    (141,41,'Missing-file test boat'),(142,42,'Closed test boat')");
+$db->exec("UPDATE orders SET customer_email='buyer37@example.test' WHERE id=37");
+$waived = opuInspectionRequest($db, opuOrden($db,37), ['nombre'=>'Assigned Operator','email'=>'operator@example.com']);
+$beforeFiles = (int) $db->query('SELECT COUNT(*) FROM expediente_files WHERE order_id=37')->fetchColumn();
+$bad = opuGuardarActualizacion($db, opuOrden($db,37), '', [$file($photo)], 'copy', $waived['id'], ['videos'=>'No']);
+check(!empty($bad['errores']) && !$bad['files'] && (int) $db->query('SELECT COUNT(*) FROM expediente_files WHERE order_id=37')->fetchColumn() === $beforeFiles, 'an invalid reason rejects the submission before storing any uploaded file');
+check(opuInspectionExceptionErrors($db, opuOrden($db,37), $waived['id'], ['videos'=>'   ']) !== [], 'whitespace is not an explanation for a missing requirement');
+check(opuInspectionExceptionErrors($db, opuOrden($db,37), $waived['id'], ['videos'=>str_repeat('x',2001)]) !== [], 'overlong explanations are rejected rather than silently truncated');
+check(opuInspectionExceptionErrors($db, opuOrden($db,37), $waived['id'], ['purchase'=>'The operator cannot approve a purchase here.']) !== [], 'only the three upload requirements can be marked unavailable');
+$res = opuGuardarActualizacion($db, opuOrden($db,37), '', [$file($pdf),$file($photo),$file($photo)], 'copy', 0);
+$state = opuInspectionState($db, requestRow($waived['id']));
+check(count($res['files']) === 3 && $state['requirements']['report']['count'] === 1 && $state['requirements']['photos']['count'] === 2 && $state['requirements']['videos']['count'] === 0, 'legacy forms infer the active request and count reports, photos and videos separately');
+check($state['received'] === ['report'=>true,'photos'=>true,'videos'=>false] && $state['missing'] === ['videos'] && $state['received_count'] === 2 && $state['resolved_count'] === 2, 'multiple photos never stand in for the missing video category');
+check($state['requirements']['report']['files'][0]['original_name'] === 'report.pdf' && $state['requirements']['report']['files'][0]['mime_type'] === 'application/pdf', 'per-requirement evidence includes the persisted filename and verified MIME');
+check($state['requirements']['photos']['files'][0]['id'] != $state['requirements']['photos']['files'][1]['id'], 'each photo in the evidence list retains its own file identity');
+
+$beforeReceipts = count($RECEIPTS_CAPTURE);
+$beforeClientNotices = count($CLIENT_UPLOAD_CAPTURE);
+$reason = 'The engine-running video was not recorded because the marina prohibited starting the engine.';
+$reasonResult = opuGuardarActualizacion($db, opuOrden($db,37), '', [], 'copy', $waived['id'], ['videos'=>$reason]);
+$state = opuInspectionState($db, requestRow($waived['id']));
+check($reasonResult['update_id'] && !$reasonResult['files'] && !$reasonResult['errores'], 'the private portal accepts an explanation without demanding a file or a separate note');
+check($state['status'] === 'completed' && $state['resolved_count'] === 3 && $state['received_count'] === 2 && $state['completion_mode'] === 'with_exceptions' && $state['missing'] === [], 'two received types plus one explicit explanation resolve the delivery automatically');
+check($state['received']['videos'] === false && $state['requirements']['videos']['count'] === 0 && $state['requirements']['videos']['exception']['reason'] === $reason && $state['requirements']['videos']['resolved'] === true, 'an unavailable video remains distinct from an actually received video');
+check(count($RECEIPTS_CAPTURE) === $beforeReceipts + 1 && end($RECEIPTS_CAPTURE)['to'] === 'operator@example.com', 'resolving the last outstanding requirement thanks the assigned operator exactly once');
+$exceptionThanks = end($RECEIPTS_CAPTURE)['mail'];
+check(strpos($exceptionThanks['html'],'3 OF 3 RECEIVED') === false && strpos($exceptionThanks['text'],$reason) !== false, 'the acknowledgement records the reason without falsely claiming all three file types arrived');
+check(count($CLIENT_UPLOAD_CAPTURE) === $beforeClientNotices, 'an internal unavailability explanation is never sent directly to the buyer');
+check(empty(opuOrden($db,37)['import_steps']), 'resolving document delivery does not approve the inspection or trigger payment milestones');
+$events = $db->query('SELECT meta_json FROM order_events WHERE order_id=37')->fetchAll(PDO::FETCH_COLUMN);
+check((bool) array_filter($events, function ($meta) use ($reason) { return strpos((string)$meta,$reason) !== false; }), 'the reason is preserved in the operation audit trail');
+check(opuInspectionSaveExceptions($db, opuOrden($db,37), $waived['id'], ['videos'=>$reason]) === [] && count($RECEIPTS_CAPTURE) === $beforeReceipts + 1, 'resubmitting the same explanation is idempotent and does not send another thank-you');
+$sent = [];
+opuInspectionRun($db, at('2026-10-30T11:00:00Z'), $send);
+check(!array_filter($sent, function ($mail) use ($waived) { return $mail['metadata']['request_id'] == $waived['id']; }), 'daily reminders stop when all requirements are received or explicitly explained');
+$portal = opuPaginaPortal($db, opuOrden($db,37));
+check(strpos($portal,opuEsc($reason)) !== false && strpos($portal,'The report, photos and videos are in the system.') === false, 'the completed portal displays the explanation instead of claiming missing files exist');
+
+// If the unavailable material arrives later, real evidence takes precedence;
+// the earlier explanation remains in the audit history.
+$late = opuGuardarActualizacion($db, opuOrden($db,37), '', [$file($video)], 'copy', $waived['id']);
+$state = opuInspectionState($db, requestRow($waived['id']));
+$events = $db->query('SELECT meta_json FROM order_events WHERE order_id=37')->fetchAll(PDO::FETCH_COLUMN);
+check(count($late['files']) === 1 && $state['received']['videos'] && $state['requirements']['videos']['count'] === 1 && $state['completion_mode'] === 'files', 'a later actual video replaces the exception in the effective evidence state');
+check((bool) array_filter($events, function ($meta) use ($reason) { return strpos((string)$meta,$reason) !== false; }) && count($RECEIPTS_CAPTURE) === $beforeReceipts + 1, 'late evidence keeps the original reason auditable without another completion email');
+
+// Each exception belongs to the current selected boat and request, not merely
+// to someone who can supply a numeric request ID.
+$scope = opuInspectionRequest($db, opuOrden($db,39));
+check(opuInspectionSaveExceptions($db, opuOrden($db,39), $waived['id'], ['videos'=>$reason]) !== [] && opuInspectionState($db,requestRow($scope['id']))['resolved_count'] === 0, 'one operation cannot attach reasons to another operation request');
+$db->exec('UPDATE orders SET chosen_link_id=999 WHERE id=39');
+check(opuInspectionSaveExceptions($db, opuOrden($db,39), $scope['id'], ['videos'=>$reason]) !== [], 'changing the selected boat invalidates reasons for its previous request');
+$db->exec('UPDATE orders SET chosen_link_id=139 WHERE id=39');
+$db->exec("UPDATE orders SET refund_requested_at='2026-10-30' WHERE id=39");
+check(opuInspectionSaveExceptions($db, opuOrden($db,39), $scope['id'], ['videos'=>$reason]) !== [], 'an operation awaiting a refund cannot be advanced through an exception');
+$db->exec("UPDATE orders SET status='cancelled' WHERE id=39");
+
+$closed = opuInspectionRequest($db, opuOrden($db,42));
+$db->exec("UPDATE orders SET status='cancelled' WHERE id=42");
+check(opuInspectionSaveExceptions($db, opuOrden($db,42), $closed['id'], ['videos'=>$reason]) !== [], 'closed operations cannot be resolved by a stale portal submission');
+
+// A reason is a valid alternative for each requirement, but partial reasons
+// must leave the remaining categories open and show exactly what is missing.
+$reasonOnly = opuInspectionRequest($db, opuOrden($db,38));
+$escapedReason = 'No report is available <script>alert(1)</script> because the inspector could not attend.';
+$partialReasons = opuGuardarActualizacion($db, opuOrden($db,38), '', [], 'copy', $reasonOnly['id'], ['report'=>$escapedReason]);
+$state = opuInspectionState($db,requestRow($reasonOnly['id']));
+check($partialReasons['update_id'] && $state['status'] === 'pending' && $state['received_count'] === 0 && $state['resolved_count'] === 1 && $state['missing'] === ['photos','videos'], 'one reason resolves only its own requirement and leaves the other two pending');
+$portal = opuPaginaPortal($db, opuOrden($db,38));
+check(strpos($portal,'&lt;script&gt;') !== false && strpos($portal,'<script>alert(1)</script>') === false, 'free-text exception reasons are escaped in the private portal');
+$sent = [];
+opuInspectionRun($db, at('2026-10-31T11:00:00Z'), $send);
+$partialReminders = array_values(array_filter($sent, function ($mail) use ($reasonOnly) { return $mail['metadata']['request_id'] == $reasonOnly['id']; }));
+check(count($partialReminders) === 1 && strpos($partialReminders[0]['mail']['html'],'&lt;script&gt;') !== false && strpos($partialReminders[0]['mail']['html'],'<script>alert(1)</script>') === false, 'the reminder preserves an explained requirement as escaped text');
+$onlyMissing = opuInspectionEmail([
+    'order_number'=>'IMP-TEST-38', 'reminder'=>true, 'portal_url'=>'https://example.com/private',
+    'received'=>$state['received'], 'requirements'=>$state['requirements'], 'missing'=>$state['missing'],
+]);
+check(stripos($onlyMissing['subject'],'photos') !== false && stripos($onlyMissing['subject'],'videos') !== false && stripos($onlyMissing['subject'],'report') === false, 'the reminder subject requests only the still-missing photos and videos');
+$reasonOnlyCount = count($RECEIPTS_CAPTURE);
+$res = opuGuardarActualizacion($db, opuOrden($db,38), '', [], 'copy', $reasonOnly['id'], [
+    'photos'=>'The inspector did not have camera access at this marina.',
+    'videos'=>'No testing or video recording was permitted by the seller.',
+]);
+$state = opuInspectionState($db,requestRow($reasonOnly['id']));
+check($res['update_id'] && $state['status'] === 'completed' && $state['received_count'] === 0 && $state['resolved_count'] === 3 && $state['completion_mode'] === 'with_exceptions', 'all explicit reasons can finish the delivery while keeping zero received file types');
+check(count($RECEIPTS_CAPTURE) === $reasonOnlyCount + 1 && strpos(end($RECEIPTS_CAPTURE)['mail']['html'],'3 OF 3 RECEIVED') === false && empty(opuOrden($db,38)['import_steps']), 'reason-only completion is acknowledged honestly and never approves acquisition milestones');
+
+// The team notification must expose three separate evidence categories, not
+// just an ambiguous combined photos/videos total. Client mail sees only media.
+$db->exec("UPDATE orders SET customer_email='buyer40@example.test' WHERE id=40");
+$noticeRequest = opuInspectionRequest($db, opuOrden($db,40));
+$namedPhoto = $file($photo);
+$namedPhoto['name'] = 'inspection <img src=x onerror=alert(1)>.png';
+$internalReason = 'The PDF is unavailable <script>alert(2)</script> because only a verbal inspection was supplied.';
+$res = opuGuardarActualizacion($db, opuOrden($db,40), '', [$namedPhoto], 'copy', $noticeRequest['id'], ['report'=>$internalReason]);
+$staffNotice = end($STAFF_CAPTURE);
+$staffHtml = $staffNotice[2];
+$staffText = html_entity_decode(strip_tags($staffHtml), ENT_QUOTES, 'UTF-8');
+check($res['update_id'] && $staffNotice[0] === 'contacto@imporlan.cl' && strpos($staffText,'En esta actualización: 1 foto(s), 0 video(s), 0 documento(s)') !== false, 'the actual staff upload notification separates batch photo, video and document counts');
+check(strpos($staffText,'Informe PDF: No disponible') !== false && strpos($staffText,'Fotos: Recibido · 1 archivo(s)') !== false && strpos($staffText,'Videos: Pendiente') !== false, 'the actual staff email has a separate received, explained or pending status for every requirement');
+check(strpos($staffHtml,opuEsc($namedPhoto['name'])) !== false && strpos($staffHtml,opuEsc($internalReason)) !== false && strpos($staffHtml,'<script>alert(2)</script>') === false && strpos($staffHtml,'<img src=x onerror=alert(1)>') === false, 'filenames and internal reasons are present as escaped text in the staff notification');
+$clientNotice = end($CLIENT_UPLOAD_CAPTURE);
+check($clientNotice[0] === 'buyer40@example.test' && $clientNotice[2]['file_count'] === 1 && count($clientNotice[2]['files']) === 1 && $clientNotice[2]['files'][0]['category'] === 'image', 'a mixed file-and-reason update sends the buyer only the newly uploaded visible media');
+check(strpos(json_encode($clientNotice),$internalReason) === false && !isset($clientNotice[2]['requirements']) && strpos($clientNotice[2]['description'],'1 foto') !== false && strpos($clientNotice[2]['description'],'video') === false, 'client mail does not expose unavailability reasons or claim a video arrived when only a photo did');
+
+// Metadata alone is insufficient: a deleted or empty persisted file must not
+// satisfy the evidence checklist.
+$missingFile = opuInspectionRequest($db, opuOrden($db,41));
+$res = opuGuardarActualizacion($db, opuOrden($db,41), '', [$file($pdf)], 'copy', $missingFile['id']);
+$stored = $db->query('SELECT stored_name FROM expediente_files WHERE id=' . intval($res['files'][0]['id']))->fetchColumn();
+unlink("$box/expediente_files/$stored");
+$state = opuInspectionState($db,requestRow($missingFile['id']));
+check(!$state['received']['report'] && $state['requirements']['report']['count'] === 0 && $state['resolved_count'] === 0, 'a database row whose original file has disappeared is not counted as a received report');
+file_put_contents("$box/expediente_files/$stored", '');
+$state = opuInspectionState($db,requestRow($missingFile['id']));
+check(!$state['received']['report'] && $state['requirements']['report']['count'] === 0, 'an empty on-disk file is not accepted merely because its database size is positive');
 
 // Canary: removing the video requirement would incorrectly stop a partial request.
 check(count(array_filter(['report'=>true,'photos'=>true,'videos'=>false])) !== 3, 'canary protects the video requirement');
