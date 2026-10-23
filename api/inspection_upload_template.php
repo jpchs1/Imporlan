@@ -21,11 +21,29 @@ function opuInspectionEmail($data) {
     $file = (string) ($data['order_number'] ?? '');
     $url = (string) ($data['portal_url'] ?? '');
     $name = (string) ($data['operator_name'] ?? 'David');
+    $receipt = ($data['mode'] ?? '') === 'received';
     $subject = '[Imporlan] ' . ($reminder ? 'Reminder: inspection files pending' : 'Upload inspection report, photos and videos') . ' · ' . $file;
     $preheader = $reminder ? 'Your inspection package is still incomplete. Upload the remaining files to your private portal.' : 'The inspection is complete. Please upload the report, photos and videos to your private portal.';
     $intro = $reminder
         ? 'A quick follow-up: we are still missing part of the inspection package. Please upload the remaining files so our team can review them.'
         : 'Now that the inspection is complete, please upload the full report, photos and videos. This gives our team everything needed to review the findings and update the import file.';
+    $headline = $reminder ? 'A few files.<br>One final upload.' : 'Inspection done.<br>Let’s get the full picture.';
+    $buttonText = 'Upload inspection files';
+    $buttonHint = 'Your private upload link. No login needed. Up to 100 MB per file.';
+    $noteTitle = 'Upload once. Keep everyone informed.';
+    $noteText = 'Photos and videos are added to the import file. Your report and notes stay with the Imporlan team until reviewed. Reminders stop when all three file types are received.';
+    $closing = 'If anything is still pending, reply with what is missing and when you can upload it. Please upload the files through the portal so they are recorded in the system.';
+    if ($receipt) {
+        $subject = '[Imporlan] Thank you: inspection files received · ' . $file;
+        $preheader = 'Thank you. The inspection report, photos and videos have been received. Our team will review the package with the buyer.';
+        $intro = 'Thank you for uploading the inspection report, photos and videos for this boat. The complete package is now recorded in the system, so our team can review the findings with the buyer and coordinate the next steps in the acquisition process.';
+        $headline = 'Files received.<br>Thank you, ' . $e($name) . '.';
+        $buttonText = 'View inspection file';
+        $buttonHint = 'Your private file. No login needed. Please keep this link private.';
+        $noteTitle = 'What happens next';
+        $noteText = 'The Imporlan team will review the inspection findings and guide the buyer through the next acquisition steps. Please wait for our confirmation before proceeding with the purchase. Upload reminders for this package have stopped.';
+        $closing = 'Thank you for keeping the import file up to date. We will contact you if any clarification or additional material is needed.';
+    }
     $rows = '';
     $complete = 0;
     $plainItems = [];
@@ -54,19 +72,25 @@ function opuInspectionEmail($data) {
         . '<tr><td class="pad" bgcolor="#102c3d" style="padding:25px 36px;"><table role="presentation" width="100%"><tr><td style="font-size:23px;letter-spacing:3px;font-weight:bold;color:#ffffff;">IMPORLAN<span style="color:#54c5cf;">.</span></td><td class="brand-sub" align="right" style="font-size:10px;letter-spacing:2px;color:#bdd0da;">US OPERATIONS</td></tr></table></td></tr>'
         . '<tr><td height="4" bgcolor="#36bdc8" style="font-size:0;line-height:0;">&nbsp;</td></tr>'
         . '<tr><td class="pad" style="padding:34px 36px 26px;"><p style="margin:0 0 17px;font-size:11px;font-weight:bold;letter-spacing:2px;color:#087c91;">INSPECTION COMPLETED &nbsp; / &nbsp; FILES ' . ($complete === 3 ? 'RECEIVED' : 'PENDING') . '</p>'
-        . '<h1 class="headline" style="margin:0 0 16px;font-size:38px;line-height:1.12;letter-spacing:-1.2px;font-weight:bold;color:#102c3d;">' . ($reminder ? 'A few files.<br>One final upload.' : 'Inspection done.<br>Let’s get the full picture.') . '</h1>'
+        . '<h1 class="headline" style="margin:0 0 16px;font-size:38px;line-height:1.12;letter-spacing:-1.2px;font-weight:bold;color:#102c3d;">' . $headline . '</h1>'
         . '<p style="margin:0 0 9px;font-size:15px;line-height:1.7;color:#142c3d;">Hi ' . $e($name) . ',</p><p style="margin:0;font-size:14px;line-height:1.8;color:#526b7b;">' . $e($intro) . '</p></td></tr>'
         . $image
         . '<tr><td class="pad" style="padding:22px 36px;background:#f5f8fa;border-top:1px solid #e6edf2;border-bottom:1px solid #e6edf2;"><p style="margin:0 0 7px;font-size:10px;letter-spacing:1.6px;color:#526b7b;">IMPORT FILE &nbsp; ' . $e($file) . '</p><h2 style="margin:0 0 7px;font-size:20px;line-height:1.35;color:#142c3d;">' . $e($title) . '</h2>'
         . ($details ? '<p style="margin:0;font-size:12px;line-height:1.6;color:#526b7b;">' . $e(implode(' · ', $details)) . '</p>' : '') . '</td></tr>'
         . '<tr><td class="pad" style="padding:27px 36px 10px;"><table role="presentation" width="100%"><tr><td><h2 style="margin:0;font-size:18px;color:#142c3d;">Your upload checklist</h2></td><td align="right" style="font-size:11px;color:#526b7b;">' . $complete . ' OF 3 RECEIVED</td></tr></table><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' . $rows . '</table></td></tr>'
-        . '<tr><td class="pad" style="padding:22px 36px 28px;"><table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="#087c91" align="center" style="border-radius:8px;mso-padding-alt:17px 26px;"><a class="cta" href="' . $e($url) . '" style="display:block;padding:17px 26px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;border:1px solid #087c91;border-radius:8px;">Upload inspection files &nbsp; &#8594;</a></td></tr></table><p style="margin:12px 0 0;text-align:center;font-size:11px;line-height:1.7;color:#526b7b;">Your private upload link. No login needed. Up to 100 MB per file.</p></td></tr>'
-        . '<tr><td class="pad" style="padding:0 36px 27px;"><table role="presentation" width="100%" bgcolor="#eef7f8"><tr><td style="padding:17px 18px;border-left:3px solid #36bdc8;"><p style="margin:0 0 5px;font-size:12px;font-weight:bold;color:#142c3d;">Upload once. Keep everyone informed.</p><p style="margin:0;font-size:12px;line-height:1.8;color:#526b7b;">Photos and videos are added to the import file. Your report and notes stay with the Imporlan team until reviewed. Reminders stop when all three file types are received.</p></td></tr></table></td></tr>'
-        . '<tr><td class="pad" style="padding:0 36px 28px;"><p style="margin:0 0 17px;font-size:13px;line-height:1.8;color:#526b7b;">If anything is still pending, reply with what is missing and when you can upload it. Please upload the files through the portal so they are recorded in the system.</p>'
+        . '<tr><td class="pad" style="padding:22px 36px 28px;"><table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td bgcolor="#087c91" align="center" style="border-radius:8px;mso-padding-alt:17px 26px;"><a class="cta" href="' . $e($url) . '" style="display:block;padding:17px 26px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;border:1px solid #087c91;border-radius:8px;">' . $e($buttonText) . ' &nbsp; &#8594;</a></td></tr></table><p style="margin:12px 0 0;text-align:center;font-size:11px;line-height:1.7;color:#526b7b;">' . $e($buttonHint) . '</p></td></tr>'
+        . '<tr><td class="pad" style="padding:0 36px 27px;"><table role="presentation" width="100%" bgcolor="#eef7f8"><tr><td style="padding:17px 18px;border-left:3px solid #36bdc8;"><p style="margin:0 0 5px;font-size:12px;font-weight:bold;color:#142c3d;">' . $e($noteTitle) . '</p><p style="margin:0;font-size:12px;line-height:1.8;color:#526b7b;">' . $e($noteText) . '</p></td></tr></table></td></tr>'
+        . '<tr><td class="pad" style="padding:0 36px 28px;"><p style="margin:0 0 17px;font-size:13px;line-height:1.8;color:#526b7b;">' . $e($closing) . '</p>'
         . '<p style="margin:0 0 12px;font-size:13px;color:#142c3d;">Warm regards,</p><p style="margin:0;font-size:13px;line-height:1.7;color:#142c3d;"><strong>Juan Pablo</strong><br>Commercial &amp; Logistics<br>Imporlan · Tu lancha, puerta a puerta<br><a href="mailto:contacto@imporlan.cl" style="color:#087c91;text-decoration:none;">contacto@imporlan.cl</a> · +56 9 4021 1459 · www.imporlan.cl</p></td></tr>'
         . '<tr><td class="pad" bgcolor="#f5f8fa" style="padding:20px 36px;border-top:1px solid #e6edf2;"><p style="margin:0 0 7px;font-size:11px;line-height:1.8;color:#526b7b;">All client communication goes through Imporlan. Please do not contact the client directly.</p><p style="margin:0;font-size:10px;line-height:1.8;color:#526b7b;">Button not working? <a href="' . $e($url) . '" style="color:#087c91;text-decoration:underline;">Open your private upload page</a>. Do not forward this link.</p></td></tr></table>'
         . '<!--[if mso]></td></tr></table><![endif]--><p style="margin:18px 0 0;font-size:10px;letter-spacing:1px;color:#526b7b;">IMPORLAN &nbsp; · &nbsp; TU LANCHA, PUERTA A PUERTA</p></td></tr></table></body></html>';
     $text = "Hi $name,\n\n$intro\n\nImport file: $file\nBoat: $title\n\n" . implode("\n", $plainItems)
-        . "\n\nUpload inspection files:\n$url\n\nNo login needed. Up to 100 MB per file. Photos and videos are added to the import file; the report and notes stay with the Imporlan team until reviewed. Reminders stop when all three file types are received. A reply by email does not replace uploading the files.\n\nIf anything is still pending, reply with what is missing and when you can upload it.\n\nWarm regards,\n\nJuan Pablo\nCommercial & Logistics\nImporlan · Tu lancha, puerta a puerta\ncontacto@imporlan.cl · +56 9 4021 1459 · www.imporlan.cl\n\nAll client communication goes through Imporlan. Please do not contact the client directly. Do not forward this private link.";
+        . "\n\n$buttonText:\n$url\n\n$buttonHint\n\n$noteTitle\n$noteText\n\n$closing\n\nWarm regards,\n\nJuan Pablo\nCommercial & Logistics\nImporlan · Tu lancha, puerta a puerta\ncontacto@imporlan.cl · +56 9 4021 1459 · www.imporlan.cl\n\nAll client communication goes through Imporlan. Please do not contact the client directly. Do not forward this private link.";
     return ['subject' => $subject, 'html' => $html, 'text' => $text];
+}
+
+function opuInspectionThankYouEmail($data) {
+    $data['mode'] = 'received';
+    $data['received'] = ['report' => true, 'photos' => true, 'videos' => true];
+    return opuInspectionEmail($data);
 }

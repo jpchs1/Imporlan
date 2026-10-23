@@ -18,6 +18,11 @@ function opuInspectionSchema($pdo) {
         request_id INT NOT NULL, file_id INT NOT NULL,
         PRIMARY KEY (request_id, file_id)
     )$engine");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS order_usa_upload_receipts (
+        request_id INT PRIMARY KEY,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        claimed_at DATETIME NULL, sent_at DATETIME NULL
+    )$engine");
 }
 
 function opuInspectionRequest($pdo, $order, $operator = null, $key = null) {
@@ -82,7 +87,7 @@ function opuInspectionAttach($pdo, $order, $requestId, $files) {
         if (!$st->fetchColumn()) continue;
         $pdo->prepare('INSERT INTO order_usa_upload_request_files (request_id, file_id) VALUES (?, ?)')->execute([intval($requestId), intval($file['id'])]);
     }
-    opuInspectionFinish($pdo, $request);
+    if (opuInspectionFinish($pdo, $request)) opuInspectionAcknowledge($pdo, $request['id']);
 }
 
 function opuInspectionFinish($pdo, $request) {
@@ -91,7 +96,70 @@ function opuInspectionFinish($pdo, $request) {
     $st = $pdo->prepare("UPDATE order_usa_upload_requests SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'pending'");
     $st->execute([gmdate('Y-m-d H:i:s'), intval($request['id'])]);
     if ($st->rowCount()) opuLog($pdo, $request['order_id'], 'inspeccion_archivos_completos', ['request_id' => intval($request['id'])]);
+    opuInspectionQueueReceipt($pdo, $request['id']);
     return true;
+}
+
+/** Durable receipt outbox, including completed uploads from before this release. */
+function opuInspectionQueueReceipt($pdo, $requestId) {
+    opuInspectionSchema($pdo);
+    $insert = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+    $pdo->prepare("$insert INTO order_usa_upload_receipts (request_id) SELECT id FROM order_usa_upload_requests WHERE id = ? AND status = 'completed'")->execute([intval($requestId)]);
+}
+
+/** One acknowledgement per completed request, addressed only to its operator. */
+function opuInspectionAcknowledge($pdo, $requestId, $send = null) {
+    $st = $pdo->prepare("SELECT r.* FROM order_usa_upload_requests r JOIN order_usa_upload_receipts a ON a.request_id = r.id WHERE r.id = ? AND r.status = 'completed' AND a.status = 'pending'");
+    $st->execute([intval($requestId)]);
+    $request = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$request) return null;
+    $order = opuOrden($pdo, $request['order_id']);
+    if (!$order || impExpedienteCerrado($order) || !empty($order['refund_requested_at']) || intval($order['chosen_link_id'] ?? 0) !== intval($request['link_id'])) {
+        $pdo->prepare("UPDATE order_usa_upload_receipts SET status = 'cancelled' WHERE request_id = ? AND status = 'pending'")->execute([intval($requestId)]);
+        return null;
+    }
+    // Recheck persisted files before thanking anyone for a complete package.
+    if (in_array(false, opuInspectionReceived($pdo, $request), true)) return null;
+    $link = impLeerLink($pdo, $order['id'], $request['link_id']);
+    if (!$link) return null;
+    $claim = $pdo->prepare("UPDATE order_usa_upload_receipts SET status = 'sending', claimed_at = ? WHERE request_id = ? AND status = 'pending'");
+    $claim->execute([gmdate('Y-m-d H:i:s'), intval($requestId)]);
+    if (!$claim->rowCount()) return null;
+    $metadata = ['event' => 'inspection_upload_received', 'order_id' => intval($order['id']), 'request_id' => intval($requestId), 'link_id' => intval($request['link_id'])];
+    try {
+        $mail = opuInspectionThankYouEmail([
+            'boat' => impTituloLancha($link), 'order_number' => $order['order_number'],
+            'portal_url' => opuUrlPortal(opuToken($pdo, $order)),
+            'operator_name' => explode(' ', $request['operator_name'])[0],
+            'image_url' => $link['image_url'] ?? '', 'location' => $link['location'] ?? '', 'hours' => $link['hours'] ?? '',
+        ]);
+        if ($send) $ok = (bool) $send($request['operator_email'], $mail, $metadata);
+        else {
+            require_once __DIR__ . '/email_service.php';
+            $result = (new EmailService())->sendInspectionUploadEmail($request['operator_email'], $mail, $metadata);
+            $ok = !empty($result['success']);
+        }
+    } catch (Throwable $e) {
+        $ok = false;
+        error_log('[inspection-upload] acknowledgement failed for request ' . intval($requestId));
+    }
+    // Never automatically repeat a claimed send after an uncertain SMTP result.
+    $pdo->prepare('UPDATE order_usa_upload_receipts SET status = ?, sent_at = ? WHERE request_id = ?')
+        ->execute([$ok ? 'sent' : 'failed', $ok ? gmdate('Y-m-d H:i:s') : null, intval($requestId)]);
+    opuLog($pdo, $order['id'], $ok ? 'inspeccion_carga_agradecida' : 'inspeccion_carga_agradecimiento_fallido', $metadata);
+    return $ok;
+}
+
+function opuInspectionDrainReceipts($pdo, $send = null) {
+    $result = ['sent' => 0, 'failed' => 0];
+    $requests = $pdo->query("SELECT r.id FROM order_usa_upload_requests r LEFT JOIN order_usa_upload_receipts a ON a.request_id = r.id WHERE r.status = 'completed' AND (a.request_id IS NULL OR a.status = 'pending') ORDER BY r.id LIMIT 50")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($requests as $id) {
+        opuInspectionQueueReceipt($pdo, $id);
+        $ok = opuInspectionAcknowledge($pdo, $id, $send);
+        if ($ok === true) $result['sent']++;
+        if ($ok === false) $result['failed']++;
+    }
+    return $result;
 }
 
 /** Local Chile calendar day, including DST. First request goes immediately. */
@@ -117,7 +185,7 @@ function opuInspectionBootstrap($pdo) {
 }
 
 /** Safe to invoke every five minutes; one attempt per request per Chile day. */
-function opuInspectionRun($pdo, $now = null, $send = null) {
+function opuInspectionRun($pdo, $now = null, $send = null, $sendReceipt = null) {
     $now = $now ?: new DateTimeImmutable('now', new DateTimeZone('UTC'));
     $localDay = $now->setTimezone(new DateTimeZone('America/Santiago'))->format('Y-m-d');
     $utc = $now->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
@@ -168,6 +236,9 @@ function opuInspectionRun($pdo, $now = null, $send = null) {
             $result['failed']++;
         }
     }
+    $receipts = opuInspectionDrainReceipts($pdo, $sendReceipt);
+    $result['acknowledged'] = $receipts['sent'];
+    $result['failed'] += $receipts['failed'];
     return $result;
 }
 
