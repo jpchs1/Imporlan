@@ -403,8 +403,15 @@ function opuMimesPermitidos() {
  * (los comparte el equipo).
  * Devuelve ['update_id', 'files' => [...], 'errores' => [...]].
  */
-function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file', $inspectionRequestId = 0) {
+function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file', $inspectionRequestId = 0, array $exceptions = []) {
     opuAsegurar($pdo);
+    $inspection = opuInspectionLatest($pdo, $order);
+    if (!$inspectionRequestId && $inspection && opuInspectionOwnsStage($pdo, $order)) $inspectionRequestId = intval($inspection['id']);
+    if ($inspectionRequestId && (!$inspection || intval($inspection['id']) !== intval($inspectionRequestId) || impExpedienteCerrado($order) || !empty($order['refund_requested_at']))) {
+        return ['update_id' => 0, 'files' => [], 'errores' => ['This inspection request is no longer active. Please reopen your private upload page.']];
+    }
+    $reasonErrors = opuInspectionExceptionErrors($pdo, $order, $inspectionRequestId, $exceptions);
+    if ($reasonErrors) return ['update_id' => 0, 'files' => [], 'errores' => $reasonErrors];
     $nota = mb_substr(trim((string) $nota), 0, 5000);
     $dir = __DIR__ . '/expediente_files/';
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -429,9 +436,9 @@ function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 
         $visible = in_array($cat, ['image', 'video'], true) ? 1 : 0;
         $pdo->prepare("INSERT INTO expediente_files (order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, visible_to_client) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             ->execute([intval($order['id']), $nombre, $guardado, $mime, intval($f['size'] ?? filesize($dir . $guardado)), $cat, 'Desde Estados Unidos', 'operador_usa', $visible]);
-        $guardados[] = ['id' => intval($pdo->lastInsertId()), 'original_name' => $nombre, 'category' => $cat, 'visible' => $visible, 'file_size' => intval($f['size'] ?? 0)];
+        $guardados[] = ['id' => intval($pdo->lastInsertId()), 'original_name' => $nombre, 'category' => $cat, 'mime_type' => $mime, 'visible' => $visible, 'file_size' => intval($f['size'] ?? 0)];
     }
-    if ($nota === '' && !$guardados) return ['update_id' => 0, 'files' => [], 'errores' => $errores ?: ['Write a note or attach at least one file.']];
+    if ($nota === '' && !$guardados && !$exceptions) return ['update_id' => 0, 'files' => [], 'errores' => $errores ?: ['Write a note or attach at least one file.']];
 
     $pdo->prepare("INSERT INTO order_usa_updates (order_id, note, file_ids) VALUES (?, ?, ?)")
         ->execute([intval($order['id']), $nota, json_encode(array_column($guardados, 'id'))]);
@@ -440,6 +447,7 @@ function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 
     opuLog($pdo, $order['id'], 'operador_usa_actualizacion', ['update_id' => $updateId, 'archivos' => count($guardados)]);
 
     opuInspectionAttach($pdo, $order, $inspectionRequestId, $guardados);
+    opuInspectionSaveExceptions($pdo, $order, $inspectionRequestId, $exceptions);
 
     opuAvisarActualizacion($pdo, $order, $nota, $guardados);
     return ['update_id' => $updateId, 'files' => $guardados, 'errores' => $errores];
@@ -454,17 +462,26 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
         $titulo = impTituloLancha($link);
         $visibles = array_values(array_filter($guardados, function ($g) { return $g['visible']; }));
         $internos = count($guardados) - count($visibles);
-        $svc->sendCustomEmail('contacto@imporlan.cl', opuOperador()['nombre'] . ' envió una actualización · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
+        $assignedRequest = opuInspectionLatest($pdo, $order);
+        $operatorName = $assignedRequest['operator_name'] ?? opuOperador()['nombre'];
+        $counts = ['image' => 0, 'video' => 0, 'document' => 0];
+        foreach ($guardados as $file) { if (isset($counts[$file['category']])) $counts[$file['category']]++; }
+        $batch = $counts['image'] . ' foto(s), ' . $counts['video'] . ' video(s), ' . $counts['document'] . ' documento(s)';
+        $svc->sendCustomEmail('contacto@imporlan.cl', $operatorName . ' envió una actualización · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
             opuHtmlCorreo('Actualización desde EE. UU. · ' . $titulo,
                 '<p style="font-size:14px;margin:0 0 10px">Expediente <strong>' . opuEsc($order['order_number'] ?? '') . '</strong>. '
-                . count($visibles) . ' foto(s)/video(s) ya visibles para el cliente' . ($internos ? ', ' . $internos . ' documento(s) sólo para el equipo' : '') . '.</p>'
+                . 'En esta actualización: ' . $batch . '. ' . count($visibles) . ' archivo(s) visuales ya visibles para el cliente' . ($internos ? ', ' . $internos . ' documento(s) sólo para el equipo' : '') . '.</p>'
+                . opuInspectionStaffSummary($pdo, $order)
                 . ($nota !== '' ? '<div style="padding:12px 14px;background:#f8fafc;border-left:4px solid #0e7490;border-radius:6px;font-size:14px;line-height:1.6;white-space:pre-wrap">' . opuEsc($nota) . '</div>' : '')
                 . '<p style="font-size:13px;color:#64748b;margin:12px 0 0">La nota es interna. Para contarle algo al cliente, usa «Compartir con el cliente» en el expediente.</p>'
                 . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']))));
 
         if ($visibles && !empty($order['customer_email'])) {
             $n = count($visibles);
-            $msg = $n === 1 ? 'Agregamos 1 foto o video de tu lancha desde Estados Unidos.' : "Agregamos $n fotos y videos de tu lancha desde Estados Unidos.";
+            $visual = [];
+            if ($counts['image']) $visual[] = $counts['image'] . ($counts['image'] === 1 ? ' foto' : ' fotos');
+            if ($counts['video']) $visual[] = $counts['video'] . ($counts['video'] === 1 ? ' video' : ' videos');
+            $msg = 'Agregamos ' . implode(' y ', $visual) . ' de tu lancha desde Estados Unidos.';
             try {
                 $pdo->prepare("INSERT INTO notifications (user_email, type, title, message, link) VALUES (?, 'expediente_files', ?, ?, ?)")
                     ->execute([$order['customer_email'], 'Novedades de tu lancha', $msg, '/panel/#/expedientes?id=' . intval($order['id'])]);
@@ -473,7 +490,7 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
             $svc->sendExpedienteFilesEmail($order['customer_email'], $nombre, [
                 'order_number' => $order['order_number'] ?? '',
                 'files' => $visibles,
-                'description' => 'Fotos y videos de tu lancha desde Estados Unidos.',
+                'description' => $msg,
                 'file_count' => $n,
             ]);
         }
@@ -525,9 +542,14 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
     $hito = impTieneEleccion($order) ? opuHitoEnCurso($order) : null;
     $pedido = $hito ? opuPedidoPara($hito) : null;
-    $inspectionRequest = opuInspectionActive($pdo, $order);
-    if ($inspectionRequest) $pedido = 'The inspection is complete. Please upload the full inspection report, photos and videos below.';
-    elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection package has been received. The Imporlan team will review the findings.';
+    $inspectionLatest = opuInspectionLatest($pdo, $order);
+    $inspectionRequest = $inspectionLatest && $inspectionLatest['status'] === 'pending' ? $inspectionLatest : null;
+    if ($inspectionRequest) {
+        $inspectionState = opuInspectionState($pdo, $inspectionRequest);
+        $pendingNames = array_map(function ($key) { return strtolower(opuInspectionItems()[$key][0]); }, $inspectionState['missing']);
+        $pedido = 'The inspection is complete. Please provide only the remaining items: ' . implode(', ', $pendingNames) . '. If an item is unavailable, select it below and explain why.';
+    }
+    elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection requirements are resolved. Available files and any unavailability reasons are recorded for the Imporlan team to review.';
     $pasos = impPasos($order);
     $en = opuHitosEn();
     $updates = opuActualizaciones($pdo, $order['id']);
@@ -540,7 +562,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
             *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
             main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
             .top{font-size:13px;color:var(--mute);margin-bottom:12px}.top b{color:var(--ink)}
-            .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+            .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px;overflow-wrap:anywhere}
             h1{font-size:22px;line-height:1.25;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}
             .mute{color:var(--mute);font-size:13px}
             .boat{display:flex;gap:14px;align-items:flex-start}.boat img{width:132px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex-shrink:0}
@@ -559,7 +581,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
             .upd{border-top:1px solid var(--line);padding:10px 0}.upd:first-of-type{border-top:0}
             .note{white-space:pre-wrap;font-size:14px;margin-top:4px}
           </style></head><body><main>'
-        . '<div class="top"><b>Imporlan</b> · US operations · ' . opuEsc(opuOperador()['nombre']) . '</div>';
+        . '<div class="top"><b>Imporlan</b> · US operations · ' . opuEsc($inspectionLatest['operator_name'] ?? opuOperador()['nombre']) . '</div>';
 
     if ($aviso !== '') $h .= '<div class="ok" role="status">' . opuEsc($aviso) . '</div>';
     if ($errores) $h .= '<div class="err" role="alert">' . implode('<br>', array_map('opuEsc', $errores)) . '</div>';
@@ -591,12 +613,15 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
 
         $h .= '<section class="card"><h2>Send an update</h2>'
             . '<form method="post" action="' . $url . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
+            . '<input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
             . ($inspectionRequest ? '<input type="hidden" name="inspection_request_id" value="' . intval($inspectionRequest['id']) . '">' : '')
             . '<label for="note">Update for the Imporlan team</label>'
             . '<textarea id="note" name="note" maxlength="5000" placeholder="What happened, what is next, anything we should know."></textarea>'
             . '<label for="files" style="margin-top:14px">Photos, videos or documents</label>'
             . '<input id="files" type="file" name="files[]" multiple accept="image/*,video/*,application/pdf">'
-            . '<p class="mute" style="margin:6px 0 0">Up to 100 MB per file. Photos and videos are added to the client\'s file; your note and PDFs stay with the Imporlan team. For a very long video, paste a link in the note.</p>'
+            . '<p class="mute" style="margin:6px 0 0">Up to 100 MB per file. Photos and videos are added to the client\'s file; your note and PDFs stay with the Imporlan team. '
+            . ($inspectionRequest ? 'For files you cannot supply, use the unavailable-file option and enter a reason below.' : 'You can still upload additional material if it becomes available.') . '</p>'
+            . opuInspectionExceptionFields($pdo, $order)
             . '<button type="submit">Send update</button></form></section>';
     }
 
@@ -635,16 +660,29 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
         header('Content-Type: text/html; charset=utf-8');
         header('X-Robots-Tag: noindex, nofollow');
         header('Referrer-Policy: no-referrer');
+        header('Cache-Control: private, no-store');
         if (!$pdo) { http_response_code(500); echo 'Service unavailable, please try again later.'; exit; }
         opuAsegurar($pdo);
         $order = opuOrdenPorToken($pdo, $_GET['t'] ?? '');
         if (!$order) { http_response_code(404); echo '<p style="font-family:sans-serif;padding:24px">This link is not valid anymore. Please ask the Imporlan team for a new one: contacto@imporlan.cl</p>'; exit; }
         if ($r === 'enviar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (isset($_POST['boat_link_id']) && intval($_POST['boat_link_id']) !== intval($order['chosen_link_id'] ?? 0)) {
+                echo opuPaginaPortal($pdo, $order, '', ['The selected boat has changed. Please review the current boat and send a new update.']);
+                exit;
+            }
             if (empty($_FILES) && empty($_POST) && intval($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
                 echo opuPaginaPortal($pdo, $order, '', ['The upload was too large for the server. Please send fewer or smaller files at a time, or paste a link in the note.']);
                 exit;
             }
-            $res = opuGuardarActualizacion($pdo, $order, $_POST['note'] ?? '', opuArchivosSubidos(), 'move_uploaded_file', intval($_POST['inspection_request_id'] ?? 0));
+            $exceptions = [];
+            $selected = $_POST['unavailable'] ?? [];
+            if (!is_array($selected)) $selected = ['unknown'];
+            $reasons = is_array($_POST['unavailable_reason'] ?? null) ? $_POST['unavailable_reason'] : [];
+            foreach ($selected as $key) {
+                $key = is_string($key) ? $key : 'unknown';
+                $exceptions[$key] = $reasons[$key] ?? '';
+            }
+            $res = opuGuardarActualizacion($pdo, $order, $_POST['note'] ?? '', opuArchivosSubidos(), 'move_uploaded_file', intval($_POST['inspection_request_id'] ?? 0), $exceptions);
             $order = opuOrden($pdo, $order['id']);
             $aviso = $res['update_id'] ? 'Thank you, your update was received' . ($res['files'] ? ' with ' . count($res['files']) . ' file' . (count($res['files']) === 1 ? '' : 's') : '') . '.' : '';
             echo opuPaginaPortal($pdo, $order, $aviso, $res['errores']);
@@ -667,20 +705,17 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     if ($r === 'admin_estado') {
         $o = opuOrden($pdo, $_GET['order_id'] ?? 0);
         if (!$o) { http_response_code(404); echo json_encode(['error' => 'Expediente no encontrado']); exit; }
+        $inspection = opuInspectionLatest($pdo, $o);
         echo json_encode([
             'success' => true,
-            'operador' => opuOperador(),
+            'operador' => $inspection ? ['nombre' => $inspection['operator_name'], 'email' => $inspection['operator_email']] : opuOperador(),
             'portal_url' => opuUrlPortal(opuToken($pdo, $o)),
             'requested_at' => $o['usa_requested_at'] ?? null,
             'updated_at' => $o['usa_updated_at'] ?? null,
             'hito_en_curso' => impTieneEleccion($o) ? opuHitoEnCurso($o) : null,
             'es_de_usa' => impTieneEleccion($o) && in_array(opuHitoEnCurso($o), opuHitosUsa(), true),
             'updates' => opuActualizaciones($pdo, $o['id']),
-            'inspection_upload' => ($ir = opuInspectionActive($pdo, $o)) ? [
-                'id' => intval($ir['id']), 'status' => $ir['status'],
-                'received' => opuInspectionReceived($pdo, $ir),
-                'last_sent_at' => $ir['last_sent_at'], 'timezone' => 'America/Santiago',
-            ] : null,
+            'inspection_upload' => $inspection ? array_merge(opuInspectionState($pdo, $inspection), ['owns_stage' => opuInspectionOwnsStage($pdo, $o)]) : null,
         ]);
         exit;
     }
