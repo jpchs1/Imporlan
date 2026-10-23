@@ -37,6 +37,7 @@
 require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/eleccion_lancha.php';
+require_once __DIR__ . '/inspection_upload_followup.php';
 
 /** Quién lleva la operación en EE. UU. */
 function opuOperador() {
@@ -67,7 +68,7 @@ function opuHitosEn() {
 function opuPedidoPara($hito) {
     $p = [
         'disponibilidad' => 'Please contact the seller to confirm the boat is still available and the final price. Send recent photos and, if you can, a walk-around video.',
-        'inspeccion' => 'Please coordinate the technical survey. Send the survey report and photos as soon as you have them.',
+        'inspeccion' => 'Please coordinate the technical survey. Send the survey report, photos and videos as soon as you have them.',
         'compra' => 'Please move forward with the purchase. Send photos of the signed bill of sale and the title when ready.',
         'transporte' => 'Please coordinate pickup and transport to the port. Send photos at pickup and when the boat is loaded, and the shipping documents (B/L) if available.',
     ];
@@ -243,6 +244,9 @@ function opuEnviar($subject, $html) {
  */
 function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
     if (!impTieneEleccion($order)) return false;
+    // A completed survey awaiting uploads has its own daily request. Never
+    // ask the operator to arrange the inspection again, or send a second chase.
+    if (opuInspectionOwnsStage($pdo, $order)) return false;
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
     if (!$link) return false;
     $hito = opuHitoEnCurso($order);
@@ -367,6 +371,7 @@ function opuRecordar($pdo, $ahora = null) {
     $st = $pdo->query("SELECT * FROM orders WHERE chosen_link_id IS NOT NULL AND status NOT IN ('completed','expired','canceled','cancelled')");
     $enviados = 0;
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $o) {
+        if (opuInspectionOwnsStage($pdo, $o)) continue;
         $hito = opuHitoEnCurso($o);
         if (!$hito || !in_array($hito, opuHitosUsa(), true)) continue;
         $ultimo = max((string) ($o['usa_requested_at'] ?? ''), (string) ($o['usa_updated_at'] ?? ''), (string) ($o['chosen_at'] ?? ''));
@@ -398,7 +403,7 @@ function opuMimesPermitidos() {
  * (los comparte el equipo).
  * Devuelve ['update_id', 'files' => [...], 'errores' => [...]].
  */
-function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file') {
+function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file', $inspectionRequestId = 0) {
     opuAsegurar($pdo);
     $nota = mb_substr(trim((string) $nota), 0, 5000);
     $dir = __DIR__ . '/expediente_files/';
@@ -433,6 +438,8 @@ function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 
     $updateId = intval($pdo->lastInsertId());
     $pdo->prepare("UPDATE orders SET usa_updated_at = NOW() WHERE id = ?")->execute([intval($order['id'])]);
     opuLog($pdo, $order['id'], 'operador_usa_actualizacion', ['update_id' => $updateId, 'archivos' => count($guardados)]);
+
+    opuInspectionAttach($pdo, $order, $inspectionRequestId, $guardados);
 
     opuAvisarActualizacion($pdo, $order, $nota, $guardados);
     return ['update_id' => $updateId, 'files' => $guardados, 'errores' => $errores];
@@ -518,6 +525,9 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
     $hito = impTieneEleccion($order) ? opuHitoEnCurso($order) : null;
     $pedido = $hito ? opuPedidoPara($hito) : null;
+    $inspectionRequest = opuInspectionActive($pdo, $order);
+    if ($inspectionRequest) $pedido = 'The inspection is complete. Please upload the full inspection report, photos and videos below.';
+    elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection package has been received. The Imporlan team will review the findings.';
     $pasos = impPasos($order);
     $en = opuHitosEn();
     $updates = opuActualizaciones($pdo, $order['id']);
@@ -568,6 +578,8 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
     if ($pedido) $h .= '<div class="ask"><strong>What we need now</strong><br>' . opuEsc($pedido) . '</div>';
     $h .= '</section>';
 
+    $h .= opuInspectionPortalChecklist($pdo, $order);
+
     if ($link) {
         $h .= '<section class="card"><h2>Progress</h2><ol class="steps">';
         foreach (impHitos() as $k => $hh) {
@@ -579,6 +591,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
 
         $h .= '<section class="card"><h2>Send an update</h2>'
             . '<form method="post" action="' . $url . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
+            . ($inspectionRequest ? '<input type="hidden" name="inspection_request_id" value="' . intval($inspectionRequest['id']) . '">' : '')
             . '<label for="note">Update for the Imporlan team</label>'
             . '<textarea id="note" name="note" maxlength="5000" placeholder="What happened, what is next, anything we should know."></textarea>'
             . '<label for="files" style="margin-top:14px">Photos, videos or documents</label>'
@@ -631,7 +644,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
                 echo opuPaginaPortal($pdo, $order, '', ['The upload was too large for the server. Please send fewer or smaller files at a time, or paste a link in the note.']);
                 exit;
             }
-            $res = opuGuardarActualizacion($pdo, $order, $_POST['note'] ?? '', opuArchivosSubidos());
+            $res = opuGuardarActualizacion($pdo, $order, $_POST['note'] ?? '', opuArchivosSubidos(), 'move_uploaded_file', intval($_POST['inspection_request_id'] ?? 0));
             $order = opuOrden($pdo, $order['id']);
             $aviso = $res['update_id'] ? 'Thank you, your update was received' . ($res['files'] ? ' with ' . count($res['files']) . ' file' . (count($res['files']) === 1 ? '' : 's') : '') . '.' : '';
             echo opuPaginaPortal($pdo, $order, $aviso, $res['errores']);
@@ -663,6 +676,11 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             'hito_en_curso' => impTieneEleccion($o) ? opuHitoEnCurso($o) : null,
             'es_de_usa' => impTieneEleccion($o) && in_array(opuHitoEnCurso($o), opuHitosUsa(), true),
             'updates' => opuActualizaciones($pdo, $o['id']),
+            'inspection_upload' => ($ir = opuInspectionActive($pdo, $o)) ? [
+                'id' => intval($ir['id']), 'status' => $ir['status'],
+                'received' => opuInspectionReceived($pdo, $ir),
+                'last_sent_at' => $ir['last_sent_at'], 'timezone' => 'America/Santiago',
+            ] : null,
         ]);
         exit;
     }

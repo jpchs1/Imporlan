@@ -38,6 +38,18 @@ if command -v flock >/dev/null 2>&1; then
   flock -n 9 || exit 0
 fi
 
+# Operational work runs even when main has no new commit. Use only the
+# deployed, CLI-only PHP job and its server-side DB/SMTP configuration.
+# The job owns its Chile morning window, per-day deduplication and stop rule.
+run_inspection_followups() {
+  local job="/home/wwimpo/imporlan.cl/api/cron/inspection_upload_followup.php"
+  [ -f "$job" ] || return 0
+  local php_bin
+  php_bin=$(command -v php 2>/dev/null) || return 0
+  "$php_bin" "$job" >> /home/wwimpo/inspection-upload-followup.log 2>&1 || true
+}
+trap run_inspection_followups EXIT
+
 command -v git >/dev/null 2>&1 || { status "ERROR: git no esta en el PATH ($PATH)"; exit 1; }
 cd "$STAGING_REPO" || { status "ERROR: no existe $STAGING_REPO"; exit 1; }
 git fetch -q origin main || { status "ERROR: git fetch fallo"; exit 1; }

@@ -1,0 +1,58 @@
+name: Verify inspection upload release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - api/inspection_upload_*.php
+      - api/cron/inspection_upload_followup.php
+      - api/operador_usa.php
+      - cron-deploy.sh
+      - .github/workflows/inspection-upload-production.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inspection-upload-production
+  cancel-in-progress: true
+
+jobs:
+  verify-hosting:
+    name: Confirm the hosting published this commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Wait for the existing hosting deploy and verify the CLI job is private
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os, re, time, urllib.request, urllib.error
+          expected = os.environ['EXPECTED_SHA']
+          deadline = time.monotonic() + 720
+          url = 'https://www.imporlan.cl/.imporlan_docroot?release=' + expected
+          while time.monotonic() < deadline:
+              try:
+                  request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+                  with urllib.request.urlopen(request, timeout=20) as response:
+                      sentinel = response.read(4096).decode('utf-8')
+                  match = re.search(r'^commit:\s*([a-f0-9]{40})\s*$', sentinel, re.M)
+                  if match and match.group(1) == expected:
+                      print('Production commit verified:', expected)
+                      break
+                  print('Waiting for hosting to publish this commit.')
+              except (urllib.error.URLError, UnicodeError) as error:
+                  print('Deployment check pending:', type(error).__name__)
+              time.sleep(30)
+          else:
+              raise SystemExit('Hosting did not publish the expected commit within 12 minutes.')
+          try:
+              urllib.request.urlopen('https://www.imporlan.cl/api/cron/inspection_upload_followup.php', timeout=20)
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise SystemExit('Unexpected HTTP status for the CLI-only job: ' + str(error.code))
+              print('CLI-only follow-up job is inaccessible over HTTP (404).')
+          else:
+              raise SystemExit('The follow-up job must not be accessible over HTTP.')
+          PY

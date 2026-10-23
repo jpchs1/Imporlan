@@ -59,6 +59,9 @@ jobs:
       - name: Elegir la lancha e importar (reglas, acciones y correos)
         run: php test/eleccion-lancha-tests.php
 
+      - name: Inspección realizada (carga completa y seguimiento diario AM)
+        run: php test/inspection-upload-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
