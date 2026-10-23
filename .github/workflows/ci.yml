@@ -59,6 +59,9 @@ jobs:
       - name: Elegir la lancha e importar (reglas, acciones y correos)
         run: php test/eleccion-lancha-tests.php
 
+      - name: Inspección realizada (carga completa y seguimiento diario AM)
+        run: php test/inspection-upload-tests.php
+
   javascript-lint:
     name: JavaScript Lint
     runs-on: ubuntu-latest
@@ -88,14 +91,17 @@ jobs:
           node-version: '20'
       
       - name: Install html-validate
-        run: npm install html-validate --save-dev
+        # Keep the validator independent of the app's dependency tree. npm 10
+        # currently crashes in Arborist (edgesOut) when adding it at the root.
+        run: npm install --prefix "$RUNNER_TEMP/imporlan-html-validation" --no-package-lock --no-audit --no-fund html-validate@9
       
       - name: Validate HTML files
         run: |
-          npx html-validate index.html --config .htmlvalidate.json || true
-          npx html-validate test/index.html --config .htmlvalidate.json || true
-          npx html-validate panel/index.html --config .htmlvalidate.json || true
-          npx html-validate admin/index.html --config .htmlvalidate.json || true
+          validation_bin="$RUNNER_TEMP/imporlan-html-validation/node_modules/.bin/html-validate"
+          "$validation_bin" index.html --config .htmlvalidate.json || true
+          "$validation_bin" test/index.html --config .htmlvalidate.json || true
+          "$validation_bin" panel/index.html --config .htmlvalidate.json || true
+          "$validation_bin" admin/index.html --config .htmlvalidate.json || true
 
   css-lint:
     name: CSS Lint
