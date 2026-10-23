@@ -9,7 +9,7 @@ on:
 jobs:
   expediente-image-previews:
     name: HEIC previews in admin and customer panels
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
