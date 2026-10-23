@@ -1,3 +1,4 @@
+import { FileImage } from '../../../shared/components/FileImage';
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
@@ -271,7 +272,7 @@ function Miniatura({ f, cargando, onVerImagen }) {
   if (cat === 'image') {
     return (
       <button type="button" className={base} onClick={onVerImagen} aria-label={`Ver ${f.original_name}`} title={f.original_name}>
-        <img src={f.download_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+        <FileImage src={f.download_url} mimeType={f.mime_type} originalName={f.original_name} alt="" className="w-full h-full object-cover" loading="lazy" />
         {chip}
       </button>
     );

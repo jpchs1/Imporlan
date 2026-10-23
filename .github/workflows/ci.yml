@@ -7,6 +7,25 @@ on:
     branches: [main]
 
 jobs:
+  expediente-image-previews:
+    name: HEIC previews in admin and customer panels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: admin-react/package-lock.json
+      - run: npm ci --prefix admin-react --no-audit --no-fund
+      - name: Install isolated browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/imporlan-browser-tests" --no-package-lock --no-audit --no-fund playwright@1.57.0
+          "$RUNNER_TEMP/imporlan-browser-tests/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Preview real HEIC files with the production security policy
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-image-preview-tests.mjs
+
   php-syntax:
     name: PHP Syntax Check
     runs-on: ubuntu-latest
