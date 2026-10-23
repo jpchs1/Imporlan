@@ -1,3 +1,4 @@
+import { FileImage } from '../../../shared/components/FileImage';
 import { fmtDate } from '../../../shared/lib/utils';
 import { fmtDateLarga, fmtBytes } from '../../../shared/lib/format';
 import { Card, DataTable, Callout, Badge } from '../../../shared/components/UI';
@@ -55,7 +56,7 @@ export default function SeccionArchivos({ files, onPreview, id }) {
                       aria-label={`Ver ${f.original_name}`}
                       className="block aspect-[4/3] w-full overflow-hidden rounded-md border border-line bg-neutral-bg transition-colors duration-150 hover:border-ink-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                     >
-                      <img src={f.download_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <FileImage src={f.download_url} mimeType={f.mime_type} originalName={f.original_name} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </button>
                     <p className="mt-1 truncate text-xs text-ink-500" title={esDesdeUsa(f) ? `${f.original_name} · Desde Estados Unidos` : f.original_name}>
                       {esDesdeUsa(f) && <span className="font-medium text-ink-700">EE. UU. · </span>}{f.original_name}

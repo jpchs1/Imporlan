@@ -1,3 +1,4 @@
+import { FileImage } from '../../shared/components/FileImage';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMyOrders, getMyFiles, getMyReports } from '../api';
 import { fmtDate, cn } from '../../shared/lib/utils';
@@ -69,7 +70,7 @@ function CeldaArchivo({ doc, completa = false, onOpen }) {
   return (
     <div className="flex items-start gap-3 min-w-0">
       {esFoto ? (
-        <img src={doc.download_url} alt="" loading="lazy" className="h-10 w-10 rounded-md object-cover bg-neutral-bg shrink-0" />
+        <FileImage src={doc.download_url} mimeType={doc.mime_type} originalName={doc.original_name} alt="" loading="lazy" className="h-10 w-10 rounded-md object-cover bg-neutral-bg shrink-0" />
       ) : (
         <span className="h-10 w-10 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0"><Icon size={18} /></span>
       )}

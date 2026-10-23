@@ -1,4 +1,4 @@
-name: Verify inspection upload release
+name: Verify production release
 
 on:
   push:
@@ -8,13 +8,16 @@ on:
       - api/cron/inspection_upload_followup.php
       - api/operador_usa.php
       - cron-deploy.sh
+      - .htaccess
+      - admin-react/src/**
+      - panel/**
       - .github/workflows/inspection-upload-production.yml
 
 permissions:
   contents: read
 
 concurrency:
-  group: inspection-upload-production
+  group: imporlan-production
   cancel-in-progress: true
 
 jobs:
@@ -23,12 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - name: Wait for the existing hosting deploy and verify the CLI job is private
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: |
           python3 - <<'PY'
-          import os, re, time, urllib.request, urllib.error
+          import hashlib, os, pathlib, re, time, urllib.request, urllib.error
           expected = os.environ['EXPECTED_SHA']
           deadline = time.monotonic() + 720
           url = 'https://www.imporlan.cl/.imporlan_docroot?release=' + expected
@@ -47,6 +51,26 @@ jobs:
               time.sleep(30)
           else:
               raise SystemExit('Hosting did not publish the expected commit within 12 minutes.')
+          # The deploy copies pre-built files. Verify both live panels load
+          # this release's entry points and that each referenced asset matches.
+          for panel in ('panel/', 'panel/admin/'):
+              html = pathlib.Path(panel + 'index.html').read_text()
+              assets = set(re.findall(r'(?:src|href)="(/panel/[^\"]+\.(?:js|css)(?:\?[^\"]*)?)"', html))
+              if not assets:
+                  raise SystemExit('No compiled assets found for ' + panel)
+              with urllib.request.urlopen('https://www.imporlan.cl/' + panel + '?release=' + expected, timeout=30) as response:
+                  live = response.read().decode('utf-8')
+                  if "worker-src 'self' blob:" not in response.headers.get('Content-Security-Policy', ''):
+                      raise SystemExit('HEIC worker policy missing on ' + panel)
+              for asset in assets:
+                  if asset not in live:
+                      raise SystemExit('Live HTML references a different release: ' + panel)
+                  local = pathlib.Path(asset.split('?')[0].lstrip('/')).read_bytes()
+                  with urllib.request.urlopen('https://www.imporlan.cl' + asset, timeout=30) as response:
+                      remote = response.read()
+                  if hashlib.sha256(local).digest() != hashlib.sha256(remote).digest():
+                      raise SystemExit('Production asset mismatch: ' + asset)
+              print('Production panel and compiled assets verified:', panel)
           try:
               urllib.request.urlopen('https://www.imporlan.cl/api/cron/inspection_upload_followup.php', timeout=20)
           except urllib.error.HTTPError as error:

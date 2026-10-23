@@ -1,3 +1,4 @@
+import { FileImage } from '../../../shared/components/FileImage';
 import { cn } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
@@ -36,7 +37,7 @@ function Miniatura({ file, onOpen, size = 'md' }) {
   }
   return (
     <button type="button" onClick={onOpen} className={base} aria-label={`Ver ${file.original_name}`} title={file.original_name}>
-      <img src={file.download_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+      <FileImage src={file.download_url} mimeType={file.mime_type} originalName={file.original_name} alt="" className="h-full w-full object-cover" loading="lazy" />
     </button>
   );
 }
