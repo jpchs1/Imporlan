@@ -41,7 +41,15 @@ createRoot(document.getElementById('root')).render(<App/>);`;
       page.setDefaultTimeout(15000);
       page.setDefaultNavigationTimeout(15000);
       const errors = []; page.on('pageerror', e => errors.push(e.message));
-      await page.addInitScript(({ tokens, admin }) => localStorage.setItem(admin ? 'token' : 'imporlan_token', admin ? tokens.admin : tokens.customer), { tokens, admin });
+      await page.addInitScript(({ tokens, admin }) => {
+        localStorage.setItem(admin ? 'token' : 'imporlan_token', admin ? tokens.admin : tokens.customer);
+        window.preparedFileBlobs = [];
+        const original = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = blob => {
+          window.preparedFileBlobs.push({ type: blob.type, size: blob.size });
+          return original(blob);
+        };
+      }, { tokens, admin });
       await page.goto(`${base}/panel/${admin ? 'admin/' : ''}__file-test`);
       await page.waitForFunction(() => [...document.querySelectorAll('img')].some(img => img.complete && img.naturalWidth > 0));
       check(true, `${admin ? 'admin' : 'customer'} ${width}px renders JPG thumbnails through real forbidden-link recovery`);
@@ -52,9 +60,11 @@ createRoot(document.getElementById('root')).render(<App/>);`;
         const popup = page.waitForEvent('popup');
         await page.getByRole('button', { name: 'Ver Informe inspección.pdf', exact: true }).first().click();
         const tab = await popup;
-        await tab.waitForURL(/^blob:/, { waitUntil: 'commit' });
-        check(true, 'inspection PDF preview opens recovered application/pdf bytes');
-        await tab.close();
+        // Playwright's headless shell downloads PDFs because it has no PDF
+        // viewer. Check the real prepared response, independent of that shell.
+        await page.waitForFunction(size => window.preparedFileBlobs.some(blob => blob.type === 'application/pdf' && blob.size === size), pdf.length);
+        check(true, 'inspection PDF preview prepares recovered application/pdf bytes for its window');
+        if (!tab.isClosed()) await tab.close();
       }
       const photo = admin ? page.getByRole('button', { name: 'Ver foto photo_52_page_33.jpg', exact: true }).first() : page.getByRole('button', { name: 'Ver photo_52_page_33.jpg', exact: true });
       await photo.click();
