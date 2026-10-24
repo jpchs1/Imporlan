@@ -91,8 +91,8 @@ export default function DetalleExpediente(p) {
       <ExpedienteMetrics items={[
         { label: 'Etapa actual', value: `${String(etapaActual).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: ETAPAS_EXPEDIENTE[etapaActual - 1]?.label, icon: Compass },
         { label: 'Opciones', value: conUrl, hint: 'Embarcaciones en el ranking', icon: Ship },
-        { label: 'Documentos', value: archivos.loading ? '—' : documentos, hint: 'Informes y otros documentos', icon: FileText },
-        { label: 'Fotos y videos', value: archivos.loading ? '—' : multimedia, hint: 'Material de la operación', icon: Images },
+        { label: 'Documentos', value: archivos.loading || archivos.error ? '—' : documentos, hint: 'Informes y otros documentos', icon: FileText },
+        { label: 'Fotos y videos', value: archivos.loading || archivos.error ? '—' : multimedia, hint: 'Material de la operación', icon: Images },
       ]} />
       <ExpedienteNavigation sections={[
         { id: 'etapa', label: 'Resumen', icon: Compass },

@@ -102,7 +102,7 @@ export default function ListaExpedientes({ orders, conteos, loading, filters, se
       ]} />
       <Card padding="none" className="exp-filter-panel mb-4">
         <div className="px-(--card-pad) pt-4 pb-3 flex flex-col md:flex-row gap-3 md:items-center">
-          <SearchInput value={filters.search} onChange={v => set('search', v)} placeholder="Buscar por cliente o correo" aria-label="Buscar expediente por cliente o correo" className="flex-1 min-w-0" />
+          <SearchInput value={filters.search} onChange={v => set('search', v)} placeholder="Buscar número, cliente o embarcación" aria-label="Buscar expediente por número, cliente o embarcación" className="flex-1 min-w-0" />
           <Select className="md:w-52 shrink-0" aria-label="Tipo de servicio" value={filters.service_type} onChange={e => set('service_type', e.target.value)} placeholder="Todos los servicios" options={SERVICE_TYPES} />
           <Button variant="secondary" icon={SlidersHorizontal} onClick={() => setAdvanced(v => !v)} aria-expanded={advanced} aria-controls="exp-filtros-avanzados">Más filtros</Button>
           {hayFiltros && <Button variant="ghost" onClick={() => setFilters({ ...FILTROS_VACIOS, status: filters.status })}>Limpiar</Button>}

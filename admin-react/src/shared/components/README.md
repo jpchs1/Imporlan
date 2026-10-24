@@ -102,6 +102,12 @@ montados los formularios para no perder ediciones. Sus anclas respetan las barra
 fijas y la preferencia de movimiento reducido. El resto del kit y sus tokens se
 mantienen compartidos. La galería de archivos ofrece filtros y vista de lista;
 reutiliza `FileImage`, `FileOpen`, `FileDownload` y los permisos de la API.
+`FileCollectionControls` comparte búsqueda sin distinción de tildes, filtros,
+orden de fecha/nombre y conteo de resultados entre ambos paneles. El orden visual
+no modifica los archivos ni sus índices originales para el visor. Los errores
+de actualización conservan la última carga y ofrecen reintento; un contador
+desconocido se muestra con «—», sin confundirlo con una lista vacía. Las anclas
+también llevan el foco al encabezado para continuar la navegación con teclado.
 
 ### StatTile · StatGrid (otras vistas)
 ```jsx

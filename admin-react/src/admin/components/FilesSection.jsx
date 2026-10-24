@@ -3,13 +3,15 @@ import { deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { fmtBytes } from '../../shared/lib/format';
 import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA, esCedulaCliente } from '../../shared/lib/importacion';
-import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, ErrorState, FilterChips, Skeleton, useConfirm } from '../../shared/components/UI';
-import { Upload, Eye, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip, LayoutGrid, List } from '../../shared/components/Icons';
+import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, ErrorState, Callout, Skeleton, useConfirm } from '../../shared/components/UI';
+import { Upload, Eye, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip, LayoutGrid, List, RefreshCw } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 import { useExpedienteFiles, categoriaArchivo } from './useExpedienteFiles';
 import { FileImage } from '../../shared/components/FileImage';
 import { Lightbox } from '../../shared/components/Lightbox';
 import { FileDownload, FileOpen } from '../../shared/components/FileDownload';
+import { FileCollectionControls } from '../../shared/components/FileCollectionControls';
+import { seleccionarArchivos } from '../../shared/lib/file-collection';
 
 function fileCategory(mime) {
   return categoriaArchivo({ mime_type: mime });
@@ -57,10 +59,10 @@ export default function FilesSection({ orderId, archivos }) {
   const [preview, setPreview] = useState(null);
   const [view, setView] = useState('gallery');
   const [category, setCategory] = useState('all');
-  const filteredFiles = category === 'all' ? files : files.filter(f => categoriaArchivo(f) === category);
-  const filters = [{ id: 'all', label: 'Todos', count: files.length },
-    ...Object.entries(CATS).map(([id, cat]) => ({ id, label: { image: 'Fotos', video: 'Videos', document: 'Documentos', other: 'Otros' }[id] || cat.label, count: files.filter(f => categoriaArchivo(f) === id).length }))
-      .filter(item => item.id !== 'other' || item.count > 0 || category === 'other')];
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('newest');
+  const filteredFiles = seleccionarArchivos(files, { category, query, sort });
+  const clearFilters = () => { setCategory('all'); setQuery(''); };
   const images = files.filter(f => categoriaArchivo(f) === 'image');
   const items = images.map(f => ({ src: f.download_url, downloadUrl: f.download_url, originalName: f.original_name, mimeType: f.mime_type, alt: f.original_name, caption: f.original_name }));
   const openImage = f => setPreview(images.findIndex(image => image.id === f.id));
@@ -91,7 +93,7 @@ export default function FilesSection({ orderId, archivos }) {
         setPending([]);
         setDescription('');
         setShowUpload(false);
-        setCategory('all');
+        clearFilters();
         loadFiles();
         if (data.errors && data.errors.length > 0) {
           toast?.('Algunos archivos fallaron: ' + data.errors.join(', '), 'error');
@@ -160,21 +162,22 @@ export default function FilesSection({ orderId, archivos }) {
     <>
       <Card className="exp-section">
         <Card.Header
+          className="exp-files-header"
           title="Archivos"
-          description="Documentos y material de la operación. La etiqueta de cada archivo indica quién puede verlo."
-          actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
+          description="Fotos, videos y documentos. Las etiquetas indican quién puede ver cada archivo."
+          actions={<>{loadFiles && <IconButton size="sm" variant="secondary" icon={RefreshCw} aria-label="Actualizar archivos" onClick={loadFiles} loading={loading} />}<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button></>}
         />
-        <div className="exp-file-toolbar flex flex-wrap items-center justify-between gap-3 p-4 border-b border-line">
-          <FilterChips options={filters} value={category} onChange={setCategory} aria-label="Filtrar archivos por tipo" />
+        {!!files.length && <FileCollectionControls files={files} query={query} onQuery={setQuery} category={category} onCategory={setCategory} sort={sort} onSort={setSort} onClear={clearFilters} count={filteredFiles.length} loading={loading}>
           <div className="exp-file-tools inline-flex gap-1" role="group" aria-label="Vista de archivos">
             <IconButton variant="ghost" size="sm" icon={LayoutGrid} aria-label="Vista de galería" aria-pressed={view === 'gallery'} onClick={() => setView('gallery')} />
             <IconButton variant="ghost" size="sm" icon={List} aria-label="Vista de lista" aria-pressed={view === 'list'} onClick={() => setView('list')} />
           </div>
-        </div>
-        {error ? <ErrorState compact message={error} onRetry={loadFiles} /> : view === 'gallery' ? (
+        </FileCollectionControls>}
+        {error && !!files.length && <div className="px-(--card-pad) pt-4"><Callout tone="warning" compact title="No se pudo actualizar la lista">{error} Se conserva la última carga disponible.</Callout></div>}
+        {error && !files.length ? <ErrorState compact message={error} onRetry={loadFiles} /> : view === 'gallery' ? (
           <div className="p-(--card-pad)">
-            {loading ? <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"><Skeleton.Card /><Skeleton.Card /><Skeleton.Card /></div>
-              : !filteredFiles.length ? <EmptyState compact icon={Paperclip} title={files.length ? 'Sin archivos de este tipo' : 'No hay archivos subidos'} description={files.length ? 'Prueba con otro filtro para ver el resto del material.' : 'Sube documentos, fotos o videos para el expediente.'} primaryAction={<Button size="sm" variant="secondary" onClick={files.length ? () => setCategory('all') : () => setShowUpload(true)}>{files.length ? 'Ver todos los archivos' : 'Subir archivos'}</Button>} />
+            {loading && !files.length ? <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"><Skeleton.Card /><Skeleton.Card /><Skeleton.Card /></div>
+              : !filteredFiles.length ? <EmptyState compact icon={Paperclip} title={files.length ? 'Sin archivos con estos filtros' : 'No hay archivos subidos'} description={files.length ? 'Prueba otro nombre o limpia los filtros para ver el resto del material.' : 'Sube documentos, fotos o videos para el expediente.'} primaryAction={<Button size="sm" variant="secondary" onClick={files.length ? clearFilters : () => setShowUpload(true)}>{files.length ? 'Ver todos los archivos' : 'Subir archivos'}</Button>} />
                 : <ul className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" aria-label="Galería de archivos del expediente">
                   {filteredFiles.map(f => {
                     const cat = CATS[categoriaArchivo(f)] || CATS.other;
@@ -203,11 +206,11 @@ export default function FilesSection({ orderId, archivos }) {
           columns={columns}
           data={filteredFiles}
           rowKey={f => f.id}
-          loading={loading}
+          loading={loading && !files.length}
           loadingRows={3}
           pageSize={0}
           rowActions={f => [{ label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDeleteFile(f) }]}
-          emptyState={<EmptyState compact icon={Paperclip} title="No hay archivos subidos" description="Sube documentos, fotos o videos para el cliente." primaryAction={<Button size="sm" variant="secondary" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>} />}
+          emptyState={<EmptyState compact icon={Paperclip} title={files.length ? 'Sin archivos con estos filtros' : 'No hay archivos subidos'} description={files.length ? 'Cambia la búsqueda o limpia los filtros.' : 'Sube documentos, fotos o videos para el cliente.'} primaryAction={<Button size="sm" variant="secondary" onClick={files.length ? clearFilters : () => setShowUpload(true)}>{files.length ? 'Ver todos los archivos' : 'Subir archivos'}</Button>} />}
           mobileCard={f => {
             const cat = CATS[f.category || fileCategory(f.mime_type)] || CATS.other;
             return (

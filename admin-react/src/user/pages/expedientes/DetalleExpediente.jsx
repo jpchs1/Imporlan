@@ -51,6 +51,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [order, setOrder] = useState(null);
   const [links, setLinks] = useState([]);
   const [files, setFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [filesError, setFilesError] = useState('');
   const [reports, setReports] = useState([]);
   const [inspecciones, setInspecciones] = useState([]);
   const [pagos, setPagos] = useState([]);
@@ -133,10 +135,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   }, [orderId, toast, loadReports, loadPagos, loadInspecciones]);
 
   const loadFiles = useCallback(async () => {
+    setFilesLoading(true);
+    setFilesError('');
     try {
       const data = await getMyFiles(orderId);
-      if (data.success && data.files) setFiles(data.files);
-    } catch { /* silencioso: los archivos son secundarios */ }
+      if (!data.success || !Array.isArray(data.files)) throw new Error(data.error || 'La respuesta de archivos no está disponible.');
+      setFiles(data.files);
+    } catch (error) { setFilesError(error.message || 'No pudimos actualizar los archivos.'); }
+    finally { setFilesLoading(false); }
   }, [orderId]);
 
   // Como en el kit (NotificationBell): la carga sale del cuerpo del efecto
@@ -420,15 +426,15 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       <ExpedienteMetrics items={[
         { label: 'Etapa actual', value: `${String(etapa).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: etapaInfo?.label, icon: Compass },
         { label: 'Embarcaciones', value: activeLinks.length, hint: 'Opciones de tu expediente', icon: Ship },
-        { label: 'Documentos', value: files.filter(f => f.category === 'document').length + reports.length, hint: 'Informes y documentos disponibles', icon: FileText },
-        { label: 'Fotos y videos', value: files.filter(f => f.category === 'image' || f.category === 'video').length, hint: 'Material compartido contigo', icon: Images },
+        { label: 'Documentos', value: filesLoading || filesError ? '—' : files.filter(f => f.category === 'document').length + reports.length, hint: 'Informes y documentos disponibles', icon: FileText },
+        { label: 'Fotos y videos', value: filesLoading || filesError ? '—' : files.filter(f => f.category === 'image' || f.category === 'video').length, hint: 'Material compartido contigo', icon: Images },
       ]} />
       <ExpedienteNavigation sections={[
         ...(eleccion ? [{ id: 'mi-importacion', label: 'Tu importación', icon: Ship }] : []),
         { id: 'avance', label: 'Avance', icon: Compass },
         ...(activeLinks.length ? [{ id: 'opciones-cliente', label: 'Opciones', icon: Search, count: activeLinks.length }] : []),
         ...(reports.length ? [{ id: 'reportes-cliente', label: 'Informes', icon: FileText, count: reports.length }] : []),
-        ...(files.length ? [{ id: 'archivos', label: 'Archivos', icon: FolderOpen, count: files.length }] : []),
+        { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: filesLoading || filesError ? undefined : files.length },
       ]} />
 
       {cerrado && (
@@ -542,7 +548,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           )}</div>
 
           <SeccionReportes reports={reports} />
-          <SeccionArchivos id="archivos" files={files} onPreview={abrirFotoArchivo} />
+          <SeccionArchivos id="archivos" files={files} onPreview={abrirFotoArchivo} loading={filesLoading} error={filesError} onRefresh={loadFiles} />
         </div>
       </div>
 

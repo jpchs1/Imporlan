@@ -35,7 +35,7 @@ function App() {
   const [filter, setFilter] = useState('todos');
   const noop = () => {};
   const list = [order, { ...order, id: 36, order_number: 'IMP-DEMO-2', customer_name: 'Martín Silva', customer_email: 'martin@example.test', status: 'pending_admin_fill', chosen_link_id: null, eleccion: null, timeline_step: 2, asset_name: 'Búsqueda de embarcación familiar' }, { ...order, id: 37, order_number: 'IMP-DEMO-3', customer_name: 'Valentina Rojas', status: 'completed', eleccion: null, chosen_link_id: null, timeline_step: 5 }];
-  window.fixtureOrders = list;
+  window.fixtureOrders = mode === 'customer-list' ? [...list, { ...order, id: 38, order_number: 'IMP-DEMO-4', status: 'in_progress', timeline_step: 4, eleccion: null, chosen_link_id: null, asset_name: 'Compra activa' }] : list;
   return <MemoryRouter><ToastProvider>
     <div className="workspace-demo-shell">
       <aside className="workspace-demo-sidebar"><strong>Imporlan</strong><small>{admin ? 'Administración' : 'Mi panel'}</small><p>Inicio</p><p className="active">Expedientes</p><p>Pagos</p><p>Documentos</p><p>Seguimiento</p></aside>
