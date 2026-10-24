@@ -50,12 +50,12 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const pago1Pagado = pago1?.estado === 'pagado' ? pago1 : null;
 
   return (
-    <Card id="importacion" className="scroll-mt-32">
+    <Card id="importacion" className="exp-section scroll-mt-32">
       <Card.Header
-        title="Importación"
+        title="Operación de importación"
         description={equipoChile
-          ? 'La lancha elegida, los datos del cliente, los hitos, los cobros y lo que manda la operación en EE. UU. El cliente lo ve en su panel como «Tu importación».'
-          : 'La lancha elegida y los hitos. El cliente lo ve en su panel como «Tu importación».'}
+          ? 'Embarcación elegida, hitos, pagos y actualizaciones de la operación.'
+          : 'Embarcación elegida y avances de la operación.'}
         actions={eleccion ? (
           <>
             <Button variant="secondary" size="sm" icon={Pencil} onClick={() => onMarcarElegida(link || { id: eleccion.link_id })}>Cambiar</Button>

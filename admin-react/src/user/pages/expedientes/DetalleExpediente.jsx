@@ -9,7 +9,8 @@ import { sePuedeElegir, linkElegido, pctPago1Comun, planDePagos, cobrosDelExpedi
 import { inspeccionNoApta, devolucionPedida, reporteInspeccionDe } from '../../../shared/lib/inspeccion';
 import { faltanDatosImportacion } from '../../../shared/lib/datos-importacion';
 import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
-import { Printer, Search, WhatsAppIcon } from '../../../shared/components/Icons';
+import { Printer, Search, WhatsAppIcon, Compass, Ship, FileText, Images, FolderOpen, Calendar, User } from '../../../shared/components/Icons';
+import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
 import SeccionReportes from './SeccionReportes';
 import SeccionArchivos from './SeccionArchivos';
@@ -397,10 +398,13 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const pctPago1 = pctPago1Comun(activeLinks.filter(puedeElegir));
 
   return (
-    <div className="pb-12">
-      <PageHeader
+    <div className="exp-workspace pb-12">
+      <ExpedienteHeader
         backTo={backTo}
         backLabel="Expedientes"
+        image={elegido?.image_url || eleccion?.image_url}
+        imageLabel={eleccion ? 'Tu embarcación' : undefined}
+        description={frase}
         eyebrow={[order.order_number, tipoExpediente(order), order.plan_name !== nombre && (order.plan_name || '').toLowerCase() !== tipoExpediente(order).toLowerCase() && order.plan_name].filter(Boolean).join(' · ')}
         title={nombre}
         meta={<StatusBadge kind="expediente" status={order.status} dot />}
@@ -410,7 +414,22 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
             <Menu label="Más opciones" items={[{ label: 'Guardar como PDF', icon: Printer, onClick: () => window.print() }]} />
           </>
         }
-      />
+      >
+        <div className="exp-header__meta"><span><Calendar size={15} />{fmtDateLarga(order.created_at)}</span><span><User size={15} />{order.agent_name || 'Equipo Imporlan'}</span></div>
+      </ExpedienteHeader>
+      <ExpedienteMetrics items={[
+        { label: 'Etapa actual', value: `${String(etapa).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: etapaInfo?.label, icon: Compass },
+        { label: 'Embarcaciones', value: activeLinks.length, hint: 'Opciones de tu expediente', icon: Ship },
+        { label: 'Documentos', value: files.filter(f => f.category === 'document').length + reports.length, hint: 'Informes y documentos disponibles', icon: FileText },
+        { label: 'Fotos y videos', value: files.filter(f => f.category === 'image' || f.category === 'video').length, hint: 'Material compartido contigo', icon: Images },
+      ]} />
+      <ExpedienteNavigation sections={[
+        ...(eleccion ? [{ id: 'mi-importacion', label: 'Tu importación', icon: Ship }] : []),
+        { id: 'avance', label: 'Avance', icon: Compass },
+        ...(activeLinks.length ? [{ id: 'opciones-cliente', label: 'Opciones', icon: Search, count: activeLinks.length }] : []),
+        ...(reports.length ? [{ id: 'reportes-cliente', label: 'Informes', icon: FileText, count: reports.length }] : []),
+        ...(files.length ? [{ id: 'archivos', label: 'Archivos', icon: FolderOpen, count: files.length }] : []),
+      ]} />
 
       {cerrado && (
         <Callout tone={order.status === 'expired' ? 'warning' : 'neutral'} title={order.status === 'expired' ? 'Este expediente venció' : 'Este expediente fue cancelado'} className="mb-6">
@@ -443,7 +462,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       {/* Arriba: el avance (con los datos del expediente) y, al lado, el agente.
           El ranking va después a todo el ancho: es lo que más espacio necesita. */}
       <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <Card className="min-w-0">
+        <Card id="avance" className="exp-section min-w-0">
           <Card.Header title="Avance del expediente" description={`Etapa ${etapa} de ${ETAPAS_EXPEDIENTE.length} · ${etapaInfo?.label || ''}`} />
           <Card.Body>
             <ProcessStepper current={etapa} completedAt={completadas} currentNote={!cerrado ? frase : undefined} />
@@ -464,8 +483,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         </Card>
 
         <aside className="min-w-0 space-y-6" aria-label="Tu agente">
-          <Card>
-            <Card.Header title="Tu agente" />
+          <Card className="exp-section">
+            <Card.Header title="Tu equipo de apoyo" description="Tu contacto para avanzar con tranquilidad." />
             <Card.Body>
               {order.agent_name ? (
                 <div className="flex items-center gap-3">
@@ -489,7 +508,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         <div className="min-w-0 space-y-6">
           {!eleccion && !cerrado && hayElegibles && <GuiaEleccion agente={order.agent_name} pct={pctPago1} />}
 
-          {activeLinks.length > 0 ? (
+          <div id="opciones-cliente">{activeLinks.length > 0 ? (
             <RankingEmbarcaciones
               ref={rankingRef}
               order={order}
@@ -520,7 +539,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
                 description={cerrado ? 'No quedaron opciones registradas en este expediente.' : 'Cuando encuentre embarcaciones, aparecen aquí para que las ordenes según tu preferencia.'}
               />
             </Card>
-          )}
+          )}</div>
 
           <SeccionReportes reports={reports} />
           <SeccionArchivos id="archivos" files={files} onPreview={abrirFotoArchivo} />

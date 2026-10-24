@@ -108,7 +108,7 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
   const abrirImagen = (items, index) => setLightbox({ items, index });
 
   return (
-    <section id="operacion-usa" aria-labelledby="importacion-usa" className="scroll-mt-32">
+    <section id="operacion-usa" aria-labelledby="importacion-usa" className="exp-operation-usa scroll-mt-32">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-2">
         <h3 id="importacion-usa" className="eyebrow flex items-center gap-1.5"><Globe size={14} className="text-ink-400" aria-hidden="true" />Operación en EE. UU.</h3>
         <div className="flex items-center gap-1.5">
@@ -193,7 +193,7 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
               description="Le llegan correos solos con cada hito de su lado y un recordatorio si pasan días sin novedades. También puedes pedirle una ahora."
             />
           ) : (
-            <ol className="rounded-md border border-line divide-y divide-line">
+            <ol className="exp-usa-updates rounded-md border border-line divide-y divide-line">
               {updates.map(u => (
                 <Actualizacion
                   key={u.id}
@@ -384,7 +384,7 @@ function Actualizacion({ update: u, nombre, porId, cargandoArchivos, onCompartir
 /* Miniatura de un archivo: imagen (abre el visor), video o PDF (abren en
    otra pestaña). Los que el cliente no ve llevan «Sólo equipo». */
 function Miniatura({ f, cargando, onVerImagen }) {
-  const base = 'relative block w-24 h-16 rounded-md border border-line overflow-hidden bg-neutral-bg text-ink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500';
+  const base = 'exp-usa-file relative block w-24 h-16 rounded-md border border-line overflow-hidden bg-neutral-bg text-ink-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500';
   if (f.faltante) {
     return (
       <div className={cn(base, 'flex items-center justify-center')} title={cargando ? 'Cargando archivo…' : 'Archivo eliminado'}>

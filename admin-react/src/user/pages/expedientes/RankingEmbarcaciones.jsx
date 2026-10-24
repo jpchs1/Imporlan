@@ -103,7 +103,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
     : `Arrastra o usa las flechas para ordenar tu preferencia; el orden se guarda solo. ${n} ${n === 1 ? 'embarcación' : 'embarcaciones'}.`;
 
   return (
-    <Card ref={ref} className="scroll-mt-20">
+    <Card ref={ref} className="exp-section scroll-mt-20">
       <Card.Header
         title={titulo || 'Ranking de embarcaciones'}
         description={descripcion || ultimoCambio || 'Las opciones que encontró tu agente, en el orden que tú prefieras.'}
