@@ -50,6 +50,13 @@ export async function openFile(file) {
   tab.opener = null;
   try {
     const response = await fetchPrivateFile(src);
+    // Blob documents inherit this origin. Only passive media and PDF may
+    // open here; legacy SVG/XML uploads must stay downloads, not documents
+    // capable of running scripts with access to the panel's session.
+    const mime = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!/^(application\/pdf|image\/(jpeg|png|gif|webp|bmp|avif)|video\/(mp4|webm|mpeg|quicktime|x-msvideo|x-matroska))$/.test(mime)) {
+      throw new Error('Este formato no admite vista previa. Usa Descargar para guardar el original.');
+    }
     const blob = await response.blob();
     if (!blob.size) throw new Error('El archivo está vacío.');
     const url = URL.createObjectURL(blob);
