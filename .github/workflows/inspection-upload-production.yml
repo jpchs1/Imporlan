@@ -58,12 +58,22 @@ jobs:
               assets = set(re.findall(r'(?:src|href)="(/panel/[^\"]+\.(?:js|css)(?:\?[^\"]*)?)"', html))
               if not assets:
                   raise SystemExit('No compiled assets found for ' + panel)
+              # Expedientes loads its own JS/CSS lazily. Verify those files
+              # too: matching the entry point alone cannot confirm its design.
+              workspace_assets = set()
+              for asset in assets:
+                  if asset.split('?')[0].endswith('.js'):
+                      source = pathlib.Path(asset.split('?')[0].lstrip('/')).read_text()
+                      workspace_assets.update('/' + panel + path for path in re.findall(r'"(assets/(?:Orders|Expedientes)-[^"\s]+\.(?:js|css))"', source))
+              if not any(path.endswith('.css') for path in workspace_assets):
+                  raise SystemExit('No compiled expediente stylesheet found for ' + panel)
+              assets.update(workspace_assets)
               with urllib.request.urlopen('https://www.imporlan.cl/' + panel + '?release=' + expected, timeout=30) as response:
                   live = response.read().decode('utf-8')
                   if "worker-src 'self' blob:" not in response.headers.get('Content-Security-Policy', ''):
                       raise SystemExit('HEIC worker policy missing on ' + panel)
               for asset in assets:
-                  if asset not in live:
+                  if asset not in workspace_assets and asset not in live:
                       raise SystemExit('Live HTML references a different release: ' + panel)
                   local = pathlib.Path(asset.split('?')[0].lstrip('/')).read_bytes()
                   with urllib.request.urlopen('https://www.imporlan.cl' + asset, timeout=30) as response:
@@ -71,6 +81,7 @@ jobs:
                   if hashlib.sha256(local).digest() != hashlib.sha256(remote).digest():
                       raise SystemExit('Production asset mismatch: ' + asset)
               print('Production panel and compiled assets verified:', panel)
+              print('Production expediente scripts and styles verified:', panel)
           try:
               urllib.request.urlopen('https://www.imporlan.cl/api/cron/inspection_upload_followup.php', timeout=20)
           except urllib.error.HTTPError as error:
