@@ -7,6 +7,7 @@ import { etapaPorEleccion } from '../../../shared/lib/importacion';
 import LinkRow from '../../components/LinkRow';
 import QuoteModal from '../../components/QuoteModal';
 import ReportsSection from '../../components/ReportsSection';
+import InspectionFilesSection from '../../components/InspectionFilesSection';
 import FilesSection from '../../components/FilesSection';
 import { useExpedienteFiles } from '../../components/useExpedienteFiles';
 import { STATUS_OPTIONS } from './constantes';
@@ -221,7 +222,8 @@ export default function DetalleExpediente(p) {
             </Card.Body>
           </Card>
 
-          <div id="reportes" className="scroll-mt-32">
+          <div id="reportes" className="scroll-mt-32 space-y-4">
+            <InspectionFilesSection archivos={archivos} />
             <ReportsSection orderId={detail.id} linksCount={conUrl} customerEmail={detail.customer_email} />
           </div>
 

@@ -1,10 +1,10 @@
 import { FileImage } from '../../../shared/components/FileImage';
+import { FileDownload, FileOpen } from '../../../shared/components/FileDownload';
 import { fmtDate } from '../../../shared/lib/utils';
 import { fmtDateLarga, fmtBytes } from '../../../shared/lib/format';
 import { Card, DataTable, Callout, Badge } from '../../../shared/components/UI';
-import { Eye, Download, Video, File } from '../../../shared/components/Icons';
+import { Video, File } from '../../../shared/components/Icons';
 import { esDesdeUsa } from '../../../shared/lib/importacion';
-import BotonEnlace from './BotonEnlace';
 import { esImagen, esVideo } from './lib';
 
 
@@ -15,8 +15,8 @@ function tamano(f) {
 function Acciones({ f }) {
   return (
     <div className="flex items-center justify-end gap-2">
-      <BotonEnlace href={f.download_url} size="sm" icon={Eye}>Ver</BotonEnlace>
-      <BotonEnlace href={f.download_url} size="sm" icon={Download} download>Descargar</BotonEnlace>
+      <FileOpen file={f} className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600">Ver</FileOpen>
+      <FileDownload file={f} className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600">Descargar</FileDownload>
     </div>
   );
 }

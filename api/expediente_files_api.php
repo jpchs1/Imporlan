@@ -20,6 +20,10 @@ require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/cors_helper.php';
 setCorsHeadersSecure();
 header('Content-Type: application/json');
+header('Cache-Control: private, no-store');
+
+// Debe existir antes del dispatch: listFiles() se ejecuta dentro del switch.
+define('FILE_LINK_TTL', 7 * 86400);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -71,7 +75,6 @@ function getUploadDir() {
 
 // Enlaces de descarga firmados: los genera `list` (que exige sesión) y valen
 // FILE_LINK_TTL segundos. Así un id secuencial no basta para bajar documentos.
-define('FILE_LINK_TTL', 7 * 86400);
 
 function fileLinkSignature($fileId, $exp) {
     return hash_hmac('sha256', 'expediente_file:' . $fileId . ':' . $exp, getJwtSecret() ?: 'imporlan');
@@ -359,10 +362,17 @@ function downloadFile() {
 
     $exp = intval($_GET['exp'] ?? 0);
     $sig = (string)($_GET['sig'] ?? '');
+    $auth = null;
     if ($exp < time() || !hash_equals(fileLinkSignature($fileId, $exp), $sig)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Enlace vencido o invalido. Vuelve a abrir el expediente.']);
-        return;
+        // Los visores y las descargas pueden recuperar un enlace antiguo con
+        // la sesión vigente. Nunca aceptar sólo el id: comprobar dueño y
+        // visibilidad después de leer el archivo, igual que en listFiles().
+        if (empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Enlace vencido o invalido. Vuelve a abrir el expediente.']);
+            return;
+        }
+        $auth = requireUserAuthShared();
     }
 
     $pdo = getDbConnection();
@@ -383,6 +393,25 @@ function downloadFile() {
             return;
         }
 
+        if ($auth !== null) {
+            $role = $auth['role'] ?? '';
+            $staff = in_array($role, ['admin', 'support', 'agent'], true);
+            $allowed = !($role === 'agent' && ($file['uploaded_by'] ?? '') === 'cliente_identidad');
+            if (!$staff) {
+                $owner = $pdo->prepare('SELECT customer_email FROM orders WHERE id = ?');
+                $owner->execute([$file['order_id']]);
+                $email = strtolower(trim((string) $owner->fetchColumn()));
+                $allowed = $email !== '' && $email === strtolower(trim($auth['email'] ?? ''))
+                    && intval($file['visible_to_client'] ?? 1) === 1
+                    && ($file['uploaded_by'] ?? '') !== 'cliente_identidad';
+            }
+            if (!$allowed) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes permiso para acceder a este archivo.']);
+                return;
+            }
+        }
+
         $filePath = getUploadDir() . $file['stored_name'];
         if (!file_exists($filePath)) {
             http_response_code(404);
@@ -397,14 +426,13 @@ function downloadFile() {
         // For images and PDFs, display inline; for others, force download
         $inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf',
                         'video/mp4', 'video/webm'];
-        if (in_array($file['mime_type'], $inlineTypes)) {
-            header('Content-Disposition: inline; filename="' . $file['original_name'] . '"');
-        } else {
-            header('Content-Disposition: attachment; filename="' . $file['original_name'] . '"');
-        }
+        $disposition = empty($_GET['download']) && in_array($file['mime_type'], $inlineTypes) ? 'inline' : 'attachment';
+        $filename = basename(str_replace('\\', '/', $file['original_name']));
+        $asciiName = preg_replace('/[^A-Za-z0-9._ -]/', '_', $filename);
+        header('Content-Disposition: ' . $disposition . '; filename="' . $asciiName . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
 
         header('X-Content-Type-Options: nosniff');
-        header('Cache-Control: private, max-age=86400');
+        header('Cache-Control: private, no-store');
         readfile($filePath);
         exit();
     } catch (PDOException $e) {

@@ -1,3 +1,5 @@
+import { fetchPrivateFile } from './file-download';
+
 // HEIC/HEIF uploads stay private and keep their original format for downloads.
 // Only the decoder code comes from the CDN; image bytes never leave this browser.
 const DECODER_URL = 'https://cdn.jsdelivr.net/npm/heic-to@1.6.6/+esm';
@@ -47,16 +49,8 @@ export function getImagePreview(src) {
   }
   if (pending.has(src)) return pending.get(src);
   const task = queue.then(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-    let original;
-    try {
-      const response = await fetch(src, { credentials: 'same-origin', signal: controller.signal });
-      if (!response.ok) throw new Error(`Image unavailable (${response.status})`);
-      original = await response.blob();
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetchPrivateFile(src);
+    const original = await response.blob();
     const blob = await hasHeicSignature(original) ? await decodeHeic(original) : original;
     if (blob.size <= MAX_CACHE_BYTES) {
       while (cache.size && (cache.size >= 32 || cacheBytes + blob.size > MAX_CACHE_BYTES)) {

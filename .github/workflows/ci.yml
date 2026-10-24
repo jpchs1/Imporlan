@@ -27,6 +27,12 @@ jobs:
           "$RUNNER_TEMP/imporlan-browser-tests/node_modules/.bin/playwright" install chromium --only-shell
       - name: Preview real HEIC files with the production security policy
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-image-preview-tests.mjs
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite
+      - name: JPG and inspection PDF access through the real PHP API
+        run: FILE_BROWSER_TEST=1 PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-file-access-tests.mjs
 
   php-syntax:
     name: PHP Syntax Check
