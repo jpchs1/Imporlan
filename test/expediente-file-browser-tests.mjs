@@ -94,6 +94,15 @@ createRoot(document.getElementById('root')).render(<App/>);`;
       }
       check(errors.length === 0, 'no browser application errors');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}px layout fits the viewport`);
+      if (admin && width === 1440) {
+        await page.route('**/api/unsafe-preview', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"><script>localStorage.setItem("unsafe-preview-ran","yes")</script></svg>' }));
+        const result = await page.evaluate(async () => {
+          const { openFile } = await import('/src/shared/lib/file-download.js');
+          try { await openFile({ download_url: '/api/unsafe-preview' }); return ''; }
+          catch (e) { return e.message; }
+        });
+        check(result.includes('no admite vista previa') && !(await page.evaluate(() => localStorage.getItem('unsafe-preview-ran'))), 'legacy SVG uploads cannot execute scripts through file previews');
+      }
       await context.close();
     }
   } finally { await browser.close(); await server.close(); }
