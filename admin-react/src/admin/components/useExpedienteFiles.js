@@ -10,14 +10,17 @@ import { getExpedienteFiles } from '../api';
 export function useExpedienteFiles(orderId) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const recargar = useCallback(async () => {
     if (!orderId) return;
     setLoading(true);
+    setError('');
     try {
       const data = await getExpedienteFiles(orderId);
-      setFiles(data.success && data.files ? data.files : []);
-    } catch (e) { console.error(e); }
+      if (!data.success || !Array.isArray(data.files)) throw new Error(data.error || 'No se pudieron cargar los archivos.');
+      setFiles(data.files);
+    } catch (e) { setError(e.message || 'Error al cargar archivos.'); }
     setLoading(false);
   }, [orderId]);
 
@@ -26,7 +29,7 @@ export function useExpedienteFiles(orderId) {
     return () => clearTimeout(t);
   }, [recargar]);
 
-  return { files, loading, recargar };
+  return { files, loading, error, recargar };
 }
 
 /** Categoría de un archivo por su MIME (la misma que calcula el servidor). */

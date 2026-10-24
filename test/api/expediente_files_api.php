@@ -21,6 +21,8 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Email');
 header('Content-Type: application/json');
+header('Cache-Control: private, no-store');
+define('FILE_LINK_TTL', 7 * 86400);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -70,7 +72,6 @@ function getUploadDir() {
 // Enlaces de descarga firmados (igual que api/): los genera `list` (que exige
 // sesión) y valen FILE_LINK_TTL segundos. Así un id secuencial no basta para
 // bajar documentos de otro cliente.
-define('FILE_LINK_TTL', 7 * 86400);
 
 function fileLinkSignature($fileId, $exp) {
     return hash_hmac('sha256', 'expediente_file:' . $fileId . ':' . $exp, getJwtSecret() ?: 'imporlan');
@@ -293,10 +294,19 @@ function listFiles($auth) {
             }
         }
 
+        // Los documentos que manda la operación en EE. UU. quedan internos
+        // (visible_to_client = 0) hasta que el equipo los comparte.
+        $cols = $pdo->query("SHOW COLUMNS FROM expediente_files")->fetchAll(PDO::FETCH_COLUMN);
+        $conVisible = in_array('visible_to_client', $cols, true);
+        $soloVisibles = ($conVisible && !$isStaff) ? ' AND visible_to_client = 1' : '';
+        // La cédula del cliente es sólo para el equipo en Chile: el agente
+        // (operación en EE. UU.) no la ve.
+        if (($auth['role'] ?? '') === 'agent') $soloVisibles .= " AND (uploaded_by IS NULL OR uploaded_by <> 'cliente_identidad')";
+        $visibleSel = $conVisible ? ', visible_to_client' : ', 1 AS visible_to_client';
         $stmt = $pdo->prepare("
-            SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at
+            SELECT id, order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, created_at $visibleSel
             FROM expediente_files
-            WHERE order_id = ?
+            WHERE order_id = ?$soloVisibles
             ORDER BY created_at DESC
         ");
         $stmt->execute([$orderId]);
@@ -309,6 +319,8 @@ function listFiles($auth) {
             $exp = time() + FILE_LINK_TTL;
             $f['download_url'] = $baseUrl . '?action=download&id=' . $f['id'] . '&exp=' . $exp . '&sig=' . fileLinkSignature($f['id'], $exp);
             unset($f['stored_name']);
+            // Quién lo subió es del equipo: el cliente no ve al operador en EE. UU.
+            if (!$isStaff) unset($f['uploaded_by']);
             $f['file_size_formatted'] = formatFileSize($f['file_size']);
         }
 
@@ -329,10 +341,17 @@ function downloadFile() {
 
     $exp = intval($_GET['exp'] ?? 0);
     $sig = (string)($_GET['sig'] ?? '');
+    $auth = null;
     if ($exp < time() || !hash_equals(fileLinkSignature($fileId, $exp), $sig)) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Enlace vencido o invalido. Vuelve a abrir el expediente.']);
-        return;
+        // Los visores y las descargas pueden recuperar un enlace antiguo con
+        // la sesión vigente. Nunca aceptar sólo el id: comprobar dueño y
+        // visibilidad después de leer el archivo, igual que en listFiles().
+        if (empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Enlace vencido o invalido. Vuelve a abrir el expediente.']);
+            return;
+        }
+        $auth = requireUserAuthShared();
     }
 
     $pdo = getDbConnection();
@@ -353,6 +372,25 @@ function downloadFile() {
             return;
         }
 
+        if ($auth !== null) {
+            $role = $auth['role'] ?? '';
+            $staff = in_array($role, ['admin', 'support', 'agent'], true);
+            $allowed = !($role === 'agent' && ($file['uploaded_by'] ?? '') === 'cliente_identidad');
+            if (!$staff) {
+                $owner = $pdo->prepare('SELECT customer_email FROM orders WHERE id = ?');
+                $owner->execute([$file['order_id']]);
+                $email = strtolower(trim((string) $owner->fetchColumn()));
+                $allowed = $email !== '' && $email === strtolower(trim($auth['email'] ?? ''))
+                    && intval($file['visible_to_client'] ?? 1) === 1
+                    && ($file['uploaded_by'] ?? '') !== 'cliente_identidad';
+            }
+            if (!$allowed) {
+                http_response_code(403);
+                echo json_encode(['error' => 'No tienes permiso para acceder a este archivo.']);
+                return;
+            }
+        }
+
         $filePath = getUploadDir() . $file['stored_name'];
         if (!file_exists($filePath)) {
             http_response_code(404);
@@ -365,16 +403,15 @@ function downloadFile() {
         header('Content-Length: ' . filesize($filePath));
 
         // For images and PDFs, display inline; for others, force download
-        $inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf',
+        $inlineTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf',
                         'video/mp4', 'video/webm'];
-        if (in_array($file['mime_type'], $inlineTypes)) {
-            header('Content-Disposition: inline; filename="' . $file['original_name'] . '"');
-        } else {
-            header('Content-Disposition: attachment; filename="' . $file['original_name'] . '"');
-        }
+        $disposition = empty($_GET['download']) && in_array($file['mime_type'], $inlineTypes) ? 'inline' : 'attachment';
+        $filename = basename(str_replace('\\', '/', $file['original_name']));
+        $asciiName = preg_replace('/[^A-Za-z0-9._ -]/', '_', $filename);
+        header('Content-Disposition: ' . $disposition . '; filename="' . $asciiName . '"; filename*=UTF-8\'\'' . rawurlencode($filename));
 
         header('X-Content-Type-Options: nosniff');
-        header('Cache-Control: private, max-age=86400');
+        header('Cache-Control: private, no-store');
         readfile($filePath);
         exit();
     } catch (PDOException $e) {

@@ -1,4 +1,6 @@
 import { FileImage } from '../../shared/components/FileImage';
+import { downloadFile, openFile } from '../../shared/lib/file-download';
+import { useToast } from '../../shared/components/Toast';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMyOrders, getMyFiles, getMyReports } from '../api';
 import { fmtDate, cn } from '../../shared/lib/utils';
@@ -43,17 +45,6 @@ function esMismoOrigen(url) {
   try { return new URL(url, window.location.href).origin === window.location.origin; } catch { return false; }
 }
 
-function descargar(doc) {
-  if (!doc.download_url) return;
-  if (!esMismoOrigen(doc.download_url)) { window.open(doc.download_url, '_blank', 'noopener'); return; }
-  const a = document.createElement('a');
-  a.href = doc.download_url;
-  a.download = doc.original_name || '';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
 
 /**
  * Celda principal: ícono (o miniatura si es foto), nombre completo y
@@ -102,6 +93,10 @@ function CeldaArchivo({ doc, completa = false, onOpen }) {
 }
 
 export default function Documents() {
+  const toast = useToast();
+  async function descargar(doc) {
+    try { await downloadFile(doc); } catch (e) { toast?.(e.message, 'error'); }
+  }
   const [allDocs, setAllDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -206,7 +201,8 @@ export default function Documents() {
       setLightbox(i >= 0 ? i : 0);
       return;
     }
-    window.open(doc.download_url, '_blank', 'noopener');
+    if (!esMismoOrigen(doc.download_url)) { window.open(doc.download_url, '_blank', 'noopener'); return; }
+    openFile(doc).catch(e => toast?.(e.message, 'error'));
   }
 
   const filtersActive = filter !== 'all' || !!search.trim();

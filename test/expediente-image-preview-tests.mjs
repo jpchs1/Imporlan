@@ -119,7 +119,7 @@ try {
   await t.page.getByRole('button', { name: 'Ver IMG_1.HEIC', exact: true }).click();
   await loaded(t.page, '[role="dialog"] img', 1);
   check(t.stats.files.get('1') === requests, 'lightbox reuses the decoded thumbnail without another download');
-  check((await t.page.locator('[aria-label="Descargar"]').getAttribute('href')).includes('sig=test-1'), 'lightbox download retains the signed original URL');
+  check(await t.page.getByRole('button', { name: 'Descargar', exact: true }).isEnabled(), 'lightbox provides the validated original-file download');
   const downloading = t.page.waitForEvent('download');
   await t.page.locator('[aria-label="Descargar"]').click();
   const download = await downloading;

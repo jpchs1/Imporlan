@@ -163,7 +163,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
     <>
       <Card>
         <Card.Header
-          title="Reportes"
+          title="Reportes de opciones"
           description="Reportes de opciones generados con IA y enviados al cliente."
           actions={(
             <>
@@ -186,7 +186,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
             { separator: true },
             { label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDelete(r.id, r.version) },
           ]}
-          emptyState={<EmptyState compact icon={FileSearch} title="Aún no hay reportes" description={sinLinks ? 'Agrega links al ranking para poder generar uno.' : 'Usa «Generar y enviar» para crear el primero.'} />}
+          emptyState={<EmptyState compact icon={FileSearch} title="Aún no hay reportes de opciones" description={sinLinks ? 'Agrega links al ranking para poder generar uno.' : 'Usa «Generar y enviar» para crear el primero.'} />}
           mobileCard={r => (
             <div className="min-w-0">
               <div className="flex items-center gap-2"><Badge tone="brand">v{r.version}</Badge><span className="text-13 text-ink-500 tabular">{fmtDate(r.created_at)}</span></div>

@@ -2,7 +2,8 @@ import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
 import { useFocusTrap, useScrollLock } from '../lib/focus';
-import { X, ChevronLeft, ChevronRight, Download } from './Icons';
+import { X, ChevronLeft, ChevronRight } from './Icons';
+import { FileDownload } from './FileDownload';
 import { IconButton } from './Button';
 import { FileImage } from './FileImage';
 
@@ -42,7 +43,7 @@ export function Lightbox({ open, items = [], index = 0, onIndexChange, onClose }
       <div className="flex items-center justify-between gap-3 px-4 h-14 text-white shrink-0">
         <span className="text-sm tabular text-white/80">{i + 1} / {total}</span>
         <div className="flex items-center gap-1">
-          {it.downloadUrl && <a href={it.downloadUrl} download className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white" aria-label="Descargar"><Download size={18} /></a>}
+          {it.downloadUrl && <FileDownload file={it} label="Descargar" iconSize={18} className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white" />}
           <IconButton icon={X} aria-label="Cerrar" onClick={onClose} className="text-white/80 hover:bg-white/10 hover:text-white border-transparent" />
         </div>
       </div>

@@ -3,10 +3,13 @@ import { deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { fmtBytes } from '../../shared/lib/format';
 import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA, esCedulaCliente } from '../../shared/lib/importacion';
-import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
-import { Upload, Eye, Download, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
+import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, ErrorState, useConfirm } from '../../shared/components/UI';
+import { Upload, Eye, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 import { useExpedienteFiles, categoriaArchivo } from './useExpedienteFiles';
+import { FileImage } from '../../shared/components/FileImage';
+import { Lightbox } from '../../shared/components/Lightbox';
+import { FileDownload, FileOpen } from '../../shared/components/FileDownload';
 
 function fileCategory(mime) {
   return categoriaArchivo({ mime_type: mime });
@@ -45,12 +48,24 @@ export default function FilesSection({ orderId, archivos }) {
   const toast = useToast();
   const confirm = useConfirm();
   const propios = useExpedienteFiles(archivos ? null : orderId);
-  const { files, loading, recargar: loadFiles } = archivos || propios;
+  const { files, loading, error, recargar: loadFiles } = archivos || propios;
   const [showUpload, setShowUpload] = useState(false);
   const [pending, setPending] = useState([]);
   const [description, setDescription] = useState('');
   const [notifyClient, setNotifyClient] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const images = files.filter(f => categoriaArchivo(f) === 'image');
+  const items = images.map(f => ({ src: f.download_url, downloadUrl: f.download_url, originalName: f.original_name, mimeType: f.mime_type, alt: f.original_name, caption: f.original_name }));
+  const openImage = f => setPreview(images.findIndex(image => image.id === f.id));
+  const actionClass = 'inline-flex items-center justify-center h-8 w-8 rounded-md text-ink-700 hover:bg-neutral-bg focus-visible:outline-2 focus-visible:outline-brand-500';
+
+  function thumbnail(f, iconComponent) {
+    const Icon = iconComponent;
+    return categoriaArchivo(f) === 'image' ? <button type="button" onClick={() => openImage(f)} aria-label={`Ver foto ${f.original_name}`} className="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-line bg-neutral-bg">
+      <FileImage src={f.download_url} originalName={f.original_name} mimeType={f.mime_type} alt={f.original_name} loading="lazy" className="h-full w-full object-cover" />
+    </button> : <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>;
+  }
 
   function handleFilesSelected(fileList) {
     setPending(Array.from(fileList));
@@ -103,7 +118,7 @@ export default function FilesSection({ orderId, archivos }) {
         const Icon = cat.icon;
         return (
           <div className="flex items-center gap-3 min-w-0">
-            <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>
+            {thumbnail(f, Icon)}
             <div className="min-w-0">
               <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
               <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
@@ -126,8 +141,8 @@ export default function FilesSection({ orderId, archivos }) {
         const previewable = cat === 'image' || f.mime_type === 'application/pdf' || cat === 'video';
         return (
           <span className="inline-flex items-center gap-1" onClick={e => e.stopPropagation()}>
-            {previewable && <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => window.open(f.download_url, '_blank', 'noopener')} />}
-            <a href={f.download_url} download aria-label={`Descargar ${f.original_name}`} title={`Descargar ${f.original_name}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-transparent text-ink-700 hover:bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"><Download size={14} /></a>
+            {previewable && (cat === 'image' ? <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => openImage(f)} /> : <FileOpen file={f} className={actionClass} />)}
+            <FileDownload file={f} className={actionClass} />
           </span>
         );
       },
@@ -142,7 +157,7 @@ export default function FilesSection({ orderId, archivos }) {
           description="Documentos, fotos y videos del expediente. El cliente ve todos salvo los marcados «Sólo equipo» y su cédula, que es privada."
           actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
         />
-        <DataTable
+        {error ? <ErrorState compact message={error} onRetry={loadFiles} /> : <DataTable
           aria-label="Archivos del expediente"
           columns={columns}
           data={files}
@@ -155,16 +170,19 @@ export default function FilesSection({ orderId, archivos }) {
           mobileCard={f => {
             const cat = CATS[f.category || fileCategory(f.mime_type)] || CATS.other;
             return (
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-2">
+                {thumbnail(f, cat.icon)}
                 <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
                 <p className="text-13 text-ink-500">{cat.label} · {f.file_size_formatted || fmtBytes(f.file_size)} · {fmtDate(f.created_at)}</p>
                 <p className="flex flex-wrap gap-1.5 mt-1 empty:hidden"><ChipsArchivo f={f} /></p>
-                <a href={f.download_url} download className="inline-flex items-center gap-1 mt-1.5 text-13 font-medium text-brand-600 hover:underline"><Download size={14} /> Descargar</a>
+                <div className="flex gap-3"><FileOpen file={f} className="inline-flex items-center gap-1 text-13 font-medium text-brand-600">Ver</FileOpen><FileDownload file={f} className="inline-flex items-center gap-1 text-13 font-medium text-brand-600">Descargar</FileDownload></div>
               </div>
             );
           }}
-        />
+        />}
       </Card>
+
+      <Lightbox open={preview !== null} items={items} index={preview ?? 0} onIndexChange={setPreview} onClose={() => setPreview(null)} />
 
       <Modal
         open={showUpload}

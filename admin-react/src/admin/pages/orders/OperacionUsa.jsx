@@ -1,4 +1,5 @@
 import { FileImage } from '../../../shared/components/FileImage';
+import { FileOpen } from '../../../shared/components/FileDownload';
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
@@ -405,10 +406,10 @@ function Miniatura({ f, cargando, onVerImagen }) {
   const Icono = cat === 'video' ? Video : cat === 'document' ? FileText : FileIcon;
   const etiqueta = cat === 'video' ? 'Video' : cat === 'document' ? (/\.pdf$/i.test(f.original_name || '') ? 'PDF' : 'Documento') : 'Archivo';
   return (
-    <a href={f.download_url} target="_blank" rel="noopener" className={cn(base, 'flex flex-col items-center justify-center gap-1 px-1 text-ink-700 hover:bg-line')} aria-label={`Abrir ${f.original_name}`} title={f.original_name}>
+    <FileOpen file={f} label={`Abrir ${f.original_name}`} className={cn(base, 'flex flex-col items-center justify-center gap-1 px-1 text-ink-700 hover:bg-line')}>
       <Icono size={18} aria-hidden="true" />
       {interno ? chip && <Badge tone="neutral" size="sm">Sólo equipo</Badge> : <span className="text-xs font-medium max-w-full truncate">{etiqueta}</span>}
-    </a>
+    </FileOpen>
   );
 }
 

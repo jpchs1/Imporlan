@@ -13,7 +13,7 @@ function Preview({ src, heic, alt = '', className = '', loading, ...props }) {
   const ref = useRef(null);
   const [recover, setRecover] = useState(heic);
   const [result, setResult] = useState(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState('');
 
   useEffect(() => {
     if (!recover || failed) return;
@@ -25,7 +25,7 @@ function Preview({ src, heic, alt = '', className = '', loading, ...props }) {
         if (!active) return;
         url = URL.createObjectURL(blob);
         setResult(url);
-      }).catch(() => { if (active) setFailed(true); });
+      }).catch(error => { if (active) setFailed(error.message || 'No se pudo abrir la imagen.'); });
     };
     if (loading === 'lazy' && ref.current && typeof IntersectionObserver !== 'undefined') {
       observer = new IntersectionObserver(entries => {
@@ -46,7 +46,7 @@ function Preview({ src, heic, alt = '', className = '', loading, ...props }) {
   }, [src, recover, failed, loading]);
 
   if (failed || (recover && !result)) {
-    const label = failed ? 'Vista no disponible. Puedes descargar el original desde el visor.' : 'Preparando foto…';
+    const label = failed || 'Preparando foto…';
     return (
       <span ref={ref} role="img" aria-label={label} title={label} className={`${className} inline-flex flex-col items-center justify-center gap-1 bg-neutral-bg p-2 text-ink-500`}>
         <ImageIcon size={20} aria-hidden="true" />
@@ -55,6 +55,6 @@ function Preview({ src, heic, alt = '', className = '', loading, ...props }) {
     );
   }
   return <img {...props} src={result || src} alt={alt} loading={loading} className={className} onError={() => {
-    if (recover) setFailed(true); else setRecover(true);
+    if (recover) setFailed('El servidor no entregó una imagen válida.'); else setRecover(true);
   }} />;
 }
