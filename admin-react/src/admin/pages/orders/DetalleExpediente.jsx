@@ -1,69 +1,22 @@
-import { useEffect, useState } from 'react';
-import { fmtDate, cn } from '../../../shared/lib/utils';
-import { Card, Button, Modal, Select, Menu, Callout, ErrorState, EmptyState, Skeleton, ProcessStepper, Spinner } from '../../../shared/components/UI';
-import { Plus, Trash, Link2, Info } from '../../../shared/components/Icons';
+import { useState } from 'react';
+import { fmtDate } from '../../../shared/lib/utils';
+import { Card, Button, Modal, Select, Menu, StatusBadge, Callout, ErrorState, EmptyState, Skeleton, ProcessStepper, Spinner } from '../../../shared/components/UI';
+import { Plus, Trash, Link2, Info, FolderOpen, FileText, Images, Ship, Compass, Globe, User, Calendar, Layers, ArrowUpRight } from '../../../shared/components/Icons';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { etapaPorEleccion } from '../../../shared/lib/importacion';
+import { etapaPorEleccion, tituloLancha } from '../../../shared/lib/importacion';
 import LinkRow from '../../components/LinkRow';
 import QuoteModal from '../../components/QuoteModal';
 import ReportsSection from '../../components/ReportsSection';
 import InspectionFilesSection from '../../components/InspectionFilesSection';
 import FilesSection from '../../components/FilesSection';
 import { useExpedienteFiles } from '../../components/useExpedienteFiles';
+import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
+import { irASeccionExpediente } from '../../../shared/lib/expediente-navigation';
 import { STATUS_OPTIONS } from './constantes';
 import BarraAcciones from './BarraAcciones';
 import FormularioExpediente from './FormularioExpediente';
 import SeccionImportacion from './SeccionImportacion';
 import ModalEleccion from './ModalEleccion';
-
-const SECCIONES = [
-  { id: 'datos', label: 'Datos' },
-  { id: 'etapa', label: 'Etapa' },
-  { id: 'importacion', label: 'Importación' },
-  { id: 'operacion-usa', label: 'EE. UU.', soloConEleccion: true, soloEquipoChile: true },
-  { id: 'ranking', label: 'Ranking' },
-  { id: 'reportes', label: 'Reportes' },
-  { id: 'archivos', label: 'Archivos' },
-];
-
-/* Anclas laterales (≥ xl). Con HashRouter un <a href="#id"> cambiaría de ruta,
-   así que se desplaza con scrollIntoView. */
-function Anclas({ conEleccion, equipoChile }) {
-  const [activa, setActiva] = useState('datos');
-  const secciones = SECCIONES.filter(s => (!s.soloConEleccion || conEleccion) && (!s.soloEquipoChile || equipoChile));
-  const ids = secciones.map(s => s.id).join(',');
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
-    const obs = new IntersectionObserver((entries) => {
-      const visibles = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visibles[0]) setActiva(visibles[0].target.id);
-    }, { rootMargin: '-140px 0px -60% 0px', threshold: 0 });
-    // Se observa al montar y cada vez que aparece o desaparece una sección
-    // (la de EE. UU. nace con la elección y se pinta tras cargar).
-    const t = setTimeout(() => ids.split(',').forEach(id => { const el = document.getElementById(id); if (el) obs.observe(el); }), 300);
-    return () => { clearTimeout(t); obs.disconnect(); };
-  }, [ids]);
-  const ir = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  return (
-    <nav aria-label="Secciones del expediente" className="sticky top-[calc(var(--topbar-h)+72px)]">
-      <ul className="space-y-0.5">
-        {secciones.map(s => (
-          <li key={s.id}>
-            <button
-              type="button"
-              onClick={() => ir(s.id)}
-              aria-current={activa === s.id ? 'location' : undefined}
-              className={cn('w-full text-left px-3 h-8 rounded-md text-13 transition-colors duration-150 border-l-2',
-                activa === s.id ? 'border-brand-600 text-ink-900 font-medium bg-surface' : 'border-transparent text-ink-500 hover:text-ink-900 hover:bg-surface')}
-            >
-              {s.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 export default function DetalleExpediente(p) {
   const {
@@ -94,9 +47,13 @@ export default function DetalleExpediente(p) {
   const etapaEleccion = etapaPorEleccion(eleccion);
   // El rol agente (operación en EE. UU.) no ve el contacto del cliente ni cobra.
   const equipoChile = importacion.puedeCobrar !== false;
+  const elegida = eleccion ? links.find(link => Number(link.id) === Number(eleccion.link_id)) : null;
+  const etapaActual = Math.min(ETAPAS_EXPEDIENTE.length, Math.max(1, Number(detail.timeline_step) || 1));
+  const documentos = archivos.files.filter(f => f.category === 'document').length;
+  const multimedia = archivos.files.filter(f => f.category === 'image' || f.category === 'video').length;
 
   return (
-    <div>
+    <div className="exp-workspace exp-workspace--admin">
       <BarraAcciones
         detail={detail}
         unsaved={unsaved}
@@ -113,14 +70,43 @@ export default function DetalleExpediente(p) {
         contactoOculto={!equipoChile}
       />
 
-      <div className="xl:grid xl:grid-cols-[150px_minmax(0,1fr)] xl:gap-8">
-        <aside className="hidden xl:block"><Anclas conEleccion={!!eleccion} equipoChile={equipoChile} /></aside>
+      <ExpedienteHeader
+        eyebrow={`Expediente · ${detail.order_number}`}
+        title={detail.customer_name || detail.order_number}
+        description={elegida ? tituloLancha(elegida) : (detail.asset_name || detail.requirement_name || 'Gestiona el avance y la documentación de esta operación.')}
+        meta={<StatusBadge kind="expediente" status={detail.status} dot />}
+        image={elegida?.image_url}
+        imageLabel="Embarcación elegida"
+      >
+        <div className="exp-header__meta">
+          <span><Layers size={15} />{detail.plan_name || 'Plan por definir'}</span>
+          <span><User size={15} />{detail.agent_name || 'Agente sin asignar'}</span>
+          <span><Calendar size={15} />{fmtDate(detail.purchase_date || detail.created_at)}</span>
+        </div>
+        <div className="exp-header__shortcuts">
+          <Button variant="secondary" size="sm" icon={FileText} onClick={() => irASeccionExpediente('reportes')}>Informe de inspección</Button>
+          <Button variant="ghost" size="sm" iconRight={ArrowUpRight} onClick={() => irASeccionExpediente('archivos')}>Ver archivos</Button>
+        </div>
+      </ExpedienteHeader>
+      <ExpedienteMetrics items={[
+        { label: 'Etapa actual', value: `${String(etapaActual).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: ETAPAS_EXPEDIENTE[etapaActual - 1]?.label, icon: Compass },
+        { label: 'Opciones', value: conUrl, hint: 'Embarcaciones en el ranking', icon: Ship },
+        { label: 'Documentos', value: archivos.loading ? '—' : documentos, hint: 'Informes y otros documentos', icon: FileText },
+        { label: 'Fotos y videos', value: archivos.loading ? '—' : multimedia, hint: 'Material de la operación', icon: Images },
+      ]} />
+      <ExpedienteNavigation sections={[
+        { id: 'etapa', label: 'Resumen', icon: Compass },
+        { id: 'importacion', label: 'Operación', icon: Ship },
+        ...(eleccion && equipoChile ? [{ id: 'operacion-usa', label: 'EE. UU.', icon: Globe }] : []),
+        { id: 'reportes', label: 'Informes', icon: FileText },
+        { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: archivos.files.length },
+        { id: 'ranking', label: 'Opciones', icon: Link2, count: conUrl },
+        { id: 'datos', label: 'Datos', icon: User },
+      ]} />
+      <div className="exp-content">
 
-        <div className="min-w-0 space-y-4">
-          <FormularioExpediente detail={detail} form={form} setForm={setForm} setUnsaved={setUnsaved} contactoOculto={!equipoChile} />
-
-          <Card id="etapa" className="scroll-mt-32">
-            <Card.Header title="Etapa del proceso" description="La etapa actual se muestra en el panel del cliente." />
+          <Card id="etapa" className="exp-section scroll-mt-32">
+            <Card.Header title="Avance de la operación" description="Sigue el recorrido del expediente y actualiza cada etapa cuando corresponda." />
             <Card.Body>
               <ProcessStepper current={detail.timeline_step || 1} onPrev={() => onTimelineStep(-1)} onNext={() => onTimelineStep(1)} showDescription={false} />
               {eleccion && etapaEleccion > 0 && (
@@ -145,7 +131,15 @@ export default function DetalleExpediente(p) {
             archivos={archivos}
           />
 
-          <Card id="ranking" className="scroll-mt-32">
+          <div id="reportes" className="scroll-mt-32 space-y-4">
+            <InspectionFilesSection archivos={archivos} />
+            <ReportsSection orderId={detail.id} linksCount={conUrl} customerEmail={detail.customer_email} />
+          </div>
+
+          <div id="archivos" className="scroll-mt-32">
+            <FilesSection orderId={detail.id} archivos={archivos} />
+          </div>
+          <Card id="ranking" className="exp-section scroll-mt-32">
             <Card.Header
               title="Ranking de opciones en USA"
               description={`${links.length} ${links.length === 1 ? 'opción' : 'opciones'} · arrastra las filas para ordenarlas`}
@@ -222,15 +216,7 @@ export default function DetalleExpediente(p) {
             </Card.Body>
           </Card>
 
-          <div id="reportes" className="scroll-mt-32 space-y-4">
-            <InspectionFilesSection archivos={archivos} />
-            <ReportsSection orderId={detail.id} linksCount={conUrl} customerEmail={detail.customer_email} />
-          </div>
-
-          <div id="archivos" className="scroll-mt-32">
-            <FilesSection orderId={detail.id} archivos={archivos} />
-          </div>
-        </div>
+        <div><FormularioExpediente detail={detail} form={form} setForm={setForm} setUnsaved={setUnsaved} contactoOculto={!equipoChile} /></div>
       </div>
 
       {/* Change status modal */}

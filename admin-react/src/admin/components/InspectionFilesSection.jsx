@@ -11,7 +11,7 @@ export default function InspectionFilesSection({ archivos }) {
   const reports = files.filter(f => f.uploaded_by === ORIGEN_ARCHIVO_USA
     && (f.mime_type === 'application/pdf' || /\.pdf$/i.test(f.original_name || '')));
   const actionClass = 'inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-13 font-medium text-ink-700 hover:bg-neutral-bg';
-  return <Card>
+  return <Card className="exp-section">
     <Card.Header title="Informe de inspección" description="Documentos originales cargados desde Estados Unidos. Revisa el informe antes de continuar con la adquisición."
       actions={<Button variant="secondary" size="sm" icon={RefreshCw} onClick={recargar} disabled={loading}>Actualizar</Button>} />
     <Card.Body>

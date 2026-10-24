@@ -39,7 +39,7 @@ export default function SeccionArchivos({ files, onPreview, id }) {
   const deUsa = files.filter(esDesdeUsa).length;
 
   return (
-    <Card id={id} className={id ? 'scroll-mt-20' : undefined}>
+    <Card id={id} className={id ? 'exp-section scroll-mt-20' : 'exp-section'}>
       <Card.Header title={`Documentos y fotos (${files.length})`} description={deUsa > 0 ? `Lo que el equipo subió a este expediente y lo que llega desde Estados Unidos (${deUsa}).` : 'Lo que el equipo subió a este expediente.'} />
       {(nota || imagenes.length > 0) && (
         <Card.Body className="space-y-5">

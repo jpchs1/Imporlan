@@ -75,7 +75,7 @@ export default function TuImportacion({
   const ChipIcono = chipInspeccion.icono;
 
   return (
-    <Card as="section" aria-labelledby="tu-importacion" className="mb-6">
+    <Card as="section" id="mi-importacion" aria-labelledby="tu-importacion" className="exp-section mb-6">
       <Card.Header
         title={<span id="tu-importacion">Tu importación</span>}
         description={`${title} · elegida el ${fmtDateLarga(eleccion.at)} ${eleccion.by === 'equipo' ? 'por tu agente' : 'por ti'}`}

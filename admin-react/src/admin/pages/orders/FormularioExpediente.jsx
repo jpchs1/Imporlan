@@ -16,7 +16,7 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
   const oculto = <span className="text-ink-500">Oculto para tu cuenta</span>;
 
   return (
-    <Card id="datos" className="scroll-mt-32">
+    <Card id="datos" className="exp-section scroll-mt-32">
       <Card.Header
         title="Datos del expediente"
         description={contactoOculto
@@ -25,6 +25,7 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
       />
       <Card.Body className="space-y-6">
         <DescriptionList
+          className="exp-detail-meta"
           cols={4}
           dense
           items={[

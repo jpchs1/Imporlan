@@ -33,6 +33,8 @@ jobs:
           extensions: pdo_sqlite
       - name: JPG and inspection PDF access through the real PHP API
         run: FILE_BROWSER_TEST=1 PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-file-access-tests.mjs
+      - name: Workspace navigation, filters and editing across screen sizes
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-workspace-tests.mjs
 
   php-syntax:
     name: PHP Syntax Check

@@ -30,7 +30,7 @@ function Acciones({ r }) {
 export default function SeccionReportes({ reports }) {
   if (!reports?.length) return null;
   return (
-    <Card>
+    <Card id="reportes-cliente" className="exp-section">
       <Card.Header title={`Reportes (${reports.length})`} description="Los informes que preparó el equipo para este expediente." />
       <DataTable
         aria-label="Reportes del expediente"

@@ -161,7 +161,7 @@ export default function ReportsSection({ orderId, linksCount = 0, customerEmail 
 
   return (
     <>
-      <Card>
+      <Card className="exp-section">
         <Card.Header
           title="Reportes de opciones"
           description="Reportes de opciones generados con IA y enviados al cliente."
