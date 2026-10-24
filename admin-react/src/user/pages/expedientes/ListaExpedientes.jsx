@@ -6,6 +6,7 @@ import { Link2, FolderOpen, RefreshCw, WhatsAppIcon, Ship, CircleCheck, Compass 
 import TarjetaExpediente from './TarjetaExpediente';
 import { ExpedienteHeader, ExpedienteMetrics } from '../../../shared/components/ExpedienteWorkspace';
 import BotonEnlace from './BotonEnlace';
+import { normalizarBusqueda } from '../../../shared/lib/file-collection';
 import { esActivo, esImportacion, esVencido, esCancelado, WA_SOPORTE } from './lib';
 
 const FILTRO_FN = {
@@ -75,11 +76,11 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
 
   const visibles = useMemo(() => {
     const fn = FILTRO_FN[filtro] || FILTRO_FN.todos;
-    const t = q.trim().toLowerCase();
+    const t = normalizarBusqueda(q);
     return orders.filter(o => {
       if (!fn(o)) return false;
       if (!t) return true;
-      const hay = `${o.order_number || ''} ${o.plan_name || ''} ${o.asset_name || ''} ${o.requirement_name || ''} ${o.agent_name || ''}`.toLowerCase();
+      const hay = normalizarBusqueda(`${o.order_number || ''} ${o.plan_name || ''} ${o.asset_name || ''} ${o.requirement_name || ''} ${o.agent_name || ''}`);
       return hay.includes(t);
     });
   }, [orders, filtro, q]);

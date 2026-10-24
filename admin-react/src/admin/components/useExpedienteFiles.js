@@ -32,12 +32,4 @@ export function useExpedienteFiles(orderId) {
   return { files, loading, error, recargar };
 }
 
-/** Categoría de un archivo por su MIME (la misma que calcula el servidor). */
-export function categoriaArchivo(f) {
-  if (f?.category) return f.category;
-  const mime = f?.mime_type || '';
-  if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
-  if (mime === 'application/pdf' || mime.includes('word') || mime.includes('excel') || mime.includes('sheet') || mime.includes('presentation') || mime.includes('text')) return 'document';
-  return 'other';
-}
+export { categoriaArchivo } from '../../shared/lib/file-collection';

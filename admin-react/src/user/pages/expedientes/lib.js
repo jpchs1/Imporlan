@@ -35,9 +35,9 @@ export function esActivo(order) {
   return !TERMINALES.includes(order?.status);
 }
 
-/** Etapa ≥ Compra y no vencido/cancelado: lo que antes era "Mis importaciones". */
+/** Operaciones activas que ya están en Compra o Logística. */
 export function esImportacion(order) {
-  return Number(order?.timeline_step || 1) >= 4 && !esCerrado(order);
+  return Number(order?.timeline_step || 1) >= 4 && esActivo(order);
 }
 
 export function etapaDe(order) {

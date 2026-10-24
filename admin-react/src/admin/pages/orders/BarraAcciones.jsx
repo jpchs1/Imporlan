@@ -28,8 +28,8 @@ export default function BarraAcciones({ detail, unsaved, saving, rescraping, res
             <span className="tabular">{detail.order_number}</span>
             {detail.customer_name && <span className="hidden md:inline text-ink-500 font-normal"> · {detail.customer_name}</span>}
           </p>
-          <StatusBadge kind="expediente" status={detail.status} className="shrink-0 hidden sm:inline-flex" />
-          {unsaved && <Badge tone="warning" dot className="shrink-0 hidden sm:inline-flex">Cambios sin guardar</Badge>}
+          <span className="hidden sm:inline shrink-0"><StatusBadge kind="expediente" status={detail.status} /></span>
+          {unsaved && <span className="hidden sm:inline shrink-0"><Badge tone="warning" dot>Cambios sin guardar</Badge></span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button onClick={onSave} loading={saving} size="sm">Guardar</Button>
