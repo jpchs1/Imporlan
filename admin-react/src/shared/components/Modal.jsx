@@ -17,7 +17,7 @@ const WIDTHS = { sm: 'sm:max-w-[28rem]', md: 'sm:max-w-[32rem]', lg: 'sm:max-w-[
  *   </Modal>
  * Tamaños: sm 448 · md 512 · lg 672 · xl 896 · full.
  */
-export function Modal({ open, onClose, title, description, children, footer, size = 'md', closeOnOverlay = true, initialFocusRef, hideClose = false, className, bodyClassName, 'aria-label': ariaLabel }) {
+export function Modal({ open, onClose, title, description, children, footer, size = 'md', closeOnOverlay = true, initialFocusRef, hideClose = false, className, headerClassName, bodyClassName, footerClassName, 'aria-label': ariaLabel }) {
   const panelRef = useRef(null);
   const id = useId();
   useFocusTrap(panelRef, !!open, { onEscape: () => onClose?.(), initialFocusRef });
@@ -40,7 +40,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         )}
       >
         {(title || !hideClose) && (
-          <div className="flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 pb-4 border-b border-line shrink-0">
+          <div className={cn('flex items-start justify-between gap-4 px-5 sm:px-6 pt-5 pb-4 border-b border-line shrink-0', headerClassName)}>
             <div className="min-w-0">
               {title && <h2 id={`${id}-t`} className="text-base font-semibold text-ink-900 leading-6">{title}</h2>}
               {description && <p id={`${id}-d`} className="text-13 text-ink-500 mt-0.5">{description}</p>}
@@ -50,7 +50,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         )}
         <div className={cn('flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain', bodyClassName)}>{children}</div>
         {footer && (
-          <div className="flex flex-wrap items-center justify-end gap-2 px-5 sm:px-6 py-3 border-t border-line bg-canvas sm:rounded-b-xl shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className={cn('flex flex-wrap items-center justify-end gap-2 px-5 sm:px-6 py-3 border-t border-line bg-canvas sm:rounded-b-xl shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]', footerClassName)}>
             {footer}
           </div>
         )}
