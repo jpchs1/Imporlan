@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { fmtDate } from '../../../shared/lib/utils';
-import { Card, Button, Modal, Select, Menu, StatusBadge, Callout, ErrorState, EmptyState, Skeleton, ProcessStepper, Spinner } from '../../../shared/components/UI';
-import { Plus, Trash, Link2, Info, FolderOpen, FileText, Images, Ship, Compass, Globe, User, Calendar, Layers, ArrowUpRight } from '../../../shared/components/Icons';
-import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { etapaPorEleccion, tituloLancha } from '../../../shared/lib/importacion';
+import { Card, Button, Modal, Select, Menu, Callout, ErrorState, EmptyState, Skeleton, Spinner } from '../../../shared/components/UI';
+import { Plus, Trash, Link2, FolderOpen, FileText, Ship, Compass, Globe, User } from '../../../shared/components/Icons';
+import { etapaPorEleccion } from '../../../shared/lib/importacion';
 import LinkRow from '../../components/LinkRow';
 import QuoteModal from '../../components/QuoteModal';
 import ReportsSection from '../../components/ReportsSection';
 import InspectionFilesSection from '../../components/InspectionFilesSection';
 import FilesSection from '../../components/FilesSection';
 import { useExpedienteFiles } from '../../components/useExpedienteFiles';
-import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
-import { irASeccionExpediente } from '../../../shared/lib/expediente-navigation';
+import { ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
+import { ResumenExpediente, AvanceExpediente } from './ResumenExpediente';
+import './expediente-admin.css';
 import { esLinkVacio } from '../../../shared/lib/link-vacio';
 import { STATUS_OPTIONS } from './constantes';
 import BarraAcciones from './BarraAcciones';
@@ -54,9 +54,6 @@ export default function DetalleExpediente(p) {
   // El rol agente (operación en EE. UU.) no ve el contacto del cliente ni cobra.
   const equipoChile = importacion.puedeCobrar !== false;
   const elegida = eleccion ? links.find(link => Number(link.id) === Number(eleccion.link_id)) : null;
-  const etapaActual = Math.min(ETAPAS_EXPEDIENTE.length, Math.max(1, Number(detail.timeline_step) || 1));
-  const documentos = archivos.files.filter(f => f.category === 'document').length;
-  const multimedia = archivos.files.filter(f => f.category === 'image' || f.category === 'video').length;
 
   return (
     <div className="exp-workspace exp-workspace--admin">
@@ -76,76 +73,20 @@ export default function DetalleExpediente(p) {
         contactoOculto={!equipoChile}
       />
 
-      <ExpedienteHeader
-        eyebrow={`Expediente · ${detail.order_number}`}
-        title={detail.customer_name || detail.order_number}
-        description={elegida ? tituloLancha(elegida) : (detail.asset_name || detail.requirement_name || 'Gestiona el avance y la documentación de esta operación.')}
-        meta={<StatusBadge kind="expediente" status={detail.status} dot />}
-        image={elegida?.image_url}
-        imageLabel="Embarcación elegida"
-      >
-        <div className="exp-header__meta">
-          <span><Layers size={15} />{detail.plan_name || 'Plan por definir'}</span>
-          <span><User size={15} />{detail.agent_name || 'Agente sin asignar'}</span>
-          <span><Calendar size={15} />{fmtDate(detail.purchase_date || detail.created_at)}</span>
-        </div>
-        <div className="exp-header__shortcuts">
-          <Button variant="secondary" size="sm" icon={FileText} onClick={() => irASeccionExpediente('reportes')}>Informe de inspección</Button>
-          <Button variant="ghost" size="sm" iconRight={ArrowUpRight} onClick={() => irASeccionExpediente('archivos')}>Ver archivos</Button>
-        </div>
-      </ExpedienteHeader>
-      <ExpedienteMetrics items={[
-        { label: 'Etapa actual', value: `${String(etapaActual).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: ETAPAS_EXPEDIENTE[etapaActual - 1]?.label, icon: Compass },
-        { label: 'Opciones', value: conUrl, hint: 'Embarcaciones en el ranking', icon: Ship },
-        { label: 'Documentos', value: archivos.loading || archivos.error ? '—' : documentos, hint: 'Informes y otros documentos', icon: FileText },
-        { label: 'Fotos y videos', value: archivos.loading || archivos.error ? '—' : multimedia, hint: 'Material de la operación', icon: Images },
-      ]} />
+      <ResumenExpediente detail={detail} links={links} elegida={elegida} archivos={archivos} equipoChile={equipoChile} />
       <ExpedienteNavigation sections={[
         { id: 'etapa', label: 'Resumen', icon: Compass },
+        { id: 'ranking', label: 'Opciones', icon: Link2, count: conUrl },
         { id: 'importacion', label: 'Operación', icon: Ship },
         ...(eleccion && equipoChile ? [{ id: 'operacion-usa', label: 'EE. UU.', icon: Globe }] : []),
         { id: 'reportes', label: 'Informes', icon: FileText },
         { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: archivos.loading || archivos.error ? undefined : archivos.files.length },
-        { id: 'ranking', label: 'Opciones', icon: Link2, count: conUrl },
         { id: 'datos', label: 'Datos', icon: User },
       ]} />
       <div className="exp-content">
 
-          <Card id="etapa" className="exp-section scroll-mt-32">
-            <Card.Header title="Avance de la operación" description="Sigue el recorrido del expediente y actualiza cada etapa cuando corresponda." />
-            <Card.Body>
-              <ProcessStepper current={detail.timeline_step || 1} onPrev={() => onTimelineStep(-1)} onNext={() => onTimelineStep(1)} showDescription={false} />
-              {eleccion && etapaEleccion > 0 && (
-                <p className="mt-4 flex items-start gap-2 text-13 text-ink-500">
-                  <Info size={16} className="shrink-0 mt-0.5 text-ink-400" />
-                  <span>
-                    Etapa por la elección: <span className="font-medium text-ink-900">{ETAPAS_EXPEDIENTE.find(e => e.num === etapaEleccion)?.label}</span>
-                    {eleccion.inspection && !eleccion.steps?.inspeccion ? ', hasta que se apruebe la inspección' : ''}.
-                    {' '}Se mueve sola con los hitos de Importación.
-                  </span>
-                </p>
-              )}
-            </Card.Body>
-          </Card>
-
-          <SeccionImportacion
-            detail={detail}
-            links={links}
-            importacion={importacion}
-            onMarcarElegida={abrirEleccion}
-            onCotizar={onCotizar}
-            archivos={archivos}
-          />
-
-          <div id="reportes" className="scroll-mt-32 space-y-4">
-            <InspectionFilesSection archivos={archivos} />
-            <ReportsSection orderId={detail.id} linksCount={conUrl} customerEmail={detail.customer_email} />
-          </div>
-
-          <div id="archivos" className="scroll-mt-32">
-            <FilesSection orderId={detail.id} archivos={archivos} />
-          </div>
-          <Card id="ranking" className="exp-section scroll-mt-32">
+        <AvanceExpediente detail={detail} onTimelineStep={onTimelineStep} etapaEleccion={etapaEleccion} />
+          <Card id="ranking" className="exp-section admin-exp-ranking scroll-mt-32">
             <Card.Header
               title="Ranking de opciones en USA"
               description={`${conUrl} ${conUrl === 1 ? 'anuncio' : 'anuncios'}${vacias ? ` · ${vacias} ${vacias === 1 ? 'fila vacía' : 'filas vacías'}` : ''} · arrastra las opciones para ordenarlas`}
@@ -161,13 +102,13 @@ export default function DetalleExpediente(p) {
                 </>
               )}
             />
-            <Card.Body className="space-y-3">
+            <Card.Body className="admin-exp-ranking__body space-y-3">
               {detail.ranking_author_name ? (
-                <Callout tone="success" compact>
+                <p className="admin-exp-ranking__author">
                   Ranking armado por <strong>{detail.ranking_author_name}</strong> ({detail.ranking_author_role === 'admin' ? 'agente' : 'cliente'}){detail.ranking_updated_at ? ` · ${fmtDate(detail.ranking_updated_at)}` : ''}
-                </Callout>
+                </p>
               ) : (
-                <Callout tone="neutral" compact>Aún no se ha armado un ranking. Arrastra las filas para ordenar las opciones.</Callout>
+                <p className="admin-exp-ranking__author">Arrastra las opciones para ordenar el ranking de este expediente.</p>
               )}
 
               {rescraping && (
@@ -190,7 +131,7 @@ export default function DetalleExpediente(p) {
               )}
 
               {/* Links list — natural page scroll, no internal max-height. */}
-              <div ref={linksContainerRef} className="space-y-3">
+              <div ref={linksContainerRef} className="admin-exp-options space-y-3">
                 {links.length === 0 ? (
                   <EmptyState compact icon={Link2} title="Sin opciones todavía" description="Agrega una fila y pega el link del anuncio." primaryAction={<Button size="sm" icon={Plus} onClick={agregarFila}>Agregar fila</Button>} />
                 ) : linksVisibles.map(lk => {
@@ -228,6 +169,24 @@ export default function DetalleExpediente(p) {
               )}
             </Card.Body>
           </Card>
+
+          <SeccionImportacion
+            detail={detail}
+            links={links}
+            importacion={importacion}
+            onMarcarElegida={abrirEleccion}
+            onCotizar={onCotizar}
+            archivos={archivos}
+          />
+
+          <div id="reportes" className="scroll-mt-32 space-y-4">
+            <InspectionFilesSection archivos={archivos} />
+            <ReportsSection orderId={detail.id} linksCount={conUrl} customerEmail={detail.customer_email} />
+          </div>
+
+          <div id="archivos" className="scroll-mt-32">
+            <FilesSection orderId={detail.id} archivos={archivos} />
+          </div>
 
         <div><FormularioExpediente detail={detail} form={form} setForm={setForm} setUnsaved={setUnsaved} contactoOculto={!equipoChile} /></div>
       </div>

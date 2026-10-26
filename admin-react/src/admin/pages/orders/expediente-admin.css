@@ -1,0 +1,150 @@
+/* Administración del expediente. No modifica el panel del cliente. */
+.exp-workspace--admin { --admin-exp-navy: #102c3a; }
+.exp-workspace--admin .exp-content { gap: 20px; }
+.exp-workspace--admin .exp-action-bar { margin-bottom: 22px; }
+.exp-workspace--admin .exp-section { box-shadow: 0 2px 7px #0f172a03; }
+.exp-workspace--admin .admin-exp-kicker { color: var(--color-ink-500); font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.exp-workspace--admin .admin-exp-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 32%); gap: 0; margin-bottom: 14px; border: 1px solid #274552; border-radius: 18px; background: var(--admin-exp-navy); color: #fff; box-shadow: 0 8px 20px #102c3a0c; }
+.exp-workspace--admin .admin-exp-overview::before { display: none; }
+.admin-exp-overview__main { padding: 26px 30px 22px; min-width: 0; }
+.admin-exp-overview__eyebrow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #9bd6e6; font-size: 11px; font-weight: 500; letter-spacing: .06em; }
+.admin-exp-overview__eyebrow > span:first-child { text-transform: uppercase; }
+.admin-exp-overview__eyebrow > span:nth-child(2) { padding-right: 4px; }
+.exp-workspace--admin .admin-exp-overview h1 { color: #fff; font-size: clamp(24px, 2.2vw, 32px); font-weight: 600; line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; margin: 13px 0 7px; }
+.admin-exp-overview__description { color: #d7e6ec; font-size: 14px; line-height: 1.5; }
+.admin-exp-overview__meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: #b5ced9; font-size: 12px; }
+.admin-exp-overview__meta > span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.admin-exp-overview__meta svg { flex-shrink: 0; color: #70b8ce; }
+.admin-exp-next { border-left: 1px solid #ffffff18; margin: 22px 0; padding: 0 26px; min-width: 0; }
+.admin-exp-next__label { display: flex; align-items: center; gap: 7px; color: #9bd6e6; font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.admin-exp-next h2 { color: #fff; font-size: 17px; line-height: 1.35; font-weight: 600; margin: 10px 0 5px; letter-spacing: -.02em; }
+.admin-exp-next p { color: #b5ced9; font-size: 12px; line-height: 1.6; margin-bottom: 15px; }
+.admin-exp-next > button { height: 32px; background: #ffffff0e; color: #fff; border-color: #ffffff35; box-shadow: none; }
+.admin-exp-next > button:hover { background: #ffffff20; color: #fff; border-color: #ffffff70; }
+.admin-exp-overview__stats { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; padding: 13px 30px; background: #00000012; border-top: 1px solid #ffffff14; }
+.admin-exp-overview__stats > div { display: flex; align-items: center; gap: 9px; color: #b5ced9; font-size: 12px; }
+.admin-exp-overview__stats svg { color: #80b9cc; }
+.admin-exp-overview__stats strong { color: #fff; font-size: 14px; font-weight: 600; }
+.admin-exp-overview__stats .admin-exp-overview__visibility { margin-left: auto; font-size: 11px; }
+.admin-exp-overview__visibility > span { width: 6px; height: 6px; background: #cbd5e1; border-radius: 50%; }
+.admin-exp-overview__visibility > span.is-visible { background: #60d3b3; }
+.exp-workspace--admin .exp-navigation { margin-bottom: 16px; padding: 5px 0; }
+.exp-workspace--admin .exp-navigation__items { border-radius: 11px; padding: 4px; }
+.exp-workspace--admin .exp-navigation__item { min-height: 36px; font-size: 12px; padding: 8px 14px; }
+.admin-exp-progress { padding: 17px 22px; background: var(--color-surface); border: 1px solid var(--color-line); }
+.admin-exp-progress__heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 15px; }
+.admin-exp-progress__heading h2 { font-size: 13px; color: var(--color-ink-900); font-weight: 600; margin-top: 2px; }
+.admin-exp-progress__controls { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--color-ink-900); font-weight: 600; }
+.admin-exp-progress__controls > span > span { color: var(--color-ink-500); font-weight: 400; }
+.admin-exp-progress__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; list-style: none; }
+.admin-exp-progress__steps li { display: flex; align-items: center; gap: 8px; min-width: 0; border-top: 2px solid var(--color-line); padding: 11px 0 0; color: var(--color-ink-500); font-size: 11px; line-height: 1.4; }
+.admin-exp-progress__steps li.is-done { border-color: var(--color-brand-500); color: var(--color-ink-700); }
+.admin-exp-progress__steps li.is-current { border-color: var(--color-brand-600); color: var(--color-brand-700); font-weight: 600; }
+.admin-exp-progress__number { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; background: var(--color-canvas); font-size: 10px; }
+.is-current .admin-exp-progress__number { color: #fff; background: var(--color-brand-600); }
+.is-done .admin-exp-progress__number { background: var(--color-brand-50); color: var(--color-brand-700); }
+.admin-exp-progress__note { font-size: 11px; color: var(--color-ink-500); margin-top: 12px; }
+.exp-workspace--admin .admin-exp-ranking { overflow: visible; background: transparent; border: 0; box-shadow: none; }
+.exp-workspace--admin .admin-exp-ranking > :first-child { padding: 4px 2px 16px; border: 0; }
+.exp-workspace--admin .admin-exp-ranking > :first-child h2 { font-size: 19px; letter-spacing: -.025em; }
+.exp-workspace--admin .admin-exp-ranking__body { padding: 0; }
+.admin-exp-ranking__author { color: var(--color-ink-500); font-size: 11px; margin: -5px 2px 14px; }
+.exp-workspace--admin .admin-exp-options { display: flex; flex-direction: column; gap: 16px; }
+.exp-workspace--admin .admin-exp-options > * { margin-block: 0; }
+.exp-workspace--admin .admin-boat-card { border-radius: 14px; overflow: hidden; box-shadow: 0 3px 9px #0f172a03; }
+.admin-boat-card__overview { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 22px; padding: 18px; }
+.admin-boat-card__photo { position: relative; min-width: 0; min-height: 174px; border-radius: 10px; overflow: hidden; background: var(--color-canvas); }
+.admin-boat-card__photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.admin-boat-card__rank { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; justify-content: center; height: 28px; min-width: 30px; padding: 0 8px; border-radius: 6px; background: #102c3ae8; color: #fff; font-size: 11px; font-weight: 600; }
+.admin-boat-card__empty-photo { display: flex; position: absolute; inset: 0; width: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 9px; border: 1px dashed var(--color-line-strong); border-radius: 10px; color: var(--color-ink-500); font-size: 12px; }
+.admin-boat-card__empty-photo:hover { color: var(--color-brand-700); background: var(--color-brand-50); }
+.admin-boat-card__content { min-width: 0; }
+.admin-boat-card__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.admin-boat-card__heading h3 { color: var(--color-ink-900); font-size: 19px; font-weight: 600; letter-spacing: -.025em; line-height: 1.35; overflow-wrap: anywhere; margin-top: 7px; }
+.admin-boat-card__badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.admin-boat-card__specs { font-size: 12px; color: var(--color-ink-500); line-height: 1.5; margin-top: 3px; }
+.admin-boat-card__tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: -4px; }
+.admin-boat-card__grip { display: inline-flex; padding: 6px; color: var(--color-ink-400); cursor: grab; }
+.admin-boat-card__grip:active { cursor: grabbing; }
+.admin-boat-card__prices { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; margin: 17px 0 15px; }
+.admin-boat-card__prices > div { min-width: 0; }
+.admin-boat-card__prices dt { color: var(--color-ink-500); font-size: 11px; line-height: 1.5; }
+.admin-boat-card__prices dd { color: var(--color-ink-900); font-size: 17px; line-height: 1.45; font-weight: 600; letter-spacing: -.025em; margin-top: 2px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.admin-boat-card__prices > div:first-child dd { color: var(--color-ink-500); font-size: 15px; font-weight: 500; }
+.admin-boat-card__prices > div > span { display: block; color: var(--color-ink-500); font-size: 11px; line-height: 1.5; margin-top: 1px; }
+.admin-boat-card__prices .admin-boat-card__total { padding-left: 16px; border-left: 1px solid var(--color-line); }
+.admin-boat-card__prices .admin-boat-card__total dd { color: var(--color-brand-700); font-size: 22px; line-height: 1.25; margin-top: 3px; }
+.admin-boat-card__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 13px; border-top: 1px solid var(--color-line); padding-top: 13px; }
+.admin-boat-card__listing { display: inline-flex; align-items: center; gap: 6px; color: var(--color-ink-500); font-size: 12px; border-radius: 4px; }
+.admin-boat-card__listing:hover { color: var(--color-brand-700); }
+.admin-boat-card__primary-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; margin-left: auto; }
+.exp-workspace--admin .admin-boat-card__editor { padding: 22px; background: var(--color-canvas); }
+.admin-boat-card__editor-title { font-size: 12px; color: var(--color-ink-900); font-weight: 600; margin-bottom: 12px; }
+.exp-workspace--admin .admin-boat-card__price-editor { background: var(--color-surface); border-radius: 10px; padding: 16px; }
+.exp-workspace--admin #datos .exp-detail-meta { border: 0; border-bottom: 1px solid var(--color-line); border-radius: 0; background: transparent; padding: 0 0 22px; }
+@media (min-width: 1280px) { .exp-workspace--admin #datos > :last-child { padding: 26px; } }
+@media (max-width: 1199px) {
+  .admin-boat-card__overview { grid-template-columns: 160px minmax(0, 1fr); gap: 17px; padding: 16px; }
+  .admin-boat-card__prices { gap: 9px; }
+  .admin-boat-card__prices .admin-boat-card__total dd { font-size: 19px; }
+  .admin-exp-next { padding: 0 20px; }
+  .admin-exp-overview__main { padding: 23px; }
+}
+@media (max-width: 767px) {
+  .exp-workspace--admin .admin-exp-overview { grid-template-columns: minmax(0, 1fr); border-radius: 14px; }
+  .admin-exp-overview__main { padding: 21px 21px 18px; }
+  .admin-exp-overview__meta { margin-top: 15px; gap: 8px 15px; }
+  .admin-exp-next { margin: 0 21px 19px; padding: 15px 0 0; border-left: 0; border-top: 1px solid #ffffff20; }
+  .admin-exp-next p { margin-bottom: 11px; }
+  .admin-exp-overview__stats { padding: 13px 21px; gap: 12px 20px; }
+  .admin-exp-overview__stats > div { font-size: 11px; gap: 6px; }
+  .admin-exp-overview__stats .admin-exp-overview__visibility { margin-left: 0; flex-basis: 100%; }
+  .admin-exp-progress { padding: 15px; }
+  .admin-exp-progress__steps li { flex-direction: column; align-items: flex-start; gap: 7px; font-size: 10px; }
+  .admin-boat-card__overview { grid-template-columns: 130px minmax(0, 1fr); gap: 15px; }
+  .admin-boat-card__heading h3 { font-size: 17px; }
+  .admin-boat-card__tools { gap: 0; }
+  .admin-boat-card__grip { padding: 5px 0; }
+  .admin-boat-card__prices { grid-template-columns: 1fr 1fr; }
+  .admin-boat-card__prices .admin-boat-card__total { grid-column: 1 / -1; border: 0; padding: 10px 0 0; border-top: 1px solid var(--color-line); }
+  .admin-boat-card__actions { gap: 10px; }
+  .admin-boat-card__primary-actions { margin-left: 0; flex-basis: 100%; justify-content: flex-start; }
+  .admin-boat-card__actions > button { padding-left: 0; }
+}
+@media (max-width: 479px) {
+  .admin-boat-card__overview { grid-template-columns: minmax(0, 1fr); gap: 15px; padding: 14px; }
+  .admin-boat-card__photo { min-height: 175px; }
+  .admin-boat-card__prices { grid-template-columns: 1fr 1fr; }
+  .admin-boat-card__prices dd { font-size: 16px; }
+  .admin-boat-card__prices .admin-boat-card__total { padding-top: 12px; }
+  .admin-boat-card__prices .admin-boat-card__total dd { font-size: 24px; }
+  .admin-boat-card__primary-actions > button { flex: 1; }
+  .admin-exp-progress__heading { gap: 5px; }
+  .admin-exp-progress__controls { gap: 0; }
+  .admin-exp-progress__steps li { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { .admin-boat-card *, .admin-exp-overview * { animation: none !important; } }
+@media print { .admin-exp-next button, .admin-boat-card__tools, .admin-boat-card__actions, .admin-exp-progress__controls { display: none; } }
+
+.admin-exp-data__group { min-width: 0; border-top: 1px solid var(--color-line); padding-top: 20px; }
+.admin-exp-data__group legend { float: left; width: 100%; margin-bottom: 18px; font-size: 12px; font-weight: 600; color: var(--color-ink-900); }
+.admin-exp-data__group > div { clear: both; }
+.admin-exp-data__group:last-child > label { margin-top: 20px; }
+.exp-workspace--admin .admin-exp-operation:has([data-empty-operation]) { background: var(--color-canvas); }
+
+.admin-exp-operation__empty { display: flex; align-items: center; gap: 16px; padding: 4px 0; }
+.admin-exp-operation__empty-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 48px; height: 48px; border: 1px solid var(--color-line); border-radius: 13px; background: var(--color-surface); color: var(--color-ink-500); }
+.admin-exp-operation__empty h3 { font-size: 13px; font-weight: 600; color: var(--color-ink-900); }
+.admin-exp-operation__empty p { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--color-ink-500); }
+.admin-exp-operation__empty > button { margin-left: auto; flex-shrink: 0; }
+@media (max-width: 639px) { .admin-exp-operation__empty { flex-wrap: wrap; } .admin-exp-operation__empty > div:nth-child(2) { flex: 1; } .admin-exp-operation__empty > button { margin-left: 64px; } }
+
+@media (max-width: 767px) {
+  .admin-exp-next { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px 12px; }
+  .admin-exp-next__label { grid-column: 1 / -1; }
+  .admin-exp-next h2 { font-size: 14px; margin: 0; }
+  .admin-exp-next p { display: none; }
+  .admin-exp-next > button { font-size: 11px; padding: 0 10px; }
+}
+
+.exp-workspace--admin .exp-section > :first-child h2 { white-space: normal; text-overflow: clip; overflow: visible; }

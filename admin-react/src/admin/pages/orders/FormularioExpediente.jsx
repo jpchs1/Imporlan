@@ -23,7 +23,7 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
           ? 'El contacto del cliente lo lleva el equipo en Chile; tu cuenta ve el expediente sin él.'
           : 'Lo que ve el equipo y lo que se le muestra al cliente en su panel.'}
       />
-      <Card.Body className="space-y-6">
+      <Card.Body className="admin-exp-data space-y-6">
         <DescriptionList
           className="exp-detail-meta"
           cols={4}
@@ -35,6 +35,7 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
             { label: 'Creado', value: fmtDate(detail.purchase_date || detail.created_at) },
           ]}
         />
+        <fieldset className="admin-exp-data__group"><legend>Servicio y solicitud</legend>
         <FormGrid cols={2}>
           {contactoOculto ? (
             <Input label="Teléfono del cliente" type="tel" value="" onChange={() => {}} placeholder="Oculto" disabled hint="Sólo lo ve el equipo en Chile." />
@@ -54,8 +55,16 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
           <Input label="Embarcación u objetivo" value={form.asset_name} onChange={set('asset_name')} placeholder="Bowrider 26–30 pies" />
           <Input label="Tipo o zona" value={form.type_zone} onChange={set('type_zone')} placeholder="Costa Este USA" />
           <Input label="Requerimiento" value={form.requirement_name} onChange={set('requirement_name')} className="sm:col-span-2" />
+        </FormGrid>
+        </fieldset>
+        <fieldset className="admin-exp-data__group"><legend>Equipo responsable</legend>
+        <FormGrid cols={2}>
           <Input label="Agente" value={form.agent_name} onChange={set('agent_name')} />
           <Input label="Teléfono del agente" type="tel" value={form.agent_phone} onChange={set('agent_phone')} />
+        </FormGrid>
+        </fieldset>
+        <fieldset className="admin-exp-data__group"><legend>Notas y visibilidad</legend>
+        <FormGrid cols={2}>
           <Textarea label="Notas internas" hint="Sólo las ve el equipo." value={form.admin_notes} onChange={set('admin_notes')} rows={3} className="sm:col-span-2" />
         </FormGrid>
         <Checkbox
@@ -64,6 +73,7 @@ export default function FormularioExpediente({ detail, form, setForm, setUnsaved
           checked={!!form.visible_to_client}
           onChange={e => { setForm({ ...form, visible_to_client: e.target.checked }); setUnsaved(true); }}
         />
+        </fieldset>
       </Card.Body>
     </Card>
   );

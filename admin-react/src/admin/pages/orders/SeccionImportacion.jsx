@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
-import { Card, Button, Menu, Badge, StatusBadge, Callout, EmptyState, Spinner } from '../../../shared/components/UI';
+import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet } from '../../../shared/components/Icons';
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
@@ -50,7 +50,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const pago1Pagado = pago1?.estado === 'pagado' ? pago1 : null;
 
   return (
-    <Card id="importacion" className="exp-section scroll-mt-32">
+    <Card id="importacion" className="exp-section admin-exp-operation scroll-mt-32">
       <Card.Header
         title="Operación de importación"
         description={equipoChile
@@ -64,19 +64,11 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               items={[{ label: 'Quitar la elección', icon: Trash, tone: 'danger', onClick: importacion.onQuitar }]}
             />
           </>
-        ) : (
-          <Button variant="secondary" size="sm" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button>
-        )}
+        ) : undefined}
       />
       <Card.Body className="space-y-5">
         {!eleccion && (
-          <EmptyState
-            compact
-            icon={Anchor}
-            title="El cliente todavía no elige lancha"
-            description="Cuando decida —desde su panel o por WhatsApp— márcala aquí: parte la importación, se mueve la etapa y se crean los cobros desde la cotización."
-            primaryAction={<Button size="sm" variant="secondary" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button>}
-          />
+          <div className="admin-exp-operation__empty" data-empty-operation><div className="admin-exp-operation__empty-icon"><Anchor size={22} /></div><div><h3>El cliente todavía no elige lancha</h3><p>Compara las opciones y registra la elección cuando el cliente decida.</p></div><Button size="sm" variant="secondary" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button></div>
         )}
         {eleccion && (
           <>

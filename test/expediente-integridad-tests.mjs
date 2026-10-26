@@ -289,6 +289,46 @@ try {
   check(!(await incomplete.page.locator('body').innerText()).includes('NaN') && await incomplete.page.getByText('Servicio all inclusive', { exact: true }).count() === 0, 'invalid snapshots keep the total and hide unavailable breakdowns');
   await incomplete.close();
 
+  // Admin visual workspace: prices remain readable and each editor retains its pending values.
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    const visual = await open('admin', { width });
+    const card = visual.page.locator('[data-link-id="101"]');
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).waitFor();
+    check(await card.getByRole('button', { name: 'Editar ficha', exact: true }).getAttribute('aria-expanded') === 'false', `existing admin cards start with a readable price overview at ${width}px`);
+    check(await visual.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `admin workspace fits ${width}px without horizontal overflow`);
+    check(await card.locator('.admin-boat-card__prices').evaluate(el => {
+      const total = el.querySelector('.admin-boat-card__total dd');
+      const reference = el.querySelector('dd');
+      return parseFloat(getComputedStyle(total).fontSize) > parseFloat(getComputedStyle(reference).fontSize);
+    }), `final Chile price has stronger visual hierarchy at ${width}px`);
+    if (width >= 1024) check(await card.evaluate(el => el.getBoundingClientRect().top < 1000), `boat options appear before the long operation and document sections at ${width}px`);
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    const model = card.getByRole('textbox', { name: 'Modelo', exact: true });
+    await model.fill('Modelo pendiente de prueba');
+    await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    check(await model.inputValue() === 'Modelo pendiente de prueba', `closing and reopening the card keeps its pending edits at ${width}px`);
+    if (width === 1440) {
+      await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+      await card.locator('.admin-boat-card__grip').dragTo(visual.page.locator('[data-link-id="102"] .admin-boat-card__photo'), { sourcePosition: { x: 5, y: 5 } });
+      await visual.page.waitForFunction(() => document.querySelector('[data-link-id]')?.getAttribute('data-link-id') === '102');
+      check(true, 'the visible drag handle reorders admin boats through native browser drag and drop');
+      await card.getByRole('button', { name: 'Cotizar', exact: true }).click();
+      const modal = visual.page.getByRole('dialog');
+      const negotiated = modal.getByLabel(/^Valor negociado · USA/);
+      await negotiated.waitFor();
+      check((await negotiated.inputValue()).replace(/[^0-9]/g, '') === '9000', 'the prominent quote button opens the selected boat with its negotiated USA base');
+      await visual.page.keyboard.press('Escape');
+    }
+    if (process.env.WORKSPACE_SCREENSHOTS) {
+      await mkdir(process.env.WORKSPACE_SCREENSHOTS, { recursive: true });
+      if (await card.getByRole('button', { name: 'Cerrar edición', exact: true }).count()) await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+      await visual.page.getByRole('navigation', { name: 'Secciones del expediente' }).getByRole('button', { name: /^Opciones/ }).click();
+      await visual.page.screenshot({ path: join(process.env.WORKSPACE_SCREENSHOTS, `admin-ranking-${width}.png`) });
+    }
+    await visual.close();
+  }
+
   check(errors.length === 0, 'all integrity flows run without browser exceptions: ' + errors.join('; '));
   console.log(`${passed} expediente integrity checks passed.`);
 } finally { await browser.close(); await server.close(); }
