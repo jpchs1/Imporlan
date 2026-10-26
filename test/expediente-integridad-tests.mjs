@@ -252,6 +252,37 @@ try {
   check(await pendingField.inputValue() === 'Edición mientras llega el scraper', 'in-flight scrape poll cannot overwrite new form edits');
   await adminPoll.close();
 
+  // Queuing acknowledges persisted rows, then polling still fills the ficha with other edits pending.
+  const queueOrder = structuredClone(base); let queuedSaves = 0;
+  const automatic = await open('admin', { captureIntervals: true, handler: async ({ route, action, body }) => {
+    if (action === 'admin_detail') { await route.fulfill({ json: { success: true, order: queueOrder } }); return true; }
+    if (action === 'admin_update_links') {
+      queuedSaves++;
+      queueOrder.links = structuredClone(body.links);
+      queueOrder.links.find(l => l.id === 104).scrape_state = 'en_cola';
+      await route.fulfill({ json: { success: true } }); return true;
+    }
+    if (action === 'admin_rescrape_links') { await route.fulfill({ json: { success: true, results: [{ status: 'en_cola' }] } }); return true; }
+  } });
+  await automatic.page.getByRole('button', { name: 'Mostrar 1 fila vacía' }).click();
+  const queuedCard = automatic.page.locator('[data-link-id="104"]');
+  await queuedCard.getByRole('textbox', { name: 'Link del anuncio (USA)' }).fill('https://www.boattrader.com/boat/prueba-104/');
+  const queueForm = automatic.page.getByRole('textbox', { name: 'Embarcación u objetivo', exact: true });
+  await queueForm.click();
+  await queuedCard.getByText('En cola', { exact: true }).waitFor();
+  check(queuedSaves === 1, 'pasting a slow URL saves and queues it automatically');
+  check(await automatic.page.getByText('Cambios sin guardar', { exact: true }).count() === 0, 'successful queue acknowledges saved links when the form has no pending edits');
+  await queueForm.fill('Formulario pendiente durante el scraping');
+  await queuedCard.getByRole('textbox', { name: 'Comentarios', exact: true }).fill('Nota pendiente de guardar');
+  Object.assign(queueOrder.links.find(l => l.id === 104), { title: 'Ficha automática terminada', make: 'Bayliner', model: '175', value_usa_usd: 4995, image_url: '/__boat.webp', scrape_state: 'completo' });
+  await automatic.page.waitForFunction(() => typeof window.testIntervals?.[10000] === 'function');
+  await automatic.page.evaluate(() => { window.testIntervals[10000](); });
+  await queuedCard.getByRole('heading', { name: 'Ficha automática terminada', exact: true }).waitFor();
+  check(await queuedCard.getByText('Ficha completa', { exact: true }).count() === 1, 'background worker result appears automatically while edits remain pending');
+  check(await queueForm.inputValue() === 'Formulario pendiente durante el scraping' && await queuedCard.getByRole('textbox', { name: 'Comentarios', exact: true }).inputValue() === 'Nota pendiente de guardar', 'scrape refresh preserves both pending form and row edits');
+  check(await automatic.page.getByText('Cambios sin guardar', { exact: true }).first().isVisible(), 'only genuinely pending edits remain marked unsaved after synchronization');
+  await automatic.close();
+
   // Corrupt historical snapshots may show a valid total, never a made-up service or NaN.
   const incomplete = await open('prices', { initial: { ...base, links: [] }, summary: { quote_total_clp: 18000000, quote_data: '{broken', quote_payments: '{broken' } });
   await incomplete.page.getByText('El detalle de esta cotización está pendiente de actualización por tu agente.').waitFor();

@@ -10,6 +10,7 @@ import { cobrosDelExpediente, hitosDe } from '../../shared/lib/importacion';
 import { devolucionPedida } from '../../shared/lib/inspeccion';
 import { enviarDesglose } from '../desglose';
 import { esEquipoChile } from '../config';
+import { linksPendientes, sincronizarLinks } from '../../shared/lib/expediente-sync';
 import { esLinkVacio } from '../../shared/lib/link-vacio';
 import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
 import ListaExpedientes from './orders/ListaExpedientes';
@@ -67,6 +68,7 @@ export default function Orders() {
   const [form, setForm] = useState({});
   // Referencias del render actual para no pisar ediciones con respuestas tardías.
   const live = useRef(null);
+  const persisted = useRef({ form: {}, links: [] });
   live.current = { id: detail?.id, form, links, unsaved };
 
   // Estado del botón "Rescrapear expediente"
@@ -181,7 +183,7 @@ export default function Orders() {
       setCobros([]);
       // El agente no ve cobros (y payment_requests_api se lo negaría).
       if (equipoChile) cargarCobros(order.id, order.customer_email);
-      setForm({
+      const nextForm = {
         customer_phone: order.customer_phone || '',
         service_type: order.service_type || 'plan_busqueda',
         origin: order.origin || 'web',
@@ -193,7 +195,9 @@ export default function Orders() {
         agent_phone: order.agent_phone || '',
         admin_notes: order.admin_notes || '',
         visible_to_client: order.visible_to_client == 1,
-      });
+      };
+      setForm(nextForm);
+      persisted.current = { form: nextForm, links: order.links || [] };
       setUnsaved(false);
       setScraperFaltante(null);
       setView('detail');
@@ -224,6 +228,7 @@ export default function Orders() {
       await updateOrder({ id: snapshot.id, ...snapshot.form, visible_to_client: snapshot.form.visible_to_client ? 1 : 0 });
       await updateOrderLinks(snapshot.id, snapshot.links);
       if (live.current.id !== snapshot.id) return false;
+      persisted.current = { form: snapshot.form, links: snapshot.links };
       const unchanged = () => live.current.id === snapshot.id && live.current.form === snapshot.form && live.current.links === snapshot.links;
       if (!unchanged()) {
         toast?.('Se guardó la versión enviada. Tienes nuevas ediciones pendientes de guardar.', 'warning');
@@ -342,15 +347,19 @@ export default function Orders() {
 
   const refrescarDetalle = useCallback(async () => {
     const snapshot = live.current;
-    if (!snapshot.id || snapshot.unsaved || saveBusy.current) return;
+    const base = persisted.current;
+    if (!snapshot.id || saveBusy.current || reorderBusy.current) return;
     try {
       const o = await getOrderDetail(snapshot.id);
       const orden = o.order || o;
       const current = live.current;
-      if (current.id !== snapshot.id || current.unsaved || current.form !== snapshot.form || current.links !== snapshot.links || saveBusy.current) return;
-      if (!orden?.id) return;
+      if (current.id !== snapshot.id || saveBusy.current || reorderBusy.current || base !== persisted.current || !orden?.id) return;
+      const fresh = orden.links || [];
+      const merged = sincronizarLinks(current.links, fresh, base.links);
+      persisted.current = { ...base, links: fresh };
       setDetail(orden);
-      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+      setLinks(merged);
+      setUnsaved(current.form !== base.form || linksPendientes(merged, fresh));
     } catch { /* se conserva la última versión y se reintenta en el próximo ciclo */ }
   }, []);
 
@@ -360,11 +369,11 @@ export default function Orders() {
   // en que se abrio la pantalla.
   useEffect(() => {
     const hayEnCola = links.some(l => l.scrape_state === 'en_cola' || l.scrape_state === 'procesando');
-    // Con cambios sin guardar no se relee: pisaría lo que el admin está editando.
-    if (!hayEnCola || !detail?.id || unsaved) return;
+    // La mezcla por campo conserva las ediciones y permite completar la ficha.
+    if (!hayEnCola || !detail?.id) return;
     const id = setInterval(refrescarDetalle, 10000);
     return () => clearInterval(id);
-  }, [links, detail?.id, unsaved, refrescarDetalle]);
+  }, [links, detail?.id, refrescarDetalle]);
 
   // Rescrapea el expediente fila por fila. Los links pegados a mano nunca
   // pasaban por el scraper del servidor, asi que este boton es la via para
@@ -533,6 +542,9 @@ export default function Orders() {
     try {
       setUnsaved(true);
       await updateOrderLinks(detail.id, actualizados);
+      if (live.current.id !== detail.id) return;
+      persisted.current = { ...persisted.current, links: actualizados };
+      setUnsaved(live.current.form !== persisted.current.form || linksPendientes(live.current.links, actualizados));
       // El row_index lo asigna el servidor, asi que se relee antes de encolar:
       // una fila recien agregada todavia no lo tiene en el navegador.
       const o = await getOrderDetail(detail.id);
@@ -606,7 +618,11 @@ export default function Orders() {
     reorderOrderLinks(orderId, ids, user?.name || 'Admin')
       .then(res => {
         if (!res.success) throw new Error(res.error || 'El servidor rechazó el orden');
-        if (live.current.id === orderId) setDetail(d => ({ ...d, ranking_author_name: user?.name || 'Admin' }));
+        if (live.current.id === orderId) {
+          const byId = new Map(persisted.current.links.map(l => [l.id, l]));
+          persisted.current = { ...persisted.current, links: ids.map((id, i) => ({ ...byId.get(id), id, row_index: i + 1 })) };
+          setDetail(d => ({ ...d, ranking_author_name: user?.name || 'Admin' }));
+        }
       })
       .catch(err => {
         if (live.current.id !== orderId) return;
@@ -627,16 +643,7 @@ export default function Orders() {
   // sólo si no hay cambios sin guardar (la elección vive en `detail`, no en
   // `links`, así que no se pierde nada por no reemplazarlas).
   async function recargarDetalle() {
-    const snapshot = live.current;
-    if (!snapshot.id) return;
-    const o = await getOrderDetail(snapshot.id);
-    const orden = o.order || o;
-    const current = live.current;
-    if (current.id !== snapshot.id || !orden?.id) return;
-    setDetail(orden);
-    if (!current.unsaved && current.form === snapshot.form && current.links === snapshot.links) {
-      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
-    }
+    await refrescarDetalle();
   }
 
   // Al marcar (o cambiar) la lancha, el servidor crea solo el cobro del Pago 1
@@ -899,8 +906,10 @@ export default function Orders() {
           if (live.current.unsaved) {
             // Actualiza sólo la cotización; las demás ediciones siguen pendientes.
             const quoteFields = fresh ? Object.fromEntries(Object.entries(fresh).filter(([key]) => key.startsWith('quote_') || ['value_to_negotiate_usd', 'value_chile_negotiated_clp'].includes(key))) : {};
+            persisted.current = { ...persisted.current, links: persisted.current.links.map(l => l.id === cotizadoId ? { ...l, ...quoteFields } : l) };
             setLinks(prev => prev.map(l => l.id === cotizadoId ? { ...l, ...quoteFields } : l));
           } else {
+            persisted.current = { ...persisted.current, links: freshOrder.links || [] };
             setLinks(JSON.parse(JSON.stringify(freshOrder.links || [])));
           }
         } catch (e) { toast?.('La cotización se guardó, pero no pudimos actualizar la vista: ' + (e.message || ''), 'warning'); }

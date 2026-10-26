@@ -22,7 +22,7 @@ No se generaron cobros, elecciones, cotizaciones ni correos de prueba en producc
 | Actualización del cliente | El polling ignoraba precios, cotizaciones y estados si no cambiaba el ranking. Los pagos tampoco se refrescaban periódicamente. | El expediente completo y los servicios relacionados se actualizan cada 30 segundos. |
 | Ranking del cliente | Los guardados simultáneos podían competir; un error dejaba el orden local sin persistir; avisar al agente ignoraba un guardado fallido. | Un guardado a la vez, reversión ante fallo y notificación sólo tras guardar correctamente. La fecha proviene del servidor. |
 | Búsqueda y orden | Buscar sin acentos no encontraba algunos nombres; reordenar una selección filtrada resultaba ambiguo. | Búsqueda normalizada y reordenamiento disponible en la vista completa del ranking. |
-| Guardado admin | Un guardado o refresco iniciado antes de una edición podía pisarla. Algunas acciones marcaban limpio un formulario no guardado. | Se preservan las ediciones nuevas, permanece el aviso pendiente y se guardan formulario y links antes de las acciones que lo necesitan. |
+| Guardado admin | Un guardado o refresco iniciado antes de una edición podía pisarla. Algunas acciones marcaban limpio un formulario no guardado. | Se mezclan los datos del servidor por campo con las ediciones pendientes; la cola sigue completándose sola. Permanece el aviso cuando corresponde y se guardan formulario y links antes de las acciones que lo necesitan. |
 | Guardar cotización | Refrescar después del modal podía sobrescribir otras ediciones del expediente. | Se actualizan sólo sus campos de cotización y se conservan los cambios pendientes. |
 | Archivos | Al cambiar de expediente podían quedar archivos del anterior; respuestas tardías podían mezclarlos. | Los archivos pertenecen al expediente y petición vigentes. Un fallo al actualizar el mismo expediente conserva su última lista correcta. |
 | Fallos de servicios | Algunos errores parecían listas vacías o una carga interminable. | Errores explícitos, reintentos y bloqueo de crear otro cobro mientras no se hayan recuperado los existentes. |
@@ -36,7 +36,7 @@ fallida observada en esa revisión.
 
 ## Validación
 
-- 37 comprobaciones nuevas de integridad con navegador y contenedores React reales:
+- 42 comprobaciones nuevas de integridad con navegador y contenedores React reales:
   polling, ranking fallido, avisos, recuperación de servicios, archivos de dos
   expedientes, comparación por moneda, privacidad de totales pendientes,
   guardado concurrente, borradores, errores de carga y cobros.
