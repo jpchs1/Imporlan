@@ -10,8 +10,8 @@ import './quote-modal.css';
 
 // Maps each editable field shown to admin to the cot_* template key in
 // pricing_config. The QuoteModal pre-fills inputs with those defaults the
-// first time a link is cotized; once a quote_data snapshot exists on the
-// link, that wins (so admin edits stay sticky).
+// first time a link is cotized; saved costs take priority afterwards.
+// The purchase basis always comes from the current negotiated USA price.
 const USD_FIELDS = [
   { key: 'trailer_usd',                 cot: 'cot_usd_trailer',                 label: 'Trailer (si no trae)' },
   { key: 'inspeccion_usd',              cot: 'cot_usd_inspeccion_lancha',       label: 'Inspección técnica USA' },
@@ -140,7 +140,10 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
       // Generales
       modalidad: saved?.modalidad ?? 'RORO',
       usd_clp_rate: saved?.usd_clp_rate ?? cot('cot_usd_clp_rate', 920),
-      valor_lancha_usd: saved?.valor_lancha_usd ?? num(link?.value_usa_usd) ?? 0,
+      // La negociación vigente del expediente manda sobre una cotización
+      // anterior. El publicado se muestra sólo como referencia, nunca de base.
+      valor_negociado_usd: num(link?.value_to_negotiate_usd) > 0 ? num(link.value_to_negotiate_usd) : null,
+      valor_lancha_usd: num(link?.value_to_negotiate_usd),
       // Cargos finales
       iva_pct: saved?.iva_pct ?? cot('cot_pct_iva_aduanero', 19),
       lujo_pct: saved?.lujo_pct ?? cot('cot_pct_impuesto_lujo', 2),
@@ -206,9 +209,12 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
   if (!open) return null;
 
   function set(k, v) { setQ(prev => ({ ...prev, [k]: v })); }
+  function setNegociado(v) {
+    setQ(prev => ({ ...prev, valor_negociado_usd: v, valor_lancha_usd: num(v) }));
+  }
 
   async function handleSave(publishNow = false) {
-    if (!q || !calc || !link?.id) return;
+    if (!q || !calc || !link?.id || num(q.valor_negociado_usd) <= 0) return;
     if (publishNow && !(await confirm({
       title: '¿Publicar la cotización ahora?',
       description: 'Esto publica la cotización al cliente AHORA (sin esperar las 24 horas) y le envía un correo.',
@@ -273,6 +279,9 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
   const boatTitle = [link?.year, link?.make, link?.model].filter(Boolean).join(' ') || link?.url || 'Link';
   const ocupado = saving || deleting || sendingBreakdown;
   const pagosOk = calc ? Math.abs(calc.pagosSum - 100) < 0.01 : true;
+  const baseDefinida = num(q?.valor_negociado_usd) > 0;
+  const snapshot = typeof link?.quote_data === 'string' ? safeParse(link.quote_data) : link?.quote_data;
+  const baseCambio = baseDefinida && snapshot && Math.round(num(snapshot.valor_lancha_usd) * 100) !== Math.round(num(q.valor_lancha_usd) * 100);
 
   const extras = [
     link?.quote_published_at ? { label: sendingBreakdown ? 'Enviando desglose…' : (link.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'), icon: Send, onClick: handleBreakdown, disabled: ocupado } : null,
@@ -308,8 +317,8 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
           </div>
           <div className="quote-footer-actions">
             <Button variant="ghost" size="lg" onClick={onClose} disabled={ocupado} className="quote-cancel">Cancelar</Button>
-            <Button variant="secondary" size="lg" icon={Send} onClick={() => handleSave(true)} disabled={ocupado || !calc} title="Publica al cliente sin esperar las 24 horas y le envía un correo" className="quote-publish">Publicar ahora</Button>
-            <Button size="lg" icon={Check} onClick={() => handleSave(false)} loading={saving} disabled={deleting || sendingBreakdown || !calc} className="quote-save">Guardar cotización</Button>
+            <Button variant="secondary" size="lg" icon={Send} onClick={() => handleSave(true)} disabled={ocupado || !calc || !baseDefinida} title="Publica al cliente sin esperar las 24 horas y le envía un correo" className="quote-publish">Publicar ahora</Button>
+            <Button size="lg" icon={Check} onClick={() => handleSave(false)} loading={saving} disabled={deleting || sendingBreakdown || !calc || !baseDefinida} className="quote-save">Guardar cotización</Button>
           </div>
         </div>
       )}
@@ -319,7 +328,7 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
       ) : (
         <>
         <div className="quote-mobile-total">
-          <div><span>Total puesto en Chile</span><strong>{fmtCLP(calc.totalClp)}</strong></div>
+          <div><span>Total puesto en Chile</span><strong>{baseDefinida ? fmtCLP(calc.totalClp) : 'Por calcular'}</strong></div>
           <Button variant="ghost" size="sm" onClick={() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Ver resumen</Button>
         </div>
         <div className="quote-workspace">
@@ -329,8 +338,13 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
               <div className="quote-purchase-fields">
                 <Select label="Modalidad de envío" size="lg" value={q.modalidad} onChange={e => set('modalidad', e.target.value)} options={[{ value: 'RORO', label: 'RORO' }, { value: 'Container', label: 'Contenedor' }, { value: 'Otro', label: 'Otra modalidad' }]} />
                 <NumberInput label="Tipo de cambio" hint="Pesos chilenos por 1 USD" size="lg" unit="CLP" step="0.01" value={q.usd_clp_rate} onChange={e => set('usd_clp_rate', e.target.value)} />
-                <MoneyInput label="Valor de la lancha" hint="Precio de compra en EE. UU." size="lg" currency="USD" value={q.valor_lancha_usd} onChange={v => set('valor_lancha_usd', v)} />
+                <div className="quote-published-price"><span>Valor publicado · USA</span><strong>{fmtUSD(num(link?.value_usa_usd))}</strong><small>Referencia del anuncio</small></div>
               </div>
+              <div className="quote-negotiated-price">
+                <MoneyInput label="Valor negociado · USA" hint="Base de compra para todos los cálculos" placeholder="Ingresa el valor acordado" required size="lg" currency="USD" value={q.valor_negociado_usd} onChange={setNegociado} />
+                <div><span className="quote-base-badge">Base del cálculo</span><p>{baseDefinida ? 'El total, los impuestos y los pagos se calculan sobre este valor negociado.' : 'Ingresa el precio acordado con el vendedor para calcular el total de la importación.'}</p></div>
+              </div>
+              {baseCambio && <p className="quote-base-warning"><Info size={16} />La cotización guardada usaba otra base. Revisa el nuevo total antes de guardar o publicar.</p>}
             </section>
 
             <div className="quote-costs">
@@ -358,7 +372,7 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
                       <SectionHeading icon={ShieldCheck} id="quote-tax-title" title="Impuestos y gestión" description="Ajusta los cargos que completan el valor final." />
                       <div className="quote-field-grid">
                         <MoneyInput label="Fee Imporlan" hint="Gestión interna de esta operación" size="lg" currency="CLP" value={q.fee_imporlan_clp} onChange={v => set('fee_imporlan_clp', v)} />
-                        <NumberInput label="IVA aduanero" hint={`Base CIF: ${fmtCLP(calc.cifClp)}`} size="lg" unit="%" value={q.iva_pct} step="0.1" onChange={e => set('iva_pct', e.target.value)} />
+                        <NumberInput label="IVA aduanero" hint={baseDefinida ? `Base CIF: ${fmtCLP(calc.cifClp)}` : 'Falta el valor negociado para calcular el CIF'} size="lg" unit="%" value={q.iva_pct} step="0.1" onChange={e => set('iva_pct', e.target.value)} />
                       </div>
                       <div className="quote-luxury">
                         <Switch label="Aplicar impuesto al lujo" hint="Actívalo cuando corresponda a esta embarcación." checked={!!q.lujo_aplica} onChange={v => set('lujo_aplica', v)} />
@@ -386,25 +400,25 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
             <div className="quote-preview-heading"><Eye size={17} /><h3>Vista del cliente</h3><span>Vista previa</span></div>
             <section className="quote-total-card" aria-label="Total de la importación">
               <p>Total puesto en Chile</p>
-              <output className="quote-total" aria-label="Total en pesos chilenos" aria-live="polite" aria-atomic="true">{fmtCLP(calc.totalClp)}</output>
-              <span className="quote-total-usd">Aprox. {fmtUSD(calc.totalUsd)}</span>
+              <output className="quote-total" aria-label="Total en pesos chilenos" aria-live="polite" aria-atomic="true">{baseDefinida ? fmtCLP(calc.totalClp) : 'Por calcular'}</output>
+              <span className="quote-total-usd">{baseDefinida ? `Aprox. ${fmtUSD(calc.totalUsd)}` : 'Falta el valor negociado en USA'}</span>
               <div className="quote-total-meta"><Ship size={15} />{q.modalidad === 'Container' ? 'Contenedor' : q.modalidad} <span>·</span> 1 USD = {fmtCLP(num(q.usd_clp_rate))}</div>
             </section>
 
             <section className="quote-breakdown" aria-labelledby="quote-breakdown-title">
               <h4 id="quote-breakdown-title">Composición del precio</h4>
               <dl>
-                <PriceRow label="Valor de la lancha" sub={fmtUSD(calc.lanchaUsd)} value={fmtCLP(calc.lanchaClp)} />
+                <PriceRow label="Valor de compra negociado" sub={baseDefinida ? fmtUSD(calc.lanchaUsd) : 'Pendiente de negociación'} value={baseDefinida ? fmtCLP(calc.lanchaClp) : '—'} />
                 <PriceRow label="Servicio All-Inclusive" value={fmtCLP(calc.allInclusiveTotal)} />
-                <PriceRow label="IVA aduanero" sub={`${num(q.iva_pct)} % sobre CIF`} value={fmtCLP(calc.ivaClp)} />
-                <PriceRow label="Impuesto al lujo" sub={q.lujo_aplica ? `${num(q.lujo_pct)} % sobre la lancha` : null} value={q.lujo_aplica ? fmtCLP(calc.lujoClp) : 'No aplica'} muted={!q.lujo_aplica} />
+                <PriceRow label="IVA aduanero" sub={`${num(q.iva_pct)} % sobre CIF`} value={baseDefinida ? fmtCLP(calc.ivaClp) : '—'} />
+                <PriceRow label="Impuesto al lujo" sub={q.lujo_aplica ? `${num(q.lujo_pct)} % sobre la lancha` : null} value={q.lujo_aplica ? (baseDefinida ? fmtCLP(calc.lujoClp) : '—') : 'No aplica'} muted={!q.lujo_aplica} />
               </dl>
             </section>
 
             <section className="quote-payment-preview" aria-labelledby="quote-plan-title">
               <div className="quote-plan-heading"><h4 id="quote-plan-title">Plan de pagos</h4><span className={cn('quote-plan-badge', !pagosOk && 'quote-plan-badge--warning')}>{pagosOk ? '3 pagos' : 'Revisar'}</span></div>
               <ol>
-                {[1, 2, 3].map(n => <li key={n}><span className="quote-payment-number">{n}</span><span className="quote-payment-name">Pago {n}<small>{calc.pagos[`p${n}`].pct} % del total</small></span><strong>{fmtCLP(calc.pagos[`p${n}`].clp)}</strong></li>)}
+                {[1, 2, 3].map(n => <li key={n}><span className="quote-payment-number">{n}</span><span className="quote-payment-name">Pago {n}<small>{calc.pagos[`p${n}`].pct} % del total</small></span><strong>{baseDefinida ? fmtCLP(calc.pagos[`p${n}`].clp) : '—'}</strong></li>)}
               </ol>
             </section>
             <p className="quote-publication-note"><Clock size={16} /><span>Al guardar, el cliente verá la cotización <strong>en 24 horas</strong>. Para publicarla y enviar el correo al momento, elige «Publicar ahora».</span></p>

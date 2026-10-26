@@ -35,7 +35,7 @@ require_once __DIR__ . '/../api/cotizador_helpers.php';
 $pdo = new PDO('sqlite::memory:');
 
 $planilla = [
-    'usd_clp_rate' => 950, 'valor_lancha_usd' => 30000,
+    'usd_clp_rate' => 950, 'valor_lancha_usd' => 30000, 'valor_negociado_usd' => 30000,
     'transporte_roro_usd' => 8500, 'seguro_usd' => 320, 'inland_usa_usd' => 2100,
     'gastos_puerto_clp' => 400000, 'agencia_aduana_clp' => 280000,
     'iva_pct' => 19, 'lujo_pct' => 2, 'lujo_aplica' => false,
@@ -63,7 +63,7 @@ t(array_keys($qd) == ['usd_clp_rate', 'valor_lancha_usd', 'transporte_roro_usd',
 $json = json_encode($out);
 t(strpos($json, 'fee_imporlan') === false, 'el FEE Imporlan no sale al cliente');
 t(strpos($json, '3000000') === false, 'ni su monto');
-foreach (['seguro_usd', 'inland_usa_usd', 'gastos_puerto_clp', 'agencia_aduana_clp', 'pago_1_pct'] as $k) {
+foreach (['seguro_usd', 'inland_usa_usd', 'gastos_puerto_clp', 'agencia_aduana_clp', 'pago_1_pct', 'valor_negociado_usd'] as $k) {
     t(strpos($json, $k) === false, "{$k} no sale al cliente");
 }
 

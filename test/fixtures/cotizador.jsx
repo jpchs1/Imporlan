@@ -6,10 +6,11 @@ import { ConfirmProvider } from '/src/shared/components/ConfirmDialog.jsx';
 import '/src/index.css';
 
 // Fixture aislada. Ninguna sesión o registro de producción participa aquí.
-const saved = new URLSearchParams(location.search).has('saved');
+const params = new URLSearchParams(location.search);
+const saved = params.has('saved');
 const link = {
   id: 123, year: 2007, make: 'Bayliner', model: '175', location: 'Florida, EE. UU.',
-  url: 'https://example.test/boat/123', value_usa_usd: 4995,
+  url: 'https://example.test/boat/123', value_usa_usd: 10000, value_to_negotiate_usd: params.has('missing') ? null : (saved ? 7200 : 4995),
   quote_data: saved ? { usd_clp_rate: 950, valor_lancha_usd: 10000, thc_usd: 249.5 } : null,
   quote_calculated_at: saved ? '2026-10-20T12:00:00' : null,
   quote_published_at: saved ? '2026-10-21T12:00:00' : null,

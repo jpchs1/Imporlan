@@ -26,6 +26,16 @@
 .quote-section-icon { display: grid; place-items: center; width: 35px; height: 35px; flex: none; background: var(--color-canvas); border: 1px solid var(--color-line); color: var(--color-ink-700); border-radius: var(--radius-md); }
 .quote-purchase-fields { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 16px; align-items: start; }
 .quote-purchase-fields > *, .quote-field-grid > *, .quote-payment-fields > * { min-width: 0; }
+.quote-published-price > span { display: block; font-size: 13px; font-weight: 500; color: var(--color-ink-700); margin-bottom: 8px; line-height: 20px; }
+.quote-published-price > strong { display: block; padding: 10px 12px; font-size: 15px; line-height: 22px; font-weight: 500; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-ink-500); }
+.quote-published-price > small { display: block; margin-top: 6px; font-size: 11px; color: var(--color-ink-500); }
+.quote-negotiated-price { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: center; border-top: 1px solid var(--color-line); margin-top: 20px; padding-top: 20px; }
+.quote-negotiated-price > * { min-width: 0; }
+.quote-editor .quote-negotiated-price input:not([type="checkbox"]) { border-color: var(--color-brand-500); }
+.quote-base-badge { display: inline-block; color: var(--color-brand-700); background: var(--color-brand-50); border: 1px solid var(--color-brand-200); border-radius: var(--radius-sm); padding: 2px 7px; font-size: 11px; font-weight: 600; }
+.quote-negotiated-price p { color: var(--color-ink-500); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+.quote-base-warning { display: flex; align-items: start; gap: 8px; background: var(--color-warning-bg); color: var(--color-warning); border-radius: var(--radius-md); padding: 10px 12px; margin-top: 14px; font-size: 12px; }
+.quote-base-warning > svg { flex: none; margin-top: 1px; }
 .quote-editor label { font-size: 13px; line-height: 20px; margin-bottom: 8px; }
 .quote-editor input:not([type="checkbox"]), .quote-editor select {
   height: 44px;
@@ -154,6 +164,7 @@
   .quote-tabs > button { font-size: 11px; line-height: 1.4; min-height: 44px; padding: 7px 3px; }
   .quote-tabs > button > svg { display: none; }
   .quote-luxury { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .quote-negotiated-price { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .quote-luxury > :last-child { max-width: 150px; }
   .quote-payment-fields { gap: 12px; }
   .quote-payment-check > strong { width: 100%; margin-left: 23px; }
