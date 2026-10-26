@@ -53,7 +53,7 @@ try {
     await page.goto(`${origin}/panel/__quote?new=1`);
     await page.getByRole('button', { name: 'Cotizar', exact: true }).click();
     const modal = page.getByRole('dialog', { name: 'Cotizador de importación', exact: true });
-    await modal.getByLabel('Valor de la lancha', { exact: true }).waitFor();
+    await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).waitFor();
     await page.waitForFunction(() => document.fonts.status === 'loaded');
     await page.waitForTimeout(200);
     check(await modal.locator('.quote-total').textContent() === '$24.969.966', 'the existing quote calculation remains unchanged');
@@ -62,8 +62,9 @@ try {
     check(await modal.getByRole('button', { name: 'Guardar cotización', exact: true }).evaluate(el => {
       const box = el.getBoundingClientRect(); return box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth && box.height >= 44;
     }), `save remains visible and has a usable target at ${width}px`);
-    check(await modal.getByLabel('Valor de la lancha', { exact: true }).inputValue() === '4.995', 'money values use readable thousands separators');
+    check(await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).inputValue() === '4.995', 'money values use readable thousands separators');
     check(saves.length === 0, 'opening the calculator does not save or send anything');
+    check(await modal.locator('.quote-published-price strong').textContent() === 'USD 10.000', 'published price remains a separate reference instead of the calculation base');
     await modal.getByRole('tab', { name: 'Costos en USD', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     check(await modal.getByRole('tab', { name: 'Costos en CLP', exact: true }).getAttribute('aria-selected') === 'true', 'cost tabs work with the keyboard');
@@ -74,14 +75,14 @@ try {
       await page.screenshot({ path: join(process.env.QUOTE_SCREENSHOTS, `cotizador-${width}.png`) });
     }
 
-    await modal.getByLabel('Valor de la lancha', { exact: true }).click();
-    await modal.getByLabel('Valor de la lancha', { exact: true }).fill('10000');
+    await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).click();
+    await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).fill('10000');
     await modal.getByRole('tab', { name: 'Costos en CLP', exact: true }).click();
     check(await modal.locator('.quote-total').textContent() === '$30.449.440', 'editing the purchase price recalculates the final total: ' + await modal.locator('.quote-total').textContent());
     await modal.getByLabel('Entrega / traslado', { exact: true }).click();
     await modal.getByLabel('Entrega / traslado', { exact: true }).fill('100000');
     await modal.getByRole('tab', { name: 'Costos en USD', exact: true }).click();
-    check(await modal.getByLabel('Valor de la lancha', { exact: true }).inputValue() === '10.000', 'switching tabs preserves purchase edits');
+    check(await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).inputValue() === '10.000', 'switching tabs preserves purchase edits');
     await modal.locator('summary').click();
     await modal.getByLabel('THC', { exact: true }).click();
     await modal.getByLabel('THC', { exact: true }).fill('249,50');
@@ -106,18 +107,34 @@ try {
     check(saves.length === 1 && !saves[0].publish_now, 'ordinary save keeps the existing 24-hour publication mode');
     check(saves[0].quote_total_clp === 30815780 && saves[0].quote_data.thc_usd === 249.5 && saves[0].quote_data.entrega_clp === 100000,
       'save includes the computed total and edits from hidden cost sections');
-    check(Object.keys(saves[0].quote_data).length === 36 && saves[0].quote_payments.p1_pct === 7, 'all original cost and payment fields survive the redesign');
+    check(saves[0].quote_data.valor_negociado_usd === 10000 && saves[0].quote_data.valor_lancha_usd === 10000, 'negotiated price and the purchase basis are saved together');
+    check(Object.keys(saves[0].quote_data).length === 37 && saves[0].quote_payments.p1_pct === 7, 'all original cost and payment fields survive the redesign');
     if (width === 1440) {
       await page.goto(`${origin}/panel/__quote?saved=1`);
       await page.getByRole('button', { name: 'Cotizar', exact: true }).click();
-      await modal.getByLabel('Valor de la lancha', { exact: true }).waitFor();
+      await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).waitFor();
       check(await modal.getByLabel('Tipo de cambio', { exact: true }).inputValue() === '950'
-        && await modal.getByLabel('Valor de la lancha', { exact: true }).inputValue() === '10.000', 'saved quote values take priority over current templates');
+        && await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).inputValue() === '7.200', 'current negotiated purchase price takes priority over the old quote snapshot');
+      check(await modal.locator('.quote-total').textContent() === '$28.192.925' && await modal.locator('.quote-base-warning').isVisible(), 'the saved costs are reused but totals and taxes use the current negotiated amount');
       await modal.locator('summary').click();
       check(await modal.getByLabel('THC', { exact: true }).inputValue() === '249,50', 'saved decimals survive reopening an existing quote');
       check(await modal.getByRole('button', { name: 'Más acciones de la cotización', exact: true }).count() === 1, 'published quotes keep their existing secondary actions');
       await modal.getByRole('button', { name: 'Cancelar', exact: true }).click();
       check(saves.length === 1, 'cancelling a saved quote does not mutate it');
+      await page.goto(`${origin}/panel/__quote?saved=1&missing=1`);
+      await page.getByRole('button', { name: 'Cotizar', exact: true }).click();
+      await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).waitFor();
+      check(await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).inputValue() === ''
+        && await modal.locator('.quote-total').textContent() === 'Por calcular', 'missing negotiation does not silently use the published price or an old snapshot');
+      check(await modal.getByRole('button', { name: 'Guardar cotización', exact: true }).isDisabled()
+        && await modal.getByRole('button', { name: 'Publicar ahora', exact: true }).isDisabled(), 'quotes cannot be saved or published without a negotiated price');
+      await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).click();
+      await modal.getByLabel(/^Valor negociado · USA/, { exact: true }).fill('7000,25');
+      check(await modal.locator('.quote-total').textContent() !== 'Por calcular', 'entering a negotiated amount enables calculation');
+      await modal.getByRole('button', { name: 'Guardar cotización', exact: true }).click();
+      await modal.waitFor({ state: 'hidden' });
+      check(saves.length === 2 && saves[1].quote_data.valor_negociado_usd === 7000.25
+        && saves[1].quote_data.valor_lancha_usd === 7000.25, 'a new negotiated amount with cents is submitted as the price basis');
     }
     check(errors.length === 0, `no runtime errors at ${width}px: ${errors.join(', ')}`);
     await context.close();

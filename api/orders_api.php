@@ -1445,12 +1445,13 @@ function ensureRankingColumns($pdo) {
  *
  * Body: {
  *   link_id: int,
- *   quote_data: { ...full inputs (USD costs, CLP costs, percentages, fee, payments) ... },
+ *   quote_data: { valor_negociado_usd, valor_lancha_usd, ...costs and payments... },
  *   quote_total_clp: number,
  *   quote_total_usd: number,
  *   quote_payments: { p1_pct, p1_clp, p2_pct, p2_clp, p3_pct, p3_clp },
  *   publish_now: bool   // optional: if true, skip the 24h delay and email the client immediately
  * }
+ * El valor de compra debe coincidir con el negociado USA; el publicado es referencia.
  *
  * By default sets quote_published_at = NULL so the configurable client-delay
  * window starts fresh and cotizadorApplyClientVisibility / cron handles the
@@ -1480,6 +1481,30 @@ function adminSaveQuote() {
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
         cotizadorEnsureOrderLinkColumns($pdo);
+        $linkStmt = $pdo->prepare('SELECT value_to_negotiate_usd FROM order_links WHERE id = ?');
+        $linkStmt->execute([$linkId]);
+        $link = $linkStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$link) {
+            http_response_code(404);
+            echo json_encode(['error' => 'No se encontró la embarcación']);
+            return;
+        }
+        // El precio publicado nunca es la base de una cotización final. Las
+        // sesiones antiguas también deben respetar la negociación del expediente.
+        $negotiatedRaw = array_key_exists('valor_negociado_usd', $quoteData)
+            ? $quoteData['valor_negociado_usd'] : $link['value_to_negotiate_usd'];
+        if (!is_numeric($negotiatedRaw) || !is_finite((float)$negotiatedRaw) || round((float)$negotiatedRaw, 2) <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Ingresa el valor negociado en USA para calcular y guardar la cotización']);
+            return;
+        }
+        $negotiatedUsd = round((float)$negotiatedRaw, 2);
+        $quotedBase = $quoteData['valor_lancha_usd'] ?? null;
+        if (!is_numeric($quotedBase) || !is_finite((float)$quotedBase) || abs((float)$quotedBase - $negotiatedUsd) > 0.001) {
+            http_response_code(409);
+            echo json_encode(['error' => 'La cotización no usa el valor negociado vigente. Vuelve a abrir el cotizador y revisa el total']);
+            return;
+        }
         $publishedClause = $publishNow ? 'NOW()' : 'NULL';
         $stmt = $pdo->prepare("
             UPDATE order_links
@@ -1490,7 +1515,8 @@ function adminSaveQuote() {
                 quote_calculated_at         = NOW(),
                 quote_published_at          = $publishedClause,
                 quote_breakdown_sent_at     = NULL,
-                value_chile_negotiated_clp  = ?
+                value_chile_negotiated_clp  = ?,
+                value_to_negotiate_usd      = ?
             WHERE id = ?
         ");
         $stmt->execute([
@@ -1503,6 +1529,7 @@ function adminSaveQuote() {
             // row's negotiated column gives the admin and client a single
             // visible "negotiated total" without having to open the quote modal.
             (int)round($totalClp),
+            $negotiatedUsd,
             $linkId,
         ]);
 

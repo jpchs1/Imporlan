@@ -66,6 +66,9 @@ jobs:
       - name: La planilla de la cotización no sale al cliente
         run: php test/cotizador-cliente-tests.php
 
+      - name: La base del cotizador es el valor negociado, nunca el publicado
+        run: php test/cotizador-negociado-tests.php
+
       - name: Desglose del All-Inclusive (sin el FEE)
         run: php test/cotizador-desglose-tests.php
 

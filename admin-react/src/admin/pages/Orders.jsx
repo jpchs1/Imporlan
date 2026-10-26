@@ -822,15 +822,15 @@ export default function Orders() {
       onQuoteSaved={async () => {
         if (!detail?.id) return;
         const cotizadoId = cotizandoLink?.id;
-        // Guardar la cotización copia su total a "valor negociado" en el
-        // servidor. Si había ediciones sin guardar, se persisten tomando ese
-        // valor nuevo del servidor para no pisarlo con el local viejo.
+        // La cotización guarda el negociado USA y el total negociado Chile.
+        // Las ediciones pendientes deben conservar ambos valores nuevos,
+        // en vez de pisarlos con los que tenía la fila antes de cotizar.
         if (unsaved) {
           try {
             const o = await getOrderDetail(detail.id);
             const fresco = ((o.order || o).links || []).find(l => l.id === cotizadoId);
             const merged = links.map(l => (l.id === cotizadoId && fresco
-              ? { ...l, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
+              ? { ...l, value_to_negotiate_usd: fresco.value_to_negotiate_usd, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
               : l));
             await updateOrderLinks(detail.id, merged);
             setUnsaved(false);
