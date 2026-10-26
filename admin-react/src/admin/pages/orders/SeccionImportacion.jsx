@@ -31,7 +31,7 @@ import DatosCliente from './DatosCliente';
  */
 export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
-  const link = eleccion ? links.find(l => l.id === eleccion.link_id) : null;
+  const link = eleccion ? links.find(l => Number(l.id) === Number(eleccion.link_id)) : null;
   const [modalCobro, setModalCobro] = useState(null); // { pago } · { manual: true }
   const [modalHito, setModalHito] = useState(null);   // el hito a marcar
   const [modalNoApta, setModalNoApta] = useState(false);
@@ -229,9 +229,10 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                   Cobros
                   {importacion.cargandoCobros && <Spinner inline size="sm" label="Cargando cobros" />}
                 </h3>
-                <Button size="sm" variant="ghost" icon={Plus} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
+                <Button size="sm" variant="ghost" icon={Plus} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
               </div>
 
+              {importacion.cobrosError && <Callout tone="warning" compact className="mb-3" action={<Button size="sm" variant="secondary" onClick={importacion.onReintentarCobros}>Reintentar cobros</Button>}>{importacion.cobrosError}</Callout>}
               {plan.length === 0 ? (
                 <Callout
                   tone="neutral"
@@ -250,7 +251,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       clp={p.clp}
                       cobro={p.cobro}
                       accion={p.estado === 'por_cobrar'
-                        ? <Button size="sm" variant="secondary" icon={Receipt} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
+                        ? <Button size="sm" variant="secondary" icon={Receipt} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
                         : <MenuCobro cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}

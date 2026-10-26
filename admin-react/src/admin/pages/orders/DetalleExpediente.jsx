@@ -12,6 +12,7 @@ import FilesSection from '../../components/FilesSection';
 import { useExpedienteFiles } from '../../components/useExpedienteFiles';
 import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
 import { irASeccionExpediente } from '../../../shared/lib/expediente-navigation';
+import { esLinkVacio } from '../../../shared/lib/link-vacio';
 import { STATUS_OPTIONS } from './constantes';
 import BarraAcciones from './BarraAcciones';
 import FormularioExpediente from './FormularioExpediente';
@@ -20,7 +21,7 @@ import ModalEleccion from './ModalEleccion';
 
 export default function DetalleExpediente(p) {
   const {
-    loading, detail, links, form, setForm, setUnsaved, unsaved, saving,
+    loading, loadError, onRetry, detail, links, form, setForm, setUnsaved, unsaved, saving,
     rescraping, rescrapeProgress, scraperFaltante, onCerrarAvisoScraper, linksContainerRef,
     onBack, onSaveAll, onSendClient, onNotifyRanking, onRescrape, onDeleteOrder, onTimelineStep,
     onAddLink, onDeleteEmptyLinks, onLinkUpdate, onDeleteLink, onImageUpload, onScrapeResult, onEncolado, onEncolarUrl,
@@ -33,15 +34,20 @@ export default function DetalleExpediente(p) {
   // Modal «Marcar lancha elegida»: lo abren la sección Importación y el menú
   // de cada fila del ranking (con esa fila preseleccionada). { linkId } | null.
   const [modalEleccion, setModalEleccion] = useState(null);
+  const [mostrarVacias, setMostrarVacias] = useState(false);
   const abrirEleccion = (lk) => setModalEleccion({ linkId: lk?.id ?? null });
 
   // Los archivos se piden una vez y los comparten Archivos y «Operación en
   // EE. UU.» (las miniaturas de cada actualización salen de aquí por id).
   const archivos = useExpedienteFiles(detail?.id);
 
-  if (loading || !detail) return <Skeleton.Detail />;
+  if (loading) return <Skeleton.Detail />;
+  if (!detail) return <Card><ErrorState title="No pudimos cargar este expediente" detail={loadError} onRetry={onRetry} /><Button variant="ghost" onClick={onBack}>Volver a expedientes</Button></Card>;
 
-  const hayVacias = links.some(l => !l.url && !l.make && !l.model && !l.image_url);
+  const vacias = links.filter(esLinkVacio).length;
+  const hayVacias = vacias > 0;
+  const linksVisibles = mostrarVacias || links.every(esLinkVacio) ? links : links.filter(l => !esLinkVacio(l));
+  const agregarFila = () => { setMostrarVacias(true); onAddLink(); };
   const conUrl = links.filter(l => (l.url || '').trim()).length;
   const eleccion = detail.eleccion || null;
   const etapaEleccion = etapaPorEleccion(eleccion);
@@ -99,7 +105,7 @@ export default function DetalleExpediente(p) {
         { id: 'importacion', label: 'Operación', icon: Ship },
         ...(eleccion && equipoChile ? [{ id: 'operacion-usa', label: 'EE. UU.', icon: Globe }] : []),
         { id: 'reportes', label: 'Informes', icon: FileText },
-        { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: archivos.files.length },
+        { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: archivos.loading || archivos.error ? undefined : archivos.files.length },
         { id: 'ranking', label: 'Opciones', icon: Link2, count: conUrl },
         { id: 'datos', label: 'Datos', icon: User },
       ]} />
@@ -142,10 +148,10 @@ export default function DetalleExpediente(p) {
           <Card id="ranking" className="exp-section scroll-mt-32">
             <Card.Header
               title="Ranking de opciones en USA"
-              description={`${links.length} ${links.length === 1 ? 'opción' : 'opciones'} · arrastra las filas para ordenarlas`}
+              description={`${conUrl} ${conUrl === 1 ? 'anuncio' : 'anuncios'}${vacias ? ` · ${vacias} ${vacias === 1 ? 'fila vacía' : 'filas vacías'}` : ''} · arrastra las opciones para ordenarlas`}
               actions={(
                 <>
-                  <Button variant="secondary" size="sm" icon={Plus} onClick={onAddLink}><span className="sr-only sm:not-sr-only">Agregar fila</span></Button>
+                  <Button variant="secondary" size="sm" icon={Plus} onClick={agregarFila}><span className="sr-only sm:not-sr-only">Agregar fila</span></Button>
                   {hayVacias && (
                     <Menu
                       label="Más acciones del ranking"
@@ -186,8 +192,10 @@ export default function DetalleExpediente(p) {
               {/* Links list — natural page scroll, no internal max-height. */}
               <div ref={linksContainerRef} className="space-y-3">
                 {links.length === 0 ? (
-                  <EmptyState compact icon={Link2} title="Sin opciones todavía" description="Agrega una fila y pega el link del anuncio." primaryAction={<Button size="sm" icon={Plus} onClick={onAddLink}>Agregar fila</Button>} />
-                ) : links.map((lk, idx) => (
+                  <EmptyState compact icon={Link2} title="Sin opciones todavía" description="Agrega una fila y pega el link del anuncio." primaryAction={<Button size="sm" icon={Plus} onClick={agregarFila}>Agregar fila</Button>} />
+                ) : linksVisibles.map(lk => {
+                  const idx = links.indexOf(lk);
+                  return (
                   <LinkRow
                     key={lk.id || idx}
                     link={lk}
@@ -201,7 +209,7 @@ export default function DetalleExpediente(p) {
                     orderId={detail?.id}
                     onCotizar={lk.id ? onCotizar : undefined}
                     onEnviarDesglose={lk.id ? onEnviarDesglose : undefined}
-                    elegida={!!eleccion && eleccion.link_id === lk.id}
+                    elegida={!!eleccion && Number(eleccion.link_id) === Number(lk.id)}
                     eleccion={eleccion}
                     onMarcarElegida={lk.id ? abrirEleccion : undefined}
                     dragHandlers={{
@@ -211,8 +219,13 @@ export default function DetalleExpediente(p) {
                       onDragEnd: dragHandlers.onDragEnd,
                     }}
                   />
-                ))}
+                ); })}
               </div>
+              {hayVacias && !links.every(esLinkVacio) && (
+                <Button variant="ghost" size="sm" onClick={() => setMostrarVacias(v => !v)} aria-expanded={mostrarVacias}>
+                  {mostrarVacias ? 'Ocultar filas vacías' : `Mostrar ${vacias} ${vacias === 1 ? 'fila vacía' : 'filas vacías'}`}
+                </Button>
+              )}
             </Card.Body>
           </Card>
 

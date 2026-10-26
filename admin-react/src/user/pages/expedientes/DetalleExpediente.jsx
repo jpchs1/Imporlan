@@ -8,7 +8,7 @@ import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
 import { sePuedeElegir, linkElegido, pctPago1Comun, planDePagos, cobrosDelExpediente, pagosConCobros } from '../../../shared/lib/importacion';
 import { inspeccionNoApta, devolucionPedida, reporteInspeccionDe } from '../../../shared/lib/inspeccion';
 import { faltanDatosImportacion } from '../../../shared/lib/datos-importacion';
-import { PageHeader, Card, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
+import { PageHeader, Card, Button, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Printer, Search, WhatsAppIcon, Compass, Ship, FileText, Images, FolderOpen, Calendar, User } from '../../../shared/components/Icons';
 import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
@@ -54,6 +54,10 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [filesLoading, setFilesLoading] = useState(true);
   const [filesError, setFilesError] = useState('');
   const [reports, setReports] = useState([]);
+  const [reportsError, setReportsError] = useState('');
+  const [pagosError, setPagosError] = useState('');
+  const [inspeccionesError, setInspeccionesError] = useState('');
+  const [syncError, setSyncError] = useState('');
   const [inspecciones, setInspecciones] = useState([]);
   const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,6 +76,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const lastEleccion = useRef(null);
   const lastNovedades = useRef(null);
   const rankingRef = useRef(null);
+  const rankingBusy = useRef(false);
+  const rankingGeneration = useRef(0);
 
   useBreadcrumb(order?.order_number ? [order.order_number] : null);
 
@@ -80,12 +86,14 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const loadReports = useCallback(async (ord) => {
     try {
       const data = await getMyReports();
-      const all = data?.reports || [];
+      if (!data?.success || !Array.isArray(data.reports)) throw new Error('No pudimos actualizar los informes.');
+      const all = data.reports;
       const matchById = (r) => String(r.order_id || r.expediente_id || '') === String(orderId);
       const matchByNumber = (r) => ord?.order_number && (r.order_number === ord.order_number || r.expediente_number === ord.order_number);
       const filtered = all.filter(r => matchById(r) || matchByNumber(r));
-      setReports(filtered.length > 0 ? filtered : []);
-    } catch { /* silencioso */ }
+      setReports(filtered);
+      setReportsError('');
+    } catch { setReportsError('No pudimos actualizar los informes.'); }
   }, [orderId]);
 
   // Los cobros (solicitudes de pago) solo importan cuando hay una lancha
@@ -93,8 +101,11 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const loadPagos = useCallback(async () => {
     try {
       const data = await getMyPaymentRequests('all');
-      setPagos(data?.requests || data?.items || []);
-    } catch { /* silencioso: sin cobros se muestra el plan igual */ }
+      const requests = data?.requests || data?.items;
+      if (!data?.success || !Array.isArray(requests)) throw new Error('Cobros no disponibles');
+      setPagos(requests);
+      setPagosError('');
+    } catch { setPagosError('No pudimos actualizar el estado de tus pagos. Revisa Pagos antes de realizar una transferencia.'); }
   }, []);
 
   // Los reportes de inspección del cliente (inspection_reports_api), sólo
@@ -102,8 +113,11 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const loadInspecciones = useCallback(async () => {
     try {
       const data = await getMyInspections();
-      if (data?.success) setInspecciones(data.inspections || data.reports || data.items || []);
-    } catch { /* silencioso: sin reporte no hay enlace */ }
+      const items = data?.inspections || data?.reports || data?.items;
+      if (!data?.success || !Array.isArray(items)) throw new Error('Inspecciones no disponibles');
+      setInspecciones(items);
+      setInspeccionesError('');
+    } catch { setInspeccionesError('No pudimos actualizar el informe de inspección.'); }
   }, []);
 
   const loadDetail = useCallback(async () => {
@@ -134,8 +148,8 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     setLoading(false);
   }, [orderId, toast, loadReports, loadPagos, loadInspecciones]);
 
-  const loadFiles = useCallback(async () => {
-    setFilesLoading(true);
+  const loadFiles = useCallback(async (background = false) => {
+    if (background !== true) setFilesLoading(true);
     setFilesError('');
     try {
       const data = await getMyFiles(orderId);
@@ -156,52 +170,66 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   // importación (hitos que marca el agente, elección registrada por él,
   // novedades que comparte; con una novedad nueva pueden venir fotos).
   useEffect(() => {
+    let polling = false;
+    let disposed = false;
     pollRef.current = setInterval(async () => {
+      if (polling || rankingBusy.current) return;
+      polling = true;
+      const generation = rankingGeneration.current;
       try {
         const data = await getMyOrderDetail(orderId);
-        if (data.success && data.order) {
-          const newTs = data.order.ranking_updated_at;
-          const eleccionJson = firmaImportacion(data.order);
-          const novedadesJson = JSON.stringify(data.order.novedades || []);
-          const cambioRanking = newTs && newTs !== lastRankingTs.current;
-          const cambioEleccion = eleccionJson !== lastEleccion.current;
-          const cambioNovedades = novedadesJson !== lastNovedades.current;
-          if (!cambioRanking && !cambioEleccion && !cambioNovedades) return;
-          lastRankingTs.current = newTs || lastRankingTs.current;
-          lastEleccion.current = eleccionJson;
-          lastNovedades.current = novedadesJson;
-          setOrder(data.order);
-          setLinks(data.order.links || []);
-          if (cambioRanking) {
-            const who = data.order.ranking_author_role === 'admin' ? 'el equipo Imporlan' : data.order.ranking_author_name;
-            toast?.(`Ranking actualizado por ${who}`, 'success');
-          }
-          if (cambioEleccion && data.order.eleccion) loadPagos();
-          if (cambioEleccion && data.order.eleccion?.inspection) loadInspecciones();
-          if (cambioNovedades) loadFiles();
-          if ((cambioEleccion && data.order.eleccion) || cambioNovedades) toast?.('Tu importación tiene novedades', 'success');
+        if (!data.success || !data.order) throw new Error('Expediente no disponible');
+        // Una lectura iniciada antes de ordenar no puede deshacer el ranking local.
+        if (disposed || rankingBusy.current || generation !== rankingGeneration.current) return;
+        const ord = data.order;
+        const cambioRanking = ord.ranking_updated_at && ord.ranking_updated_at !== lastRankingTs.current;
+        const cambioEleccion = firmaImportacion(ord) !== lastEleccion.current;
+        const cambioNovedades = JSON.stringify(ord.novedades || []) !== lastNovedades.current;
+        lastRankingTs.current = ord.ranking_updated_at || null;
+        lastEleccion.current = firmaImportacion(ord);
+        lastNovedades.current = JSON.stringify(ord.novedades || []);
+        // También cambian cotizaciones, precios, disponibilidad y etapa sin tocar el ranking.
+        setOrder(ord);
+        setLinks(ord.links || []);
+        setSyncError('');
+        if (cambioRanking && ord.ranking_author_role !== 'user') {
+          toast?.('El equipo actualizó tu ranking', 'success');
         }
-      } catch { /* silencioso */ }
+        if (ord.eleccion) loadPagos();
+        if (ord.eleccion?.inspection) loadInspecciones();
+        loadReports(ord);
+        loadFiles(true);
+        if ((cambioEleccion && ord.eleccion) || cambioNovedades) toast?.('Tu importación tiene novedades', 'success');
+      } catch {
+        if (!disposed) setSyncError('No pudimos actualizar el expediente. Mostramos la última información recibida y volveremos a intentarlo.');
+      } finally { polling = false; }
     }, 30000);
-    return () => clearInterval(pollRef.current);
-  }, [orderId, toast, loadPagos, loadFiles, loadInspecciones]);
+    return () => { disposed = true; clearInterval(pollRef.current); };
+  }, [orderId, toast, loadPagos, loadFiles, loadInspecciones, loadReports]);
 
   // --- Ranking: arrastrar, flechas, guardar, avisar ---------------------------
   async function doSaveRanking(currentLinks) {
+    if (rankingBusy.current) return false;
+    rankingBusy.current = true;
+    rankingGeneration.current++;
+    const previous = links;
     setSaving(true);
     try {
-      const linkIds = currentLinks.map(l => l.id);
-      const data = await saveRanking(orderId, linkIds);
-      if (data.success) {
-        toast?.('Ranking guardado', 'success');
-        if (data.ranking_author_name) lastRankingTs.current = new Date().toISOString();
-      } else {
-        toast?.(data.error || 'No pudimos guardar el ranking', 'error');
-      }
-    } catch {
-      toast?.('Error de conexión', 'error');
+      const data = await saveRanking(orderId, currentLinks.map(l => l.id));
+      if (!data.success) throw new Error(data.error || 'No pudimos guardar el ranking');
+      // El servidor es el reloj: no inventar una fecha desde el navegador.
+      if (data.ranking_updated_at) lastRankingTs.current = data.ranking_updated_at;
+      setOrder(prev => ({ ...prev, ranking_updated_at: data.ranking_updated_at || prev.ranking_updated_at, ranking_author_name: data.ranking_author_name, ranking_author_role: data.ranking_author_role }));
+      toast?.('Ranking guardado', 'success');
+      return true;
+    } catch (e) {
+      setLinks(previous);
+      toast?.(`${e.message || 'Error de conexión'}. Restablecimos el orden anterior.`, 'error');
+      return false;
+    } finally {
+      rankingBusy.current = false;
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   function dnd(idx) {
@@ -210,7 +238,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; },
       onDrop: (e) => {
         e.preventDefault();
-        if (dragSrc.current === null || dragSrc.current === idx) return;
+        if (rankingBusy.current || dragSrc.current === null || dragSrc.current === idx) return;
         const newLinks = [...links];
         const [moved] = newLinks.splice(dragSrc.current, 1);
         newLinks.splice(idx, 0, moved);
@@ -223,21 +251,21 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   }
 
   async function handleNotify() {
+    if (rankingBusy.current || notifying) return;
     setNotifying(true);
     try {
-      const linkIds = links.map(l => l.id);
-      await saveRanking(orderId, linkIds);
+      if (!(await doSaveRanking(links))) return;
       const data = await notifyRanking(orderId);
       if (data.success) toast?.(data.message || 'Le avisamos a tu agente', 'success');
       else toast?.(data.error || 'No pudimos avisar a tu agente', 'error');
     } catch {
       toast?.('Error de conexión', 'error');
     }
-    setNotifying(false);
+    finally { setNotifying(false); }
   }
 
   function handleMoveUp(realIdx) {
-    if (realIdx <= 0) return;
+    if (rankingBusy.current || realIdx <= 0) return;
     const next = [...links];
     [next[realIdx - 1], next[realIdx]] = [next[realIdx], next[realIdx - 1]];
     setLinks(next);
@@ -245,7 +273,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   }
 
   function handleMoveDown(realIdx) {
-    if (realIdx >= links.length - 1) return;
+    if (rankingBusy.current || realIdx >= links.length - 1) return;
     const next = [...links];
     [next[realIdx], next[realIdx + 1]] = [next[realIdx + 1], next[realIdx]];
     setLinks(next);
@@ -426,7 +454,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       <ExpedienteMetrics items={[
         { label: 'Etapa actual', value: `${String(etapa).padStart(2, '0')} / ${String(ETAPAS_EXPEDIENTE.length).padStart(2, '0')}`, hint: etapaInfo?.label, icon: Compass },
         { label: 'Embarcaciones', value: activeLinks.length, hint: 'Opciones de tu expediente', icon: Ship },
-        { label: 'Documentos', value: filesLoading || filesError ? '—' : files.filter(f => f.category === 'document').length + reports.length, hint: 'Informes y documentos disponibles', icon: FileText },
+        { label: 'Documentos', value: filesLoading || filesError || reportsError ? '—' : files.filter(f => f.category === 'document').length + reports.length, hint: 'Informes y documentos disponibles', icon: FileText },
         { label: 'Fotos y videos', value: filesLoading || filesError ? '—' : files.filter(f => f.category === 'image' || f.category === 'video').length, hint: 'Material compartido contigo', icon: Images },
       ]} />
       <ExpedienteNavigation sections={[
@@ -436,6 +464,17 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         ...(reports.length ? [{ id: 'reportes-cliente', label: 'Informes', icon: FileText, count: reports.length }] : []),
         { id: 'archivos', label: 'Archivos', icon: FolderOpen, count: filesLoading || filesError ? undefined : files.length },
       ]} />
+
+      {(syncError || reportsError || pagosError || inspeccionesError) && (
+        <Callout tone="warning" title="Hay información pendiente de actualizar" className="mb-6">
+          <div className="space-y-2" role="status">
+            {syncError && <p>{syncError}</p>}
+            {reportsError && <p>{reportsError} <Button variant="ghost" size="sm" onClick={() => loadReports(order)}>Reintentar informes</Button></p>}
+            {pagosError && <p>{pagosError} <Button variant="ghost" size="sm" onClick={loadPagos}>Reintentar pagos</Button></p>}
+            {inspeccionesError && <p>{inspeccionesError} <Button variant="ghost" size="sm" onClick={loadInspecciones}>Reintentar inspección</Button></p>}
+          </div>
+        </Callout>
+      )}
 
       {cerrado && (
         <Callout tone={order.status === 'expired' ? 'warning' : 'neutral'} title={order.status === 'expired' ? 'Este expediente venció' : 'Este expediente fue cancelado'} className="mb-6">
