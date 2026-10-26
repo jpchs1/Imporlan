@@ -876,6 +876,11 @@ function adminUpdateLinks() {
                 ]);
 
                 if ($oldLink) {
+                    // La cola se guarda en la misma transacción que la URL,
+                    // antes de contestar. No depende del navegador ni de que
+                    // sobreviva un proceso PHP después de cerrar la respuesta.
+                    encolarLinksAutomaticos($pdo, $orderId, $linkId,
+                        trim((string) ($oldLink['url'] ?? '')) !== trim((string) ($link['url'] ?? '')));
                     $fields = ['url','value_usa_usd','value_to_negotiate_usd','value_chile_clp','value_chile_negotiated_clp','selection_order','comments'];
                     foreach ($fields as $f) {
                         $oldVal = $oldLink[$f] ?? null;
@@ -896,14 +901,12 @@ function adminUpdateLinks() {
 
         echo json_encode(['success' => true, 'message' => 'Links actualizados']);
 
-        // Los links pegados a mano en el panel nunca pasaban por el scraper del
-        // servidor: solo createOrderFromQuotation() lo invocaba. Aqui cubrimos
-        // esa via, pero DESPUES de contestar: con Plan B un solo link puede
-        // tardar minutos y el guardado no puede quedar esperando eso.
-        // Solo se procesan filas con URL que jamas se scrapearon.
-        finishRequestEarly();
-        @set_time_limit(300);
-        scrapePendingOrderLinks($pdo, $orderId, 5);
+        // Respaldo para instalaciones antiguas sin las columnas de la cola.
+        if (!colaDisponible($pdo)) {
+            finishRequestEarly();
+            @set_time_limit(300);
+            scrapePendingOrderLinks($pdo, $orderId, 5);
+        }
         return;
     } catch (PDOException $e) {
         $pdo->rollBack();
@@ -960,6 +963,7 @@ function adminAddLink() {
         ]);
 
         $linkId = $pdo->lastInsertId();
+        encolarLinksAutomaticos($pdo, $orderId, intval($linkId), true);
         logOrderEvent($pdo, $orderId, 'added_link', ['link_id' => $linkId, 'row_index' => $nextIndex]);
 
         echo json_encode(['success' => true, 'link_id' => intval($linkId), 'row_index' => intval($nextIndex)]);
@@ -1973,6 +1977,8 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
             }
         }
 
+        encolarLinksAutomaticos($pdo, $orderId, null, true);
+
         logOrderEvent($pdo, $orderId, 'created', [
             'order_number' => $orderNumber,
             'source' => 'quotation',
@@ -2104,7 +2110,7 @@ function createOrderFromQuotation($purchase, $storedLinks = []) {
  *                         sincronas del panel usan un tope bajo.
  * @return array Resumen por fila, apto para devolver al panel.
  */
-function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null, $incluirLentos = true) {
+function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $rowIndex = null, $incluirLentos = true, $linkId = null, $expectedUrl = null) {
     // Un require de un archivo ausente es un fatal: el servidor devolveria un 500
     // en HTML que el panel ni siquiera puede parsear. Por eso el modulo pesado es
     // opcional: si no esta, igual guardamos lo deducible de la URL y lo informamos
@@ -2119,9 +2125,11 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         $scraperReady = function_exists('scrapeLinkData');
     }
 
-    $sql = "SELECT row_index, url, title, image_url FROM order_links
+    $sql = "SELECT id, row_index, url, title, image_url FROM order_links
             WHERE order_id = ? AND url IS NOT NULL AND TRIM(url) <> ''";
     $args = [$orderId];
+    if ($linkId !== null) { $sql .= " AND id = ?"; $args[] = $linkId; }
+    if ($expectedUrl !== null) { $sql .= " AND url = ?"; $args[] = $expectedUrl; }
     if ($rowIndex !== null) {
         $sql .= " AND row_index = ?";
         $args[] = $rowIndex;
@@ -2140,6 +2148,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
     $processed = 0;
 
     foreach ($rows as $row) {
+        $row['en_worker'] = $linkId !== null;
         if ($limit > 0 && $processed >= $limit) {
             $results[] = ['row_index' => intval($row['row_index']), 'status' => 'skipped_limit'];
             continue;
@@ -2171,7 +2180,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
         try {
             $quick = deriveLinkDataFromUrl($url);
             if ($quick) {
-                applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick, true);
+                applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $quick, true, $row);
             }
         } catch (\Throwable $e) {
             error_log("scrapeOrderLinkRows: deriveLinkDataFromUrl fallo en {$url}: " . $e->getMessage());
@@ -2206,7 +2215,7 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
             continue;
         }
 
-        $fields = applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $data);
+        $fields = applyScrapedDataToLinkRow($pdo, $orderId, intval($row['row_index']), $data, false, $row);
         $results[] = [
             'row_index' => intval($row['row_index']),
             'status' => $fields ? 'updated' : 'no_data',
@@ -2223,7 +2232,11 @@ function scrapeOrderLinkRows($pdo, $orderId, $onlyEmpty = true, $limit = 0, $row
  * para no pisar con NULL lo que ya estaba cargado a mano.
  * Devuelve la lista de columnas efectivamente actualizadas.
  */
-function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios = false) {
+function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios = false, $origen = null) {
+    // El ranking puede reordenarse o cambiar de anuncio mientras se lee la
+    // página. El id identifica la fila y la URL evita guardar el anuncio viejo.
+    $where = $origen ? 'order_id = ? AND id = ? AND url = ?' : 'order_id = ? AND row_index = ?';
+    $identidad = $origen ? [$orderId, $origen['id'], $origen['url']] : [$orderId, $rowIndex];
     $map = [
         'title'         => $data['title']         ?? null,
         'image_url'     => $data['image_url']     ?? null,
@@ -2242,8 +2255,8 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
     // sin esta guarda degradaba la ficha cada vez que se apretaba el boton.
     $actuales = [];
     if ($soloVacios) {
-        $st = $pdo->prepare("SELECT * FROM order_links WHERE order_id = ? AND row_index = ?");
-        $st->execute([$orderId, $rowIndex]);
+        $st = $pdo->prepare("SELECT * FROM order_links WHERE $where");
+        $st->execute($identidad);
         $actuales = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -2254,8 +2267,8 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
     // guardada y un rescrapeo la reemplazo por un banner de publicidad.
     $fotoActual = trim((string) ($actuales['image_url'] ?? ''));
     if ($fotoActual === '' && !$soloVacios) {
-        $st = $pdo->prepare("SELECT image_url FROM order_links WHERE order_id = ? AND row_index = ?");
-        $st->execute([$orderId, $rowIndex]);
+        $st = $pdo->prepare("SELECT image_url FROM order_links WHERE $where");
+        $st->execute($identidad);
         $fotoActual = trim((string) ($st->fetchColumn() ?: ''));
     }
     $fotoNueva = trim((string) ($map['image_url'] ?? ''));
@@ -2283,15 +2296,14 @@ function applyScrapedDataToLinkRow($pdo, $orderId, $rowIndex, $data, $soloVacios
 
     // La fila deja de estar en cola en cuanto se le escriben datos: si sigue
     // marcada, el panel seguiria diciendo "se esta leyendo" para siempre.
-    if (colaDisponible($pdo)) {
+    if (!$soloVacios && empty($origen['en_worker']) && colaDisponible($pdo)) {
         $sets[] = "scrape_state = 'idle'";
         $sets[] = "scrape_message = NULL";
     }
 
-    $params[] = $orderId;
-    $params[] = $rowIndex;
-    $pdo->prepare("UPDATE order_links SET " . implode(', ', $sets) . " WHERE order_id = ? AND row_index = ?")
-        ->execute($params);
+    $stmt = $pdo->prepare("UPDATE order_links SET " . implode(', ', $sets) . " WHERE $where");
+    $stmt->execute(array_merge($params, $identidad));
+    if (!$stmt->rowCount()) return [];
 
     return $cols;
 }
@@ -2394,6 +2406,86 @@ function agregarEsperaDeCola($links) {
         }
     }
     return $links;
+}
+
+/** Encola todo enlace nuevo/cambiado, aun con título o datos de la URL.
+ * Sin límite de cinco filas. Un guardado de comentarios no vuelve a cobrar
+ * anuncios ya intentados; los errores se reintentan sólo a petición explícita.
+ */
+function encolarLinksAutomaticos($pdo, $orderId, $linkId = null, $forzar = false) {
+    if (!colaDisponible($pdo)) return 0;
+    $sql = "SELECT id, url FROM order_links WHERE order_id = ?";
+    $args = [$orderId];
+    if ($linkId !== null) { $sql .= ' AND id = ?'; $args[] = $linkId; }
+    if (!$forzar) {
+        $sql .= " AND scrape_state = 'idle' AND scrape_queued_at IS NULL
+                  AND (image_url IS NULL OR TRIM(image_url) = '' OR COALESCE(value_usa_usd, 0) <= 0)";
+    }
+    $st = $pdo->prepare($sql);
+    $st->execute($args);
+    $marcar = $pdo->prepare("UPDATE order_links SET scrape_state = 'en_cola', scrape_queued_at = NOW(),
+                                scrape_message = 'Se está leyendo el anuncio en segundo plano.'
+                            WHERE order_id = ? AND id = ? AND url = ?");
+    $n = 0;
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+        if (!preg_match('/^https?:\/\//i', trim((string) $fila['url']))) {
+            if ($forzar) {
+                $pdo->prepare("UPDATE order_links SET scrape_state = 'idle', scrape_queued_at = NULL, scrape_message = NULL
+                               WHERE order_id = ? AND id = ?")
+                    ->execute([$orderId, $fila['id']]);
+            }
+            continue;
+        }
+        $marcar->execute([$orderId, $fila['id'], $fila['url']]);
+        $n += $marcar->rowCount();
+    }
+    return $n;
+}
+
+/** Una pasada de la cola, desde CLI. El límite deja el resto para la siguiente.
+ * Se reclaman filas por id + URL, nunca por su posición cambiante en el ranking.
+ */
+function procesarColaScraping($pdo, $limite = 5) {
+    // Un proceso cortado no puede quedar en «procesando» para siempre. No se
+    // reintenta solo: el proveedor podría haber cobrado la petición cortada.
+    $pdo->prepare("UPDATE order_links SET scrape_state = 'error',
+                       scrape_message = 'La lectura se interrumpió. Puedes reintentar el anuncio.'
+                   WHERE scrape_state = 'procesando' AND scrape_queued_at < ?")
+        ->execute([date('Y-m-d H:i:s', time() - 1800)]);
+    $cola = $pdo->query("SELECT l.id, l.order_id, l.row_index, l.url, o.order_number
+                          FROM order_links l JOIN orders o ON o.id = l.order_id
+                         WHERE l.scrape_state = 'en_cola'
+                         ORDER BY l.scrape_queued_at ASC, l.id ASC LIMIT " . max(1, intval($limite)))
+        ->fetchAll(PDO::FETCH_ASSOC);
+    $resultados = [];
+    foreach ($cola as $fila) {
+        $identidad = [$fila['id'], $fila['url']];
+        $claim = $pdo->prepare("UPDATE order_links SET scrape_state = 'procesando', scrape_queued_at = NOW()
+                                WHERE id = ? AND url = ? AND scrape_state = 'en_cola'");
+        $claim->execute($identidad);
+        if (!$claim->rowCount()) continue;
+        $inicio = microtime(true);
+        try {
+            $r = scrapeOrderLinkRows($pdo, intval($fila['order_id']), false, 0, null, true, intval($fila['id']), $fila['url']);
+            $resultado = $r[0] ?? ['status' => 'sin_resultado'];
+        } catch (\Throwable $e) {
+            error_log('procesarColaScraping: ' . $e->getMessage());
+            $resultado = ['status' => 'excepcion'];
+        }
+        $st = $pdo->prepare('SELECT image_url, value_usa_usd FROM order_links WHERE id = ? AND url = ?');
+        $st->execute($identidad);
+        $actual = $st->fetch(PDO::FETCH_ASSOC);
+        // Un título deducido de la URL no demuestra que se haya leído el anuncio.
+        $completa = $actual && trim((string) $actual['image_url']) !== '' && floatval($actual['value_usa_usd']) > 0
+                    && in_array($resultado['status'], ['updated', 'no_data'], true);
+        $estado = $completa ? 'idle' : 'error';
+        $mensaje = $completa ? null : 'No se pudo completar la foto y el precio del anuncio. Puede estar retirado o el sitio no permitió leerlo. Puedes reintentar.';
+        $pdo->prepare("UPDATE order_links SET scrape_state = ?, scrape_message = ?
+                       WHERE id = ? AND url = ? AND scrape_state = 'procesando'")
+            ->execute(array_merge([$estado, $mensaje], $identidad));
+        $resultados[] = array_merge($fila, ['status' => $estado, 'seconds' => round(microtime(true) - $inicio), 'fields' => $resultado['fields'] ?? []]);
+    }
+    return $resultados;
 }
 
 /**
@@ -2522,6 +2614,10 @@ function adminRescrapeLinks() {
 }
 
 function autoScrapeAndUpdateOrderLinks($pdo, $orderId, $urls) {
+    if (colaDisponible($pdo)) {
+        encolarLinksAutomaticos($pdo, $orderId);
+        return;
+    }
     $scraperFile = linkScraperPath();
     if (!$scraperFile) {
         error_log('autoScrapeAndUpdateOrderLinks: link_scraper.php no encontrado; se omite el scrapeo.');
