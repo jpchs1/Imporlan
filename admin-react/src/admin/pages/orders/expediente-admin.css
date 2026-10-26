@@ -148,3 +148,6 @@
 }
 
 .exp-workspace--admin .exp-section > :first-child h2 { white-space: normal; text-overflow: clip; overflow: visible; }
+
+.admin-boat-card__quote-warning { display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border-radius: 7px; margin: -3px 0 12px; color: var(--color-warning); background: var(--color-warning-bg); font-size: 11px; line-height: 1.5; }
+.admin-boat-card__quote-warning svg { flex-shrink: 0; margin-top: 1px; }

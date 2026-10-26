@@ -1,22 +1,31 @@
 import { fmtDate } from '../../../shared/lib/utils';
-import { hitoEnCurso, tituloLancha } from '../../../shared/lib/importacion';
+import { tituloLancha, planDePagos, pagosConCobros, queSigue } from '../../../shared/lib/importacion';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
+import { estadoCotizacion } from '../../components/quote-state';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
 import { Button, StatusBadge } from '../../../shared/components/UI';
 import { ArrowUpRight, Calendar, Check, ChevronLeft, ChevronRight, Compass, FileText, Images, Layers, Ship, User } from '../../../shared/components/Icons';
 import { irASeccionExpediente } from '../../../shared/lib/expediente-navigation';
 
-export function ResumenExpediente({ detail, links, elegida, archivos, equipoChile }) {
+export function ResumenExpediente({ detail, links, elegida, archivos, equipoChile, importacion }) {
   const opciones = links.filter(l => (l.url || '').trim());
-  const cotizadas = opciones.filter(l => l.quote_calculated_at).length;
-  const hito = hitoEnCurso(detail.eleccion);
+  const cotizadas = opciones.filter(l => estadoCotizacion(l).vigente).length;
+  const siguienteImportacion = queSigue(detail.eleccion, pagosConCobros(planDePagos(elegida), importacion.cobros || []));
+  const hito = siguienteImportacion.hito;
+  let avance = { label: hito?.enCursoCorto || 'Revisar la operación', text: hito ? `Próximo hito: ${hito.label}. Revisa el avance y la documentación de la operación.` : 'Consulta los avances y la documentación de la embarcación elegida.', target: 'importacion', action: 'Ir a la operación' };
+  if (equipoChile && detail.eleccion) {
+    if (importacion.cargandoCobros) avance = { label: 'Consultando pagos', text: 'Estamos actualizando los cobros antes de indicar el siguiente paso.', target: 'importacion', action: 'Ver operación' };
+    else if (importacion.cobrosError) avance = { label: 'Revisar estado de pagos', text: 'No se pudo confirmar el estado de los cobros. Reintenta la consulta en la operación.', target: 'importacion', action: 'Revisar pagos' };
+    else if (siguienteImportacion.tipo === 'pago') avance = { label: siguienteImportacion.pago.n ? `Pago ${siguienteImportacion.pago.n} pendiente` : 'Cobro pendiente', text: 'Revisa el cobro y coordina su pago antes de continuar con el siguiente hito.', target: 'importacion', action: 'Revisar pago' };
+    else if (!estadoCotizacion(elegida).vigente) avance = { label: 'Revisar la cotización', text: 'Completa la cotización de la embarcación elegida para mantener al día el total y su plan de pagos.', target: 'ranking', action: 'Revisar cotización' };
+  }
   const cerrado = ['completed', 'expired', 'canceled', 'cancelled'].includes(detail.status);
   const siguiente = cerrado
     ? { label: 'Expediente finalizado', text: 'Consulta las opciones y la documentación de esta operación.', target: 'archivos', action: 'Ver documentación' }
     : inspeccionNoApta(detail.eleccion)
       ? { label: devolucionPedida(detail.eleccion) ? 'Revisar solicitud de devolución' : 'Revisar inspección no apta', text: equipoChile ? 'Revisa el resultado de la inspección y coordina con el cliente cómo continuar.' : 'Revisa el resultado de la inspección y los avances de la operación.', target: 'importacion', action: 'Revisar la operación' }
     : detail.eleccion
-      ? { label: hito?.enCursoCorto || 'Revisar la operación', text: hito ? `Próximo hito: ${hito.label}. Revisa el avance y la documentación de la operación.` : 'Consulta los avances y la documentación de la embarcación elegida.', target: 'importacion', action: 'Ir a la operación' }
+      ? avance
       : opciones.length
         ? { label: equipoChile && cotizadas < opciones.length ? 'Preparar cotizaciones' : 'Revisar las opciones', text: equipoChile ? `${cotizadas} de ${opciones.length} embarcaciones cotizadas. Compara las opciones y prepara el siguiente paso con el cliente.` : 'Revisa las fichas y mantén al día los avances de la operación.', target: 'ranking', action: 'Revisar embarcaciones' }
         : { label: 'Agregar las primeras opciones', text: 'Incorpora los anuncios para comenzar a trabajar en este expediente.', target: 'ranking', action: 'Ir a las opciones' };

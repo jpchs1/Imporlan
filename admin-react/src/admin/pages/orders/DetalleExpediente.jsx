@@ -73,7 +73,7 @@ export default function DetalleExpediente(p) {
         contactoOculto={!equipoChile}
       />
 
-      <ResumenExpediente detail={detail} links={links} elegida={elegida} archivos={archivos} equipoChile={equipoChile} />
+      <ResumenExpediente detail={detail} links={links} elegida={elegida} archivos={archivos} equipoChile={equipoChile} importacion={importacion} />
       <ExpedienteNavigation sections={[
         { id: 'etapa', label: 'Resumen', icon: Compass },
         { id: 'ranking', label: 'Opciones', icon: Link2, count: conUrl },

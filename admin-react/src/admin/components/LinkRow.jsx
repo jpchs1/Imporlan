@@ -2,6 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { scrapeBoatTrader, scrapeLink, rescrapeOrderLink } from '../api';
 import { cn, fmtCLP } from '../../shared/lib/utils';
 import { fmtUSD, fmtDateLarga } from '../../shared/lib/format';
+import { estadoCotizacion } from './quote-state';
 import { sePuedeElegir } from '../../shared/lib/importacion';
 import { Button, Input, MoneyInput, Badge, Menu, Spinner } from '../../shared/components/UI';
 import { GripVertical, Image as ImageIcon, Upload, ChevronDown, Receipt, Send, RefreshCw, ExternalLink, Copy, Trash, Info, TriangleAlert, Loader, BadgeCheck } from '../../shared/components/Icons';
@@ -193,7 +194,8 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
 
   const vendida = lk.link_status === 'sold';
   const cuerpoId = `link-${lk.id || idx}-ficha`;
-  const totalChile = num(lk.quote_total_clp) > 0 ? num(lk.quote_total_clp) : negociado;
+  const cotizacion = estadoCotizacion(lk);
+  const totalChile = cotizacion.total || negociado;
   const compraUsa = num(lk.value_to_negotiate_usd);
   const imagenDisponible = lk.image_url && failedImage !== lk.image_url;
 
@@ -257,8 +259,9 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
           <dl className="admin-boat-card__prices">
             <div><dt>Publicado · USA</dt><dd>{num(lk.value_usa_usd) > 0 ? fmtUSD(num(lk.value_usa_usd)) : 'Sin precio'}</dd><span>Referencia del anuncio</span></div>
             <div><dt>Compra negociada · USA</dt><dd>{compraUsa > 0 ? fmtUSD(compraUsa) : 'Por negociar'}</dd><span>Base de la cotización</span></div>
-            <div className="admin-boat-card__total"><dt>Total puesto en Chile</dt><dd>{totalChile > 0 ? fmtCLP(totalChile) : 'Por cotizar'}</dd><span>{lk.quote_calculated_at ? lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis' : totalChile > 0 ? 'Valor negociado · CLP' : 'Calcula el costo de importación'}</span></div>
+            <div className="admin-boat-card__total"><dt>Total puesto en Chile</dt><dd>{cotizacion.requiereRevision ? 'Por actualizar' : totalChile > 0 ? fmtCLP(totalChile) : 'Por cotizar'}</dd><span>{cotizacion.requiereRevision ? cotizacion.total ? `Última cotización: ${fmtCLP(cotizacion.total)}` : 'Revisa la base de compra' : lk.quote_calculated_at ? lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis' : totalChile > 0 ? 'Valor negociado · CLP' : 'Calcula el costo de importación'}</span></div>
           </dl>
+          {cotizacion.requiereRevision && <p className="admin-boat-card__quote-warning" role="status"><Info size={14} />{cotizacion.baseCambio ? 'Cambió la compra negociada. Actualiza la cotización para renovar el total y los pagos.' : 'Revisa y actualiza la cotización antes de usar este total.'}</p>}
           <div className="admin-boat-card__actions">
             <Button variant="ghost" size="sm" iconRight={ChevronDown} aria-expanded={abierto} aria-controls={cuerpoId} onClick={() => setAbierto(a => !a)} className={cn(abierto && '[&_svg:last-child]:rotate-180')}>
               {abierto ? 'Cerrar edición' : 'Editar ficha'}
@@ -273,7 +276,7 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
                   {lk.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'}
                 </Button>
               )}
-              {onCotizar && <Button size="sm" icon={Receipt} onClick={() => onCotizar(lk)}>{lk.quote_calculated_at ? 'Revisar cotización' : 'Cotizar'}</Button>}
+              {onCotizar && <Button size="sm" icon={Receipt} onClick={() => onCotizar(lk)}>{cotizacion.requiereRevision ? 'Actualizar cotización' : lk.quote_calculated_at ? 'Revisar cotización' : 'Cotizar'}</Button>}
             </div>
           </div>
         </div>
