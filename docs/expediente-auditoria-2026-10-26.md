@@ -36,7 +36,7 @@ fallida observada en esa revisión.
 
 ## Validación
 
-- 35 comprobaciones nuevas de integridad con navegador y contenedores React reales:
+- 37 comprobaciones nuevas de integridad con navegador y contenedores React reales:
   polling, ranking fallido, avisos, recuperación de servicios, archivos de dos
   expedientes, comparación por moneda, privacidad de totales pendientes,
   guardado concurrente, borradores, errores de carga y cobros.

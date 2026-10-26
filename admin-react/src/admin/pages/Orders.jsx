@@ -84,6 +84,7 @@ export default function Orders() {
 
   // Drag state
   const dragIdx = useRef(null);
+  const reorderBusy = useRef(false);
   const linksContainerRef = useRef(null);
 
   useBreadcrumb(view === 'detail' && detail ? [detail.order_number] : null);
@@ -581,6 +582,7 @@ export default function Orders() {
 
   // ---- DRAG & DROP ----
   function onDragStart(e, idx) {
+    if (reorderBusy.current) { e.preventDefault(); return; }
     dragIdx.current = idx;
     e.currentTarget.style.opacity = '0.4';
     e.dataTransfer.effectAllowed = 'move';
@@ -589,7 +591,7 @@ export default function Orders() {
   function onDrop(e, dropIdx) {
     e.preventDefault();
     const fromIdx = dragIdx.current;
-    if (fromIdx === null || fromIdx === dropIdx) return;
+    if (reorderBusy.current || fromIdx === null || fromIdx === dropIdx) return;
     const arr = [...links];
     const [moved] = arr.splice(fromIdx, 1);
     arr.splice(dropIdx, 0, moved);
@@ -598,9 +600,24 @@ export default function Orders() {
     const newLinks = arr.map((l, i) => ({ ...l, row_index: i + 1 }));
     setLinks(newLinks);
     const ids = newLinks.map(l => l.id).filter(Boolean);
-    reorderOrderLinks(detail.id, ids, user?.name || 'Admin')
-      .then(() => setDetail(d => (d ? { ...d, ranking_author_name: user?.name || 'Admin' } : d)))
-      .catch(err => toast?.('No se pudo guardar el nuevo orden: ' + (err.message || ''), 'error'));
+    const orderId = detail.id;
+    const previousOrder = links.map(l => l.id);
+    reorderBusy.current = true;
+    reorderOrderLinks(orderId, ids, user?.name || 'Admin')
+      .then(res => {
+        if (!res.success) throw new Error(res.error || 'El servidor rechazó el orden');
+        if (live.current.id === orderId) setDetail(d => ({ ...d, ranking_author_name: user?.name || 'Admin' }));
+      })
+      .catch(err => {
+        if (live.current.id !== orderId) return;
+        // Deshacer sólo el orden, conservando las ediciones hechas durante la petición.
+        setLinks(current => [...current].sort((a, b) => {
+          const ai = previousOrder.indexOf(a.id), bi = previousOrder.indexOf(b.id);
+          return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+        }).map((l, i) => ({ ...l, row_index: i + 1 })));
+        toast?.('No se pudo guardar el nuevo orden. Restablecimos el anterior: ' + (err.message || ''), 'error');
+      })
+      .finally(() => { reorderBusy.current = false; });
   }
   function onDragEnd(e) { e.currentTarget.style.opacity = '1'; dragIdx.current = null; }
 
@@ -610,11 +627,16 @@ export default function Orders() {
   // sólo si no hay cambios sin guardar (la elección vive en `detail`, no en
   // `links`, así que no se pierde nada por no reemplazarlas).
   async function recargarDetalle() {
-    if (!detail?.id) return;
-    const o = await getOrderDetail(detail.id);
+    const snapshot = live.current;
+    if (!snapshot.id) return;
+    const o = await getOrderDetail(snapshot.id);
     const orden = o.order || o;
+    const current = live.current;
+    if (current.id !== snapshot.id || !orden?.id) return;
     setDetail(orden);
-    if (!unsaved) setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+    if (!current.unsaved && current.form === snapshot.form && current.links === snapshot.links) {
+      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+    }
   }
 
   // Al marcar (o cambiar) la lancha, el servidor crea solo el cobro del Pago 1

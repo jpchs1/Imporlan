@@ -44,7 +44,7 @@ const base = {
   ],
 };
 const errors = [];
-async function open(mode, { initial = base, handler, clock = false, width = 1440, summary, ready = true } = {}) {
+async function open(mode, { initial = base, handler, clock = false, width = 1440, summary, ready = true, captureIntervals = false } = {}) {
   const context = await browser.newContext({ viewport: { width, height: 1000 }, reducedMotion: 'reduce' });
   const page = await context.newPage(); page.setDefaultTimeout(15000);
   page.on('pageerror', e => errors.push(e.message));
@@ -54,6 +54,14 @@ async function open(mode, { initial = base, handler, clock = false, width = 1440
     localStorage.setItem('user', JSON.stringify({ name: 'Equipo de prueba', role: 'admin', email: 'staff@example.test' }));
     localStorage.setItem('imporlan_user', JSON.stringify({ name: 'Cliente de prueba', email: 'client@example.test' }));
   }, { initial, summary });
+  if (captureIntervals) await page.addInitScript(() => {
+    const nativeInterval = window.setInterval.bind(window);
+    window.testIntervals = {};
+    window.setInterval = (callback, ms, ...args) => {
+      window.testIntervals[ms] = callback;
+      return nativeInterval(callback, ms, ...args);
+    };
+  });
   if (clock) await page.clock.install();
   await page.route('**/api/**', async route => {
     const req = route.request(), url = new URL(req.url());
@@ -188,6 +196,22 @@ try {
   check(true, 'later edits can be saved successfully');
   await admin.close();
 
+  let rejectedOrder;
+  const adminRanking = await open('admin', { handler: async ({ route, action }) => {
+    if (action === 'admin_reorder_links') { rejectedOrder = route; return true; }
+  } });
+  const transfer = await adminRanking.page.evaluateHandle(() => new DataTransfer());
+  await adminRanking.page.locator('[data-link-id="101"]').dispatchEvent('dragstart', { dataTransfer: transfer });
+  await adminRanking.page.locator('[data-link-id="102"]').dispatchEvent('drop', { dataTransfer: transfer });
+  await until(() => !!rejectedOrder, 'admin reorder request');
+  const concurrentField = adminRanking.page.getByRole('textbox', { name: 'Embarcación u objetivo', exact: true });
+  await concurrentField.fill('Edición durante el ordenamiento');
+  await rejectedOrder.fulfill({ json: { success: false, error: 'Orden rechazado en prueba' } });
+  await adminRanking.page.getByText('No se pudo guardar el nuevo orden.', { exact: false }).waitFor();
+  check(await adminRanking.page.locator('[data-link-id]').first().getAttribute('data-link-id') === '101', 'admin failed reorder restores the previous order');
+  check(await concurrentField.inputValue() === 'Edición durante el ordenamiento', 'admin ranking rollback preserves concurrent form edits');
+  await adminRanking.close();
+
   // Initial admin loading failure must offer retry, not an endless skeleton.
   let detailFailure = true;
   const brokenAdmin = await open('admin', { ready: false, handler: async ({ route, action }) => {
@@ -215,10 +239,11 @@ try {
   // A background scrape refresh already in flight must not erase a new form edit.
   let delayedRefresh, adminReads = 0;
   const queued = structuredClone(base); queued.links[0].scrape_state = 'en_cola';
-  const adminPoll = await open('admin', { initial: queued, clock: true, handler: async ({ route, action }) => {
+  const adminPoll = await open('admin', { initial: queued, captureIntervals: true, handler: async ({ route, action }) => {
     if (action === 'admin_detail' && ++adminReads > 1) { delayedRefresh = route; return true; }
   } });
-  await adminPoll.page.clock.runFor(10001);
+  await adminPoll.page.waitForFunction(() => typeof window.testIntervals?.[10000] === 'function');
+  await adminPoll.page.evaluate(() => { window.testIntervals[10000](); });
   await until(() => !!delayedRefresh, 'background scrape refresh');
   const pendingField = adminPoll.page.getByRole('textbox', { name: 'Embarcación u objetivo', exact: true });
   await pendingField.fill('Edición mientras llega el scraper');
