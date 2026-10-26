@@ -3,7 +3,7 @@
 $root = dirname(__DIR__);
 $box = sys_get_temp_dir() . '/inspection-upload-' . getmypid();
 mkdir($box, 0700, true);
-foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
+foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
 file_put_contents("$box/db_config.php", '<?php function getDbConnection() { return $GLOBALS["db"]; }');
 file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { $GLOBALS["STAFF_CAPTURE"][] = $args; return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { $GLOBALS["CLIENT_UPLOAD_CAPTURE"][] = $args; return ["success"=>true]; } function sendInspectionUploadEmail($to,$mail,$metadata) { $GLOBALS["RECEIPTS_CAPTURE"][] = compact("to","mail","metadata"); return ["success"=>empty($GLOBALS["RECEIPT_SHOULD_FAIL"])]; } }');
 $RECEIPTS_CAPTURE = [];
@@ -194,9 +194,9 @@ $db->exec("UPDATE orders SET refund_requested_at='2026-10-30' WHERE id=39");
 check(opuInspectionSaveExceptions($db, opuOrden($db,39), $scope['id'], ['videos'=>$reason]) !== [], 'an operation awaiting a refund cannot be advanced through an exception');
 $db->exec("UPDATE orders SET status='cancelled' WHERE id=39");
 
-$closed = opuInspectionRequest($db, opuOrden($db,42));
+$closed = opuInspectionRequest($db, opuOrden($db,99));
 $db->exec("UPDATE orders SET status='cancelled' WHERE id=42");
-check(opuInspectionSaveExceptions($db, opuOrden($db,42), $closed['id'], ['videos'=>$reason]) !== [], 'closed operations cannot be resolved by a stale portal submission');
+check(opuInspectionSaveExceptions($db, opuOrden($db,99), $closed['id'], ['videos'=>$reason]) !== [], 'closed operations cannot be resolved by a stale portal submission');
 
 // A reason is a valid alternative for each requirement, but partial reasons
 // must leave the remaining categories open and show exactly what is missing.
@@ -256,6 +256,15 @@ $state = opuInspectionState($db,requestRow($missingFile['id']));
 check(!$state['received']['report'] && $state['requirements']['report']['count'] === 0, 'an empty on-disk file is not accepted merely because its database size is positive');
 
 // Canary: removing the video requirement would incorrectly stop a partial request.
+// A future operation enters both checklists when the operator supplies its
+// technical PDF while inspection is the current task, without a manual seed.
+$db->exec("INSERT INTO orders (id,order_number,status,chosen_link_id,chosen_inspection) VALUES (99,'IMP-DEMO99','in_progress',99,1)");
+$db->exec("INSERT INTO order_links (id,order_id,title) VALUES (99,99,'Future demo boat')");
+$db->exec("UPDATE orders SET import_steps='{\"disponibilidad\":\"2026-10-25\"}' WHERE id=99");
+$res = opuGuardarActualizacion($db, opuOrden($db,99), 'Technical survey completed.', [$file($pdf)], 'copy');
+$future = opuInspectionLatest($db,opuOrden($db,99));
+check($future && opuInspectionState($db,$future)['received']['report'], 'actual survey PDF automatically enrols future operations and attaches the report');
+check(opuPriceState($db,opuOrden($db,99))['status'] === 'pending', 'future completed surveys have their own pending price confirmation');
 check(count(array_filter(['report'=>true,'photos'=>true,'videos'=>false])) !== 3, 'canary protects the video requirement');
 $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($box, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
 foreach ($it as $file) { $file->isDir() ? rmdir($file->getPathname()) : unlink($file->getPathname()); } rmdir($box);

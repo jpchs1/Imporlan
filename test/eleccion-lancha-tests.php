@@ -36,7 +36,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 // En la consola ya hay salida: el código HTTP se anota en vez de mandarse.
@@ -559,6 +559,28 @@ $roto = function ($sesion, $input) {
 };
 $roto($intruso, ['order_id' => 35, 'link_id' => 11]);
 ok(intval(orden(35)['chosen_link_id']) === 11, 'sin el filtro por correo, el expediente ajeno sí cambia (la prueba lo vería)');
+
+echo "\nPrecio de compra tras inspección: puerta antes de aprobar/cerrar\n";
+sembrar();
+$BD->exec("UPDATE orders SET chosen_link_id=12, chosen_inspection=1, import_steps='{\"disponibilidad\":\"2026-10-25\"}' WHERE id=35");
+$priceRequest = opuInspectionRequest($BD, orden(35));
+foreach (['inspeccion', 'compra'] as $step) {
+    [$code, $data] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>$step,'done'=>true]);
+    ok($code === 409 && empty(impPasos(orden(35))[$step]), 'precio pendiente impide marcar ' . $step);
+}
+ok(json_decode(file_get_contents(impArchivoCobros()),true)['requests'] === [], 'puerta de precio pendiente no crea ningún cobro');
+$price = opuPriceState($BD,orden(35));
+$input = ['price_request_id'=>$price['request_id'],'price_revision'=>(string)$price['revision'],'price_status'=>'unchanged','price_original'=>'25000','price_confirmed'=>'25000'];
+ok(opuPriceSave($BD,orden(35),$input) === [], 'coordinador confirma precio sin tocar la cotización');
+[$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'inspeccion','done'=>true]);
+ok($code === 409, 'respuesta confirmada requiere revisión del equipo antes de aprobar');
+$price = opuPriceState($BD,orden(35));
+ok(opuPriceReview($BD,orden(35),$price['request_id'],$price['revision'],$admin['email']) === null, 'equipo revisa la respuesta vigente');
+[$code,$data] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'inspeccion','done'=>true]);
+ok($code === 200 && isset(impPasos(orden(35))['inspeccion']), 'confirmación revisada permite continuar con aprobación explícita');
+ok($data['pago']['n'] === 2 && $data['pago']['amount_clp'] === 61740000, 'Pago 2 conserva el monto de la cotización publicada');
+[$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
+ok($code === 200 && isset(impPasos(orden(35))['compra']), 'compra requiere su propio hito explícito');
 
 echo "\n" . ($total - $fallos) . "/$total ok\n";
 exit($fallos ? 1 : 0);

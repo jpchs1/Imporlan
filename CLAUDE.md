@@ -79,6 +79,15 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   (`ocultarContactoParaAgente()` en `api/auth_helper.php`). Nada que se le
   mande a David lleva datos de contacto del cliente ni precios.
 
+- **Confirmación de precio tras inspección (JP, 25-oct-2026):** el coordinador
+  debe informar si el precio acordado con el vendedor se mantiene, se reajusta
+  por un hallazgo o sigue negociándose. Excepción acotada a la regla anterior:
+  el portal privado recoge los montos USD que el coordinador ingresa; nunca
+  expone la cotización, márgenes ni pagos del comprador. El correo solicita la
+  confirmación sin incluir montos. Seguimiento diario AM Chile hasta respuesta
+  confirmada. El equipo revisa la respuesta antes de aprobar inspección/cerrar
+  compra; no se recalcula la cotización ni se generan cobros por esta respuesta.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

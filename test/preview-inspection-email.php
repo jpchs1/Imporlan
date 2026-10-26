@@ -2,8 +2,10 @@
 /** Safe, synthetic preview: php test/preview-inspection-email.php > /tmp/preview.html */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__) . '/api/inspection_upload_template.php';
+require_once dirname(__DIR__) . '/api/inspection_price_template.php';
 $thanks = in_array('--thanks', $argv, true);
 $render = $thanks ? 'opuInspectionThankYouEmail' : 'opuInspectionEmail';
+if (in_array('--price', $argv, true)) $render = 'opuInspectionPriceEmail';
 $data = [
     'boat' => 'Chaparral 21 Sport H2O 2015', 'order_number' => 'IMP-DEMO',
     'operator_name' => 'David', 'location' => 'Lula, Georgia', 'hours' => '163',

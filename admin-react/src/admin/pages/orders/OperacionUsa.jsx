@@ -7,7 +7,7 @@ import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, 
 import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, Image as ImageIcon, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
-import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa } from '../../api';
+import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion } from '../../api';
 import { categoriaArchivo } from '../../components/useExpedienteFiles';
 
 /**
@@ -117,8 +117,10 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
             variant="secondary"
             icon={Send}
             onClick={() => setModalPedir(true)}
-            disabled={!estado || !!estado.inspection_upload?.owns_stage}
-            title={estado?.inspection_upload?.owns_stage
+            disabled={!estado || !!estado.inspection_upload?.owns_stage || (!!estado.inspection_price && !estado.inspection_price.ready)}
+            title={estado?.inspection_price && !estado.inspection_price.ready
+              ? 'La confirmación de precio tiene seguimiento automático. Revisa la respuesta en el bloque de precio antes de continuar.'
+              : estado?.inspection_upload?.owns_stage
               ? estado.inspection_upload.status === 'completed'
                 ? 'Entrega resuelta; el equipo debe continuar la revisión'
                 : 'El seguimiento de esta entrega es automático. Se solicitan sólo los requisitos pendientes, una vez al día por la mañana.'
@@ -183,6 +185,9 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
               onRefresh={() => cargar({ silencioso: true })}
             />
           )}
+          {estado?.inspection_price && (
+            <PrecioTrasInspeccion precio={estado.inspection_price} nombre={nombre} orderId={detail.id} onRefresh={() => cargar({ silencioso: true })} />
+          )}
 
           {/* ── Feed ── */}
           {updates.length === 0 ? (
@@ -217,6 +222,54 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
         <ModalCompartirUsa open onClose={() => setCompartiendo(null)} update={compartiendo} nombre={nombre} porId={porId} onCompartir={compartir} />
       )}
       <Lightbox open={!!lightbox} items={lightbox?.items || []} index={lightbox?.index || 0} onIndexChange={i => setLightbox(l => ({ ...l, index: i }))} onClose={() => setLightbox(null)} />
+    </section>
+  );
+}
+
+function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [saving, setSaving] = useState(false);
+  const labels = { pending: 'Pendiente de respuesta', negotiating: 'En negociación', unchanged: 'Precio se mantiene', adjusted: 'Precio reajustado' };
+  const money = cents => cents == null ? 'Por confirmar' : new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(cents / 100);
+  async function revisar() {
+    if (!(await confirm({
+      title: '¿Validar esta confirmación de precio?',
+      description: `Revisa el acuerdo con el vendedor y su efecto en la cotización antes de continuar. Precio anterior: ${money(precio.original_cents)}. Precio confirmado: ${money(precio.confirmed_cents)}. La validación no modifica cotizaciones ni crea cobros.`,
+      confirmLabel: 'Validar confirmación',
+    }))) return;
+    setSaving(true);
+    try {
+      await revisarPrecioInspeccion(orderId, precio.request_id, precio.revision);
+      toast?.('Confirmación de precio revisada. Puedes continuar con los hitos.', 'success');
+      await onRefresh();
+    } catch (e) { toast?.(e.message || 'No se pudo validar la confirmación', 'error'); }
+    finally { setSaving(false); }
+  }
+  return (
+    <section aria-labelledby="inspection-price-title" className="rounded-lg border border-line bg-surface p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 id="inspection-price-title" className="text-sm font-semibold text-ink-900">Precio de compra tras la inspección</h4>
+        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.ready ? 'Revisado por el equipo' : labels[precio.status] || 'Por confirmar'}</Badge>
+      </div>
+      <p className="text-13 text-ink-500">{nombre} confirma por separado el acuerdo con el vendedor. Información interna del equipo.</p>
+      <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-13">
+        <div><dt className="text-ink-500">Precio anterior · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.original_cents)}</dd></div>
+        <div><dt className="text-ink-500">Precio confirmado · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.confirmed_cents)}</dd></div>
+        <div><dt className="text-ink-500">Variación · USD</dt><dd className="font-medium text-ink-900 tabular">{precio.confirmed ? money(precio.confirmed_cents - precio.original_cents) : 'Por confirmar'}</dd></div>
+      </dl>
+      {precio.reason && <div><p className="text-xs text-ink-500 mb-1">Hallazgo, acuerdo o negociación · texto original del coordinador</p><p lang="en" className="text-sm text-ink-700 whitespace-pre-wrap break-words">{precio.reason}</p></div>}
+      <Callout tone={precio.ready ? 'info' : 'warning'} compact>
+        {precio.ready ? 'Confirmación revisada. El equipo continúa los hitos y revisa la cotización si corresponde.' : precio.confirmed ? 'Respuesta recibida. Revisa el precio y su efecto en la cotización, y valida esta confirmación antes de aprobar la inspección o cerrar la compra.' : 'Se solicita confirmación al coordinador con seguimiento diario AM de Chile hasta recibir un precio confirmado. Una negociación pendiente mantiene este paso abierto.'}
+        {' '}Esta respuesta no modifica cotizaciones ni genera cobros.
+      </Callout>
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <p className="text-xs text-ink-500">{precio.last_sent_at ? `Último correo: ${fechaAvisoInspeccion(precio.last_sent_at)}` : 'Primer correo pendiente del seguimiento automático'}</p>
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={saving}>Actualizar precio</Button>
+          {precio.confirmed && !precio.ready && <Button size="sm" variant="secondary" onClick={revisar} loading={saving}>Validar confirmación</Button>}
+        </div>
+      </div>
     </section>
   );
 }

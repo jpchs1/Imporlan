@@ -10,8 +10,9 @@ try {
     opuInspectionSchema($pdo);
     opuInspectionBootstrap($pdo);
     $result = opuInspectionRun($pdo);
+    $result = array_merge($result, opuPriceRun($pdo));
     if (array_sum($result)) echo '[inspection-upload] ' . json_encode($result) . PHP_EOL;
-    exit($result['failed'] ? 1 : 0);
+    exit(($result['failed'] || $result['price_failed']) ? 1 : 0);
 } catch (Throwable $e) {
     // Counts and generic errors only: never expose the private link or client data in logs.
     error_log('[inspection-upload] job failed: ' . get_class($e));

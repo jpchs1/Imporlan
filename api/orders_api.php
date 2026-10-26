@@ -3008,6 +3008,10 @@ function adminSetImportStep($admin, $input = null) {
 
         $pasos = impPasos($order);
         $yaEstaba = isset($pasos[$paso]);
+        if ($hecho && !$yaEstaba && in_array($paso, ['inspeccion', 'compra'], true)) {
+            $priceError = opuPriceGate($pdo, $paso === 'inspeccion' ? array_merge($order, ['inspection_result' => null]) : $order);
+            if ($priceError) return impResponderError(409, $priceError);
+        }
         if ($hecho) { if (!$yaEstaba) $pasos[$paso] = date('Y-m-d H:i:s'); } else unset($pasos[$paso]);
         // Guardar en el orden de impHitos, para que el JSON se lea igual que la lista.
         $ordenados = [];
