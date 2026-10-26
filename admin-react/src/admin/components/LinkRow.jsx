@@ -2,8 +2,9 @@ import { useRef, useState, useCallback } from 'react';
 import { scrapeBoatTrader, scrapeLink, rescrapeOrderLink } from '../api';
 import { cn, fmtCLP } from '../../shared/lib/utils';
 import { fmtUSD, fmtDateLarga } from '../../shared/lib/format';
+import { estadoCotizacion } from './quote-state';
 import { sePuedeElegir } from '../../shared/lib/importacion';
-import { Button, IconButton, Input, MoneyInput, Badge, Menu, Spinner } from '../../shared/components/UI';
+import { Button, Input, MoneyInput, Badge, Menu, Spinner } from '../../shared/components/UI';
 import { GripVertical, Image as ImageIcon, Upload, ChevronDown, Receipt, Send, RefreshCw, ExternalLink, Copy, Trash, Info, TriangleAlert, Loader, BadgeCheck } from '../../shared/components/Icons';
 
 function isBoatTraderUrl(url) {
@@ -53,9 +54,10 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
   const lk = link;
   const [scraping, setScraping] = useState(false);
   const [enviandoDesglose, setEnviandoDesglose] = useState(false);
-  // En escritorio la ficha parte abierta (se edita todo el día); en móvil,
-  // cerrada, salvo que la fila sea nueva y haya que pegar el link.
-  const [abierto, setAbierto] = useState(() => !(lk.url || '').trim() || (typeof window !== 'undefined' && window.matchMedia?.('(min-width: 1024px)').matches));
+  // Primero se comparan las opciones; sólo las filas nuevas abren el editor
+  // de inmediato para pegar el anuncio. Cerrar no descarta ediciones.
+  const [abierto, setAbierto] = useState(() => !(lk.url || '').trim());
+  const [failedImage, setFailedImage] = useState('');
   const prevUrlRef = useRef(lk.url || '');
 
   function set(field, val) { onUpdate(lk.id, field, val); }
@@ -192,6 +194,10 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
 
   const vendida = lk.link_status === 'sold';
   const cuerpoId = `link-${lk.id || idx}-ficha`;
+  const cotizacion = estadoCotizacion(lk);
+  const totalChile = cotizacion.total || negociado;
+  const compraUsa = num(lk.value_to_negotiate_usd);
+  const imagenDisponible = lk.image_url && failedImage !== lk.image_url;
 
   const menu = [
     { label: 'Volver a leer el anuncio', icon: RefreshCw, onClick: handleRescrape, disabled: scraping || !(lk.url || '').trim() },
@@ -214,127 +220,65 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
       aria-label={`Opción ${idx + 1}: ${title}${elegida ? ' (elegida)' : ''}`}
       aria-busy={scraping || undefined}
       className={cn(
-        'rounded-lg border bg-surface shadow-card transition-colors duration-150',
+        'admin-boat-card rounded-lg border bg-surface shadow-card transition-colors duration-150',
         elegida ? 'border-brand-500 ring-1 ring-brand-500/40' : scrapeIncompleto && !enCola ? 'border-warning-line' : 'border-line',
         scraping && 'opacity-70',
       )}
       {...dragHandlers}
     >
-      {/* ── Cabecera ── */}
-      <div className="flex flex-wrap items-start gap-3 p-3 sm:p-4">
-        <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
-          <span className="text-ink-400 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar" aria-hidden="true"><GripVertical size={16} /></span>
-          <span className="h-6 w-6 rounded-md bg-ink-900 text-white flex items-center justify-center text-xs font-semibold tabular" aria-hidden="true">{idx + 1}</span>
-        </div>
-
-        {/* Foto 120×84 */}
-        <div className="relative w-[120px] h-[84px] shrink-0">
-          {lk.image_url ? (
-            <img src={lk.image_url} className="w-full h-full object-cover rounded-md border border-line" alt={title} />
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="w-full h-full rounded-md border border-dashed border-warning-line bg-warning-bg text-warning flex flex-col items-center justify-center gap-1 text-xs font-medium hover:bg-warning-bg/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
-            >
-              <ImageIcon size={18} />
-              Subir foto
+      <div className="admin-boat-card__overview">
+        <div className="admin-boat-card__photo">
+          {imagenDisponible ? <img src={lk.image_url} alt={title} draggable={false} onError={() => setFailedImage(lk.image_url)} /> : (
+            <button type="button" onClick={() => fileRef.current?.click()} className="admin-boat-card__empty-photo">
+              <ImageIcon size={28} /><span>Subir foto</span>
             </button>
           )}
+          <span className="admin-boat-card__rank" title={`Opción ${idx + 1}`}>{String(idx + 1).padStart(2, '0')}</span>
           <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-label={`Foto de la opción ${idx + 1}`} onChange={handleFile} />
         </div>
-
-        {/* Título, chips y resumen */}
-        <div className="flex-1 min-w-0 basis-40">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-            <h3 className="text-sm font-semibold text-ink-900 truncate max-w-full">{title}</h3>
-            {elegida && (
-              <Badge tone="brand" size="sm" title={eleccion?.at ? `Elegida el ${fmtDateLarga(eleccion.at, { hora: true })}` : undefined}>
-                <BadgeCheck size={12} />
-                {eleccion?.by === 'equipo' ? 'Elegida' : 'Elegida por el cliente'}{eleccion?.at ? ` · ${fmtDateLarga(eleccion.at)}` : ''}
-              </Badge>
-            )}
-            {scraping ? (
-              <Badge tone="info" size="sm"><Spinner inline size="sm" label="Extrayendo datos" className="text-info" /> Extrayendo datos…</Badge>
-            ) : enCola ? (
-              <Badge tone="info" size="sm" dot>En cola</Badge>
-            ) : errorLectura ? (
-              <Badge tone="danger" size="sm">Error de lectura</Badge>
-            ) : scrapeIncompleto ? (
-              <Badge tone="warning" size="sm">Ficha incompleta</Badge>
-            ) : lk.image_url ? (
-              <Badge tone="success" size="sm">Ficha completa</Badge>
-            ) : null}
-            {vendida && <Badge tone="neutral" size="sm">Vendida</Badge>}
-            {lk.quote_calculated_at && (
-              <Badge tone={lk.quote_published_at ? 'brand' : 'neutral'} size="sm" title={`Cotizada el ${new Date(lk.quote_calculated_at).toLocaleString('es-CL')}`}>
-                {lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis'}
-              </Badge>
-            )}
+        <div className="admin-boat-card__content">
+          <div className="admin-boat-card__heading">
+            <div className="min-w-0">
+              <div className="admin-boat-card__badges">
+                {elegida && <Badge tone="brand" size="sm"><BadgeCheck size={12} />{eleccion?.by === 'equipo' ? 'Elegida' : 'Elegida por el cliente'}</Badge>}
+                {scraping ? <Badge tone="info" size="sm"><Spinner inline size="sm" label="Extrayendo datos" /> Extrayendo datos…</Badge>
+                  : enCola ? <Badge tone="info" size="sm" dot>En cola</Badge>
+                    : errorLectura ? <Badge tone="danger" size="sm">Error de lectura</Badge>
+                      : scrapeIncompleto ? <Badge tone="warning" size="sm">Ficha incompleta</Badge>
+                        : lk.image_url ? <Badge tone="success" size="sm">Ficha completa</Badge> : <span className="admin-exp-kicker">Nueva opción</span>}
+                {vendida && <Badge tone="neutral" size="sm">Vendida</Badge>}
+              </div>
+              <h3>{title}</h3>
+              <p className="admin-boat-card__specs">{ficha || (lk.url ? 'Completa los datos de esta embarcación' : 'Pega un anuncio para completar la ficha automáticamente')}</p>
+            </div>
+            <div className="admin-boat-card__tools">
+              <span draggable onDragStart={e => e.dataTransfer.setData('text/plain', String(lk.id))} className="admin-boat-card__grip" title="Arrastra para reordenar" aria-hidden="true"><GripVertical size={18} /></span>
+              <Menu items={menu} label={`Más acciones de la opción ${idx + 1}`} />
+            </div>
           </div>
-          <p className="text-13 text-ink-500 truncate mt-0.5">{ficha || (lk.url ? 'Sin ficha todavía' : 'Pega el link del anuncio para leer la ficha')}</p>
-          {!abierto && (
-            <dl className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-13 tabular">
-              <div className="flex gap-1.5"><dt className="text-ink-500">USA</dt><dd className="text-ink-900 font-medium">{lk.value_usa_usd ? fmtUSD(num(lk.value_usa_usd)) : '—'}{lk.value_to_negotiate_usd ? <span className="text-success"> → {fmtUSD(num(lk.value_to_negotiate_usd))}</span> : null}</dd></div>
-              <div className="flex gap-1.5"><dt className="text-ink-500">Chile</dt><dd className="text-ink-900 font-medium">{sinNegociar ? fmtCLP(sinNegociar) : '—'}{negociado ? <span className="text-success"> → {fmtCLP(negociado)}</span> : null}</dd></div>
-            </dl>
-          )}
-        </div>
-
-        {/* Selección + acciones */}
-        <div className="flex flex-wrap items-center justify-end gap-1.5 ml-auto basis-full sm:basis-auto min-w-0">
-          <label className="flex items-center gap-1.5 text-xs text-ink-500 whitespace-nowrap" title="Orden de preferencia que elige el cliente">
-            <span>Selección</span>
-            <Input
-              size="sm"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              aria-label={`N.° de selección del cliente para la opción ${idx + 1}`}
-              className="w-14"
-              inputClassName="text-center font-semibold px-1"
-              value={lk.selection_order || ''}
-              onChange={e => set('selection_order', e.target.value)}
-              placeholder="—"
-            />
-          </label>
-          {/* A la vista en la fila (JP no lo encontraba dentro de la ventana de
-              cotización). Sólo con la cotización publicada: el desglose explica
-              un número que el cliente ya tiene. */}
-          {onEnviarDesglose && lk.quote_published_at && (
-            <Button
-              variant="secondary" size="sm" icon={Send}
-              loading={enviandoDesglose}
-              onClick={async () => {
-                setEnviandoDesglose(true);
-                try { await onEnviarDesglose(lk); } finally { setEnviandoDesglose(false); }
-              }}
-              title={lk.quote_breakdown_sent_at
-                ? `Desglose enviado el ${new Date(lk.quote_breakdown_sent_at).toLocaleString('es-CL')}. Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE.`
-                : 'Le manda al cliente el Servicio All-Inclusive por etapa, sin mostrar el FEE. Sólo a quien lo pida.'}
-            >
-              <span className="hidden sm:inline">{lk.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'}</span>
-              <span className="sm:hidden">Desglose</span>
+          <dl className="admin-boat-card__prices">
+            <div><dt>Publicado · USA</dt><dd>{num(lk.value_usa_usd) > 0 ? fmtUSD(num(lk.value_usa_usd)) : 'Sin precio'}</dd><span>Referencia del anuncio</span></div>
+            <div><dt>Compra negociada · USA</dt><dd>{compraUsa > 0 ? fmtUSD(compraUsa) : 'Por negociar'}</dd><span>Base de la cotización</span></div>
+            <div className="admin-boat-card__total"><dt>Total puesto en Chile</dt><dd>{cotizacion.requiereRevision ? 'Por actualizar' : totalChile > 0 ? fmtCLP(totalChile) : 'Por cotizar'}</dd><span>{cotizacion.requiereRevision ? cotizacion.total ? `Última cotización: ${fmtCLP(cotizacion.total)}` : 'Revisa la base de compra' : lk.quote_calculated_at ? lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis' : totalChile > 0 ? 'Valor negociado · CLP' : 'Calcula el costo de importación'}</span></div>
+          </dl>
+          {cotizacion.requiereRevision && <p className="admin-boat-card__quote-warning" role="status"><Info size={14} />{cotizacion.baseCambio ? 'Cambió la compra negociada. Actualiza la cotización para renovar el total y los pagos.' : 'Revisa y actualiza la cotización antes de usar este total.'}</p>}
+          <div className="admin-boat-card__actions">
+            <Button variant="ghost" size="sm" iconRight={ChevronDown} aria-expanded={abierto} aria-controls={cuerpoId} onClick={() => setAbierto(a => !a)} className={cn(abierto && '[&_svg:last-child]:rotate-180')}>
+              {abierto ? 'Cerrar edición' : 'Editar ficha'}
             </Button>
-          )}
-          {onCotizar && (
-            <Button
-              variant="secondary" size="sm" icon={Receipt}
-              onClick={() => onCotizar(lk)}
-              title={lk.quote_calculated_at ? `Cotizada el ${new Date(lk.quote_calculated_at).toLocaleString('es-CL')}` : 'Cotizar este link'}
-            >
-              Cotizar
-            </Button>
-          )}
-          <Menu items={menu} label={`Más acciones de la opción ${idx + 1}`} />
-          <IconButton
-            icon={ChevronDown} size="sm"
-            aria-label={abierto ? 'Ocultar la ficha' : 'Ver la ficha'}
-            aria-expanded={abierto}
-            aria-controls={cuerpoId}
-            onClick={() => setAbierto(a => !a)}
-            className={cn('transition-transform duration-150', abierto && 'rotate-180')}
-          />
+            {lk.url && <a href={lk.url.startsWith('http') ? lk.url : 'https://' + lk.url} target="_blank" rel="noopener noreferrer" className="admin-boat-card__listing"><ExternalLink size={14} />Ver anuncio</a>}
+            <div className="admin-boat-card__primary-actions">
+              {onEnviarDesglose && lk.quote_published_at && (
+                <Button variant="secondary" size="sm" icon={Send} loading={enviandoDesglose} onClick={async () => {
+                  setEnviandoDesglose(true);
+                  try { await onEnviarDesglose(lk); } finally { setEnviandoDesglose(false); }
+                }} title={lk.quote_breakdown_sent_at ? `Desglose enviado el ${fmtDateLarga(lk.quote_breakdown_sent_at)}` : 'Enviar el desglose al cliente que lo solicite'}>
+                  {lk.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'}
+                </Button>
+              )}
+              {onCotizar && <Button size="sm" icon={Receipt} onClick={() => onCotizar(lk)}>{cotizacion.requiereRevision ? 'Actualizar cotización' : lk.quote_calculated_at ? 'Revisar cotización' : 'Cotizar'}</Button>}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -400,8 +344,9 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
 
       {/* ── Cuerpo: ficha + precios ── */}
       {abierto && (
-        <div id={cuerpoId} className="border-t border-line px-3 sm:px-4 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
+        <div id={cuerpoId} className="admin-boat-card__editor border-t border-line px-3 sm:px-4 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
           <div className="min-w-0 space-y-3">
+            <h4 className="admin-boat-card__editor-title">Ficha técnica</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3">
               <Txt label="Marca" value={lk.make} onChange={v => set('make', v)} />
               <Txt label="Modelo" value={lk.model} onChange={v => set('model', v)} />
@@ -411,13 +356,15 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
               <Txt label="Motor" value={lk.engine} onChange={v => set('engine', v)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input size="sm" type="number" inputMode="numeric" min={1} label="Preferencia del cliente" aria-label={`N.° de selección del cliente para la opción ${idx + 1}`} value={lk.selection_order || ''} onChange={e => set('selection_order', e.target.value)} placeholder="Sin preferencia" />
               <Txt label="Link del anuncio (USA)" type="url" inputMode="url" value={lk.url} onChange={v => set('url', v)} onBlur={handleUrlBlur} placeholder="https://…" mono />
               <Txt label="Comentarios" value={lk.comments} onChange={v => set('comments', v)} placeholder="Notas internas" />
             </div>
           </div>
 
           {/* Precios: publicado contra negociado, en las dos monedas */}
-          <div className="rounded-md bg-canvas border border-line p-3 self-start">
+          <div className="admin-boat-card__price-editor rounded-md bg-canvas border border-line p-3 self-start">
+            <h4 className="admin-boat-card__editor-title">Valores de referencia y compra</h4>
             <div className="grid grid-cols-2 gap-x-3 gap-y-3">
               <MoneyInput size="sm" currency="USD" label="Publicado · USA" placeholder="—" value={lk.value_usa_usd} onChange={v => set('value_usa_usd', aTexto(v))} inputClassName={cn('text-right tabular font-semibold', vacio(lk.value_usa_usd) && 'border-dashed')} />
               <MoneyInput size="sm" currency="CLP" suffix="" label="Publicado · Santiago" placeholder="—" value={lk.value_chile_clp} onChange={v => set('value_chile_clp', aTexto(v))} inputClassName={cn('text-right tabular font-semibold', vacio(lk.value_chile_clp) && 'border-dashed')} />

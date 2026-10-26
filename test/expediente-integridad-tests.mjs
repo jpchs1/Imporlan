@@ -37,7 +37,7 @@ const base = {
   asset_name: 'Búsqueda de prueba', service_type: 'cotizacion_link', plan_name: 'Cotización por links', agent_name: 'Equipo de prueba',
   status: 'in_progress', timeline_step: 2, created_at: '2026-10-20 12:00:00', eleccion: null,
   links: [
-    { id: 101, order_id: 35, row_index: 1, title: 'Águila', make: 'Bayliner', model: '175', year: 2007, url: 'https://example.test/boat/101', image_url: '/__boat.webp', value_usa_usd: 10000, value_to_negotiate_usd: 9000, value_chile_clp: 20000000, value_chile_negotiated_clp: 19000000, quote_total_clp: 18000000, quote_pending: false, scrape_state: 'completo' },
+    { id: 101, order_id: 35, row_index: 1, title: 'Águila', make: 'Bayliner', model: '175', year: 2007, url: 'https://example.test/boat/101', image_url: '/__boat.webp', value_usa_usd: 10000, value_to_negotiate_usd: 9000, value_chile_clp: 20000000, value_chile_negotiated_clp: 19000000, quote_total_clp: 18000000, quote_calculated_at: '2026-10-25 12:00:00', quote_data: { valor_lancha_usd: 9000 }, quote_pending: false, scrape_state: 'completo' },
     { id: 102, order_id: 35, row_index: 2, title: 'Beta', url: 'https://example.test/boat/102', image_url: '/__boat.webp', value_usa_usd: 5000, value_to_negotiate_usd: 4500, value_chile_clp: 30000000, value_chile_negotiated_clp: 29000000, scrape_state: 'completo' },
     { id: 103, order_id: 35, row_index: 3, title: 'Gamma', url: 'https://example.test/boat/103', image_url: '/__boat.webp', value_usa_usd: 100, quote_pending: true, quote_total_clp: 1000000, value_chile_negotiated_clp: 1000000 },
     { id: 104, order_id: 35, row_index: 4, url: '', title: '', image_url: '' },
@@ -288,6 +288,93 @@ try {
   await incomplete.page.getByText('El detalle de esta cotización está pendiente de actualización por tu agente.').waitFor();
   check(!(await incomplete.page.locator('body').innerText()).includes('NaN') && await incomplete.page.getByText('Servicio all inclusive', { exact: true }).count() === 0, 'invalid snapshots keep the total and hide unavailable breakdowns');
   await incomplete.close();
+
+  // Renegotiating must not present a total calculated with a different purchase base as current.
+  const reprice = await open('admin');
+  const priceCard = reprice.page.locator('[data-link-id="101"]');
+  await priceCard.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+  const usaPurchase = priceCard.getByLabel('Negociado · USA', { exact: true });
+  await usaPurchase.click();
+  await usaPurchase.fill('11000');
+  check(await priceCard.locator('.admin-boat-card__total dd').textContent() === 'Por actualizar', 'changing the purchase price removes the old quote from the current total');
+  check((await priceCard.locator('.admin-boat-card__quote-warning').innerText()).includes('Cambió la compra negociada'), 'outdated quote explains why it needs recalculation');
+  check((await priceCard.locator('.admin-boat-card__total > span').innerText()).includes('Última cotización'), 'the former amount is explicitly labeled as historical');
+  await priceCard.getByRole('button', { name: 'Actualizar cotización', exact: true }).click();
+  const repricingModal = reprice.page.getByRole('dialog');
+  check((await repricingModal.getByLabel(/^Valor negociado · USA/).inputValue()).replace(/[^0-9]/g, '') === '11000', 'recalculate opens with the edited purchase base');
+  await reprice.page.keyboard.press('Escape');
+  await usaPurchase.click();
+  await usaPurchase.fill('9000.00');
+  check(await priceCard.locator('.admin-boat-card__quote-warning').count() === 0 && (await priceCard.locator('.admin-boat-card__total dd').innerText()).includes('18.000.000'), 'the original base including decimal formatting recognizes the saved total as current');
+  await usaPurchase.fill('');
+  check(await priceCard.locator('.admin-boat-card__total dd').innerText() === 'Por actualizar', 'removing the negotiated purchase never leaves a saved quote looking current');
+  await reprice.close();
+
+  // The admin next step uses real payment state before announcing an operational milestone.
+  const chosenOrder = structuredClone(base);
+  chosenOrder.eleccion = { link_id: 101, inspection: true, steps: {}, client_can_change: true };
+  chosenOrder.links[0].quote_payments = { p1_pct: 7, p1_clp: 1260000, p2_pct: 63, p2_clp: 11340000, p3_pct: 30, p3_clp: 5400000 };
+  for (const status of ['pending', 'paid']) {
+    const nextStep = await open('admin', { initial: chosenOrder, handler: async ({ route, url }) => {
+      if (url.pathname.endsWith('payment_requests_api.php')) {
+        await route.fulfill({ json: { success: true, requests: [{ id: 1, title: 'Pago 1', status, amount_clp: 1260000, metadata: { order_id: 35, custom_fields: { pago: 1 } } }] } }); return true;
+      }
+    } });
+    const summary = nextStep.page.getByRole('complementary', { name: 'Siguiente paso del expediente' });
+    await summary.getByRole('heading', { name: status === 'pending' ? 'Pago 1 pendiente' : 'Confirmando disponibilidad', exact: true }).waitFor();
+    check(true, status === 'pending' ? 'pending first payment takes priority over seller confirmation' : 'the next operational milestone appears after the first payment is paid');
+    await nextStep.close();
+  }
+  let paymentGate;
+  const waitingPayments = await open('admin', { initial: chosenOrder, handler: async ({ route, url }) => {
+    if (url.pathname.endsWith('payment_requests_api.php')) { paymentGate = route; return true; }
+  } });
+  await waitingPayments.page.getByRole('complementary', { name: 'Siguiente paso del expediente' }).getByRole('heading', { name: 'Consultando pagos' }).waitFor();
+  check(true, 'loading payment state does not announce a premature operational step');
+  await paymentGate.fulfill({ status: 503, json: { error: 'Falla de pagos de prueba' } });
+  await waitingPayments.page.getByRole('complementary', { name: 'Siguiente paso del expediente' }).getByRole('heading', { name: 'Revisar estado de pagos' }).waitFor();
+  check(true, 'a payment fetch error offers review instead of guessing the next milestone');
+  await waitingPayments.close();
+
+  // Admin visual workspace: prices remain readable and each editor retains its pending values.
+  for (const width of [320, 390, 768, 1024, 1440]) {
+    const visual = await open('admin', { width });
+    const card = visual.page.locator('[data-link-id="101"]');
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).waitFor();
+    check(await card.getByRole('button', { name: 'Editar ficha', exact: true }).getAttribute('aria-expanded') === 'false', `existing admin cards start with a readable price overview at ${width}px`);
+    check(await visual.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `admin workspace fits ${width}px without horizontal overflow`);
+    check(await card.locator('.admin-boat-card__prices').evaluate(el => {
+      const total = el.querySelector('.admin-boat-card__total dd');
+      const reference = el.querySelector('dd');
+      return parseFloat(getComputedStyle(total).fontSize) > parseFloat(getComputedStyle(reference).fontSize);
+    }), `final Chile price has stronger visual hierarchy at ${width}px`);
+    if (width >= 1024) check(await card.evaluate(el => el.getBoundingClientRect().top < 1000), `boat options appear before the long operation and document sections at ${width}px`);
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    const model = card.getByRole('textbox', { name: 'Modelo', exact: true });
+    await model.fill('Modelo pendiente de prueba');
+    await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+    await card.getByRole('button', { name: 'Editar ficha', exact: true }).click();
+    check(await model.inputValue() === 'Modelo pendiente de prueba', `closing and reopening the card keeps its pending edits at ${width}px`);
+    if (width === 1440) {
+      await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+      await card.locator('.admin-boat-card__grip').dragTo(visual.page.locator('[data-link-id="102"] .admin-boat-card__photo'), { sourcePosition: { x: 5, y: 5 } });
+      await visual.page.waitForFunction(() => document.querySelector('[data-link-id]')?.getAttribute('data-link-id') === '102');
+      check(true, 'the visible drag handle reorders admin boats through native browser drag and drop');
+      await card.getByRole('button', { name: 'Revisar cotización', exact: true }).click();
+      const modal = visual.page.getByRole('dialog');
+      const negotiated = modal.getByLabel(/^Valor negociado · USA/);
+      await negotiated.waitFor();
+      check((await negotiated.inputValue()).replace(/[^0-9]/g, '') === '9000', 'the prominent quote button opens the selected boat with its negotiated USA base');
+      await visual.page.keyboard.press('Escape');
+    }
+    if (process.env.WORKSPACE_SCREENSHOTS) {
+      await mkdir(process.env.WORKSPACE_SCREENSHOTS, { recursive: true });
+      if (await card.getByRole('button', { name: 'Cerrar edición', exact: true }).count()) await card.getByRole('button', { name: 'Cerrar edición', exact: true }).click();
+      await visual.page.getByRole('navigation', { name: 'Secciones del expediente' }).getByRole('button', { name: /^Opciones/ }).click();
+      await visual.page.screenshot({ path: join(process.env.WORKSPACE_SCREENSHOTS, `admin-ranking-${width}.png`) });
+    }
+    await visual.close();
+  }
 
   check(errors.length === 0, 'all integrity flows run without browser exceptions: ' + errors.join('; '));
   console.log(`${passed} expediente integrity checks passed.`);
