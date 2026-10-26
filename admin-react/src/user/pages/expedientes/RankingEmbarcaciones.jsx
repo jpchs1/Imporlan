@@ -4,12 +4,15 @@ import { fmtUSD, fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, SearchInput, Select, SegmentedControl, FilterChips, DataTable, EmptyState, Spinner, Badge } from '../../../shared/components/UI';
 import { Send, LayoutGrid, List, ExternalLink, ClipboardCheck, Search, Check, ChevronDown } from '../../../shared/components/Icons';
 import TarjetaEmbarcacion from './TarjetaEmbarcacion';
-import { tituloEmbarcacion, estaVendida, tienePrecio, urlAbsoluta } from './lib';
+import { normalizarBusqueda } from '../../../shared/lib/file-collection';
+import { precioUsa, precioChile, tituloEmbarcacion, estaVendida, tienePrecio, urlAbsoluta } from './lib';
 
 const ORDEN = [
   { value: 'rank', label: 'Mi ranking' },
-  { value: 'price_asc', label: 'Precio: menor a mayor' },
-  { value: 'price_desc', label: 'Precio: mayor a menor' },
+  { value: 'price_asc', label: 'Chile (CLP): menor a mayor' },
+  { value: 'price_desc', label: 'Chile (CLP): mayor a menor' },
+  { value: 'usa_asc', label: 'EE. UU. (USD): menor a mayor' },
+  { value: 'usa_desc', label: 'EE. UU. (USD): mayor a menor' },
   { value: 'year_desc', label: 'Más nuevas primero' },
   { value: 'year_asc', label: 'Más antiguas primero' },
 ];
@@ -43,19 +46,28 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
   const cuerpoId = useId();
 
   const displayed = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizarBusqueda(search);
     let out = links.filter(l => {
       if (filtros.includes('foto') && !l.image_url) return false;
       if (filtros.includes('precio') && !tienePrecio(l)) return false;
       if (filtros.includes('disponibles') && estaVendida(l)) return false;
       if (term) {
-        const hay = [l.title, l.make, l.model, l.year, l.location, l.engine, l.comments].filter(Boolean).join(' ').toLowerCase();
+        const hay = normalizarBusqueda([l.title, l.make, l.model, l.year, l.location, l.engine, l.comments].filter(Boolean).join(' '));
         if (!hay.includes(term)) return false;
       }
       return true;
     });
-    if (sortBy === 'price_asc') out = [...out].sort((a, b) => (a.value_usa_usd || a.value_chile_clp || Infinity) - (b.value_usa_usd || b.value_chile_clp || Infinity));
-    else if (sortBy === 'price_desc') out = [...out].sort((a, b) => (b.value_usa_usd || b.value_chile_clp || 0) - (a.value_usa_usd || a.value_chile_clp || 0));
+    // Los precios desconocidos siempre van al final; jamás mezclar USD y CLP.
+    const comparePrice = (getPrice, direction) => (a, b) => {
+      const av = getPrice(a), bv = getPrice(b);
+      if (av === null) return bv === null ? 0 : 1;
+      if (bv === null) return -1;
+      return direction * (av - bv);
+    };
+    if (sortBy === 'price_asc') out = [...out].sort(comparePrice(precioChile, 1));
+    else if (sortBy === 'price_desc') out = [...out].sort(comparePrice(precioChile, -1));
+    else if (sortBy === 'usa_asc') out = [...out].sort(comparePrice(precioUsa, 1));
+    else if (sortBy === 'usa_desc') out = [...out].sort(comparePrice(precioUsa, -1));
     else if (sortBy === 'year_desc') out = [...out].sort((a, b) => (b.year || 0) - (a.year || 0));
     else if (sortBy === 'year_asc') out = [...out].sort((a, b) => (a.year || Infinity) - (b.year || Infinity));
     return out;
@@ -63,7 +75,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
 
   const hayFiltro = search.trim() !== '' || filtros.length > 0 || sortBy !== 'rank';
   const limpiar = () => { setSearch(''); setFiltros([]); setSortBy('rank'); };
-  const isRankView = sortBy === 'rank' && viewMode === 'cards';
+  const isRankView = sortBy === 'rank' && viewMode === 'cards' && !hayFiltro && !saving && !notifying;
   const n = links.length;
   const idElegida = Number(eleccion?.link_id) || null;
   const idNoApta = Number(noAptaId) || null;
@@ -94,8 +106,8 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
       ),
     },
     { key: 'location', header: 'Ubicación', priority: 2, cell: r => r.location || '—' },
-    { key: 'value_usa_usd', header: 'En EE. UU.', align: 'right', cell: r => <span className="tabular">{Number(r.value_usa_usd) > 0 ? fmtUSD(r.value_usa_usd) : '—'}</span>, sortValue: r => Number(r.value_usa_usd) || null },
-    { key: 'value_chile_clp', header: 'Puesto en Chile', align: 'right', cell: r => <span className="tabular font-medium text-ink-900">{Number(r.value_chile_clp) > 0 ? fmtCLP(r.value_chile_clp) : '—'}</span>, sortValue: r => Number(r.value_chile_clp) || null },
+    { key: 'value_usa_usd', header: 'Compra en EE. UU.', align: 'right', cell: r => <span className="tabular">{precioUsa(r) !== null ? fmtUSD(precioUsa(r)) : '—'}</span>, sortValue: precioUsa },
+    { key: 'value_chile_clp', header: 'Puesto en Chile', align: 'right', cell: r => <span className="tabular font-medium text-ink-900">{r.quote_pending ? 'En análisis' : precioChile(r) !== null ? fmtCLP(precioChile(r)) : '—'}</span>, sortValue: precioChile },
   ];
 
   const textoAyuda = hayElegibles
@@ -131,7 +143,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
               <p className="text-13 text-ink-500">{textoAyuda}</p>
               <div className="flex shrink-0 items-center gap-3">
                 {saving && <span className="inline-flex items-center gap-1.5 text-13 text-ink-500" role="status"><Spinner inline size="sm" label="Guardando" /> Guardando…</span>}
-                <Button size="sm" variant="secondary" icon={Send} onClick={onNotify} loading={notifying} disabled={n === 0}>Avisar a mi agente</Button>
+                <Button size="sm" variant="secondary" icon={Send} onClick={onNotify} loading={notifying} disabled={n === 0 || saving}>Avisar a mi agente</Button>
               </div>
             </div>
 
@@ -156,7 +168,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
               onClear={hayFiltro ? limpiar : undefined}
             />
             {!isRankView && displayed.length > 0 && (
-              <p className="text-13 text-ink-500">Para reordenar tu ranking vuelve a la vista de tarjetas con el orden «Mi ranking».</p>
+              <p className="text-13 text-ink-500">Para reordenar tu ranking usa las tarjetas, el orden «Mi ranking» y limpia los filtros. Espera a que termine el guardado si está en curso.</p>
             )}
           </Card.Body>
 
@@ -179,7 +191,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
                   <span className="font-semibold text-ink-900 tabular">{links.indexOf(r) + 1}.</span>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-ink-900">{tituloEmbarcacion(r)} {esElegida(r) && !esNoApta(r) && <Badge tone="brand" size="sm" dot className="ml-1">Tu elección</Badge>}{esNoApta(r) && <Badge tone="warning" size="sm" dot className="ml-1">No apta según inspección</Badge>}</p>
-                    <p className="text-13 text-ink-500">{[r.location, Number(r.value_usa_usd) > 0 && fmtUSD(r.value_usa_usd), Number(r.value_chile_clp) > 0 && fmtCLP(r.value_chile_clp)].filter(Boolean).join(' · ') || 'Sin precio aún'}</p>
+                    <p className="text-13 text-ink-500">{[r.location, precioUsa(r) !== null && fmtUSD(precioUsa(r)), r.quote_pending ? 'Cotización en análisis' : precioChile(r) !== null && fmtCLP(precioChile(r))].filter(Boolean).join(' · ') || 'Sin precio aún'}</p>
                   </div>
                 </div>
               )}

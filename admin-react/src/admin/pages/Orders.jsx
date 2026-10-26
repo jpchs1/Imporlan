@@ -10,6 +10,7 @@ import { cobrosDelExpediente, hitosDe } from '../../shared/lib/importacion';
 import { devolucionPedida } from '../../shared/lib/inspeccion';
 import { enviarDesglose } from '../desglose';
 import { esEquipoChile } from '../config';
+import { esLinkVacio } from '../../shared/lib/link-vacio';
 import { FILTROS_VACIOS, AGENTE_POR_DEFECTO } from './orders/constantes';
 import ListaExpedientes from './orders/ListaExpedientes';
 import DetalleExpediente from './orders/DetalleExpediente';
@@ -43,12 +44,18 @@ export default function Orders() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const saveBusy = useRef(false);
+  const detailGeneration = useRef(0);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [requestedOrderId, setRequestedOrderId] = useState(null);
   const [cotizandoLink, setCotizandoLink] = useState(null);
 
   // Cobros (solicitudes de pago) del expediente abierto, para la sección
   // Importación. Se piden aparte: viven en payment_requests_api.php.
   const [cobros, setCobros] = useState([]);
   const [cargandoCobros, setCargandoCobros] = useState(false);
+  const [cobrosError, setCobrosError] = useState('');
   const cobrosDeRef = useRef(null);
 
   // Filters
@@ -58,6 +65,9 @@ export default function Orders() {
 
   // Form fields for detail
   const [form, setForm] = useState({});
+  // Referencias del render actual para no pisar ediciones con respuestas tardías.
+  const live = useRef(null);
+  live.current = { id: detail?.id, form, links, unsaved };
 
   // Estado del botón "Rescrapear expediente"
   const [rescraping, setRescraping] = useState(false);
@@ -141,21 +151,30 @@ export default function Orders() {
   const cargarCobros = useCallback(async (orderId, email) => {
     cobrosDeRef.current = orderId;
     setCargandoCobros(true);
+    setCobrosError('');
     try {
       const r = await getPaymentRequestsAdmin(email || '');
       if (cobrosDeRef.current !== orderId) return;
-      setCobros(cobrosDelExpediente(r.requests || [], orderId));
+      if (!r.success || !Array.isArray(r.requests)) throw new Error('Cobros no disponibles');
+      setCobros(cobrosDelExpediente(r.requests, orderId));
     } catch {
-      if (cobrosDeRef.current === orderId) setCobros([]);
+      if (cobrosDeRef.current === orderId) setCobrosError('No pudimos actualizar los cobros. Reintenta antes de crear otro.');
     }
     if (cobrosDeRef.current === orderId) setCargandoCobros(false);
   }, []);
 
   async function openDetail(orderId) {
-    setLoading(true);
+    const generation = ++detailGeneration.current;
+    setRequestedOrderId(orderId);
+    setDetailLoading(true);
+    setDetailError('');
+    setDetail(null);
+    setView('detail');
     try {
       const o = await getOrderDetail(orderId);
       const order = o.order || o;
+      if (generation !== detailGeneration.current) return;
+      if (!order?.id) throw new Error(o.error || 'El expediente no está disponible.');
       setDetail(order);
       setLinks(JSON.parse(JSON.stringify(order.links || [])));
       setCobros([]);
@@ -177,8 +196,8 @@ export default function Orders() {
       setUnsaved(false);
       setScraperFaltante(null);
       setView('detail');
-    } catch (e) { toast?.('Error cargando expediente: ' + (e.message || ''), 'error'); }
-    setLoading(false);
+    } catch (e) { if (generation === detailGeneration.current) setDetailError(e.message || 'No pudimos cargar el expediente.'); }
+    if (generation === detailGeneration.current) setDetailLoading(false);
   }
 
   async function goBack() {
@@ -190,24 +209,44 @@ export default function Orders() {
       cancelLabel: 'Seguir editando',
     }))) return;
     setUnsaved(false);
+    detailGeneration.current++;
     setView('list'); setDetail(null); loadOrders();
   }
 
   // ---- SAVE ALL ----
   async function handleSaveAll() {
-    if (!detail) return;
+    if (!detail || saveBusy.current) return false;
+    const snapshot = live.current;
+    saveBusy.current = true;
     setSaving(true);
     try {
-      await updateOrder({ id: detail.id, ...form, visible_to_client: form.visible_to_client ? 1 : 0 });
-      await updateOrderLinks(detail.id, links);
+      await updateOrder({ id: snapshot.id, ...snapshot.form, visible_to_client: snapshot.form.visible_to_client ? 1 : 0 });
+      await updateOrderLinks(snapshot.id, snapshot.links);
+      if (live.current.id !== snapshot.id) return false;
+      const unchanged = () => live.current.id === snapshot.id && live.current.form === snapshot.form && live.current.links === snapshot.links;
+      if (!unchanged()) {
+        toast?.('Se guardó la versión enviada. Tienes nuevas ediciones pendientes de guardar.', 'warning');
+        return false;
+      }
       setUnsaved(false);
       toast?.('Expediente guardado correctamente');
-      const o = await getOrderDetail(detail.id);
-      const order = o.order || o;
-      setDetail(order);
-      setLinks(JSON.parse(JSON.stringify(order.links || [])));
-    } catch (e) { toast?.(e.message || 'Error guardando', 'error'); }
-    setSaving(false);
+      // Un fallo al refrescar no convierte un guardado exitoso en un error.
+      try {
+        const o = await getOrderDetail(snapshot.id);
+        const order = o.order || o;
+        if (unchanged() && order?.id) {
+          setDetail(order);
+          setLinks(JSON.parse(JSON.stringify(order.links || [])));
+        }
+      } catch { toast?.('Guardado. No pudimos actualizar la vista; vuelve a abrir el expediente para verificarla.', 'warning'); }
+      return unchanged();
+    } catch (e) {
+      toast?.(e.message || 'Error guardando. Conservamos tus cambios para reintentar.', 'error');
+      return false;
+    } finally {
+      saveBusy.current = false;
+      setSaving(false);
+    }
   }
 
   // ---- STATUS CHANGE ----
@@ -225,6 +264,7 @@ export default function Orders() {
 
   // ---- SEND CLIENT UPDATE ----
   async function handleSendClient() {
+    if (live.current.unsaved && !(await handleSaveAll())) return;
     if (!(await confirm({
       title: '¿Enviar una actualización al cliente?',
       description: `Se manda un correo de actualización a ${detail.customer_email || 'el cliente'}.`,
@@ -238,6 +278,7 @@ export default function Orders() {
 
   // ---- NOTIFY RANKING ----
   async function handleNotifyRanking() {
+    if (live.current.unsaved && !(await handleSaveAll())) return;
     if (!(await confirm({
       title: '¿Enviar el ranking por correo?',
       description: `Se le manda el ranking de opciones a ${detail.customer_email || 'el cliente'}.`,
@@ -299,14 +340,18 @@ export default function Orders() {
   }
 
   const refrescarDetalle = useCallback(async () => {
-    if (!detail?.id) return;
+    const snapshot = live.current;
+    if (!snapshot.id || snapshot.unsaved || saveBusy.current) return;
     try {
-      const o = await getOrderDetail(detail.id);
+      const o = await getOrderDetail(snapshot.id);
       const orden = o.order || o;
+      const current = live.current;
+      if (current.id !== snapshot.id || current.unsaved || current.form !== snapshot.form || current.links !== snapshot.links || saveBusy.current) return;
+      if (!orden?.id) return;
       setDetail(orden);
       setLinks(JSON.parse(JSON.stringify(orden.links || [])));
-    } catch { /* si falla, la proxima recarga lo muestra */ }
-  }, [detail?.id]);
+    } catch { /* se conserva la última versión y se reintenta en el próximo ciclo */ }
+  }, []);
 
   // Mientras haya filas leyendose en segundo plano, releer el expediente cada
   // diez segundos. Sin esto el aviso azul se queda puesto para siempre aunque el
@@ -359,10 +404,7 @@ export default function Orders() {
     let updated = 0, withImage = 0, failed = 0, partial = 0, noScraper = 0, queued = 0;
     try {
       // El servidor lee las URLs de la base: lo escrito sin guardar se guarda antes.
-      if (unsaved) {
-        await updateOrderLinks(detail.id, links);
-        setUnsaved(false);
-      }
+      if (unsaved && !(await handleSaveAll())) return;
       for (let i = 0; i < pend.length; i++) {
         setRescrapeProgress(`${i + 1} de ${pend.length}`);
         try {
@@ -383,8 +425,10 @@ export default function Orders() {
       }
       const o = await getOrderDetail(detail.id);
       const orden = o.order || o;
-      setDetail(orden);
-      setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+      if (live.current.id === detail.id && !live.current.unsaved) {
+        setDetail(orden);
+        setLinks(JSON.parse(JSON.stringify(orden.links || [])));
+      }
       const parts = [`${updated} de ${pend.length} link(s) actualizados, ${withImage} con imagen.`];
       if (queued) parts.push(`${queued} quedaron en cola y se completan solos en unos minutos.`);
       if (partial || noScraper) {
@@ -406,10 +450,7 @@ export default function Orders() {
   async function handleAddLink() {
     if (!detail) return;
     try {
-      if (unsaved) {
-        await updateOrderLinks(detail.id, links);
-        setUnsaved(false);
-      }
+      if (unsaved && !(await handleSaveAll())) return;
       const res = await addOrderLink(detail.id);
       const newLink = {
         id: res?.link_id,
@@ -453,8 +494,7 @@ export default function Orders() {
   // leftover from "Agregar Fila" clicks during testing or from old plans
   // that pre-allocated empty rows.
   async function handleDeleteEmptyLinks() {
-    const empty = links.filter(l => !l.url && !l.make && !l.model && !l.image_url && !l.comments
-      && !l.value_usa_usd && !l.value_chile_clp && !l.value_chile_negotiated_clp && !l.selection_order);
+    const empty = links.filter(esLinkVacio);
     if (!empty.length) return;
     const n = empty.length;
     if (!(await confirm({
@@ -487,11 +527,11 @@ export default function Orders() {
   // primero se persiste la fila y recien despues se encola.
   const encolarUrlLenta = useCallback(async (linkId, url) => {
     if (!detail?.id) return;
-    const actualizados = links.map(l => (l.id === linkId ? { ...l, url } : l));
+    const actualizados = linksRef.current.map(l => (l.id === linkId ? { ...l, url } : l));
     setLinks(actualizados);
     try {
+      setUnsaved(true);
       await updateOrderLinks(detail.id, actualizados);
-      setUnsaved(false);
       // El row_index lo asigna el servidor, asi que se relee antes de encolar:
       // una fila recien agregada todavia no lo tiene en el navegador.
       const o = await getOrderDetail(detail.id);
@@ -502,7 +542,7 @@ export default function Orders() {
     } catch (e) {
       toast?.('No se pudo poner el anuncio en cola: ' + (e.message || ''), 'error');
     }
-  }, [detail?.id, links, refrescarDetalle, toast]);
+  }, [detail?.id, refrescarDetalle, toast]);
 
   // ---- IMAGE UPLOAD ----
   async function handleImageUpload(linkId, file) {
@@ -766,7 +806,10 @@ export default function Orders() {
   // ============ DETAIL VIEW ============
   return (
     <DetalleExpediente
-      loading={loading}
+      key={detail?.id || requestedOrderId || 'loading'}
+      loading={detailLoading}
+      loadError={detailError}
+      onRetry={() => openDetail(requestedOrderId)}
       detail={detail}
       links={links}
       form={form}
@@ -808,6 +851,8 @@ export default function Orders() {
       importacion={{
         cobros,
         cargandoCobros,
+        cobrosError,
+        onReintentarCobros: () => cargarCobros(detail.id, detail.customer_email),
         puedeCobrar: equipoChile,
         operacionUsa: equipoChile,
         onElegir: handleElegirLancha,
@@ -820,23 +865,23 @@ export default function Orders() {
         onEstadoCobro: handleEstadoCobro,
       }}
       onQuoteSaved={async () => {
-        if (!detail?.id) return;
+        const orderId = detail?.id;
         const cotizadoId = cotizandoLink?.id;
-        // La cotización guarda el negociado USA y el total negociado Chile.
-        // Las ediciones pendientes deben conservar ambos valores nuevos,
-        // en vez de pisarlos con los que tenía la fila antes de cotizar.
-        if (unsaved) {
-          try {
-            const o = await getOrderDetail(detail.id);
-            const fresco = ((o.order || o).links || []).find(l => l.id === cotizadoId);
-            const merged = links.map(l => (l.id === cotizadoId && fresco
-              ? { ...l, value_to_negotiate_usd: fresco.value_to_negotiate_usd, value_chile_negotiated_clp: fresco.value_chile_negotiated_clp }
-              : l));
-            await updateOrderLinks(detail.id, merged);
-            setUnsaved(false);
-          } catch (e) { toast?.('No se pudieron guardar los cambios pendientes: ' + (e.message || ''), 'error'); }
-        }
-        await refrescarDetalle();
+        if (!orderId) return;
+        try {
+          const o = await getOrderDetail(orderId);
+          const freshOrder = o.order || o;
+          if (live.current.id !== orderId || !freshOrder?.id) return;
+          const fresh = (freshOrder.links || []).find(l => l.id === cotizadoId);
+          setDetail(freshOrder);
+          if (live.current.unsaved) {
+            // Actualiza sólo la cotización; las demás ediciones siguen pendientes.
+            const quoteFields = fresh ? Object.fromEntries(Object.entries(fresh).filter(([key]) => key.startsWith('quote_') || ['value_to_negotiate_usd', 'value_chile_negotiated_clp'].includes(key))) : {};
+            setLinks(prev => prev.map(l => l.id === cotizadoId ? { ...l, ...quoteFields } : l));
+          } else {
+            setLinks(JSON.parse(JSON.stringify(freshOrder.links || [])));
+          }
+        } catch (e) { toast?.('La cotización se guardó, pero no pudimos actualizar la vista: ' + (e.message || ''), 'warning'); }
       }}
     />
   );

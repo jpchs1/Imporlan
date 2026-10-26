@@ -152,7 +152,7 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
   // Una fila sin foto es el caso NORMAL y no una excepción, así que se avisa con
   // un botón para reintentar en vez de dejar la ficha muda y que el agente no
   // sepa si falta cargar algo o si el sistema falló.
-  const scrapeIncompleto = !!(lk.url || '').trim() && !lk.image_url;
+  const scrapeIncompleto = !!(lk.url || '').trim() && (!lk.image_url || !(lk.title || lk.make || lk.model) || !(num(lk.value_usa_usd) > 0));
 
   // Los sitios con Cloudflare tardan entre 50 y 90 segundos en responder y
   // ninguna peticion web sobrevive eso, asi que el servidor los deja en cola y
@@ -181,7 +181,7 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
   const nuncaIntentada = necesitaCola(lk.url) && !enCola && !errorLectura && !lk.title && !lk.image_url;
 
   const titleParts = [lk.year, lk.make, lk.model].filter(Boolean);
-  const title = titleParts.length ? titleParts.join(' ') : 'Opción sin identificar';
+  const title = lk.title || (titleParts.length ? titleParts.join(' ') : 'Opción sin identificar');
   const ficha = [lk.location, lk.hours ? `${lk.hours} h` : null, lk.engine].filter(Boolean).join(' · ');
 
   // Ahorro que consigue la negociación: es el argumento de venta del trabajo

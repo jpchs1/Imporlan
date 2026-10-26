@@ -1769,6 +1769,9 @@ function saveRanking() {
         $stmt = $pdo->prepare("UPDATE orders SET ranking_author_name = ?, ranking_author_role = ?, ranking_updated_at = NOW() WHERE id = ?");
         $stmt->execute([$authorName, $authorRole, $orderId]);
 
+        $rankingStmt = $pdo->prepare('SELECT ranking_updated_at FROM orders WHERE id = ?');
+        $rankingStmt->execute([$orderId]);
+        $rankingUpdatedAt = $rankingStmt->fetchColumn();
         $pdo->commit();
 
         logOrderEvent($pdo, $orderId, 'ranking_updated', [
@@ -1779,6 +1782,7 @@ function saveRanking() {
 
         echo json_encode([
             'success' => true,
+            'ranking_updated_at' => $rankingUpdatedAt,
             'message' => 'Ranking actualizado',
             'ranking_author_name' => $authorName,
             'ranking_author_role' => $authorRole

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getExpedienteFiles } from '../api';
 
 /**
@@ -8,28 +8,34 @@ import { getExpedienteFiles } from '../api';
  * compartir (compartir hace visibles los documentos de esa actualización).
  */
 export function useExpedienteFiles(orderId) {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [state, setState] = useState({ orderId, files: [], loading: true, error: '' });
+  const activeOrder = useRef(orderId);
+  const generation = useRef(0);
+  const mounted = useRef(true);
+  activeOrder.current = orderId;
 
   const recargar = useCallback(async () => {
+    const request = ++generation.current;
+    const current = () => mounted.current && activeOrder.current === orderId && request === generation.current;
     if (!orderId) return;
-    setLoading(true);
-    setError('');
+    setState(prev => ({ orderId, files: prev.orderId === orderId ? prev.files : [], loading: true, error: '' }));
     try {
       const data = await getExpedienteFiles(orderId);
       if (!data.success || !Array.isArray(data.files)) throw new Error(data.error || 'No se pudieron cargar los archivos.');
-      setFiles(data.files);
-    } catch (e) { setError(e.message || 'Error al cargar archivos.'); }
-    setLoading(false);
+      if (current()) setState({ orderId, files: data.files, loading: false, error: '' });
+    } catch (e) {
+      if (current()) setState(prev => ({ ...prev, loading: false, error: e.message || 'Error al cargar archivos.' }));
+    }
   }, [orderId]);
 
   useEffect(() => {
+    mounted.current = true;
     const t = setTimeout(recargar, 0);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); mounted.current = false; };
   }, [recargar]);
 
-  return { files, loading, error, recargar };
+  const visible = state.orderId === orderId ? state : { files: [], loading: !!orderId, error: '' };
+  return { files: visible.files, loading: visible.loading, error: visible.error, recargar };
 }
 
 export { categoriaArchivo } from '../../shared/lib/file-collection';

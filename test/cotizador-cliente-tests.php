@@ -81,6 +81,22 @@ $pendiente = array_merge($publicada, [
 $out = cotizadorApplyClientVisibility($pdo, [$pendiente])[0];
 t(!array_key_exists('quote_data', $out) && $out['quote_pending'] === true, 'en análisis: sin números');
 
+$pendiente['value_chile_negotiated_clp'] = 50000000;
+$pendiente['value_chile_clp'] = 55000000;
+$out = cotizadorApplyClientVisibility($pdo, [$pendiente])[0];
+t($out['value_chile_negotiated_clp'] === null && $out['value_chile_clp'] === null, 'en análisis: el total tampoco se filtra por la matriz de precios');
+t(!isset($out['quote_total_clp']) && !isset($out['quote_payments']), 'en análisis: sin total ni pagos');
+$ahora = array_merge($pendiente, ['quote_published_at' => date('Y-m-d H:i:s')]);
+$out = cotizadorApplyClientVisibility($pdo, [$ahora])[0];
+t($out['quote_pending'] === false && $out['quote_total_clp'] === 50000000, 'publicar ahora entrega la cotización inmediatamente');
+t(json_decode($out['quote_data'], true) === $qd, 'publicación inmediata mantiene la planilla interna privada');
+$pdo->exec('CREATE TABLE pricing_config (config_key TEXT, config_value TEXT)');
+$pdo->exec("INSERT INTO pricing_config VALUES ('cot_client_delay_hours', '48')");
+$out = cotizadorApplyClientVisibility($pdo, [$pendiente])[0];
+t(abs(strtotime($out['quote_available_at']) - strtotime($pendiente['quote_calculated_at']) - 48 * 3600) < 2, 'el panel recibe la fecha de la espera configurada, sin fijarla en 24 horas');
+$out = cotizadorApplyClientVisibility($pdo, [$ahora])[0];
+t($out['quote_pending'] === false, 'la publicación manual también respeta su inmediatez con espera de 48 horas');
+
 /* ── el correo «Tu cotización está lista» se arma con lo mismo ───────── */
 $src = (string) file_get_contents(__DIR__ . '/../api/cotizador_helpers.php');
 if (preg_match('/function cotizadorSendReadyEmail\(.*?\n    \}\n/s', $src, $m)) {
