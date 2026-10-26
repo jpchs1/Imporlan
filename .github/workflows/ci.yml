@@ -35,6 +35,8 @@ jobs:
         run: FILE_BROWSER_TEST=1 PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-file-access-tests.mjs
       - name: Workspace navigation, filters and editing across screen sizes
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-workspace-tests.mjs
+      - name: Import quote layout, live totals and saving across screen sizes
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/cotizador-ui-tests.mjs
 
   php-syntax:
     name: PHP Syntax Check
