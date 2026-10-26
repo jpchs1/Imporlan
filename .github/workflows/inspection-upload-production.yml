@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - api/inspection_upload_*.php
+      - api/inspection_price_*.php
       - api/cron/inspection_upload_followup.php
       - api/operador_usa.php
       - cron-deploy.sh

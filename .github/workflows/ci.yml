@@ -35,6 +35,8 @@ jobs:
         run: FILE_BROWSER_TEST=1 PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-file-access-tests.mjs
       - name: Workspace navigation, filters and editing across screen sizes
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-workspace-tests.mjs
+      - name: Private price confirmation portal and responsive email
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/inspection-price-browser-tests.mjs
       - name: Expediente integrity (saving, polling, prices and file identity)
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-integridad-tests.mjs
       - name: Import quote layout, live totals and saving across screen sizes
@@ -100,6 +102,9 @@ jobs:
 
       - name: Inspección realizada (carga completa y seguimiento diario AM)
         run: php test/inspection-upload-tests.php
+
+      - name: Confirmación de precio tras inspección (correo, respuesta y validación)
+        run: php test/inspection-price-tests.php
 
   javascript-lint:
     name: JavaScript Lint

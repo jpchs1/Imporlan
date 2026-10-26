@@ -38,6 +38,7 @@ require_once __DIR__ . '/db_config.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/eleccion_lancha.php';
 require_once __DIR__ . '/inspection_upload_followup.php';
+require_once __DIR__ . '/inspection_price_followup.php';
 
 /** Quién lleva la operación en EE. UU. */
 function opuOperador() {
@@ -246,7 +247,7 @@ function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
     if (!impTieneEleccion($order)) return false;
     // A completed survey awaiting uploads has its own daily request. Never
     // ask the operator to arrange the inspection again, or send a second chase.
-    if (opuInspectionOwnsStage($pdo, $order)) return false;
+    if (opuInspectionOwnsStage($pdo, $order) || opuPriceGate($pdo, $order)) return false;
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
     if (!$link) return false;
     $hito = opuHitoEnCurso($order);
@@ -446,6 +447,14 @@ function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 
     $pdo->prepare("UPDATE orders SET usa_updated_at = NOW() WHERE id = ?")->execute([intval($order['id'])]);
     opuLog($pdo, $order['id'], 'operador_usa_actualizacion', ['update_id' => $updateId, 'archivos' => count($guardados)]);
 
+    // A real PDF submitted while the survey is the current task is evidence
+    // the survey has taken place. Enrol future operations as well as the
+    // existing explicit request; later purchase/shipping PDFs do not enrol.
+    if (!$inspection && !empty($order['chosen_inspection']) && opuHitoEnCurso($order) === 'inspeccion'
+        && array_filter($guardados, function ($file) { return $file['mime_type'] === 'application/pdf'; })) {
+        $inspection = opuInspectionRequest($pdo, $order);
+        $inspectionRequestId = intval($inspection['id'] ?? 0);
+    }
     opuInspectionAttach($pdo, $order, $inspectionRequestId, $guardados);
     opuInspectionSaveExceptions($pdo, $order, $inspectionRequestId, $exceptions);
 
@@ -538,7 +547,7 @@ function opuCompartir($pdo, $updateId, $texto) {
 // La página de David
 // ---------------------------------------------------------------------------
 
-function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
+function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft = []) {
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
     $hito = impTieneEleccion($order) ? opuHitoEnCurso($order) : null;
     $pedido = $hito ? opuPedidoPara($hito) : null;
@@ -550,6 +559,12 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
         $pedido = 'The inspection is complete. Please provide only the remaining items: ' . implode(', ', $pendingNames) . '. If an item is unavailable, select it below and explain why.';
     }
     elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection requirements are resolved. Available files and any unavailability reasons are recorded for the Imporlan team to review.';
+    $price = opuPriceState($pdo, $order);
+    if ($price && !$price['ready']) {
+        $pedido = $price['confirmed']
+            ? 'Your purchase price confirmation is recorded. Please wait for the Imporlan team to review it and confirm the next step before proceeding with the purchase.'
+            : 'Please confirm the purchase price after the technical inspection using the price form below. Also upload any pending inspection material or explain why it is unavailable. Please wait for the Imporlan team before proceeding with the purchase.';
+    }
     $pasos = impPasos($order);
     $en = opuHitosEn();
     $updates = opuActualizaciones($pdo, $order['id']);
@@ -601,6 +616,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = []) {
     $h .= '</section>';
 
     $h .= opuInspectionPortalChecklist($pdo, $order);
+    $h .= opuPricePortal($pdo, $order, $priceDraft);
 
     if ($link) {
         $h .= '<section class="card"><h2>Progress</h2><ol class="steps">';
@@ -656,7 +672,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $r = $_GET['r'] ?? '';
     $pdo = getDbConnection();
 
-    if ($r === 'portal' || $r === 'enviar') {
+    if ($r === 'portal' || $r === 'enviar' || $r === 'precio') {
         header('Content-Type: text/html; charset=utf-8');
         header('X-Robots-Tag: noindex, nofollow');
         header('Referrer-Policy: no-referrer');
@@ -665,6 +681,22 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
         opuAsegurar($pdo);
         $order = opuOrdenPorToken($pdo, $_GET['t'] ?? '');
         if (!$order) { http_response_code(404); echo '<p style="font-family:sans-serif;padding:24px">This link is not valid anymore. Please ask the Imporlan team for a new one: contacto@imporlan.cl</p>'; exit; }
+        if ($r === 'precio') {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); header('Allow: POST'); exit; }
+            if (!isset($_POST['boat_link_id']) || !is_scalar($_POST['boat_link_id']) || intval($_POST['boat_link_id']) !== intval($order['chosen_link_id'] ?? 0)) {
+                http_response_code(409);
+                echo opuPaginaPortal($pdo, $order, '', ['The selected boat has changed. Please reopen the current operation.']);
+                exit;
+            }
+            $errors = opuPriceSave($pdo, $order, $_POST);
+            if ($errors) http_response_code(422);
+            else {
+                header('Location: ?r=portal&t=' . $order['usa_token'] . '&price_saved=1#purchase-price', true, 303);
+                exit;
+            }
+            echo opuPaginaPortal($pdo, $order, '', $errors, $_POST);
+            exit;
+        }
         if ($r === 'enviar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['boat_link_id']) && intval($_POST['boat_link_id']) !== intval($order['chosen_link_id'] ?? 0)) {
                 echo opuPaginaPortal($pdo, $order, '', ['The selected boat has changed. Please review the current boat and send a new update.']);
@@ -688,13 +720,14 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             echo opuPaginaPortal($pdo, $order, $aviso, $res['errores']);
             exit;
         }
-        echo opuPaginaPortal($pdo, $order);
+        echo opuPaginaPortal($pdo, $order, isset($_GET['price_saved']) ? 'Thank you. Your price update is recorded for the Imporlan team to review.' : '');
         exit;
     }
 
     require_once __DIR__ . '/cors_helper.php';
     setCorsHeadersSecure();
     header('Content-Type: application/json');
+    header('Cache-Control: private, no-store');
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
     // El equipo en Chile (no el agente: él es quien manda las actualizaciones).
     $sesion = requireAdminAuthShared(['admin', 'support']);
@@ -716,7 +749,17 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             'es_de_usa' => impTieneEleccion($o) && in_array(opuHitoEnCurso($o), opuHitosUsa(), true),
             'updates' => opuActualizaciones($pdo, $o['id']),
             'inspection_upload' => $inspection ? array_merge(opuInspectionState($pdo, $inspection), ['owns_stage' => opuInspectionOwnsStage($pdo, $o)]) : null,
+            'inspection_price' => opuPriceState($pdo, $o),
         ]);
+        exit;
+    }
+    if ($r === 'admin_precio_revisar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $o = opuOrden($pdo, $in['order_id'] ?? 0);
+        if (!$o) { http_response_code(404); echo json_encode(['error' => 'Expediente no encontrado']); exit; }
+        if (!isset($in['revision'], $in['request_id'])) { http_response_code(400); echo json_encode(['error' => 'Se requiere la versión de la confirmación revisada']); exit; }
+        $error = opuPriceReview($pdo, $o, $in['request_id'], $in['revision'], $sesion['email'] ?? $sesion['sub'] ?? 'equipo');
+        if ($error) { http_response_code(409); echo json_encode(['error' => $error]); exit; }
+        echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, $o)]);
         exit;
     }
     if ($r === 'admin_pedir' && $_SERVER['REQUEST_METHOD'] === 'POST') {

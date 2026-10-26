@@ -1282,6 +1282,16 @@ BASE64;
         }
     }
 
+    /** Post-inspection seller price request, with its own delivery audit type. */
+    public function sendInspectionPriceEmail($to, $mail, $metadata) {
+        $this->plainTextBody = $mail['text'];
+        try {
+            return $this->sendEmail($to, $mail['subject'], $mail['html'], 'inspection_price_confirmation', $metadata);
+        } finally {
+            $this->plainTextBody = null;
+        }
+    }
+
     /**
      * Sender name for the next sends, for emails written in a person's voice
      * (e.g. «Juan Pablo · Imporlan»). Non-ASCII names go RFC 2047-encoded so

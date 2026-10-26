@@ -43,7 +43,7 @@ try {
       const url = new URL(route.request().url());
       if (fileResponseError && url.pathname.endsWith('expediente_files_api.php')) return route.fulfill({ status: 500, json: { error: 'Synthetic temporary file service failure' } });
       const data = url.pathname.endsWith('expediente_files_api.php') ? { success: true, files: mode.startsWith('customer') ? files.filter(f => f.visible_to_client) : files }
-        : url.pathname.endsWith('operador_usa.php') ? { success: true, operador: { nombre: 'David Morris', email: 'operator@example.test' }, hito_en_curso: 'inspeccion', updates: [{ id: 1, created_at: '2026-10-23 12:00:00', note: 'Inspection documents uploaded for review.', file_ids: files.map(f => f.id) }] }
+        : url.pathname.endsWith('operador_usa.php') ? { success: true, operador: { nombre: 'David Morris', email: 'operator@example.test' }, hito_en_curso: 'inspeccion', inspection_price: { request_id: 1, revision: 1, status: 'adjusted', confirmed: true, ready: false, original_cents: 2500050, confirmed_cents: 2400025, reason: 'Seller confirmed a price adjustment for the engine inspection finding.', last_sent_at: '2026-10-25 12:00:00' }, updates: [{ id: 1, created_at: '2026-10-23 12:00:00', note: 'Inspection documents uploaded for review.', file_ids: files.map(f => f.id) }] }
           : url.pathname.endsWith('orders_api.php') ? url.searchParams.get('action') === 'user_detail' ? { success: true, order: await page.evaluate(() => window.fixtureOrder) } : { success: true, orders: await page.evaluate(() => window.fixtureOrders) }
             : url.pathname.endsWith('reports_api.php') ? { success: true, reports: [] }
               : { success: true, requests: [], inspections: [] };
@@ -60,6 +60,14 @@ try {
       await page.screenshot({ path: join(process.env.WORKSPACE_SCREENSHOTS, `${mode}-${width}.png`), fullPage: false });
     }
     if (mode === 'admin-detail') {
+      const price = page.getByRole('region', { name: 'Precio de compra tras la inspección' });
+      await price.getByRole('button', { name: 'Validar confirmación', exact: true }).waitFor();
+      check(await price.innerText().then(s => s.includes('Precio reajustado') && s.includes('25.000,50') && s.includes('24.000,25') && s.includes('1.000,25')), 'admin sees previous, confirmed and changed USD purchase prices');
+      await price.getByRole('button', { name: 'Validar confirmación', exact: true }).click();
+      const review = page.getByRole('dialog', { name: '¿Validar esta confirmación de precio?' });
+      await review.waitFor();
+      check(await review.innerText().then(s => s.includes('no modifica cotizaciones ni crea cobros')), 'team validation explains the financial boundary before proceeding');
+      await review.getByRole('button', { name: 'Cancelar', exact: true }).click();
       const nav = page.getByRole('navigation', { name: 'Secciones del expediente' });
       await nav.getByRole('button', { name: 'Datos', exact: true }).click();
       check(await page.locator('#datos h2').evaluate(el => el === document.activeElement), 'section navigation places keyboard focus on its heading');
