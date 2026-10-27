@@ -2,8 +2,10 @@ import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
 import { useFocusTrap, useScrollLock } from '../lib/focus';
-import { X, ChevronLeft, ChevronRight, Download } from './Icons';
+import { X, ChevronLeft, ChevronRight } from './Icons';
+import { FileDownload } from './FileDownload';
 import { IconButton } from './Button';
+import { FileImage } from './FileImage';
 
 /**
  * Visor de imágenes único. `items`: [{ src, alt, caption, downloadUrl }].
@@ -41,12 +43,12 @@ export function Lightbox({ open, items = [], index = 0, onIndexChange, onClose }
       <div className="flex items-center justify-between gap-3 px-4 h-14 text-white shrink-0">
         <span className="text-sm tabular text-white/80">{i + 1} / {total}</span>
         <div className="flex items-center gap-1">
-          {it.downloadUrl && <a href={it.downloadUrl} download className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white" aria-label="Descargar"><Download size={18} /></a>}
+          {it.downloadUrl && <FileDownload file={it} label="Descargar" iconSize={18} className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white/80 hover:bg-white/10 hover:text-white" />}
           <IconButton icon={X} aria-label="Cerrar" onClick={onClose} className="text-white/80 hover:bg-white/10 hover:text-white border-transparent" />
         </div>
       </div>
       <div className="relative flex-1 min-h-0 flex items-center justify-center px-14 pb-4" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
-        <img src={it.src} alt={it.alt || ''} className="max-h-full max-w-full object-contain rounded-md select-none" />
+        <FileImage src={it.src} mimeType={it.mimeType} originalName={it.originalName || it.alt} alt={it.alt || ''} className="max-h-full max-w-full object-contain rounded-md select-none" />
         {total > 1 && (
           <>
             <button type="button" onClick={() => go(-1)} aria-label="Imagen anterior" className={cn('absolute left-2 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center')}><ChevronLeft size={22} /></button>

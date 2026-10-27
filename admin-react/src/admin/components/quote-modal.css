@@ -1,0 +1,178 @@
+/* El cotizador necesita espacio de trabajo y una lectura cómoda, incluso en
+   el admin compacto. Todo queda acotado a este diálogo y usa los tokens del kit. */
+.quote-dialog {
+  max-width: 1200px;
+  max-height: min(92dvh, 1040px);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+.quote-dialog-header { padding: 24px 28px 20px; }
+.quote-dialog-header h2 { font-size: 21px; line-height: 1.3; letter-spacing: -.025em; }
+.quote-heading { display: flex; align-items: center; gap: 11px; }
+.quote-heading > svg { color: var(--color-brand-600); flex: none; }
+.quote-context { display: block; margin: 7px 0 0 33px; font-size: 13px; overflow-wrap: anywhere; }
+.quote-context > span { color: var(--color-ink-500); }
+.quote-dialog-body { padding: 0; background: var(--color-canvas); min-height: 0; }
+.quote-loading { display: grid; min-height: 360px; place-items: center; }
+.quote-mobile-total { display: none; }
+.quote-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; padding: 24px 28px 28px; align-items: start; }
+.quote-editor { min-width: 0; display: grid; gap: 22px; }
+.quote-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-lg); padding: 22px; }
+.quote-section-heading { display: flex; align-items: start; gap: 11px; margin-bottom: 22px; }
+.quote-section-heading > div { min-width: 0; }
+.quote-section-heading h3 { margin: 0; color: var(--color-ink-900); font-size: 15px; font-weight: 650; line-height: 1.4; letter-spacing: -.015em; }
+.quote-section-heading p { font-size: 12px; line-height: 1.5; color: var(--color-ink-500); margin-top: 4px; }
+.quote-section-icon { display: grid; place-items: center; width: 35px; height: 35px; flex: none; background: var(--color-canvas); border: 1px solid var(--color-line); color: var(--color-ink-700); border-radius: var(--radius-md); }
+.quote-purchase-fields { display: grid; grid-template-columns: 1fr 1fr 1.15fr; gap: 16px; align-items: start; }
+.quote-purchase-fields > *, .quote-field-grid > *, .quote-payment-fields > * { min-width: 0; }
+.quote-published-price > span { display: block; font-size: 13px; font-weight: 500; color: var(--color-ink-700); margin-bottom: 8px; line-height: 20px; }
+.quote-published-price > strong { display: block; padding: 10px 12px; font-size: 15px; line-height: 22px; font-weight: 500; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-canvas); color: var(--color-ink-500); }
+.quote-published-price > small { display: block; margin-top: 6px; font-size: 11px; color: var(--color-ink-500); }
+.quote-negotiated-price { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: center; border-top: 1px solid var(--color-line); margin-top: 20px; padding-top: 20px; }
+.quote-negotiated-price > * { min-width: 0; }
+.quote-editor .quote-negotiated-price input:not([type="checkbox"]) { border-color: var(--color-brand-500); }
+.quote-base-badge { display: inline-block; color: var(--color-brand-700); background: var(--color-brand-50); border: 1px solid var(--color-brand-200); border-radius: var(--radius-sm); padding: 2px 7px; font-size: 11px; font-weight: 600; }
+.quote-negotiated-price p { color: var(--color-ink-500); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+.quote-base-warning { display: flex; align-items: start; gap: 8px; background: var(--color-warning-bg); color: var(--color-warning); border-radius: var(--radius-md); padding: 10px 12px; margin-top: 14px; font-size: 12px; }
+.quote-base-warning > svg { flex: none; margin-top: 1px; }
+.quote-editor label { font-size: 13px; line-height: 20px; margin-bottom: 8px; }
+.quote-editor input:not([type="checkbox"]), .quote-editor select {
+  height: 44px;
+  font-size: 15px;
+  background: var(--color-surface);
+  border-color: var(--color-line-strong);
+  border-radius: var(--radius-md);
+}
+.quote-editor input:disabled { background: var(--color-canvas); }
+.quote-editor input:focus, .quote-editor select:focus { border-color: var(--color-brand-500); }
+.quote-editor input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+.quote-editor input::-webkit-inner-spin-button, .quote-editor input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.quote-editor input + span, .quote-editor .relative > span { font-size: 11px; font-weight: 500; }
+.quote-editor .quote-purchase-fields p { font-size: 11px; line-height: 1.5; }
+.quote-tabs { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 4px; padding: 5px; border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-neutral-bg); margin-bottom: 16px; overflow: visible; }
+.quote-tabs > button { justify-content: center; padding: 10px 6px; height: auto; min-height: 42px; font-size: 13px; border: 1px solid transparent; }
+.quote-tabs > button[aria-selected="true"] { color: var(--color-ink-900); border-color: var(--color-line); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.quote-tabs > button > svg { flex: none; }
+.quote-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 22px; align-items: end; }
+.quote-extra-costs { border-top: 1px solid var(--color-line); margin-top: 24px; padding-top: 5px; }
+.quote-extra-costs > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; cursor: pointer; list-style: none; color: var(--color-ink-700); }
+.quote-extra-costs > summary::-webkit-details-marker { display: none; }
+.quote-extra-costs > summary strong { display: block; font-size: 13px; font-weight: 600; }
+.quote-extra-costs > summary small { display: block; color: var(--color-ink-500); margin-top: 4px; font-size: 12px; }
+.quote-extra-costs > summary > svg { flex: none; transition: transform 150ms var(--ease-standard); }
+.quote-extra-costs[open] > summary > svg { transform: rotate(180deg); }
+.quote-extra-costs > div { padding: 0 0 20px; }
+.quote-extra-costs > div > p { color: var(--color-ink-500); font-size: 12px; margin-bottom: 18px; }
+.quote-cost-subtotal { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 16px 0 0; border-top: 1px solid var(--color-line); font-size: 13px; color: var(--color-ink-500); }
+.quote-cost-subtotal strong { font-size: 18px; letter-spacing: -.025em; color: var(--color-ink-900); font-weight: 650; }
+.quote-tax-sections { display: grid; gap: 18px; }
+.quote-luxury { display: grid; grid-template-columns: minmax(0, 1fr) 130px; align-items: center; gap: 22px; padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--color-line); }
+.quote-luxury label { margin-bottom: 0; }
+.quote-luxury .text-xs { line-height: 1.5; margin-top: 4px; }
+.quote-payment-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.quote-payment-check { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; border-radius: var(--radius-md); padding: 11px 12px; font-size: 12px; margin-top: 18px; }
+.quote-payment-check > strong { margin-left: auto; font-weight: 600; }
+.quote-payment-check--ok { color: var(--color-success); background: var(--color-success-bg); }
+.quote-payment-check--error { color: var(--color-danger); background: var(--color-danger-bg); }
+.quote-preview { position: sticky; top: 24px; min-width: 0; }
+.quote-preview-heading { display: flex; align-items: center; gap: 8px; padding: 2px 1px 14px; color: var(--color-ink-500); }
+.quote-preview-heading h3 { color: var(--color-ink-700); font-size: 13px; font-weight: 600; }
+.quote-preview-heading > span { margin-left: auto; color: var(--color-ink-500); font-size: 11px; }
+.quote-total-card { background: var(--color-sidebar); color: var(--color-brand-50); padding: 20px 24px; border-radius: var(--radius-lg); }
+.quote-total-card > p { color: var(--color-sidebar-ink); font-size: 13px; font-weight: 500; }
+.quote-total { display: block; color: var(--color-brand-50); margin-top: 9px; font-size: clamp(26px, 2.8vw, 34px); letter-spacing: -.04em; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.quote-total-usd { display: block; color: var(--color-sidebar-muted); margin-top: 7px; font-size: 12px; }
+.quote-total-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: var(--color-sidebar-ink); padding-top: 13px; margin-top: 15px; border-top: 1px solid var(--color-sidebar-line); font-size: 11px; }
+.quote-total-meta > span { color: var(--color-sidebar-muted); }
+.quote-breakdown, .quote-payment-preview { padding: 18px 20px; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-lg); margin-top: 14px; }
+.quote-preview h4 { font-size: 13px; font-weight: 650; color: var(--color-ink-900); }
+.quote-breakdown dl { margin-top: 5px; }
+.quote-price-row { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--color-line); font-size: 12px; line-height: 1.5; }
+.quote-price-row:last-child { padding-bottom: 0; border-bottom: 0; }
+.quote-price-row dt { color: var(--color-ink-700); }
+.quote-price-row dt > small { display: block; color: var(--color-ink-500); font-size: 11px; margin-top: 2px; }
+.quote-price-row dd { color: var(--color-ink-900); font-weight: 600; text-align: right; white-space: nowrap; }
+.quote-price-row dd.quote-price-muted { font-weight: 400; color: var(--color-ink-500); }
+.quote-plan-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.quote-plan-badge { color: var(--color-ink-500); background: var(--color-canvas); border: 1px solid var(--color-line); border-radius: var(--radius-sm); padding: 2px 7px; font-size: 10px; font-weight: 500; }
+.quote-plan-badge--warning { color: var(--color-danger); border-color: var(--color-danger-line); background: var(--color-danger-bg); }
+.quote-payment-preview li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-line); }
+.quote-payment-preview li:last-child { border-bottom: 0; padding-bottom: 0; }
+.quote-payment-number { display: grid; place-items: center; flex: none; width: 27px; height: 27px; background: var(--color-canvas); border: 1px solid var(--color-line); border-radius: 50%; font-size: 11px; color: var(--color-ink-500); }
+.quote-payment-name { font-size: 12px; font-weight: 500; color: var(--color-ink-700); }
+.quote-payment-name small { display: block; font-size: 10px; font-weight: 400; color: var(--color-ink-500); margin-top: 2px; }
+.quote-payment-preview li > strong { font-size: 13px; font-weight: 600; color: var(--color-ink-900); margin-left: auto; white-space: nowrap; }
+.quote-publication-note { display: flex; gap: 8px; align-items: start; font-size: 11px; line-height: 1.7; color: var(--color-ink-500); margin: 16px 3px 0; }
+.quote-publication-note > svg { flex: none; margin-top: 2px; }
+.quote-publication-note strong { color: var(--color-ink-700); font-weight: 600; }
+.quote-dialog-footer { padding: 16px 28px max(16px, env(safe-area-inset-bottom)); background: var(--color-surface); }
+.quote-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
+.quote-footer-info { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; color: var(--color-ink-500); }
+.quote-footer-info > svg { flex: none; }
+.quote-footer-info > div { min-width: 0; }
+.quote-more-actions { margin-left: auto; flex: none; }
+.quote-footer-info p { font-size: 12px; color: var(--color-ink-700); font-weight: 500; }
+.quote-footer-info span { display: block; font-size: 11px; margin-top: 2px; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quote-footer-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.quote-footer-actions > button { height: 44px; font-size: 13px; }
+.quote-footer-actions .quote-save { padding-right: 18px; padding-left: 18px; }
+
+@media (max-width: 1023px) {
+  .quote-workspace { grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; padding: 20px; }
+  .quote-card { padding: 18px; }
+  .quote-purchase-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quote-purchase-fields > :last-child { grid-column: 1 / -1; }
+  .quote-tabs > button { font-size: 12px; gap: 4px; white-space: normal; text-align: center; }
+  .quote-tabs > button > svg { display: none; }
+  .quote-field-grid { gap: 18px 14px; }
+  .quote-footer-info span { display: none; }
+}
+@media (max-width: 799px) {
+  .quote-dialog-body { scroll-padding-top: 88px; }
+  .quote-workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .quote-preview { position: static; }
+  .quote-mobile-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 1; background: var(--color-surface); border-bottom: 1px solid var(--color-line); padding: 12px 20px; }
+  .quote-mobile-total > div > span { display: block; color: var(--color-ink-500); font-size: 11px; }
+  .quote-mobile-total strong { display: block; font-size: 21px; color: var(--color-ink-900); letter-spacing: -.025em; }
+  .quote-preview { scroll-margin-top: 88px; }
+  .quote-total { font-size: 32px; }
+  .quote-purchase-fields { grid-template-columns: 1fr 1fr 1.15fr; }
+  .quote-purchase-fields > :last-child { grid-column: auto; }
+  .quote-tabs > button { font-size: 13px; }
+  .quote-tabs > button > svg { display: block; }
+  .quote-footer-info > svg { display: none; }
+  .quote-footer-actions { gap: 6px; }
+}
+@media (max-width: 639px) {
+  .quote-dialog { height: 100dvh; max-height: 100dvh; }
+  .quote-dialog-header { padding: 20px 18px 17px; }
+  .quote-dialog-header h2 { font-size: 18px; }
+  .quote-context { font-size: 12px; margin-left: 0; margin-top: 6px; }
+  .quote-heading { gap: 9px; }
+  .quote-heading > svg { width: 20px; }
+  .quote-workspace { padding: 16px; gap: 24px; }
+  .quote-editor { gap: 18px; }
+  .quote-card { padding: 18px 16px; }
+  .quote-section-heading { margin-bottom: 19px; }
+  .quote-section-heading p { font-size: 12px; }
+  .quote-purchase-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 12px; }
+  .quote-purchase-fields > :first-child { grid-column: 1 / -1; }
+  .quote-editor input:not([type="checkbox"]), .quote-editor select { font-size: 16px; min-height: 46px; }
+  .quote-field-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .quote-tabs { padding: 4px; gap: 3px; border-radius: var(--radius-md); }
+  .quote-tabs > button { font-size: 11px; line-height: 1.4; min-height: 44px; padding: 7px 3px; }
+  .quote-tabs > button > svg { display: none; }
+  .quote-luxury { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .quote-negotiated-price { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .quote-luxury > :last-child { max-width: 150px; }
+  .quote-payment-fields { gap: 12px; }
+  .quote-payment-check > strong { width: 100%; margin-left: 23px; }
+  .quote-dialog-footer { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+  .quote-footer { flex-direction: column; gap: 10px; align-items: stretch; }
+  .quote-footer-info > svg { display: block; width: 14px; height: 14px; }
+  .quote-footer-info p { font-size: 11px; }
+  .quote-footer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quote-footer-actions > button { min-width: 0; height: 44px; }
+  .quote-footer-actions .quote-save { grid-column: 1 / -1; grid-row: 1; }
+}

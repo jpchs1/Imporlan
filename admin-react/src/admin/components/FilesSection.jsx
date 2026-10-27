@@ -3,10 +3,15 @@ import { deleteExpedienteFile, uploadExpedienteFiles } from '../api';
 import { fmtDate } from '../../shared/lib/utils';
 import { fmtBytes } from '../../shared/lib/format';
 import { ORIGEN_ARCHIVO_USA, DESCRIPCION_ARCHIVO_USA, esCedulaCliente } from '../../shared/lib/importacion';
-import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, useConfirm } from '../../shared/components/UI';
-import { Upload, Eye, Download, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip } from '../../shared/components/Icons';
+import { Card, Button, IconButton, Input, Checkbox, Modal, Dropzone, DataTable, Badge, EmptyState, ErrorState, Callout, Skeleton, useConfirm } from '../../shared/components/UI';
+import { Upload, Eye, Trash, X, Image as ImageIcon, Video, FileText, File as FileIcon, Paperclip, LayoutGrid, List, RefreshCw } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
 import { useExpedienteFiles, categoriaArchivo } from './useExpedienteFiles';
+import { FileImage } from '../../shared/components/FileImage';
+import { Lightbox } from '../../shared/components/Lightbox';
+import { FileDownload, FileOpen } from '../../shared/components/FileDownload';
+import { FileCollectionControls } from '../../shared/components/FileCollectionControls';
+import { seleccionarArchivos } from '../../shared/lib/file-collection';
 
 function fileCategory(mime) {
   return categoriaArchivo({ mime_type: mime });
@@ -45,12 +50,30 @@ export default function FilesSection({ orderId, archivos }) {
   const toast = useToast();
   const confirm = useConfirm();
   const propios = useExpedienteFiles(archivos ? null : orderId);
-  const { files, loading, recargar: loadFiles } = archivos || propios;
+  const { files, loading, error, recargar: loadFiles } = archivos || propios;
   const [showUpload, setShowUpload] = useState(false);
   const [pending, setPending] = useState([]);
   const [description, setDescription] = useState('');
   const [notifyClient, setNotifyClient] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [view, setView] = useState('gallery');
+  const [category, setCategory] = useState('all');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('newest');
+  const filteredFiles = seleccionarArchivos(files, { category, query, sort });
+  const clearFilters = () => { setCategory('all'); setQuery(''); };
+  const images = files.filter(f => categoriaArchivo(f) === 'image');
+  const items = images.map(f => ({ src: f.download_url, downloadUrl: f.download_url, originalName: f.original_name, mimeType: f.mime_type, alt: f.original_name, caption: f.original_name }));
+  const openImage = f => setPreview(images.findIndex(image => image.id === f.id));
+  const actionClass = 'inline-flex items-center justify-center h-8 w-8 rounded-md text-ink-700 hover:bg-neutral-bg focus-visible:outline-2 focus-visible:outline-brand-500';
+
+  function thumbnail(f, iconComponent) {
+    const Icon = iconComponent;
+    return categoriaArchivo(f) === 'image' ? <button type="button" onClick={() => openImage(f)} aria-label={`Ver foto ${f.original_name}`} className="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-line bg-neutral-bg">
+      <FileImage src={f.download_url} originalName={f.original_name} mimeType={f.mime_type} alt={f.original_name} loading="lazy" className="h-full w-full object-cover" />
+    </button> : <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>;
+  }
 
   function handleFilesSelected(fileList) {
     setPending(Array.from(fileList));
@@ -70,6 +93,7 @@ export default function FilesSection({ orderId, archivos }) {
         setPending([]);
         setDescription('');
         setShowUpload(false);
+        clearFilters();
         loadFiles();
         if (data.errors && data.errors.length > 0) {
           toast?.('Algunos archivos fallaron: ' + data.errors.join(', '), 'error');
@@ -103,7 +127,7 @@ export default function FilesSection({ orderId, archivos }) {
         const Icon = cat.icon;
         return (
           <div className="flex items-center gap-3 min-w-0">
-            <span className="h-8 w-8 rounded-md bg-neutral-bg text-ink-500 flex items-center justify-center shrink-0" aria-hidden="true"><Icon size={16} /></span>
+            {thumbnail(f, Icon)}
             <div className="min-w-0">
               <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
               <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
@@ -126,8 +150,8 @@ export default function FilesSection({ orderId, archivos }) {
         const previewable = cat === 'image' || f.mime_type === 'application/pdf' || cat === 'video';
         return (
           <span className="inline-flex items-center gap-1" onClick={e => e.stopPropagation()}>
-            {previewable && <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => window.open(f.download_url, '_blank', 'noopener')} />}
-            <a href={f.download_url} download aria-label={`Descargar ${f.original_name}`} title={`Descargar ${f.original_name}`} className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-transparent text-ink-700 hover:bg-neutral-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"><Download size={14} /></a>
+            {previewable && (cat === 'image' ? <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => openImage(f)} /> : <FileOpen file={f} className={actionClass} />)}
+            <FileDownload file={f} className={actionClass} />
           </span>
         );
       },
@@ -136,35 +160,73 @@ export default function FilesSection({ orderId, archivos }) {
 
   return (
     <>
-      <Card>
+      <Card className="exp-section">
         <Card.Header
+          className="exp-files-header"
           title="Archivos"
-          description="Documentos, fotos y videos del expediente. El cliente ve todos salvo los marcados «Sólo equipo» y su cédula, que es privada."
-          actions={<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>}
+          description="Fotos, videos y documentos. Las etiquetas indican quién puede ver cada archivo."
+          actions={<>{loadFiles && <IconButton size="sm" variant="secondary" icon={RefreshCw} aria-label="Actualizar archivos" onClick={loadFiles} loading={loading} />}<Button variant="secondary" size="sm" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button></>}
         />
-        <DataTable
+        {!!files.length && <FileCollectionControls files={files} query={query} onQuery={setQuery} category={category} onCategory={setCategory} sort={sort} onSort={setSort} onClear={clearFilters} count={filteredFiles.length} loading={loading}>
+          <div className="exp-file-tools inline-flex gap-1" role="group" aria-label="Vista de archivos">
+            <IconButton variant="ghost" size="sm" icon={LayoutGrid} aria-label="Vista de galería" aria-pressed={view === 'gallery'} onClick={() => setView('gallery')} />
+            <IconButton variant="ghost" size="sm" icon={List} aria-label="Vista de lista" aria-pressed={view === 'list'} onClick={() => setView('list')} />
+          </div>
+        </FileCollectionControls>}
+        {error && !!files.length && <div className="px-(--card-pad) pt-4"><Callout tone="warning" compact title="No se pudo actualizar la lista">{error} Se conserva la última carga disponible.</Callout></div>}
+        {error && !files.length ? <ErrorState compact message={error} onRetry={loadFiles} /> : view === 'gallery' ? (
+          <div className="p-(--card-pad)">
+            {loading && !files.length ? <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"><Skeleton.Card /><Skeleton.Card /><Skeleton.Card /></div>
+              : !filteredFiles.length ? <EmptyState compact icon={Paperclip} title={files.length ? 'Sin archivos con estos filtros' : 'No hay archivos subidos'} description={files.length ? 'Prueba otro nombre o limpia los filtros para ver el resto del material.' : 'Sube documentos, fotos o videos para el expediente.'} primaryAction={<Button size="sm" variant="secondary" onClick={files.length ? clearFilters : () => setShowUpload(true)}>{files.length ? 'Ver todos los archivos' : 'Subir archivos'}</Button>} />
+                : <ul className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" aria-label="Galería de archivos del expediente">
+                  {filteredFiles.map(f => {
+                    const cat = CATS[categoriaArchivo(f)] || CATS.other;
+                    const Icon = cat.icon;
+                    const photo = categoriaArchivo(f) === 'image';
+                    return <li key={f.id} className="exp-file-card rounded-lg border border-line min-w-0 overflow-hidden">
+                      <div className="exp-file-card__preview h-36 bg-canvas flex flex-col items-center justify-center gap-2 border-b border-line">
+                        {photo ? thumbnail(f, Icon) : <><Icon size={38} className="text-brand-600" /><Badge size="sm">{f.mime_type === 'application/pdf' ? 'PDF' : cat.label}</Badge></>}
+                      </div>
+                      <div className="exp-file-card__body p-3">
+                        <p className="exp-file-card__name text-13 font-medium text-ink-900 break-all" title={f.original_name}>{f.original_name}</p>
+                        <p className="exp-file-card__meta text-xs text-ink-500 mt-1">{f.file_size_formatted || fmtBytes(f.file_size)} · {fmtDate(f.created_at)}</p>
+                        <div className="flex flex-wrap gap-1 mt-2 empty:hidden"><ChipsArchivo f={f} /></div>
+                        <div className="flex flex-wrap items-start gap-1 mt-3 pt-2 border-t border-line">
+                          {photo ? <IconButton size="sm" icon={Eye} aria-label={`Ver ${f.original_name}`} onClick={() => openImage(f)} /> : <FileOpen file={f} className={actionClass} />}
+                          <FileDownload file={f} label={`Descargar ${f.original_name}`} className="inline-flex items-center justify-center gap-1.5 h-8 px-2 text-13 font-medium text-ink-700 rounded-md hover:bg-neutral-bg"><span className="hidden sm:inline">Descargar</span></FileDownload>
+                          <IconButton size="sm" icon={Trash} aria-label={`Eliminar ${f.original_name}`} onClick={() => handleDeleteFile(f)} className="ml-auto" />
+                        </div>
+                      </div>
+                    </li>;
+                  })}
+                </ul>}
+          </div>
+        ) : <DataTable
           aria-label="Archivos del expediente"
           columns={columns}
-          data={files}
+          data={filteredFiles}
           rowKey={f => f.id}
-          loading={loading}
+          loading={loading && !files.length}
           loadingRows={3}
           pageSize={0}
           rowActions={f => [{ label: 'Eliminar', icon: Trash, tone: 'danger', onClick: () => handleDeleteFile(f) }]}
-          emptyState={<EmptyState compact icon={Paperclip} title="No hay archivos subidos" description="Sube documentos, fotos o videos para el cliente." primaryAction={<Button size="sm" variant="secondary" icon={Upload} onClick={() => setShowUpload(true)}>Subir archivos</Button>} />}
+          emptyState={<EmptyState compact icon={Paperclip} title={files.length ? 'Sin archivos con estos filtros' : 'No hay archivos subidos'} description={files.length ? 'Cambia la búsqueda o limpia los filtros.' : 'Sube documentos, fotos o videos para el cliente.'} primaryAction={<Button size="sm" variant="secondary" onClick={files.length ? clearFilters : () => setShowUpload(true)}>{files.length ? 'Ver todos los archivos' : 'Subir archivos'}</Button>} />}
           mobileCard={f => {
             const cat = CATS[f.category || fileCategory(f.mime_type)] || CATS.other;
             return (
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-2">
+                {thumbnail(f, cat.icon)}
                 <p className="font-medium text-ink-900 truncate">{f.original_name}</p>
                 <p className="text-13 text-ink-500">{cat.label} · {f.file_size_formatted || fmtBytes(f.file_size)} · {fmtDate(f.created_at)}</p>
                 <p className="flex flex-wrap gap-1.5 mt-1 empty:hidden"><ChipsArchivo f={f} /></p>
-                <a href={f.download_url} download className="inline-flex items-center gap-1 mt-1.5 text-13 font-medium text-brand-600 hover:underline"><Download size={14} /> Descargar</a>
+                <div className="flex gap-3">{categoriaArchivo(f) === 'image' ? <Button variant="ghost" size="sm" icon={Eye} onClick={() => openImage(f)}>Ver</Button> : <FileOpen file={f} className="inline-flex items-center gap-1 text-13 font-medium text-brand-600">Ver</FileOpen>}<FileDownload file={f} className="inline-flex items-center gap-1 text-13 font-medium text-brand-600">Descargar</FileDownload></div>
               </div>
             );
           }}
-        />
+        />}
       </Card>
+
+      <Lightbox open={preview !== null} items={items} index={preview ?? 0} onIndexChange={setPreview} onClose={() => setPreview(null)} />
 
       <Modal
         open={showUpload}

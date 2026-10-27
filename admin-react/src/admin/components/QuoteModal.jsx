@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { saveQuote, deleteQuote, getPricing } from '../api';
 import { enviarDesglose } from '../desglose';
-import { Modal, Button, Select, NumberInput, Checkbox, Menu, Money, Spinner, useConfirm } from '../../shared/components/UI';
+import { Modal, Button, Select, NumberInput, MoneyInput, Switch, Menu, Tabs, Spinner, useConfirm } from '../../shared/components/UI';
 import { useToast } from '../../shared/components/Toast';
-import { Trash, Send } from '../../shared/components/Icons';
+import { Trash, Send, Receipt, Ship, DollarSign, Wallet, Percent, Eye, Clock, ChevronDown, ShieldCheck, Check, Info } from '../../shared/components/Icons';
 import { fmtCLP, cn } from '../../shared/lib/utils';
 import { fmtUSD } from '../../shared/lib/format';
+import './quote-modal.css';
 
 // Maps each editable field shown to admin to the cot_* template key in
 // pricing_config. The QuoteModal pre-fills inputs with those defaults the
-// first time a link is cotized; once a quote_data snapshot exists on the
-// link, that wins (so admin edits stay sticky).
+// first time a link is cotized; saved costs take priority afterwards.
+// The purchase basis always comes from the current negotiated USA price.
 const USD_FIELDS = [
   { key: 'trailer_usd',                 cot: 'cot_usd_trailer',                 label: 'Trailer (si no trae)' },
   { key: 'inspeccion_usd',              cot: 'cot_usd_inspeccion_lancha',       label: 'Inspección técnica USA' },
@@ -41,6 +42,14 @@ const CLP_FIELDS = [
   { key: 'iva_servicios_linea_clp',     cot: 'cot_clp_iva_servicios_linea',     label: 'IVA servicios (línea)' },
   { key: 'gastos_despachos_clp',        cot: 'cot_clp_gastos_despachos',        label: 'Gastos de despachos' },
   { key: 'honorarios_agencia_clp',      cot: 'cot_clp_honorarios_agencia',      label: 'Honorarios agencia' },
+];
+
+const USD_PRINCIPALES = ['trailer_usd', 'inspeccion_usd', 'inland_usa_usd', 'transporte_roro_usd', 'fumigacion_usd', 'seguro_usd'];
+const CLP_PRINCIPALES = ['fee_wire_clp', 'inland_puerto_clp', 'chequeo_mecanico_clp', 'pulido_clp', 'entrega_clp'];
+const QUOTE_TABS = [
+  { id: 'usd', label: 'Costos en USD', icon: DollarSign },
+  { id: 'clp', label: 'Costos en CLP', icon: Wallet },
+  { id: 'pagos', label: 'Impuestos y pagos', icon: Percent },
 ];
 
 // Spreadsheet defaults (Planilla de Costos Importación Imporlan 2026, Servicio
@@ -94,7 +103,9 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [sendingBreakdown, setSendingBreakdown] = useState(false);
+  const [tab, setTab] = useState('usd');
   const initOnce = useRef(false);
+  const previewRef = useRef(null);
 
   // Load templates once when modal opens
   useEffect(() => {
@@ -129,7 +140,10 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
       // Generales
       modalidad: saved?.modalidad ?? 'RORO',
       usd_clp_rate: saved?.usd_clp_rate ?? cot('cot_usd_clp_rate', 920),
-      valor_lancha_usd: saved?.valor_lancha_usd ?? num(link?.value_usa_usd) ?? 0,
+      // La negociación vigente del expediente manda sobre una cotización
+      // anterior. El publicado se muestra sólo como referencia, nunca de base.
+      valor_negociado_usd: num(link?.value_to_negotiate_usd) > 0 ? num(link.value_to_negotiate_usd) : null,
+      valor_lancha_usd: num(link?.value_to_negotiate_usd),
       // Cargos finales
       iva_pct: saved?.iva_pct ?? cot('cot_pct_iva_aduanero', 19),
       lujo_pct: saved?.lujo_pct ?? cot('cot_pct_impuesto_lujo', 2),
@@ -195,9 +209,12 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
   if (!open) return null;
 
   function set(k, v) { setQ(prev => ({ ...prev, [k]: v })); }
+  function setNegociado(v) {
+    setQ(prev => ({ ...prev, valor_negociado_usd: v, valor_lancha_usd: num(v) }));
+  }
 
   async function handleSave(publishNow = false) {
-    if (!q || !calc || !link?.id) return;
+    if (!q || !calc || !link?.id || num(q.valor_negociado_usd) <= 0) return;
     if (publishNow && !(await confirm({
       title: '¿Publicar la cotización ahora?',
       description: 'Esto publica la cotización al cliente AHORA (sin esperar las 24 horas) y le envía un correo.',
@@ -262,6 +279,9 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
   const boatTitle = [link?.year, link?.make, link?.model].filter(Boolean).join(' ') || link?.url || 'Link';
   const ocupado = saving || deleting || sendingBreakdown;
   const pagosOk = calc ? Math.abs(calc.pagosSum - 100) < 0.01 : true;
+  const baseDefinida = num(q?.valor_negociado_usd) > 0;
+  const snapshot = typeof link?.quote_data === 'string' ? safeParse(link.quote_data) : link?.quote_data;
+  const baseCambio = baseDefinida && snapshot && Math.round(num(snapshot.valor_lancha_usd) * 100) !== Math.round(num(q.valor_lancha_usd) * 100);
 
   const extras = [
     link?.quote_published_at ? { label: sendingBreakdown ? 'Enviando desglose…' : (link.quote_breakdown_sent_at ? 'Reenviar desglose' : 'Enviar desglose'), icon: Send, onClick: handleBreakdown, disabled: ocupado } : null,
@@ -278,139 +298,164 @@ export default function QuoteModal({ open, link, onClose, onSaved, onBreakdownSe
     <Modal
       open={open}
       onClose={ocupado ? undefined : onClose}
-      title="Cotización del link"
-      description={boatTitle}
-      size="xl"
-      bodyClassName="p-0"
+      title={<span className="quote-heading"><Receipt size={22} />Cotizador de importación</span>}
+      description={<span className="quote-context">{boatTitle}{link?.location && <span> · {link.location}</span>}</span>}
+      size="full"
+      className="quote-dialog"
+      headerClassName="quote-dialog-header"
+      bodyClassName="quote-dialog-body"
+      footerClassName="quote-dialog-footer"
       footer={(
-        <div className="flex flex-wrap items-center gap-2 w-full">
-          <span className="hidden sm:block text-xs text-ink-500 tabular flex-1 min-w-0 truncate" title={meta}>{meta}</span>
-          {extras.length > 0 && <Menu items={extras} label="Más acciones de la cotización" />}
-          <Button variant="secondary" onClick={onClose} disabled={ocupado}>Cancelar</Button>
-          <Button variant="secondary" onClick={() => handleSave(true)} disabled={ocupado || !calc} title="Publica al cliente sin esperar las 24 horas y le envía un correo">Guardar y enviar ahora</Button>
-          <Button onClick={() => handleSave(false)} loading={saving} disabled={deleting || sendingBreakdown || !calc}>Guardar (24 h)</Button>
+        <div className="quote-footer">
+          <div className="quote-footer-info">
+            <Clock size={17} />
+            <div>
+              <p>El cliente la verá en 24 horas</p>
+              <span title={meta}>{meta || 'Puedes publicarla antes con «Publicar ahora».'}</span>
+            </div>
+            {extras.length > 0 && <div className="quote-more-actions"><Menu items={extras} label="Más acciones de la cotización" /></div>}
+          </div>
+          <div className="quote-footer-actions">
+            <Button variant="ghost" size="lg" onClick={onClose} disabled={ocupado} className="quote-cancel">Cancelar</Button>
+            <Button variant="secondary" size="lg" icon={Send} onClick={() => handleSave(true)} disabled={ocupado || !calc || !baseDefinida} title="Publica al cliente sin esperar las 24 horas y le envía un correo" className="quote-publish">Publicar ahora</Button>
+            <Button size="lg" icon={Check} onClick={() => handleSave(false)} loading={saving} disabled={deleting || sendingBreakdown || !calc || !baseDefinida} className="quote-save">Guardar cotización</Button>
+          </div>
         </div>
       )}
     >
       {(!q || loadingPricing) ? (
-        <Spinner label="Cargando los datos del cotizador…" />
+        <div className="quote-loading"><Spinner label="Cargando los datos del cotizador…" /></div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
-          {/* Izquierda: lo que edita el admin */}
-          <div className="px-5 sm:px-6 py-5 space-y-6 min-w-0">
-            <Seccion titulo="Generales">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Select label="Modalidad" value={q.modalidad} onChange={e => set('modalidad', e.target.value)} options={[{ value: 'RORO', label: 'RORO' }, { value: 'Container', label: 'Container' }, { value: 'Otro', label: 'Otro' }]} />
-                <NumberInput label="Tipo de cambio (CLP por USD)" unit="CLP" value={q.usd_clp_rate} onChange={e => set('usd_clp_rate', e.target.value)} />
-                <NumberInput label="Valor de la lancha" unit="USD" value={q.valor_lancha_usd} onChange={e => set('valor_lancha_usd', e.target.value)} />
+        <>
+        <div className="quote-mobile-total">
+          <div><span>Total puesto en Chile</span><strong>{baseDefinida ? fmtCLP(calc.totalClp) : 'Por calcular'}</strong></div>
+          <Button variant="ghost" size="sm" onClick={() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Ver resumen</Button>
+        </div>
+        <div className="quote-workspace">
+          <div className="quote-editor">
+            <section className="quote-card" aria-labelledby="quote-purchase-title">
+              <SectionHeading icon={Ship} id="quote-purchase-title" title="Datos de la compra" description="El punto de partida de esta importación." />
+              <div className="quote-purchase-fields">
+                <Select label="Modalidad de envío" size="lg" value={q.modalidad} onChange={e => set('modalidad', e.target.value)} options={[{ value: 'RORO', label: 'RORO' }, { value: 'Container', label: 'Contenedor' }, { value: 'Otro', label: 'Otra modalidad' }]} />
+                <NumberInput label="Tipo de cambio" hint="Pesos chilenos por 1 USD" size="lg" unit="CLP" step="0.01" value={q.usd_clp_rate} onChange={e => set('usd_clp_rate', e.target.value)} />
+                <div className="quote-published-price"><span>Valor publicado · USA</span><strong>{fmtUSD(num(link?.value_usa_usd))}</strong><small>Referencia del anuncio</small></div>
               </div>
-            </Seccion>
+              <div className="quote-negotiated-price">
+                <MoneyInput label="Valor negociado · USA" hint="Base de compra para todos los cálculos" placeholder="Ingresa el valor acordado" required size="lg" currency="USD" value={q.valor_negociado_usd} onChange={setNegociado} />
+                <div><span className="quote-base-badge">Base del cálculo</span><p>{baseDefinida ? 'El total, los impuestos y los pagos se calculan sobre este valor negociado.' : 'Ingresa el precio acordado con el vendedor para calcular el total de la importación.'}</p></div>
+              </div>
+              {baseCambio && <p className="quote-base-warning"><Info size={16} />La cotización guardada usaba otra base. Revisa el nuevo total antes de guardar o publicar.</p>}
+            </section>
 
-            <Seccion titulo="Costos en USD" subtotal={fmtUSD(calc?.usdLogisticosSum)}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {USD_FIELDS.map(f => (
-                  <NumberInput key={f.key} size="sm" label={f.label} unit="USD" value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
-                ))}
+            <div className="quote-costs">
+              <Tabs tabs={QUOTE_TABS} value={tab} onChange={setTab} variant="pills" className="quote-tabs" aria-label="Ajustes de la cotización" />
+              <div role="tabpanel" aria-label={QUOTE_TABS.find(t => t.id === tab)?.label} className="quote-tab-panel">
+                {tab === 'usd' && (
+                  <CostSection
+                    title="Logística internacional" description="Preparación, transporte y seguro de la embarcación."
+                    icon={Ship} currency="USD" fields={USD_FIELDS} principalKeys={USD_PRINCIPALES}
+                    extraTitle="Cargos de naviera y puerto" extraDescription="Tarifas y recargos complementarios en dólares."
+                    subtotal={calc.usdLogisticosSum} q={q} onChange={set}
+                  />
+                )}
+                {tab === 'clp' && (
+                  <CostSection
+                    title="Llegada y entrega en Chile" description="Costos locales, trámites y preparación para la entrega."
+                    icon={Wallet} currency="CLP" fields={CLP_FIELDS} principalKeys={CLP_PRINCIPALES}
+                    extraTitle="Aduana y gastos adicionales" extraDescription="Autorizaciones, servicios y gestión portuaria."
+                    subtotal={calc.clpLogisticosSum} q={q} onChange={set}
+                  />
+                )}
+                {tab === 'pagos' && (
+                  <div className="quote-tax-sections">
+                    <section className="quote-card" aria-labelledby="quote-tax-title">
+                      <SectionHeading icon={ShieldCheck} id="quote-tax-title" title="Impuestos y gestión" description="Ajusta los cargos que completan el valor final." />
+                      <div className="quote-field-grid">
+                        <MoneyInput label="Fee Imporlan" hint="Gestión interna de esta operación" size="lg" currency="CLP" value={q.fee_imporlan_clp} onChange={v => set('fee_imporlan_clp', v)} />
+                        <NumberInput label="IVA aduanero" hint={baseDefinida ? `Base CIF: ${fmtCLP(calc.cifClp)}` : 'Falta el valor negociado para calcular el CIF'} size="lg" unit="%" value={q.iva_pct} step="0.1" onChange={e => set('iva_pct', e.target.value)} />
+                      </div>
+                      <div className="quote-luxury">
+                        <Switch label="Aplicar impuesto al lujo" hint="Actívalo cuando corresponda a esta embarcación." checked={!!q.lujo_aplica} onChange={v => set('lujo_aplica', v)} />
+                        <NumberInput label="Tasa de lujo" size="lg" unit="%" value={q.lujo_pct} step="0.1" disabled={!q.lujo_aplica} onChange={e => set('lujo_pct', e.target.value)} />
+                      </div>
+                    </section>
+                    <section className="quote-card" aria-labelledby="quote-payments-title">
+                      <SectionHeading icon={Percent} id="quote-payments-title" title="Distribución de los pagos" description="Los tres porcentajes deben sumar 100 %." />
+                      <div className="quote-payment-fields">
+                        {[1, 2, 3].map(n => <NumberInput key={n} size="lg" label={`Pago ${n}`} unit="%" step="0.1" value={q[`pago_${n}_pct`]} onChange={e => set(`pago_${n}_pct`, e.target.value)} />)}
+                      </div>
+                      <p className={cn('quote-payment-check', pagosOk ? 'quote-payment-check--ok' : 'quote-payment-check--error')} role={pagosOk ? undefined : 'alert'}>
+                        {pagosOk ? <Check size={16} /> : <Info size={16} />}
+                        {pagosOk ? 'Distribución completa' : 'Revisa la distribución de los pagos'}
+                        <strong>{calc.pagosSum.toFixed(1)} % de 100 %</strong>
+                      </p>
+                    </section>
+                  </div>
+                )}
               </div>
-            </Seccion>
-
-            <Seccion titulo="Costos en CLP" subtotal={fmtCLP(calc?.clpLogisticosSum)}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {CLP_FIELDS.map(f => (
-                  <NumberInput key={f.key} size="sm" label={f.label} unit="CLP" value={q[f.key]} onChange={e => set(f.key, e.target.value)} />
-                ))}
-              </div>
-            </Seccion>
-
-            <Seccion titulo="Cargos finales" subtotal={fmtCLP(calc.feeImporlan + calc.ivaClp + calc.lujoClp)}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
-                <NumberInput size="sm" label="Fee Imporlan" unit="CLP" value={q.fee_imporlan_clp} onChange={e => set('fee_imporlan_clp', e.target.value)} />
-                <NumberInput size="sm" label="IVA aduanero" unit="%" value={q.iva_pct} onChange={e => set('iva_pct', e.target.value)} />
-                <NumberInput size="sm" label="Impuesto al lujo" unit="%" value={q.lujo_pct} onChange={e => set('lujo_pct', e.target.value)} />
-                <Checkbox label="Aplica lujo" className="pb-1.5" checked={!!q.lujo_aplica} onChange={e => set('lujo_aplica', e.target.checked)} />
-              </div>
-            </Seccion>
-
-            <Seccion
-              titulo="Estructura de pagos"
-              subtotal={<span className={cn(pagosOk ? 'text-success' : 'text-danger')}>{calc?.pagosSum?.toFixed(1)}%</span>}
-              aviso={!pagosOk ? 'Los tres pagos deben sumar 100 %.' : null}
-            >
-              <div className="grid grid-cols-3 gap-3">
-                <NumberInput size="sm" label="Pago 1" unit="%" value={q.pago_1_pct} onChange={e => set('pago_1_pct', e.target.value)} />
-                <NumberInput size="sm" label="Pago 2" unit="%" value={q.pago_2_pct} onChange={e => set('pago_2_pct', e.target.value)} />
-                <NumberInput size="sm" label="Pago 3" unit="%" value={q.pago_3_pct} onChange={e => set('pago_3_pct', e.target.value)} />
-              </div>
-            </Seccion>
+            </div>
           </div>
 
-          {/* Derecha: lo que verá el cliente */}
-          <aside className="bg-canvas border-t lg:border-t-0 lg:border-l border-line px-5 sm:px-6 py-5 lg:sticky lg:top-0 self-start" aria-label="Lo que verá el cliente">
-            <p className="eyebrow mb-3">Lo que verá el cliente</p>
-            <dl className="space-y-2.5">
-              <Row label="Valor de la lancha"><Money clp={calc.lanchaClp} usd={calc.lanchaUsd} align="right" /></Row>
-              <Row label="Servicio All-Inclusive"><Money clp={calc.allInclusiveTotal} align="right" /></Row>
-              <Row label="IVA aduanero" sub={`${num(q.iva_pct)} % sobre CIF`}><Money clp={calc.ivaClp} align="right" /></Row>
-              {q.lujo_aplica
-                ? <Row label="Impuesto al lujo" sub={`${num(q.lujo_pct)} % sobre la lancha`}><Money clp={calc.lujoClp} align="right" /></Row>
-                : <Row label="Impuesto al lujo"><span className="text-13 text-ink-500">No aplica</span></Row>}
-              <div className="mt-3 pt-3 border-t border-line-strong flex items-start justify-between gap-3">
-                <dt className="text-sm font-semibold text-ink-900 pt-1">Total</dt>
-                <dd><Money clp={calc.totalClp} usd={calc.totalUsd} size="lg" align="right" /></dd>
-              </div>
-            </dl>
+          <aside ref={previewRef} className="quote-preview" aria-label="Vista del cliente">
+            <div className="quote-preview-heading"><Eye size={17} /><h3>Vista del cliente</h3><span>Vista previa</span></div>
+            <section className="quote-total-card" aria-label="Total de la importación">
+              <p>Total puesto en Chile</p>
+              <output className="quote-total" aria-label="Total en pesos chilenos" aria-live="polite" aria-atomic="true">{baseDefinida ? fmtCLP(calc.totalClp) : 'Por calcular'}</output>
+              <span className="quote-total-usd">{baseDefinida ? `Aprox. ${fmtUSD(calc.totalUsd)}` : 'Falta el valor negociado en USA'}</span>
+              <div className="quote-total-meta"><Ship size={15} />{q.modalidad === 'Container' ? 'Contenedor' : q.modalidad} <span>·</span> 1 USD = {fmtCLP(num(q.usd_clp_rate))}</div>
+            </section>
 
-            <p className="eyebrow mt-5 mb-2">Pagos</p>
-            <table className="w-full text-13 tabular">
-              <tbody className="divide-y divide-line">
-                <PayRow n={1} pct={calc.pagos.p1.pct} clp={calc.pagos.p1.clp} />
-                <PayRow n={2} pct={calc.pagos.p2.pct} clp={calc.pagos.p2.clp} />
-                <PayRow n={3} pct={calc.pagos.p3.pct} clp={calc.pagos.p3.clp} />
-              </tbody>
-            </table>
+            <section className="quote-breakdown" aria-labelledby="quote-breakdown-title">
+              <h4 id="quote-breakdown-title">Composición del precio</h4>
+              <dl>
+                <PriceRow label="Valor de compra negociado" sub={baseDefinida ? fmtUSD(calc.lanchaUsd) : 'Pendiente de negociación'} value={baseDefinida ? fmtCLP(calc.lanchaClp) : '—'} />
+                <PriceRow label="Servicio All-Inclusive" value={fmtCLP(calc.allInclusiveTotal)} />
+                <PriceRow label="IVA aduanero" sub={`${num(q.iva_pct)} % sobre CIF`} value={baseDefinida ? fmtCLP(calc.ivaClp) : '—'} />
+                <PriceRow label="Impuesto al lujo" sub={q.lujo_aplica ? `${num(q.lujo_pct)} % sobre la lancha` : null} value={q.lujo_aplica ? (baseDefinida ? fmtCLP(calc.lujoClp) : '—') : 'No aplica'} muted={!q.lujo_aplica} />
+              </dl>
+            </section>
 
-            <p className="mt-5 text-xs text-ink-500 leading-relaxed">
-              El cliente verá esta cotización <strong className="text-ink-700">24 horas después</strong> de que la guardes. Mientras tanto, en su panel aparece «Cotización en análisis».
-            </p>
+            <section className="quote-payment-preview" aria-labelledby="quote-plan-title">
+              <div className="quote-plan-heading"><h4 id="quote-plan-title">Plan de pagos</h4><span className={cn('quote-plan-badge', !pagosOk && 'quote-plan-badge--warning')}>{pagosOk ? '3 pagos' : 'Revisar'}</span></div>
+              <ol>
+                {[1, 2, 3].map(n => <li key={n}><span className="quote-payment-number">{n}</span><span className="quote-payment-name">Pago {n}<small>{calc.pagos[`p${n}`].pct} % del total</small></span><strong>{baseDefinida ? fmtCLP(calc.pagos[`p${n}`].clp) : '—'}</strong></li>)}
+              </ol>
+            </section>
+            <p className="quote-publication-note"><Clock size={16} /><span>Al guardar, el cliente verá la cotización <strong>en 24 horas</strong>. Para publicarla y enviar el correo al momento, elige «Publicar ahora».</span></p>
           </aside>
         </div>
+        </>
       )}
     </Modal>
   );
 }
 
-function Seccion({ titulo, subtotal, aviso, children }) {
+function SectionHeading({ icon, id, title, description, children }) {
+  const Icon = icon;
+  return <div className="quote-section-heading"><span className="quote-section-icon"><Icon size={19} /></span><div><h3 id={id}>{title}</h3>{description && <p>{description}</p>}</div>{children}</div>;
+}
+
+function CostSection({ title, description, icon, currency, fields, principalKeys, extraTitle, extraDescription, subtotal, q, onChange }) {
+  const principales = fields.filter(f => principalKeys.includes(f.key));
+  const extras = fields.filter(f => !principalKeys.includes(f.key));
+  const fmt = currency === 'USD' ? fmtUSD : fmtCLP;
+  const extraTotal = extras.reduce((sum, f) => sum + num(q[f.key]), 0);
+  const input = f => <MoneyInput key={f.key} size="lg" label={f.label} currency={currency} value={q[f.key]} onChange={v => onChange(f.key, v)} />;
   return (
-    <section>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h3 className="eyebrow">{titulo}</h3>
-        {subtotal !== undefined && <span className="text-13 font-semibold text-ink-900 tabular">{subtotal}</span>}
-      </div>
-      {children}
-      {aviso && <p className="mt-2 text-xs text-danger" role="alert">{aviso}</p>}
+    <section className="quote-card quote-cost-card">
+      <SectionHeading icon={icon} title={title} description={description} />
+      <div className="quote-field-grid">{principales.map(input)}</div>
+      <details className="quote-extra-costs">
+        <summary><span><strong>{extraTitle}</strong><small>{extras.length} conceptos · {fmt(extraTotal)}</small></span><ChevronDown size={18} /></summary>
+        <div><p>{extraDescription}</p><div className="quote-field-grid">{extras.map(input)}</div></div>
+      </details>
+      <div className="quote-cost-subtotal"><span>Subtotal en {currency}</span><strong>{fmt(subtotal)}</strong></div>
     </section>
   );
 }
 
-function Row({ label, sub, children }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <dt className="text-sm text-ink-700">
-        {label}
-        {sub && <span className="block text-xs text-ink-500">{sub}</span>}
-      </dt>
-      <dd className="text-right">{children}</dd>
-    </div>
-  );
-}
-
-function PayRow({ n, pct, clp }) {
-  return (
-    <tr>
-      <td className="py-1.5 text-ink-700">Pago {n} <span className="text-ink-500">({pct} %)</span></td>
-      <td className="py-1.5 text-right font-semibold text-ink-900">{fmtCLP(clp)}</td>
-    </tr>
-  );
+function PriceRow({ label, sub, value, muted }) {
+  return <div className="quote-price-row"><dt>{label}{sub && <small>{sub}</small>}</dt><dd className={muted ? 'quote-price-muted' : undefined}>{value}</dd></div>;
 }
 
 function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }

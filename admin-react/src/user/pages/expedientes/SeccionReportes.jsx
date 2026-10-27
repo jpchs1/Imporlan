@@ -41,7 +41,7 @@ export default function SeccionReportes({ reports, inspeccion = null }) {
   if (total === 0) return null;
   const original = inspeccion?.original ? urlOriginal(inspeccion.original) : '';
   return (
-    <Card>
+    <Card id="reportes-cliente" className="exp-section">
       <Card.Header title={`Reportes (${total})`} description="Los informes que preparó el equipo para este expediente." />
       {inspeccion && (
         <Card.Body className="border-b border-line">

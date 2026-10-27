@@ -39,6 +39,7 @@ if (!defined('IMPORLAN_SMTP_PASSWORD')) define('IMPORLAN_SMTP_PASSWORD', getenv(
 
 class EmailService {
     protected $pdo;
+    private $plainTextBody = null;
 
     // SMTP Configuration (loaded from /home/wwimpo/smtp_config.php in production)
     private $smtpHost;
@@ -1297,6 +1298,26 @@ BASE64;
         return $this->sendEmail($to, $subject, $htmlContent, 'custom_report', ['type' => 'report_notification']);
     }
 
+    /** Survey upload request: branded HTML plus a genuine plain-text alternative. */
+    public function sendInspectionUploadEmail($to, $mail, $metadata) {
+        $this->plainTextBody = $mail['text'];
+        try {
+            return $this->sendEmail($to, $mail['subject'], $mail['html'], 'inspection_upload_request', $metadata);
+        } finally {
+            $this->plainTextBody = null;
+        }
+    }
+
+    /** Post-inspection seller price request, with its own delivery audit type. */
+    public function sendInspectionPriceEmail($to, $mail, $metadata) {
+        $this->plainTextBody = $mail['text'];
+        try {
+            return $this->sendEmail($to, $mail['subject'], $mail['html'], 'inspection_price_confirmation', $metadata);
+        } finally {
+            $this->plainTextBody = null;
+        }
+    }
+
     /**
      * Sender name for the next sends, for emails written in a person's voice
      * (e.g. «Juan Pablo · Imporlan»). Non-ASCII names go RFC 2047-encoded so
@@ -1420,11 +1441,18 @@ BASE64;
             $htmlBase64 = chunk_split(base64_encode($htmlContent), 76, "\r\n");
             
             $body = "--{$boundary}\r\n";
+            if ($this->plainTextBody !== null) {
+                $alternative = 'alternative_' . bin2hex(random_bytes(12));
+                $body .= 'Content-Type: multipart/alternative; boundary="' . $alternative . '"' . "\r\n\r\n";
+                $body .= "--{$alternative}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n";
+                $body .= chunk_split(base64_encode($this->plainTextBody), 76, "\r\n") . "\r\n--{$alternative}\r\n";
+            }
             $body .= "Content-Type: text/html; charset=UTF-8\r\n";
             $body .= "Content-Transfer-Encoding: base64\r\n";
             $body .= "\r\n";
             $body .= $htmlBase64;
             $body .= "\r\n";
+            if ($this->plainTextBody !== null) $body .= "--{$alternative}--\r\n";
             $body .= "--{$boundary}\r\n";
             $body .= "Content-Type: image/png; name=\"logo.png\"\r\n";
             $body .= "Content-Transfer-Encoding: base64\r\n";

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyOrders } from '../../api';
-import { PageHeader, Card, Button, IconButton, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton } from '../../../shared/components/UI';
-import { Link2, FolderOpen, RefreshCw, WhatsAppIcon } from '../../../shared/components/Icons';
+import { Card, Button, IconButton, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton } from '../../../shared/components/UI';
+import { Link2, FolderOpen, RefreshCw, WhatsAppIcon, Ship, CircleCheck, Compass } from '../../../shared/components/Icons';
 import TarjetaExpediente from './TarjetaExpediente';
+import { ExpedienteHeader, ExpedienteMetrics } from '../../../shared/components/ExpedienteWorkspace';
 import BotonEnlace from './BotonEnlace';
+import { normalizarBusqueda } from '../../../shared/lib/file-collection';
 import { esActivo, esImportacion, esVencido, esCancelado, WA_SOPORTE } from './lib';
 
 const FILTRO_FN = {
@@ -74,11 +76,11 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
 
   const visibles = useMemo(() => {
     const fn = FILTRO_FN[filtro] || FILTRO_FN.todos;
-    const t = q.trim().toLowerCase();
+    const t = normalizarBusqueda(q);
     return orders.filter(o => {
       if (!fn(o)) return false;
       if (!t) return true;
-      const hay = `${o.order_number || ''} ${o.plan_name || ''} ${o.asset_name || ''} ${o.requirement_name || ''} ${o.agent_name || ''}`.toLowerCase();
+      const hay = normalizarBusqueda(`${o.order_number || ''} ${o.plan_name || ''} ${o.asset_name || ''} ${o.requirement_name || ''} ${o.agent_name || ''}`);
       return hay.includes(t);
     });
   }, [orders, filtro, q]);
@@ -158,10 +160,11 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
   }
 
   return (
-    <div className="pb-12">
-      <PageHeader
-        title="Expedientes"
-        description="Tus búsquedas y cotizaciones, con la etapa en la que va cada una."
+    <div className="exp-workspace pb-12">
+      <ExpedienteHeader
+        eyebrow="Tu área de operaciones"
+        title="Mis expedientes"
+        description="Tu próxima embarcación, cada vez más cerca. Revisa los avances, documentos y novedades de cada operación."
         actions={(
           <>
             {botonActualizar}
@@ -170,10 +173,16 @@ export default function ListaExpedientes({ filtro, onFiltro, hrefDetalle }) {
         )}
       />
 
+      <ExpedienteMetrics loading={loading} items={[
+        { label: 'Mis expedientes', value: conteo.todos, hint: 'Tus operaciones con Imporlan', icon: FolderOpen },
+        { label: 'Activos', value: conteo.activos, hint: 'Expedientes en curso', icon: Compass },
+        { label: 'En importación', value: conteo.importacion, hint: 'Operaciones en etapa de compra o logística', icon: Ship },
+        { label: 'Completados', value: conteo.completados, hint: 'Expedientes finalizados', icon: CircleCheck },
+      ]} />
       {/* Si los chips (hasta 6 + «Limpiar») y el buscador no caben en una
           línea, el buscador baja a la siguiente en vez de cortar «Limpiar». */}
       {orders.length > 0 && (
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
+        <div className="exp-filter-panel mb-5 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between rounded-xl border border-line bg-surface p-4">
           <FilterChips options={chips} value={filtro} onChange={onFiltro} onClear={hayFiltro ? limpiar : undefined} aria-label="Filtrar expedientes" className="max-w-full md:shrink-0" />
           <SearchInput value={q} onChange={setQ} placeholder="Buscar por número, lancha o agente" className="md:w-72 shrink-0" />
         </div>

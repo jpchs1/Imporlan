@@ -88,7 +88,8 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
 
             $calcTs = strtotime($lk['quote_calculated_at']);
             $availableAt = $calcTs + ($delayHours * 3600);
-            $available = $now >= $availableAt;
+            // La publicación manual es inmediata, aunque todavía corra la espera.
+            $available = !empty($lk['quote_published_at']) || $now >= $availableAt;
 
             if (!$available) {
                 // Inside the delay window — hide everything but keep a flag.
@@ -96,6 +97,10 @@ if (!defined('IMPORLAN_COTIZADOR_HELPERS_LOADED')) {
                 unset($lk['quote_total_clp']);
                 unset($lk['quote_total_usd']);
                 unset($lk['quote_payments']);
+                // El cotizador también replica el total en la matriz de precios.
+                // Ocultarlo aquí evita filtrar la cotización por otra columna.
+                $lk['value_chile_negotiated_clp'] = null;
+                $lk['value_chile_clp'] = null;
                 $lk['quote_pending'] = true;
                 $lk['quote_available_at'] = date('c', $availableAt);
                 continue;

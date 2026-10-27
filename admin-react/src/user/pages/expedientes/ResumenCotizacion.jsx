@@ -17,33 +17,34 @@ export default function ResumenCotizacion({ link, className }) {
     return (
       <div role="status" className={cn('flex items-start gap-2 rounded-sm border border-warning-line bg-warning-bg px-2.5 py-1.5 text-13', className)}>
         <Clock size={14} className="mt-0.5 shrink-0 text-warning" />
-        <p><span className="font-medium text-warning">Cotización en análisis</span><span className="text-ink-700"> · lista en aproximadamente 24 horas</span></p>
+        <p><span className="font-medium text-warning">Cotización en análisis</span><span className="text-ink-700"> · {link.quote_available_at ? `disponible desde ${fmtDateLarga(link.quote_available_at, { hora: true })}` : 'te avisaremos cuando esté lista'}</span></p>
       </div>
     );
   }
 
-  if (!link.quote_total_clp) return null;
+  const totalClp = Number(link.quote_total_clp);
+  if (!Number.isFinite(totalClp) || totalClp <= 0) return null;
 
   let qd = link.quote_data;
   if (typeof qd === 'string') { try { qd = JSON.parse(qd); } catch { qd = null; } }
   let pay = link.quote_payments;
   if (typeof pay === 'string') { try { pay = JSON.parse(pay); } catch { pay = null; } }
 
-  const lanchaUsd = qd?.valor_lancha_usd;
-  const rate = qd?.usd_clp_rate || 1;
-  const lanchaClp = lanchaUsd ? lanchaUsd * rate : null;
-  const ivaPct = qd?.iva_pct;
-  const lujoAplica = qd?.lujo_aplica;
-  const lujoPct = qd?.lujo_pct;
-  // Client-side derived: All-Inclusive shown to client = Total - Lancha - IVA - Lujo
-  const totalClp = parseFloat(link.quote_total_clp);
-  const ivaClp = lanchaClp && qd?.transporte_roro_usd != null
-    ? (lanchaClp + parseFloat(qd.transporte_roro_usd) * rate) * (parseFloat(ivaPct) / 100)
-    : 0;
-  const lujoClp = lujoAplica && lanchaClp ? lanchaClp * (parseFloat(lujoPct) / 100) : 0;
-  const allInclusive = totalClp - (lanchaClp || 0) - ivaClp - lujoClp;
-
-  const pagos = pay ? [1, 2, 3].filter(n => pay[`p${n}_clp`] != null) : [];
+  const number = value => value !== null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
+  const lanchaUsd = number(qd?.valor_lancha_usd);
+  const rate = number(qd?.usd_clp_rate);
+  const lanchaClp = lanchaUsd > 0 && rate > 0 ? lanchaUsd * rate : null;
+  const ivaPct = number(qd?.iva_pct);
+  const lujoAplica = qd?.lujo_aplica === true || Number(qd?.lujo_aplica) === 1;
+  const lujoPct = number(qd?.lujo_pct);
+  const transporte = number(qd?.transporte_roro_usd);
+  const ivaClp = lanchaClp !== null && transporte !== null && ivaPct !== null
+    ? (lanchaClp + transporte * rate) * ivaPct / 100 : null;
+  const lujoClp = lujoAplica && lanchaClp !== null && lujoPct !== null ? lanchaClp * lujoPct / 100 : 0;
+  const allInclusive = lanchaClp !== null && ivaClp !== null ? totalClp - lanchaClp - ivaClp - lujoClp : null;
+  const detalleValido = allInclusive !== null && allInclusive >= 0 && ivaClp >= 0 && (!lujoAplica || lujoPct !== null);
+  const pagos = pay ? [1, 2, 3].filter(n => number(pay[`p${n}_clp`]) > 0 && number(pay[`p${n}_pct`]) > 0) : [];
+  const hitos = { 1: 'Al elegir tu lancha', 2: 'Tras confirmar disponibilidad o aprobar la inspección', 3: 'En camino a Chile' };
 
   return (
     <div className={cn('overflow-hidden rounded-md border border-line', className)}>
@@ -53,12 +54,16 @@ export default function ResumenCotizacion({ link, className }) {
       </div>
 
       <dl className="divide-y divide-line px-3.5">
+        {detalleValido && <>
         {lanchaClp != null && <Fila label="Valor de la lancha" clp={lanchaClp} usd={lanchaUsd} />}
         <Fila label="Servicio all inclusive" clp={allInclusive} />
         <Fila label="IVA aduanero" clp={ivaClp} />
         {lujoAplica ? <Fila label="Impuesto al lujo" clp={lujoClp} /> : <Fila label="Impuesto al lujo" texto="No aplica" muted />}
+        </>}
         <Fila label="Total" clp={totalClp} usd={link.quote_total_usd} total />
       </dl>
+
+      {!detalleValido && <p className="px-3.5 pb-2 text-xs text-ink-500">El detalle de esta cotización está pendiente de actualización por tu agente.</p>}
 
       {pagos.length > 0 && (
         <div className="border-t border-line bg-canvas">
@@ -68,6 +73,7 @@ export default function ResumenCotizacion({ link, className }) {
               <div key={n} className="flex flex-1 items-baseline justify-between gap-3 px-3.5 py-2 sm:flex-col sm:gap-0.5">
                 <span className="text-xs text-ink-500">Pago {n} · {pay[`p${n}_pct`]}%</span>
                 <span className="text-13 font-semibold text-ink-900 tabular">{fmtCLP(pay[`p${n}_clp`])}</span>
+                <span className="text-xs text-ink-500 max-w-56">{hitos[n]}</span>
               </div>
             ))}
           </div>

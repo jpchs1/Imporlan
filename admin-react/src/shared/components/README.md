@@ -90,7 +90,26 @@ Una por ruta. Reemplaza todos los heros.
 ```
 Compatibilidad: `subtitle` ≡ `description`, `action` ≡ `actions`.
 
-### StatTile · StatGrid
+### ExpedienteWorkspace · vistas de expedientes
+
+Las listas y los detalles de expedientes usan una variante visual acotada a
+`.exp-workspace`, en `shared/styles/expedientes.css`. `ExpedienteHeader` integra
+`PageHeader`, los metadatos y una foto de la embarcación cuando existe.
+En esta variante el título mide entre 24 y 30 px y los contadores, 22 px.
+`ExpedienteMetrics` muestra sólo valores de los datos cargados, sin tendencias
+inventadas. `ExpedienteNavigation` enlaza secciones de la misma página y conserva
+montados los formularios para no perder ediciones. Sus anclas respetan las barras
+fijas y la preferencia de movimiento reducido. El resto del kit y sus tokens se
+mantienen compartidos. La galería de archivos ofrece filtros y vista de lista;
+reutiliza `FileImage`, `FileOpen`, `FileDownload` y los permisos de la API.
+`FileCollectionControls` comparte búsqueda sin distinción de tildes, filtros,
+orden de fecha/nombre y conteo de resultados entre ambos paneles. El orden visual
+no modifica los archivos ni sus índices originales para el visor. Los errores
+de actualización conservan la última carga y ofrecen reintento; un contador
+desconocido se muestra con «—», sin confundirlo con una lista vacía. Las anclas
+también llevan el foco al encabezado para continuar la navegación con teclado.
+
+### StatTile · StatGrid (otras vistas)
 ```jsx
 <StatGrid cols={4}>
   <StatTile label="Pagos pendientes" value="$13.663.000" hint="2 solicitudes" tone="warning" />

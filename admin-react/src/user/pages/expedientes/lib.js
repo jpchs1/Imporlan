@@ -35,9 +35,9 @@ export function esActivo(order) {
   return !TERMINALES.includes(order?.status);
 }
 
-/** Etapa ≥ Compra y no vencido/cancelado: lo que antes era "Mis importaciones". */
+/** Operaciones activas que ya están en Compra o Logística. */
 export function esImportacion(order) {
-  return Number(order?.timeline_step || 1) >= 4 && !esCerrado(order);
+  return Number(order?.timeline_step || 1) >= 4 && esActivo(order);
 }
 
 export function etapaDe(order) {
@@ -102,8 +102,18 @@ export function estaVendida(link) {
   return link?.link_status === 'sold' || link?.link_status === 'unavailable';
 }
 
+const precioPositivo = v => Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null;
+
+/** Las comparaciones usan una misma moneda y el precio de compra vigente. */
+export function precioUsa(link) {
+  return precioPositivo(link?.value_to_negotiate_usd) ?? precioPositivo(link?.value_usa_usd);
+}
+export function precioChile(link) {
+  if (link?.quote_pending) return null;
+  return precioPositivo(link?.quote_total_clp) ?? precioPositivo(link?.value_chile_negotiated_clp) ?? precioPositivo(link?.value_chile_clp);
+}
 export function tienePrecio(link) {
-  return Number(link?.value_usa_usd) > 0 || Number(link?.value_chile_clp) > 0;
+  return precioUsa(link) !== null || precioChile(link) !== null;
 }
 
 /** Nombre corto de una lancha para una frase ("el Cobalt R30"). */

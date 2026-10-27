@@ -1,10 +1,14 @@
+import { useState } from 'react';
+import { FileImage } from '../../../shared/components/FileImage';
+import { FileDownload, FileOpen } from '../../../shared/components/FileDownload';
 import { fmtDate } from '../../../shared/lib/utils';
 import { fmtDateLarga, fmtBytes } from '../../../shared/lib/format';
-import { Card, DataTable, Callout, Badge } from '../../../shared/components/UI';
-import { Eye, Download, Video, File } from '../../../shared/components/Icons';
+import { Card, DataTable, Callout, Badge, Button, IconButton, EmptyState, ErrorState, Skeleton } from '../../../shared/components/UI';
+import { Video, File, RefreshCw, Paperclip } from '../../../shared/components/Icons';
 import { esDesdeUsa } from '../../../shared/lib/importacion';
-import BotonEnlace from './BotonEnlace';
 import { esImagen, esVideo } from './lib';
+import { FileCollectionControls } from '../../../shared/components/FileCollectionControls';
+import { seleccionarArchivos } from '../../../shared/lib/file-collection';
 
 
 function tamano(f) {
@@ -14,8 +18,8 @@ function tamano(f) {
 function Acciones({ f }) {
   return (
     <div className="flex items-center justify-end gap-2">
-      <BotonEnlace href={f.download_url} size="sm" icon={Eye}>Ver</BotonEnlace>
-      <BotonEnlace href={f.download_url} size="sm" icon={Download} download>Descargar</BotonEnlace>
+      <FileOpen file={f} className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600">Ver</FileOpen>
+      <FileDownload file={f} className="inline-flex items-center gap-1.5 text-13 font-medium text-brand-600">Descargar</FileDownload>
     </div>
   );
 }
@@ -26,10 +30,15 @@ function Acciones({ f }) {
  * las fotos y videos que llegan desde Estados Unidos (`id` permite llegar
  * aquí desde «Ver todos» de Tu importación).
  */
-export default function SeccionArchivos({ files, onPreview, id }) {
-  if (!files?.length) return null;
-  const imagenes = files.filter(esImagen);
-  const otros = files.filter(f => !esImagen(f));
+export default function SeccionArchivos({ files = [], onPreview, id, loading = false, error = '', onRefresh }) {
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const visible = seleccionarArchivos(files, { query, category, sort });
+  const allImages = files.filter(esImagen);
+  const imagenes = visible.filter(esImagen);
+  const otros = visible.filter(f => !esImagen(f));
+  const clearFilters = () => { setQuery(''); setCategory('all'); };
   // La descripción que el equipo escribe al subir un lote queda en cada
   // archivo del lote; se muestra la primera, venga de una foto, un video o un
   // documento (un lote solo de fotos también trae nota). La marca «Desde
@@ -38,8 +47,16 @@ export default function SeccionArchivos({ files, onPreview, id }) {
   const deUsa = files.filter(esDesdeUsa).length;
 
   return (
-    <Card id={id} className={id ? 'scroll-mt-20' : undefined}>
-      <Card.Header title={`Documentos y fotos (${files.length})`} description={deUsa > 0 ? `Lo que el equipo subió a este expediente y lo que llega desde Estados Unidos (${deUsa}).` : 'Lo que el equipo subió a este expediente.'} />
+    <Card id={id} className={id ? 'exp-section scroll-mt-20' : 'exp-section'}>
+      <Card.Header title={files.length || (!loading && !error) ? `Documentos y fotos (${files.length})` : 'Documentos y fotos'} description={deUsa > 0 ? `Archivos compartidos contigo, incluidos ${deUsa} desde Estados Unidos.` : 'Informes, fotos y videos que el equipo comparte contigo.'}
+        actions={onRefresh && <IconButton variant="secondary" size="sm" icon={RefreshCw} aria-label="Actualizar archivos" onClick={onRefresh} loading={loading} />} />
+      {!!files.length && <FileCollectionControls files={files} query={query} onQuery={setQuery} category={category} onCategory={setCategory} sort={sort} onSort={setSort} onClear={clearFilters} count={visible.length} loading={loading} />}
+      {error && !!files.length && <div className="px-(--card-pad) pt-4"><Callout tone="warning" compact title="No pudimos actualizar los archivos">Puedes consultar la última carga disponible y volver a intentar con Actualizar.</Callout></div>}
+      {loading && !files.length ? <Card.Body><div className="grid grid-cols-2 gap-3" role="status" aria-label="Cargando archivos"><Skeleton className="h-32" /><Skeleton className="h-32" /></div></Card.Body>
+        : error && !files.length ? <ErrorState compact title="No pudimos cargar los archivos" message="Vuelve a intentarlo para comprobar los documentos compartidos contigo." detail={error} onRetry={onRefresh} />
+          : !files.length ? <EmptyState compact icon={Paperclip} title="Todavía no hay archivos compartidos" description="Los informes, fotos y videos aparecerán aquí cuando el equipo los comparta contigo." />
+            : !visible.length ? <EmptyState compact icon={Paperclip} title="Sin archivos con estos filtros" description="Prueba otro nombre o vuelve a ver todos los archivos." primaryAction={<Button variant="secondary" size="sm" onClick={clearFilters}>Ver todos los archivos</Button>} /> : <>
+
       {(nota || imagenes.length > 0) && (
         <Card.Body className="space-y-5">
           {nota && <Callout tone="info" compact>{nota}</Callout>}
@@ -47,15 +64,15 @@ export default function SeccionArchivos({ files, onPreview, id }) {
             <div>
               <p className="eyebrow mb-2">Fotos ({imagenes.length})</p>
               <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 md:grid-cols-4">
-                {imagenes.map((f, i) => (
+                {imagenes.map(f => (
                   <li key={f.id}>
                     <button
                       type="button"
-                      onClick={() => onPreview?.(i)}
+                      onClick={() => onPreview?.(allImages.indexOf(f))}
                       aria-label={`Ver ${f.original_name}`}
                       className="block aspect-[4/3] w-full overflow-hidden rounded-md border border-line bg-neutral-bg transition-colors duration-150 hover:border-ink-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                     >
-                      <img src={f.download_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <FileImage src={f.download_url} mimeType={f.mime_type} originalName={f.original_name} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </button>
                     <p className="mt-1 truncate text-xs text-ink-500" title={esDesdeUsa(f) ? `${f.original_name} · Desde Estados Unidos` : f.original_name}>
                       {esDesdeUsa(f) && <span className="font-medium text-ink-700">EE. UU. · </span>}{f.original_name}
@@ -101,6 +118,7 @@ export default function SeccionArchivos({ files, onPreview, id }) {
           )}
         />
       )}
+      </>}
     </Card>
   );
 }

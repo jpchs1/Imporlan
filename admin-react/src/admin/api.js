@@ -114,6 +114,8 @@ export const compartirActualizacionUsa = (updateId, text) =>
   request(`${API_BASE}/operador_usa.php?r=admin_compartir`, { method: 'POST', body: JSON.stringify({ update_id: updateId, text }), timeoutMs: 45000 });
 export const nuevoLinkUsa = (orderId) =>
   request(`${API_BASE}/operador_usa.php?r=admin_nuevo_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const revisarPrecioInspeccion = (orderId, requestId, revision) =>
+  request(`${API_BASE}/operador_usa.php?r=admin_precio_revisar`, { method: 'POST', body: JSON.stringify({ order_id: orderId, request_id: requestId, revision }) });
 // Datos del cliente para la importación (nombre, RUT, dirección…), su cédula
 // por ambos lados y la aceptación de los Términos. Sólo admin y support: trae
 // enlaces firmados a la cédula que duran 1 hora (ci_frente_url, ci_reverso_url).

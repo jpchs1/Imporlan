@@ -38,8 +38,37 @@ if command -v flock >/dev/null 2>&1; then
   flock -n 9 || exit 0
 fi
 
+# Operational work runs even when main has no new commit. Use only the
+# deployed, CLI-only PHP job and its server-side DB/SMTP configuration.
+# The job owns its Chile morning window, per-day deduplication and stop rule.
+run_inspection_followups() {
+  local job="/home/wwimpo/imporlan.cl/api/cron/inspection_upload_followup.php"
+  [ -f "$job" ] || return 0
+  local php_bin
+  php_bin=$(command -v php 2>/dev/null) || return 0
+  "$php_bin" "$job" >> /home/wwimpo/inspection-upload-followup.log 2>&1 || true
+}
+trap run_inspection_followups EXIT
+
 command -v git >/dev/null 2>&1 || { status "ERROR: git no esta en el PATH ($PATH)"; exit 1; }
 cd "$STAGING_REPO" || { status "ERROR: no existe $STAGING_REPO"; exit 1; }
+
+# El mismo cron mantiene la cola aunque main no cambie. Antes el productor
+# existía pero instalar otro cron era un paso manual y las fichas no avanzaban.
+# La respuesta del deploy no espera varios minutos de scraping. El worker usa
+# su propio flock; cerramos el descriptor 9 para no retener el lock del deploy.
+procesar_cola_al_salir() {
+  local code=$?
+  if [ "$code" -eq 0 ] && [ -f "$STAGING_REPO/scripts/procesar_cola_scraping.php" ]; then
+    if command -v php >/dev/null 2>&1; then
+      nohup php "$STAGING_REPO/scripts/procesar_cola_scraping.php" --limite=5 \
+        >> /home/wwimpo/cola-scraping.log 2>&1 < /dev/null 9>&- &
+    else
+      echo "ERROR: PHP no está en el PATH; no se puede procesar la cola de scraping."
+    fi
+  fi
+}
+trap 'procesar_cola_al_salir; run_inspection_followups' EXIT
 git fetch -q origin main || { status "ERROR: git fetch fallo"; exit 1; }
 
 TARGET=$(git rev-parse origin/main)

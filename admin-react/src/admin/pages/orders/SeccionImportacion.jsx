@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
-import { Card, Button, Menu, Badge, StatusBadge, Callout, EmptyState, Spinner } from '../../../shared/components/UI';
+import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
@@ -41,7 +41,7 @@ import { useReporteInspeccion } from './useReporteInspeccion';
  */
 export default function SeccionImportacion({ detail, links, importacion, onMarcarElegida, onCotizar, archivos }) {
   const eleccion = detail.eleccion || null;
-  const link = eleccion ? links.find(l => l.id === eleccion.link_id) : null;
+  const link = eleccion ? links.find(l => Number(l.id) === Number(eleccion.link_id)) : null;
   const [modalCobro, setModalCobro] = useState(null); // { pago } · { manual: true }
   const [modalHito, setModalHito] = useState(null);   // el hito a marcar
   const [modalDeclinada, setModalDeclinada] = useState(false);
@@ -89,12 +89,12 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const motivo = porCliente ? motivoDeclinada(detail) : '';
 
   return (
-    <Card id="importacion" className="scroll-mt-32">
+    <Card id="importacion" className="exp-section admin-exp-operation scroll-mt-32">
       <Card.Header
-        title="Importación"
+        title="Operación de importación"
         description={equipoChile
-          ? 'La lancha elegida, los datos del cliente, los hitos, los cobros y lo que manda la operación en EE. UU. El cliente lo ve en su panel como «Tu importación».'
-          : 'La lancha elegida y los hitos. El cliente lo ve en su panel como «Tu importación».'}
+          ? 'Embarcación elegida, hitos, pagos y actualizaciones de la operación.'
+          : 'Embarcación elegida y avances de la operación.'}
         actions={eleccion ? (
           <>
             <Button variant="secondary" size="sm" icon={Pencil} onClick={() => onMarcarElegida(link || { id: eleccion.link_id })}>Cambiar</Button>
@@ -103,19 +103,11 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               items={[{ label: 'Quitar la elección', icon: Trash, tone: 'danger', onClick: importacion.onQuitar }]}
             />
           </>
-        ) : (
-          <Button variant="secondary" size="sm" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button>
-        )}
+        ) : undefined}
       />
       <Card.Body className="space-y-5">
         {!eleccion && (
-          <EmptyState
-            compact
-            icon={Anchor}
-            title="El cliente todavía no elige lancha"
-            description="Cuando decida —desde su panel o por WhatsApp— márcala aquí: parte la importación, se mueve la etapa y se crean los cobros desde la cotización."
-            primaryAction={<Button size="sm" variant="secondary" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button>}
-          />
+          <div className="admin-exp-operation__empty" data-empty-operation><div className="admin-exp-operation__empty-icon"><Anchor size={22} /></div><div><h3>El cliente todavía no elige lancha</h3><p>Compara las opciones y registra la elección cuando el cliente decida.</p></div><Button size="sm" variant="secondary" icon={BadgeCheck} onClick={() => onMarcarElegida(null)}>Marcar lancha elegida</Button></div>
         )}
         {eleccion && (
           <>
@@ -275,9 +267,10 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                   Cobros
                   {importacion.cargandoCobros && <Spinner inline size="sm" label="Cargando cobros" />}
                 </h3>
-                <Button size="sm" variant="ghost" icon={Plus} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
+                <Button size="sm" variant="ghost" icon={Plus} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
               </div>
 
+              {importacion.cobrosError && <Callout tone="warning" compact className="mb-3" action={<Button size="sm" variant="secondary" onClick={importacion.onReintentarCobros}>Reintentar cobros</Button>}>{importacion.cobrosError}</Callout>}
               {plan.length === 0 ? (
                 <Callout
                   tone="neutral"
@@ -296,7 +289,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       clp={p.clp}
                       cobro={p.cobro}
                       accion={p.estado === 'por_cobrar'
-                        ? <Button size="sm" variant="secondary" icon={Receipt} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
+                        ? <Button size="sm" variant="secondary" icon={Receipt} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
                         : <MenuCobro cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}
