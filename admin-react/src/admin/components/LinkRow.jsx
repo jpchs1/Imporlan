@@ -257,9 +257,9 @@ export default function LinkRow({ link, idx, orderId, onUpdate, onDelete, onImag
             </div>
           </div>
           <dl className="admin-boat-card__prices">
-            <div><dt>Publicado · USA</dt><dd>{num(lk.value_usa_usd) > 0 ? fmtUSD(num(lk.value_usa_usd)) : 'Sin precio'}</dd><span>Referencia del anuncio</span></div>
-            <div><dt>Compra negociada · USA</dt><dd>{compraUsa > 0 ? fmtUSD(compraUsa) : 'Por negociar'}</dd><span>Base de la cotización</span></div>
-            <div className="admin-boat-card__total"><dt>Total puesto en Chile</dt><dd>{cotizacion.requiereRevision ? 'Por actualizar' : totalChile > 0 ? fmtCLP(totalChile) : 'Por cotizar'}</dd><span>{cotizacion.requiereRevision ? cotizacion.total ? `Última cotización: ${fmtCLP(cotizacion.total)}` : 'Revisa la base de compra' : lk.quote_calculated_at ? lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis' : totalChile > 0 ? 'Valor negociado · CLP' : 'Calcula el costo de importación'}</span></div>
+            <div><dt>Publicado · USA</dt><dd>{num(lk.value_usa_usd) > 0 ? fmtUSD(num(lk.value_usa_usd)) : 'Sin precio'}</dd><dd className="admin-boat-card__note">Referencia del anuncio</dd></div>
+            <div><dt>Compra negociada · USA</dt><dd>{compraUsa > 0 ? fmtUSD(compraUsa) : 'Por negociar'}</dd><dd className="admin-boat-card__note">Base de la cotización</dd></div>
+            <div className="admin-boat-card__total"><dt>Total puesto en Chile</dt><dd>{cotizacion.requiereRevision ? 'Por actualizar' : totalChile > 0 ? fmtCLP(totalChile) : 'Por cotizar'}</dd><dd className="admin-boat-card__note">{cotizacion.requiereRevision ? cotizacion.total ? `Última cotización: ${fmtCLP(cotizacion.total)}` : 'Revisa la base de compra' : lk.quote_calculated_at ? lk.quote_published_at ? 'Cotización publicada' : 'Cotización en análisis' : totalChile > 0 ? 'Valor negociado · CLP' : 'Calcula el costo de importación'}</dd></div>
           </dl>
           {cotizacion.requiereRevision && <p className="admin-boat-card__quote-warning" role="status"><Info size={14} />{cotizacion.baseCambio ? 'Cambió la compra negociada. Actualiza la cotización para renovar el total y los pagos.' : 'Revisa y actualiza la cotización antes de usar este total.'}</p>}
           <div className="admin-boat-card__actions">

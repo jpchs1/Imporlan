@@ -71,7 +71,7 @@
 .admin-boat-card__prices dt { color: var(--color-ink-500); font-size: 11px; line-height: 1.5; }
 .admin-boat-card__prices dd { color: var(--color-ink-900); font-size: 17px; line-height: 1.45; font-weight: 600; letter-spacing: -.025em; margin-top: 2px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .admin-boat-card__prices > div:first-child dd { color: var(--color-ink-500); font-size: 15px; font-weight: 500; }
-.admin-boat-card__prices > div > span { display: block; color: var(--color-ink-500); font-size: 11px; line-height: 1.5; margin-top: 1px; }
+.admin-boat-card__prices > div > span, .admin-boat-card__prices > div > dd.admin-boat-card__note { display: block; color: var(--color-ink-500); font-size: 11px; line-height: 1.5; margin-top: 1px; }
 .admin-boat-card__prices .admin-boat-card__total { padding-left: 16px; border-left: 1px solid var(--color-line); }
 .admin-boat-card__prices .admin-boat-card__total dd { color: var(--color-brand-700); font-size: 22px; line-height: 1.25; margin-top: 3px; }
 .admin-boat-card__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 13px; border-top: 1px solid var(--color-line); padding-top: 13px; }
@@ -151,3 +151,5 @@
 
 .admin-boat-card__quote-warning { display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border-radius: 7px; margin: -3px 0 12px; color: var(--color-warning); background: var(--color-warning-bg); font-size: 11px; line-height: 1.5; }
 .admin-boat-card__quote-warning svg { flex-shrink: 0; margin-top: 1px; }
+/* La nota bajo cada precio es un <dd> (un <dl> sólo admite dt/dd): no hereda el tamaño del precio. */
+.admin-boat-card__prices > div > dd.admin-boat-card__note { color: var(--color-ink-500); font-size: 11px; line-height: 1.5; font-weight: 400; letter-spacing: normal; margin-top: 1px; padding: 0; }
