@@ -31,14 +31,15 @@ const VISTAS = [
  * `onElegir(link)` abre el asistente; `onElegirConInspeccion(link)` es lo
  * mismo desde el menú, con la inspección preseleccionada. Con una lancha ya
  * elegida (`eleccion`), la tarjeta queda marcada «Tu elección» y el resto
- * ofrece «Cambiar a esta lancha» si todavía se puede. `noAptaId` es la lancha
- * que la inspección recomendó no comprar: se ve marcada y no se puede volver
- * a elegir (el servidor sólo la frena si dejó de estar disponible).
+ * ofrece «Cambiar a esta lancha» si todavía se puede. `declinadasIds` son las
+ * lanchas que el cliente declinó tras la inspección (`declined_link_ids` y la
+ * elegida si la acaba de declinar): se ven marcadas y no se pueden volver a
+ * elegir (el servidor responde 409).
  *
  * Plegable: con `colapsable`, el cuerpo se muestra solo cuando `abierto`
  * (es la vista «Otras opciones (n)» de un expediente con elección).
  */
-export default function RankingEmbarcaciones({ ref, order, links, saving, notifying, onNotify, dnd, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, puedeElegir, eleccion, noAptaId = null, titulo, descripcion, colapsable = false, abierto = true, onToggle }) {
+export default function RankingEmbarcaciones({ ref, order, links, saving, notifying, onNotify, dnd, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, puedeElegir, eleccion, declinadasIds = [], titulo, descripcion, colapsable = false, abierto = true, onToggle }) {
   const [search, setSearch] = useState('');
   const [filtros, setFiltros] = useState([]);
   const [sortBy, setSortBy] = useState('rank');
@@ -78,9 +79,9 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
   const isRankView = sortBy === 'rank' && viewMode === 'cards' && !hayFiltro && !saving && !notifying;
   const n = links.length;
   const idElegida = Number(eleccion?.link_id) || null;
-  const idNoApta = Number(noAptaId) || null;
+  const declinadas = new Set((declinadasIds || []).map(Number));
   const esElegida = (l) => idElegida !== null && Number(l.id) === idElegida;
-  const esNoApta = (l) => idNoApta !== null && Number(l.id) === idNoApta;
+  const esNoApta = (l) => declinadas.has(Number(l.id));
   const elegible = (l) => !!(onElegir && puedeElegir?.(l)) && !esNoApta(l);
   const hayElegibles = links.some(elegible);
 
@@ -99,7 +100,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
             {tituloEmbarcacion(r)}
             {estaVendida(r) && <Badge tone="neutral" size="sm" className="ml-1">{r.link_status === 'sold' ? 'Vendida' : 'No disponible'}</Badge>}
             {esElegida(r) && !esNoApta(r) && <Badge tone="brand" size="sm" dot className="ml-1">Tu elección</Badge>}
-            {esNoApta(r) && <Badge tone="warning" size="sm" dot className="ml-1">No apta según inspección</Badge>}
+            {esNoApta(r) && <Badge tone="warning" size="sm" dot className="ml-1">Declinada tras la inspección</Badge>}
           </p>
           {r.engine && r.engine !== tituloEmbarcacion(r) && <p className="text-13 text-ink-500 truncate">{r.engine}</p>}
         </div>
@@ -190,7 +191,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
                 <div className="flex items-start gap-3">
                   <span className="font-semibold text-ink-900 tabular">{links.indexOf(r) + 1}.</span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-ink-900">{tituloEmbarcacion(r)} {esElegida(r) && !esNoApta(r) && <Badge tone="brand" size="sm" dot className="ml-1">Tu elección</Badge>}{esNoApta(r) && <Badge tone="warning" size="sm" dot className="ml-1">No apta según inspección</Badge>}</p>
+                    <p className="font-medium text-ink-900">{tituloEmbarcacion(r)} {esElegida(r) && !esNoApta(r) && <Badge tone="brand" size="sm" dot className="ml-1">Tu elección</Badge>}{esNoApta(r) && <Badge tone="warning" size="sm" dot className="ml-1">Declinada tras la inspección</Badge>}</p>
                     <p className="text-13 text-ink-500">{[r.location, precioUsa(r) !== null && fmtUSD(precioUsa(r)), r.quote_pending ? 'Cotización en análisis' : precioChile(r) !== null && fmtCLP(precioChile(r))].filter(Boolean).join(' · ') || 'Sin precio aún'}</p>
                   </div>
                 </div>
@@ -213,7 +214,7 @@ export default function RankingEmbarcaciones({ ref, order, links, saving, notify
                       onPreviewImage={onPreviewImage}
                       onElegir={elegible(link) ? onElegir : undefined}
                       elegida={esElegida(link)}
-                      noApta={esNoApta(link)}
+                      declinada={esNoApta(link)}
                       modoCambio={!!idElegida}
                     />
                   </li>

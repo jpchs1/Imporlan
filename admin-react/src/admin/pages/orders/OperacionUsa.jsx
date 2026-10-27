@@ -21,7 +21,7 @@ import { categoriaArchivo } from '../../components/useExpedienteFiles';
  * Sólo lo ven admin y soporte (el servidor lo exige). `archivos` es el
  * resultado de useExpedienteFiles: las miniaturas salen de ahí por id.
  */
-export default function OperacionUsa({ detail, eleccion, archivos }) {
+export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDetalle }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [estado, setEstado] = useState(null);
@@ -186,7 +186,7 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
             />
           )}
           {estado?.inspection_price && (
-            <PrecioTrasInspeccion precio={estado.inspection_price} nombre={nombre} orderId={detail.id} onRefresh={() => cargar({ silencioso: true })} />
+            <PrecioTrasInspeccion precio={estado.inspection_price} nombre={nombre} orderId={detail.id} clienteAprobo={!!eleccion?.inspection_waiting_price} onRefresh={() => cargar({ silencioso: true })} onRecargarDetalle={onRecargarDetalle} />
           )}
 
           {/* ── Feed ── */}
@@ -226,7 +226,7 @@ export default function OperacionUsa({ detail, eleccion, archivos }) {
   );
 }
 
-function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh }) {
+function PrecioTrasInspeccion({ precio, nombre, orderId, clienteAprobo, onRefresh, onRecargarDetalle }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
@@ -235,14 +235,17 @@ function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh }) {
   async function revisar() {
     if (!(await confirm({
       title: '¿Validar esta confirmación de precio?',
-      description: `Revisa el acuerdo con el vendedor y su efecto en la cotización antes de continuar. Precio anterior: ${money(precio.original_cents)}. Precio confirmado: ${money(precio.confirmed_cents)}. La validación no modifica cotizaciones ni crea cobros.`,
+      description: `Revisa el acuerdo con el vendedor y su efecto en la cotización antes de continuar. Precio anterior: ${money(precio.original_cents)}. Precio confirmado: ${money(precio.confirmed_cents)}. La validación no modifica cotizaciones.${clienteAprobo ? ' El cliente ya aprobó el reporte de la inspección: al validar, la inspección queda aprobada y se le envía el Pago 2 con la cotización publicada.' : ' No crea cobros.'}`,
       confirmLabel: 'Validar confirmación',
     }))) return;
     setSaving(true);
     try {
-      await revisarPrecioInspeccion(orderId, precio.request_id, precio.revision);
-      toast?.('Confirmación de precio revisada. Puedes continuar con los hitos.', 'success');
+      const r = await revisarPrecioInspeccion(orderId, precio.request_id, precio.revision);
+      toast?.(r?.inspeccion_aprobada
+        ? (r.pago ? `Precio validado. La inspección quedó aprobada por el cliente y se envió el Pago 2 (${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(r.pago.amount_clp)}).` : 'Precio validado. La inspección quedó aprobada por el cliente; crea el Pago 2 desde Cobros.')
+        : 'Confirmación de precio revisada. Puedes continuar con los hitos.', 'success');
       await onRefresh();
+      if (r?.inspeccion_aprobada) onRecargarDetalle?.();
     } catch (e) { toast?.(e.message || 'No se pudo validar la confirmación', 'error'); }
     finally { setSaving(false); }
   }

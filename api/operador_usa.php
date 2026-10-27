@@ -193,14 +193,31 @@ function opuNovedadesCliente($pdo, $orderId) {
 
 function opuEsc($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
-function opuHtmlCorreo($titulo, $cuerpo) {
-    return '<!DOCTYPE html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a">'
-        . '<div style="max-width:600px;margin:0 auto;padding:24px 16px">'
-        . '<div style="font-size:13px;color:#64748b;margin-bottom:10px"><strong style="color:#0f172a">Imporlan</strong> · US operations</div>'
-        . '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">'
-        . '<h1 style="font-size:20px;margin:0 0 14px;line-height:1.3">' . opuEsc($titulo) . '</h1>' . $cuerpo . '</div>'
-        . '<p style="font-size:12px;color:#64748b;line-height:1.5;margin:14px 4px 0">All communication with the client goes through Imporlan. Please do not contact the client directly. Questions: contacto@imporlan.cl</p>'
-        . '</div></body></html>';
+/**
+ * La carcasa de los correos de la operación en EE. UU., con el mismo diseño
+ * que los de la inspección y el precio (inspection_*_template.php).
+ * $para: 'operador' (David, en inglés, firmado por Juan Pablo y con el
+ * recordatorio de no contactar al cliente) o 'equipo' (aviso interno, en español).
+ */
+function opuHtmlCorreo($titulo, $cuerpo, $para = 'operador', $etiqueta = '') {
+    $equipo = $para === 'equipo';
+    $sub = $equipo ? 'OPERACIÓN EN EE. UU. · AVISO INTERNO' : 'US OPERATIONS';
+    $pie = $equipo
+        ? 'Aviso automático para el equipo Imporlan. Las notas de la operación en EE. UU. son internas: al cliente se le comparte lo que el equipo decida, con su texto.'
+        : 'All client communication goes through Imporlan. Please do not contact the client directly. Questions: <a href="mailto:contacto@imporlan.cl" style="color:#087c91;">contacto@imporlan.cl</a>';
+    $firma = $equipo ? '' : '<tr><td class="pad" style="padding:0 36px 28px;font-size:13px;line-height:1.8;color:#142c3d;">Thank you,<br><strong>Juan Pablo</strong><br>Commercial &amp; Logistics · Imporlan<br><a href="mailto:contacto@imporlan.cl" style="color:#087c91;">contacto@imporlan.cl</a></td></tr>';
+    return '<!DOCTYPE html><html lang="' . ($equipo ? 'es' : 'en') . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . opuEsc($titulo) . '</title>'
+        . '<style>table{border-collapse:collapse}a:focus{outline:3px solid #36bdc8;outline-offset:3px}@media(max-width:600px){.outer{padding:12px 8px!important}.pad{padding-left:22px!important;padding-right:22px!important}.headline{font-size:24px!important}}</style></head>'
+        . '<body style="margin:0;background:#edf2f5;font-family:Arial,Helvetica,sans-serif;color:#142c3d;">'
+        . '<table role="presentation" width="100%" bgcolor="#edf2f5"><tr><td class="outer" align="center" style="padding:32px 16px;"><table role="presentation" width="100%" style="max-width:640px;background:#fff;border:1px solid #dce5eb;">'
+        . '<tr><td class="pad" bgcolor="#102c3d" style="padding:25px 36px;color:#fff;font-size:23px;letter-spacing:3px;font-weight:bold;">IMPORLAN<span style="color:#54c5cf;">.</span><p style="font-size:10px;letter-spacing:2px;color:#bdd0da;margin:8px 0 0;font-weight:normal;">' . $sub . '</p></td></tr><tr><td height="4" bgcolor="#36bdc8"></td></tr>'
+        . '<tr><td class="pad" style="padding:30px 36px 8px;">'
+        . ($etiqueta !== '' ? '<p style="margin:0 0 14px;font-size:11px;font-weight:bold;letter-spacing:2px;color:#087c91;">' . opuEsc(mb_strtoupper($etiqueta)) . '</p>' : '')
+        . '<h1 class="headline" style="margin:0 0 18px;font-size:28px;line-height:1.2;letter-spacing:-0.5px;color:#102c3d;">' . opuEsc($titulo) . '</h1>'
+        . '<div style="font-size:14px;line-height:1.7;color:#334e5e;">' . $cuerpo . '</div></td></tr>'
+        . $firma
+        . '<tr><td class="pad" bgcolor="#f5f8fa" style="padding:18px 36px;border-top:1px solid #e2e8f0;font-size:11px;line-height:1.7;color:#526b7b;">' . $pie . '</td></tr>'
+        . '</table></td></tr></table></body></html>';
 }
 
 function opuFichaLancha($order, $link) {
@@ -224,7 +241,7 @@ function opuFichaLancha($order, $link) {
 }
 
 function opuBoton($texto, $url) {
-    return '<p style="margin:20px 0 4px"><a href="' . opuEsc($url) . '" style="display:inline-block;background:#0e7490;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:bold">' . opuEsc($texto) . '</a></p>';
+    return '<table role="presentation" width="100%" style="margin:22px 0 6px"><tr><td align="center" bgcolor="#087c91" style="border-radius:8px;"><a href="' . opuEsc($url) . '" style="display:block;padding:16px 20px;border:1px solid #087c91;border-radius:8px;color:#fff;text-decoration:none;font-size:15px;font-weight:bold;">' . opuEsc($texto) . ' &nbsp;&#8594;</a></td></tr></table>';
 }
 
 function opuEnviar($subject, $html) {
@@ -263,7 +280,7 @@ function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
         . opuBoton('Send update, photos and videos', opuUrlPortal($token))
         . '<p style="font-size:12px;color:#64748b;margin:8px 0 0">This link is private to this file. You can use it as many times as you need.</p>';
 
-    $ok = opuEnviar('[Imporlan] Update needed · ' . ($order['order_number'] ?? '') . ' · ' . $titulo, opuHtmlCorreo('Update needed: ' . $titulo, $cuerpo));
+    $ok = opuEnviar('[Imporlan] Update needed · ' . ($order['order_number'] ?? '') . ' · ' . $titulo, opuHtmlCorreo($titulo, $cuerpo, 'operador', 'Update needed · ' . ($order['order_number'] ?? '')));
     if ($ok) {
         $pdo->prepare("UPDATE orders SET usa_requested_at = NOW(), usa_link_id = ? WHERE id = ?")->execute([intval($link['id']), intval($order['id'])]);
         opuLog($pdo, $order['id'], 'operador_usa_pedido', ['hito' => $hito, 'motivo' => $motivo]);
@@ -278,7 +295,7 @@ function opuAvisarPausa($pdo, $order, $linkIdAnterior) {
     if (!$link) return false;
     $cuerpo = '<p style="margin:0 0 12px;font-size:14px;line-height:1.6">Please put this boat on hold: the client is no longer moving forward with it. No further work is needed on it unless we write again.</p>'
         . opuFichaLancha($order, $link);
-    $ok = opuEnviar('[Imporlan] On hold · ' . ($order['order_number'] ?? '') . ' · ' . impTituloLancha($link), opuHtmlCorreo('On hold: ' . impTituloLancha($link), $cuerpo));
+    $ok = opuEnviar('[Imporlan] On hold · ' . ($order['order_number'] ?? '') . ' · ' . impTituloLancha($link), opuHtmlCorreo(impTituloLancha($link), $cuerpo, 'operador', 'On hold · ' . ($order['order_number'] ?? '')));
     if ($ok) {
         $pdo->prepare("UPDATE orders SET usa_link_id = NULL WHERE id = ?")->execute([intval($order['id'])]);
         opuLog($pdo, $order['id'], 'operador_usa_pausa', ['link_id' => intval($linkIdAnterior)]);
@@ -477,13 +494,14 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
         foreach ($guardados as $file) { if (isset($counts[$file['category']])) $counts[$file['category']]++; }
         $batch = $counts['image'] . ' foto(s), ' . $counts['video'] . ' video(s), ' . $counts['document'] . ' documento(s)';
         $svc->sendCustomEmail('contacto@imporlan.cl', $operatorName . ' envió una actualización · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
-            opuHtmlCorreo('Actualización desde EE. UU. · ' . $titulo,
+            opuHtmlCorreo($titulo,
                 '<p style="font-size:14px;margin:0 0 10px">Expediente <strong>' . opuEsc($order['order_number'] ?? '') . '</strong>. '
                 . 'En esta actualización: ' . $batch . '. ' . count($visibles) . ' archivo(s) visuales ya visibles para el cliente' . ($internos ? ', ' . $internos . ' documento(s) sólo para el equipo' : '') . '.</p>'
                 . opuInspectionStaffSummary($pdo, $order)
+                . opuSugerirReporte($order, $guardados)
                 . ($nota !== '' ? '<div style="padding:12px 14px;background:#f8fafc;border-left:4px solid #0e7490;border-radius:6px;font-size:14px;line-height:1.6;white-space:pre-wrap">' . opuEsc($nota) . '</div>' : '')
                 . '<p style="font-size:13px;color:#64748b;margin:12px 0 0">La nota es interna. Para contarle algo al cliente, usa «Compartir con el cliente» en el expediente.</p>'
-                . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']))));
+                . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', $operatorName . ' envió una actualización'));
 
         if ($visibles && !empty($order['customer_email'])) {
             $n = count($visibles);
@@ -495,17 +513,39 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
                 $pdo->prepare("INSERT INTO notifications (user_email, type, title, message, link) VALUES (?, 'expediente_files', ?, ?, ?)")
                     ->execute([$order['customer_email'], 'Novedades de tu lancha', $msg, '/panel/#/expedientes?id=' . intval($order['id'])]);
             } catch (\Throwable $e) { /* sin tabla de notificaciones */ }
-            $nombre = explode(' ', trim((string) ($order['customer_name'] ?? '')))[0];
+            $nombre = impNombreSaludo($order);
             $svc->sendExpedienteFilesEmail($order['customer_email'], $nombre, [
                 'order_number' => $order['order_number'] ?? '',
+                'order_id' => intval($order['id']),
                 'files' => $visibles,
                 'description' => $msg,
                 'file_count' => $n,
+                // Es la lancha que se está comprando, no «documentos»: que el correo lo diga.
+                'asunto' => 'Fotos y videos de tu lancha desde Estados Unidos: ' . $titulo,
+                'etiqueta' => 'Desde Estados Unidos',
+                'titulo_correo' => $titulo,
+                'etiqueta_nota' => 'Novedades de tu lancha',
+                'boton' => 'Ver fotos y videos en mi panel',
             ]);
         }
     } catch (\Throwable $e) {
         error_log('opuAvisarActualizacion: ' . $e->getMessage());
     }
+}
+
+/**
+ * Si llega un PDF mientras la inspección espera su reporte, en el correo al
+ * equipo va el paso para cargarlo como reporte del cliente (se traduce al
+ * español y el cliente decide). Los PDF de David no se publican solos.
+ */
+function opuSugerirReporte($order, $guardados) {
+    if (impEtapaInspeccion($order) !== 'coordinando') return '';
+    $pdfs = array_values(array_filter($guardados, function ($g) { return ($g['mime_type'] ?? '') === 'application/pdf'; }));
+    if (!$pdfs) return '';
+    return '<div style="margin:12px 0 0;padding:12px 14px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;font-size:14px;line-height:1.6">'
+        . '<strong>¿Es el reporte de la inspección?</strong> (' . opuEsc($pdfs[0]['original_name']) . ')<br>'
+        . 'Cárgalo para el cliente: en el expediente, Operación → hito «Inspección técnica» → <em>Cargar reporte</em> → <em>Usar uno del expediente</em>. '
+        . 'Se traduce al español solo y al cliente le llega el aviso para revisarlo y decidir.</div>';
 }
 
 /** El equipo comparte una actualización con el cliente, con su propio texto. */
@@ -533,7 +573,7 @@ function opuCompartir($pdo, $updateId, $texto) {
         try {
             require_once __DIR__ . '/email_service.php';
             $link = impLeerLink($pdo, $o['id'], $o['chosen_link_id'] ?? 0);
-            (new EmailService())->sendNovedadImportacion($o['customer_email'], explode(' ', trim((string) ($o['customer_name'] ?? '')))[0], [
+            (new EmailService())->sendNovedadImportacion($o['customer_email'], impNombreSaludo($o), [
                 'titulo' => impTituloLancha($link), 'order_number' => $o['order_number'] ?? '', 'order_id' => intval($o['id']), 'texto' => $texto,
             ]);
         } catch (\Throwable $e) {
@@ -759,7 +799,10 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
         if (!isset($in['revision'], $in['request_id'])) { http_response_code(400); echo json_encode(['error' => 'Se requiere la versión de la confirmación revisada']); exit; }
         $error = opuPriceReview($pdo, $o, $in['request_id'], $in['revision'], $sesion['email'] ?? $sesion['sub'] ?? 'equipo');
         if ($error) { http_response_code(409); echo json_encode(['error' => $error]); exit; }
-        echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, $o)]);
+        // Si el cliente ya había aprobado el reporte, ahora sí se marca la inspección (y sale el Pago 2).
+        require_once __DIR__ . '/orders_api.php';
+        $pagoAprobacion = impAprobacionPendiente($pdo, $o['id']);
+        echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, opuOrden($pdo, $o['id'])), 'inspeccion_aprobada' => (bool) $pagoAprobacion, 'pago' => $pagoAprobacion && !empty($pagoAprobacion['id']) ? $pagoAprobacion : null]);
         exit;
     }
     if ($r === 'admin_pedir' && $_SERVER['REQUEST_METHOD'] === 'POST') {

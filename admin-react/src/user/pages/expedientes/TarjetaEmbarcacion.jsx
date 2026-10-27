@@ -22,10 +22,12 @@ function ordinal(n) {
  * `modoCambio`). `elegida` marca la tarjeta como «Tu elección», sin botón.
  * `onElegirConInspeccion` va en el menú «⋯»: abre el mismo asistente con la
  * inspección técnica preseleccionada (no es un cobro aparte: va incluida en
- * la operación). `noApta` marca la lancha que la inspección recomendó no
- * comprar: queda como referencia, sin botón para elegirla.
+ * la operación). `declinada` marca una lancha que el cliente declinó tras la
+ * inspección: queda como referencia, sin botón para elegirla (el servidor
+ * también la rechaza con 409).
  */
-export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, elegida = false, modoCambio = false, noApta = false }) {
+export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, onMoveUp, onMoveDown, onElegirConInspeccion, onPreviewImage, onElegir, elegida = false, modoCambio = false, declinada = false }) {
+  const noApta = declinada;
   const toast = useToast();
   const [imgError, setImgError] = useState(false);
   const [imgRetry, setImgRetry] = useState(0);
@@ -60,7 +62,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
   return (
     <article
       draggable={!!dragHandlers}
-      aria-label={`${index + 1}. ${title}${noApta ? ' (no apta según inspección)' : elegida ? ' (tu elección)' : ''}`}
+      aria-label={`${index + 1}. ${title}${noApta ? ' (la declinaste tras la inspección)' : elegida ? ' (tu elección)' : ''}`}
       className={cn(
         'relative flex flex-col gap-3 rounded-lg border bg-surface p-4 shadow-card transition-colors duration-150 sm:flex-row sm:gap-4',
         noApta ? 'border-warning-line' : elegida ? 'border-brand-600' : 'border-line',
@@ -121,7 +123,7 @@ export default function TarjetaEmbarcacion({ link, index, total, dragHandlers, o
               <h4 className={cn('text-base font-semibold leading-6 line-clamp-2', vendida || noApta ? 'text-ink-500' : 'text-ink-900')} title={title}>{title}</h4>
               {vendida && <Badge tone="neutral" className="shrink-0">{link.link_status === 'sold' ? 'Vendida' : 'No disponible'}</Badge>}
               {elegida && !noApta && <Badge tone="brand" dot className="shrink-0">Tu elección</Badge>}
-              {noApta && <Badge tone="warning" dot className="shrink-0">No apta según inspección</Badge>}
+              {noApta && <Badge tone="warning" dot className="shrink-0">Declinaste esta lancha tras la inspección</Badge>}
             </div>
             {(specs.length > 0 || fuente) && (
               <p className="mt-1 text-13 text-ink-500">

@@ -126,15 +126,60 @@ export const setImportStep = (orderId, step, done, notifyClient = false) =>
     body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient }),
     timeoutMs: 45000,
   });
-// Resultado de la inspección técnica: 'no_apta' con la nota para el cliente
-// (va en su panel y en el correo), o null para deshacerlo. La aprobada se
-// marca con el hito «inspeccion». Con notify manda correo: plazo largo.
+// El equipo registra que el cliente DECLINÓ la lancha tras la inspección (se
+// lo dijo por teléfono o WhatsApp): 'no_apta' con una nota opcional para él
+// (va en su panel y en el correo), o null para deshacerlo. Que aprobó se
+// registra con el hito «inspeccion». Con notify manda correo: plazo largo.
 export const inspeccionResultado = (orderId, resultado, nota = '', notify = false) =>
   request(`${API_BASE}/orders_api.php?action=admin_inspeccion_resultado`, {
     method: 'POST',
     body: JSON.stringify({ order_id: orderId, resultado: resultado || null, nota, notify_client: !!notify }),
     timeoutMs: 45000,
   });
+
+// El reporte de la inspección (JP, 21-oct-2026: «nosotros cumplimos con
+// cargarlo, pero el cliente es el que toma la decisión»). Se carga el PDF del
+// inspector —o se usa uno que ya está en el expediente, por ejemplo el que
+// mandó David— y el servidor contesta al tiro con la traducción 'pendiente';
+// la hace en segundo plano (1 a 5 minutos) y, si notify, le avisa al cliente
+// al terminar. Multipart por XHR para tener el progreso de la subida.
+// Errores: 400 (no es PDF), 409 (sin inspección o el cliente ya decidió),
+// 413 (muy pesado: el servidor puede cortar sin JSON).
+export function cargarReporteInspeccion(orderId, { archivo = null, fileId = null, resumen = '', notify = true, onProgress } = {}) {
+  const fd = new FormData();
+  fd.append('order_id', orderId);
+  if (fileId) fd.append('file_id', fileId);
+  else if (archivo) fd.append('reporte', archivo, archivo.name);
+  fd.append('resumen', resumen || '');
+  fd.append('notify_client', notify ? '1' : '0');
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/orders_api.php?action=admin_inspeccion_reporte`);
+    xhr.timeout = 180000;
+    const token = getToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (xhr.upload && typeof onProgress === 'function') {
+      xhr.upload.addEventListener('progress', (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); });
+    }
+    xhr.onload = () => {
+      let json = {};
+      try { json = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch { json = {}; }
+      if (xhr.status === 401) { reject(new Error('No autorizado')); return; }
+      if (xhr.status === 413) { reject(Object.assign(new Error(json.error || json.detail || 'El PDF es muy pesado para el servidor (máximo 60 MB).'), { status: 413 })); return; }
+      if (xhr.status < 200 || xhr.status >= 300) { reject(Object.assign(new Error(json.error || json.detail || `Error ${xhr.status}`), { status: xhr.status })); return; }
+      resolve(json);
+    };
+    xhr.onerror = () => reject(new Error('Error de conexion'));
+    xhr.ontimeout = () => reject(new Error('Timeout: la subida tardo demasiado'));
+    xhr.send(fd);
+  });
+}
+// Reintenta la traducción al español cuando quedó en 'error'. 409 si está en curso.
+export const traducirReporteInspeccion = (orderId) =>
+  request(`${API_BASE}/orders_api.php?action=admin_inspeccion_traducir`, { method: 'POST', body: JSON.stringify({ order_id: orderId }), timeoutMs: 45000 });
+// El reporte para el visor: el original (enlace firmado, 1 h) y la traducción
+// en bloques. Lo ve todo el equipo, incluido el agente. 404 si aún no hay.
+export const reporteInspeccion = (orderId) => request(`${API_BASE}/orders_api.php?action=admin_inspeccion_reporte&order_id=${orderId}`);
 
 // Cobros (solicitudes de pago). Crear y cambiar de estado mandan correo al
 // cliente: por eso el plazo largo.

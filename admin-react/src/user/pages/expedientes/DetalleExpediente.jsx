@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports, getMyPaymentRequests, getMyInspections, unchooseLink, pedirDevolucion } from '../../api';
+import { getMyOrderDetail, saveRanking, notifyRanking, getMyFiles, getMyReports, getMyPaymentRequests, getMyInspections, unchooseLink, pedirDevolucion, inspeccionReporte, inspeccionDecision } from '../../api';
 import { useToast } from '../../../shared/components/Toast';
 import { useBreadcrumb } from '../../../shared/lib/page-meta';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { fmtCLP } from '../../../shared/lib/utils';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
 import { sePuedeElegir, linkElegido, pctPago1Comun, planDePagos, cobrosDelExpediente, pagosConCobros } from '../../../shared/lib/importacion';
-import { inspeccionNoApta, devolucionPedida, reporteInspeccionDe } from '../../../shared/lib/inspeccion';
+import { inspeccionDeclinada, devolucionPedida, reporteInspeccionDe, reporteDe, etapaInspeccion, lanchasDeclinadas } from '../../../shared/lib/inspeccion';
 import { faltanDatosImportacion } from '../../../shared/lib/datos-importacion';
 import { PageHeader, Card, Button, StatusBadge, ProcessStepper, Callout, Menu, Avatar, DescriptionList, EmptyState, ErrorState, Skeleton, Lightbox, useConfirm } from '../../../shared/components/UI';
-import { Printer, Search, WhatsAppIcon, Compass, Ship, FileText, Images, FolderOpen, Calendar, User } from '../../../shared/components/Icons';
+import { Printer, Search, WhatsAppIcon, Compass, Ship, FileText, Images, FolderOpen, Calendar, User, CircleCheck } from '../../../shared/components/Icons';
 import { ExpedienteHeader, ExpedienteMetrics, ExpedienteNavigation } from '../../../shared/components/ExpedienteWorkspace';
+import ReporteEspanol from '../../../shared/components/ReporteEspanol';
 import RankingEmbarcaciones from './RankingEmbarcaciones';
+import ModalDeclinar from './ModalDeclinar';
 import SeccionReportes from './SeccionReportes';
 import SeccionArchivos from './SeccionArchivos';
 import TarjetaPartner from './TarjetaPartner';
@@ -39,11 +41,17 @@ function firmaImportacion(ord) {
  * «Elegir esta lancha» en cada tarjeta, que abre AsistenteEleccion (también
  * desde el menú «Elegir con inspección técnica»).
  *
- * Con la inspección no apta (`eleccion.inspection_result`), «Tu importación»
- * ofrece elegir otra lancha (abre «Otras opciones», con la no apta marcada y
- * el Pago 1 abonado a la nueva) o pedir la devolución (`pedirDevolucion`,
- * con confirmación). Los reportes de inspección del cliente se piden para
- * enlazar el de la lancha elegida, si ya está.
+ * La inspección técnica (etapaInspeccion): con el reporte listo
+ * (`eleccion.inspection_report`), se pide el GET del reporte (`reporte`: el
+ * original en inglés y la traducción en bloques) y el cliente lo lee en el
+ * visor compartido (ReporteEspanol) y decide: aprobar (useConfirm →
+ * `inspeccionDecision` → llega el Pago 2) o declinar (ModalDeclinar con
+ * motivo → pasa a 'declinada'). Mientras la traducción esté pendiente se
+ * sondea cada 15 s. Con la lancha declinada, «Tu importación» ofrece elegir
+ * otra (abre «Otras opciones», con las declinadas marcadas y el Pago 1
+ * abonado a la nueva) o pedir la devolución (`pedirDevolucion`, con
+ * confirmación). Los reportes de inspección antiguos (inspection_reports_api)
+ * se piden como respaldo para enlazar el de la lancha elegida.
  */
 export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) {
   const toast = useToast();
@@ -65,6 +73,12 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const [notifying, setNotifying] = useState(false);
   const [deshaciendo, setDeshaciendo] = useState(false);
   const [pidiendoDevolucion, setPidiendoDevolucion] = useState(false);
+  const [reporte, setReporte] = useState(null); // GET user_inspeccion_reporte
+  const [reporteCargando, setReporteCargando] = useState(false);
+  const [reporteError, setReporteError] = useState('');
+  const [visorAbierto, setVisorAbierto] = useState(false);
+  const [modalDeclinar, setModalDeclinar] = useState(false);
+  const [decidiendo, setDecidiendo] = useState(null); // 'aprobar' | 'declinar' | null
   const [lightbox, setLightbox] = useState(null); // { items: [{src, alt, caption, downloadUrl}], index }
   const [asistente, setAsistente] = useState(null); // { link, inspection } mientras el asistente está abierto
   const [modalDatos, setModalDatos] = useState(false); // «Completa tus datos» (elección marcada por el equipo)
@@ -120,6 +134,20 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     } catch { setInspeccionesError('No pudimos actualizar el informe de inspección.'); }
   }, []);
 
+  // El reporte de la inspección que cargó el equipo: el original en inglés y
+  // la traducción al español en bloques. Sólo cuando existe (404 si no).
+  const loadReporte = useCallback(async ({ silencioso = false } = {}) => {
+    if (!silencioso) setReporteCargando(true);
+    try {
+      const data = await inspeccionReporte(orderId);
+      if (data?.success) { setReporte(data); setReporteError(''); }
+    } catch (e) {
+      if (e?.status === 404) setReporte(null);
+      else setReporteError(e?.message || 'No pudimos cargar el reporte');
+    }
+    setReporteCargando(false);
+  }, [orderId]);
+
   const loadDetail = useCallback(async () => {
     try {
       const data = await getMyOrderDetail(orderId);
@@ -133,9 +161,10 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         loadReports(ord);
         if (ord.eleccion) loadPagos();
         if (ord.eleccion?.inspection) loadInspecciones();
-        // Con la inspección no apta, lo que sigue es elegir otra: el ranking
+        if (reporteDe(ord.eleccion)) loadReporte(); else setReporte(null);
+        // Con la lancha declinada, lo que sigue es elegir otra: el ranking
         // parte desplegado.
-        if (inspeccionNoApta(ord.eleccion) && !devolucionPedida(ord.eleccion)) setOtrasAbiertas(true);
+        if (inspeccionDeclinada(ord.eleccion) && !devolucionPedida(ord.eleccion)) setOtrasAbiertas(true);
       } else if (data?.error) {
         setLoadError(String(data.error));
       } else {
@@ -146,7 +175,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       toast?.('No pudimos cargar el expediente', 'error');
     }
     setLoading(false);
-  }, [orderId, toast, loadReports, loadPagos, loadInspecciones]);
+  }, [orderId, toast, loadReports, loadPagos, loadInspecciones, loadReporte]);
 
   const loadFiles = useCallback(async (background = false) => {
     if (background !== true) setFilesLoading(true);
@@ -197,6 +226,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         }
         if (ord.eleccion) loadPagos();
         if (ord.eleccion?.inspection) loadInspecciones();
+        if (cambioEleccion) { if (reporteDe(ord.eleccion)) loadReporte({ silencioso: true }); else setReporte(null); }
         loadReports(ord);
         loadFiles(true);
         if ((cambioEleccion && ord.eleccion) || cambioNovedades) toast?.('Tu importación tiene novedades', 'success');
@@ -205,7 +235,24 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       } finally { polling = false; }
     }, 30000);
     return () => { disposed = true; clearInterval(pollRef.current); };
-  }, [orderId, toast, loadPagos, loadFiles, loadInspecciones, loadReports]);
+  }, [orderId, toast, loadPagos, loadFiles, loadInspecciones, loadReports, loadReporte]);
+
+  // La traducción al español tarda de 1 a 5 minutos: mientras siga pendiente
+  // se pregunta por el reporte cada 15 s, y cuando llega (o falla) se vuelve
+  // a pedir el detalle para que la elección diga lo mismo.
+  const traduccionPendiente = reporteDe(order?.eleccion)?.es_status === 'pendiente' || reporte?.es?.status === 'pendiente';
+  useEffect(() => {
+    if (!traduccionPendiente) return undefined;
+    const t = setInterval(async () => {
+      try {
+        const data = await inspeccionReporte(orderId);
+        if (!data?.success) return;
+        setReporte(data);
+        if (data.es?.status && data.es.status !== 'pendiente') loadDetail();
+      } catch { /* silencioso: se vuelve a intentar en 15 s */ }
+    }, 15000);
+    return () => clearInterval(t);
+  }, [traduccionPendiente, orderId, loadDetail]);
 
   // --- Ranking: arrastrar, flechas, guardar, avisar ---------------------------
   async function doSaveRanking(currentLinks) {
@@ -356,6 +403,62 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
     setPidiendoDevolucion(false);
   }
 
+  // --- El reporte de la inspección: leerlo y decidir ------------------------------
+  function abrirReporte() {
+    setVisorAbierto(true);
+    if (!reporte && !reporteCargando) loadReporte();
+  }
+
+  // Aprobar: se confirma (llega el Pago 2 y se cierra la compra a su nombre)
+  // y el servidor marca el hito «Inspección técnica aprobada» por el cliente.
+  async function handleAprobar(titulo, pago2) {
+    const ok = await confirm({
+      title: '¿Apruebas la inspección y seguimos con la compra?',
+      description: `Con tu aprobación cerramos la compra de ${titulo} con el vendedor, a tu nombre.${pago2 ? ` Te llega el Pago 2 (${fmtCLP(pago2.clp)} · ${pago2.pct}%) para pagarlo cuando puedas.` : ' Te llega el Pago 2 para pagarlo cuando puedas.'}`,
+      detail: ['Es tu decisión y no hay apuro.', 'Si algo del reporte no te cierra, escríbele a tu agente antes de aprobar.'],
+      confirmLabel: 'Sí, apruebo y sigamos',
+      cancelLabel: 'Volver',
+      icon: CircleCheck,
+    });
+    if (!ok) return;
+    setDecidiendo('aprobar');
+    try {
+      const data = await inspeccionDecision(orderId, 'aprobar');
+      if (data?.success) {
+        setVisorAbierto(false);
+        toast?.(data.espera_precio
+          ? 'Listo: aprobaste el reporte. Confirmamos con el vendedor el precio final y te llega el Pago 2.'
+          : data.pago ? `Listo: aprobaste la inspección. Te llegó el Pago 2 (${fmtCLP(data.pago.amount_clp)}).` : 'Listo: aprobaste la inspección. Seguimos con la compra.', 'success');
+        await loadDetail();
+      } else {
+        toast?.(data?.error || 'No pudimos guardar tu decisión', 'error');
+      }
+    } catch (e) {
+      toast?.(e?.message || 'Error de conexión', 'error');
+    }
+    setDecidiendo(null);
+  }
+
+  // Declinar: el modal pide un motivo opcional y explica los dos caminos que
+  // vienen (otra lancha con el Pago 1 abonado, o la devolución).
+  async function confirmarDeclinar(motivo) {
+    setDecidiendo('declinar');
+    try {
+      const data = await inspeccionDecision(orderId, 'declinar', motivo);
+      if (data?.success) {
+        setModalDeclinar(false);
+        setVisorAbierto(false);
+        toast?.('Listo: no sigues con esta lancha. Ahora elige otra o pide la devolución.', 'success');
+        await loadDetail();
+      } else {
+        toast?.(data?.error || 'No pudimos guardar tu decisión', 'error');
+      }
+    } catch (e) {
+      toast?.(e?.message || 'Error de conexión', 'error');
+    }
+    setDecidiendo(null);
+  }
+
   // --- Visor de imágenes --------------------------------------------------------
   const imagenes = files.filter(esImagen);
   // `lista` son archivos del expediente (fotos); `i` el que se abre.
@@ -402,18 +505,26 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const wa = whatsappExpediente(order);
   const completadas = order.status === 'completed' ? Object.fromEntries(ETAPAS_EXPEDIENTE.map(s => [s.num, null])) : {};
 
-  // Inspección no apta: la lancha elegida queda descartada; el cliente elige
+  // Lancha declinada tras la inspección: queda descartada; el cliente elige
   // otra (su Pago 1 pagado se abona a la nueva) o pide la devolución.
-  const noApta = inspeccionNoApta(eleccion);
+  const noApta = inspeccionDeclinada(eleccion);
   const devolucion = devolucionPedida(eleccion);
-  const pago1Elegida = elegido ? pagosConCobros(planDePagos(elegido), cobrosDelExpediente(pagos, order.id)).pagos.find(p => p.n === 1) || null : null;
+  const etapaInsp = etapaInspeccion(eleccion);
+  const pagosElegida = elegido ? pagosConCobros(planDePagos(elegido), cobrosDelExpediente(pagos, order.id)) : null;
+  const pago1Elegida = pagosElegida?.pagos.find(p => p.n === 1) || null;
+  const pago2Elegida = pagosElegida?.pagos.find(p => p.n === 2) || null;
   const pago1Abonado = noApta && pago1Elegida?.estado === 'pagado';
+  const tituloElegida = elegido ? tituloEmbarcacion(elegido) : (eleccion?.title || 'la lancha elegida');
   const reporteInspeccion = eleccion?.inspection ? reporteInspeccionDe(inspecciones, elegido, order) : null;
+  const hayReporteEs = !!reporteDe(eleccion);
+  // Las que ya declinó (declined_link_ids y la elegida si la acaba de
+  // declinar): marcadas y sin «Cambiar a esta lancha». El servidor responde 409.
+  const declinadas = lanchasDeclinadas(order);
 
   // Qué lanchas se pueden elegir hoy: con anuncio y disponibles, en un
   // expediente abierto, y si ya hay elección, solo mientras se pueda cambiar
-  // (y nunca la que salió no apta en la inspección).
-  const puedeElegir = (l) => !cerrado && sePuedeElegir(l) && (!eleccion || eleccion.client_can_change) && Number(l.id) !== Number(eleccion?.link_id);
+  // (y nunca una que ya declinó tras la inspección).
+  const puedeElegir = (l) => !cerrado && sePuedeElegir(l) && (!eleccion || eleccion.client_can_change) && Number(l.id) !== Number(eleccion?.link_id) && !declinadas.includes(Number(l.id));
   const hayElegibles = activeLinks.some(puedeElegir);
   const otras = eleccion ? activeLinks.filter(l => Number(l.id) !== Number(eleccion.link_id)).length : 0;
   let tituloOtras;
@@ -492,6 +603,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           files={files}
           datosPendientes={datosPendientes}
           reporteInspeccion={reporteInspeccion}
+          reporte={reporte}
           onCompletarDatos={() => setModalDatos(true)}
           onCambiar={handleCambiar}
           onDeshacer={handleDeshacer}
@@ -499,6 +611,10 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           onElegirOtra={handleCambiar}
           onPedirDevolucion={() => handlePedirDevolucion(pago1Elegida)}
           pidiendoDevolucion={pidiendoDevolucion}
+          onLeerReporte={hayReporteEs ? abrirReporte : undefined}
+          onAprobar={() => handleAprobar(tituloElegida, pago2Elegida)}
+          onDeclinar={() => setModalDeclinar(true)}
+          decidiendo={decidiendo}
           onPreviewImage={abrirFotoEmbarcacion}
           onPreviewFiles={abrirFotos}
         />
@@ -569,7 +685,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
               onElegir={(l) => setAsistente({ link: l })}
               puedeElegir={puedeElegir}
               eleccion={eleccion}
-              noAptaId={noApta ? eleccion.link_id : null}
+              declinadasIds={declinadas}
               titulo={tituloOtras}
               descripcion={descripcionOtras}
               colapsable={!!eleccion}
@@ -586,10 +702,50 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
             </Card>
           )}</div>
 
-          <SeccionReportes reports={reports} />
+          <SeccionReportes
+            reports={reports}
+            inspeccion={hayReporteEs && (etapaInsp === 'aprobada' || etapaInsp === 'declinada') ? {
+              titulo: tituloElegida,
+              at: reporteDe(eleccion).at,
+              es_status: reporte?.es?.status || reporteDe(eleccion).es_status,
+              original: reporte?.original || null,
+              onLeer: abrirReporte,
+            } : null}
+          />
           <SeccionArchivos id="archivos" files={files} onPreview={abrirFotoArchivo} loading={filesLoading} error={filesError} onRefresh={loadFiles} />
         </div>
       </div>
+
+      {/* El reporte en español (visor compartido con el admin). Con el reporte
+          listo, el pie lleva la decisión; después, sólo cerrar. */}
+      <ReporteEspanol
+        open={visorAbierto}
+        onClose={() => setVisorAbierto(false)}
+        data={reporte}
+        loading={reporteCargando}
+        error={reporteError || null}
+        onRetry={() => loadReporte()}
+        footer={etapaInsp === 'reporte_listo' ? (
+          <>
+            <Button variant="secondary" onClick={() => setModalDeclinar(true)} disabled={decidiendo === 'aprobar'} loading={decidiendo === 'declinar'} className="w-full sm:w-auto">No quiero seguir con esta lancha</Button>
+            <Button icon={CircleCheck} onClick={() => handleAprobar(tituloElegida, pago2Elegida)} loading={decidiendo === 'aprobar'} disabled={decidiendo === 'declinar'} className="w-full sm:w-auto">Apruebo, sigamos con la compra</Button>
+          </>
+        ) : (
+          <Button variant="secondary" onClick={() => setVisorAbierto(false)}>Cerrar</Button>
+        )}
+      />
+
+      {/* Se monta solo abierto: cada vez parte con el motivo en blanco. */}
+      {modalDeclinar && (
+        <ModalDeclinar
+          open
+          titulo={tituloElegida}
+          pago1={pago1Elegida}
+          loading={decidiendo === 'declinar'}
+          onClose={() => setModalDeclinar(false)}
+          onConfirmar={confirmarDeclinar}
+        />
+      )}
 
       <Lightbox
         open={!!lightbox}

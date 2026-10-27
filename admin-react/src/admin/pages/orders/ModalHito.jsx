@@ -9,10 +9,12 @@ import { etapaPorEleccion, pagoQueGatilla } from '../../../shared/lib/importacio
  * la etapa del expediente se mueve con este hito y si crea el Pago 2 o el
  * Pago 3 (JP: inspección aprobada / lancha en el puerto de EE. UU.).
  *
- * `puedeNoApta`: en el hito de inspección, recuerda que marcarlo hecho es
- * «apta» y que el otro resultado va por «Marcar no apta» (admin y soporte).
+ * El hito de inspección es distinto: el equipo carga el reporte y decide EL
+ * CLIENTE desde su panel (JP, 21-oct-2026). Marcarlo hecho desde aquí es
+ * registrar por él que aprobó (se lo dijo por teléfono o WhatsApp), así que
+ * el modal lo dice con esas palabras. `conReporte`: si ya hay reporte cargado.
  */
-export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, puedeNoApta = false }) {
+export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, conReporte = false }) {
   const [notify, setNotify] = useState(true);
   const [guardando, setGuardando] = useState(false);
   if (!hito) return null;
@@ -32,28 +34,37 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
     }
   }
 
+  const inspeccion = hito.id === 'inspeccion';
+
   return (
     <Modal
       open={open}
       onClose={guardando ? undefined : onClose}
-      title={`¿Marcar «${hito.corto}» como hecho?`}
+      title={inspeccion ? '¿Registrar que el cliente aprobó la inspección?' : `¿Marcar «${hito.corto}» como hecho?`}
       size="sm"
       footer={(
         <>
           <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-          <Button onClick={confirmar} loading={guardando} data-autofocus>Marcar hecho</Button>
+          <Button onClick={confirmar} loading={guardando} data-autofocus>{inspeccion ? 'Registrar que aprobó' : 'Marcar hecho'}</Button>
         </>
       )}
     >
       <div className="space-y-4">
-        <p className="text-sm text-ink-700">
-          <span className="font-medium text-ink-900">{hito.label}.</span> Queda con la fecha de hoy y el cliente lo ve en su importación.
-          {mueve && <> La etapa del expediente pasa a <span className="font-medium text-ink-900">{mueve}</span>.</>}
-        </p>
-        {hito.id === 'inspeccion' && puedeNoApta && (
-          <p className="text-13 text-ink-500">
-            Marcarlo hecho significa que la inspección fue favorable (apta). Si el reporte recomienda no comprar, cancela y usa «Marcar no apta» en el menú del hito.
+        {inspeccion ? (
+          <p className="text-sm text-ink-700">
+            <span className="font-medium text-ink-900">Inspección técnica aprobada por el cliente.</span> Para cuando te lo dijo por teléfono o WhatsApp: normalmente aprueba o declina él mismo desde su panel{conReporte ? ', con el reporte a la vista' : ''}. Queda con la fecha de hoy.
+            {mueve && <> La etapa del expediente pasa a <span className="font-medium text-ink-900">{mueve}</span>.</>}
           </p>
+        ) : (
+          <p className="text-sm text-ink-700">
+            <span className="font-medium text-ink-900">{hito.label}.</span> Queda con la fecha de hoy y el cliente lo ve en su importación.
+            {mueve && <> La etapa del expediente pasa a <span className="font-medium text-ink-900">{mueve}</span>.</>}
+          </p>
+        )}
+        {inspeccion && !conReporte && (
+          <Callout tone="warning" compact>
+            Todavía no hay reporte cargado. Si lo tienes, cancela y cárgalo primero: así el cliente lo conserva en inglés y en español.
+          </Callout>
         )}
         {nPago > 0 && (
           <Callout tone="info" compact title={`Se crea el Pago ${nPago}`}>

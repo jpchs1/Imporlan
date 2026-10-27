@@ -934,7 +934,9 @@ BASE64;
 
     public function sendExpedienteFilesEmail($userEmail, $firstName, $fileData) {
         $orderNumber = $fileData['order_number'] ?? 'N/A';
-        $subject = 'Nuevos documentos en tu Expediente ' . $orderNumber . ' - Imporlan';
+        $subject = !empty($fileData['asunto'])
+            ? $fileData['asunto'] . ' · ' . $orderNumber . ' - Imporlan'
+            : 'Nuevos documentos en tu Expediente ' . $orderNumber . ' - Imporlan';
         $htmlContent = $this->getExpedienteFilesTemplate($firstName, $fileData);
 
         return $this->sendEmail($userEmail, $subject, $htmlContent, 'expediente_files', $fileData);
@@ -985,7 +987,7 @@ BASE64;
      * Send payment request email to user (new request created)
      */
     public function sendPaymentRequestEmail($userEmail, $firstName, $requestData) {
-        $subject = 'Nueva solicitud de pago - Imporlan';
+        $subject = 'Nueva solicitud de pago: ' . ($requestData['title'] ?? 'Imporlan') . ' - Imporlan';
         $htmlContent = $this->getPaymentRequestTemplate($firstName, $requestData);
         
         $this->sendInternalNotification('payment_request_created', [
@@ -1082,7 +1084,7 @@ BASE64;
             ? 'Pagas el ' . $pago1Txt . ' para iniciar la operación. Lo encuentras en Pagos de tu panel, con tarjeta o transferencia.'
             : 'Te enviamos el Pago 1 de la operación apenas esté lista tu cotización final.';
         $pasos[] = 'Tu agente confirma con el vendedor que sigue disponible y el precio final.';
-        if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica (va incluida en la operación) y te mandamos el reporte antes de comprar.';
+        if (!empty($d['con_inspeccion'])) $pasos[] = 'Coordinamos la inspección técnica (va incluida en la operación). Te mandamos el reporte, en inglés y en español, y tú decides si seguimos con la compra.';
         $pasos[] = 'Compra, transporte, aduana y entrega: lo sigues paso a paso en tu panel.';
 
         $content = '
@@ -1168,11 +1170,21 @@ BASE64;
         $orderNumber = (string) ($d['order_number'] ?? '');
         $frases = [
             'disponibilidad' => 'El vendedor confirmó que ' . $titulo . ' sigue disponible y el precio. Seguimos con el siguiente paso.',
-            'inspeccion' => 'La inspección técnica de ' . $titulo . ' salió aprobada. El reporte queda en tu panel.',
+            'inspeccion' => 'Aprobaste el reporte de la inspección técnica de ' . $titulo . '. El reporte, en inglés y en español, queda en tu panel.',
             'compra' => 'Cerramos la compra de ' . $titulo . ' en Estados Unidos.',
             'transporte' => $titulo . ' ya va en camino a Chile. Puedes seguir el viaje desde tu panel.',
             'aduana' => $titulo . ' llegó a Chile y está en aduana para la internación.',
             'entrega' => $titulo . ' fue entregada. ¡Que la disfrutes!',
+        ];
+        // Lo que viene después de cada hito, en una línea (sin el pago, que va en su bloque).
+        $sigue = [
+            'disponibilidad' => !empty($d['con_inspeccion'])
+                ? 'Ahora coordinamos la inspección técnica. Te mandamos el reporte, en inglés y en español, para que decidas si seguimos.'
+                : 'Con el Pago 2 cerramos la compra con el vendedor, a tu nombre.',
+            'inspeccion' => 'Con el Pago 2 cerramos la compra con el vendedor, a tu nombre.',
+            'compra' => 'Ahora coordinamos el retiro y el traslado al puerto en Estados Unidos.',
+            'transporte' => 'Te avisamos cuando llegue a Chile para la internación.',
+            'aduana' => 'Te avisamos apenas esté lista para la entrega.',
         ];
         $hito = (string) ($d['hito'] ?? '');
         $label = (string) ($d['hito_label'] ?? 'Avance de tu importación');
@@ -1187,7 +1199,7 @@ BASE64;
         $content = '
             <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Avance de tu importación') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($label) . '</h2>
-            <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . '</p>'
+            <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . (isset($sigue[$hito]) ? '<br><span style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($sigue[$hito]) . '</span>' : '') . '</p>'
             . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '');
         // Con el hito sale el pago que corresponde (Pago 2 o Pago 3): el botón lleva a pagarlo.
         $cobro = $d['cobro'] ?? null;
@@ -1229,20 +1241,46 @@ BASE64;
         $c = $this->colors;
         $titulo = (string) ($d['titulo'] ?? 'la lancha');
         $orderNumber = (string) ($d['order_number'] ?? '');
-        $subject = 'Resultado de la inspección: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $subject = 'No seguimos con ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
         $nota = trim((string) ($d['nota'] ?? ''));
         $opciones = [
             'Elegir otra lancha de tu ranking' . (!empty($d['pago1_pagado']) ? ': tu Pago 1 se abona a la nueva.' : '.'),
             'O, si prefieres, pedir la devolución' . (!empty($d['pago1_pagado']) ? ' del Pago 1 (se descuentan los costos de terceros ya incurridos, como la inspección).' : '.'),
         ];
         $content = '
-            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('warning', 'Inspección no favorable') . '</div>
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('warning', 'No seguimos con esta lancha') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
-            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', la inspección técnica recomienda no comprar esta lancha. Para eso existe la inspección: te ahorraste un problema a futuro.</p>'
-            . ($nota !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['warning'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Lo que encontró la inspección:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', según el reporte de la inspección técnica, no seguimos con esta lancha. Para eso existe la inspección: te ahorraste un problema a futuro.</p>'
+            . ($nota !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['warning'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Nota del equipo:</strong><br>' . nl2br(htmlspecialchars($nota)) . '</div>' : '')
             . $this->impListaPasos('Lo que puedes hacer', $opciones)
             . '<div style="margin-top: 24px;">' . $this->getButton('Ver opciones en mi panel', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
         return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'inspeccion_no_apta', ['order_number' => $orderNumber]);
+    }
+
+    /**
+     * El reporte de la inspección está listo: el cliente lo revisa (en inglés
+     * y en español) y decide si sigue con la compra (JP, 21-oct-2026).
+     */
+    public function sendInspeccionReporte($userEmail, $firstName, $d) {
+        $c = $this->colors;
+        $titulo = (string) ($d['titulo'] ?? 'la lancha');
+        $orderNumber = (string) ($d['order_number'] ?? '');
+        $subject = 'Ya está el reporte de la inspección: ' . $titulo . ($orderNumber ? ' (' . $orderNumber . ')' : '') . ' - Imporlan';
+        $resumen = trim((string) ($d['resumen'] ?? ''));
+        $pasos = [
+            'Revisa el reporte en tu panel: ' . (!empty($d['en_espanol']) ? 'está el original del inspector, en inglés, y su traducción completa al español, que puedes descargar.' : 'está el original del inspector, en inglés; la traducción al español te queda en el panel en unos minutos.'),
+            'Si te parece bien, apruébalo y seguimos con la compra: te llega el Pago 2.',
+            'Si prefieres no seguir con esta lancha, eliges otra de tu ranking' . (!empty($d['pago1_pagado']) ? ' (tu Pago 1 se abona a la nueva)' : '') . ' o pides la devolución.',
+        ];
+        $content = '
+            <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Reporte de inspección listo') . '</div>
+            <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($titulo) . '</h2>
+            <p style="margin: 0 0 18px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . ', el inspector ya revisó la lancha y está su reporte. Así conoces su estado real antes de comprarla. Tú decides si seguimos.</p>'
+            . ($resumen !== '' ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #f8fafc; border-left: 4px solid ' . $c['primary'] . '; border-radius: 6px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Lo que vemos en el reporte:</strong><br>' . nl2br(htmlspecialchars($resumen)) . '</div>' : '')
+            . $this->impListaPasos('Qué sigue', $pasos)
+            . '<p style="margin: 14px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center; line-height: 1.6;">¿Dudas sobre algo del reporte? Respóndenos este correo o escríbenos por el chat del panel antes de decidir.</p>'
+            . '<div style="margin-top: 24px;">' . $this->getButton('Revisar el reporte y decidir', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';
+        return $this->sendEmail($userEmail, $subject, $this->getBaseTemplate($content, $subject), 'inspeccion_reporte', ['order_number' => $orderNumber]);
     }
 
     protected function impUrlPanel($orderId) {
@@ -3217,11 +3255,11 @@ BASE64;
 
         $content = '
             <div style="text-align: center; margin-bottom: 25px;">
-                ' . $this->getStatusBadge('info', 'Documentos Disponibles') . '
+                ' . $this->getStatusBadge('info', $fileData['etiqueta'] ?? 'Documentos disponibles') . '
             </div>
 
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 24px; font-weight: 600; text-align: center;">
-                Nuevos documentos en tu Expediente
+                ' . htmlspecialchars($fileData['titulo_correo'] ?? 'Nuevos documentos en tu expediente') . '
             </h2>
             <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center;">
                 Hola ' . htmlspecialchars($firstName) . ', se han subido ' . $fileCount . ' ' . ($fileCount === 1 ? 'archivo' : 'archivos') . ' a tu expediente <strong>' . $orderNumber . '</strong>.
@@ -3230,7 +3268,7 @@ BASE64;
         if ($description) {
             $content .= '
             <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;">
-                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em;">Nota del equipo</p>
+                <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em;">' . htmlspecialchars($fileData['etiqueta_nota'] ?? 'Nota del equipo') . '</p>
                 <p style="margin: 0; font-size: 14px; color: #1e3a5f; line-height: 1.5;">' . $description . '</p>
             </div>';
         }
@@ -3272,7 +3310,7 @@ BASE64;
 
         $content .= '
             <div style="margin: 30px 0;">
-                ' . $this->getButton('Ver Documentos en mi Panel', $this->panelUrl) . '
+                ' . $this->getButton($fileData['boton'] ?? 'Ver documentos en mi panel', !empty($fileData['order_id']) ? $this->panelUrl . '/#/expedientes?id=' . intval($fileData['order_id']) : $this->panelUrl . '/#/documents') . '
             </div>
 
             <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
@@ -3946,11 +3984,12 @@ BASE64;
         $amount = number_format($requestData['amount_clp'] ?? 0, 0, ',', '.');
         $title = htmlspecialchars($requestData['title'] ?? 'Solicitud de pago');
         $description = htmlspecialchars($requestData['description'] ?? '');
-        $createdAt = $requestData['created_at'] ?? date('d/m/Y');
-        
+        $createdAt = !empty($requestData['created_at']) ? strtotime($requestData['created_at']) : time();
+        $nPago = intval($requestData['metadata']['custom_fields']['pago'] ?? 0);
+
         $infoItems= [
             'Monto CLP' => '$' . $amount . ' CLP',
-            'Fecha creacion' => date('d/m/Y', strtotime($createdAt))
+            'Fecha' => date('d/m/Y', $createdAt ?: time())
         ];
         if (!empty($requestData['amount_usd']) && $requestData['amount_usd'] > 0) {
             $infoItems['Monto USD'] = 'USD $' . number_format($requestData['amount_usd'], 2, ',', '.');
@@ -3966,7 +4005,7 @@ BASE64;
             </h2>
             
             <p style="margin: 0 0 25px 0; color: ' . $c['text_muted'] . '; font-size: 15px; text-align: center; line-height: 1.6;">
-                Hola ' . htmlspecialchars($firstName) . ', se ha creado una nueva solicitud de pago para ti.
+                Hola ' . htmlspecialchars($firstName) . ', ' . ($nPago ? 'te toca el Pago ' . $nPago . ' de 3 de tu importación.' : 'tienes una nueva solicitud de pago.') . '
             </p>';
         
         if (!empty($description)) {
@@ -3979,13 +4018,13 @@ BASE64;
         $content .= $this->getInfoCard('Detalles de la solicitud', $infoItems) . '
             
             <div style="margin: 30px 0;">
-                ' . $this->getButton('Ver y Pagar', $this->panelUrl . '/#payment-requests') . '
+                ' . $this->getButton('Ver y pagar', $this->panelUrl . '/#/payments' . (!empty($requestData['id']) ? '?pagar=' . rawurlencode($requestData['id']) : '')) . '
             </div>
             
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; margin: 25px 0; padding: 20px;">
                 <tr>
                     <td style="padding: 20px; text-align: center;">
-                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 700;">Metodos de pago disponibles</h3>
+                        <h3 style="margin: 0 0 16px 0; color: ' . $c['text_dark'] . '; font-size: 15px; font-weight: 700;">Métodos de pago disponibles</h3>
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
                             <tr>
                                 <td align="center" style="padding: 8px 16px;">
@@ -3998,7 +4037,7 @@ BASE64;
                                     <span style="display: inline-block; padding: 6px 16px; background: #003087; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">PayPal</span>
                                 </td>
                                 <td align="center" style="padding: 8px 16px;">
-                                    <span style="display: inline-block; padding: 6px 16px; background: #16a34a; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">Transferencia Bancaria</span>
+                                    <span style="display: inline-block; padding: 6px 16px; background: #16a34a; color: #fff; border-radius: 8px; font-size: 13px; font-weight: 700;">Transferencia</span>
                                 </td>
                             </tr>
                         </table>
@@ -4024,6 +4063,14 @@ BASE64;
         $methodLabels = ['mercadopago' => 'MercadoPago', 'webpay' => 'WebPay', 'paypal' => 'PayPal', 'manual' => 'Manual', 'transferencia_bancaria' => 'Transferencia Bancaria', 'transferencia' => 'Transferencia Bancaria'];
         $method = $paymentData['payment_method'] ?? 'N/A';
         $methodLabel = $methodLabels[$method] ?? ucfirst($method);
+        // Pagos de la importación (Pago 1, 2 o 3): qué pasa ahora y el botón a «Tu importación».
+        $nPago = intval($requestData['metadata']['custom_fields']['pago'] ?? 0);
+        $orderId = intval($requestData['metadata']['order_id'] ?? 0);
+        $siguiente = [
+            1 => 'Con tu Pago 1 partimos: confirmamos con el vendedor la disponibilidad y el precio, y coordinamos los pasos siguientes. Lo sigues en tu panel.',
+            2 => 'Con tu Pago 2 cerramos la compra con el vendedor, a tu nombre. Te avisamos apenas esté cerrada.',
+            3 => 'Con tu Pago 3 seguimos con el embarque, la aduana y la entrega en Chile. Te avisamos de cada paso.',
+        ][$nPago] ?? 'Tu pago quedó registrado.';
         
         $content = '
             <div style="text-align: center; margin-bottom: 25px;">
@@ -4040,7 +4087,7 @@ BASE64;
             
             ' . $this->getInfoCard('Detalles del pago', [
                 'Monto pagado' => '$' . $amount . ' CLP',
-                'Metodo de pago' => $methodLabel,
+                'Método de pago' => $methodLabel,
                 'Referencia' => $paymentData['payment_id'] ?? 'N/A',
                 'Fecha' => date('d/m/Y H:i', strtotime($paymentData['paid_at'] ?? 'now'))
             ]) . '
@@ -4049,17 +4096,17 @@ BASE64;
                 <tr>
                     <td style="padding: 20px; text-align: center;">
                         <p style="margin: 0; color: ' . $c['success'] . '; font-size: 16px; font-weight: 700;">Gracias por tu pago</p>
-                        <p style="margin: 8px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px;">Tu solicitud ha sido completada correctamente.</p>
+                        <p style="margin: 8px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; line-height: 1.6;">' . htmlspecialchars($siguiente) . '</p>
                     </td>
                 </tr>
             </table>
             
             <div style="margin: 30px 0;">
-                ' . $this->getButton('Ver mis productos', $this->panelUrl . '/#myproducts') . '
+                ' . $this->getButton($orderId ? 'Ver mi importación' : 'Ver mis pagos', $orderId ? $this->panelUrl . '/#/expedientes?id=' . $orderId : $this->panelUrl . '/#/payments') . '
             </div>
             
             <p style="margin: 20px 0 0 0; color: ' . $c['text_muted'] . '; font-size: 13px; text-align: center;">
-                Si tienes alguna pregunta, contactanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
+                Si tienes alguna pregunta, contáctanos a <a href="mailto:contacto@imporlan.cl" style="color: ' . $c['primary'] . '; text-decoration: none;">contacto@imporlan.cl</a>
             </p>';
         
         return $this->getBaseTemplate($content, 'Pago Confirmado - Imporlan');

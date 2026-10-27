@@ -65,8 +65,18 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   Si el cliente eligió sin inspección, se cobra al confirmar con el vendedor
   la disponibilidad, el precio y la fecha de compra o retiro. **Pago 3**
   llega con «En camino a Chile» (foto de la lancha en el puerto de EE. UU.).
-- **Inspección no apta** (`admin_inspeccion_resultado`): el cliente elige
-  otra lancha (el Pago 1 se abona) o pide la devolución. Nunca se le obliga.
+- **Inspección: el equipo carga el reporte, el cliente decide** (JP: «nosotros
+  cumplimos con cargarlo, pero el cliente es el que toma la decisión»).
+  - El equipo carga el reporte con `admin_inspeccion_reporte`. El PDF del
+    inspector viene en inglés y se traduce completo al español con Claude
+    (`impTraducirReporte`, llave `IMPORLAN_WA_ANTHROPIC`).
+  - El cliente lo lee y lo descarga en español, y decide con
+    `user_inspeccion_decision`:
+    - **Aprueba:** se cobra el Pago 2.
+    - **Declina:** elige otra lancha (el Pago 1 se abona) o pide la
+      devolución.
+  - La lancha declinada no se vuelve a elegir. Nunca se le obliga nada al
+    cliente.
 - **David Morris** (ddm4me25@gmail.com) lleva la operación en EE. UU. Le
   llegan correos en inglés pidiendo la actualización que toca. Contesta en
   un link privado por expediente (`api/operador_usa.php?r=portal`), con nota

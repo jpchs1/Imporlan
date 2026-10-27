@@ -318,7 +318,7 @@ export function camposDatosImportacion(datos, campos) {
  */
 export function cuandoLlegaPago(n, eleccion) {
   if (n === 1) return 'Llega al elegir la lancha, apenas esté publicada tu cotización final';
-  if (n === 2) return eleccion?.inspection ? 'Llega cuando se apruebe la inspección técnica' : 'Llega cuando se confirmen con el vendedor la disponibilidad, el precio y la fecha de compra o retiro';
+  if (n === 2) return eleccion?.inspection ? 'Llega cuando apruebes el reporte de la inspección y quede confirmado el precio final con el vendedor' : 'Llega cuando se confirmen con el vendedor la disponibilidad, el precio y la fecha de compra o retiro';
   if (n === 3) return 'Llega cuando la lancha esté en el puerto de EE. UU., lista para viajar a Chile';
   return 'Te lo enviamos cuando corresponda';
 }

@@ -134,6 +134,20 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
         case 'user_pedir_devolucion':
             userPedirDevolucion(requireUserAuthShared());
             break;
+        case 'admin_inspeccion_reporte':
+            // GET: ver el reporte y su traducción · POST: cargarlo (sólo el equipo en Chile).
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') adminCargarReporte(requireAdminAuthShared(['admin', 'support']));
+            else verReporteInspeccion(requireAdminAuth(), true);
+            break;
+        case 'admin_inspeccion_traducir':
+            adminTraducirReporte(requireAdminAuthShared(['admin', 'support']));
+            break;
+        case 'user_inspeccion_reporte':
+            verReporteInspeccion(requireUserAuthShared(), false);
+            break;
+        case 'user_inspeccion_decision':
+            userInspeccionDecision(requireUserAuthShared());
+            break;
         case 'admin_set_import_step':
             adminSetImportStep(requireAdminAuth());
             break;
@@ -565,6 +579,9 @@ function userGetOrderDetail($authPayload = null) {
         $order['datos_importacion'] = ['completo' => impDatosCompletos(impFilaDatos($pdo, $orderId), !impTieneEleccion($order))];
         // El link privado de David y su estado no son del cliente.
         unset($order['usa_token'], $order['usa_link_id'], $order['usa_requested_at'], $order['usa_updated_at'], $order['admin_notes']);
+        // La traducción del reporte va por user_inspeccion_reporte; aquí sólo las lanchas que ya declinó.
+        $order['declined_link_ids'] = impLanchasDeclinadas($order);
+        unset($order['inspection_es'], $order['inspection_es_error']);
 
         echo json_encode(['success' => true, 'order' => $order]);
     } catch (PDOException $e) {
@@ -705,6 +722,8 @@ function adminGetOrderDetail($sesion = null) {
         // Auto-detect timeline step from real data
         $order['timeline_step'] = computeTimelineStep($pdo, $order);
         $order['eleccion'] = impEleccionParaPanel($order);
+        $order['declined_link_ids'] = impLanchasDeclinadas($order);
+        unset($order['inspection_es']);
 
         // Lookup secondary email from user_secondary_emails table
         $order['secondary_email'] = null;
@@ -2726,10 +2745,7 @@ function impPrecioChileTexto($link) {
 }
 
 function impPrimerNombre($order) {
-    $n = trim((string) ($order['customer_name'] ?? ''));
-    if ($n === '') return '';
-    $partes = preg_split('/\s+/u', $n);
-    return $partes[0];
+    return impNombreSaludo($order);
 }
 
 /** Lo que el panel y los correos necesitan del Pago 1 ($res de impSolicitarPago1). */
@@ -2852,8 +2868,9 @@ function userChooseLink($sesion, $input = null) {
             $antes = impTituloLancha(impLeerLink($pdo, $orderId, $order['chosen_link_id']));
         }
 
-        $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'cliente', chosen_inspection = ?, chosen_note = ?, import_steps = NULL, inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL WHERE id = ?")
-            ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, $orderId]);
+        // Si la anterior quedó declinada tras la inspección, ya no se vuelve a elegir.
+        $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'cliente', chosen_inspection = ?, chosen_note = ?, import_steps = NULL, " . impSqlLimpiarInspeccion() . ", declined_link_ids = ? WHERE id = ?")
+            ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, impDeclinadasAlCambiar($order), $orderId]);
         // El Pago 1 (7% de la operación) se pide al elegir; la inspección no se cobra aparte.
         $pago1 = impSolicitarPago1($order, $link, 'sistema · elección del cliente');
         // Sin cotización publicada no hay Pago 1 nuevo, pero el pendiente de la lancha anterior no sirve.
@@ -2898,7 +2915,7 @@ function userUnchooseLink($sesion, $input = null) {
         if (impPago1Pagado($orderId)) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
 
         $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
-        $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL WHERE id = ?")
+        $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, " . impSqlLimpiarInspeccion() . " WHERE id = ?")
             ->execute([$orderId]);
         logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id']), 'titulo' => impTituloLancha($link), 'por' => 'cliente'], $sesion['sub'] ?? null);
         impAnularPago1Pendiente($orderId, 'Deshizo la elección de lancha');
@@ -2940,7 +2957,7 @@ function adminChooseLink($admin, $input = null) {
         $quien = $admin['email'] ?? $admin['sub'] ?? 'admin';
 
         if ($linkId === 0) {
-            $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL WHERE id = ?")
+            $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, " . impSqlLimpiarInspeccion() . " WHERE id = ?")
                 ->execute([$orderId]);
             logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id'] ?? 0), 'por' => 'equipo', 'admin' => $quien]);
             impAnularPago1Pendiente($orderId, 'El equipo quitó la elección de lancha');
@@ -2959,8 +2976,8 @@ function adminChooseLink($admin, $input = null) {
             $pdo->prepare("UPDATE orders SET chosen_inspection = ?, chosen_note = ? WHERE id = ?")
                 ->execute([$conInspeccion ? 1 : 0, $nota, $orderId]);
         } else {
-            $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'equipo', chosen_inspection = ?, chosen_note = ?, import_steps = NULL, inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL WHERE id = ?")
-                ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, $orderId]);
+            $pdo->prepare("UPDATE orders SET chosen_link_id = ?, chosen_at = NOW(), chosen_by = 'equipo', chosen_inspection = ?, chosen_note = ?, import_steps = NULL, " . impSqlLimpiarInspeccion() . ", declined_link_ids = ? WHERE id = ?")
+                ->execute([$linkId, $conInspeccion ? 1 : 0, $nota, impDeclinadasAlCambiar($order), $orderId]);
         }
         logOrderEvent($pdo, $orderId, $misma ? 'eleccion_editada' : 'lancha_elegida', [
             'link_id' => $linkId, 'titulo' => impTituloLancha($link), 'inspeccion' => $conInspeccion, 'por' => 'equipo', 'admin' => $quien,
@@ -3006,64 +3023,16 @@ function adminSetImportStep($admin, $input = null) {
             return impResponderError(409, 'Este cliente eligió sin inspección');
         }
 
-        $pasos = impPasos($order);
-        $yaEstaba = isset($pasos[$paso]);
-        if ($hecho && !$yaEstaba && in_array($paso, ['inspeccion', 'compra'], true)) {
+        // Inspección aprobada o compra: antes, el equipo valida la confirmación de precio del coordinador.
+        if ($hecho && !isset(impPasos($order)[$paso]) && in_array($paso, ['inspeccion', 'compra'], true)) {
             $priceError = opuPriceGate($pdo, $paso === 'inspeccion' ? array_merge($order, ['inspection_result' => null]) : $order);
             if ($priceError) return impResponderError(409, $priceError);
         }
-        if ($hecho) { if (!$yaEstaba) $pasos[$paso] = date('Y-m-d H:i:s'); } else unset($pasos[$paso]);
-        // Guardar en el orden de impHitos, para que el JSON se lea igual que la lista.
-        $ordenados = [];
-        foreach ($hitos as $k => $_) if (isset($pasos[$k])) $ordenados[$k] = $pasos[$k];
-
-        $pdo->prepare("UPDATE orders SET import_steps = ? WHERE id = ?")
-            ->execute([$ordenados ? json_encode($ordenados) : null, $orderId]);
-        // Inspección aprobada: deja de valer un «no apta» anterior.
-        if ($paso === 'inspeccion' && $hecho) {
-            $pdo->prepare("UPDATE orders SET inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL WHERE id = ?")->execute([$orderId]);
-        }
-        logOrderEvent($pdo, $orderId, $hecho ? 'hito_importacion' : 'hito_importacion_deshecho', [
-            'hito' => $paso, 'admin' => $admin['email'] ?? $admin['sub'] ?? 'admin',
-        ]);
-
-        // El hito puede gatillar el Pago 2 o el Pago 3 (impPagoPorHito): se crea
-        // solo, con el monto de la cotización publicada, y va en el mismo aviso.
-        $pagoHito = null;
-        $nPago = ($hecho && !$yaEstaba) ? impPagoPorHito($order, $paso) : 0;
-        if ($nPago) {
-            $pagoHito = impSolicitarPago($order, impLeerLink($pdo, $orderId, $order['chosen_link_id']), $nPago, 'sistema · hito ' . $paso);
-            if ($avisar) impAvisarCobroEnChat($pagoHito);
-        }
-
-        $notificado = false;
-        if ($hecho && !$yaEstaba && $avisar && !empty($order['customer_email'])) {
-            try {
-                require_once __DIR__ . '/email_service.php';
-                $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
-                $hechos = [];
-                foreach ($hitos as $k => $h) {
-                    if (!empty($h['solo_con_inspeccion']) && empty($order['chosen_inspection'])) continue;
-                    $hechos[$h['label']] = isset($ordenados[$k]);
-                }
-                $r = (new EmailService())->sendHitoImportacion($order['customer_email'], impPrimerNombre($order), [
-                    'hito' => $paso,
-                    'hito_label' => $hitos[$paso]['label'],
-                    'titulo' => impTituloLancha($link),
-                    'order_number' => $order['order_number'] ?? '',
-                    'order_id' => $orderId,
-                    'hechos' => ['Lancha elegida' => true] + $hechos,
-                    'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
-                        ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,
-                ]);
-                $notificado = !empty($r['success']);
-            } catch (\Throwable $e) {
-                error_log('adminSetImportStep email: ' . $e->getMessage());
-            }
-        }
-
-        // Si lo que sigue es del lado de EE. UU., se le pide a David.
-        $pedidoUsa = ($hecho && !$yaEstaba) ? opuAlMarcarHito($pdo, $orderId, $paso) : false;
+        $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin');
+        $pagoHito = $r['pago'];
+        $nPago = $r['n'];
+        $notificado = $r['notificado'];
+        $pedidoUsa = $r['usa'];
 
         $st->execute([$orderId]);
         $order = $st->fetch(PDO::FETCH_ASSOC);
@@ -3081,6 +3050,75 @@ function adminSetImportStep($admin, $input = null) {
         error_log('adminSetImportStep: ' . $e->getMessage());
         impResponderError(500, 'No se pudo guardar el hito');
     }
+}
+
+/**
+ * Marca (o desmarca) un hito: lo guarda, crea el Pago 2 o 3 si toca
+ * (impPagoPorHito), avisa al cliente y le pide a David lo que sigue.
+ * $por: 'equipo' (admin) o 'cliente' (aprobó el reporte de inspección).
+ */
+function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien) {
+    $orderId = intval($order['id']);
+    $hitos = impHitos();
+    $pasos = impPasos($order);
+    $yaEstaba = isset($pasos[$paso]);
+    if ($hecho) { if (!$yaEstaba) $pasos[$paso] = date('Y-m-d H:i:s'); } else unset($pasos[$paso]);
+    // Guardar en el orden de impHitos, para que el JSON se lea igual que la lista.
+    $ordenados = [];
+    foreach ($hitos as $k => $_) if (isset($pasos[$k])) $ordenados[$k] = $pasos[$k];
+
+    $pdo->prepare("UPDATE orders SET import_steps = ? WHERE id = ?")
+        ->execute([$ordenados ? json_encode($ordenados) : null, $orderId]);
+    // Inspección aprobada: deja de valer un «no apta» anterior.
+    if ($paso === 'inspeccion' && $hecho) {
+        $pdo->prepare("UPDATE orders SET inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, inspection_decided_by = ? WHERE id = ?")->execute([$por, $orderId]);
+    } elseif ($paso === 'inspeccion') {
+        $pdo->prepare("UPDATE orders SET inspection_client_ok_at = NULL, inspection_decided_by = NULL WHERE id = ?")->execute([$orderId]);
+    }
+    logOrderEvent($pdo, $orderId, $hecho ? 'hito_importacion' : 'hito_importacion_deshecho', [
+        'hito' => $paso, 'por' => $por, 'quien' => $quien,
+    ]);
+
+    // El hito puede gatillar el Pago 2 o el Pago 3 (impPagoPorHito): se crea
+    // solo, con el monto de la cotización publicada, y va en el mismo aviso.
+    $pagoHito = null;
+    $nPago = ($hecho && !$yaEstaba) ? impPagoPorHito($order, $paso) : 0;
+    if ($nPago) {
+        $pagoHito = impSolicitarPago($order, impLeerLink($pdo, $orderId, $order['chosen_link_id']), $nPago, 'sistema · hito ' . $paso);
+        if ($avisar) impAvisarCobroEnChat($pagoHito);
+    }
+
+    $notificado = false;
+    if ($hecho && !$yaEstaba && $avisar && !empty($order['customer_email'])) {
+        try {
+            require_once __DIR__ . '/email_service.php';
+            $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+            $hechos = [];
+            foreach ($hitos as $k => $h) {
+                if (!empty($h['solo_con_inspeccion']) && empty($order['chosen_inspection'])) continue;
+                $hechos[$h['label']] = isset($ordenados[$k]);
+            }
+            $r = (new EmailService())->sendHitoImportacion($order['customer_email'], impPrimerNombre($order), [
+                'hito' => $paso,
+                'hito_label' => $hitos[$paso]['label'],
+                'con_inspeccion' => !empty($order['chosen_inspection']),
+                'titulo' => impTituloLancha($link),
+                'order_number' => $order['order_number'] ?? '',
+                'order_id' => $orderId,
+                'hechos' => ['Lancha elegida' => true] + $hechos,
+                'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
+                    ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,
+            ]);
+            $notificado = !empty($r['success']);
+        } catch (\Throwable $e) {
+            error_log('impAplicarHito email: ' . $e->getMessage());
+        }
+    }
+
+    // Si lo que sigue es del lado de EE. UU., se le pide a David.
+    $pedidoUsa = ($hecho && !$yaEstaba) ? opuAlMarcarHito($pdo, $orderId, $paso) : false;
+
+    return ['pago' => $pagoHito, 'n' => $nPago, 'notificado' => $notificado, 'usa' => $pedidoUsa, 'pasos' => $ordenados];
 }
 
 /**
@@ -3169,10 +3207,10 @@ function adminInspeccionResultado($admin, $input = null) {
         if ($noApta) {
             $pasos = impPasos($order);
             unset($pasos['inspeccion']);
-            $pdo->prepare("UPDATE orders SET inspection_result = 'no_apta', inspection_result_at = NOW(), inspection_note = ?, import_steps = ?, refund_requested_at = NULL WHERE id = ?")
+            $pdo->prepare("UPDATE orders SET inspection_result = 'no_apta', inspection_result_at = NOW(), inspection_note = ?, inspection_decided_by = 'equipo', inspection_client_ok_at = NULL, import_steps = ?, refund_requested_at = NULL WHERE id = ?")
                 ->execute([$nota, $pasos ? json_encode($pasos) : null, $orderId]);
         } else {
-            $pdo->prepare("UPDATE orders SET inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, refund_requested_at = NULL WHERE id = ?")->execute([$orderId]);
+            $pdo->prepare("UPDATE orders SET inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, inspection_decided_by = NULL, inspection_client_ok_at = NULL, refund_requested_at = NULL WHERE id = ?")->execute([$orderId]);
         }
         logOrderEvent($pdo, $orderId, $noApta ? 'inspeccion_no_apta' : 'inspeccion_no_apta_deshecha', ['admin' => $admin['email'] ?? 'admin', 'nota' => $nota]);
 
@@ -3249,5 +3287,237 @@ function userPedirDevolucion($sesion, $input = null) {
     } catch (PDOException $e) {
         error_log('userPedirDevolucion: ' . $e->getMessage());
         impResponderError(500, 'No pudimos registrar tu solicitud');
+    }
+}
+
+/**
+ * POST multipart ?action=admin_inspeccion_reporte
+ *   order_id, reporte (PDF) o file_id (un PDF que ya está en el expediente),
+ *   resumen (opcional, en español, del equipo), notify_client (1/0)
+ * El equipo carga el reporte del inspector. El cliente lo ve tal cual y,
+ * cuando termina la traducción automática, también en español. Después él
+ * decide (user_inspeccion_decision). JP: «nosotros cumplimos con cargarlo,
+ * pero el cliente es el que toma la decisión».
+ */
+function adminCargarReporte($admin, $entrada = null, $archivo = null, $mover = 'move_uploaded_file', $enSegundoPlano = true) {
+    $entrada = is_array($entrada) ? $entrada : $_POST;
+    $archivo = $archivo ?? ($_FILES['reporte'] ?? null);
+    if (empty($entrada) && intval($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) return impResponderError(413, 'El PDF es muy pesado para el servidor.');
+    $orderId = intval($entrada['order_id'] ?? 0);
+    $resumen = mb_substr(trim((string) ($entrada['resumen'] ?? '')), 0, 3000);
+    $n = $entrada['notify_client'] ?? '1';
+    $avisar = $n === true || $n === 1 || $n === '1';
+    if (!$orderId) return impResponderError(400, 'Se requiere order_id');
+
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+    try {
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$order) return impResponderError(404, 'Expediente no encontrado');
+        if (!impTieneEleccion($order)) return impResponderError(409, 'Primero marca la lancha elegida');
+        if (empty($order['chosen_inspection'])) return impResponderError(409, 'Este cliente eligió sin inspección');
+        $etapa = impEtapaInspeccion($order);
+        if ($etapa === 'aprobada' || $etapa === 'declinada') return impResponderError(409, 'El cliente ya decidió sobre esta inspección. Para cambiar el reporte, primero deshaz su decisión.');
+
+        [$fileId, $error] = intval($entrada['file_id'] ?? 0) > 0
+            ? impUsarArchivoComoReporte($pdo, $orderId, intval($entrada['file_id']))
+            : impGuardarReporte($pdo, $orderId, $archivo, $mover);
+        if (!$fileId) return impResponderError(400, $error);
+
+        impRegistrarReporte($pdo, $orderId, $fileId, $resumen);
+        logOrderEvent($pdo, $orderId, 'inspeccion_reporte', ['file_id' => $fileId, 'admin' => $admin['email'] ?? 'admin']);
+
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC);
+        $json = json_encode(['success' => true, 'eleccion' => impEleccionParaPanel($order), 'file_id' => $fileId]);
+        if ($enSegundoPlano) impContestarYSeguir($json); else echo $json;
+
+        // La traducción tarda minutos: va después de contestar.
+        impTraducirYGuardar($pdo, $orderId, $fileId);
+        if ($avisar && !empty($order['customer_email'])) {
+            $st->execute([$orderId]);
+            impAvisarReporteListo($pdo, $st->fetch(PDO::FETCH_ASSOC));
+        }
+    } catch (PDOException $e) {
+        error_log('adminCargarReporte: ' . $e->getMessage());
+        impResponderError(500, 'No se pudo guardar el reporte');
+    }
+}
+
+/** POST ?action=admin_inspeccion_traducir { order_id }  Vuelve a traducir el reporte (si falló). */
+function adminTraducirReporte($admin, $input = null, $enSegundoPlano = true) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+    $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+    $st->execute([$orderId]);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order) return impResponderError(404, 'Expediente no encontrado');
+    $fileId = intval($order['inspection_report_file_id'] ?? 0);
+    if (!$fileId || !impReporteInspeccion($order)) return impResponderError(409, 'Este expediente no tiene reporte de inspección');
+    if (impEstadoTraduccion($order) === 'pendiente') return impResponderError(409, 'La traducción ya está en curso');
+    $pdo->prepare("UPDATE orders SET inspection_es_status = 'pendiente', inspection_es_at = NOW(), inspection_es_error = NULL WHERE id = ?")->execute([$orderId]);
+    logOrderEvent($pdo, $orderId, 'inspeccion_traducir', ['admin' => $admin['email'] ?? 'admin']);
+    $st->execute([$orderId]);
+    $json = json_encode(['success' => true, 'eleccion' => impEleccionParaPanel($st->fetch(PDO::FETCH_ASSOC))]);
+    if ($enSegundoPlano) impContestarYSeguir($json); else echo $json;
+    impTraducirYGuardar($pdo, $orderId, $fileId);
+}
+
+/**
+ * GET ?action=user_inspeccion_reporte&order_id=  (cliente) · admin_inspeccion_reporte (equipo)
+ * El reporte: el original en inglés (enlace firmado, 1 hora) y la traducción
+ * en bloques para leerla y descargarla en el panel.
+ */
+function verReporteInspeccion($sesion, $esEquipo) {
+    $orderId = intval($_GET['order_id'] ?? 0);
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+    if ($esEquipo) {
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        $order = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    } else {
+        $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
+    }
+    if (!$order) return impResponderError($esEquipo ? 404 : 403, $esEquipo ? 'Expediente no encontrado' : 'No tienes acceso a este expediente');
+    $rep = impReporteInspeccion($order);
+    if (!$rep) return impResponderError(404, 'Todavía no está el reporte de la inspección');
+    $original = null;
+    if ($rep['file_id']) {
+        $f = $pdo->prepare("SELECT id, original_name, file_size, created_at FROM expediente_files WHERE id = ? AND order_id = ?");
+        $f->execute([$rep['file_id'], $orderId]);
+        if ($fila = $f->fetch(PDO::FETCH_ASSOC)) {
+            $original = ['id' => intval($fila['id']), 'original_name' => $fila['original_name'], 'file_size' => intval($fila['file_size']),
+                'download_url' => impEnlaceArchivo($fila['id'])];
+        }
+    }
+    $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+    echo json_encode([
+        'success' => true,
+        'titulo' => impTituloLancha($link),
+        'order_number' => $order['order_number'] ?? '',
+        'reporte' => $rep,
+        'original' => $original,
+        'es' => [
+            'status' => $rep['es_status'],
+            'at' => $rep['es_at'],
+            'bloques' => $rep['es_status'] === 'listo' ? impMarkdownABloques($order['inspection_es'] ?? '') : [],
+            'error' => $esEquipo && $rep['es_status'] === 'error' ? ($order['inspection_es_error'] ?: 'La traducción no terminó') : null,
+        ],
+        'stage' => impEtapaInspeccion($order),
+    ]);
+}
+
+/**
+ * POST ?action=user_inspeccion_decision { order_id, decision: 'aprobar' | 'declinar', motivo }
+ * El cliente leyó el reporte y decide. Aprobar marca el hito «Inspección
+ * técnica aprobada» (llega el Pago 2). Declinar deja la lancha fuera: elige
+ * otra (su Pago 1 se abona) o pide la devolución. Ninguna se impone.
+ */
+function userInspeccionDecision($sesion, $input = null) {
+    if (!is_array($input)) $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $orderId = intval($input['order_id'] ?? 0);
+    $decision = (string) ($input['decision'] ?? '');
+    $motivo = mb_substr(trim((string) ($input['motivo'] ?? '')), 0, 1000);
+    if (!$orderId || !in_array($decision, ['aprobar', 'declinar'], true)) return impResponderError(400, 'Se requiere order_id y una decisión');
+    $pdo = getDbConnection();
+    if (!$pdo) return impResponderError(500, 'Database connection failed');
+    impAsegurarColumnas($pdo);
+    try {
+        $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
+        if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
+        $etapa = impEtapaInspeccion($order);
+        if ($etapa === null) return impResponderError(409, 'Esta importación no tiene inspección técnica');
+        if ($etapa === 'coordinando') return impResponderError(409, 'Todavía no está el reporte de la inspección. Te avisamos apenas llegue.');
+        if ($etapa !== 'reporte_listo') return impResponderError(409, 'Ya tomaste tu decisión sobre esta inspección. Si quieres cambiarla, habla con tu agente.');
+
+        $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+        $pago = null;
+        $esperaPrecio = false;
+        if ($decision === 'aprobar') {
+            // Si el coordinador todavía no confirma el precio tras la inspección (o el
+            // equipo no lo valida), la aprobación queda anotada y el hito con el Pago 2
+            // sale solo cuando el equipo valide el precio (impAprobacionPendiente).
+            if (opuPriceGate($pdo, array_merge($order, ['inspection_result' => null]))) {
+                $esperaPrecio = true;
+                $pdo->prepare("UPDATE orders SET inspection_client_ok_at = NOW(), inspection_decided_by = 'cliente' WHERE id = ?")->execute([$orderId]);
+                logOrderEvent($pdo, $orderId, 'inspeccion_aprobada_espera_precio', ['por' => 'cliente'], $sesion['sub'] ?? null);
+            } else {
+                $r = impAplicarHito($pdo, $order, 'inspeccion', true, true, 'cliente', $sesion['email'] ?? 'cliente');
+                $pago = impPagoHitoPublico($r);
+            }
+        } else {
+            $pasos = impPasos($order);
+            unset($pasos['inspeccion']);
+            $pdo->prepare("UPDATE orders SET inspection_result = 'no_apta', inspection_result_at = NOW(), inspection_decided_by = 'cliente', import_steps = ?, refund_requested_at = NULL WHERE id = ?")
+                ->execute([$pasos ? json_encode($pasos) : null, $orderId]);
+            logOrderEvent($pdo, $orderId, 'inspeccion_declinada', ['motivo' => $motivo, 'por' => 'cliente'], $sesion['sub'] ?? null);
+            $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+            $st->execute([$orderId]);
+            opuAvisarPausa($pdo, $st->fetch(PDO::FETCH_ASSOC), $order['chosen_link_id']);
+        }
+        impAvisarDecisionEquipo($order, $link, $decision, $motivo, $pago, $esperaPrecio);
+
+        $st = $pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $st->execute([$orderId]);
+        echo json_encode(['success' => true, 'eleccion' => impEleccionParaPanel($st->fetch(PDO::FETCH_ASSOC)), 'pago' => $pago, 'espera_precio' => $esperaPrecio]);
+    } catch (PDOException $e) {
+        error_log('userInspeccionDecision: ' . $e->getMessage());
+        impResponderError(500, 'No pudimos guardar tu decisión. Intenta de nuevo.');
+    }
+}
+
+/** Correo al equipo con la decisión del cliente sobre el reporte. */
+/** El Pago 2 (o 3) que creó un hito, como lo lee el panel. */
+function impPagoHitoPublico($r) {
+    return $r['pago'] && !empty($r['pago']['cobro']) ? [
+        'n' => $r['n'], 'id' => $r['pago']['cobro']['id'], 'amount_clp' => intval($r['pago']['cobro']['amount_clp']), 'status' => $r['pago']['cobro']['status'],
+    ] : null;
+}
+
+/**
+ * El cliente ya aprobó el reporte y faltaba validar el precio tras la
+ * inspección: si ahora la puerta está abierta, se marca el hito (Pago 2).
+ * Lo llama la validación del precio en operador_usa.php. Devuelve el pago o null.
+ */
+function impAprobacionPendiente($pdo, $orderId) {
+    $order = opuOrden($pdo, $orderId);
+    if (!$order || empty($order['inspection_client_ok_at']) || isset(impPasos($order)['inspeccion']) || impInspeccionNoApta($order)) return null;
+    if (opuPriceGate($pdo, array_merge($order, ['inspection_result' => null]))) return null;
+    $r = impAplicarHito($pdo, $order, 'inspeccion', true, true, 'cliente', 'aprobación del cliente · precio validado');
+    $pago = impPagoHitoPublico($r);
+    $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
+    impAvisarDecisionEquipo($order, $link, 'aprobar', '', $pago, false);
+    return $pago ?: ['n' => 0];
+}
+
+function impAvisarDecisionEquipo($order, $link, $decision, $motivo, $pago, $esperaPrecio = false) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $cliente = $order['customer_name'] ?: $order['customer_email'];
+        $titulo = impTituloLancha($link);
+        $aprobo = $decision === 'aprobar';
+        $html = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#0f172a;max-width:560px">'
+            . '<p><strong>' . htmlspecialchars($cliente) . '</strong> ' . ($aprobo ? '<strong style="color:#047857">aprobó</strong>' : '<strong style="color:#b45309">declinó</strong>')
+            . ' el reporte de la inspección de <strong>' . htmlspecialchars($titulo) . '</strong> (expediente ' . htmlspecialchars($order['order_number'] ?? '') . ').</p>'
+            . ($aprobo && $esperaPrecio
+                ? '<p>Falta validar la <strong>confirmación de precio tras la inspección</strong> en «Operación en EE. UU.» del expediente. Al validarla, se marca la inspección como aprobada y se crea el Pago 2 solo, con aviso al cliente.</p>'
+                : '')
+            . ($aprobo && $esperaPrecio ? '' : ($aprobo
+                ? ($pago ? '<p>Se creó el <strong>Pago ' . intval($pago['n']) . '</strong> por $' . number_format($pago['amount_clp'], 0, ',', '.') . ' y le llegó el aviso para pagarlo. Siguiente paso: coordinar la compra con el vendedor.</p>'
+                         : '<p>No se creó el Pago 2 automático (la cotización no está publicada o no tiene plan de pagos): créalo desde el expediente.</p>')
+                : '<p>Ahora el cliente elige otra lancha de su ranking (su Pago 1 se abona) o pide la devolución. A David se le pidió pausar esta lancha.</p>'))
+            . ($motivo !== '' ? '<p style="background:#f8fafc;border-left:4px solid #94a3b8;padding:10px 12px">' . nl2br(htmlspecialchars($motivo)) . '</p>' : '')
+            . '<p><a href="https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']) . '">Abrir expediente en el admin</a></p></div>';
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl', $cliente . ($aprobo ? ' aprobó' : ' declinó') . ' la inspección (' . ($order['order_number'] ?? '') . ')', $html);
+    } catch (\Throwable $e) {
+        error_log('impAvisarDecisionEquipo: ' . $e->getMessage());
     }
 }

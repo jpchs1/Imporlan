@@ -14,7 +14,7 @@ import { inspeccionNoApta, devolucionPedida, pago1AbonadoDeOtra } from '../../..
  * calzan con un pago del plan van en «Otros cobros». Recibe el resultado de
  * pagosConCobros(); no calcula nada.
  *
- * Con la inspección no apta el plan de esta lancha queda en pausa: no se
+ * Con la lancha declinada tras la inspección el plan queda en pausa: no se
  * ofrece pagar nada (lo pendiente se anula o lo reemplaza el de la lancha que
  * elija) y los pagos que faltan dicen que dependen de esa elección.
  */
@@ -37,8 +37,8 @@ export default function PlanDePagos({ pagos, otros, eleccion, className }) {
           {noApta && (
             <p className="mt-1 text-13 text-ink-500">
               {devolucion
-                ? 'Este plan era el de la lancha no apta: con la devolución pedida, no se cobra nada más.'
-                : 'Este plan es el de la lancha no apta. Si eliges otra, el plan pasa a ser el de la nueva y lo que ya pagaste se abona.'}
+                ? 'Este plan era el de la lancha que declinaste: con la devolución pedida, no se cobra nada más.'
+                : 'Este plan es el de la lancha que declinaste. Si eliges otra, el plan pasa a ser el de la nueva y lo que ya pagaste se abona.'}
             </p>
           )}
           <ol className="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line" aria-label="Pagos del plan">
