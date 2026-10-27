@@ -2745,10 +2745,7 @@ function impPrecioChileTexto($link) {
 }
 
 function impPrimerNombre($order) {
-    $n = trim((string) ($order['customer_name'] ?? ''));
-    if ($n === '') return '';
-    $partes = preg_split('/\s+/u', $n);
-    return $partes[0];
+    return impNombreSaludo($order);
 }
 
 /** Lo que el panel y los correos necesitan del Pago 1 ($res de impSolicitarPago1). */
@@ -3104,6 +3101,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien) {
             $r = (new EmailService())->sendHitoImportacion($order['customer_email'], impPrimerNombre($order), [
                 'hito' => $paso,
                 'hito_label' => $hitos[$paso]['label'],
+                'con_inspeccion' => !empty($order['chosen_inspection']),
                 'titulo' => impTituloLancha($link),
                 'order_number' => $order['order_number'] ?? '',
                 'order_id' => $orderId,

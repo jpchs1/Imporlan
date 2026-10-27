@@ -999,7 +999,7 @@ function impAvisarReporteListo($pdo, $order) {
     try {
         require_once __DIR__ . '/email_service.php';
         $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
-        $nombre = explode(' ', trim((string) ($order['customer_name'] ?? '')))[0];
+        $nombre = impNombreSaludo($order);
         (new EmailService())->sendInspeccionReporte($order['customer_email'], $nombre, [
             'titulo' => impTituloLancha($link),
             'order_number' => $order['order_number'] ?? '',
@@ -1017,4 +1017,12 @@ function impAvisarReporteListo($pdo, $order) {
 function impRegistrarReporte($pdo, $orderId, $fileId, $resumen) {
     $pdo->prepare("UPDATE orders SET inspection_report_file_id = ?, inspection_report_at = NOW(), inspection_summary = ?, inspection_es = NULL, inspection_es_status = 'pendiente', inspection_es_at = NOW(), inspection_es_error = NULL WHERE id = ?")
         ->execute([intval($fileId), (string) $resumen, intval($orderId)]);
+}
+
+/** El primer nombre del cliente para el saludo, con mayúscula («alberto lathrop» → «Alberto»). */
+function impNombreSaludo($order) {
+    $n = trim((string) ($order['customer_name'] ?? ''));
+    if ($n === '') return '';
+    $primero = preg_split('/\s+/u', $n)[0];
+    return mb_strtoupper(mb_substr($primero, 0, 1)) . mb_substr($primero, 1);
 }
