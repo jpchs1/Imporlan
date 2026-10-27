@@ -471,7 +471,7 @@ function PasoConfirmar({ link, title, precio, plan, primerPago, inspection, nota
   let conPago1;
   if (pago1Abonado) {
     tituloPago1 = 'Tu Pago 1 ya está pagado: se abona a esta lancha';
-    conPago1 = `No tienes nada que pagar ahora. Con él ${conQue} la compra con el vendedor; el Pago 2 te llega ${inspection ? 'cuando se apruebe la inspección' : 'cuando el vendedor confirme disponibilidad y precio'}.`;
+    conPago1 = `No tienes nada que pagar ahora. Con él ${conQue} la compra con el vendedor; el Pago 2 te llega ${inspection ? 'cuando apruebes el reporte de la inspección' : 'cuando el vendedor confirme disponibilidad y precio'}.`;
   } else if (primerPago) {
     tituloPago1 = `Al confirmar te llega el Pago 1 · ${primerPago.pct}% · ${fmtCLP(primerPago.clp)}`;
     conPago1 = `Es el que inicia la operación: lo pagas en Pagos, con tarjeta o transferencia. Con él ${conQue} la compra con el vendedor.`;

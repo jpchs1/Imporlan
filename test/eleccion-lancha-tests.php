@@ -66,7 +66,7 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     chosen_note TEXT NULL, import_steps TEXT NULL, usa_token TEXT NULL, usa_link_id INTEGER NULL,
     usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL,
     inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL,
-    inspection_decided_by TEXT NULL, inspection_report_file_id INTEGER NULL, inspection_report_at TEXT NULL, inspection_summary TEXT NULL,
+    inspection_decided_by TEXT NULL, inspection_client_ok_at TEXT NULL, inspection_report_file_id INTEGER NULL, inspection_report_at TEXT NULL, inspection_summary TEXT NULL,
     inspection_es TEXT NULL, inspection_es_status TEXT NULL, inspection_es_at TEXT NULL, inspection_es_error TEXT NULL, declined_link_ids TEXT NULL)");
 $BD->exec("CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY, order_id INTEGER, note TEXT, file_ids TEXT, shared_text TEXT NULL, shared_at TEXT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $BD->exec("CREATE TABLE expediente_files (id INTEGER PRIMARY KEY, order_id INTEGER, original_name TEXT, stored_name TEXT, mime_type TEXT, file_size INTEGER, category TEXT, description TEXT, uploaded_by TEXT, visible_to_client INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
@@ -719,6 +719,44 @@ ok($code === 200 && isset(impPasos(orden(35))['inspeccion']), 'confirmación rev
 ok($data['pago']['n'] === 2 && $data['pago']['amount_clp'] === 61740000, 'Pago 2 conserva el monto de la cotización publicada');
 [$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
 ok($code === 200 && isset(impPasos(orden(35))['compra']), 'compra requiere su propio hito explícito');
+
+
+echo "\nEl cliente aprueba antes de que se valide el precio: queda anotado y el Pago 2 sale al validar\n";
+sembrar();
+llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12, 'inspection' => true]);
+pagarPago1();
+$BD->exec("UPDATE orders SET import_steps='{\"disponibilidad\":\"2026-10-25\"}' WHERE id=35");
+// Lo de la sección anterior (misma lancha) no cuenta: solicitud y precio nuevos.
+$BD->exec('DELETE FROM order_usa_upload_requests; DELETE FROM order_usa_inspection_prices;');
+opuInspectionRequest($BD, orden(35));
+$RESPUESTA_CLAUDE = ['code' => 200, 'body' => sseClaude($TRADUCCION)];
+cargarReporte(['order_id' => 35, 'notify_client' => '0']);
+$CORREOS = [];
+[$c, $r] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'aprobar']);
+$o = orden(35);
+ok($c === 200 && $r['espera_precio'] === true && !isset(impPasos($o)['inspeccion']) && $r['pago'] === null, 'con el precio sin validar, el hito y el Pago 2 esperan');
+ok($r['eleccion']['inspection_stage'] === 'aprobada' && $r['eleccion']['inspection_waiting_price'] === true && $r['eleccion']['inspection_decided_by'] === 'cliente', 'el panel muestra que aprobó y que falta confirmar el precio');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'confirmación de precio') !== false, 'el equipo sabe que falta validar el precio para seguir');
+[$c] = llamar('userInspeccionDecision', $alberto, ['order_id' => 35, 'decision' => 'declinar']);
+ok($c === 409, 'ya aprobó: no cambia la decisión desde el panel');
+ok(impAprobacionPendiente($BD, 35) === null, 'mientras el precio no se valida, no se marca nada');
+$price = opuPriceState($BD, orden(35));
+opuPriceSave($BD, orden(35), ['price_request_id' => $price['request_id'], 'price_revision' => (string) $price['revision'], 'price_status' => 'unchanged', 'price_original' => '25000', 'price_confirmed' => '25000']);
+$price = opuPriceState($BD, orden(35));
+opuPriceReview($BD, orden(35), $price['request_id'], $price['revision'], $admin['email']);
+$CORREOS = [];
+$p = impAprobacionPendiente($BD, 35);
+$o = orden(35);
+ok(isset(impPasos($o)['inspeccion']) && ($p['n'] ?? 0) === 2 && $p['amount_clp'] === 61740000 && $o['inspection_decided_by'] === 'cliente', 'al validar el precio se marca la inspección aprobada por el cliente y sale el Pago 2');
+ok(count(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com' && strpos($m['html'], 'Pago 2') !== false; })) === 1, 'y al cliente le llega el Pago 2');
+ok(impAprobacionPendiente($BD, 35) === null, 'no se repite');
+$api = file_get_contents("$raiz/api/operador_usa.php");
+ok(strpos($api, 'impAprobacionPendiente($pdo, $o[\'id\'])') !== false, 'la validación del precio en el admin dispara la aprobación pendiente');
+$coord = ['chosen_link_id' => 12, 'chosen_inspection' => 1, 'import_steps' => null];
+$pdfDavid = [['original_name' => 'Survey.pdf', 'mime_type' => 'application/pdf']];
+ok(strpos(opuSugerirReporte($coord, $pdfDavid), 'Cargar reporte') !== false && opuSugerirReporte($coord, [['original_name' => 'a.jpg', 'mime_type' => 'image/jpeg']]) === ''
+    && opuSugerirReporte($coord + ['inspection_report_at' => '2026-10-27'], $pdfDavid) === '', 'si David manda un PDF mientras se espera el reporte, el equipo recibe el paso para cargarlo al cliente');
 
 echo "\n" . ($total - $fallos) . "/$total ok\n";
 exit($fallos ? 1 : 0);

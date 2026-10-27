@@ -123,8 +123,12 @@ function impEleccionPublica($order) {
         // JP, 21-oct-2026: «Nosotros cumplimos con cargar el reporte, pero el
         // cliente es el que toma la decisión si aprueba o declina la compra».
         'inspection_stage' => impEtapaInspeccion($order),
-        'inspection_decided_by' => impInspeccionNoApta($order) || isset(impPasos($order)['inspeccion'])
+        'inspection_decided_by' => impInspeccionNoApta($order) || isset(impPasos($order)['inspeccion']) || impAprobadaEsperaPrecio($order)
             ? ($order['inspection_decided_by'] ?? null) : null,
+        // El cliente aprobó, pero el hito y el Pago 2 esperan la validación del
+        // precio de compra tras la inspección (opuPriceGate).
+        'inspection_waiting_price' => impAprobadaEsperaPrecio($order),
+        'inspection_client_ok_at' => impAprobadaEsperaPrecio($order) ? $order['inspection_client_ok_at'] : null,
         'inspection_report' => impReporteInspeccion($order),
     ];
 }
@@ -151,8 +155,14 @@ function impLanchasDeclinadas($order) {
 function impEtapaInspeccion($order) {
     if (!impTieneEleccion($order) || empty($order['chosen_inspection'])) return null;
     if (impInspeccionNoApta($order)) return 'declinada';
-    if (isset(impPasos($order)['inspeccion'])) return 'aprobada';
+    if (isset(impPasos($order)['inspeccion']) || impAprobadaEsperaPrecio($order)) return 'aprobada';
     return !empty($order['inspection_report_at']) ? 'reporte_listo' : 'coordinando';
+}
+
+/** El cliente aprobó el reporte y falta validar el precio tras la inspección para marcar el hito. */
+function impAprobadaEsperaPrecio($order) {
+    return impTieneEleccion($order) && !empty($order['chosen_inspection']) && !empty($order['inspection_client_ok_at'])
+        && !isset(impPasos($order)['inspeccion']) && !impInspeccionNoApta($order);
 }
 
 /** Minutos sin terminar tras los que una traducción en curso se da por caída. */
@@ -183,7 +193,7 @@ function impReporteInspeccion($order) {
  * el reporte y su traducción son de la lancha anterior.
  */
 function impSqlLimpiarInspeccion() {
-    return "inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, inspection_decided_by = NULL, "
+    return "inspection_result = NULL, inspection_result_at = NULL, inspection_note = NULL, inspection_decided_by = NULL, inspection_client_ok_at = NULL, "
         . "inspection_report_file_id = NULL, inspection_report_at = NULL, inspection_summary = NULL, "
         . "inspection_es = NULL, inspection_es_status = NULL, inspection_es_at = NULL, inspection_es_error = NULL";
 }
@@ -228,6 +238,7 @@ function impAsegurarColumnas($pdo) {
             'inspection_note'   => "ALTER TABLE orders ADD COLUMN inspection_note TEXT NULL",
             'refund_requested_at' => "ALTER TABLE orders ADD COLUMN refund_requested_at DATETIME NULL",
             'inspection_decided_by' => "ALTER TABLE orders ADD COLUMN inspection_decided_by VARCHAR(10) NULL",
+            'inspection_client_ok_at' => "ALTER TABLE orders ADD COLUMN inspection_client_ok_at DATETIME NULL",
             'inspection_report_file_id' => "ALTER TABLE orders ADD COLUMN inspection_report_file_id INT NULL",
             'inspection_report_at' => "ALTER TABLE orders ADD COLUMN inspection_report_at DATETIME NULL",
             'inspection_summary' => "ALTER TABLE orders ADD COLUMN inspection_summary TEXT NULL",
@@ -966,4 +977,44 @@ function impMarkdownABloques($md) {
     }
     $cerrar();
     return $bloques;
+}
+
+/** Contesta al panel y cierra la conexión; el script sigue (traducción). */
+function impContestarYSeguir($json) {
+    ignore_user_abort(true);
+    @set_time_limit(900);
+    if (!headers_sent()) {
+        header('Content-Length: ' . strlen($json));
+        header('Connection: close');
+    }
+    while (ob_get_level() > 0) @ob_end_clean();
+    echo $json;
+    if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+    elseif (function_exists('litespeed_finish_request')) @litespeed_finish_request();
+    else @flush();
+}
+
+/** Correo al cliente: el reporte está listo, revísalo y decide. */
+function impAvisarReporteListo($pdo, $order) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
+        $nombre = explode(' ', trim((string) ($order['customer_name'] ?? '')))[0];
+        (new EmailService())->sendInspeccionReporte($order['customer_email'], $nombre, [
+            'titulo' => impTituloLancha($link),
+            'order_number' => $order['order_number'] ?? '',
+            'order_id' => $order['id'],
+            'resumen' => (string) ($order['inspection_summary'] ?? ''),
+            'en_espanol' => impEstadoTraduccion($order) === 'listo',
+            'pago1_pagado' => impPago1Pagado($order['id']),
+        ]);
+    } catch (\Throwable $e) {
+        error_log('impAvisarReporteListo: ' . $e->getMessage());
+    }
+}
+
+/** El PDF $fileId pasa a ser el reporte de la inspección, con la traducción por hacer. */
+function impRegistrarReporte($pdo, $orderId, $fileId, $resumen) {
+    $pdo->prepare("UPDATE orders SET inspection_report_file_id = ?, inspection_report_at = NOW(), inspection_summary = ?, inspection_es = NULL, inspection_es_status = 'pendiente', inspection_es_at = NOW(), inspection_es_error = NULL WHERE id = ?")
+        ->execute([intval($fileId), (string) $resumen, intval($orderId)]);
 }

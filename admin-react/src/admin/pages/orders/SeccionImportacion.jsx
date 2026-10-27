@@ -324,7 +324,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
 
             {/* ── Operación en EE. UU. (sólo el equipo en Chile) ── */}
             {equipoChile && importacion.operacionUsa !== false && (
-              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} />
+              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} />
             )}
           </>
         )}
@@ -412,8 +412,10 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
   const declinada = stage === 'declinada';
   const esperando = stage === 'reporte_listo';
   const aprobada = stage === 'aprobada' || !!h.hecho;
-  const Icono = aprobada ? CircleCheck : declinada ? TriangleAlert : esperando || actual ? CircleDot : Circle;
-  const colorIcono = aprobada ? 'text-success' : declinada ? 'text-warning' : esperando || actual ? 'text-brand-600' : 'text-ink-400';
+  // El cliente aprobó, pero el hito (y el Pago 2) esperan que el equipo valide el precio tras la inspección.
+  const esperaPrecio = aprobada && !h.hecho && !!eleccion.inspection_waiting_price;
+  const Icono = esperaPrecio ? CircleDot : aprobada ? CircleCheck : declinada ? TriangleAlert : esperando || actual ? CircleDot : Circle;
+  const colorIcono = esperaPrecio ? 'text-brand-600' : aprobada ? 'text-success' : declinada ? 'text-warning' : esperando || actual ? 'text-brand-600' : 'text-ink-400';
   const destacado = esperando || declinada;
 
   let titulo = h.label;
@@ -421,7 +423,10 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
   else if (esperando) titulo = 'Inspección técnica: esperando la decisión del cliente';
 
   let subtitulo;
-  if (aprobada) {
+  if (esperaPrecio) {
+    titulo = 'Inspección técnica: el cliente aprobó, falta validar el precio';
+    subtitulo = <>Aprobada por el cliente{eleccion.inspection_client_ok_at ? ` el ${fmtDateLarga(eleccion.inspection_client_ok_at)}` : ''} · valida la confirmación de precio en «Operación en EE. UU.»: al validarla se marca este hito y sale el Pago 2</>;
+  } else if (aprobada) {
     subtitulo = <>{porCliente ? 'Aprobada por el cliente' : 'Aprobada (registrada por el equipo)'}{h.hecho ? ` · ${fmtDateLarga(h.hecho)}` : ''}</>;
   } else if (declinada) {
     subtitulo = <>
@@ -445,7 +450,7 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className={cn('text-sm', aprobada ? 'text-ink-700' : destacado || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{titulo}</p>
+            <p className={cn('text-sm', esperaPrecio ? 'text-ink-900 font-medium' : aprobada ? 'text-ink-700' : destacado || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{titulo}</p>
             <p className="text-xs text-ink-500 tabular flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <span>{subtitulo}</span>
               {chipTraduccion}

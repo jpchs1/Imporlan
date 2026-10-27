@@ -143,8 +143,12 @@ export function fraseEtapa(order, primeraLancha) {
         : 'Recibimos tu solicitud y estamos preparando la búsqueda. En cuanto tengamos las primeras opciones, aparecen aquí para que las ordenes.';
     case 2:
       return 'Estamos buscando opciones en Estados Unidos. A medida que aparezcan, las sumamos a tu ranking para que las compares y nos digas cuál prefieres.';
-    case 3:
+    case 3: {
+      const etapaInsp = order.eleccion?.inspection_stage;
+      if (etapaInsp === 'reporte_listo') return `El reporte de la inspección de ${la} está listo, en inglés y en español: te toca revisarlo y decidir.`;
+      if (etapaInsp === 'declinada') return 'Decidiste no seguir con esta lancha tras la inspección: elige otra de tu ranking o pide la devolución.';
       return `Estamos coordinando la inspección de ${la}; te avisamos cuando esté el reporte.`;
+    }
     case 4:
       return `Estamos negociando y cerrando la compra de ${la} a tu nombre. Te avisamos de cada pago que corresponda.`;
     case 5:

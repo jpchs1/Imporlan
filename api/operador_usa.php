@@ -481,6 +481,7 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
                 '<p style="font-size:14px;margin:0 0 10px">Expediente <strong>' . opuEsc($order['order_number'] ?? '') . '</strong>. '
                 . 'En esta actualización: ' . $batch . '. ' . count($visibles) . ' archivo(s) visuales ya visibles para el cliente' . ($internos ? ', ' . $internos . ' documento(s) sólo para el equipo' : '') . '.</p>'
                 . opuInspectionStaffSummary($pdo, $order)
+                . opuSugerirReporte($order, $guardados)
                 . ($nota !== '' ? '<div style="padding:12px 14px;background:#f8fafc;border-left:4px solid #0e7490;border-radius:6px;font-size:14px;line-height:1.6;white-space:pre-wrap">' . opuEsc($nota) . '</div>' : '')
                 . '<p style="font-size:13px;color:#64748b;margin:12px 0 0">La nota es interna. Para contarle algo al cliente, usa «Compartir con el cliente» en el expediente.</p>'
                 . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']))));
@@ -506,6 +507,21 @@ function opuAvisarActualizacion($pdo, $order, $nota, $guardados) {
     } catch (\Throwable $e) {
         error_log('opuAvisarActualizacion: ' . $e->getMessage());
     }
+}
+
+/**
+ * Si llega un PDF mientras la inspección espera su reporte, en el correo al
+ * equipo va el paso para cargarlo como reporte del cliente (se traduce al
+ * español y el cliente decide). Los PDF de David no se publican solos.
+ */
+function opuSugerirReporte($order, $guardados) {
+    if (impEtapaInspeccion($order) !== 'coordinando') return '';
+    $pdfs = array_values(array_filter($guardados, function ($g) { return ($g['mime_type'] ?? '') === 'application/pdf'; }));
+    if (!$pdfs) return '';
+    return '<div style="margin:12px 0 0;padding:12px 14px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;font-size:14px;line-height:1.6">'
+        . '<strong>¿Es el reporte de la inspección?</strong> (' . opuEsc($pdfs[0]['original_name']) . ')<br>'
+        . 'Cárgalo para el cliente: en el expediente, Operación → hito «Inspección técnica» → <em>Cargar reporte</em> → <em>Usar uno del expediente</em>. '
+        . 'Se traduce al español solo y al cliente le llega el aviso para revisarlo y decidir.</div>';
 }
 
 /** El equipo comparte una actualización con el cliente, con su propio texto. */
@@ -759,7 +775,10 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
         if (!isset($in['revision'], $in['request_id'])) { http_response_code(400); echo json_encode(['error' => 'Se requiere la versión de la confirmación revisada']); exit; }
         $error = opuPriceReview($pdo, $o, $in['request_id'], $in['revision'], $sesion['email'] ?? $sesion['sub'] ?? 'equipo');
         if ($error) { http_response_code(409); echo json_encode(['error' => $error]); exit; }
-        echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, $o)]);
+        // Si el cliente ya había aprobado el reporte, ahora sí se marca la inspección (y sale el Pago 2).
+        require_once __DIR__ . '/orders_api.php';
+        $pagoAprobacion = impAprobacionPendiente($pdo, $o['id']);
+        echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, opuOrden($pdo, $o['id'])), 'inspeccion_aprobada' => (bool) $pagoAprobacion, 'pago' => $pagoAprobacion && !empty($pagoAprobacion['id']) ? $pagoAprobacion : null]);
         exit;
     }
     if ($r === 'admin_pedir' && $_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -185,7 +185,18 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
       break;
     } else if (!enCursoVisto) {
       enCursoVisto = true;
-      if (esInspeccion && etapaInsp === 'reporte_listo') {
+      if (esInspeccion && eleccion.inspection_waiting_price) {
+        // Aprobó el reporte; antes del Pago 2 se cierra con el vendedor el precio final.
+        pendientes.push({
+          id: h.id,
+          estado: 'curso',
+          titulo: 'Aprobaste el reporte de la inspección',
+          fecha: eleccion.inspection_client_ok_at || null,
+          detalle: 'Ahora confirmamos con el vendedor el precio final después de la inspección. Apenas quede cerrado, te llega el Pago 2 para seguir con la compra.',
+          quien,
+          accion: verReporte,
+        });
+      } else if (esInspeccion && etapaInsp === 'reporte_listo') {
         pendientes.push({
           id: h.id,
           estado: 'decidir',

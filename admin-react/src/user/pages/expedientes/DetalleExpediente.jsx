@@ -426,7 +426,9 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
       const data = await inspeccionDecision(orderId, 'aprobar');
       if (data?.success) {
         setVisorAbierto(false);
-        toast?.(data.pago ? `Listo: aprobaste la inspección. Te llegó el Pago 2 (${fmtCLP(data.pago.amount_clp)}).` : 'Listo: aprobaste la inspección. Seguimos con la compra.', 'success');
+        toast?.(data.espera_precio
+          ? 'Listo: aprobaste el reporte. Confirmamos con el vendedor el precio final y te llega el Pago 2.'
+          : data.pago ? `Listo: aprobaste la inspección. Te llegó el Pago 2 (${fmtCLP(data.pago.amount_clp)}).` : 'Listo: aprobaste la inspección. Seguimos con la compra.', 'success');
         await loadDetail();
       } else {
         toast?.(data?.error || 'No pudimos guardar tu decisión', 'error');

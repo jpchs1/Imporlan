@@ -91,7 +91,7 @@ export default function TuImportacion({
         actions={enViaje ? <BotonEnlace to="/tracking" size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
       />
 
-      <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} />
+      <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} esperaPrecio={!!eleccion.inspection_waiting_price} />
 
       <Card.Body>
         {reporteListo && (
@@ -263,7 +263,7 @@ export default function TuImportacion({
    Con la lancha declinada: le toca elegir otra o pedir la devolución, o ya
    pidió la devolución.
    --------------------------------------------------------------------------- */
-function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos }) {
+function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, esperaPrecio = false }) {
   let icono = Clock;
   let tono = 'brand';
   let tituloQue;
@@ -298,6 +298,10 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos }) 
     tituloQue = pago.n ? `Te toca: pagar el Pago ${pago.n} · ${pago.pct}%` : `Te toca: pagar ${cobro.title}`;
     detalle = `${fmtCLP(cobro.amount_clp)} · lo pagas en Pagos, con tarjeta o transferencia.`;
     accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>;
+  } else if (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio) {
+    icono = CircleCheck;
+    tituloQue = 'Aprobaste el reporte: confirmamos el precio final';
+    detalle = `${agente ? `${agente} confirma` : 'Tu agente confirma'} con el vendedor el precio de ${titulo} después de la inspección. Apenas quede cerrado, te llega el Pago 2 para seguir con la compra.`;
   } else if (sigue.tipo === 'hito') {
     tituloQue = sigue.hito.enCurso;
     const quien = agente ? `Lo hace ${agente}` : 'Lo hace tu agente';
