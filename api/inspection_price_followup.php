@@ -5,7 +5,8 @@ require_once __DIR__ . '/inspection_price_template.php';
 
 function opuPriceSchema($pdo) {
     static $ready;
-    if ($ready === null) $ready = new WeakMap();
+    // The public portal runs on PHP 7.4; WeakMap is only available in PHP 8.
+    if ($ready === null) $ready = new SplObjectStorage();
     if (isset($ready[$pdo])) return;
     $engine = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? '' : ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
     $pdo->exec("CREATE TABLE IF NOT EXISTS order_usa_inspection_prices (

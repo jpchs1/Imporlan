@@ -4,7 +4,8 @@ require_once __DIR__ . '/inspection_upload_template.php';
 
 function opuInspectionSchema($pdo) {
     static $ready;
-    if ($ready === null) $ready = new WeakMap();
+    // The public portal runs on PHP 7.4; WeakMap is only available in PHP 8.
+    if ($ready === null) $ready = new SplObjectStorage();
     if (isset($ready[$pdo])) return;
     $sqlite = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
     $id = $sqlite ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'INT AUTO_INCREMENT PRIMARY KEY';

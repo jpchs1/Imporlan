@@ -7,6 +7,21 @@ on:
     branches: [main]
 
 jobs:
+  inspection-php-compatibility:
+    name: Inspection portal on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['7.4', '8.2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring, fileinfo
+      - run: php test/inspection-upload-tests.php
+      - run: php test/inspection-price-tests.php
+
   expediente-image-previews:
     name: HEIC previews in admin and customer panels
     runs-on: ubuntu-24.04
