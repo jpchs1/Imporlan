@@ -85,7 +85,7 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
             adminReorderLinks();
             break;
         case 'admin_create':
-            requireAdminAuth();
+            requireAdminAuthShared(['admin', 'support']);
             adminCreateOrder();
             break;
         case 'admin_delete':
@@ -853,6 +853,21 @@ function adminUpdateLinks() {
     }
 
     try {
+        // Comprobar antes de abrir la transacción: la consulta de estado puede migrar su tabla.
+        foreach ($links as $candidate) {
+            $check = $pdo->prepare('SELECT * FROM order_links WHERE id = ? AND order_id = ?');
+            $check->execute([intval($candidate['id'] ?? 0), $orderId]);
+            $previous = $check->fetch(PDO::FETCH_ASSOC);
+            if (!$previous) continue;
+            $financialChanged = false;
+            foreach (['value_to_negotiate_usd', 'value_chile_clp', 'value_chile_negotiated_clp'] as $field) {
+                if ((float) ($previous[$field] ?? 0) !== (float) ($candidate[$field] ?? 0)) $financialChanged = true;
+            }
+            if ($financialChanged) {
+                $error = opuPriceBuyerBaseGuard($pdo, $previous, $candidate['value_to_negotiate_usd'] ?? null);
+                if ($error) { http_response_code(403); echo json_encode(['error' => $error]); return; }
+            }
+        }
         $pdo->beginTransaction();
 
         $updatedCells = [];
@@ -928,7 +943,7 @@ function adminUpdateLinks() {
         }
         return;
     } catch (PDOException $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) $pdo->rollBack();
         error_log("Error updating links: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Error al actualizar links']);
@@ -953,6 +968,10 @@ function adminAddLink() {
     }
 
     try {
+        if (!empty($input['value_to_negotiate_usd']) || !empty($input['value_chile_clp']) || !empty($input['value_chile_negotiated_clp'])) {
+            $error = opuPriceBuyerBaseGuard($pdo, ['id'=>0, 'order_id'=>$orderId, 'value_to_negotiate_usd'=>null], $input['value_to_negotiate_usd'] ?? null);
+            if ($error) { http_response_code(403); echo json_encode(['error'=>$error]); return; }
+        }
         $maxStmt = $pdo->prepare("SELECT COALESCE(MAX(row_index), 0) + 1 as next_index FROM order_links WHERE order_id = ?");
         $maxStmt->execute([$orderId]);
         $nextIndex = $maxStmt->fetch(PDO::FETCH_ASSOC)['next_index'];
@@ -1500,7 +1519,7 @@ function adminSaveQuote() {
     if (!$pdo) { http_response_code(500); echo json_encode(['error' => 'DB error']); return; }
     try {
         cotizadorEnsureOrderLinkColumns($pdo);
-        $linkStmt = $pdo->prepare('SELECT value_to_negotiate_usd FROM order_links WHERE id = ?');
+        $linkStmt = $pdo->prepare('SELECT * FROM order_links WHERE id = ?');
         $linkStmt->execute([$linkId]);
         $link = $linkStmt->fetch(PDO::FETCH_ASSOC);
         if (!$link) {
@@ -1524,6 +1543,8 @@ function adminSaveQuote() {
             echo json_encode(['error' => 'La cotización no usa el valor negociado vigente. Vuelve a abrir el cotizador y revisa el total']);
             return;
         }
+        $priceError = opuPriceBuyerBaseGuard($pdo, $link, $negotiatedUsd);
+        if ($priceError) { http_response_code(403); echo json_encode(['error' => $priceError]); return; }
         $publishedClause = $publishNow ? 'NOW()' : 'NULL';
         $stmt = $pdo->prepare("
             UPDATE order_links

@@ -21,6 +21,7 @@
  */
 
 $raiz = dirname(__DIR__);
+define('IMPORLAN_ADMIN_EMAIL', 'jp@imporlan.cl');
 $fallos = 0;
 $total = 0;
 
@@ -710,10 +711,16 @@ ok(json_decode(file_get_contents(impArchivoCobros()),true)['requests'] === [], '
 $price = opuPriceState($BD,orden(35));
 $input = ['price_request_id'=>$price['request_id'],'price_revision'=>(string)$price['revision'],'price_status'=>'unchanged','price_original'=>'25000','price_confirmed'=>'25000'];
 ok(opuPriceSave($BD,orden(35),$input) === [], 'coordinador confirma precio sin tocar la cotización');
+$_GET = ['id' => 35];
+[$privacyCode, $buyerView] = llamar('userGetOrderDetail', $alberto);
+$buyerJson = json_encode($buyerView);
+ok($privacyCode === 200 && !isset($buyerView['order']['inspection_price']) && strpos($buyerJson, 'confirmed_cents') === false && strpos($buyerJson, 'approved_cents') === false, 'la API real del cliente no expone propuesta, importe interno ni revisión de David');
+$_GET = [];
+
 [$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'inspeccion','done'=>true]);
 ok($code === 409, 'respuesta confirmada requiere revisión del equipo antes de aprobar');
 $price = opuPriceState($BD,orden(35));
-ok(opuPriceReview($BD,orden(35),$price['request_id'],$price['revision'],$admin['email']) === null, 'equipo revisa la respuesta vigente');
+ok(opuPriceReview($BD,orden(35),$price['request_id'],$price['revision'],$admin,'25000.00',$price['approval_version']) === null, 'equipo revisa la respuesta vigente');
 [$code,$data] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'inspeccion','done'=>true]);
 ok($code === 200 && isset(impPasos(orden(35))['inspeccion']), 'confirmación revisada permite continuar con aprobación explícita');
 ok($data['pago']['n'] === 2 && $data['pago']['amount_clp'] === 61740000, 'Pago 2 conserva el monto de la cotización publicada');
@@ -744,7 +751,7 @@ ok(impAprobacionPendiente($BD, 35) === null, 'mientras el precio no se valida, n
 $price = opuPriceState($BD, orden(35));
 opuPriceSave($BD, orden(35), ['price_request_id' => $price['request_id'], 'price_revision' => (string) $price['revision'], 'price_status' => 'unchanged', 'price_original' => '25000', 'price_confirmed' => '25000']);
 $price = opuPriceState($BD, orden(35));
-opuPriceReview($BD, orden(35), $price['request_id'], $price['revision'], $admin['email']);
+opuPriceReview($BD, orden(35), $price['request_id'], $price['revision'], $admin, '25000.00', $price['approval_version']);
 $CORREOS = [];
 $p = impAprobacionPendiente($BD, 35);
 $o = orden(35);

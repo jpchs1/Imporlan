@@ -324,7 +324,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
 
             {/* ── Operación en EE. UU. (sólo el equipo en Chile) ── */}
             {equipoChile && importacion.operacionUsa !== false && (
-              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} />
+              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} onCotizarAprobado={link && onCotizar ? value => onCotizar({ ...link, value_to_negotiate_usd: value }) : undefined} />
             )}
           </>
         )}

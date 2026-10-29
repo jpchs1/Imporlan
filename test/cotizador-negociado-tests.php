@@ -12,6 +12,7 @@ $codigo = str_replace("file_get_contents('php://input')", "json_encode(\$GLOBALS
 file_put_contents("$caja/orders_api.php", $codigo);
 foreach (['auth_helper.php', 'scraper_locator.php', 'eleccion_lancha.php', 'operador_usa.php'] as $f) file_put_contents("$caja/$f", '<?php');
 file_put_contents("$caja/cotizador_helpers.php", '<?php function cotizadorEnsureOrderLinkColumns($pdo) {}');
+file_put_contents("$caja/operador_usa.php", '<?php function opuPriceBuyerBaseGuard($pdo,$link,$value) { return null; }');
 file_put_contents("$caja/db_config.php", '<?php function getDbConnection() { return $GLOBALS["BD"]; }');
 $BD = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $BD->sqliteCreateFunction('NOW', fn() => date('Y-m-d H:i:s'));

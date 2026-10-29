@@ -3,7 +3,7 @@ import { FileOpen } from '../../../shared/components/FileDownload';
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
-import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, Textarea, Lightbox, useConfirm } from '../../../shared/components/UI';
+import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, Textarea, MoneyInput, Lightbox, useConfirm } from '../../../shared/components/UI';
 import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, Image as ImageIcon, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
@@ -21,7 +21,7 @@ import { categoriaArchivo } from '../../components/useExpedienteFiles';
  * Sólo lo ven admin y soporte (el servidor lo exige). `archivos` es el
  * resultado de useExpedienteFiles: las miniaturas salen de ahí por id.
  */
-export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDetalle }) {
+export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDetalle, onCotizarAprobado }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [estado, setEstado] = useState(null);
@@ -186,7 +186,7 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
             />
           )}
           {estado?.inspection_price && (
-            <PrecioTrasInspeccion precio={estado.inspection_price} nombre={nombre} orderId={detail.id} clienteAprobo={!!eleccion?.inspection_waiting_price} onRefresh={() => cargar({ silencioso: true })} onRecargarDetalle={onRecargarDetalle} />
+            <PrecioTrasInspeccion puedeAprobar={estado.can_approve_price === true} onCotizarAprobado={onCotizarAprobado} precio={estado.inspection_price} nombre={nombre} orderId={detail.id} clienteAprobo={!!eleccion?.inspection_waiting_price} onRefresh={() => cargar({ silencioso: true })} onRecargarDetalle={onRecargarDetalle} />
           )}
 
           {/* ── Feed ── */}
@@ -226,53 +226,74 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
   );
 }
 
-function PrecioTrasInspeccion({ precio, nombre, orderId, clienteAprobo, onRefresh, onRecargarDetalle }) {
+function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDetalle, clienteAprobo, puedeAprobar, onCotizarAprobado }) {
   const toast = useToast();
-  const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
-  const labels = { pending: 'Pendiente de respuesta', negotiating: 'En negociación', unchanged: 'Precio se mantiene', adjusted: 'Precio reajustado' };
+  const [revisando, setRevisando] = useState(false);
+  const [aprobado, setAprobado] = useState(null);
+  const [nota, setNota] = useState('');
+  const [versionRevisada, setVersionRevisada] = useState(null);
+  const labels = { pending: 'Pendiente de respuesta', negotiating: 'En negociación', unchanged: 'Propuesta sin cambio', adjusted: 'Propuesta reajustada' };
   const money = cents => cents == null ? 'Por confirmar' : new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(cents / 100);
+  function abrirRevision() {
+    setAprobado((precio.ready ? precio.approved_cents : precio.confirmed_cents) / 100);
+    setNota(precio.ready ? precio.approval_note || '' : '');
+    setVersionRevisada({ requestId: precio.request_id, revision: precio.revision, approvalVersion: precio.approval_version, proposedCents: precio.confirmed_cents });
+    setRevisando(true);
+  }
   async function revisar() {
-    if (!(await confirm({
-      title: '¿Validar esta confirmación de precio?',
-      description: `Revisa el acuerdo con el vendedor y su efecto en la cotización antes de continuar. Precio anterior: ${money(precio.original_cents)}. Precio confirmado: ${money(precio.confirmed_cents)}. La validación no modifica cotizaciones.${clienteAprobo ? ' El cliente ya aprobó el reporte de la inspección: al validar, la inspección queda aprobada y se le envía el Pago 2 con la cotización publicada.' : ' No crea cobros.'}`,
-      confirmLabel: 'Validar confirmación',
-    }))) return;
+    if (!puedeAprobar || saving || !versionRevisada || !(aprobado > 0)) return;
     setSaving(true);
     try {
-      const r = await revisarPrecioInspeccion(orderId, precio.request_id, precio.revision);
+      const r = await revisarPrecioInspeccion(orderId, versionRevisada.requestId, versionRevisada.revision, Number(aprobado).toFixed(2), versionRevisada.approvalVersion, nota);
+      setRevisando(false);
       toast?.(r?.inspeccion_aprobada
-        ? (r.pago ? `Precio validado. La inspección quedó aprobada por el cliente y se envió el Pago 2 (${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(r.pago.amount_clp)}).` : 'Precio validado. La inspección quedó aprobada por el cliente; crea el Pago 2 desde Cobros.')
-        : 'Confirmación de precio revisada. Puedes continuar con los hitos.', 'success');
+        ? (r.pago ? 'Aprobación guardada. Como el cliente ya aprobó el reporte, se continuó la inspección y el Pago 2 con la cotización publicada.' : 'Aprobación guardada. El cliente ya aprobó el reporte; revisa los cobros de la operación.')
+        : 'Valor aprobado por Juan Pablo. La cotización del cliente mantiene su versión publicada.', 'success');
       await onRefresh();
       if (r?.inspeccion_aprobada) onRecargarDetalle?.();
-    } catch (e) { toast?.(e.message || 'No se pudo validar la confirmación', 'error'); }
+    } catch (e) { toast?.(e.message || 'No se pudo guardar la aprobación', 'error'); }
     finally { setSaving(false); }
   }
   return (
     <section aria-labelledby="inspection-price-title" className="rounded-lg border border-line bg-surface p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="inspection-price-title" className="text-sm font-semibold text-ink-900">Precio de compra tras la inspección</h4>
-        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.ready ? 'Revisado por el equipo' : labels[precio.status] || 'Por confirmar'}</Badge>
+        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.ready ? 'Aprobado por Juan Pablo' : precio.confirmed ? puedeAprobar ? 'Pendiente de tu aprobación' : 'Pendiente de Juan Pablo' : labels[precio.status] || 'Por confirmar'}</Badge>
       </div>
-      <p className="text-13 text-ink-500">{nombre} confirma por separado el acuerdo con el vendedor. Información interna del equipo.</p>
+      <p className="text-13 text-ink-500">{nombre} envía una propuesta interna. Sólo Juan Pablo puede aprobarla o editar el valor; el cliente no recibe esta respuesta.</p>
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-13">
-        <div><dt className="text-ink-500">Precio anterior · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.original_cents)}</dd></div>
-        <div><dt className="text-ink-500">Precio confirmado · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.confirmed_cents)}</dd></div>
-        <div><dt className="text-ink-500">Variación · USD</dt><dd className="font-medium text-ink-900 tabular">{precio.confirmed ? money(precio.confirmed_cents - precio.original_cents) : 'Por confirmar'}</dd></div>
+        <div><dt className="text-ink-500">Precio anterior informado · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.original_cents)}</dd></div>
+        <div><dt className="text-ink-500">Propuesta de {nombre} · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.confirmed_cents)}</dd></div>
+        <div><dt className="text-ink-500">Valor aprobado por Juan Pablo · USD</dt><dd className="font-semibold text-brand-700 tabular">{precio.ready ? money(precio.approved_cents) : 'Pendiente de aprobación'}</dd></div>
       </dl>
       {precio.reason && <div><p className="text-xs text-ink-500 mb-1">Hallazgo, acuerdo o negociación · texto original del coordinador</p><p lang="en" className="text-sm text-ink-700 whitespace-pre-wrap break-words">{precio.reason}</p></div>}
+      {precio.ready && precio.approval_note && <p className="text-13 text-ink-700 whitespace-pre-wrap">Nota de aprobación: {precio.approval_note}</p>}
       <Callout tone={precio.ready ? 'info' : 'warning'} compact>
-        {precio.ready ? 'Confirmación revisada. El equipo continúa los hitos y revisa la cotización si corresponde.' : precio.confirmed ? 'Respuesta recibida. Revisa el precio y su efecto en la cotización, y valida esta confirmación antes de aprobar la inspección o cerrar la compra.' : 'Se solicita confirmación al coordinador con seguimiento diario AM de Chile hasta recibir un precio confirmado. Una negociación pendiente mantiene este paso abierto.'}
-        {' '}Esta respuesta no modifica cotizaciones ni genera cobros.
+        {precio.ready ? 'La propuesta ya tiene tu aprobación. Para usar ese valor en la cotización del cliente, revísala y guárdala desde el cotizador.' : precio.confirmed ? 'Propuesta recibida. Falta que Juan Pablo apruebe este precio o ingrese un valor distinto antes de continuar.' : 'Se solicita confirmación al coordinador con seguimiento diario AM de Chile hasta recibir su propuesta.'}
+        {' '}La respuesta de {nombre} no publica precios ni modifica cotizaciones o cobros.
       </Callout>
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <p className="text-xs text-ink-500">{precio.last_sent_at ? `Último correo: ${fechaAvisoInspeccion(precio.last_sent_at)}` : 'Primer correo pendiente del seguimiento automático'}</p>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={saving}>Actualizar precio</Button>
-          {precio.confirmed && !precio.ready && <Button size="sm" variant="secondary" onClick={revisar} loading={saving}>Validar confirmación</Button>}
+          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={saving}>Actualizar respuesta</Button>
+          {puedeAprobar && precio.confirmed && <Button size="sm" variant="secondary" onClick={abrirRevision} disabled={saving}>{precio.ready ? 'Editar valor aprobado' : 'Revisar y aprobar precio'}</Button>}
+          {puedeAprobar && precio.ready && onCotizarAprobado && <Button size="sm" onClick={() => onCotizarAprobado(precio.approved_cents / 100)}>Usar valor aprobado en cotizador</Button>}
         </div>
       </div>
+      {!puedeAprobar && precio.confirmed && <p className="text-xs text-ink-500">La aprobación y edición están reservadas a la cuenta principal de Juan Pablo.</p>}
+      <Modal open={revisando} onClose={() => !saving && setRevisando(false)} title="Aprobar precio de compra" description="Revisa la propuesta e ingresa el valor que tú apruebas." size="md" footer={<>
+        <Button variant="secondary" onClick={() => setRevisando(false)} disabled={saving}>Cancelar</Button>
+        <Button onClick={revisar} loading={saving} disabled={!(aprobado > 0)}>Guardar aprobación</Button>
+      </>}>
+        <div className="space-y-4">
+          <p className="text-sm text-ink-700">Propuesta de {nombre}: <strong>{money(versionRevisada?.proposedCents)}</strong>. Se conserva como antecedente, aunque apruebes otro importe.</p>
+          <MoneyInput currency="USD" label="Valor que apruebas · USD" value={aprobado} onChange={setAprobado} required hint="Puedes aceptar la propuesta o editar el valor antes de aprobar." />
+          <Textarea label="Nota de aprobación" value={nota} onChange={e => setNota(e.target.value)} maxLength={2000} rows={3} hint="Interna. No se envía al cliente ni a David." />
+          <Callout tone="info" compact>Esta aprobación no publica ni modifica la cotización. El cliente sólo verá el valor que tú guardes y publiques en el cotizador.</Callout>
+          {clienteAprobo && <Callout tone="warning" compact>El cliente ya aprobó el reporte. Al guardar esta aprobación se continuará la inspección y el Pago 2 con la cotización publicada.</Callout>}
+        </div>
+      </Modal>
     </section>
   );
 }

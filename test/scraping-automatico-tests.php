@@ -11,6 +11,7 @@ $codigo = file_get_contents("$raiz/api/orders_api.php");
 $codigo = str_replace("file_get_contents('php://input')", "json_encode(\$GLOBALS['INPUT'])", $codigo);
 file_put_contents("$caja/orders_api.php", $codigo);
 foreach (['auth_helper.php', 'cotizador_helpers.php', 'eleccion_lancha.php', 'operador_usa.php'] as $f) file_put_contents("$caja/$f", '<?php');
+file_put_contents("$caja/operador_usa.php", '<?php function opuPriceBuyerBaseGuard($pdo,$link,$value) { return null; }');
 file_put_contents("$caja/db_config.php", '<?php function getDbConnection() { return $GLOBALS["BD"]; }');
 file_put_contents("$caja/scraper_locator.php", '<?php function linkScraperPath() { return __DIR__ . "/scraper.php"; }');
 file_put_contents("$caja/email_service.php", '<?php class EmailService { protected $adminEmails = ["team@example.com"]; }');
