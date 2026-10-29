@@ -22,7 +22,7 @@ function ReceiptForm({ request, admin, onChange }) {
   useEffect(() => { let active = true; api.list(request.id).then(r => { if (active) setReceipts(r.receipts || []); }).catch(e => { if (active) setError(e.message); }); return () => { active = false; }; }, [api, request.id]);
   async function upload(e) {
     e.preventDefault();if (busy || !file) return;setBusy(true);setError('');setMessage('');
-    try { const r = await api.upload(request.id, file, amount, reference, currency); setMessage(r.message); setFile(null);setReference('');e.target.reset();await load();onChange?.(); }
+    try { const r = await api.upload(request.id, file, amount, reference, currency); onChange?.(r);setMessage(r.message); setFile(null);setReference('');e.target.reset();await load(); }
     catch (e) { setError(e.message || 'No se pudo adjuntar el comprobante'); }
     finally { setBusy(false); }
   }

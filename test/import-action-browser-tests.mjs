@@ -164,15 +164,16 @@ try {
     execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$r=&$d['requests'][0];$r['status']='pending';unset($r['receipts'],$r['receipt_received_at'],$r['receipt_status'],$r['receipt_url']);file_put_contents($f,json_encode($d));`]);
     const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(token=>{localStorage.setItem('imporlan_token',token);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de ejemplo',role:'user'}));},jwt('client@example.test','user'));
-    const gatewayCalls=[];
+    const gatewayCalls=[];const downloadAuth=[];let delayPaymentList=false;
     await page.route('**/api/**',async route=>{
       const request=route.request(),url=new URL(request.url());
       if(url.pathname.endsWith('payment_receipts_api.php')) {
-        const headers={Authorization:`Bearer ${jwt('client@example.test','user')}`};const mime=request.headers()['content-type'];if(mime)headers['Content-Type']=mime;
+        const headers={};const auth=request.headers().authorization;if(auth)headers.Authorization=auth;const mime=request.headers()['content-type'];if(mime)headers['Content-Type']=mime;if(url.searchParams.get('action')==='download')downloadAuth.push(!!auth);
         const response=await fetch(`${origin}${url.pathname.replace('/api/','/')}${url.search}`,{method:request.method(),headers,body:request.method()==='POST'?request.postDataBuffer():undefined});
         return route.fulfill({status:response.status,headers:{'Content-Type':response.headers.get('content-type')||'application/json'},body:Buffer.from(await response.arrayBuffer())});
       }
       if(/webpay|mercadopago/.test(url.pathname))gatewayCalls.push(url.pathname);
+      if(delayPaymentList && url.pathname.endsWith('payment_requests_api.php'))await new Promise(resolve=>setTimeout(resolve,1500));
       const json=url.pathname.endsWith('payment_requests_api.php') ? JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')) : {success:true,orders:[{id:1,order_number:'IMP-DEMO'}]};
       return route.fulfill({json});
     });
@@ -188,6 +189,33 @@ try {
     const row=JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests[0];
     check(row.status==='pending' && row.receipts[0].reference===`UI-BANK-${width}`,`actual client form attaches evidence to pending Pago 2 at ${width}px`);
     if(process.env.ACTION_SCREENSHOTS)await page.screenshot({path:join(process.env.ACTION_SCREENSHOTS,`comprobante-cliente-${width}.png`),fullPage:true});
+
+    if(width===1440) {
+      await page.getByRole('button',{name:'Cerrar',exact:true}).last().click();
+      const paymentRow=page.getByRole('row').filter({hasText:'Pago 2'});
+      await paymentRow.getByRole('button',{name:'Más acciones',exact:true}).click();
+      const popupPromise=page.waitForEvent('popup');
+      await page.getByRole('menuitem',{name:'Ver comprobante',exact:true}).click();
+      const popup=await popupPromise;await popup.waitForURL(/^blob:/);
+      check(downloadAuth.includes(false) && downloadAuth.includes(true),'payment-table receipt action retries the protected download with verified owner authentication');
+      await popup.close();
+      execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$r=&$d['requests'][0];unset($r['receipts'],$r['receipt_received_at'],$r['receipt_status'],$r['receipt_url']);file_put_contents($f,json_encode($d));`]);
+      await page.reload();await page.getByRole('radio',{name:/Transferencia bancaria/}).waitFor();
+      await page.getByRole('button',{name:'Cancelar',exact:true}).last().click();
+      await page.getByRole('row').filter({hasText:'Pago 2'}).click();
+      const detail=page.getByRole('dialog');
+      await detail.getByLabel('Referencia o número de transferencia').fill('DETAIL-RECEIPT');
+      await detail.getByLabel('Archivo del comprobante',{exact:true}).setInputFiles({name:'detalle.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nDetail receipt\n')});
+      delayPaymentList=true;
+      const refreshed=page.waitForResponse(r=>r.url().includes('payment_requests_api.php'));
+      await detail.getByRole('button',{name:'Adjuntar comprobante',exact:true}).click();
+      await detail.getByText('Comprobante recibido. El equipo revisará el ingreso antes de confirmar el pago.',{exact:true}).waitFor();
+      await detail.getByRole('button',{name:'Pagar',exact:true}).click();
+      await page.getByText('Comprobante recibido · ingreso en revisión',{exact:true}).waitFor();
+      check(await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && gatewayCalls.length===0,'uploading in payment details cannot reopen gateways even before the list refresh completes');
+      await refreshed;
+    }
+
     await page.close();
   }
 

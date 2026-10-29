@@ -21,6 +21,7 @@ require_once __DIR__ . '/db_config.php';
 setCorsHeaders();
 
 header('Content-Type: application/json');
+header('Cache-Control: private, no-store');
 
 $action = $_GET['action'] ?? '';
 

@@ -299,7 +299,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       onReceiptChange={importacion.onReintentarCobros}
                       accion={p.estado === 'por_cobrar'
                         ? <Button size="sm" variant="secondary" icon={Receipt} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
-                        : <MenuCobro cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
+                        : <MenuCobro historical={p.n === 1 && (!!eleccion?.inspection_report || !!eleccion?.inspection_waiting_price || eleccion?.inspection_stage === 'aprobada' || !!eleccion?.steps?.compra)} cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}
                   {otros.map(c => (
@@ -594,12 +594,13 @@ function EstadoCobro({ cobro }) {
 }
 
 /* Cobro pendiente: marcarlo pagado (transferencias) o anularlo. Pagado: nada. */
-function MenuCobro({ cobro, onEstado }) {
+function MenuCobro({ cobro, onEstado, historical = false }) {
   if (!cobro || cobro.status !== 'pending') return null;
   return (
     <Menu
       label={`Acciones del cobro ${cobro.title}`}
       items={[
+        ...(historical ? [{ label: 'Confirmar pago anterior', icon: CircleCheck, onClick: () => onEstado(cobro, 'paid', 'manual') }] : []),
         { label: 'Marcar pagado (transferencia)', icon: CircleCheck, onClick: () => onEstado(cobro, 'paid') },
         { separator: true },
         { label: 'Anular cobro', icon: Trash, tone: 'danger', onClick: () => onEstado(cobro, 'cancelled') },

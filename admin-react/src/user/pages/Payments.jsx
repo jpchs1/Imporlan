@@ -13,6 +13,7 @@ import { Plus, Copy, Check, Banknote, Ship, Receipt, RefreshCw, WebPayIcon, Merc
 import { useToast } from '../../shared/components/Toast';
 import PaymentReceipts from '../../shared/components/PaymentReceipts';
 import { FileOpen } from '../../shared/components/FileDownload';
+import { openFile } from '../../shared/lib/file-download';
 
 /* ---------------------------------------------------------------------------
    Medios de pago. PayPal no se lista: el panel no tiene flujo de pago con
@@ -303,7 +304,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
         </div>
 
         {awaitingReceiptReview ? <><Callout tone="info" title="Comprobante recibido · ingreso en revisión">No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
-          <><DatosTransferencia amount={pr.amount_clp} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={() => { setReceiptSubmitted(true); onReceipt?.(); }} /></>
+          <><DatosTransferencia amount={pr.amount_clp} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true); onReceipt?.(r); }} /></>
         ) : (
           <div>
             <p className="text-sm font-medium text-ink-900 mb-2">Elige cómo pagar</p>
@@ -510,13 +511,31 @@ export default function Payments() {
   const [params, setParams] = useSearchParams();
   const pagarParam = params.get('pagar');
   const pagarAtendido = useRef(null);
+  const loadGeneration = useRef(0);
 
   // Sin setState síncrono antes del await: la carga inicial parte con
   // loading=true y `recargar` (botón / reintentar) lo vuelve a poner.
-  const loadRequests = useCallback(() => getMyPaymentRequests('all')
-    .then((data) => { setRequests(data.requests || data.items || []); setError(null); })
-    .catch((e) => { setError(e?.message || 'No pudimos cargar tus pagos.'); })
-    .finally(() => { setLoading(false); }), []);
+  const loadRequests = useCallback(() => {
+    const ticket = ++loadGeneration.current;
+    return getMyPaymentRequests('all')
+    .then((data) => {
+      if (ticket !== loadGeneration.current) return;
+      const next = data.requests || data.items || [];setRequests(next);setError(null);
+      setPayTarget(current => current ? next.find(r => r.id === current.id && r.status === 'pending') || null : null);
+      setDetalle(current => current ? next.find(r => r.id === current.id) || null : null);
+    })
+    .catch((e) => { if (ticket === loadGeneration.current) setError(e?.message || 'No pudimos cargar tus pagos.'); })
+    .finally(() => { if (ticket === loadGeneration.current) setLoading(false); });
+  }, []);
+
+  function receiptRecorded(id, result) {
+    if (result?.receipt) {
+      // Use the acknowledged evidence immediately, even if the list refresh is slow or fails.
+      const patch = r => r?.id === id ? { ...r, receipt_received_at: result.receipt.uploaded_at, receipt_status: 'pending', receipt_url: result.receipt.download_url, receipts: [...(r.receipts || []).filter(x => x.id !== result.receipt.id), result.receipt] } : r;
+      setRequests(current => current.map(patch));setPayTarget(patch);setDetalle(patch);
+    }
+    return loadRequests();
+  }
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
 
@@ -579,7 +598,7 @@ export default function Payments() {
   const acciones = (r) => [
     { label: 'Ver detalle', icon: Receipt, onClick: () => setDetalle(r) },
     r.status === 'pending' && { label: 'Pagar', icon: Banknote, onClick: () => setPayTarget(r) },
-    (r.receipt_url || r.voucher_url || r.comprobante_url) && { label: 'Ver comprobante', icon: Receipt, onClick: () => window.open(r.receipt_url || r.voucher_url || r.comprobante_url, '_blank', 'noopener') },
+    (r.receipt_url || r.voucher_url || r.comprobante_url) && { label: 'Ver comprobante', icon: Receipt, onClick: () => openFile({ download_url: r.receipt_url || r.voucher_url || r.comprobante_url, original_name: 'Comprobante' }).catch(e => toast?.({ type:'error',title:'No se pudo abrir el comprobante',description:e.message })) },
   ];
 
   const vacioTab = {
@@ -669,8 +688,8 @@ export default function Payments() {
       )}
 
       {/* Se montan solo abiertos: cada apertura parte con el estado limpio. */}
-      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} onReceipt={loadRequests} />}
-      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} onReceipt={loadRequests} />}
+      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} onReceipt={r => receiptRecorded(payTarget.id, r)} />}
+      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} onReceipt={r => receiptRecorded(detalle.id, r)} />}
       {showCustomPay && <CustomPayModal open onClose={() => setShowCustomPay(false)} toast={toast} user={user} />}
     </div>
   );

@@ -45,6 +45,11 @@ export async function downloadFile(file) {
 export async function openFile(file) {
   const src = file.download_url;
   if (!src) throw new Error('Este archivo no tiene un enlace.');
+    const external = new URL(src, window.location.href);
+    if (external.origin !== window.location.origin) {
+      if (!['https:', 'http:'].includes(external.protocol)) throw new Error('El enlace del archivo no es válido.');
+      window.open(external.href, '_blank', 'noopener');return;
+    }
   const tab = window.open('', '_blank');
   if (!tab) throw new Error('Permite las ventanas emergentes para abrir el archivo.');
   tab.opener = null;
