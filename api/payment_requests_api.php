@@ -98,6 +98,21 @@ function updateRequestInFile($id, $updates, $expectedStatus = null) {
     return $result['request'] ?? null;
 }
 
+/** A late bookkeeping correction is not a new first payment or a new inspection request. */
+function isHistoricalFirstPayment($request) {
+    $n=intval($request['metadata']['custom_fields']['pago'] ?? 0);
+    if (!$n && preg_match('/pago\s*([123])\b/i',$request['title'] ?? '',$m)) $n=intval($m[1]);
+    if ($n!==1) return false;
+    $ref=$request['metadata']['order_id'] ?? $request['metadata']['order_number'] ?? null;
+    if (!is_scalar($ref) || trim((string)$ref)==='') return false;
+    try {
+        $pdo=getDbConnection();if (!$pdo) return false;
+        $st=$pdo->prepare(ctype_digit((string)$ref) ? 'SELECT * FROM orders WHERE id=?' : 'SELECT * FROM orders WHERE order_number=?');$st->execute([$ref]);$o=$st->fetch(PDO::FETCH_ASSOC);
+        if (!$o || strtolower($o['customer_email'])!==strtolower($request['user_email'])) return false;
+        return !empty($o['inspection_client_ok_at']) || !empty($o['inspection_report_at']) || (bool)array_intersect_key(impPasos($o),array_flip(['inspeccion','compra','transporte','aduana','entrega']));
+    } catch (Throwable $e) { return false; }
+}
+
 function validatePaymentRequest($input) {
     $errors = [];
     
@@ -352,6 +367,8 @@ function updateRequestStatus() {
     }
     
     if (($request['status'] ?? '')===$newStatus) { echo json_encode(['success'=>true,'request'=>$request]); return; }
+    require_once __DIR__.'/eleccion_lancha.php';
+    $historical=$newStatus==='paid' && isHistoricalFirstPayment($request);
     $updates=['status'=>$newStatus];
     if ($newStatus==='cancelled') $updates['cancelled_reason']=$reason;
     if ($newStatus==='paid') {
@@ -359,6 +376,7 @@ function updateRequestStatus() {
         $updates['payment_method']=is_string($input['payment_method'] ?? null) ? $input['payment_method'] : 'manual';
         $updates['paid_confirmed_by']=$admin['email'];
         $updates['paid_confirmed_at']=gmdate('Y-m-d H:i:s');
+        $updates['reconciled_after_advance']=$historical;
     }
     $updated=updateRequestInFile($requestId,$updates,$request['status']);
     if (!$updated) { http_response_code(409); echo json_encode(['error'=>'El cobro cambió durante la revisión. Actualiza antes de confirmar.']); return; }
@@ -366,10 +384,10 @@ function updateRequestStatus() {
     try {
         $service=new EmailService();
         $name=explode('@',$request['user_email'])[0];
-        if ($newStatus==='paid') $service->sendPaymentRequestPaidEmail($request['user_email'],$name,$updated,$updates);
+        if ($newStatus==='paid' && !$historical) $service->sendPaymentRequestPaidEmail($request['user_email'],$name,$updated,$updates);
         elseif ($newStatus==='cancelled') $service->sendPaymentRequestCancelledEmail($request['user_email'],$name,$updated);
     } catch (Throwable $e) { logPaymentRequest('STATUS_EMAIL_ERROR',['id'=>$requestId]); }
-    if ($newStatus === 'paid' && ($request['status'] ?? '') !== 'paid' && $updated) {
+    if ($newStatus === 'paid' && !$historical && ($request['status'] ?? '') !== 'paid' && $updated) {
         // Pago 1 pagado (p. ej. una transferencia): se le avisa a la operación en EE. UU.
         try {
             require_once __DIR__ . '/operador_usa.php';

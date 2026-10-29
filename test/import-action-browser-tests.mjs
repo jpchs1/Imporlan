@@ -105,6 +105,13 @@ try {
   const usdReceipt=await receiptCall('upload',usdForm);
   check(usdReceipt.httpStatus===200 && usdReceipt.receipt.currency==='USD' && usdReceipt.receipt.declared_amount==='100.50' && usdReceipt.receipt.declared_amount_clp===null,'USD evidence preserves original amount without inventing a CLP conversion');
 
+
+  execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$d['requests'][1]['status']='pending';file_put_contents($f,json_encode($d));`]);
+  const historicalBefore=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length;
+  const historicalResponse=await fetch(`${origin}/payment_requests_api.php?action=update_status`,{method:'POST',headers:{Authorization:`Bearer ${jwt('owner@example.test','admin')}`,'Content-Type':'application/json'},body:JSON.stringify({request_id:'fixture-p1',new_status:'paid',payment_method:'transferencia_bancaria'})});
+  const historical=await historicalResponse.json();
+  check(historicalResponse.status===200 && historical.request.status==='paid' && historical.request.reconciled_after_advance && (await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length===historicalBefore,'reconciling historical Pago 1 records the owner confirmation without repeating old customer or inspection emails');
+
   const confirmPaid=()=>fetch(`${origin}/payment_requests_api.php?action=update_status`,{method:'POST',headers:{Authorization:`Bearer ${jwt('owner@example.test','admin')}`,'Content-Type':'application/json'},body:JSON.stringify({request_id:'fixture-p2',new_status:'paid',payment_method:'transferencia_bancaria'})});
   const confirmed=await confirmPaid();const confirmedJson=await confirmed.json();
   check(confirmed.status===200 && confirmedJson.request.status==='paid' && confirmedJson.request.receipts.length===1 && confirmedJson.request.paid_confirmed_by==='owner@example.test','actual bank confirmation persists verified admin and preserves concurrently stored proof');
