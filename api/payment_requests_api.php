@@ -22,6 +22,11 @@ setCorsHeaders();
 
 header('Content-Type: application/json');
 header('Cache-Control: private, no-store');
+if ($_SERVER['REQUEST_METHOD']==='OPTIONS') { http_response_code(200); exit; }
+$financialSession=requireUserAuthShared();
+if (($financialSession['role'] ?? '')==='agent') {
+    http_response_code(403);echo json_encode(['error'=>'El operador no tiene acceso al registro financiero']);exit;
+}
 
 $action = $_GET['action'] ?? '';
 

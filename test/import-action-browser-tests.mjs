@@ -83,6 +83,7 @@ try {
   };
   const receiptPayload=(reference,content='%PDF-1.4\nFixture receipt\n',type='application/pdf')=>{const f=new FormData();f.append('request_id','fixture-p2');f.append('amount_clp','26891827');f.append('reference',reference);f.append('receipt',new Blob([content],{type}),'../../receipt.php');return f;};
   check((await fetch(`${origin}/payment_receipts_api.php?action=list&request_id=fixture-p2`)).status===401,'anonymous callers cannot list payment evidence');
+  check((await fetch(`${origin}/payment_requests_api.php?action=user_list_public&user_email=client@example.test`,{headers:{Authorization:`Bearer ${jwt('client@example.test','agent')}`}})).status===403,'operator cannot bypass receipt privacy through the legacy financial-record listing');
   check((await receiptCall('list',null,'other@example.test')).httpStatus===403 && (await receiptCall('list',null,'client@example.test','agent')).httpStatus===403,'foreign customers and agents cannot access financial evidence');
   check((await receiptCall('upload',receiptPayload('BAD','<?php echo 1;','application/pdf'))).httpStatus===400,'server inspects file bytes rather than trusting PDF extension or MIME');
   const upload=await receiptCall('upload',receiptPayload('BANK-FIXTURE-1'));
