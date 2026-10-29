@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
@@ -133,6 +133,8 @@ function FilaBarco({ vessel, selected, onClick }) {
 function DetalleBarco({ vessel, onRefresh, refreshing }) {
   const eta = vessel.eta_manual || vessel.pos_eta;
   const pos = coordenadas(vessel);
+  // El endpoint público de actualización AIS admite sólo barcos destacados.
+  const puedeActualizar = Number(vessel.is_featured) === 1;
   const items = [
     vessel.shipping_line && { label: 'Naviera', value: vessel.shipping_line },
     vessel.origin_label && { label: 'Origen', value: vessel.origin_label },
@@ -153,11 +155,23 @@ function DetalleBarco({ vessel, onRefresh, refreshing }) {
         <DescriptionList items={items} cols={2} dense />
       </Card.Body>
       <Card.Footer align="between">
-        <p className="text-xs text-ink-500 m-0">Los datos vienen del sistema AIS de la naviera.</p>
-        <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={onRefresh}>Actualizar posición</Button>
+        <p className="text-xs text-ink-500 m-0">{puedeActualizar ? 'Los datos vienen del sistema AIS de la naviera.' : 'Última posición registrada. El equipo actualiza este seguimiento.'}</p>
+        {puedeActualizar && <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={onRefresh}>Actualizar posición</Button>}
       </Card.Footer>
     </Card>
   );
+}
+
+/** El vínculo de un expediente puede apuntar a un barco que no está destacado. */
+async function cargarListaDeBarcos(barco) {
+  if (barco) {
+    try {
+      const data = await getVesselDetail(barco);
+      return data?.success && data.vessel && String(data.vessel.id) === barco ? [data.vessel] : [];
+    } catch { return []; }
+  }
+  const data = await getFeaturedVessels();
+  return data?.success && Array.isArray(data.vessels) ? data.vessels : Array.isArray(data) ? data : [];
 }
 
 const ACTIVOS = ['active', 'en route', 'in_transit', 'sailing'];
@@ -185,35 +199,38 @@ export default function Tracking() {
   const [positions, setPositions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [loadedFor, setLoadedFor] = useState(null);
+  const listGeneration = useRef(0);
+  const cargando = loading || loadedFor !== barcoDelExpediente;
   const [filter, setFilter] = useState('all'); // all | active | arrived | other
-
-  const listaDe = (data) => (data.success && data.vessels ? data.vessels : (Array.isArray(data) ? data : []));
 
   useEffect(() => {
     let vivo = true;
-    getFeaturedVessels()
-      .then(data => {
-        if (!vivo) return;
-        const list = listaDe(data);
+    const generation = ++listGeneration.current;
+    cargarListaDeBarcos(barcoDelExpediente)
+      .then(list => {
+        if (!vivo || generation !== listGeneration.current) return;
         setVessels(list);
-        setSelectedId(prev => barcoDelExpediente ? list.find(v => String(v.id) === barcoDelExpediente)?.id || null : prev || list[0]?.id || null);
+        setSelectedId(prev => barcoDelExpediente ? list[0]?.id || null : list.some(v => v.id === prev) ? prev : list[0]?.id || null);
+        setError(null);
       })
-      .catch(e => { if (vivo) setError(e); })
-      .finally(() => { if (vivo) setLoading(false); });
+      .catch(e => { if (vivo && generation === listGeneration.current) setError(e); })
+      .finally(() => { if (vivo && generation === listGeneration.current) { setLoading(false); setLoadedFor(barcoDelExpediente); } });
     return () => { vivo = false; };
   }, [barcoDelExpediente]);
 
   function recargar() {
+    const generation = ++listGeneration.current;
     setLoading(true);
     setError(null);
-    getFeaturedVessels()
-      .then(data => {
-        const list = listaDe(data);
+    cargarListaDeBarcos(barcoDelExpediente)
+      .then(list => {
+        if (generation !== listGeneration.current) return;
         setVessels(list);
-        setSelectedId(prev => barcoDelExpediente ? list.find(v => String(v.id) === barcoDelExpediente)?.id || null : prev || list[0]?.id || null);
+        setSelectedId(prev => barcoDelExpediente ? list[0]?.id || null : list.some(v => v.id === prev) ? prev : list[0]?.id || null);
       })
-      .catch(setError)
-      .finally(() => setLoading(false));
+      .catch(e => { if (generation === listGeneration.current) setError(e); })
+      .finally(() => { if (generation === listGeneration.current) { setLoading(false); setLoadedFor(barcoDelExpediente); } });
   }
 
   // Detalle + ruta del barco seleccionado. El detalle que se pinta es solo
@@ -240,11 +257,12 @@ export default function Tracking() {
   }, [selectedId, vessels]);
 
   const handleSelectVessel = useCallback((id) => { setSelectedId(id); }, []);
-  const detalleActual = detail && selectedId && String(detail.id) === String(selectedId) ? detail : null;
+  const detalleActual = !cargando && detail && selectedId && String(detail.id) === String(selectedId) ? detail : null;
   const rutaActual = detalleActual ? positions : [];
 
   async function handleRefresh() {
     if (!selectedId) return;
+    const generation = listGeneration.current;
     setRefreshing(true);
     try {
       const data = await refreshVesselPosition(selectedId);
@@ -253,10 +271,12 @@ export default function Tracking() {
         const [detailRes, posRes] = await Promise.all([
           getVesselDetail(selectedId).catch(() => null),
           getVesselPositions(selectedId).catch(() => ({ positions: [] })),
-          getFeaturedVessels().then(d => { setVessels(listaDe(d)); }).catch(() => {}),
+          cargarListaDeBarcos(barcoDelExpediente).then(list => { if (generation === listGeneration.current) setVessels(list); }).catch(() => {}),
         ]);
-        if (detailRes?.success && detailRes.vessel) setDetail(detailRes.vessel);
-        setPositions(posRes?.positions || posRes?.data || []);
+        if (generation === listGeneration.current) {
+          if (detailRes?.success && detailRes.vessel) setDetail(detailRes.vessel);
+          setPositions(posRes?.positions || posRes?.data || []);
+        }
       } else {
         toast?.(data.error || data.message || 'No se pudo actualizar', 'warning');
       }
@@ -296,11 +316,11 @@ export default function Tracking() {
         description="Dónde va el barco que trae tu embarcación: ruta, velocidad y fecha estimada de llegada."
       />
 
-      {!loading && !error && barcoDelExpediente && !vessels.some(v => String(v.id) === barcoDelExpediente) && <Callout tone="info" title="El seguimiento de este expediente todavía no está disponible" className="mb-4">El equipo debe confirmar el barco asociado a tu envío. Te avisamos cuando puedas consultar la ruta de tu embarcación.</Callout>}
+      {!cargando && !error && barcoDelExpediente && !vessels.some(v => String(v.id) === barcoDelExpediente) && <Callout tone="info" title="El seguimiento de este expediente todavía no está disponible" className="mb-4" action={<Button size="sm" variant="secondary" onClick={recargar}>Reintentar</Button>}>El equipo debe confirmar el barco asociado a tu envío. Te avisamos cuando puedas consultar la ruta de tu embarcación.</Callout>}
 
-      {error ? (
+      {error && !cargando ? (
         <Card padding="none"><ErrorState message="No pudimos cargar el seguimiento." detail={error} onRetry={recargar} /></Card>
-      ) : loading ? (
+      ) : cargando ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-8 sk rounded-lg min-h-[360px] lg:min-h-[560px]" aria-hidden="true" />
           <div className="lg:col-span-4 space-y-3"><Skeleton.Card /><Skeleton.Card /><Skeleton.Card /></div>

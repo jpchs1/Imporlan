@@ -457,22 +457,27 @@ try {
     await flow.close();
   }
 
-  for (const trackingId of ['22','999']) {
-    const consulted=[];
+  for (const trackingId of ['22','33','999']) {
+    const consulted=[];let featuredReads=0;
     const tracking=await open('tracking',{trackingId,ready:false,handler:async({route,url})=>{
       if(!url.pathname.endsWith('tracking_api.php'))return false;
       const action=url.searchParams.get('action');
-      if(action==='featured')await route.fulfill({json:{success:true,vessels:[{id:11,display_name:'Otro barco de prueba',status:'active'},{id:22,display_name:'Barco del expediente',status:'active'}]}});
-      else {consulted.push(url.searchParams.get('id'));await route.fulfill({json:{success:true,vessel:{id:Number(url.searchParams.get('id')),display_name:'Barco del expediente'},positions:[]}});}
+      if(action==='featured'){featuredReads++;await route.fulfill({json:{success:true,vessels:[{id:11,display_name:'Otro barco de prueba',status:'active'},{id:22,display_name:'Barco del expediente',status:'active'}]}});}
+      else {consulted.push(url.searchParams.get('id'));if(action==='refresh_vessel_position' && trackingId==='33'){await route.fulfill({status:404,json:{success:false,error:'Vessel not found or not featured'}});}else await route.fulfill({json:trackingId==='999'?{success:false,error:'Not found'}:{success:true,vessel:{id:Number(url.searchParams.get('id')),display_name:'Barco del expediente',is_featured:trackingId==='33'?0:1},positions:[]}});}
       return true;
     }});
-    await tracking.page.getByRole('list',{name:'Barcos en seguimiento'}).waitFor();
-    if(trackingId==='22'){
+    if(trackingId!=='999')await tracking.page.getByRole('list',{name:'Barcos en seguimiento'}).waitFor();
+    else await tracking.page.getByText('El seguimiento de este expediente todavía no está disponible',{exact:true}).waitFor();
+    check(featuredReads===0,'assigned vessel tracking does not depend on the featured list');
+    if(trackingId!=='999'){
       await tracking.page.getByRole('heading',{name:'Barco del expediente',exact:true}).waitFor();
-      check(consulted.length>0 && consulted.every(id=>id==='22'),'tracking deep link opens the boat associated with the expediente');
+      check(consulted.length>0 && consulted.every(id=>id===trackingId),'tracking deep link opens the boat associated with the expediente');
+      if(trackingId==='22'){const before=consulted.length;await tracking.page.getByRole('button',{name:'Actualizar posición',exact:true}).click();await until(()=>consulted.length>=before+3,'refresh must reload the assigned vessel');check(featuredReads===0 && consulted.every(id=>id==='22'),'refreshing a supported assigned vessel keeps the same boat and route');}
+      if(trackingId==='33'){check(await tracking.page.getByRole('button',{name:'Actualizar posición',exact:true}).count()===0 && await tracking.page.getByText('Última posición registrada. El equipo actualiza este seguimiento.',{exact:true}).isVisible(),'non-featured vessel displays its recorded position without offering an unsupported public refresh');}
     }else{
       await tracking.page.getByText('El seguimiento de este expediente todavía no está disponible',{exact:true}).waitFor();
-      check(consulted.length===0,'a missing associated boat does not silently load another vessel');
+      check(consulted.length===1 && consulted[0]==='999','a failed assigned-vessel lookup does not silently load another vessel');
+      await tracking.page.getByRole('button',{name:'Reintentar',exact:true}).click();await until(()=>consulted.length===2,'retry must look up the assigned vessel');check(consulted.every(id=>id==='999') && featuredReads===0,'retry preserves the assigned vessel instead of falling back to featured boats');
     }
     await tracking.close();
   }
