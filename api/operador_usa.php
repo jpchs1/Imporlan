@@ -66,7 +66,8 @@ function opuHitosEn() {
 }
 
 /** Lo que se le pide a David según el hito en curso (null: nada del lado de EE. UU.). */
-function opuPedidoPara($hito) {
+function opuPedidoPara($hito, $priceRetained = false) {
+    if ($priceRetained && $hito === 'disponibilidad') return 'Please confirm seller availability, the current location and purchase or pickup timing. The previously agreed price is retained; no new price confirmation is requested.';
     $p = [
         'disponibilidad' => 'Please contact the seller to confirm the boat is still available and the final price. Send recent photos and, if you can, a walk-around video.',
         'inspeccion' => 'Please coordinate the technical survey. Send the survey report, photos and videos as soon as you have them.',
@@ -268,7 +269,8 @@ function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
     if (!$link) return false;
     $hito = opuHitoEnCurso($order);
-    $pedido = opuPedidoPara($hito) ?: 'Please send any new photos, videos or documents you have for this boat.';
+    $price = opuPriceState($pdo, $order);
+    $pedido = opuPedidoPara($hito, !empty($price['retained'])) ?: 'Please send any new photos, videos or documents you have for this boat.';
     $token = opuToken($pdo, $order);
     $titulo = impTituloLancha($link);
     $nombre = explode(' ', opuOperador()['nombre'])[0];
@@ -607,6 +609,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
     }
     elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection requirements are resolved. Available files and any unavailability reasons are recorded for the Imporlan team to review.';
     $price = opuPriceState($pdo, $order);
+    if (!empty($price['retained']) && !$inspectionRequest && $hito === 'disponibilidad') $pedido = opuPedidoPara($hito, true);
     if ($price && !$price['ready'] && empty($price['retained'])) {
         $pedido = $price['confirmed']
             ? 'Your purchase price confirmation is recorded. Please wait for the Imporlan team to review it and confirm the next step before proceeding with the purchase.'

@@ -163,7 +163,7 @@ try {
   for(const width of [390,768,1440]) {
     execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$r=&$d['requests'][0];$r['status']='pending';unset($r['receipts'],$r['receipt_received_at'],$r['receipt_status'],$r['receipt_url']);file_put_contents($f,json_encode($d));`]);
     const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',e=>errors.push(e.message));
-    await page.addInitScript(token=>{localStorage.setItem('imporlan_token',token);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de ejemplo',role:'user'}));},jwt('client@example.test','user'));
+    await page.addInitScript(token=>{localStorage.setItem('imporlan_token',token);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de ejemplo',role:'user'}));window.receiptBlobs=[];const nativeBlob=URL.createObjectURL.bind(URL);URL.createObjectURL=blob=>{window.receiptBlobs.push({type:blob.type,size:blob.size});return nativeBlob(blob);};},jwt('client@example.test','user'));
     const gatewayCalls=[];const downloadAuth=[];let delayPaymentList=false;
     await page.route('**/api/**',async route=>{
       const request=route.request(),url=new URL(request.url());
@@ -195,10 +195,14 @@ try {
       const paymentRow=page.getByRole('row').filter({hasText:'Pago 2'});
       await paymentRow.getByRole('button',{name:'Más acciones',exact:true}).click();
       const popupPromise=page.waitForEvent('popup');
+      const receiptBytes=page.waitForResponse(r=>r.url().includes('payment_receipts_api.php?action=download') && r.status()===200);
       await page.getByRole('menuitem',{name:'Ver comprobante',exact:true}).click();
-      const popup=await popupPromise;await popup.waitForURL(/^blob:/);
+      const popup=await popupPromise;await receiptBytes;
+      // Chromium headless-shell downloads PDFs; it has no built-in PDF viewer.
+      // Assert the actual UI authenticated and created a nonempty PDF blob before that navigation.
+      await page.waitForFunction(()=>window.receiptBlobs.some(b=>b.type==='application/pdf' && b.size>0));
       check(downloadAuth.includes(false) && downloadAuth.includes(true),'payment-table receipt action retries the protected download with verified owner authentication');
-      await popup.close();
+      if(!popup.isClosed())await popup.close();
       execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$r=&$d['requests'][0];unset($r['receipts'],$r['receipt_received_at'],$r['receipt_status'],$r['receipt_url']);file_put_contents($f,json_encode($d));`]);
       await page.reload();await page.getByRole('radio',{name:/Transferencia bancaria/}).waitFor();
       await page.getByRole('button',{name:'Cancelar',exact:true}).last().click();
