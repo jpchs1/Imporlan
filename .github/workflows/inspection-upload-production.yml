@@ -9,6 +9,8 @@ on:
       - api/import_action*.php
       - api/email_service.php
       - api/email-assets/**
+      - api/payment_receipts*.php
+      - api/payment_requests_api.php
       - api/cron/inspection_upload_followup.php
       - api/operador_usa.php
       - cron-deploy.sh
@@ -94,4 +96,12 @@ jobs:
               print('CLI-only follow-up job is inaccessible over HTTP (404).')
           else:
               raise SystemExit('The follow-up job must not be accessible over HTTP.')
+          try:
+              urllib.request.urlopen('https://www.imporlan.cl/api/payment_receipts_api.php?action=list&request_id=release-check', timeout=20)
+          except urllib.error.HTTPError as error:
+              if error.code != 401:
+                  raise SystemExit('Receipt API must require a verified session: ' + str(error.code))
+              print('Payment receipt API requires authentication (401).')
+          else:
+              raise SystemExit('Payment evidence must not be accessible without authentication.')
           PY

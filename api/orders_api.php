@@ -3081,7 +3081,7 @@ function adminSetImportStep($admin, $input = null) {
  * (impPagoPorHito), avisa al cliente y le pide a David lo que sigue.
  * $por: 'equipo' (admin) o 'cliente' (aprobó el reporte de inspección).
  */
-function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien) {
+function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mailContext = []) {
     $orderId = intval($order['id']);
     $hitos = impHitos();
     $pasos = impPasos($order);
@@ -3129,6 +3129,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien) {
                 'titulo' => impTituloLancha($link),
                 'order_number' => $order['order_number'] ?? '',
                 'order_id' => $orderId,
+                'correct_payment_notice' => !empty($mailContext['correct_payment_notice']),
                 'hechos' => ['Lancha elegida' => true] + $hechos,
                 'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
                     ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,
@@ -3512,15 +3513,15 @@ function impPagoHitoPublico($r) {
  * inspección: si ahora la puerta está abierta, se marca el hito (Pago 2).
  * Lo llama la validación del precio en operador_usa.php. Devuelve el pago o null.
  */
-function impAprobacionPendiente($pdo, $orderId) {
+function impAprobacionPendiente($pdo, $orderId, $correctPaymentNotice = false) {
     $order = opuOrden($pdo, $orderId);
     if (!$order || empty($order['inspection_client_ok_at']) || isset(impPasos($order)['inspeccion']) || impInspeccionNoApta($order)) return null;
     if (opuPriceGate($pdo, array_merge($order, ['inspection_result' => null]))) return null;
-    $r = impAplicarHito($pdo, $order, 'inspeccion', true, true, 'cliente', 'aprobación del cliente · precio validado');
+    $r = impAplicarHito($pdo, $order, 'inspeccion', true, true, 'cliente', 'aprobación del cliente · precio validado', ['correct_payment_notice'=>$correctPaymentNotice]);
     $pago = impPagoHitoPublico($r);
     $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
     impAvisarDecisionEquipo($order, $link, 'aprobar', '', $pago, false);
-    return $pago ?: ['n' => 0];
+    return array_merge($pago ?: ['n'=>0], ['email_sent'=>!empty($r['notificado'])]);
 }
 
 function impAvisarDecisionEquipo($order, $link, $decision, $motivo, $pago, $esperaPrecio = false) {

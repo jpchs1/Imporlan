@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cobrosDelExpediente, pagosConCobros, queSigue, estadoDeImportacion, hitosDe } from '../admin-react/src/shared/lib/importacion.js';
+import { cobrosDelExpediente, pagosConCobros, cuadrePagos, queSigue, estadoDeImportacion, hitosDe } from '../admin-react/src/shared/lib/importacion.js';
 let checks = 0;
 function check(condition, label) { assert.ok(condition, label); console.log(`PASS ${++checks}: ${label}`); }
 const chosen = { link_id: 11, inspection: true, steps: {} };
@@ -13,6 +13,12 @@ check(cobrosDelExpediente([{ metadata: { order_id: 36, order_number: 'IMP-00035'
 check(cobrosDelExpediente([{ id: 'legacy', metadata: { order_number: 'IMP-00035' } }], 35, 'IMP-00035').length === 1, 'legacy metadata.order_number is recognized');
 check(cobrosDelExpediente(requests, undefined).length === 0, 'missing expediente IDs never match empty references');
 const matched = pagosConCobros(plan, [req('duplicate',35,1), req('paid',35,1,'paid'), req('cancelled',35,2,'cancelled')]);
+const ledgerRequests = [req('paid',35,1,'paid'), { ...req('pending',35,2), receipts: [{ reference: 'BANK-1', declared_amount_clp: 2000, status:'pending' }] }];
+const ledger = cuadrePagos(plan, ledgerRequests, 6000);
+check(ledger.paid === 1000 && ledger.balance === 5000 && ledger.pendingReceipts === 1, 'a received receipt never counts as confirmed bank income');
+check(cuadrePagos(plan, [...ledgerRequests, req('duplicate',35,1)],6000).duplicate, 'reconciliation flags duplicate plan charges');
+check(cuadrePagos(plan, [{ ...req('wrong',35,2),amount_clp:999 }],6000).mismatch, 'reconciliation flags requests differing from agreed plan');
+check(cuadrePagos(plan, ledgerRequests.map(r => ({ ...r,receipts:[{ reference:'BANK-1' }] })),6000).duplicateReference, 'reconciliation flags repeated bank references across payments');
 check(matched.pagos[0].estado === 'pagado' && matched.pagos[0].cobro.id === 'paid', 'a confirmed payment wins over an old pending duplicate');
 check(matched.otros.length === 0, 'duplicate plan requests do not prompt a second transfer');
 check(matched.pagos[1].estado === 'por_cobrar', 'cancelled charges do not reappear as payable');

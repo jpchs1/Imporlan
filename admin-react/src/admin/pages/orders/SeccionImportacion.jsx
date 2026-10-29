@@ -3,7 +3,8 @@ import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/uti
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
-import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
+import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
+import PaymentReceipts from '../../../shared/components/PaymentReceipts';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
 import ReporteEspanol from '../../../shared/components/ReporteEspanol';
 import ModalCobro from './ModalCobro';
@@ -54,6 +55,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const hechos = hitos.filter(h => h.hecho).length;
   const plan = planDePagos(link);
   const { pagos, otros } = pagosConCobros(plan, importacion.cobros);
+  const cuadre = cuadrePagos(plan, importacion.cobros, link?.quote_total_clp || 0);
   const precio = precioChile(link);
   const equipoChile = importacion.puedeCobrar !== false;
   const noApta = inspeccionNoApta(eleccion);
@@ -272,6 +274,11 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               </div>
 
               {importacion.cobrosError && <Callout tone="warning" compact className="mb-3" action={<Button size="sm" variant="secondary" onClick={importacion.onReintentarCobros}>Reintentar cobros</Button>}>{importacion.cobrosError}</Callout>}
+              {plan.length > 0 && !importacion.cobrosError && <div className="mb-3 rounded-lg border border-line bg-canvas p-3 space-y-2">
+                <h4 className="text-sm font-semibold text-ink-900">Cuadre de pagos del plan</h4><dl className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-13"><div><dt className="text-ink-500">Cotización vigente</dt><dd className="font-semibold">{fmtCLP(link?.quote_total_clp)}</dd></div><div><dt className="text-ink-500">Registrado como pagado</dt><dd className="font-semibold">{fmtCLP(cuadre.paid)}</dd></div><div><dt className="text-ink-500">Saldo del plan</dt><dd className="font-semibold">{fmtCLP(cuadre.balance)}</dd></div></dl>
+                <p className="text-xs text-ink-500">{cuadre.pendingReceipts} comprobantes por revisar · {cuadre.missingReceipts} pagos manuales sin comprobante. Los archivos adjuntos no se suman como pagos confirmados.</p>
+                {(cuadre.mismatch || cuadre.duplicate || cuadre.duplicateReference || cuadre.balance < 0) && <Callout compact tone="warning">Revisa las diferencias entre cobros y plan, los pagos duplicados o las referencias repetidas antes de confirmar el cuadre.</Callout>}
+              </div>}
               {plan.length === 0 ? (
                 <Callout
                   tone="neutral"
@@ -289,9 +296,10 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       detalle={`${p.pct}% de la cotización`}
                       clp={p.clp}
                       cobro={p.cobro}
+                      onReceiptChange={importacion.onReintentarCobros}
                       accion={p.estado === 'por_cobrar'
                         ? <Button size="sm" variant="secondary" icon={Receipt} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ pago: p })}>Crear cobro</Button>
-                        : <MenuCobro cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
+                        : <MenuCobro historical={p.n === 1 && (!!eleccion?.inspection_report || !!eleccion?.inspection_waiting_price || eleccion?.inspection_stage === 'aprobada' || !!eleccion?.steps?.compra)} cobro={p.cobro} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}
                   {otros.map(c => (
@@ -301,6 +309,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       detalle="Fuera del plan de pagos"
                       clp={c.amount_clp}
                       cobro={c}
+                      onReceiptChange={importacion.onReintentarCobros}
                       accion={<MenuCobro cobro={c} onEstado={importacion.onEstadoCobro} />}
                     />
                   ))}
@@ -554,7 +563,7 @@ function ChipTraduccion({ status, at, onReintentar }) {
 
 /* Una fila del plan: Pago n · % · monto · estado · acción. En móvil se
    parte en dos líneas (pago/monto arriba, estado/acción abajo). */
-function FilaCobro({ titulo, detalle, clp, cobro, accion }) {
+function FilaCobro({ titulo, detalle, clp, cobro, accion, onReceiptChange }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto] items-center gap-x-3 gap-y-1.5 px-3 py-2">
       <div className="min-w-0">
@@ -564,6 +573,7 @@ function FilaCobro({ titulo, detalle, clp, cobro, accion }) {
       <p className="text-sm font-semibold text-ink-900 tabular text-right sm:text-left">{fmtCLP(clp)}</p>
       <EstadoCobro cobro={cobro} />
       <div className="justify-self-end">{accion || <span className="inline-block w-8" aria-hidden="true" />}</div>
+      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700">Comprobantes y revisión del {titulo}</summary><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></details>}
     </div>
   );
 }
@@ -584,12 +594,13 @@ function EstadoCobro({ cobro }) {
 }
 
 /* Cobro pendiente: marcarlo pagado (transferencias) o anularlo. Pagado: nada. */
-function MenuCobro({ cobro, onEstado }) {
+function MenuCobro({ cobro, onEstado, historical = false }) {
   if (!cobro || cobro.status !== 'pending') return null;
   return (
     <Menu
       label={`Acciones del cobro ${cobro.title}`}
       items={[
+        ...(historical ? [{ label: 'Confirmar pago anterior', icon: CircleCheck, onClick: () => onEstado(cobro, 'paid', 'manual') }] : []),
         { label: 'Marcar pagado (transferencia)', icon: CircleCheck, onClick: () => onEstado(cobro, 'paid') },
         { separator: true },
         { label: 'Anular cobro', icon: Trash, tone: 'danger', onClick: () => onEstado(cobro, 'cancelled') },

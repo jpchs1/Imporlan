@@ -66,7 +66,8 @@ function opuHitosEn() {
 }
 
 /** Lo que se le pide a David según el hito en curso (null: nada del lado de EE. UU.). */
-function opuPedidoPara($hito) {
+function opuPedidoPara($hito, $priceRetained = false) {
+    if ($priceRetained && $hito === 'disponibilidad') return 'Please confirm seller availability, the current location and purchase or pickup timing. The previously agreed price is retained; no new price confirmation is requested.';
     $p = [
         'disponibilidad' => 'Please contact the seller to confirm the boat is still available and the final price. Send recent photos and, if you can, a walk-around video.',
         'inspeccion' => 'Please coordinate the technical survey. Send the survey report, photos and videos as soon as you have them.',
@@ -268,7 +269,8 @@ function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
     $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id']);
     if (!$link) return false;
     $hito = opuHitoEnCurso($order);
-    $pedido = opuPedidoPara($hito) ?: 'Please send any new photos, videos or documents you have for this boat.';
+    $price = opuPriceState($pdo, $order);
+    $pedido = opuPedidoPara($hito, !empty($price['retained'])) ?: 'Please send any new photos, videos or documents you have for this boat.';
     $token = opuToken($pdo, $order);
     $titulo = impTituloLancha($link);
     $nombre = explode(' ', opuOperador()['nombre'])[0];
@@ -607,7 +609,8 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
     }
     elseif (opuInspectionOwnsStage($pdo, $order)) $pedido = 'The inspection requirements are resolved. Available files and any unavailability reasons are recorded for the Imporlan team to review.';
     $price = opuPriceState($pdo, $order);
-    if ($price && !$price['ready']) {
+    if (!empty($price['retained']) && !$inspectionRequest && $hito === 'disponibilidad') $pedido = opuPedidoPara($hito, true);
+    if ($price && !$price['ready'] && empty($price['retained'])) {
         $pedido = $price['confirmed']
             ? 'Your purchase price confirmation is recorded. Please wait for the Imporlan team to review it and confirm the next step before proceeding with the purchase.'
             : 'Please confirm the purchase price after the technical inspection using the price form below. Also upload any pending inspection material or explain why it is unavailable. Please wait for the Imporlan team before proceeding with the purchase.';
@@ -798,8 +801,31 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             'inspection_upload' => $inspection ? array_merge(opuInspectionState($pdo, $inspection), ['owns_stage' => opuInspectionOwnsStage($pdo, $o)]) : null,
             'inspection_price' => opuPriceState($pdo, $o),
             'can_approve_price' => opuPriceCanApprove($sesion),
+            'pago1_pagado' => impPago1Pagado($o['id'],$o['order_number'] ?? '') > 0,
         ]);
         exit;
+    }
+    if ($r === 'admin_precio_conservar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!opuPriceCanApprove($sesion)) { http_response_code(403); echo json_encode(['error'=>'Sólo Juan Pablo puede conservar el acuerdo.']); exit; }
+        $o=opuOrden($pdo,$in['order_id'] ?? 0);
+        if (!$o) { http_response_code(404); echo json_encode(['error'=>'Expediente no encontrado']); exit; }
+        $corregir=($in['correct_payment_notice'] ?? false) === true;
+        if ($corregir && (empty($o['inspection_client_ok_at']) || impPago1Pagado($o['id'],$o['order_number'])<=0)) { http_response_code(409); echo json_encode(['error'=>'Primero registra el Pago 1 ya realizado y la aprobación del cliente.']); exit; }
+        if ($corregir) {
+            $plan=impPlanPago(impLeerLink($pdo,$o['id'],$o['chosen_link_id']),2);
+            if (!$plan || isset(impPasos($o)['inspeccion'])) { http_response_code(409);echo json_encode(['error'=>'Revisa el hito de inspección y el Pago 2 vigente antes de emitir esta corrección.']);exit; }
+            $check=impConCobros(function(&$store)use($o,$plan){
+                foreach($store['requests'] as $r)if(impEsPagoDelExpediente($r,$o['id'],2,$o['order_number']) && ($r['status'] ?? '')!=='cancelled') {
+                    if (($r['status'] ?? '')==='paid' || strtolower($r['user_email'] ?? '')!==strtolower($o['customer_email']) || intval($r['amount_clp'])!==$plan['clp'] || (!empty($r['metadata']['custom_fields']['link_id']) && intval($r['metadata']['custom_fields']['link_id'])!==intval($o['chosen_link_id']))) return ['valid'=>false];
+                }return ['valid'=>true];
+            });
+            if (empty($check['valid'])) {http_response_code(409);echo json_encode(['error'=>'El Pago 2 ya está pagado o sus datos no coinciden con el acuerdo. Revisa los cobros.']);exit;}
+        }
+        $error=opuPriceRetain($pdo,$o,$in,$sesion);
+        if ($error) { http_response_code(409); echo json_encode(['error'=>$error]); exit; }
+        require_once __DIR__.'/orders_api.php';
+        $pago=impPago1Pagado($o['id'],$o['order_number'])>0 ? impAprobacionPendiente($pdo,$o['id'],$corregir) : null;
+        echo json_encode(['success'=>true,'inspection_price'=>opuPriceState($pdo,opuOrden($pdo,$o['id'])),'inspeccion_aprobada'=>(bool)$pago,'pago'=>$pago,'email_sent'=>$pago['email_sent'] ?? false]); exit;
     }
     if ($r === 'admin_precio_revisar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!opuPriceCanApprove($sesion)) { http_response_code(403); echo json_encode(['error' => 'Sólo Juan Pablo puede aprobar o editar esta propuesta.']); exit; }

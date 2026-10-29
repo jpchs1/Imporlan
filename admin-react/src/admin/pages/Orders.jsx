@@ -797,19 +797,21 @@ export default function Orders() {
     }
   }
 
-  async function handleEstadoCobro(cobro, estado) {
+  async function handleEstadoCobro(cobro, estado, paymentMethod = 'transferencia_bancaria') {
     const pagado = estado === 'paid';
     if (!(await confirm({
       title: pagado ? '¿Marcar este cobro como pagado?' : '¿Anular este cobro?',
       description: pagado
-        ? 'Para transferencias que ya llegaron. Al cliente se le confirma por correo.'
+        ? paymentMethod === 'manual'
+          ? 'Registra el pago anterior que la administración confirmó como realizado. El medio queda como confirmación manual hasta contar con el respaldo. Revisa el monto para evitar duplicar un pago ya registrado.'
+          : 'Confirma que el ingreso bancario coincide con el monto y la referencia. Un comprobante adjunto por sí solo no confirma el pago. Al cliente se le confirma por correo.'
         : 'El cliente recibe un correo avisando que el cobro quedó anulado.',
       detail: [`${cobro.title} · ${fmtCLP(cobro.amount_clp)}`],
       tone: pagado ? 'primary' : 'danger',
       confirmLabel: pagado ? 'Marcar pagado' : 'Anular cobro',
     }))) return;
     try {
-      await updatePaymentRequestStatus(cobro.id, estado, pagado ? { payment_method: 'transferencia_bancaria' } : { reason: 'Anulado por el equipo' });
+      await updatePaymentRequestStatus(cobro.id, estado, pagado ? { payment_method: paymentMethod } : { reason: 'Anulado por el equipo' });
       toast?.(pagado ? 'Cobro marcado como pagado' : 'Cobro anulado');
       cargarCobros(detail.id, detail.customer_email, detail.order_number);
     } catch (e) { toast?.(e.message || 'No se pudo cambiar el cobro', 'error'); }

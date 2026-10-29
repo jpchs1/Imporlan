@@ -21,9 +21,11 @@ require_once __DIR__ . '/db_config.php';
 setCorsHeaders();
 
 header('Content-Type: application/json');
+header('Cache-Control: private, no-store');
 
 $action = $_GET['action'] ?? '';
 
+try {
 switch ($action) {
     case 'admin_create':
         adminCreateRequest();
@@ -51,6 +53,8 @@ switch ($action) {
         echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update']]);
 }
 
+} catch (Throwable $e) { error_log('[payment-requests] '.get_class($e));http_response_code(503);echo json_encode(['error'=>'No pudimos guardar o consultar el registro de pagos. Inténtalo nuevamente.']); }
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
@@ -60,33 +64,16 @@ function getPaymentRequestsFile() {
 }
 
 function loadPaymentRequests() {
-    $file = getPaymentRequestsFile();
-    if (!file_exists($file)) {
-        $data = ['requests' => []];
-        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
+    $file=getPaymentRequestsFile();
+    if (!file_exists($file)) return ['requests'=>[]];
+    $fp=fopen($file,'rb');
+    if (!$fp) throw new RuntimeException('Payment store unavailable');
+    try {
+        if (!flock($fp,LOCK_SH)) throw new RuntimeException('Payment store unavailable');
+        $data=json_decode(stream_get_contents($fp),true);
+        if (!is_array($data) || !isset($data['requests']) || !is_array($data['requests'])) throw new RuntimeException('Invalid payment store');
         return $data;
-    }
-    $data = json_decode(file_get_contents($file), true);
-    if (!is_array($data) || !isset($data['requests'])) {
-        return ['requests' => []];
-    }
-    return $data;
-}
-
-function savePaymentRequests($data) {
-    $file = getPaymentRequestsFile();
-    $fp = fopen($file, 'c');
-    if ($fp && flock($fp, LOCK_EX)) {
-        fseek($fp, 0);
-        ftruncate($fp, 0);
-        fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
-        fflush($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
-    } else {
-        if ($fp) fclose($fp);
-        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT));
-    }
+    } finally { flock($fp,LOCK_UN);fclose($fp); }
 }
 
 function findRequestById($id) {
@@ -99,18 +86,32 @@ function findRequestById($id) {
     return null;
 }
 
-function updateRequestInFile($id, $updates) {
-    $data = loadPaymentRequests();
-    foreach ($data['requests'] as &$request) {
-        if ($request['id'] === $id) {
-            foreach ($updates as $key => $value) {
-                $request[$key] = $value;
-            }
-            savePaymentRequests($data);
-            return $request;
+function updateRequestInFile($id, $updates, $expectedStatus = null) {
+    require_once __DIR__ . '/eleccion_lancha.php';
+    $result=impConCobros(function (&$store) use ($id,$updates,$expectedStatus) {
+        foreach ($store['requests'] as &$r) if ($r['id']===$id) {
+            if ($expectedStatus!==null && ($r['status'] ?? '')!==$expectedStatus) return null;
+            foreach ($updates as $key=>$value) $r[$key]=$value;
+            return ['guardar'=>true,'request'=>$r];
         }
-    }
-    return null;
+        return null;
+    });
+    return $result['request'] ?? null;
+}
+
+/** A late bookkeeping correction is not a new first payment or a new inspection request. */
+function isHistoricalFirstPayment($request) {
+    $n=intval($request['metadata']['custom_fields']['pago'] ?? 0);
+    if (!$n && preg_match('/pago\s*([123])\b/i',$request['title'] ?? '',$m)) $n=intval($m[1]);
+    if ($n!==1) return false;
+    $ref=$request['metadata']['order_id'] ?? $request['metadata']['order_number'] ?? null;
+    if (!is_scalar($ref) || trim((string)$ref)==='') return false;
+    try {
+        $pdo=getDbConnection();if (!$pdo) return false;
+        $st=$pdo->prepare(ctype_digit((string)$ref) ? 'SELECT * FROM orders WHERE id=?' : 'SELECT * FROM orders WHERE order_number=?');$st->execute([$ref]);$o=$st->fetch(PDO::FETCH_ASSOC);
+        if (!$o || strtolower($o['customer_email'])!==strtolower($request['user_email'])) return false;
+        return !empty($o['inspection_client_ok_at']) || !empty($o['inspection_report_at']) || (bool)array_intersect_key(impPasos($o),array_flip(['inspeccion','compra','transporte','aduana','entrega']));
+    } catch (Throwable $e) { return false; }
 }
 
 function validatePaymentRequest($input) {
@@ -194,9 +195,9 @@ function adminCreateRequest() {
     ];
     
     // Save to file
-    $data = loadPaymentRequests();
-    $data['requests'][] = $request;
-    savePaymentRequests($data);
+    require_once __DIR__.'/eleccion_lancha.php';
+    $saved=impConCobros(function(&$store)use($request){$store['requests'][]=$request;return ['guardar'=>true];});
+    if (!$saved) throw new RuntimeException('Payment store unavailable');
     
     logPaymentRequest('CREATED', ['id' => $requestId, 'user' => $request['user_email'], 'amount' => $request['amount_clp'], 'admin' => $request['created_by']]);
     
@@ -366,39 +367,28 @@ function updateRequestStatus() {
         return;
     }
     
-    $updates = ['status' => $newStatus];
-    
-    if ($newStatus === 'cancelled') {
-        $updates['cancelled_reason'] = $reason;
-        
-        // Send cancellation email
-        try {
-            $emailService = new EmailService();
-            $firstName = explode('@', $request['user_email'])[0];
-            $emailService->sendPaymentRequestCancelledEmail($request['user_email'], $firstName, array_merge($request, $updates));
-        } catch (Exception $e) {
-            logPaymentRequest('CANCEL_EMAIL_ERROR', ['id' => $requestId, 'error' => $e->getMessage()]);
-        }
+    if (($request['status'] ?? '')===$newStatus) { echo json_encode(['success'=>true,'request'=>$request]); return; }
+    require_once __DIR__.'/eleccion_lancha.php';
+    $historical=$newStatus==='paid' && isHistoricalFirstPayment($request);
+    $updates=['status'=>$newStatus];
+    if ($newStatus==='cancelled') $updates['cancelled_reason']=$reason;
+    if ($newStatus==='paid') {
+        $updates['paid_at']=($request['paid_at'] ?? null) ?: date('Y-m-d H:i:s');
+        $updates['payment_method']=is_string($input['payment_method'] ?? null) ? $input['payment_method'] : 'manual';
+        $updates['paid_confirmed_by']=$admin['email'];
+        $updates['paid_confirmed_at']=gmdate('Y-m-d H:i:s');
+        $updates['reconciled_after_advance']=$historical;
     }
-    
-    if ($newStatus === 'paid') {
-        $updates['paid_at'] = date('Y-m-d H:i:s');
-        $updates['payment_method'] = $input['payment_method'] ?? 'manual';
-
-        // Send payment confirmation email to user
-        try {
-            require_once __DIR__ . '/email_service.php';
-            $emailService = new EmailService();
-            $firstName = explode(' ', $request['user_email'])[0];
-            $userName = $firstName ?: explode('@', $request['user_email'])[0];
-            $emailService->sendPaymentRequestPaidEmail($request['user_email'], $userName, array_merge($request, $updates), $updates);
-        } catch (Exception $e) {
-            logPaymentRequest('PAID_EMAIL_ERROR', ['id' => $requestId, 'error' => $e->getMessage()]);
-        }
-    }
-    
-    $updated = updateRequestInFile($requestId, $updates);
-    if ($newStatus === 'paid' && ($request['status'] ?? '') !== 'paid' && $updated) {
+    $updated=updateRequestInFile($requestId,$updates,$request['status']);
+    if (!$updated) { http_response_code(409); echo json_encode(['error'=>'El cobro cambió durante la revisión. Actualiza antes de confirmar.']); return; }
+    // Persist first. Neither a receipt upload nor a failed save can send a false payment confirmation.
+    try {
+        $service=new EmailService();
+        $name=explode('@',$request['user_email'])[0];
+        if ($newStatus==='paid' && !$historical) $service->sendPaymentRequestPaidEmail($request['user_email'],$name,$updated,$updates);
+        elseif ($newStatus==='cancelled') $service->sendPaymentRequestCancelledEmail($request['user_email'],$name,$updated);
+    } catch (Throwable $e) { logPaymentRequest('STATUS_EMAIL_ERROR',['id'=>$requestId]); }
+    if ($newStatus === 'paid' && !$historical && ($request['status'] ?? '') !== 'paid' && $updated) {
         // Pago 1 pagado (p. ej. una transferencia): se le avisa a la operación en EE. UU.
         try {
             require_once __DIR__ . '/operador_usa.php';

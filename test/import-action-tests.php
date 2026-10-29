@@ -10,16 +10,19 @@ function kinds($p) { return $p ? array_column($p['tasks'],'kind') : []; }
 function payment($n=1,$status='pending',$ref='IMP-DEMO') { return ['id'=>'fixture-p'.$n,'title'=>'Pago '.$n,'status'=>$status,'amount_clp'=>2987981,'user_email'=>'client@example.test','metadata'=>['order_id'=>$ref,'custom_fields'=>['pago'=>$n]]]; }
 function clearDeliveries($db) { $db->exec('DELETE FROM import_action_deliveries'); }
 register_shutdown_function(function() use($box) { foreach (glob("$box/email-assets/*") as $f) unlink($f); rmdir("$box/email-assets"); foreach(glob("$box/*") as $f) unlink($f); rmdir($box); });
-$s=impActionSnapshot($db,1); $s['client_data_complete']=true;
+file_put_contents("$box/payment_requests.json",json_encode(['requests'=>[payment()]]));
+$advanced=impActionSnapshot($db,1);$advanced['client_data_complete']=true;
+check(audience($advanced)===null && in_array('reconcile_payment',kinds(audience($advanced,'owner')),true),'inspection already performed suppresses old pending Pago 1 and asks owner to reconcile');
+$s=$advanced; $s['order']['inspection_client_ok_at']=null;$s['order']['inspection_report_at']=null; $s['client_data_complete']=true;
 $p=audience($s);
-check(kinds($p)===['payment'] && $p['tasks'][0]['amount_clp']===2987981,'already-approved inspection leads to existing payment, exact persisted amount');
+check(kinds($p)===['payment'] && $p['tasks'][0]['amount_clp']===2987981,'initial selection leads to existing first payment, exact persisted amount');
 check($p['to']==='client@example.test' && $p['tasks'][0]['url']==='https://www.imporlan.cl/panel/#/payments?pagar=fixture-p1','recipient comes from order and CTA opens its existing charge');
 check(!in_array('charge',kinds(audience($s,'owner')),true),'no new Pago 2 while owner price/inspection milestone remain pending');
 $s['client_data_complete']=false; check(kinds(audience($s))===['payment','data'],'payment is primary and incomplete import data is secondary');
-$s['order']['inspection_client_ok_at']=null; check(in_array('inspection',kinds(audience($s)),true),'report ready without decision asks the customer to review');
+$s['order']['inspection_client_ok_at']=null; $s['order']['inspection_report_at']='2026-10-29'; check(in_array('inspection',kinds(audience($s)),true),'report ready without decision asks the customer to review');
 $s['order']['import_steps']=json_encode(['inspeccion'=>'2026-10-29']); check(!in_array('inspection',kinds(audience($s)),true),'registered inspection milestone suppresses repeat approval');
 check(in_array('charge',kinds(audience($s,'owner')),true),'due Pago 2 without a request prompts owner review rather than creates a charge');
-$base=impActionSnapshot($db,1); $base['client_data_complete']=true;
+$base=impActionSnapshot($db,1); $base['client_data_complete']=true;$base['order']['inspection_client_ok_at']=null;$base['order']['inspection_report_at']=null;
 $s=$base; $s['payments']=[payment(1,'paid'),payment()]; check(audience($s)===null,'paid payment overrides stale pending duplicate');
 foreach (['cancelled','paid'] as $status) { $s=$base; $s['payments']=[payment(1,$status)]; check(audience($s)===null,"$status charge never asks for payment"); }
 foreach ([payment(1,'pending','OTHER'),array_replace(payment(),['user_email'=>'other@example.test']),array_replace(payment(),['amount_clp'=>0])] as $r) { $s=$base; $s['payments']=[$r]; check(audience($s)===null,'foreign recipient/order or zero amount cannot become a client reminder'); }
@@ -36,7 +39,8 @@ $s=$base; $s['price']=['confirmed'=>true,'ready'=>false,'confirmed_cents'=>12345
 check(in_array('price',kinds(audience($s,'owner')),true) && strpos(json_encode(audience($s)), '123456789')===false,'unapproved proposal goes only to owner with no client price leak');
 $mail=impActionEmail(audience($base));
 check(strpos($mail['html'],'$2.987.981 CLP')!==false && strpos($mail['text'],'$2.987.981 CLP')!==false,'HTML and real plaintext have the same payment amount');
-check(strpos($mail['html'],'Tu aprobación de la inspección ya está registrada')!==false && strpos($mail['html'],'Revisar y decidir')===false,'email confirms prior inspection approval and does not ask for it again');
+$approved=$advanced;$approved['payments']=[payment(2),payment(1,'paid')];$approvedMail=impActionEmail(audience($approved));
+check(strpos($approvedMail['html'],'Tu aprobación de la inspección ya está registrada')!==false && strpos($approvedMail['html'],'Revisar y decidir')===false && strpos($approvedMail['html'],'Realizar Pago 2')!==false,'approved inspection asks for Pago 2, never a repeated Pago 1');
 check(strpos($mail['html'],'no vuelvas a pagar')!==false && strpos($mail['html'],'Global66')!==false,'receipt guidance explicitly avoids duplicate payment');
 $escaped=audience($base); $escaped['boat']='<script>alert(1)</script>'; check(strpos(impActionEmail($escaped)['html'],'<script>')===false,'persisted dynamic text is escaped');
 check(impActionSettings($db)['enabled']===false,'automatic delivery defaults disabled');
@@ -44,6 +48,8 @@ $owner=['role'=>'admin','email'=>'owner@example.test'];
 foreach ([['role'=>'support','email'=>$owner['email']],['role'=>'agent','email'=>$owner['email']],['role'=>'admin','email'=>'other@example.test']] as $actor) check(impActionConfigure($db,$actor,true,impActionTemplateHash())!==null,'only principal admin may enable reminders');
 check(impActionConfigure($db,$owner,true,'stale')!==null,'configuration rejects a stale template');
 check(impActionConfigure($db,$owner,true,impActionTemplateHash())===null && impActionSettings($db)['enabled'],'principal enables exact deployed template');
+$db->exec("UPDATE import_action_settings SET template_hash='previous-version' WHERE id=1");
+check(impActionSettings($db)['enabled'],'authorized ongoing reminders survive template maintenance without requiring another activation');
 $sent=[]; $sender=function($to,$mail,$plan)use(&$sent){$sent[]=compact('to','mail','plan');return true;};
 $loader=function($id)use(&$base){return $base;};
 $now=new DateTimeImmutable('2026-10-29T12:00:00Z');
@@ -59,7 +65,7 @@ check(impActionSend($db,1,'client',$hash,$now,$concurrent,$loader)['sent'] && $c
 clearDeliveries($db); $calls=0; $race=function($id)use($base,&$calls){$s=$base; if(++$calls>1)$s['payments'][0]['status']='paid';return $s;};
 check(impActionSend($db,1,'client',$hash,$now,$sender,$race)['reason']==='skipped' && count($sent)===2,'payment recorded between claim and send suppresses stale email');
 foreach (['cancelled','completed','boat','approval'] as $change) {
- clearDeliveries($db); $calls=0; $race=function($id)use($base,&$calls,$change){$s=$base;if(++$calls>1){if($change==='cancelled')$s['payments'][0]['status']='cancelled';if($change==='completed')$s['order']['status']='completed';if($change==='boat')$s['order']['chosen_link_id']=22;if($change==='approval')$s['order']['inspection_client_ok_at']=null;}return $s;};
+ clearDeliveries($db); $calls=0; $race=function($id)use($base,&$calls,$change){$s=$base;if(++$calls>1){if($change==='cancelled')$s['payments'][0]['status']='cancelled';if($change==='completed')$s['order']['status']='completed';if($change==='boat')$s['order']['chosen_link_id']=22;if($change==='approval')$s['order']['inspection_client_ok_at']='2026-10-29';}return $s;};
  check(impActionSend($db,1,'client',$hash,$now,$sender,$race)['reason']==='skipped',"$change change is revalidated immediately before delivery");
 }
 clearDeliveries($db); $failure=function(){throw new RuntimeException('uncertain SMTP');};

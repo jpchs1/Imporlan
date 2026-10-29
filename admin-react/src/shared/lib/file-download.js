@@ -1,13 +1,13 @@
-// Only the expediente API at our own origin may receive a session token.
+// Only the named private file APIs at our own origin may receive a session token.
 // Never attach it to report URLs, CDNs, or links supplied by uploaded data.
 export async function fetchPrivateFile(src) {
   const url = new URL(src, window.location.href);
   const privateFile = url.origin === window.location.origin
-    && /^\/(?:test\/)?api\/expediente_files_api\.php$/.test(url.pathname)
+    && /^\/(?:test\/)?api\/(?:expediente_files_api|payment_receipts_api)\.php$/.test(url.pathname)
     && url.searchParams.get('action') === 'download';
   const options = { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(120000) };
   let response = await fetch(url.href, options);
-  if (response.status === 403 && privateFile) {
+  if ([401,403].includes(response.status) && privateFile) {
     const admin = /\/panel\/admin(?:\/|$)/.test(window.location.pathname);
     const token = localStorage.getItem(admin ? 'token' : 'imporlan_token');
     if (token) response = await fetch(url.href, { ...options, headers: { Authorization: `Bearer ${token}` } });
@@ -45,6 +45,11 @@ export async function downloadFile(file) {
 export async function openFile(file) {
   const src = file.download_url;
   if (!src) throw new Error('Este archivo no tiene un enlace.');
+    const external = new URL(src, window.location.href);
+    if (external.origin !== window.location.origin) {
+      if (!['https:', 'http:'].includes(external.protocol)) throw new Error('El enlace del archivo no es válido.');
+      window.open(external.href, '_blank', 'noopener');return;
+    }
   const tab = window.open('', '_blank');
   if (!tab) throw new Error('Permite las ventanas emergentes para abrir el archivo.');
   tab.opener = null;
