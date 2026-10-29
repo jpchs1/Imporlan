@@ -1,0 +1,1 @@
+import{h as e,u as t}from"./utils-CSOhpnlW.js";import{n}from"./lib-DJNoOwEc.js";var r=t();function i(){return(0,r.jsx)(e,{to:`/expedientes?filtro=${n}`,replace:!0})}export{i as default};

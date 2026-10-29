@@ -151,7 +151,7 @@ export default function Orders() {
   // Los cobros se filtran por correo en el servidor y por expediente aquí
   // (metadata.order_id). Si el admin cambió de expediente antes de que
   // respondiera, la respuesta vieja se descarta.
-  const cargarCobros = useCallback(async (orderId, email) => {
+  const cargarCobros = useCallback(async (orderId, email, orderNumber) => {
     cobrosDeRef.current = orderId;
     setCargandoCobros(true);
     setCobrosError('');
@@ -159,7 +159,7 @@ export default function Orders() {
       const r = await getPaymentRequestsAdmin(email || '');
       if (cobrosDeRef.current !== orderId) return;
       if (!r.success || !Array.isArray(r.requests)) throw new Error('Cobros no disponibles');
-      setCobros(cobrosDelExpediente(r.requests, orderId));
+      setCobros(cobrosDelExpediente(r.requests, orderId, orderNumber));
     } catch {
       if (cobrosDeRef.current === orderId) setCobrosError('No pudimos actualizar los cobros. Reintenta antes de crear otro.');
     }
@@ -182,7 +182,7 @@ export default function Orders() {
       setLinks(JSON.parse(JSON.stringify(order.links || [])));
       setCobros([]);
       // El agente no ve cobros (y payment_requests_api se lo negaría).
-      if (equipoChile) cargarCobros(order.id, order.customer_email);
+      if (equipoChile) cargarCobros(order.id, order.customer_email, order.order_number);
       const nextForm = {
         customer_phone: order.customer_phone || '',
         service_type: order.service_type || 'plan_busqueda',
@@ -665,7 +665,7 @@ export default function Orders() {
         toast?.('Lancha elegida guardada.' + avisado, 'success');
       }
       await recargarDetalle();
-      cargarCobros(detail.id, detail.customer_email);
+      cargarCobros(detail.id, detail.customer_email, detail.order_number);
       return true;
     } catch (e) {
       toast?.(e.message || 'No se pudo guardar la elección', 'error');
@@ -691,7 +691,7 @@ export default function Orders() {
       toast?.('Elección quitada');
       await recargarDetalle();
       // El Pago 1 pendiente se anula en el servidor al quitar la elección.
-      cargarCobros(detail.id, detail.customer_email);
+      cargarCobros(detail.id, detail.customer_email, detail.order_number);
     } catch (e) { toast?.(e.message || 'No se pudo quitar la elección', 'error'); }
   }
 
@@ -711,7 +711,7 @@ export default function Orders() {
         const pago = r?.pago?.creado ? ` Se creó el Pago ${r.pago.n}.` : '';
         const titulo = hito.id === 'inspeccion' ? 'Registramos que el cliente aprobó la inspección.' : `«${hito.corto}» marcado.`;
         toast?.(`${titulo}${pago}${r?.notified ? ' Avisamos al cliente.' : ''}`, 'success');
-        if (r?.pago) cargarCobros(detail.id, detail.customer_email);
+        if (r?.pago) cargarCobros(detail.id, detail.customer_email, detail.order_number);
       }
       await recargarDetalle();
       return true;
@@ -783,7 +783,7 @@ export default function Orders() {
     try {
       await createPaymentRequest({ ...data, user_email: detail.customer_email, order_id: detail.id });
       toast?.(data.send_email ? 'Cobro creado y enviado al cliente' : 'Cobro creado', 'success');
-      cargarCobros(detail.id, detail.customer_email);
+      cargarCobros(detail.id, detail.customer_email, detail.order_number);
       return true;
     } catch (e) {
       // 403: el rol agente no crea cobros (payment_requests_api exige admin o soporte).
@@ -811,7 +811,7 @@ export default function Orders() {
     try {
       await updatePaymentRequestStatus(cobro.id, estado, pagado ? { payment_method: 'transferencia_bancaria' } : { reason: 'Anulado por el equipo' });
       toast?.(pagado ? 'Cobro marcado como pagado' : 'Cobro anulado');
-      cargarCobros(detail.id, detail.customer_email);
+      cargarCobros(detail.id, detail.customer_email, detail.order_number);
     } catch (e) { toast?.(e.message || 'No se pudo cambiar el cobro', 'error'); }
   }
 
@@ -910,7 +910,7 @@ export default function Orders() {
         cobros,
         cargandoCobros,
         cobrosError,
-        onReintentarCobros: () => cargarCobros(detail.id, detail.customer_email),
+        onReintentarCobros: () => cargarCobros(detail.id, detail.customer_email, detail.order_number),
         puedeCobrar: equipoChile,
         operacionUsa: equipoChile,
         onElegir: handleElegirLancha,

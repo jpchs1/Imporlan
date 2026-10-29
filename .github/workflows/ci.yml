@@ -52,6 +52,8 @@ jobs:
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-workspace-tests.mjs
       - name: Private price confirmation portal and responsive email
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/inspection-price-browser-tests.mjs
+      - name: Purchase and import handoffs and payment references
+        run: node test/import-workflow-tests.mjs
       - name: Expediente integrity (saving, polling, prices and file identity)
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-integridad-tests.mjs
       - name: Import quote layout, live totals and saving across screen sizes

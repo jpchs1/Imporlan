@@ -32,7 +32,7 @@ function impHitos() {
         'inspeccion'     => ['label' => 'Inspección técnica aprobada', 'corto' => 'Inspección aprobada', 'etapa' => 3, 'solo_con_inspeccion' => true],
         'compra'         => ['label' => 'Compra cerrada en Estados Unidos', 'corto' => 'Compra cerrada', 'etapa' => 4],
         'transporte'     => ['label' => 'En camino a Chile', 'corto' => 'En camino', 'etapa' => 5],
-        'aduana'         => ['label' => 'Aduana e internación en Chile', 'corto' => 'En aduana', 'etapa' => 5],
+        'aduana'         => ['label' => 'Aduana e internación completadas', 'corto' => 'Aduana completada', 'etapa' => 5],
         'entrega'        => ['label' => 'Entregada', 'corto' => 'Entregada', 'etapa' => 5],
     ];
 }
@@ -48,6 +48,30 @@ function impPasos($order) {
         if (isset($hitos[$k]) && $v) $out[$k] = (string) $v;
     }
     return $out;
+}
+
+/** No avanzar a logística antes de comprar ni deshacer la base de hitos posteriores. */
+function impValidarCambioHito($order, $paso, $hecho) {
+    $pasos = impPasos($order);
+    if ($hecho && isset($pasos[$paso])) return null;
+    if ($hecho && impExpedienteCerrado($order)) return 'Este expediente está cerrado. Revisa su estado antes de avanzar la importación.';
+    if ($hecho && $paso !== 'inspeccion' && impInspeccionNoApta($order)) return 'El cliente decidió no seguir con esta lancha. Primero debe elegir otra opción o resolver su devolución.';
+    $requisitos = [
+        'compra' => !empty($order['chosen_inspection']) ? ['disponibilidad', 'inspeccion'] : ['disponibilidad'],
+        'transporte' => ['compra'], 'aduana' => ['transporte'], 'entrega' => ['aduana'],
+    ];
+    if ($hecho) {
+        foreach ($requisitos[$paso] ?? [] as $anterior) {
+            if (!isset($pasos[$anterior])) return 'Antes de marcar «' . impHitos()[$paso]['label'] . '», registra «' . impHitos()[$anterior]['label'] . '».';
+        }
+    } elseif (isset($pasos[$paso])) {
+        $posterior = false;
+        foreach (impHitos() as $id => $hito) {
+            if ($id === $paso) { $posterior = true; continue; }
+            if ($posterior && isset($pasos[$id])) return 'Primero deshaz «' . $hito['label'] . '». Los hitos posteriores dependen de este paso.';
+        }
+    }
+    return null;
 }
 
 function impTieneEleccion($order) {
@@ -310,26 +334,35 @@ function impConCobros(callable $fn) {
     }
 }
 
-function impEsPago1DelExpediente($r, $orderId) {
+function impCobroDelExpediente($r, $orderId, $orderNumber = '') {
     $meta = $r['metadata'] ?? [];
-    if (strval($meta['order_id'] ?? '') !== strval($orderId)) return false;
+    $ref = strtoupper(trim((string) ($meta['order_id'] ?? $meta['order_number'] ?? '')));
+    return $ref !== '' && ($ref === (string) $orderId || ($orderNumber !== '' && $ref === strtoupper(trim($orderNumber))));
+}
+
+function impEsPago1DelExpediente($r, $orderId, $orderNumber = '') {
+    $meta = $r['metadata'] ?? [];
+    if (!impCobroDelExpediente($r, $orderId, $orderNumber)) return false;
     if (intval($meta['custom_fields']['pago'] ?? 0) === 1) return true;
     return (bool) preg_match('/pago\s*1\b/i', (string) ($r['title'] ?? ''));
 }
 
 /** El Pago 1 vigente (pendiente o pagado) del expediente, o null. */
-function impPago1($orderId) {
-    $res = impConCobros(function (&$data) use ($orderId) {
+function impPago1($orderId, $orderNumber = '') {
+    $res = impConCobros(function (&$data) use ($orderId, $orderNumber) {
+        $pendiente = null;
         foreach ($data['requests'] as $r) {
-            if (impEsPago1DelExpediente($r, $orderId) && ($r['status'] ?? '') !== 'cancelled') return ['cobro' => $r];
+            if (!impEsPago1DelExpediente($r, $orderId, $orderNumber) || ($r['status'] ?? '') === 'cancelled') continue;
+            if (($r['status'] ?? '') === 'paid') return ['cobro' => $r];
+            if (!$pendiente) $pendiente = $r;
         }
-        return ['cobro' => null];
+        return ['cobro' => $pendiente];
     });
     return $res['cobro'] ?? null;
 }
 
-function impPago1Pagado($orderId) {
-    $c = impPago1($orderId);
+function impPago1Pagado($orderId, $orderNumber = '') {
+    $c = impPago1($orderId, $orderNumber);
     return $c && ($c['status'] ?? '') === 'paid';
 }
 
@@ -349,9 +382,12 @@ function impSolicitarPago1($order, $link, $creadoPor) {
     $pctTxt = rtrim(rtrim(number_format($plan['pct'], 2, '.', ''), '0'), '.');
 
     return impConCobros(function (&$data) use ($order, $orderId, $linkId, $titulo, $plan, $pctTxt, $creadoPor) {
+        foreach ($data['requests'] as $r) {
+            if (impEsPago1DelExpediente($r, $orderId, $order['order_number'] ?? '') && ($r['status'] ?? '') === 'paid') return ['cobro' => $r, 'creado' => false];
+        }
         foreach ($data['requests'] as &$r) {
-            if (!impEsPago1DelExpediente($r, $orderId) || ($r['status'] ?? '') === 'cancelled') continue;
-            $deEsta = intval($r['metadata']['custom_fields']['link_id'] ?? 0) === $linkId;
+            if (!impEsPago1DelExpediente($r, $orderId, $order['order_number'] ?? '') || ($r['status'] ?? '') === 'cancelled') continue;
+            $deEsta = empty($r['metadata']['custom_fields']['link_id']) || intval($r['metadata']['custom_fields']['link_id']) === $linkId;
             if ($deEsta || ($r['status'] ?? '') === 'paid') return ['cobro' => $r, 'creado' => false];
             // Pendiente, de la lancha anterior: se anula.
             $r['status'] = 'cancelled';
@@ -385,11 +421,11 @@ function impSolicitarPago1($order, $link, $creadoPor) {
 }
 
 /** Anula el Pago 1 pendiente del expediente (cuando se deshace la elección). */
-function impAnularPago1Pendiente($orderId, $motivo) {
-    return impConCobros(function (&$data) use ($orderId, $motivo) {
+function impAnularPago1Pendiente($orderId, $motivo, $orderNumber = '') {
+    return impConCobros(function (&$data) use ($orderId, $motivo, $orderNumber) {
         $n = 0;
         foreach ($data['requests'] as &$r) {
-            if (impEsPago1DelExpediente($r, $orderId) && ($r['status'] ?? '') === 'pending') {
+            if (impEsPago1DelExpediente($r, $orderId, $orderNumber) && ($r['status'] ?? '') === 'pending') {
                 $r['status'] = 'cancelled';
                 $r['cancelled_reason'] = $motivo;
                 $n++;
@@ -720,9 +756,9 @@ function impPlanPago($link, $n) {
     return ['pct' => $pct, 'clp' => intval(round(floatval($pay["p{$n}_clp"]))), 'usd' => $usd];
 }
 
-function impEsPagoDelExpediente($r, $orderId, $n) {
+function impEsPagoDelExpediente($r, $orderId, $n, $orderNumber = '') {
     $meta = $r['metadata'] ?? [];
-    if (strval($meta['order_id'] ?? '') !== strval($orderId)) return false;
+    if (!impCobroDelExpediente($r, $orderId, $orderNumber)) return false;
     if (intval($meta['custom_fields']['pago'] ?? 0) === intval($n)) return true;
     return (bool) preg_match('/pago\s*' . intval($n) . '\b/i', (string) ($r['title'] ?? ''));
 }
@@ -740,7 +776,10 @@ function impSolicitarPago($order, $link, $n, $creadoPor) {
     $pctTxt = rtrim(rtrim(number_format($plan['pct'], 2, '.', ''), '0'), '.');
     return impConCobros(function (&$data) use ($order, $orderId, $link, $n, $titulo, $plan, $pctTxt, $creadoPor) {
         foreach ($data['requests'] as $r) {
-            if (impEsPagoDelExpediente($r, $orderId, $n) && ($r['status'] ?? '') !== 'cancelled') return ['cobro' => $r, 'creado' => false];
+            if (impEsPagoDelExpediente($r, $orderId, $n, $order['order_number'] ?? '') && ($r['status'] ?? '') === 'paid') return ['cobro' => $r, 'creado' => false];
+        }
+        foreach ($data['requests'] as $r) {
+            if (impEsPagoDelExpediente($r, $orderId, $n, $order['order_number'] ?? '') && ($r['status'] ?? '') !== 'cancelled') return ['cobro' => $r, 'creado' => false];
         }
         $nuevo = [
             'id' => 'pr_' . uniqid(),
@@ -1006,7 +1045,7 @@ function impAvisarReporteListo($pdo, $order) {
             'order_id' => $order['id'],
             'resumen' => (string) ($order['inspection_summary'] ?? ''),
             'en_espanol' => impEstadoTraduccion($order) === 'listo',
-            'pago1_pagado' => impPago1Pagado($order['id']),
+            'pago1_pagado' => impPago1Pagado($order['id'], $order['order_number'] ?? ''),
         ]);
     } catch (\Throwable $e) {
         error_log('impAvisarReporteListo: ' . $e->getMessage());

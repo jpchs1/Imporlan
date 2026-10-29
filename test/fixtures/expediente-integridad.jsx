@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import Orders from '/src/admin/pages/Orders.jsx';
 import CustomerDetail from '/src/user/pages/expedientes/DetalleExpediente.jsx';
+import Tracking from '/src/user/pages/Tracking.jsx';
 import Ranking from '/src/user/pages/expedientes/RankingEmbarcaciones.jsx';
 import Summary from '/src/user/pages/expedientes/ResumenCotizacion.jsx';
 import { useExpedienteFiles } from '/src/admin/components/useExpedienteFiles.js';
@@ -23,9 +24,9 @@ function Prices() {
 }
 window.testEmptyLink = esLinkVacio;
 createRoot(document.getElementById('root')).render(
-  <MemoryRouter initialEntries={['/orders?id=35']}><AuthProvider><ToastProvider><ConfirmProvider>
+  <MemoryRouter initialEntries={[mode === 'tracking' ? '/tracking?barco=' + new URLSearchParams(location.search).get('barco') : '/orders?id=35']}><AuthProvider><ToastProvider><ConfirmProvider>
     <main className="workspace-demo-main"><div className="workspace-demo-shell">
-      {mode === 'files' ? <Files /> : mode === 'prices' ? <Prices /> : mode === 'admin' ? <Orders /> : <CustomerDetail orderId={35} />}
+      {mode === 'tracking' ? <Tracking /> : mode === 'files' ? <Files /> : mode === 'prices' ? <Prices /> : mode === 'admin' ? <Orders /> : <CustomerDetail orderId={35} />}
     </div></main>
   </ConfirmProvider></ToastProvider></AuthProvider></MemoryRouter>
 );

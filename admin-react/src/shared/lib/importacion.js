@@ -52,11 +52,11 @@ export const HITOS = [
   },
   {
     id: 'aduana',
-    label: 'Aduana e internación en Chile',
-    corto: 'En aduana',
+    label: 'Aduana e internación completadas',
+    corto: 'Aduana completada',
     etapa: 5,
-    enCurso: 'La lancha llega a Chile y pasa por aduana para la internación.',
-    enCursoCorto: 'En aduana',
+    enCurso: 'Seguimos el viaje a Chile y preparamos los trámites de aduana e internación.',
+    enCursoCorto: 'Viaje a Chile y aduana',
   },
   {
     id: 'entrega',
@@ -82,6 +82,17 @@ export function hitoEnCurso(eleccion) {
   return hitosDe(eleccion).find(h => !h.hecho) || null;
 }
 
+/** Estado visible de la operación; no convierte una tarea pendiente en un hito hecho. */
+export function estadoDeImportacion(eleccion) {
+  if (!eleccion) return { id: 'eleccion', label: 'Elegir tu lancha' };
+  if (eleccion.inspection_result === 'no_apta') return { id: 'inspeccion', label: eleccion.refund_requested_at ? 'Devolución solicitada' : 'Elegir otra lancha', pausada: true };
+  if (eleccion.steps?.entrega) return { id: 'entrega', label: 'Lancha entregada', terminado: true };
+  if (eleccion.inspection_waiting_price) return { id: 'inspeccion', label: 'Confirmación del precio final' };
+  if (eleccion.inspection && (eleccion.inspection_stage === 'reporte_listo' || (!eleccion.inspection_stage && eleccion.inspection_report && !eleccion.steps?.inspeccion && !eleccion.inspection_client_ok_at))) return { id: 'inspeccion', label: 'Revisar y aprobar la inspección', cliente: true };
+  const hito = hitoEnCurso(eleccion);
+  return hito ? { id: hito.id, label: hito.enCursoCorto } : { id: 'entrega', label: 'Lancha entregada', terminado: true };
+}
+
 /** La lancha elegida dentro de `order.links`, o null. */
 export function linkElegido(order) {
   const id = Number(order?.eleccion?.link_id);
@@ -97,8 +108,17 @@ export function linkElegido(order) {
  * `pagos` es el resultado de pagosConCobros (o null si no hay plan).
  */
 export function queSigue(eleccion, pagos) {
+  if (!eleccion) return { tipo: 'sin_eleccion' };
+  if (eleccion.inspection_result === 'no_apta') return { tipo: eleccion.refund_requested_at ? 'devolucion' : 'declinada' };
+  const estado = estadoDeImportacion(eleccion);
+  if (estado.cliente) return { tipo: 'reporte_listo' };
   const porPagar = [...(pagos?.pagos || []).filter(p => p.estado === 'por_pagar'), ...(pagos?.otros || []).filter(r => r.status === 'pending').map(r => ({ n: null, cobro: r, estado: 'por_pagar' }))];
   if (porPagar.length) return { tipo: 'pago', pago: porPagar[0] };
+  if (eleccion.inspection_waiting_price) return { tipo: 'precio' };
+  // Un hito cumplido no implica que exista su solicitud de pago. Explicar
+  // esa espera evita anunciar que el cliente no tiene nada pendiente.
+  const pendientesDeCobro = (pagos?.pagos || []).find(p => p.estado === 'por_cobrar' && (p.n === 1 || (p.n === 2 && (eleccion.inspection ? eleccion.steps?.inspeccion : eleccion.steps?.disponibilidad)) || (p.n === 3 && eleccion.steps?.transporte)));
+  if (pendientesDeCobro) return { tipo: 'preparando_pago', pago: pendientesDeCobro };
   const hito = hitoEnCurso(eleccion);
   if (hito) return { tipo: 'hito', hito };
   return { tipo: 'listo' };
@@ -139,8 +159,9 @@ export function planDePagos(link) {
  * metadata.order_id y metadata.custom_fields.pago = n; los antiguos se
  * reconocen por el título («Pago 1 · …»).
  */
-export function cobrosDelExpediente(requests, orderId) {
-  return (requests || []).filter(r => String(r?.metadata?.order_id ?? '') === String(orderId));
+export function cobrosDelExpediente(requests, orderId, orderNumber = '') {
+  const referencias = new Set([String(orderId ?? '').trim(), String(orderNumber || '').trim().toUpperCase()].filter(Boolean));
+  return (requests || []).filter(r => referencias.has(String(r?.metadata?.order_id ?? r?.metadata?.order_number ?? '').trim().toUpperCase()));
 }
 
 export function numeroDePago(request) {
@@ -158,8 +179,9 @@ export function numeroDePago(request) {
 export function pagosConCobros(plan, cobros) {
   const usados = new Set();
   const pagos = plan.map(p => {
-    const cobro = (cobros || []).find(r => !usados.has(r.id) && numeroDePago(r) === p.n && r.status !== 'cancelled');
-    if (cobro) usados.add(cobro.id);
+    const candidatos = (cobros || []).filter(r => !usados.has(r.id) && numeroDePago(r) === p.n && r.status !== 'cancelled');
+    const cobro = candidatos.find(r => r.status === 'paid') || candidatos[0];
+    for (const candidato of candidatos) usados.add(candidato.id);
     const estado = !cobro ? 'por_cobrar' : cobro.status === 'paid' ? 'pagado' : 'por_pagar';
     return { ...p, cobro: cobro || null, estado };
   });
