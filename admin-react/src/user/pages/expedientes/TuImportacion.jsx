@@ -72,6 +72,7 @@ export default function TuImportacion({
   const tieneCotizacion = !!(link && (link.quote_total_clp || link.quote_pending));
   const pago1 = pagos.pagos.find(p => p.n === 1) || null;
   const pago2 = pagos.pagos.find(p => p.n === 2) || null;
+  const pendientes = [...pagos.pagos.filter(p => p.estado === 'por_pagar').map(p => ({ ...p.cobro, label: `Pagar el Pago ${p.n}` })), ...pagos.otros.filter(r => r.status === 'pending').map(r => ({ ...r, label: r.title }))];
 
   const chipInspeccion = {
     sin_inspeccion: { icono: ClipboardCheck, texto: 'Sin inspección técnica', cls: 'text-ink-500', ico: 'text-ink-400' },
@@ -94,6 +95,14 @@ export default function TuImportacion({
       <EstadoImportacion eleccion={eleccion} cerrado={cerrado} />
 
       <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} esperaPrecio={!!eleccion.inspection_waiting_price} />
+
+      {reporteListo && !cerrado && (datosPendientes || pendientes.length > 0 || pagosError) && <section aria-label="Otras tareas pendientes" className="border-b border-line px-(--card-pad) py-3">
+        <p className="text-13 font-medium text-ink-900">También tienes pendiente</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {datosPendientes && <Button size="sm" variant="secondary" icon={User} onClick={onCompletarDatos}>Completar mis datos y cédula</Button>}
+          {pagosError ? <BotonEnlace to="/payments" size="sm" variant="secondary" icon={Receipt}>Verificar pagos</BotonEnlace> : pendientes.map(p => <BotonEnlace key={p.id} to={rutaPagar(p)} size="sm" variant="secondary" icon={Receipt}>{p.label} · {fmtCLP(p.amount_clp)}</BotonEnlace>)}
+        </div>
+      </section>}
 
       <Card.Body>
         {reporteListo && !cerrado && (

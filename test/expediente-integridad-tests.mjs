@@ -6,7 +6,9 @@ import { createRequire } from 'node:module';
 import { readFile, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const artifactDir = process.env.WORKFLOW_ARTIFACT_DIR || join(tmpdir(), 'imporlan-workflow-artifacts');
 const require = createRequire(join(repo, 'admin-react/package.json'));
 const { createServer } = await import(require.resolve('vite'));
 const { default: react } = await import(require.resolve('@vitejs/plugin-react'));
@@ -428,15 +430,17 @@ try {
     { name:'delivered', until:'entrega', label:'Lancha entregada', next:'Tu lancha fue entregada' },
     { name:'without inspection', steps:{disponibilidad:workflowSteps.disponibilidad}, inspection:false, label:'Cerrando la compra', next:'Estamos cerrando la compra' },
     { name:'second payment', until:'inspeccion', unpaid:2, label:'Cerrando la compra', next:'Te toca: pagar el Pago 2' },
+    { name:'report and pending tasks', steps:{}, stage:'reporte_listo', report:true, missingData:true, unpaid:1, label:'Revisar y aprobar la inspección', next:'Te toca: revisa el reporte y decide' },
     { name:'closed expediente', status:'cancelled', steps:{}, stage:'reporte_listo', report:true, label:'Expediente cerrado', next:'Este expediente está cerrado' },
   ];
   for (const [i, scenario] of scenarios.entries()) {
     const initial = structuredClone(base);
     if(scenario.status) initial.status=scenario.status;
+    if(scenario.missingData) initial.datos_importacion={completo:false};
     const steps = scenario.steps || Object.fromEntries(Object.entries(workflowSteps).slice(0, Object.keys(workflowSteps).indexOf(scenario.until)+1));
     initial.eleccion = {link_id:101,at:'2026-10-21',by:'cliente',inspection:scenario.inspection !== false,steps,inspection_stage:scenario.stage,inspection_waiting_price:!!scenario.waiting,inspection_client_ok_at:scenario.waiting?'2026-10-29':null,inspection_report:scenario.report?{file_id:26,es_status:'listo'}:null};
     initial.links[0].quote_payments = {p1_pct:7,p1_clp:1260000,p2_pct:63,p2_clp:11340000,p3_pct:30,p3_clp:5400000};
-    const requestedPayments = steps.transporte ? [1,2,3] : steps.inspeccion || scenario.inspection === false || scenario.unpaid ? [1,2] : [1];
+    const requestedPayments = steps.transporte ? [1,2,3] : steps.inspeccion || scenario.inspection === false || scenario.unpaid === 2 ? [1,2] : [1];
     const requests = requestedPayments.map(n=>({id:`workflow-${n}`,title:`Pago ${n}`,status:scenario.unpaid===n?'pending':'paid',amount_clp:initial.links[0].quote_payments[`p${n}_clp`],paid_at:'2026-10-21',created_at:'2026-10-20',metadata:{order_id:initial.order_number,custom_fields:{pago:n}}}));
     const flow = await open('customer',{initial,width:i%2?390:1440,handler:async({route,url})=>{
       if(url.pathname.endsWith('payment_requests_api.php')){await route.fulfill({json:{success:true,requests}});return true;}
@@ -446,9 +450,10 @@ try {
     const rail=flow.page.getByRole('list',{name:'Etapas de tu importación'});
     check(await rail.locator('>li').count()===(scenario.inspection===false?5:6),`${scenario.name}: roadmap has only applicable stages`);
     check(await flow.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${scenario.name}: roadmap fits viewport`);
+    if(scenario.missingData){const tasks=flow.page.getByRole('region',{name:'Otras tareas pendientes'});check(await tasks.getByRole('button',{name:'Completar mis datos y cédula',exact:true}).isVisible(),'personal data remains visible next to the inspection decision');check(await tasks.getByRole('link',{name:/Pagar el Pago 1/}).isVisible(),'the unpaid first installment remains visible next to the inspection decision');}
     if(scenario.status)check(await flow.page.getByRole('button',{name:'Aprobar y seguir',exact:true}).count()===0,'closed expedientes cannot initiate inspection approval from the client screen');
-    if(scenario.unpaid){check(await flow.page.getByRole('link',{name:/Pagar/}).first().getAttribute('href').then(h=>h.includes('workflow-2')), 'public expediente reference connects the second charge to its payment button');}
-    if(i===0){await mkdir('/workspace/artifacts',{recursive:true});await flow.page.locator('section[aria-labelledby="estado-importacion"]').screenshot({path:'/workspace/artifacts/importacion-cliente-flujo.png'});}
+    if(scenario.unpaid){check(await flow.page.getByRole('link',{name:/Pagar/}).first().getAttribute('href').then(h=>h.includes(`workflow-${scenario.unpaid}`)), 'public expediente reference connects the charge to its payment button');}
+    if(i===0){await mkdir(artifactDir,{recursive:true});await flow.page.locator('section[aria-labelledby="estado-importacion"]').screenshot({path:join(artifactDir,'importacion-cliente-flujo.png')});}
     await flow.close();
   }
 
