@@ -180,6 +180,19 @@ try {
     await page.goto(`${uiOrigin}/panel/__reminders?mode=payments`);
     await page.getByRole('radio',{name:/Transferencia bancaria/}).click();
     await page.getByRole('button',{name:'Ver datos de transferencia',exact:true}).click();
+
+    if(width===390) {
+      await page.getByLabel('Moneda del comprobante',{exact:true}).selectOption('USD');
+      await page.getByLabel('Monto transferido en USD').fill('100,50');
+      await page.getByLabel('Referencia o número de transferencia').fill('AMBIGUOUS-AMOUNT');
+      await page.getByLabel('Archivo del comprobante',{exact:true}).setInputFiles({name:'monto.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nReceipt\n')});
+      await page.getByRole('button',{name:'Adjuntar comprobante',exact:true}).click();
+      await page.getByText('Indica el monto transferido sin separador de miles; en USD usa punto decimal',{exact:true}).waitFor();
+      check(await page.getByLabel('Monto transferido en USD').inputValue()==='100,50' && !JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests[0].receipts,'ambiguous decimal comma remains visible and is rejected rather than silently recorded as a hundredfold amount');
+      await page.getByLabel('Moneda del comprobante',{exact:true}).selectOption('CLP');
+      await page.getByLabel('Monto transferido en CLP').fill('26891827');
+    }
+
     await page.getByLabel('Referencia o número de transferencia').fill(`UI-BANK-${width}`);
     await page.getByLabel('Archivo del comprobante',{exact:true}).setInputFiles({name:'transferencia.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nUI payment receipt\n')});
     await page.getByRole('button',{name:'Adjuntar comprobante',exact:true}).click();

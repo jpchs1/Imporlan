@@ -45,7 +45,7 @@ function ReceiptForm({ request, admin, onChange }) {
     </div>)}
     {admin && <Input label="Nota de revisión o motivo para solicitar otro comprobante" value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />}{request.status !== 'cancelled' && <form onSubmit={upload} className="space-y-3">
       <Select label="Moneda del comprobante" value={currency} onChange={e => { setCurrency(e.target.value);setAmount(''); }} options={[{ value:'CLP',label:'Pesos chilenos (CLP)' },{ value:'USD',label:'Dólares (USD)' }]} />
-      <Input label={`Monto transferido en ${currency}`} inputMode={currency === 'USD' ? 'decimal' : 'numeric'} value={amount} onChange={e => setAmount(e.target.value.replace(currency === 'USD' ? /[^\d.]/g : /\D/g, ''))} required />
+      <Input label={`Monto transferido en ${currency}`} hint={currency === 'USD' ? 'Sin separadores de miles y con punto decimal. Ejemplo: 100.50.' : 'Indica el monto entero, sin puntos ni comas.'} inputMode={currency === 'USD' ? 'decimal' : 'numeric'} value={amount} onChange={e => setAmount(e.target.value)} required />
       <Input label="Referencia o número de transferencia" value={reference} onChange={e => setReference(e.target.value)} minLength={3} maxLength={120} required />
       <label className="block text-13 text-ink-700">Comprobante PDF, JPG, PNG o WebP · hasta 10 MB<input aria-label="Archivo del comprobante" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" required disabled={busy} onChange={e => setFile(e.target.files?.[0] || null)} className="block mt-1 w-full text-xs" /></label>
       <Button type="submit" size="sm" loading={busy} disabled={!file || reference.trim().length < 3}>Adjuntar comprobante</Button>
