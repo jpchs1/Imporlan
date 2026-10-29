@@ -7,7 +7,7 @@ import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, 
 import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, Image as ImageIcon, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
-import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion } from '../../api';
+import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion, conservarPrecioAcordado } from '../../api';
 import { categoriaArchivo } from '../../components/useExpedienteFiles';
 
 /**
@@ -186,7 +186,7 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
             />
           )}
           {estado?.inspection_price && (
-            <PrecioTrasInspeccion puedeAprobar={estado.can_approve_price === true} onCotizarAprobado={onCotizarAprobado} precio={estado.inspection_price} nombre={nombre} orderId={detail.id} clienteAprobo={!!eleccion?.inspection_waiting_price} onRefresh={() => cargar({ silencioso: true })} onRecargarDetalle={onRecargarDetalle} />
+            <PrecioTrasInspeccion pago1Pagado={estado.pago1_pagado === true} puedeAprobar={estado.can_approve_price === true} onCotizarAprobado={onCotizarAprobado} precio={estado.inspection_price} nombre={nombre} orderId={detail.id} clienteAprobo={!!eleccion?.inspection_waiting_price} onRefresh={() => cargar({ silencioso: true })} onRecargarDetalle={onRecargarDetalle} />
           )}
 
           {/* ── Feed ── */}
@@ -226,13 +226,22 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
   );
 }
 
-function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDetalle, clienteAprobo, puedeAprobar, onCotizarAprobado }) {
+function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDetalle, clienteAprobo, puedeAprobar, onCotizarAprobado, pago1Pagado }) {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [revisando, setRevisando] = useState(false);
   const [aprobado, setAprobado] = useState(null);
   const [nota, setNota] = useState('');
   const [versionRevisada, setVersionRevisada] = useState(null);
+  const [conservando, setConservando] = useState(false);
+  const [corregirAviso, setCorregirAviso] = useState(false);
+  async function conservar() {
+    if (!puedeAprobar || saving || !precio.agreement) return;
+    setSaving(true);
+    try { const r=await conservarPrecioAcordado(orderId,precio,corregirAviso); setConservando(false); toast?.(r.email_sent ? 'Acuerdo conservado. Corrección del Pago 2 enviada.' : 'Precios conservados y correos de validación desactivados para esta operación.', 'success'); await onRefresh(); onRecargarDetalle?.(); }
+    catch(e) { toast?.(e.message,'error'); }
+    finally { setSaving(false); }
+  }
   const labels = { pending: 'Pendiente de respuesta', negotiating: 'En negociación', unchanged: 'Propuesta sin cambio', adjusted: 'Propuesta reajustada' };
   const money = cents => cents == null ? 'Por confirmar' : new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(cents / 100);
   function abrirRevision() {
@@ -259,8 +268,9 @@ function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDe
     <section aria-labelledby="inspection-price-title" className="rounded-lg border border-line bg-surface p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="inspection-price-title" className="text-sm font-semibold text-ink-900">Precio de compra tras la inspección</h4>
-        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.ready ? 'Aprobado por Juan Pablo' : precio.confirmed ? puedeAprobar ? 'Pendiente de tu aprobación' : 'Pendiente de Juan Pablo' : labels[precio.status] || 'Por confirmar'}</Badge>
+        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.retained ? 'Acuerdo conservado' : precio.ready ? 'Aprobado por Juan Pablo' : precio.confirmed ? puedeAprobar ? 'Pendiente de tu aprobación' : 'Pendiente de Juan Pablo' : labels[precio.status] || 'Por confirmar'}</Badge>
       </div>
+      {precio.retained && <Callout tone={precio.ready ? 'info' : 'warning'} compact>Se conservan los precios acordados. Los correos de validación de precio están desactivados sólo para esta operación.{!precio.ready && ' La cotización cambió después: vuelve a revisar el acuerdo.'}</Callout>}
       <p className="text-13 text-ink-500">{nombre} envía una propuesta interna. Sólo Juan Pablo puede aprobarla o editar el valor; el cliente no recibe esta respuesta.</p>
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-13">
         <div><dt className="text-ink-500">Precio anterior informado · USD</dt><dd className="font-medium text-ink-900 tabular">{money(precio.original_cents)}</dd></div>
@@ -270,17 +280,21 @@ function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDe
       {precio.reason && <div><p className="text-xs text-ink-500 mb-1">Hallazgo, acuerdo o negociación · texto original del coordinador</p><p lang="en" className="text-sm text-ink-700 whitespace-pre-wrap break-words">{precio.reason}</p></div>}
       {precio.ready && precio.approval_note && <p className="text-13 text-ink-700 whitespace-pre-wrap">Nota de aprobación: {precio.approval_note}</p>}
       <Callout tone={precio.ready ? 'info' : 'warning'} compact>
-        {precio.ready ? 'La propuesta ya tiene tu aprobación. Para usar ese valor en la cotización del cliente, revísala y guárdala desde el cotizador.' : precio.confirmed ? 'Propuesta recibida. Falta que Juan Pablo apruebe este precio o ingrese un valor distinto antes de continuar.' : 'Se solicita confirmación al coordinador con seguimiento diario AM de Chile hasta recibir su propuesta.'}
+        {precio.retained ? 'Se mantienen los precios de la cotización vigente, sin solicitar otra confirmación al coordinador.' : precio.ready ? 'La propuesta ya tiene tu aprobación. Para usar ese valor en la cotización del cliente, revísala y guárdala desde el cotizador.' : precio.confirmed ? 'Propuesta recibida. Falta que Juan Pablo apruebe este precio o ingrese un valor distinto antes de continuar.' : 'Se solicita confirmación al coordinador con seguimiento diario AM de Chile hasta recibir su propuesta.'}
         {' '}La respuesta de {nombre} no publica precios ni modifica cotizaciones o cobros.
       </Callout>
       <div className="flex flex-wrap gap-2 items-center justify-between">
         <p className="text-xs text-ink-500">{precio.last_sent_at ? `Último correo: ${fechaAvisoInspeccion(precio.last_sent_at)}` : 'Primer correo pendiente del seguimiento automático'}</p>
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={saving}>Actualizar respuesta</Button>
-          {puedeAprobar && precio.confirmed && <Button size="sm" variant="secondary" onClick={abrirRevision} disabled={saving}>{precio.ready ? 'Editar valor aprobado' : 'Revisar y aprobar precio'}</Button>}
+          {puedeAprobar && precio.confirmed && !precio.retained && <Button size="sm" variant="secondary" onClick={abrirRevision} disabled={saving}>{precio.ready ? 'Editar valor aprobado' : 'Revisar y aprobar precio'}</Button>}
+          {puedeAprobar && precio.agreement && (!precio.retained || !precio.ready || clienteAprobo) && <Button size="sm" variant="secondary" onClick={() => setConservando(true)} disabled={saving}>Conservar precios acordados</Button>}
           {puedeAprobar && precio.ready && onCotizarAprobado && <Button size="sm" onClick={() => onCotizarAprobado(precio.approved_cents / 100)}>Usar valor aprobado en cotizador</Button>}
         </div>
       </div>
+      <Modal open={conservando} onClose={() => !saving && setConservando(false)} title="Conservar el acuerdo de esta operación" size="sm" footer={<><Button variant="secondary" disabled={saving} onClick={() => setConservando(false)}>Cancelar</Button><Button loading={saving} onClick={conservar}>Conservar precios y desactivar validación</Button></>}>
+        <div className="space-y-3 text-sm"><p>Se mantiene el precio de compra de la cotización publicada: <strong>{money(precio.agreement?.cents)}</strong>. No se recalculan los precios ni los porcentajes de los pagos.</p><p>Se detienen los correos de validación de precio de esta lancha. Los avisos de pago y las demás operaciones conservan su seguimiento.</p>{clienteAprobo && <p>{pago1Pagado ? `El cliente ya aprobó la inspección: se habilitará el Pago 2 de ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(precio.agreement?.p2_clp || 0)} con la cotización vigente.` : 'Primero debe registrarse el Pago 1 ya realizado. Ahora se conservarán los precios sin crear otro cobro.'}</p>}{clienteAprobo && pago1Pagado && <label className="flex items-start gap-2"><input type="checkbox" checked={corregirAviso} onChange={e => setCorregirAviso(e.target.checked)} />Corregir el correo anterior: confirmar que el Pago 1 ya fue realizado y solicitar el Pago 2.</label>}</div>
+      </Modal>
       {!puedeAprobar && precio.confirmed && <p className="text-xs text-ink-500">La aprobación y edición están reservadas a la cuenta principal de Juan Pablo.</p>}
       <Modal open={revisando} onClose={() => !saving && setRevisando(false)} title="Aprobar precio de compra" description="Revisa la propuesta e ingresa el valor que tú apruebas." size="md" footer={<>
         <Button variant="secondary" onClick={() => setRevisando(false)} disabled={saving}>Cancelar</Button>

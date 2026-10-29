@@ -95,6 +95,19 @@ opuInspectionSchema($pdo); opuInspectionRequest($pdo,opuOrden($pdo,1),['nombre'=
   check(unauthorized.status === 404, 'unknown private link cannot open the operation');
   const wrongBoat = await fetch(`${origin}/operador_usa.php?r=precio&t=${token}`, { method: 'POST', body: new URLSearchParams({ boat_link_id: '99', price_request_id: '1', price_revision: '0', price_status: 'unchanged', price_original: '1', price_confirmed: '1' }) });
   check(wrongBoat.status === 409, 'real POST refuses a different selected boat');
+
+  execFileSync(php,['-r',`require '${join(box,'operador_usa.php')}';$p=getDbConnection();$p->exec("ALTER TABLE order_links ADD COLUMN quote_published_at TEXT;ALTER TABLE order_links ADD COLUMN quote_data TEXT;ALTER TABLE order_links ADD COLUMN quote_total_clp INT;UPDATE order_links SET quote_published_at='2026-10-20',quote_data='{\\\"valor_lancha_usd\\\":25000}',quote_total_clp=50000000 WHERE id=11");`]);
+  const agreementState=await fetch(`${origin}/operador_usa.php?r=admin_estado&order_id=1`,{headers:{Authorization:`Bearer ${jwt('owner@example.test','admin')}`}}).then(r=>r.json());
+  const retainBody={order_id:1,request_id:agreementState.inspection_price.request_id,revision:agreementState.inspection_price.revision,approval_version:agreementState.inspection_price.approval_version,agreement_hash:agreementState.inspection_price.agreement.hash};
+  const retain=(email='owner@example.test',role='admin',fields={})=>fetch(`${origin}/operador_usa.php?r=admin_precio_conservar`,{method:'POST',headers:{Authorization:`Bearer ${jwt(email,role)}`,'Content-Type':'application/json'},body:JSON.stringify({...retainBody,...fields})});
+  check((await retain('other@example.test')).status===403 && (await retain('owner@example.test','support')).status===403,'actual keep-agreement endpoint enforces principal ownership');
+  check((await retain('owner@example.test','admin',{agreement_hash:'stale'})).status===409,'actual retention rejects stale agreement snapshot');
+  check((await retain('owner@example.test','admin',{correct_payment_notice:true})).status===409,'corrective payment mail requires first payment and client approval already recorded');
+  const retainedResponse=await retain();const retained=await retainedResponse.json();
+  check(retainedResponse.status===200 && retained.inspection_price.retained && retained.inspection_price.ready && retained.inspection_price.approved_cents===2500000,'actual endpoint retains the published agreed base with no operator impersonation');
+  const retainedPortal=await fetch(`${origin}/operador_usa.php?r=portal&t=${token}`).then(r=>r.text());
+  check(retainedPortal.includes('Previously agreed price retained') && !retainedPortal.includes('Save price update'),'private portal stops requesting price submissions after owner retention');
+
   console.log(`${passed} price portal and email checks passed`);
 } finally {
   await browser?.close(); server?.kill(); await rm(box, { recursive: true, force: true });

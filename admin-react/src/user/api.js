@@ -313,9 +313,8 @@ export const submitSupportRequest = (data) =>
 
 // Payments (user)
 export const getMyPaymentRequests = (status = 'all') => {
-  const user = userJson();
   const email = getUserEmail();
-  return request(`${API_BASE}/payment_requests_api.php?action=user_list_public&user_email=${encodeURIComponent(email)}&status=${status}`).catch(() => ({ requests: [] }));
+  return request(`${API_BASE}/payment_requests_api.php?action=user_list_public&user_email=${encodeURIComponent(email)}&status=${status}`);
 };
 
 // Payment gateways

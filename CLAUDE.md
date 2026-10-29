@@ -136,6 +136,26 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   Juan Pablo, versión HTML adaptable y texto plano. El envío manual y la
   activación diaria exigen la cuenta principal y la plantilla vigente.
 
+- **Acuerdos y conciliación (JP, 29-oct-2026):** el Pago 1 corresponde al inicio
+  de la operación, antes de la inspección; tras la aprobación corresponde el
+  Pago 2 del plan acordado. Si el avance demuestra que el Pago 1 quedó atrás
+  pero su registro sigue pendiente, no volver a solicitarlo al cliente:
+  enviar la discrepancia al equipo para conciliarla. La cuenta principal
+  puede conservar el precio negociado de la cotización publicada y detener
+  sólo los correos de validación de precio de esa lancha. Se guarda la
+  decisión sin inventar una respuesta de David ni recalcular precios, totales
+  o porcentajes. Con el Pago 1 confirmado y la decisión del cliente registrada,
+  se habilita el Pago 2; la opción de corrección envía el aviso que reconoce
+  el Pago 1 ya realizado y solicita el segundo pago.
+- Pedir comprobantes en el propio pago, con monto y referencia. Los adjuntos
+  son privados y no confirman ingresos. El equipo revisa la evidencia y
+  confirma el ingreso bancario antes de marcar pagado. El cuadre separa
+  pagos registrados, saldo y comprobantes pendientes; señala diferencias y
+  duplicados. El seguimiento pide también los comprobantes faltantes de
+  transferencias ya registradas, sin volver a cobrarlas. La activación de
+  los recordatorios se conserva al mantener la plantilla; cada envío manual
+  comprueba una vista previa vigente.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

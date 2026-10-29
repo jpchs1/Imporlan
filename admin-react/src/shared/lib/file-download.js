@@ -1,13 +1,13 @@
-// Only the expediente API at our own origin may receive a session token.
+// Only the named private file APIs at our own origin may receive a session token.
 // Never attach it to report URLs, CDNs, or links supplied by uploaded data.
 export async function fetchPrivateFile(src) {
   const url = new URL(src, window.location.href);
   const privateFile = url.origin === window.location.origin
-    && /^\/(?:test\/)?api\/expediente_files_api\.php$/.test(url.pathname)
+    && /^\/(?:test\/)?api\/(?:expediente_files_api|payment_receipts_api)\.php$/.test(url.pathname)
     && url.searchParams.get('action') === 'download';
   const options = { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(120000) };
   let response = await fetch(url.href, options);
-  if (response.status === 403 && privateFile) {
+  if ([401,403].includes(response.status) && privateFile) {
     const admin = /\/panel\/admin(?:\/|$)/.test(window.location.pathname);
     const token = localStorage.getItem(admin ? 'token' : 'imporlan_token');
     if (token) response = await fetch(url.href, { ...options, headers: { Authorization: `Bearer ${token}` } });

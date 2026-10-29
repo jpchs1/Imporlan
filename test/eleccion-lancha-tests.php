@@ -37,9 +37,11 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
+@mkdir("$caja/email-assets",0700,true);
+copy("$raiz/api/email-assets/firma-jp.jpg","$caja/email-assets/firma-jp.jpg");
 // En la consola ya hay salida: el código HTTP se anota en vez de mandarse.
 file_put_contents("$caja/orders_api.php", str_replace('http_response_code(', 'codigoDePrueba(', file_get_contents("$caja/orders_api.php")));
 function codigoDePrueba($c = null) { if ($c !== null) $GLOBALS['CODIGO'] = $c; return $GLOBALS['CODIGO'] ?? 200; }
@@ -53,6 +55,7 @@ file_put_contents("$caja/email_service.php", $es);
 register_shutdown_function(function () use ($caja) {
     array_map('unlink', glob("$caja/expediente_files/{,.}*", GLOB_BRACE) ?: []);
     @rmdir("$caja/expediente_files");
+    @unlink("$caja/email-assets/firma-jp.jpg"); @rmdir("$caja/email-assets");
     array_map('unlink', array_filter(glob("$caja/*"), 'is_file'));
     @rmdir($caja);
 });
@@ -821,6 +824,23 @@ $coord = ['chosen_link_id' => 12, 'chosen_inspection' => 1, 'import_steps' => nu
 $pdfDavid = [['original_name' => 'Survey.pdf', 'mime_type' => 'application/pdf']];
 ok(strpos(opuSugerirReporte($coord, $pdfDavid), 'Cargar reporte') !== false && opuSugerirReporte($coord, [['original_name' => 'a.jpg', 'mime_type' => 'image/jpeg']]) === ''
     && opuSugerirReporte($coord + ['inspection_report_at' => '2026-10-27'], $pdfDavid) === '', 'si David manda un PDF mientras se espera el reporte, el equipo recibe el paso para cargarlo al cliente');
+
+echo "\nCorrección: acuerdo conservado y segundo pago\n";
+sembrar();
+$BD->exec("ALTER TABLE order_links ADD COLUMN quote_data TEXT; UPDATE order_links SET quote_data='{\"valor_lancha_usd\":25000}' WHERE id=12");
+llamar('userChooseLink',$alberto,['order_id'=>35,'link_id'=>12,'inspection'=>true]);
+pagarPago1();
+$BD->exec("UPDATE orders SET inspection_client_ok_at='2026-10-29 12:00:00',inspection_report_at='2026-10-28 12:00:00' WHERE id=35");
+$price=opuPriceState($BD,orden(35));
+$linkAntes=$BD->query('SELECT * FROM order_links WHERE id=12')->fetch(PDO::FETCH_ASSOC);
+ok(opuPriceRetain($BD,orden(35),['request_id'=>$price['request_id'],'revision'=>$price['revision'],'approval_version'=>$price['approval_version'],'agreement_hash'=>$price['agreement']['hash']],$admin)===null,'JP conserva el acuerdo publicado antes de continuar');
+$CORREOS=[];
+$p=impAprobacionPendiente($BD,35,true);
+$correccion=array_values(array_filter($CORREOS,function($m){return $m['to']==='alberto@example.com';}));
+ok($p['n']===2 && $p['amount_clp']===61740000 && $p['email_sent'] && isset(impPasos(orden(35))['inspeccion']),'la aprobación registrada habilita exactamente el Pago 2 del plan vigente');
+ok(count($correccion)===1 && strpos($correccion[0]['subject'],'Corrección')===0 && strpos($correccion[0]['html'],'el Pago 1 ya está realizado')!==false && strpos($correccion[0]['html'],'Realizar Pago 2')!==false && strpos($correccion[0]['html'],'adjunta el comprobante')!==false,'un solo correo corrige el error, solicita Pago 2 y pide comprobante');
+ok(impAprobacionPendiente($BD,35,true)===null && count(array_filter($CORREOS,function($m){return $m['to']==='alberto@example.com';}))===1,'reintentar no duplica el cobro ni la corrección');
+ok($linkAntes===$BD->query('SELECT * FROM order_links WHERE id=12')->fetch(PDO::FETCH_ASSOC),'la corrección mantiene todos los precios y porcentajes');
 
 echo "\n" . ($total - $fallos) . "/$total ok\n";
 exit($fallos ? 1 : 0);

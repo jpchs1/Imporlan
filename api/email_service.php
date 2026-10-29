@@ -1166,6 +1166,11 @@ BASE64;
      * order_id, hechos ([label => bool] en orden, para la lista de avance).
      */
     public function sendHitoImportacion($userEmail, $firstName, $d) {
+        if (!empty($d['correct_payment_notice']) && ($d['hito'] ?? '')==='inspeccion' && intval($d['cobro']['n'] ?? 0)===2) {
+            require_once __DIR__.'/import_action_template.php';
+            $mail=impActionEmail(['audience'=>'client','name'=>$firstName,'boat'=>$d['titulo'],'order_number'=>$d['order_number'],'inspection_approved'=>true,'correct_payment_notice'=>true,'tasks'=>[['kind'=>'payment','title'=>'Pago 2','detail'=>'Segundo pago de tu operación, posterior a la aprobación de la inspección. Se mantienen los precios previamente acordados.','button'=>'Realizar Pago 2','url'=>'https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($d['cobro']['id']),'amount_clp'=>$d['cobro']['amount_clp']]]]);
+            return $this->sendImportActionEmail($userEmail,$mail,['audience'=>'client','order_id'=>$d['order_id'],'event'=>'payment_notice_correction','payment_id'=>$d['cobro']['id']]);
+        }
         $c = $this->colors;
         $titulo = (string) ($d['titulo'] ?? 'tu lancha');
         $orderNumber = (string) ($d['order_number'] ?? '');

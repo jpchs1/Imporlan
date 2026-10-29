@@ -110,6 +110,24 @@ $legacy->exec("CREATE TABLE order_usa_inspection_prices (request_id INT PRIMARY 
 opuPriceSchema($legacy);
 $upgraded = $legacy->query('SELECT confirmed_cents, approved_cents, approval_version FROM order_usa_inspection_prices')->fetch(PDO::FETCH_ASSOC);
 check($upgraded['confirmed_cents'] == 2400025 && $upgraded['approved_cents'] === null && $upgraded['approval_version'] == 0, 'existing installations migrate without losing or implicitly approving the operator proposal');
+// An owner can keep an existing published agreement without inventing an operator response.
+$db->exec("ALTER TABLE order_links ADD COLUMN quote_published_at TEXT; UPDATE order_links SET quote_published_at='2026-10-20' WHERE id=11");
+$beforeLink=$db->query('SELECT * FROM order_links WHERE id=11')->fetch(PDO::FETCH_ASSOC);
+$beforePrice=state();
+$input=['request_id'=>$beforePrice['request_id'],'revision'=>$beforePrice['revision'],'approval_version'=>$beforePrice['approval_version'],'agreement_hash'=>$beforePrice['agreement']['hash']];
+check(opuPriceRetain($db,opuOrden($db,1),$input,['role'=>'support','email'=>owner()['email']])!==null,'support cannot waive price validation');
+check(opuPriceRetain($db,opuOrden($db,1),array_replace($input,['agreement_hash'=>'stale']),owner())!==null,'retention rejects a quote changed since preview');
+check(opuPriceRetain($db,opuOrden($db,1),$input,owner())===null && state()['retained'] && state()['ready'] && state()['approved_cents']===1900000,'owner retains the negotiated published base, not a new proposal');
+check($beforeLink===$db->query('SELECT * FROM order_links WHERE id=11')->fetch(PDO::FETCH_ASSOC),'retention never changes quotation, totals, payment plan or negotiated amount');
+check(state()['status']===$beforePrice['status'] && state()['confirmed_cents']===$beforePrice['confirmed_cents'] && state()['revision']===$beforePrice['revision'],'David history is preserved rather than falsely confirmed on his behalf');
+check(opuPriceGate($db,opuOrden($db,1))===null,'owner-retained agreement satisfies the price gate');
+check(submitPrice('unchanged','21000','21000')!==[] && state()['approved_cents']===1900000,'late operator submission cannot overwrite the retained agreement');
+check(tick('2030-10-29T11:00:00Z')['price_sent']===0,'only this retained operation stops price emails');
+$db->exec("UPDATE order_links SET quote_total_clp=88000000 WHERE id=11");
+check(!state()['ready'] && opuPriceGate($db,opuOrden($db,1))!==null && tick('2030-10-30T11:00:00Z')['price_sent']===0,'changing the retained quote requires owner review while its price emails remain disabled');
+$db->exec("UPDATE order_links SET quote_total_clp=87000000 WHERE id=11");
+$other=opuInspectionRequest($db,opuOrden($db,2),['nombre'=>'Other Coordinator','email'=>'other@example.test']);
+check(tick('2030-10-31T11:00:00Z')['price_sent']===1 && end($captured)['to']==='other@example.test','other operations keep their automatic price confirmations');
 foreach (glob("$box/*") as $file) unlink($file); rmdir($box);
 echo ($count-$failed) . "/$count passed\n";
 exit($failed ? 1 : 0);

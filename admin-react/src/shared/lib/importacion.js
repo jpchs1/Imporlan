@@ -189,6 +189,19 @@ export function pagosConCobros(plan, cobros) {
   return { pagos, otros };
 }
 
+/** Booked payments and uploaded evidence are different amounts; never count a receipt as income. */
+export function cuadrePagos(plan, cobros = [], total = 0) {
+  const ns = new Set(plan.map(p => p.n));
+  const active = cobros.filter(r => r.status !== 'cancelled' && ns.has(numeroDePago(r)));
+  const paid = active.filter(r => r.status === 'paid').reduce((sum, r) => sum + Number(r.amount_clp || 0), 0);
+  const pendingReceipts = active.flatMap(r => r.receipts || []).filter(r => !r.status || r.status === 'pending').length;
+  const missingReceipts = active.filter(r => r.status === 'paid' && /manual|transfer/i.test(r.payment_method || '') && !(r.receipts?.length || r.receipt_url || r.voucher_url || r.comprobante_url)).length;
+  const mismatch = active.some(r => Number(r.amount_clp) !== Number(plan.find(p => p.n === numeroDePago(r))?.clp));
+  const duplicate = plan.some(p => active.filter(r => numeroDePago(r) === p.n).length > 1);
+  const refs = active.flatMap(r => (r.receipts || []).filter(x => x.status !== 'rejected').map(x => String(x.reference).trim().toLowerCase()));
+  return { paid, balance: Number(total) - paid, pendingReceipts, missingReceipts, mismatch, duplicate, duplicateReference: new Set(refs).size !== refs.length };
+}
+
 /**
  * Precio puesto en Chile que se le muestra al cliente para una lancha:
  * la cotización publicada, si no el negociado, si no el publicado.

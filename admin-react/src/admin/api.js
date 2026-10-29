@@ -119,6 +119,7 @@ export const sendImportReminder = (orderId, audience, fingerprint) => request(`$
 export const configureImportReminders = (enabled, templateHash) => request(`${API_BASE}/import_actions_api.php?action=configure`, { method: 'POST', body: JSON.stringify({ enabled, template_hash: templateHash }) });
 export const revisarPrecioInspeccion = (orderId, requestId, revision, approvedPriceUsd, approvalVersion, approvalNote = '') =>
   request(`${API_BASE}/operador_usa.php?r=admin_precio_revisar`, { method: 'POST', body: JSON.stringify({ order_id: orderId, request_id: requestId, revision, approved_price_usd: approvedPriceUsd, approval_version: approvalVersion, approval_note: approvalNote }) });
+export const conservarPrecioAcordado = (orderId, precio, correctPaymentNotice) => request(`${API_BASE}/operador_usa.php?r=admin_precio_conservar`, { method:'POST',body:JSON.stringify({order_id:orderId,request_id:precio.request_id,revision:precio.revision,approval_version:precio.approval_version,agreement_hash:precio.agreement.hash,correct_payment_notice:correctPaymentNotice}),timeoutMs:90000 });
 // Datos del cliente para la importación (nombre, RUT, dirección…), su cédula
 // por ambos lados y la aceptación de los Términos. Sólo admin y support: trae
 // enlaces firmados a la cédula que duran 1 hora (ci_frente_url, ci_reverso_url).

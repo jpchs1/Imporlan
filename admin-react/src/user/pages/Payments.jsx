@@ -11,6 +11,8 @@ import {
 import { CUENTAS } from '../../shared/lib/banco';
 import { Plus, Copy, Check, Banknote, Ship, Receipt, RefreshCw, WebPayIcon, MercadoPagoIcon, WhatsAppIcon } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
+import PaymentReceipts from '../../shared/components/PaymentReceipts';
+import { FileOpen } from '../../shared/components/FileDownload';
 
 /* ---------------------------------------------------------------------------
    Medios de pago. PayPal no se lista: el panel no tiene flujo de pago con
@@ -123,7 +125,7 @@ function SelectorMedio({ value, onChange, disabled }) {
 /* ---------------------------------------------------------------------------
    Datos para transferir, con "Copiar" por campo
    --------------------------------------------------------------------------- */
-function DatosTransferencia({ amount, concepto }) {
+function DatosTransferencia({ amount, concepto, requestId }) {
   const toast = useToast();
   const [copiado, setCopiado] = useState(null);
   const [moneda, setMoneda] = useState('clp');
@@ -149,7 +151,7 @@ function DatosTransferencia({ amount, concepto }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-ink-700">Transfiere a esta cuenta y envíanos el comprobante. Confirmamos el pago en el mismo día hábil.</p>
+        <p className="text-sm text-ink-700">Transfiere a esta cuenta y {requestId ? 'adjunta el comprobante a este pago' : 'envíanos el comprobante'}. Revisaremos el ingreso antes de confirmar el pago.</p>
         <SegmentedControl
           size="sm"
           aria-label="Moneda de la transferencia"
@@ -182,8 +184,8 @@ function DatosTransferencia({ amount, concepto }) {
           El cobro está en pesos ({fmtCLP(amount)}). Si prefieres pagar en dólares, pídele el monto en USD a tu agente antes de transferir.
         </Callout>
       )}
-      <Callout tone="info" title="Envía el comprobante a contacto@imporlan.cl">
-        También puedes mandarlo por{' '}
+      <Callout tone="info" title={requestId ? 'Adjunta el comprobante en el formulario de abajo' : 'Envía el comprobante a contacto@imporlan.cl'}>
+        {requestId ? 'Indica el monto, la moneda y la referencia para vincularlo a este pago. Si necesitas ayuda, contáctanos por ' : 'También puedes mandarlo por '}
         <a href="https://wa.me/56940211459?text=Hola%2C%20les%20env%C3%ADo%20el%20comprobante%20de%20mi%20transferencia" target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:underline">WhatsApp</a>.
         Indica el número del expediente o el concepto del pago.
       </Callout>
@@ -194,17 +196,19 @@ function DatosTransferencia({ amount, concepto }) {
 /* ---------------------------------------------------------------------------
    Modal: pagar una solicitud existente
    --------------------------------------------------------------------------- */
-function PayModal({ open, onClose, paymentRequest, toast, expediente }) {
+function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt }) {
   const { user } = useAuth();
   const [method, setMethod] = useState('webpay');
   const [processing, setProcessing] = useState(false);
   const [showBank, setShowBank] = useState(false);
+  const [receiptSubmitted, setReceiptSubmitted] = useState(false);
 
   if (!paymentRequest) return null;
   const pr = paymentRequest;
   const email = user?.email || user?.user_email || '';
   const name = user?.name || '';
   const meta = pr.metadata || {};
+  const awaitingReceiptReview = receiptSubmitted || (pr.receipt_status !== 'rejected' && !!pr.receipt_received_at);
 
   async function handleWebPay() {
     setProcessing(true);
@@ -265,10 +269,10 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente }) {
     <Modal
       open={open}
       onClose={processing ? undefined : onClose}
-      title={showBank ? 'Datos para transferir' : 'Pagar'}
+      title={awaitingReceiptReview ? 'Comprobante en revisión' : showBank ? 'Datos para transferir' : 'Pagar'}
       description={pr.title}
       size="md"
-      footer={showBank ? (
+      footer={awaitingReceiptReview ? <Button onClick={onClose}>Cerrar</Button> : showBank ? (
         <>
           <Button variant="secondary" onClick={() => setShowBank(false)}>Elegir otro medio</Button>
           <Button onClick={onClose}>Listo</Button>
@@ -298,8 +302,8 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente }) {
           )}
         </div>
 
-        {showBank ? (
-          <DatosTransferencia amount={pr.amount_clp} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} />
+        {awaitingReceiptReview ? <><Callout tone="info" title="Comprobante recibido · ingreso en revisión">No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
+          <><DatosTransferencia amount={pr.amount_clp} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={() => { setReceiptSubmitted(true); onReceipt?.(); }} /></>
         ) : (
           <div>
             <p className="text-sm font-medium text-ink-900 mb-2">Elige cómo pagar</p>
@@ -439,7 +443,7 @@ function PendienteCard({ req, onPay, expediente }) {
 /* ---------------------------------------------------------------------------
    Detalle de un pago (historial)
    --------------------------------------------------------------------------- */
-function DetalleModal({ req, onClose, onPay, expediente }) {
+function DetalleModal({ req, onClose, onPay, expediente, onReceipt }) {
   if (!req) return null;
   const meta = req.metadata || {};
   const comprobante = req.receipt_url || req.voucher_url || req.comprobante_url;
@@ -464,7 +468,7 @@ function DetalleModal({ req, onClose, onPay, expediente }) {
       size="md"
       footer={(
         <>
-          {comprobante && <a href={comprobante} target="_blank" rel="noreferrer" className="text-sm font-medium text-brand-600 hover:underline mr-auto">Ver comprobante</a>}
+          {comprobante && <FileOpen file={{ download_url: comprobante, original_name: 'Comprobante' }} className="text-sm font-medium text-brand-600 hover:underline mr-auto">Ver comprobante</FileOpen>}
           <Button variant="secondary" onClick={onClose}>Cerrar</Button>
           {req.status === 'pending' && <Button onClick={() => { onClose(); onPay(req); }}>Pagar</Button>}
         </>
@@ -473,6 +477,7 @@ function DetalleModal({ req, onClose, onPay, expediente }) {
       <div className="space-y-5">
         {req.description && <p className="text-sm text-ink-700">{req.description}</p>}
         <DescriptionList cols={2} items={items} />
+        {req.status !== 'cancelled' && <PaymentReceipts request={req} onChange={onReceipt} />}
         {req.status === 'cancelled' && req.cancelled_reason && (
           <Callout tone="neutral" title="Motivo de la cancelación">{req.cancelled_reason}</Callout>
         )}
@@ -664,8 +669,8 @@ export default function Payments() {
       )}
 
       {/* Se montan solo abiertos: cada apertura parte con el estado limpio. */}
-      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} />}
-      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} />}
+      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} onReceipt={loadRequests} />}
+      {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} onReceipt={loadRequests} />}
       {showCustomPay && <CustomPayModal open onClose={() => setShowCustomPay(false)} toast={toast} user={user} />}
     </div>
   );

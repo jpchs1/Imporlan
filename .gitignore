@@ -65,3 +65,6 @@ get_*.php
 
 # Marcas de "las sesiones de antes ya no valen" (ver api/session_revocation.php)
 .imporlan_sesiones/
+
+# Private payment evidence is served only through the authenticated API.
+api/payment_receipts/

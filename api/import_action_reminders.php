@@ -21,7 +21,8 @@ function impActionSchema($pdo) {
 function impActionSettings($pdo) {
     impActionSchema($pdo);
     $s = $pdo->query('SELECT * FROM import_action_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
-    return ['enabled' => !empty($s['enabled']) && hash_equals(impActionTemplateHash(), (string) $s['template_hash']), 'template_hash' => impActionTemplateHash(), 'timezone' => 'America/Santiago', 'schedule' => 'Diario, desde las 08:30 hasta las 18:00 de Chile', 'last_changed_at' => $s['updated_at']];
+    // An authorized ongoing schedule survives template maintenance. Preview/send and configuration still check current versions.
+    return ['enabled' => !empty($s['enabled']), 'template_hash' => impActionTemplateHash(), 'timezone' => 'America/Santiago', 'schedule' => 'Diario, desde las 08:30 hasta las 18:00 de Chile', 'last_changed_at' => $s['updated_at']];
 }
 
 function impActionConfigure($pdo, $session, $enabled, $hash) {
@@ -52,6 +53,12 @@ function impActionPlan($snapshot) {
         $payments[] = ['request' => $r, 'n' => $n];
     }
     usort($payments, function ($a,$b) { return ($a['n'] ?: 99) <=> ($b['n'] ?: 99); });
+    $proofTasks=[];
+    foreach ($payments as $p) {
+        $r=$p['request'];
+        foreach ($r['receipts'] ?? [] as $receipt) if (($r['status'] ?? '')==='paid' && ($receipt['status'] ?? 'pending')==='pending') { $owner[]=impActionTask('receipt','Revisar un comprobante recibido','Hay evidencia de transferencia pendiente de revisión. Compara el ingreso bancario, el monto y la referencia; un archivo no confirma el pago.','Revisar comprobante',$admin);break; }
+        if (($r['status'] ?? '')==='paid' && preg_match('/manual|transfer/i',$r['payment_method'] ?? '') && (($r['receipt_status'] ?? '')==='rejected' || (empty($r['receipts']) && empty($r['receipt_url']) && empty($r['voucher_url']) && empty($r['comprobante_url'])))) $proofTasks[]=impActionTask('receipt_upload','Adjuntar comprobante del Pago '.($p['n'] ?: ''),'Este pago ya figura realizado. Adjunta su comprobante en el historial para completar el registro; no debes volver a pagarlo.','Adjuntar comprobante','https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($r['id']));
+    }
     if (impInspeccionNoApta($o)) {
         if (empty($o['refund_requested_at'])) $client[] = impActionTask('choice','Elige cómo quieres continuar','Puedes elegir otra lancha de tu ranking o revisar la opción de devolución desde tu expediente.','Ver mis opciones',$panel);
         else $owner[] = impActionTask('refund','Revisar la solicitud de devolución','El cliente solicitó la devolución. Revisa los pagos y los costos de terceros antes de coordinarla.','Revisar solicitud',$admin);
@@ -60,7 +67,12 @@ function impActionPlan($snapshot) {
         foreach ($payments as $p) {
             $r = $p['request']; $n = $p['n'];
             if (($r['status'] ?? '') !== 'pending' || ($n && isset($paid[$n])) || floatval($r['amount_clp'] ?? 0) <= 0 || empty($r['id'])) continue;
-            if (!empty($r['receipt_url']) || !empty($r['voucher_url']) || !empty($r['comprobante_url']) || !empty($r['receipt_received_at'])) {
+            if ($n===1 && (!empty($o['inspection_report_at']) || $approved || isset(impPasos($o)['compra']))) {
+                $owner[]=impActionTask('reconcile_payment','Conciliar el Pago 1 con el avance registrado','La operación ya avanzó a inspección o compra, pero el Pago 1 sigue pendiente en el registro. Verifica el ingreso y corrige su estado; no se vuelve a solicitar al cliente.','Revisar registro de pagos',$admin);
+                continue;
+            }
+            if (($n===2 && !($approved || (empty($o['chosen_inspection']) && isset(impPasos($o)['disponibilidad'])))) || ($n===3 && !isset(impPasos($o)['transporte']))) continue;
+            if (($r['receipt_status'] ?? '')!=='rejected' && (!empty($r['receipt_url']) || !empty($r['voucher_url']) || !empty($r['comprobante_url']) || !empty($r['receipt_received_at']))) {
                 $owner[] = impActionTask('receipt','Validar un comprobante de pago','Hay un comprobante registrado y el cobro sigue pendiente. Verifica el ingreso antes de confirmar el pago.','Revisar cobro',$admin);
                 $paymentChosen = true; // Wait for validation before asking for a later payment.
                 continue;
@@ -71,9 +83,10 @@ function impActionPlan($snapshot) {
             $paymentChosen = true; // Keep scanning for receipts requiring an internal review.
         }
         if (empty($snapshot['client_data_complete'])) $client[] = impActionTask('data','Completar tus datos de importación','Necesito tus datos, tu cédula por ambos lados y la aceptación de los términos para comprar e importar a tu nombre. Cárgalos sólo en tu panel seguro.','Completar mis datos',$panel);
+        $client=array_merge($client,$proofTasks);
         if (!empty($o['chosen_inspection']) && !empty($o['inspection_report_at']) && !$approved) $client[] = impActionTask('inspection','Revisar y decidir sobre la inspección','Lee el reporte y decide si apruebas seguir con la compra o prefieres elegir otra lancha. La decisión se confirma dentro del panel.','Revisar y decidir',$panel);
         $price = $snapshot['price'] ?? null;
-        if ($price && !empty($price['confirmed']) && empty($price['ready'])) $owner[] = impActionTask('price','Aprobar o editar el precio de compra','David envió una propuesta interna. Revisa el acuerdo y aprueba o edita el importe desde tu cuenta principal; la propuesta no se publica al cliente.','Revisar propuesta',$admin);
+        if ($price && !empty($price['confirmed']) && empty($price['ready']) && empty($price['retained'])) $owner[] = impActionTask('price','Aprobar o editar el precio de compra','David envió una propuesta interna. Revisa el acuerdo y aprueba o edita el importe desde tu cuenta principal; la propuesta no se publica al cliente.','Revisar propuesta',$admin);
         if (!empty($snapshot['report_received']) && empty($o['inspection_report_at']) && !$approved) $owner[] = impActionTask('report','Revisar y publicar el reporte de inspección','El PDF de la inspección está recibido. Revísalo y regístralo como reporte de la lancha elegida para que el cliente pueda decidir.','Revisar reporte',$admin);
         $steps = impPasos($o);
         foreach ([1,2,3] as $n) {
