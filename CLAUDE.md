@@ -109,6 +109,17 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   El rol `agent` no guarda precios/cotizaciones del comprador. En esta operación
   el equipo sólo puede cambiar la base a un importe aprobado por JP.
 
+- **Flujo y estado de importación (29-oct-2026):** el cliente ve los hitos
+  registrados, el paso actual y qué acción le corresponde. Reporte listo y
+  espera de aprobación de precio son estados distintos; no se anuncia que
+  está en aduana sólo por haber salido a Chile. El seguimiento abre el barco
+  asociado al expediente y no selecciona otro si todavía no está disponible.
+  Los cobros se vinculan por ID interno o número público del expediente;
+  un pago confirmado tiene prioridad sobre duplicados pendientes. No cerrar
+  compra sin disponibilidad/aprobación de inspección cuando corresponde;
+  transporte requiere compra, aduana requiere transporte y entrega requiere
+  aduana. Para deshacer hitos hay que empezar por el último registrado.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

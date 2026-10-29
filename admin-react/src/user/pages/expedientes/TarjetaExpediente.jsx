@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '../../../shared/lib/utils';
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { ETAPAS_EXPEDIENTE } from '../../../shared/lib/status';
-import { hitoEnCurso } from '../../../shared/lib/importacion';
+import { estadoDeImportacion } from '../../../shared/lib/importacion';
 import { StatusBadge, ProcessStepper, Avatar, Badge } from '../../../shared/components/UI';
 import { ChevronRight, Ship } from '../../../shared/components/Icons';
 import { nombreExpediente, tipoExpediente, etapaDe, esCerrado } from './lib';
@@ -73,8 +73,8 @@ export default function TarjetaExpediente({ order, href }) {
 /** «Elegiste: {lancha}» con mini foto y el hito en curso como chip. */
 export function LanchaElegida({ eleccion, className }) {
   const [imgError, setImgError] = useState(false);
-  const hito = hitoEnCurso(eleccion);
-  const chip = hito ? hito.enCursoCorto : 'Entregada';
+  const estado = estadoDeImportacion(eleccion);
+  const chip = estado.label;
   const hayFoto = eleccion.image_url && !imgError;
   return (
     <div className={cn('flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2', className)}>
@@ -83,7 +83,7 @@ export function LanchaElegida({ eleccion, className }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-13 text-ink-900"><span className="font-medium">Elegiste:</span> {eleccion.title || 'tu lancha'}</span>
-        <Badge tone={hito ? 'brand' : 'success'} size="sm" className="mt-1">{chip}</Badge>
+        <Badge tone={estado.pausada ? 'warning' : estado.terminado ? 'success' : 'brand'} size="sm" className="mt-1">{chip}</Badge>
       </span>
     </div>
   );

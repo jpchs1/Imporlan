@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,7 +7,7 @@ import { getFeaturedVessels, getVesselDetail, getVesselPositions, refreshVesselP
 import { cn } from '../../shared/lib/utils';
 import { fmtDateLarga, fmtRelativo } from '../../shared/lib/format';
 import {
-  Card, Button, PageHeader, StatusBadge, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton, DescriptionList,
+  Card, Button, PageHeader, StatusBadge, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton, DescriptionList, Callout,
 } from '../../shared/components/UI';
 import { Ship, RefreshCw, ArrowRight, WhatsAppIcon } from '../../shared/components/Icons';
 import { useToast } from '../../shared/components/Toast';
@@ -175,6 +175,8 @@ function grupoDe(v) {
 export default function Tracking() {
   const toast = useToast();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const barcoDelExpediente = params.get('barco') || '';
   const [vessels, setVessels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -194,12 +196,12 @@ export default function Tracking() {
         if (!vivo) return;
         const list = listaDe(data);
         setVessels(list);
-        setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
+        setSelectedId(prev => barcoDelExpediente ? list.find(v => String(v.id) === barcoDelExpediente)?.id || null : prev || list[0]?.id || null);
       })
       .catch(e => { if (vivo) setError(e); })
       .finally(() => { if (vivo) setLoading(false); });
     return () => { vivo = false; };
-  }, []);
+  }, [barcoDelExpediente]);
 
   function recargar() {
     setLoading(true);
@@ -208,7 +210,7 @@ export default function Tracking() {
       .then(data => {
         const list = listaDe(data);
         setVessels(list);
-        setSelectedId(prev => (prev || (list.length > 0 ? list[0].id : null)));
+        setSelectedId(prev => barcoDelExpediente ? list.find(v => String(v.id) === barcoDelExpediente)?.id || null : prev || list[0]?.id || null);
       })
       .catch(setError)
       .finally(() => setLoading(false));
@@ -293,6 +295,8 @@ export default function Tracking() {
         title="Seguimiento"
         description="Dónde va el barco que trae tu embarcación: ruta, velocidad y fecha estimada de llegada."
       />
+
+      {!loading && !error && barcoDelExpediente && !vessels.some(v => String(v.id) === barcoDelExpediente) && <Callout tone="info" title="El seguimiento de este expediente todavía no está disponible" className="mb-4">El equipo debe confirmar el barco asociado a tu envío. Te avisamos cuando puedas consultar la ruta de tu embarcación.</Callout>}
 
       {error ? (
         <Card padding="none"><ErrorState message="No pudimos cargar el seguimiento." detail={error} onRetry={recargar} /></Card>

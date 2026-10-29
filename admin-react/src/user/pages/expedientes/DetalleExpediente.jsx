@@ -510,7 +510,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
   const noApta = inspeccionDeclinada(eleccion);
   const devolucion = devolucionPedida(eleccion);
   const etapaInsp = etapaInspeccion(eleccion);
-  const pagosElegida = elegido ? pagosConCobros(planDePagos(elegido), cobrosDelExpediente(pagos, order.id)) : null;
+  const pagosElegida = elegido ? pagosConCobros(planDePagos(elegido), cobrosDelExpediente(pagos, order.id, order.order_number)) : null;
   const pago1Elegida = pagosElegida?.pagos.find(p => p.n === 1) || null;
   const pago2Elegida = pagosElegida?.pagos.find(p => p.n === 2) || null;
   const pago1Abonado = noApta && pago1Elegida?.estado === 'pagado';
@@ -599,6 +599,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
           link={elegido}
           eleccion={eleccion}
           requests={pagos}
+          pagosError={!!pagosError}
           novedades={order.novedades || []}
           files={files}
           datosPendientes={datosPendientes}
@@ -725,7 +726,7 @@ export default function DetalleExpediente({ orderId, backTo = '/expedientes' }) 
         loading={reporteCargando}
         error={reporteError || null}
         onRetry={() => loadReporte()}
-        footer={etapaInsp === 'reporte_listo' ? (
+        footer={!cerrado && order.status !== 'completed' && etapaInsp === 'reporte_listo' ? (
           <>
             <Button variant="secondary" onClick={() => setModalDeclinar(true)} disabled={decidiendo === 'aprobar'} loading={decidiendo === 'declinar'} className="w-full sm:w-auto">No quiero seguir con esta lancha</Button>
             <Button icon={CircleCheck} onClick={() => handleAprobar(tituloElegida, pago2Elegida)} loading={decidiendo === 'aprobar'} disabled={decidiendo === 'declinar'} className="w-full sm:w-auto">Apruebo, sigamos con la compra</Button>

@@ -2,7 +2,7 @@ import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
 import { Check, Receipt, User, TriangleAlert, FileSearch, Languages, Banknote } from '../../../shared/components/Icons';
-import { hitosDe } from '../../../shared/lib/importacion';
+import { hitosDe, estadoDeImportacion } from '../../../shared/lib/importacion';
 import { etapaInspeccion, devolucionPedida, decidioInspeccion, reporteDe, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import CaminoInspeccion from './CaminoInspeccion';
@@ -43,7 +43,7 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
           const declinada = it.estado === 'declinada';
           const curso = it.estado === 'curso' || teToca || decidir || declinada;
           return (
-            <li key={it.id} className={cn('relative flex gap-3', !alFinal && 'pb-5')} aria-current={curso ? 'step' : undefined}>
+            <li key={it.id} className={cn('relative flex gap-3', !alFinal && 'pb-5')} aria-current={it.estado === 'curso' || decidir || declinada ? 'step' : undefined}>
               {!alFinal && <span aria-hidden="true" className={cn('absolute bottom-0 left-[11px] top-7 w-0.5', hecho ? 'bg-brand-600' : 'bg-line')} />}
               <span
                 aria-hidden="true"
@@ -146,8 +146,8 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
   }
 
   const hitos = hitosDe(eleccion);
+  const actual = estadoDeImportacion(eleccion);
   const pendientes = [];
-  let enCursoVisto = false;
   for (const h of hitos) {
     const esInspeccion = h.id === 'inspeccion';
     if (h.hecho) {
@@ -183,8 +183,7 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
         });
       }
       break;
-    } else if (!enCursoVisto) {
-      enCursoVisto = true;
+    } else if (h.id === actual.id) {
       if (esInspeccion && eleccion.inspection_waiting_price) {
         // Aprobó el reporte; antes del Pago 2 se cierra con el vendedor el precio final.
         pendientes.push({

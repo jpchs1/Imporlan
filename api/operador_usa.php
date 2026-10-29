@@ -350,9 +350,16 @@ function opuAlMarcarHito($pdo, $orderId, $hito) {
 function opuAlPagarCobro($request) {
     try {
         if (intval($request['metadata']['custom_fields']['pago'] ?? 0) !== 1) return false;
-        $orderId = intval($request['metadata']['order_id'] ?? 0);
         $pdo = getDbConnection();
-        if (!$pdo || !$orderId) return false;
+        if (!$pdo) return false;
+        $ref = trim((string) ($request['metadata']['order_id'] ?? $request['metadata']['order_number'] ?? ''));
+        $orderId = ctype_digit($ref) ? intval($ref) : 0;
+        if (!$orderId && preg_match('/^IMP-[0-9]+$/i', $ref)) {
+            $st = $pdo->prepare('SELECT id FROM orders WHERE order_number = ?');
+            $st->execute([strtoupper($ref)]);
+            $orderId = intval($st->fetchColumn());
+        }
+        if (!$orderId) return false;
         opuAsegurar($pdo);
         $o = opuOrden($pdo, $orderId);
         if (!$o || !impTieneEleccion($o)) return false;

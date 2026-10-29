@@ -2793,7 +2793,7 @@ function impAvisarCobroEnChat($res) {
 function impEleccionParaPanel($order) {
     $e = impEleccionPublica($order);
     // Con el Pago 1 pagado ya no cambia, salvo inspección no apta (se abona a la nueva).
-    if ($e && $e['client_can_change'] && !impInspeccionNoApta($order) && impPago1Pagado($order['id'] ?? 0)) $e['client_can_change'] = false;
+    if ($e && $e['client_can_change'] && !impInspeccionNoApta($order) && impPago1Pagado($order['id'] ?? 0, $order['order_number'] ?? '')) $e['client_can_change'] = false;
     return $e;
 }
 
@@ -2885,7 +2885,7 @@ function userChooseLink($sesion, $input = null) {
 
         $antes = null;
         if (impTieneEleccion($order) && intval($order['chosen_link_id']) !== $linkId) {
-            if (!impInspeccionNoApta($order) && impPago1Pagado($orderId)) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
+            if (!impInspeccionNoApta($order) && impPago1Pagado($orderId, $order['order_number'] ?? '')) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
             $antes = impTituloLancha(impLeerLink($pdo, $orderId, $order['chosen_link_id']));
         }
 
@@ -2895,7 +2895,7 @@ function userChooseLink($sesion, $input = null) {
         // El Pago 1 (7% de la operación) se pide al elegir; la inspección no se cobra aparte.
         $pago1 = impSolicitarPago1($order, $link, 'sistema · elección del cliente');
         // Sin cotización publicada no hay Pago 1 nuevo, pero el pendiente de la lancha anterior no sirve.
-        if (!$pago1) impAnularPago1Pendiente($orderId, 'Cambió de lancha');
+        if (!$pago1) impAnularPago1Pendiente($orderId, 'Cambió de lancha', $order['order_number'] ?? '');
         impAvisarCobroEnChat($pago1);
         logOrderEvent($pdo, $orderId, 'lancha_elegida', [
             'link_id' => $linkId, 'titulo' => impTituloLancha($link), 'inspeccion' => $conInspeccion,
@@ -2933,13 +2933,13 @@ function userUnchooseLink($sesion, $input = null) {
         if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
         if (!impTieneEleccion($order)) return impResponderError(409, 'No hay una lancha elegida');
         if (!impClientePuedeCambiar($order)) return impResponderError(409, 'Tu importación ya avanzó. Para cambiar de lancha, habla con tu agente.');
-        if (impPago1Pagado($orderId)) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
+        if (impPago1Pagado($orderId, $order['order_number'] ?? '')) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
 
         $link = impLeerLink($pdo, $orderId, $order['chosen_link_id']);
         $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, " . impSqlLimpiarInspeccion() . " WHERE id = ?")
             ->execute([$orderId]);
         logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id']), 'titulo' => impTituloLancha($link), 'por' => 'cliente'], $sesion['sub'] ?? null);
-        impAnularPago1Pendiente($orderId, 'Deshizo la elección de lancha');
+        impAnularPago1Pendiente($orderId, 'Deshizo la elección de lancha', $order['order_number'] ?? '');
         opuAlDeshacer($pdo, $order);
 
         impAvisarEleccion($order, $link ?: [], 'libero', 'cliente', false, '', null, false);
@@ -2981,7 +2981,7 @@ function adminChooseLink($admin, $input = null) {
             $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, " . impSqlLimpiarInspeccion() . " WHERE id = ?")
                 ->execute([$orderId]);
             logOrderEvent($pdo, $orderId, 'eleccion_deshecha', ['link_id' => intval($order['chosen_link_id'] ?? 0), 'por' => 'equipo', 'admin' => $quien]);
-            impAnularPago1Pendiente($orderId, 'El equipo quitó la elección de lancha');
+            impAnularPago1Pendiente($orderId, 'El equipo quitó la elección de lancha', $order['order_number'] ?? '');
             opuAlDeshacer($pdo, $order);
             echo json_encode(['success' => true, 'eleccion' => null]);
             return;
@@ -3004,7 +3004,7 @@ function adminChooseLink($admin, $input = null) {
             'link_id' => $linkId, 'titulo' => impTituloLancha($link), 'inspeccion' => $conInspeccion, 'por' => 'equipo', 'admin' => $quien,
         ]);
         $pago1 = $pedirPago1 ? impSolicitarPago1($order, $link, 'sistema · elección marcada por ' . $quien) : null;
-        if (!$misma && !$pago1) impAnularPago1Pendiente($orderId, 'Cambió de lancha');
+        if (!$misma && !$pago1) impAnularPago1Pendiente($orderId, 'Cambió de lancha', $order['order_number'] ?? '');
         if ($avisar) impAvisarCobroEnChat($pago1);
         if (!$misma && $avisar) impAvisarEleccion($order, $link, 'eligio', 'equipo', $conInspeccion, $nota, null, true, $pago1);
         if (!$misma) opuAlElegir($pdo, $orderId, intval($order['chosen_link_id'] ?? 0));
@@ -3043,6 +3043,9 @@ function adminSetImportStep($admin, $input = null) {
         if (!empty($hitos[$paso]['solo_con_inspeccion']) && empty($order['chosen_inspection'])) {
             return impResponderError(409, 'Este cliente eligió sin inspección');
         }
+
+        $secuenciaError = impValidarCambioHito($order, $paso, $hecho);
+        if ($secuenciaError) return impResponderError(409, $secuenciaError);
 
         // Inspección aprobada o compra: antes, el equipo valida la confirmación de precio del coordinador.
         if ($hecho && !isset(impPasos($order)[$paso]) && in_array($paso, ['inspeccion', 'compra'], true)) {
@@ -3246,7 +3249,7 @@ function adminInspeccionResultado($admin, $input = null) {
                     require_once __DIR__ . '/email_service.php';
                     $r = (new EmailService())->sendInspeccionNoApta($order['customer_email'], impPrimerNombre($order), [
                         'titulo' => impTituloLancha($link), 'order_number' => $order['order_number'] ?? '',
-                        'order_id' => $orderId, 'nota' => $nota, 'pago1_pagado' => impPago1Pagado($orderId),
+                        'order_id' => $orderId, 'nota' => $nota, 'pago1_pagado' => impPago1Pagado($orderId, $order['order_number'] ?? ''),
                     ]);
                     $notificado = !empty($r['success']);
                 } catch (\Throwable $e) {
@@ -3283,9 +3286,9 @@ function userPedirDevolucion($sesion, $input = null) {
             echo json_encode(['success' => true, 'eleccion' => impEleccionParaPanel($order)]);
             return;
         }
-        $pagado = impPago1($orderId);
+        $pagado = impPago1($orderId, $order['order_number'] ?? '');
         $montoPagado = ($pagado && ($pagado['status'] ?? '') === 'paid') ? intval($pagado['amount_clp']) : 0;
-        if (!$montoPagado) impAnularPago1Pendiente($orderId, 'Inspección no apta: el cliente no sigue');
+        if (!$montoPagado) impAnularPago1Pendiente($orderId, 'Inspección no apta: el cliente no sigue', $order['order_number'] ?? '');
         $pdo->prepare("UPDATE orders SET refund_requested_at = NOW() WHERE id = ?")->execute([$orderId]);
         logOrderEvent($pdo, $orderId, 'devolucion_pedida', ['pago1_pagado' => $montoPagado], $sesion['sub'] ?? null);
 
@@ -3454,6 +3457,7 @@ function userInspeccionDecision($sesion, $input = null) {
     try {
         $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
         if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
+        if (impExpedienteCerrado($order)) return impResponderError(409, 'Este expediente está cerrado. Habla con tu agente antes de continuar con la compra.');
         $etapa = impEtapaInspeccion($order);
         if ($etapa === null) return impResponderError(409, 'Esta importación no tiene inspección técnica');
         if ($etapa === 'coordinando') return impResponderError(409, 'Todavía no está el reporte de la inspección. Te avisamos apenas llegue.');

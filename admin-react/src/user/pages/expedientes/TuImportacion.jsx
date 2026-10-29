@@ -3,8 +3,8 @@ import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Money, Badge } from '../../../shared/components/UI';
 import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText, User, TriangleAlert, Banknote, FileSearch } from '../../../shared/components/Icons';
-import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue, hitosDe } from '../../../shared/lib/importacion';
-import { estadoInspeccion, etapaInspeccion, inspeccionDeclinada, devolucionPedida, CAMINO_INSPECCION } from '../../../shared/lib/inspeccion';
+import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue } from '../../../shared/lib/importacion';
+import { estadoInspeccion, etapaInspeccion, inspeccionDeclinada, CAMINO_INSPECCION } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import ResumenCotizacion from './ResumenCotizacion';
 import MatrizPrecios from './MatrizPrecios';
@@ -12,8 +12,9 @@ import AvanceImportacion from './AvanceImportacion';
 import PlanDePagos from './PlanDePagos';
 import InspeccionNoApta from './InspeccionNoApta';
 import ReporteListo from './ReporteListo';
+import EstadoImportacion from './EstadoImportacion';
 import { Novedades, GaleriaUsa } from './NovedadesImportacion';
-import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, etapaDe, rutaPagar, archivosDesdeUsa } from './lib';
+import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, rutaPagar, archivosDesdeUsa, esActivo } from './lib';
 
 /**
  * «Tu importación»: lo primero que ve el cliente cuando ya eligió. Arriba,
@@ -37,7 +38,7 @@ import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, e
  * es el reporte antiguo (inspection_reports_api), como respaldo.
  */
 export default function TuImportacion({
-  order, link, eleccion, requests, novedades, files, datosPendientes = false, reporteInspeccion = null, reporte = null,
+  order, link, eleccion, requests, novedades, files, pagosError = false, datosPendientes = false, reporteInspeccion = null, reporte = null,
   onCompletarDatos, onCambiar, onDeshacer, deshaciendo, onElegirOtra, onPedirDevolucion, pidiendoDevolucion,
   onLeerReporte, onAprobar, onDeclinar, decidiendo = null, onPreviewImage, onPreviewFiles,
 }) {
@@ -58,16 +59,15 @@ export default function TuImportacion({
   const hayFoto = imagen && !imgError;
 
   const plan = link ? planDePagos(link) : [];
-  const cobros = cobrosDelExpediente(requests, order.id);
+  const cobros = cobrosDelExpediente(requests, order.id, order.order_number);
   const pagos = pagosConCobros(plan, cobros);
   const inspeccion = estadoInspeccion(eleccion);
   const etapaInsp = etapaInspeccion(eleccion);
   const declinada = inspeccionDeclinada(eleccion);
   const reporteListo = etapaInsp === 'reporte_listo';
-  const devolucion = devolucionPedida(eleccion);
-  const sigue = declinada ? { tipo: devolucion ? 'devolucion' : 'declinada' } : reporteListo ? { tipo: 'reporte_listo' } : queSigue(eleccion, pagos);
-  const hitos = hitosDe(eleccion);
-  const enViaje = hitos.some(h => h.id === 'transporte' && h.hecho) || etapaDe(order) === 5;
+  const cerrado = !esActivo(order);
+  const sigue = cerrado ? { tipo: 'cerrado' } : !declinada && !reporteListo && pagosError ? { tipo: 'pagos_error' } : queSigue(eleccion, pagos);
+  const tieneSeguimiento = !!order.vessel_id;
   const agente = order.agent_name || '';
   const tieneCotizacion = !!(link && (link.quote_total_clp || link.quote_pending));
   const pago1 = pagos.pagos.find(p => p.n === 1) || null;
@@ -88,13 +88,15 @@ export default function TuImportacion({
       <Card.Header
         title={<span id="tu-importacion">Tu importación</span>}
         description={`${title} · elegida el ${fmtDateLarga(eleccion.at)} ${eleccion.by === 'equipo' ? 'por tu agente' : 'por ti'}`}
-        actions={enViaje ? <BotonEnlace to="/tracking" size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
+        actions={tieneSeguimiento ? <BotonEnlace to={`/tracking?barco=${encodeURIComponent(order.vessel_id)}`} size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
       />
+
+      <EstadoImportacion eleccion={eleccion} cerrado={cerrado} />
 
       <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} esperaPrecio={!!eleccion.inspection_waiting_price} />
 
       <Card.Body>
-        {reporteListo && (
+        {reporteListo && !cerrado && (
           <ReporteListo
             order={order}
             eleccion={eleccion}
@@ -270,7 +272,20 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
   let detalle;
   let accion = null;
 
-  if (sigue.tipo === 'reporte_listo') {
+  if (sigue.tipo === 'cerrado') {
+    tituloQue = 'Este expediente está cerrado';
+    detalle = 'Puedes consultar sus documentos y avances. Escríbele al equipo si necesitas retomar la operación.';
+  } else if (sigue.tipo === 'pagos_error') {
+    icono = Receipt;
+    tono = 'warning';
+    tituloQue = 'Necesitamos confirmar el estado de tus pagos';
+    detalle = 'No pudimos actualizar los cobros. Revisa Pagos antes de realizar otra transferencia.';
+    accion = <BotonEnlace to="/payments" variant="secondary" icon={Receipt}>Revisar pagos</BotonEnlace>;
+  } else if (sigue.tipo === 'preparando_pago' && !datosPendientes) {
+    icono = Receipt;
+    tituloQue = `Estamos preparando el Pago ${sigue.pago.n}`;
+    detalle = 'El paso anterior ya está registrado. El equipo revisa la solicitud de pago; te avisamos cuando esté disponible para pagar.';
+  } else if (sigue.tipo === 'reporte_listo') {
     icono = FileSearch;
     tono = 'brand';
     tituloQue = 'Te toca: revisa el reporte y decide';
@@ -298,7 +313,7 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     tituloQue = pago.n ? `Te toca: pagar el Pago ${pago.n} · ${pago.pct}%` : `Te toca: pagar ${cobro.title}`;
     detalle = `${fmtCLP(cobro.amount_clp)} · lo pagas en Pagos, con tarjeta o transferencia.`;
     accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>;
-  } else if (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio) {
+  } else if (sigue.tipo === 'precio' || (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio)) {
     icono = CircleCheck;
     tituloQue = 'Aprobaste el reporte: confirmamos el precio final';
     detalle = `${agente ? `${agente} confirma` : 'Tu agente confirma'} con el vendedor el precio de ${titulo} después de la inspección. Apenas quede cerrado, te llega el Pago 2 para seguir con la compra.`;

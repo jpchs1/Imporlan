@@ -44,7 +44,7 @@ const base = {
   ],
 };
 const errors = [];
-async function open(mode, { initial = base, handler, clock = false, width = 1440, summary, ready = true, captureIntervals = false } = {}) {
+async function open(mode, { initial = base, handler, clock = false, width = 1440, summary, ready = true, captureIntervals = false, trackingId } = {}) {
   const context = await browser.newContext({ viewport: { width, height: 1000 }, reducedMotion: 'reduce' });
   const page = await context.newPage(); page.setDefaultTimeout(15000);
   page.on('pageerror', e => errors.push(e.message));
@@ -75,7 +75,8 @@ async function open(mode, { initial = base, handler, clock = false, width = 1440
       : { success: true, reports: [], inspections: [], requests: [], updates: [] };
     await route.fulfill({ json: data });
   });
-  await page.goto(`${origin}/panel/__workspace?mode=${mode}`);
+  if (mode === 'tracking') await page.route('https://*.tile.openstreetmap.org/**', route => route.fulfill({status:204,body:''}));
+  await page.goto(`${origin}/panel/__workspace?mode=${mode}${trackingId ? `&barco=${trackingId}` : ''}`);
   if (ready && (mode === 'admin' || mode === 'customer')) await page.locator('.exp-header h1').waitFor();
   return { page, close: () => context.close() };
 }
@@ -414,6 +415,62 @@ try {
   await readonlyPrice.getByText('La aprobación y edición están reservadas a la cuenta principal de Juan Pablo.').waitFor();
   check(await readonlyPrice.getByRole('button', { name: /aprobar|Editar valor|Usar valor aprobado/ }).count() === 0, 'read-only staff cannot approve, edit or apply the owner’s approved price');
   await supportPrice.close();
+
+  // The same customer components cover every purchase/import handoff.
+  const workflowSteps = { disponibilidad:'2026-10-22', inspeccion:'2026-10-23', compra:'2026-10-24', transporte:'2026-10-25', aduana:'2026-10-28', entrega:'2026-10-29' };
+  const scenarios = [
+    { name:'inspection decision', steps:{}, stage:'reporte_listo', report:true, label:'Revisar y aprobar la inspección', next:'Te toca: revisa el reporte y decide' },
+    { name:'owner price review', steps:{}, waiting:true, report:true, label:'Confirmación del precio final', next:'Aprobaste el reporte: confirmamos el precio final' },
+    { name:'purchase', until:'inspeccion', label:'Cerrando la compra', next:'Estamos cerrando la compra' },
+    { name:'transport coordination', until:'compra', label:'Coordinando el transporte', next:'Estamos coordinando el transporte' },
+    { name:'customs', until:'transporte', label:'Viaje a Chile y aduana', next:'Seguimos el viaje a Chile' },
+    { name:'delivery coordination', until:'aduana', label:'Coordinando la entrega', next:'Coordinamos contigo la entrega' },
+    { name:'delivered', until:'entrega', label:'Lancha entregada', next:'Tu lancha fue entregada' },
+    { name:'without inspection', steps:{disponibilidad:workflowSteps.disponibilidad}, inspection:false, label:'Cerrando la compra', next:'Estamos cerrando la compra' },
+    { name:'second payment', until:'inspeccion', unpaid:2, label:'Cerrando la compra', next:'Te toca: pagar el Pago 2' },
+    { name:'closed expediente', status:'cancelled', steps:{}, stage:'reporte_listo', report:true, label:'Expediente cerrado', next:'Este expediente está cerrado' },
+  ];
+  for (const [i, scenario] of scenarios.entries()) {
+    const initial = structuredClone(base);
+    if(scenario.status) initial.status=scenario.status;
+    const steps = scenario.steps || Object.fromEntries(Object.entries(workflowSteps).slice(0, Object.keys(workflowSteps).indexOf(scenario.until)+1));
+    initial.eleccion = {link_id:101,at:'2026-10-21',by:'cliente',inspection:scenario.inspection !== false,steps,inspection_stage:scenario.stage,inspection_waiting_price:!!scenario.waiting,inspection_client_ok_at:scenario.waiting?'2026-10-29':null,inspection_report:scenario.report?{file_id:26,es_status:'listo'}:null};
+    initial.links[0].quote_payments = {p1_pct:7,p1_clp:1260000,p2_pct:63,p2_clp:11340000,p3_pct:30,p3_clp:5400000};
+    const requestedPayments = steps.transporte ? [1,2,3] : steps.inspeccion || scenario.inspection === false || scenario.unpaid ? [1,2] : [1];
+    const requests = requestedPayments.map(n=>({id:`workflow-${n}`,title:`Pago ${n}`,status:scenario.unpaid===n?'pending':'paid',amount_clp:initial.links[0].quote_payments[`p${n}_clp`],paid_at:'2026-10-21',created_at:'2026-10-20',metadata:{order_id:initial.order_number,custom_fields:{pago:n}}}));
+    const flow = await open('customer',{initial,width:i%2?390:1440,handler:async({route,url})=>{
+      if(url.pathname.endsWith('payment_requests_api.php')){await route.fulfill({json:{success:true,requests}});return true;}
+    }});
+    await flow.page.locator('#estado-importacion').getByText(scenario.label,{exact:true}).waitFor();
+    check((await flow.page.locator('#mi-importacion [role="status"]').first().innerText()).includes(scenario.next), `${scenario.name}: current state and next action agree`);
+    const rail=flow.page.getByRole('list',{name:'Etapas de tu importación'});
+    check(await rail.locator('>li').count()===(scenario.inspection===false?5:6),`${scenario.name}: roadmap has only applicable stages`);
+    check(await flow.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${scenario.name}: roadmap fits viewport`);
+    if(scenario.status)check(await flow.page.getByRole('button',{name:'Aprobar y seguir',exact:true}).count()===0,'closed expedientes cannot initiate inspection approval from the client screen');
+    if(scenario.unpaid){check(await flow.page.getByRole('link',{name:/Pagar/}).first().getAttribute('href').then(h=>h.includes('workflow-2')), 'public expediente reference connects the second charge to its payment button');}
+    if(i===0){await mkdir('/workspace/artifacts',{recursive:true});await flow.page.locator('section[aria-labelledby="estado-importacion"]').screenshot({path:'/workspace/artifacts/importacion-cliente-flujo.png'});}
+    await flow.close();
+  }
+
+  for (const trackingId of ['22','999']) {
+    const consulted=[];
+    const tracking=await open('tracking',{trackingId,ready:false,handler:async({route,url})=>{
+      if(!url.pathname.endsWith('tracking_api.php'))return false;
+      const action=url.searchParams.get('action');
+      if(action==='featured')await route.fulfill({json:{success:true,vessels:[{id:11,display_name:'Otro barco de prueba',status:'active'},{id:22,display_name:'Barco del expediente',status:'active'}]}});
+      else {consulted.push(url.searchParams.get('id'));await route.fulfill({json:{success:true,vessel:{id:Number(url.searchParams.get('id')),display_name:'Barco del expediente'},positions:[]}});}
+      return true;
+    }});
+    await tracking.page.getByRole('list',{name:'Barcos en seguimiento'}).waitFor();
+    if(trackingId==='22'){
+      await tracking.page.getByRole('heading',{name:'Barco del expediente',exact:true}).waitFor();
+      check(consulted.length>0 && consulted.every(id=>id==='22'),'tracking deep link opens the boat associated with the expediente');
+    }else{
+      await tracking.page.getByText('El seguimiento de este expediente todavía no está disponible',{exact:true}).waitFor();
+      check(consulted.length===0,'a missing associated boat does not silently load another vessel');
+    }
+    await tracking.close();
+  }
 
   check(errors.length === 0, 'all integrity flows run without browser exceptions: ' + errors.join('; '));
   console.log(`${passed} expediente integrity checks passed.`);
