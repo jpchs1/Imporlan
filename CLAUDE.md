@@ -120,6 +120,22 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   transporte requiere compra, aduana requiere transporte y entrega requiere
   aduana. Para deshacer hitos hay que empezar por el último registrado.
 
+- **Recordatorios del siguiente paso (29-oct-2026):** el seguimiento
+  transaccional se configura desde el expediente del admin por la cuenta
+  principal. El cron existente comprueba las tareas diariamente desde las
+  08:30 hasta las 18:00 de Chile; un intento por expediente, destinatario y
+  día. El cliente recibe el cobro pendiente que ya existe, los datos que
+  falten o la decisión de inspección sólo si aún no la registró. Si ya
+  aprobó, el correo no vuelve a pedir aprobación. Un comprobante registrado
+  pasa a revisión de JP antes de pedir otro pago. Las revisiones internas
+  (precio, reporte, cobros, logística y devoluciones) van a JP; David conserva
+  sus seguimientos privados en inglés. Antes de enviar se relee el estado:
+  no avisar tareas resueltas, expedientes cerrados ni precios propuestos al
+  cliente. Estos avisos no crean cobros ni alteran hitos. El correo al cliente
+  sale por el servicio nativo con CCO a JP, remitente y firma gráfica de
+  Juan Pablo, versión HTML adaptable y texto plano. El envío manual y la
+  activación diaria exigen la cuenta principal y la plantilla vigente.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

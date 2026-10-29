@@ -114,6 +114,9 @@ export const compartirActualizacionUsa = (updateId, text) =>
   request(`${API_BASE}/operador_usa.php?r=admin_compartir`, { method: 'POST', body: JSON.stringify({ update_id: updateId, text }), timeoutMs: 45000 });
 export const nuevoLinkUsa = (orderId) =>
   request(`${API_BASE}/operador_usa.php?r=admin_nuevo_link`, { method: 'POST', body: JSON.stringify({ order_id: orderId }) });
+export const getImportReminder = (orderId, audience = 'client') => request(`${API_BASE}/import_actions_api.php?action=preview&order_id=${encodeURIComponent(orderId)}&audience=${audience}`);
+export const sendImportReminder = (orderId, audience, fingerprint) => request(`${API_BASE}/import_actions_api.php?action=send_now`, { method: 'POST', body: JSON.stringify({ order_id: orderId, audience, fingerprint }), timeoutMs: 90000 });
+export const configureImportReminders = (enabled, templateHash) => request(`${API_BASE}/import_actions_api.php?action=configure`, { method: 'POST', body: JSON.stringify({ enabled, template_hash: templateHash }) });
 export const revisarPrecioInspeccion = (orderId, requestId, revision, approvedPriceUsd, approvalVersion, approvalNote = '') =>
   request(`${API_BASE}/operador_usa.php?r=admin_precio_revisar`, { method: 'POST', body: JSON.stringify({ order_id: orderId, request_id: requestId, revision, approved_price_usd: approvedPriceUsd, approval_version: approvalVersion, approval_note: approvalNote }) });
 // Datos del cliente para la importación (nombre, RUT, dirección…), su cédula

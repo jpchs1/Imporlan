@@ -40,6 +40,7 @@ if (!defined('IMPORLAN_SMTP_PASSWORD')) define('IMPORLAN_SMTP_PASSWORD', getenv(
 class EmailService {
     protected $pdo;
     private $plainTextBody = null;
+    private $inlineImportSignature = false;
 
     // SMTP Configuration (loaded from /home/wwimpo/smtp_config.php in production)
     private $smtpHost;
@@ -1330,6 +1331,23 @@ BASE64;
         }
     }
 
+    /** Transactional process reminders, sent through the application's authenticated workflow. */
+    public function sendImportActionEmail($to, $mail, $metadata) {
+        $client = ($metadata['audience'] ?? '') === 'client';
+        if ($client && !is_file(__DIR__ . '/email-assets/firma-jp.jpg')) return ['success'=>false,'error'=>'signature_unavailable'];
+        $previousName = $this->fromName;
+        $this->setFromName($client ? 'Juan Pablo · Imporlan' : 'Imporlan · Operaciones');
+        $this->plainTextBody = $mail['text'];
+        $this->inlineImportSignature = $client;
+        try {
+            return $this->sendEmail($to,$mail['subject'],$mail['html'],'import_action_reminder',$metadata,!$client);
+        } finally {
+            $this->plainTextBody = null;
+            $this->inlineImportSignature = false;
+            $this->fromName = $previousName;
+        }
+    }
+
     /**
      * Sender name for the next sends, for emails written in a person's voice
      * (e.g. «Juan Pablo · Imporlan»). Non-ASCII names go RFC 2047-encoded so
@@ -1472,6 +1490,10 @@ BASE64;
             $body .= "Content-Disposition: inline; filename=\"logo.png\"\r\n";
             $body .= "\r\n";
             $body .= $logoBase64;
+            if ($this->inlineImportSignature) {
+                $body .= "--{$boundary}\r\nContent-Type: image/jpeg; name=\"firma-jp.jpg\"\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <imporlan-signature-jp>\r\nContent-Disposition: inline; filename=\"firma-jp.jpg\"\r\n\r\n";
+                $body .= chunk_split(base64_encode(file_get_contents(__DIR__ . '/email-assets/firma-jp.jpg')),76,"\r\n");
+            }
             $body .= "--{$boundary}--\r\n";
             
             $headers = [

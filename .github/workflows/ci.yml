@@ -21,6 +21,7 @@ jobs:
           extensions: pdo_sqlite, mbstring, fileinfo
       - run: php test/inspection-upload-tests.php
       - run: php test/inspection-price-tests.php
+      - run: php test/import-action-tests.php
 
   expediente-image-previews:
     name: HEIC previews in admin and customer panels
@@ -54,6 +55,8 @@ jobs:
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/inspection-price-browser-tests.mjs
       - name: Purchase and import handoffs and payment references
         run: node test/import-workflow-tests.mjs
+      - name: Transactional next-action emails and authenticated delivery controls
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/import-action-browser-tests.mjs
       - name: Expediente integrity (saving, polling, prices and file identity)
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/imporlan-browser-tests/node_modules/playwright/index.mjs" node test/expediente-integridad-tests.mjs
       - name: Import quote layout, live totals and saving across screen sizes

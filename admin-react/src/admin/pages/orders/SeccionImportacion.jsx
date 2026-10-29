@@ -12,6 +12,7 @@ import ModalDeclinada from './ModalDeclinada';
 import ModalReporteInspeccion from './ModalReporteInspeccion';
 import OperacionUsa from './OperacionUsa';
 import DatosCliente from './DatosCliente';
+import ImportReminders from './ImportReminders';
 import { useReporteInspeccion } from './useReporteInspeccion';
 
 /**
@@ -323,6 +324,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
             )}
 
             {/* ── Operación en EE. UU. (sólo el equipo en Chile) ── */}
+            {equipoChile && <ImportReminders orderId={detail.id} />}
             {equipoChile && importacion.operacionUsa !== false && (
               <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} onCotizarAprobado={link && onCotizar ? value => onCotizar({ ...link, value_to_negotiate_usd: value }) : undefined} />
             )}

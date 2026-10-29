@@ -6,6 +6,9 @@ on:
     paths:
       - api/inspection_upload_*.php
       - api/inspection_price_*.php
+      - api/import_action*.php
+      - api/email_service.php
+      - api/email-assets/**
       - api/cron/inspection_upload_followup.php
       - api/operador_usa.php
       - cron-deploy.sh
