@@ -296,18 +296,18 @@ try {
   const usaPurchase = priceCard.getByLabel('Negociado · USA', { exact: true });
   await usaPurchase.click();
   await usaPurchase.fill('11000');
-  check(await priceCard.locator('.admin-boat-card__total dd').textContent() === 'Por actualizar', 'changing the purchase price removes the old quote from the current total');
+  check(await priceCard.locator('.admin-boat-card__total > dd:not(.admin-boat-card__note)').textContent() === 'Por actualizar', 'changing the purchase price removes the old quote from the current total');
   check((await priceCard.locator('.admin-boat-card__quote-warning').innerText()).includes('Cambió la compra negociada'), 'outdated quote explains why it needs recalculation');
-  check((await priceCard.locator('.admin-boat-card__total > span').innerText()).includes('Última cotización'), 'the former amount is explicitly labeled as historical');
+  check((await priceCard.locator('.admin-boat-card__total .admin-boat-card__note').innerText()).includes('Última cotización'), 'the former amount is explicitly labeled as historical');
   await priceCard.getByRole('button', { name: 'Actualizar cotización', exact: true }).click();
   const repricingModal = reprice.page.getByRole('dialog');
   check((await repricingModal.getByLabel(/^Valor negociado · USA/).inputValue()).replace(/[^0-9]/g, '') === '11000', 'recalculate opens with the edited purchase base');
   await reprice.page.keyboard.press('Escape');
   await usaPurchase.click();
   await usaPurchase.fill('9000.00');
-  check(await priceCard.locator('.admin-boat-card__quote-warning').count() === 0 && (await priceCard.locator('.admin-boat-card__total dd').innerText()).includes('18.000.000'), 'the original base including decimal formatting recognizes the saved total as current');
+  check(await priceCard.locator('.admin-boat-card__quote-warning').count() === 0 && (await priceCard.locator('.admin-boat-card__total > dd:not(.admin-boat-card__note)').innerText()).includes('18.000.000'), 'the original base including decimal formatting recognizes the saved total as current');
   await usaPurchase.fill('');
-  check(await priceCard.locator('.admin-boat-card__total dd').innerText() === 'Por actualizar', 'removing the negotiated purchase never leaves a saved quote looking current');
+  check(await priceCard.locator('.admin-boat-card__total > dd:not(.admin-boat-card__note)').innerText() === 'Por actualizar', 'removing the negotiated purchase never leaves a saved quote looking current');
   await reprice.close();
 
   // The admin next step uses real payment state before announcing an operational milestone.
@@ -344,7 +344,7 @@ try {
     check(await card.getByRole('button', { name: 'Editar ficha', exact: true }).getAttribute('aria-expanded') === 'false', `existing admin cards start with a readable price overview at ${width}px`);
     check(await visual.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `admin workspace fits ${width}px without horizontal overflow`);
     check(await card.locator('.admin-boat-card__prices').evaluate(el => {
-      const total = el.querySelector('.admin-boat-card__total dd');
+      const total = el.querySelector('.admin-boat-card__total > dd:not(.admin-boat-card__note)');
       const reference = el.querySelector('dd');
       return parseFloat(getComputedStyle(total).fontSize) > parseFloat(getComputedStyle(reference).fontSize);
     }), `final Chile price has stronger visual hierarchy at ${width}px`);
@@ -375,6 +375,45 @@ try {
     }
     await visual.close();
   }
+
+  // David's proposal has no effective buyer price until the owner deliberately uses the approved amount.
+  let ownerPrice = { request_id: 91, revision: 3, approval_version: 4, status: 'adjusted', confirmed: true, ready: false, original_cents: 2500050, confirmed_cents: 2400025, approved_cents: null };
+  let ownerDecision, unexpectedPublications = [];
+  const ownership = await open('admin', { initial: chosenOrder, handler: async ({ route, url, body, action }) => {
+    if (url.pathname.endsWith('operador_usa.php')) {
+      if (url.searchParams.get('r') === 'admin_precio_revisar') {
+        ownerDecision = body;
+        ownerPrice = { ...ownerPrice, ready: true, approved_cents: Math.round(Number(body.approved_price_usd) * 100), approval_note: body.approval_note, approval_version: 5 };
+        await route.fulfill({ json: { success: true, inspection_price: ownerPrice, inspeccion_aprobada: false } }); return true;
+      }
+      await route.fulfill({ json: { success: true, can_approve_price: true, operador: { nombre: 'David de prueba' }, inspection_price: ownerPrice, updates: [], hito_en_curso: 'inspeccion' } }); return true;
+    }
+    if (body && action !== 'admin_precio_revisar') unexpectedPublications.push(action);
+  } });
+  const ownerSection = ownership.page.getByRole('region', { name: 'Precio de compra tras la inspección' });
+  await ownerSection.getByRole('button', { name: 'Revisar y aprobar precio' }).click();
+  const decisionDialog = ownership.page.getByRole('dialog', { name: 'Aprobar precio de compra' });
+  const approvedInput = decisionDialog.getByLabel(/^Valor que apruebas · USD/);
+  await approvedInput.click(); await approvedInput.fill('24500.75');
+  await decisionDialog.getByRole('textbox', { name: 'Nota de aprobación' }).fill('Valor comercial aprobado por el dueño.');
+  await decisionDialog.getByRole('button', { name: 'Guardar aprobación' }).click();
+  await ownerSection.getByText('Aprobado por Juan Pablo', { exact: true }).waitFor();
+  check(ownerDecision.approved_price_usd === '24500.75' && ownerDecision.revision === 3 && ownerDecision.approval_version === 4, 'owner explicitly approves an edited value against the proposal and approval versions');
+  check((await ownerSection.innerText()).includes('24.000,25') && (await ownerSection.innerText()).includes('24.500,75'), 'the admin keeps David’s proposal distinct from the owner-approved value');
+  await ownerSection.getByRole('button', { name: 'Usar valor aprobado en cotizador' }).click();
+  const ownerQuote = ownership.page.getByRole('dialog');
+  const approvedQuoteBase = ownerQuote.getByLabel(/^Valor negociado · USA/);
+  await approvedQuoteBase.waitFor();
+  check((await approvedQuoteBase.inputValue()).replace(/[^0-9]/g, '') === '2450075', 'the quote editor receives the amount edited and approved by the owner');
+  check((await ownership.page.locator('[data-link-id="101"] .admin-boat-card__prices').innerText()).includes('9.000') && unexpectedPublications.length === 0, 'approving and previewing a price does not publish or overwrite the current buyer quotation');
+  await ownership.close();
+  const supportPrice = await open('admin', { initial: chosenOrder, handler: async ({ route, url }) => {
+    if (url.pathname.endsWith('operador_usa.php')) { await route.fulfill({ json: { success: true, can_approve_price: false, inspection_price: ownerPrice, updates: [] } }); return true; }
+  } });
+  const readonlyPrice = supportPrice.page.getByRole('region', { name: 'Precio de compra tras la inspección' });
+  await readonlyPrice.getByText('La aprobación y edición están reservadas a la cuenta principal de Juan Pablo.').waitFor();
+  check(await readonlyPrice.getByRole('button', { name: /aprobar|Editar valor|Usar valor aprobado/ }).count() === 0, 'read-only staff cannot approve, edit or apply the owner’s approved price');
+  await supportPrice.close();
 
   check(errors.length === 0, 'all integrity flows run without browser exceptions: ' + errors.join('; '));
   console.log(`${passed} expediente integrity checks passed.`);

@@ -760,7 +760,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             echo opuPaginaPortal($pdo, $order, $aviso, $res['errores']);
             exit;
         }
-        echo opuPaginaPortal($pdo, $order, isset($_GET['price_saved']) ? 'Thank you. Your price update is recorded for the Imporlan team to review.' : '');
+        echo opuPaginaPortal($pdo, $order, isset($_GET['price_saved']) ? 'Thank you. Your price proposal is recorded for Juan Pablo to approve or edit. It has not been published to the client.' : '');
         exit;
     }
 
@@ -790,14 +790,16 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             'updates' => opuActualizaciones($pdo, $o['id']),
             'inspection_upload' => $inspection ? array_merge(opuInspectionState($pdo, $inspection), ['owns_stage' => opuInspectionOwnsStage($pdo, $o)]) : null,
             'inspection_price' => opuPriceState($pdo, $o),
+            'can_approve_price' => opuPriceCanApprove($sesion),
         ]);
         exit;
     }
     if ($r === 'admin_precio_revisar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!opuPriceCanApprove($sesion)) { http_response_code(403); echo json_encode(['error' => 'Sólo Juan Pablo puede aprobar o editar esta propuesta.']); exit; }
         $o = opuOrden($pdo, $in['order_id'] ?? 0);
         if (!$o) { http_response_code(404); echo json_encode(['error' => 'Expediente no encontrado']); exit; }
         if (!isset($in['revision'], $in['request_id'])) { http_response_code(400); echo json_encode(['error' => 'Se requiere la versión de la confirmación revisada']); exit; }
-        $error = opuPriceReview($pdo, $o, $in['request_id'], $in['revision'], $sesion['email'] ?? $sesion['sub'] ?? 'equipo');
+        $error = opuPriceReview($pdo, $o, $in['request_id'], $in['revision'], $sesion, $in['approved_price_usd'] ?? null, $in['approval_version'] ?? null, $in['approval_note'] ?? '');
         if ($error) { http_response_code(409); echo json_encode(['error' => $error]); exit; }
         // Si el cliente ya había aprobado el reporte, ahora sí se marca la inspección (y sale el Pago 2).
         require_once __DIR__ . '/orders_api.php';

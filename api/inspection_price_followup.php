@@ -14,9 +14,33 @@ function opuPriceSchema($pdo) {
         original_cents BIGINT NULL, confirmed_cents BIGINT NULL, reason TEXT NULL,
         revision INT NOT NULL DEFAULT 0, updated_at DATETIME NULL,
         reviewed_at DATETIME NULL, reviewed_by VARCHAR(255) NULL,
-        last_attempt_on VARCHAR(10) NULL, last_sent_at DATETIME NULL
+        last_attempt_on VARCHAR(10) NULL, last_sent_at DATETIME NULL,
+        approved_cents BIGINT NULL, approval_note TEXT NULL, approved_revision INT NULL,
+        approval_version INT NOT NULL DEFAULT 0
     )$engine");
+    $columns = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+        ? array_column($pdo->query('PRAGMA table_info(order_usa_inspection_prices)')->fetchAll(PDO::FETCH_ASSOC), 'name')
+        : $pdo->query('SHOW COLUMNS FROM order_usa_inspection_prices')->fetchAll(PDO::FETCH_COLUMN);
+    foreach (['approved_cents' => 'BIGINT NULL', 'approval_note' => 'TEXT NULL', 'approved_revision' => 'INT NULL', 'approval_version' => 'INT NOT NULL DEFAULT 0'] as $column => $type) {
+        if (!in_array($column, $columns, true)) {
+            try { $pdo->exec("ALTER TABLE order_usa_inspection_prices ADD COLUMN $column $type"); }
+            catch (PDOException $e) {
+                // Dos peticiones pueden iniciar la misma migración a la vez.
+                if ($e->getCode() !== '42S21' && stripos($e->getMessage(), 'duplicate column') === false) throw $e;
+            }
+        }
+    }
     $ready[$pdo] = true;
+}
+
+/** La aprobación comercial pertenece a la cuenta principal configurada, nunca al operador ni a soporte. */
+function opuPriceOwnerEmail() {
+    if (!defined('IMPORLAN_ADMIN_EMAIL') && file_exists(__DIR__ . '/credentials.php')) require_once __DIR__ . '/credentials.php';
+    return strtolower(trim(defined('IMPORLAN_ADMIN_EMAIL') ? IMPORLAN_ADMIN_EMAIL : (getenv('IMPORLAN_ADMIN_EMAIL') ?: 'admin@imporlan.cl')));
+}
+function opuPriceCanApprove($session) {
+    return is_array($session) && ($session['role'] ?? '') === 'admin'
+        && hash_equals(opuPriceOwnerEmail(), strtolower(trim((string) ($session['email'] ?? ''))));
 }
 
 function opuPriceEligible($order, $request) {
@@ -36,9 +60,11 @@ function opuPriceState($pdo, $order) {
     $st = $pdo->prepare('SELECT * FROM order_usa_inspection_prices WHERE request_id = ?');
     $st->execute([intval($request['id'])]);
     $state = $st->fetch(PDO::FETCH_ASSOC);
-    foreach (['original_cents', 'confirmed_cents', 'revision', 'request_id'] as $key) if ($state[$key] !== null) $state[$key] = intval($state[$key]);
+    foreach (['original_cents', 'confirmed_cents', 'revision', 'request_id', 'approved_cents', 'approved_revision', 'approval_version'] as $key) if ($state[$key] !== null) $state[$key] = intval($state[$key]);
     $state['confirmed'] = in_array($state['status'], ['unchanged', 'adjusted'], true);
-    $state['ready'] = $state['confirmed'] && !empty($state['reviewed_at']);
+    $state['ready'] = $state['confirmed'] && !empty($state['reviewed_at']) && $state['approved_cents'] > 0
+        && $state['approved_revision'] === $state['revision']
+        && hash_equals(opuPriceOwnerEmail(), strtolower((string) $state['reviewed_by']));
     return $state;
 }
 
@@ -46,7 +72,7 @@ function opuPriceGate($pdo, $order) {
     $state = opuPriceState($pdo, $order);
     if (!$state || $state['ready']) return null;
     return $state['confirmed']
-        ? 'Revisa y valida la confirmación de precio de compra en Operación en EE. UU. antes de continuar.'
+        ? 'La propuesta de precio requiere la aprobación o edición de Juan Pablo en Operación en EE. UU. antes de continuar.'
         : 'Falta que el coordinador confirme si el precio de compra se mantiene o se reajusta después de la inspección.';
 }
 
@@ -73,21 +99,48 @@ function opuPriceSave($pdo, $order, $input) {
     if ($status === 'adjusted' && $original === $confirmed) return ['For an adjusted price, enter different previous and revised amounts.'];
     // Exact repeat is harmless: preserve the team's validation and audit history.
     if ($status === $state['status'] && $original === $state['original_cents'] && $confirmed === $state['confirmed_cents'] && $reason === (string) $state['reason']) return [];
-    $st = $pdo->prepare('UPDATE order_usa_inspection_prices SET status = ?, original_cents = ?, confirmed_cents = ?, reason = ?, revision = revision + 1, updated_at = ?, reviewed_at = NULL, reviewed_by = NULL WHERE request_id = ? AND revision = ?');
+    $st = $pdo->prepare('UPDATE order_usa_inspection_prices SET status = ?, original_cents = ?, confirmed_cents = ?, reason = ?, revision = revision + 1, updated_at = ?, reviewed_at = NULL, reviewed_by = NULL, approved_cents = NULL, approval_note = NULL, approved_revision = NULL, approval_version = approval_version + 1 WHERE request_id = ? AND revision = ?');
     $st->execute([$status, $original, $confirmed, $reason, gmdate('Y-m-d H:i:s'), $state['request_id'], $state['revision']]);
     if (!$st->rowCount()) return ['Another update was saved. Please reopen this page before submitting again.'];
     opuLog($pdo, $order['id'], 'inspeccion_precio_actualizado', ['request_id' => $state['request_id'], 'revision' => $state['revision'] + 1, 'status' => $status, 'original_cents' => $original, 'confirmed_cents' => $confirmed, 'reason' => $reason]);
     return [];
 }
 
-function opuPriceReview($pdo, $order, $requestId, $revision, $reviewer) {
-    if (!is_scalar($requestId) || !is_scalar($revision) || !preg_match('/^[0-9]+$/D', (string) $requestId) || !preg_match('/^[0-9]+$/D', (string) $revision)) return 'La versión de la confirmación no es válida.';
+function opuPriceReview($pdo, $order, $requestId, $revision, $session, $approvedValue = null, $approvalVersion = null, $note = '') {
+    if (!opuPriceCanApprove($session)) return 'Sólo Juan Pablo, desde su cuenta principal, puede aprobar o editar esta propuesta.';
+    if (!is_scalar($requestId) || !is_scalar($revision) || !preg_match('/^[0-9]+$/D', (string) $requestId) || !preg_match('/^[0-9]+$/D', (string) $revision)
+        || !is_scalar($approvalVersion) || !preg_match('/^[0-9]+$/D', (string) $approvalVersion)) return 'La versión de la propuesta o aprobación no es válida. Actualiza la pantalla.';
+    $approved = opuPriceCents($approvedValue);
+    if (!$approved) return 'Ingresa el valor que apruebas en USD, con hasta dos decimales.';
+    if (!is_string($note) || mb_strlen(trim($note)) > 2000) return 'La nota de aprobación no puede superar 2.000 caracteres.';
     $state = opuPriceState($pdo, $order);
-    if (!$state || $state['request_id'] !== intval($requestId) || $state['revision'] !== intval($revision) || !$state['confirmed']) return 'La confirmación cambió o sigue pendiente. Actualiza y revisa la respuesta vigente.';
-    $st = $pdo->prepare("UPDATE order_usa_inspection_prices SET reviewed_at = ?, reviewed_by = ? WHERE request_id = ? AND revision = ? AND status IN ('unchanged','adjusted') AND reviewed_at IS NULL");
-    $st->execute([gmdate('Y-m-d H:i:s'), $reviewer, $state['request_id'], $state['revision']]);
-    if ($st->rowCount()) opuLog($pdo, $order['id'], 'inspeccion_precio_revisado', ['request_id' => $state['request_id'], 'revision' => $state['revision'], 'reviewer' => $reviewer]);
-    elseif (empty($state['reviewed_at'])) return 'La respuesta cambió durante la revisión. Actualiza y revisa la versión vigente.';
+    if (!$state || $state['request_id'] !== intval($requestId) || $state['revision'] !== intval($revision) || !$state['confirmed']) return 'La propuesta cambió o sigue pendiente. Actualiza y revisa la respuesta vigente.';
+    $reviewer = strtolower(trim($session['email']));
+    $st = $pdo->prepare("UPDATE order_usa_inspection_prices SET reviewed_at = ?, reviewed_by = ?, approved_cents = ?, approval_note = ?, approved_revision = revision, approval_version = approval_version + 1 WHERE request_id = ? AND revision = ? AND approval_version = ? AND status IN ('unchanged','adjusted')");
+    $st->execute([gmdate('Y-m-d H:i:s'), $reviewer, $approved, trim($note), $state['request_id'], $state['revision'], intval($approvalVersion)]);
+    if (!$st->rowCount()) return 'La propuesta o su aprobación cambió durante la revisión. Actualiza la pantalla antes de guardar.';
+    opuLog($pdo, $order['id'], 'inspeccion_precio_aprobado', [
+        'request_id' => $state['request_id'], 'revision' => $state['revision'], 'reviewer' => $reviewer,
+        'proposed_cents' => $state['confirmed_cents'], 'approved_cents' => $approved,
+        'edited' => $approved !== $state['confirmed_cents'], 'approval_note' => trim($note),
+    ]);
+    return null;
+}
+
+/** Protege también los guardados generales: el operador no cambia precios del comprador;
+ * el equipo sólo puede llevar una nueva base de esta operación si JP la aprobó. */
+function opuPriceBuyerBaseGuard($pdo, $link, $nextBase, $session = null) {
+    $session = $session === null ? requireAdminAuthShared(['admin', 'support', 'agent']) : $session;
+    if (($session['role'] ?? '') === 'agent') return 'El coordinador no puede modificar precios ni cotizaciones del cliente. Envía la propuesta para aprobación de Juan Pablo.';
+    if (opuPriceCanApprove($session)) return null;
+    if (round((float) ($link['value_to_negotiate_usd'] ?? 0), 2) === round((float) $nextBase, 2)) return null;
+    $order = opuOrden($pdo, $link['order_id'] ?? 0);
+    if (!$order || intval($order['chosen_link_id'] ?? 0) !== intval($link['id'] ?? 0)) return null;
+    $state = opuPriceState($pdo, $order);
+    if (!$state) return null;
+    if (!$state['ready'] || !is_numeric($nextBase) || intval(round((float) $nextBase * 100)) !== $state['approved_cents']) {
+        return 'Este valor requiere la aprobación o edición de Juan Pablo. La propuesta del coordinador no se publica directamente.';
+    }
     return null;
 }
 
@@ -136,12 +189,12 @@ function opuPricePortal($pdo, $order, $draft = []) {
     $state = opuPriceState($pdo, $order);
     if (!$state) return '';
     $values = array_merge(['price_status' => $state['status'], 'price_original' => opuPriceAmount($state['original_cents']), 'price_confirmed' => opuPriceAmount($state['confirmed_cents']), 'price_reason' => $state['reason']], $draft);
-    $status = $state['ready'] ? 'Reviewed by Imporlan' : ($state['confirmed'] ? 'Received · awaiting team review' : 'Your confirmation is required');
-    $html = '<section class="card" id="purchase-price" aria-labelledby="purchase-price-heading"><p class="mute" style="letter-spacing:1px;margin:0 0 6px">POST-INSPECTION · PURCHASE PRICE</p><h2 id="purchase-price-heading">Confirm the purchase price</h2><p class="mute"><strong>' . $status . '</strong></p><p style="font-size:14px">Does any finding in the technical inspection change the price previously agreed with the seller? Record the current situation here, even if the price stays the same. This response is internal to the Imporlan team.</p><form method="post" action="?r=precio&amp;t=' . opuEsc($order['usa_token']) . '#purchase-price">'
+    $status = $state['ready'] ? 'Approved by Juan Pablo' : ($state['confirmed'] ? 'Received · awaiting Juan Pablo approval' : 'Your confirmation is required');
+    $html = '<section class="card" id="purchase-price" aria-labelledby="purchase-price-heading"><p class="mute" style="letter-spacing:1px;margin:0 0 6px">POST-INSPECTION · PURCHASE PRICE</p><h2 id="purchase-price-heading">Confirm the purchase price</h2><p class="mute"><strong>' . $status . '</strong></p><p style="font-size:14px">Does any finding in the technical inspection change the price previously agreed with the seller? Record the current situation here, even if the price stays the same. Your submission is an internal proposal only. Juan Pablo must approve or edit it before it can be used. It is not published to the client.</p><form method="post" action="?r=precio&amp;t=' . opuEsc($order['usa_token']) . '#purchase-price">'
         . '<input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '"><input type="hidden" name="price_request_id" value="' . $state['request_id'] . '"><input type="hidden" name="price_revision" value="' . $state['revision'] . '">';
     $html .= '<fieldset style="border:0;padding:0;margin:0 0 16px"><legend style="font-size:14px;font-weight:600;margin-bottom:8px">Current situation</legend>';
     foreach (['unchanged' => 'Price unchanged · confirmed with the seller', 'adjusted' => 'Price adjusted · revised price confirmed with the seller', 'negotiating' => 'Still being negotiated · confirmation pending'] as $key => $label) $html .= '<label style="display:flex;gap:9px;align-items:flex-start;font-weight:400;margin:12px 0"><input type="radio" name="price_status" required value="' . $key . '"' . ($values['price_status'] === $key ? ' checked' : '') . '>' . $label . '</label>';
     $html .= '</fieldset>';
     foreach (['price_original' => 'Previously agreed purchase price (USD)', 'price_confirmed' => 'Current confirmed purchase price (USD)'] as $key => $label) $html .= '<label for="' . $key . '">' . $label . '</label><input id="' . $key . '" name="' . $key . '" type="text" inputmode="decimal" maxlength="11" value="' . opuEsc(is_string($values[$key]) ? $values[$key] : '') . '" placeholder="25000.50" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;margin-bottom:14px">';
-    return $html . '<p class="mute">Use USD with a decimal point and no thousands separators. Both amounts are required for a confirmed price; they must match if unchanged. Leave them blank while negotiation is pending.</p><label for="price_reason">Inspection finding, seller agreement or pending negotiation</label><textarea id="price_reason" name="price_reason" maxlength="2000" placeholder="If adjusted: explain the specific inspection finding and the seller agreement. If pending: explain what is unresolved and when you expect an update.">' . opuEsc(is_string($values['price_reason']) ? $values['price_reason'] : '') . '</textarea><p class="mute">A reason of 15–2,000 characters is required for an adjustment or pending negotiation. Recording a price does not modify the buyer’s quotation or authorize a purchase. Any correction requires a new team review.</p><button type="submit">Save price update</button></form></section>';
+    return $html . '<p class="mute">Use USD with a decimal point and no thousands separators. Both amounts are required for a confirmed price; they must match if unchanged. Leave them blank while negotiation is pending.</p><label for="price_reason">Inspection finding, seller agreement or pending negotiation</label><textarea id="price_reason" name="price_reason" maxlength="2000" placeholder="If adjusted: explain the specific inspection finding and the seller agreement. If pending: explain what is unresolved and when you expect an update.">' . opuEsc(is_string($values['price_reason']) ? $values['price_reason'] : '') . '</textarea><p class="mute">A reason of 15–2,000 characters is required for an adjustment or pending negotiation. Recording a price does not modify the buyer’s quotation or authorize a purchase. Any correction requires a new approval by Juan Pablo. Your submission never publishes a client price.</p><button type="submit">Save price update</button></form></section>';
 }

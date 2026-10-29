@@ -6,6 +6,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
+import { createHmac } from 'node:crypto';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const box = await mkdtemp(join(tmpdir(), 'imporlan-price-browser-'));
 const php = process.env.PHP_BINARY || 'php';
@@ -14,8 +15,9 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 let server, browser, passed = 0;
 const check = (ok, label) => { assert.ok(ok, label); console.log(`PASS ${++passed}: ${label}`); };
 try {
-  for (const name of ['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php']) await copyFile(join(root, 'api', name), join(box, name));
-  await writeFile(join(box, 'db_config.php'), `<?php function getDbConnection() { $pdo = new PDO('sqlite:' . __DIR__ . '/fixture.sqlite'); $pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION); $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC); return $pdo; }`);
+  for (const name of ['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php', 'cors_helper.php']) await copyFile(join(root, 'api', name), join(box, name));
+  await writeFile(join(box, 'db_config.php'), `<?php define('IMPORLAN_ADMIN_EMAIL','owner@example.test'); define('JWT_SECRET','fixture-approval-secret-only'); function getDbConnection() { $pdo = new PDO('sqlite:' . __DIR__ . '/fixture.sqlite'); $pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION); $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC); return $pdo; }`);
+  await writeFile(join(box, 'orders_api.php'), '<?php function impAprobacionPendiente($pdo,$orderId) { return null; }');
   await writeFile(join(box, 'email_service.php'), `<?php class EmailService { function __call($name,$args) { throw new RuntimeException('SMTP forbidden in browser fixture'); } }`);
   await writeFile(join(box, 'seed.php'), `<?php
 require __DIR__ . '/operador_usa.php';
@@ -55,7 +57,7 @@ opuInspectionSchema($pdo); opuInspectionRequest($pdo,opuOrden($pdo,1),['nombre'=
     await form.getByLabel('Inspection finding, seller agreement or pending negotiation', { exact: true }).fill('Seller confirmed a reduction because the engine mount needs replacement after the survey.');
     await form.getByRole('button', { name: 'Save price update' }).click();
     check(page.url().includes('r=portal') && await page.getByRole('status').innerText().then(s => s.includes('recorded')), 'real POST redirects to a saved confirmation');
-    check(await page.locator('#purchase-price').innerText().then(s => s.includes('Received · awaiting team review')), 'saved adjustment waits for the team to review');
+    check(await page.locator('#purchase-price').innerText().then(s => s.includes('Received · awaiting Juan Pablo approval')), 'saved adjustment waits for the team to review');
     await form.getByRole('radio', { name: /^Still being negotiated/ }).check();
     await form.getByLabel('Inspection finding, seller agreement or pending negotiation', { exact: true }).fill('Seller has reopened the negotiation. We expect a final answer tomorrow morning.');
     await form.getByRole('button', { name: 'Save price update' }).click();
@@ -70,6 +72,25 @@ opuInspectionSchema($pdo); opuInspectionRequest($pdo,opuOrden($pdo,1),['nombre'=
     check(errors.length === 0, 'form and email render without browser errors');
     await context.close();
   }
+  const fixturePrice = JSON.parse(execFileSync(php, ['-r', `require '${join(box, 'operador_usa.php')}'; $pdo=getDbConnection(); $o=opuOrden($pdo,1); $p=opuPriceState($pdo,$o); opuPriceSave($pdo,$o,['price_request_id'=>$p['request_id'],'price_revision'=>(string)$p['revision'],'price_status'=>'adjusted','price_original'=>'25000.50','price_confirmed'=>'24000.25','price_reason'=>'Seller agreed to reduce the purchase price after the technical survey.']); echo json_encode(opuPriceState($pdo,$o));`], { encoding: 'utf8' }));
+  const jwt = (email, role) => {
+    const head = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const body = Buffer.from(JSON.stringify({ email, role, exp: Math.floor(Date.now() / 1000) + 300 })).toString('base64url');
+    return `${head}.${body}.${createHmac('sha256', 'fixture-approval-secret-only').update(`${head}.${body}`).digest('base64url')}`;
+  };
+  const approve = (email, role, overrides = {}) => fetch(`${origin}/operador_usa.php?r=admin_precio_revisar`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt(email, role)}` }, body: JSON.stringify({ order_id: 1, request_id: fixturePrice.request_id, revision: fixturePrice.revision, approved_price_usd: '24321.25', approval_version: fixturePrice.approval_version, ...overrides }) });
+  for (const [email, role] of [['owner@example.test', 'support'], ['other@example.test', 'admin'], ['owner@example.test', 'agent']]) {
+    const forbidden = await approve(email, role, { can_approve_price: true });
+    check(forbidden.status === 403, 'real approval endpoint rejects non-owner roles and forged UI capability');
+  }
+  const ownerState = await fetch(`${origin}/operador_usa.php?r=admin_estado&order_id=1`, { headers: { Authorization: `Bearer ${jwt('owner@example.test', 'admin')}` } }).then(r => r.json());
+  check(ownerState.can_approve_price === true && ownerState.inspection_price.ready === false, 'only the configured principal admin gets the approval capability');
+  const approved = await approve('owner@example.test', 'admin');
+  const approvedResult = await approved.json();
+  check(approved.status === 200 && approvedResult.inspection_price.approved_cents === 2432125 && approvedResult.inspection_price.confirmed_cents === 2400025, 'real owner POST records an edited approval and preserves the proposal');
+  check((await approve('owner@example.test', 'admin')).status === 409, 'real endpoint refuses a stale approval version');
+  const privatePortal = await fetch(`${origin}/operador_usa.php?r=portal&t=${token}`).then(r => r.text());
+  check(!privatePortal.includes('24321.25') && privatePortal.includes('24000.25'), 'David sees his own proposal, never the owner-edited value');
   const unauthorized = await fetch(`${origin}/operador_usa.php?r=portal&t=${'b'.repeat(48)}`);
   check(unauthorized.status === 404, 'unknown private link cannot open the operation');
   const wrongBoat = await fetch(`${origin}/operador_usa.php?r=precio&t=${token}`, { method: 'POST', body: new URLSearchParams({ boat_link_id: '99', price_request_id: '1', price_revision: '0', price_status: 'unchanged', price_original: '1', price_confirmed: '1' }) });

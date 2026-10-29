@@ -98,6 +98,17 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   confirmada. El equipo revisa la respuesta antes de aprobar inspección/cerrar
   compra; no se recalcula la cotización ni se generan cobros por esta respuesta.
 
+- **Propuesta de David y aprobación de JP (29-oct-2026):** el precio enviado
+  por el coordinador es una propuesta interna, nunca un valor publicado.
+  Sólo la cuenta principal (`IMPORLAN_ADMIN_EMAIL`, rol `admin`) puede
+  aprobarlo o editar el importe aprobado. Se conservan ambos valores y la
+  versión de la respuesta; una nueva respuesta revoca la aprobación anterior.
+  El cliente sigue viendo la cotización publicada por el equipo. El valor
+  aprobado puede llevarse al cotizador desde la cuenta principal; esa revisión
+  y publicación es la que actualiza la cotización, nunca el envío de David.
+  El rol `agent` no guarda precios/cotizaciones del comprador. En esta operación
+  el equipo sólo puede cambiar la base a un importe aprobado por JP.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

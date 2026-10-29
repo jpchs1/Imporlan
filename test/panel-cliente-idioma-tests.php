@@ -81,6 +81,7 @@ foreach ($sinTilde as $p) {
     // tilde: ahi el acento no es estilo, es una rotura.
     $excluir = '/\b' . $p . '\s*:'          // clave de objeto
              . '|\.\s*' . $p . '\b'          // propiedad leida de la API
+             . '|\b' . $p . '\??\.[a-zA-Z_$]' // variable usada como objeto (inspeccion.titulo)
              . '|' . $p . '_'                // parte de una clave compuesta
              . "|'" . $p . "'"               // literal suelto: valor interno
              . '|\/' . $p . "['\"]"          // ruta de import (shared/lib/importacion)
