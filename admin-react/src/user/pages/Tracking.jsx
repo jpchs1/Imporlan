@@ -133,6 +133,8 @@ function FilaBarco({ vessel, selected, onClick }) {
 function DetalleBarco({ vessel, onRefresh, refreshing }) {
   const eta = vessel.eta_manual || vessel.pos_eta;
   const pos = coordenadas(vessel);
+  // El endpoint público de actualización AIS admite sólo barcos destacados.
+  const puedeActualizar = Number(vessel.is_featured) === 1;
   const items = [
     vessel.shipping_line && { label: 'Naviera', value: vessel.shipping_line },
     vessel.origin_label && { label: 'Origen', value: vessel.origin_label },
@@ -153,8 +155,8 @@ function DetalleBarco({ vessel, onRefresh, refreshing }) {
         <DescriptionList items={items} cols={2} dense />
       </Card.Body>
       <Card.Footer align="between">
-        <p className="text-xs text-ink-500 m-0">Los datos vienen del sistema AIS de la naviera.</p>
-        <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={onRefresh}>Actualizar posición</Button>
+        <p className="text-xs text-ink-500 m-0">{puedeActualizar ? 'Los datos vienen del sistema AIS de la naviera.' : 'Última posición registrada. El equipo actualiza este seguimiento.'}</p>
+        {puedeActualizar && <Button variant="secondary" size="sm" icon={RefreshCw} loading={refreshing} onClick={onRefresh}>Actualizar posición</Button>}
       </Card.Footer>
     </Card>
   );

@@ -463,7 +463,7 @@ try {
       if(!url.pathname.endsWith('tracking_api.php'))return false;
       const action=url.searchParams.get('action');
       if(action==='featured'){featuredReads++;await route.fulfill({json:{success:true,vessels:[{id:11,display_name:'Otro barco de prueba',status:'active'},{id:22,display_name:'Barco del expediente',status:'active'}]}});}
-      else {consulted.push(url.searchParams.get('id'));await route.fulfill({json:trackingId==='999'?{success:false,error:'Not found'}:{success:true,vessel:{id:Number(url.searchParams.get('id')),display_name:'Barco del expediente',is_featured:trackingId==='33'?0:1},positions:[]}});}
+      else {consulted.push(url.searchParams.get('id'));if(action==='refresh_vessel_position' && trackingId==='33'){await route.fulfill({status:404,json:{success:false,error:'Vessel not found or not featured'}});}else await route.fulfill({json:trackingId==='999'?{success:false,error:'Not found'}:{success:true,vessel:{id:Number(url.searchParams.get('id')),display_name:'Barco del expediente',is_featured:trackingId==='33'?0:1},positions:[]}});}
       return true;
     }});
     if(trackingId!=='999')await tracking.page.getByRole('list',{name:'Barcos en seguimiento'}).waitFor();
@@ -472,7 +472,8 @@ try {
     if(trackingId!=='999'){
       await tracking.page.getByRole('heading',{name:'Barco del expediente',exact:true}).waitFor();
       check(consulted.length>0 && consulted.every(id=>id===trackingId),'tracking deep link opens the boat associated with the expediente');
-      if(trackingId==='33'){const before=consulted.length;await tracking.page.getByRole('button',{name:'Actualizar posición',exact:true}).click();await until(()=>consulted.length>=before+3,'refresh must reload the assigned vessel');check(featuredReads===0 && consulted.every(id=>id==='33'),'refreshing a non-featured assigned vessel keeps the same boat and route');}
+      if(trackingId==='22'){const before=consulted.length;await tracking.page.getByRole('button',{name:'Actualizar posición',exact:true}).click();await until(()=>consulted.length>=before+3,'refresh must reload the assigned vessel');check(featuredReads===0 && consulted.every(id=>id==='22'),'refreshing a supported assigned vessel keeps the same boat and route');}
+      if(trackingId==='33'){check(await tracking.page.getByRole('button',{name:'Actualizar posición',exact:true}).count()===0 && await tracking.page.getByText('Última posición registrada. El equipo actualiza este seguimiento.',{exact:true}).isVisible(),'non-featured vessel displays its recorded position without offering an unsupported public refresh');}
     }else{
       await tracking.page.getByText('El seguimiento de este expediente todavía no está disponible',{exact:true}).waitFor();
       check(consulted.length===1 && consulted[0]==='999','a failed assigned-vessel lookup does not silently load another vessel');
