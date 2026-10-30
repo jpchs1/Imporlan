@@ -1,10 +1,11 @@
 import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Money, StatusBadge, Badge } from '../../../shared/components/UI';
-import { Check, Receipt } from '../../../shared/components/Icons';
+import { Check, Receipt, FileSearch } from '../../../shared/components/Icons';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import { rutaPagar } from './lib';
-import { cuandoLlegaPago } from '../../../shared/lib/importacion';
+import { cuandoLlegaPago, cuadrePagos, pagoEnRevision, pagoEnConciliacion, comprobanteRechazado } from '../../../shared/lib/importacion';
+import PaymentOverview from '../../../shared/components/PaymentOverview';
 import { inspeccionNoApta, devolucionPedida, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 
 /**
@@ -18,7 +19,7 @@ import { inspeccionNoApta, devolucionPedida, pago1AbonadoDeOtra } from '../../..
  * ofrece pagar nada (lo pendiente se anula o lo reemplaza el de la lancha que
  * elija) y los pagos que faltan dicen que dependen de esa elección.
  */
-export default function PlanDePagos({ pagos, otros, eleccion, className }) {
+export default function PlanDePagos({ pagos, otros, eleccion, total = 0, cobros = [], pagosError = false, className }) {
   const plan = pagos || [];
   const extra = otros || [];
   if (plan.length === 0 && extra.length === 0) return null;
@@ -41,7 +42,8 @@ export default function PlanDePagos({ pagos, otros, eleccion, className }) {
                 : 'Este plan es el de la lancha que declinaste. Si eliges otra, el plan pasa a ser el de la nueva y lo que ya pagaste se abona.'}
             </p>
           )}
-          <ol className="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line" aria-label="Pagos del plan">
+          {total > 0 && !pagosError && <div className="mt-4"><PaymentOverview total={total} cuadre={cuadrePagos(plan, cobros, total)} /></div>}
+          <ol className="payment-plan__cards" aria-label="Pagos del plan">
             {plan.map(p => <FilaPago key={p.n} pago={p} eleccion={eleccion} noApta={noApta} devolucion={devolucion} />)}
           </ol>
         </>
@@ -63,52 +65,44 @@ function FilaPago({ pago, eleccion, noApta, devolucion }) {
   const { n, pct, clp, cobro, estado } = pago;
   const monto = cobro ? Number(cobro.amount_clp) : clp;
   const pagado = estado === 'pagado';
-  const porPagar = estado === 'por_pagar' && !noApta;
+  const revision = pagoEnRevision(cobro);
+  const reemplazo = comprobanteRechazado(cobro);
+  const conciliacion = pagoEnConciliacion(pago, eleccion);
+  const porPagar = estado === 'por_pagar' && !noApta && !revision && !reemplazo && !conciliacion;
   const enPausa = estado === 'por_pagar' && noApta;
-  const atenuado = estado === 'por_cobrar' || enPausa;
-
+  const propositos = { 1: 'Selección e inspección', 2: 'Compra de tu lancha', 3: 'Envío a Chile' };
   let detalle;
   if (pagado) {
     let nota = '';
     if (noApta && n === 1) nota = devolucion ? ' · en devolución' : ' · se abona a la lancha que elijas';
     else if (pago1AbonadoDeOtra(cobro, eleccion)) nota = ' · abonado desde tu elección anterior';
     detalle = `Pagado${cobro?.paid_at ? ` el ${fmtDateLarga(cobro.paid_at)}` : ''}${nota}`;
-  }
-  else if (enPausa) detalle = devolucion ? 'Anulado: no sigues con esta lancha' : 'En pausa: se anula o lo reemplaza el de la lancha que elijas';
-  else if (porPagar) detalle = `Solicitado el ${fmtDateLarga(cobro.created_at)}`;
+  } else if (enPausa) detalle = devolucion ? 'Anulado: no sigues con esta lancha' : 'En pausa hasta que elijas otra lancha';
+  else if (revision) detalle = 'Comprobante recibido. Estamos verificando el ingreso; no vuelvas a transferir.';
+  else if (reemplazo) detalle = 'Revisa la observación del equipo y adjunta el comprobante corregido.';
+  else if (conciliacion) detalle = 'El equipo revisa el registro de este pago antes de solicitar otra transferencia.';
+  else if (porPagar) detalle = 'Si realizas una transferencia, adjunta aquí el comprobante.';
   else if (noApta) detalle = devolucion ? 'No corresponde' : 'Depende de la lancha que elijas';
   else detalle = cuandoLlegaPago(n, eleccion);
-
-  return (
-    <li className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3', porPagar && 'bg-warning-bg/40', atenuado && 'text-ink-500')}>
-      <span
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-13 font-semibold tabular',
-          pagado ? 'bg-success text-white' : porPagar ? 'border-2 border-warning bg-surface text-warning' : 'border border-line-strong bg-surface text-ink-500',
-        )}
-        aria-hidden="true"
-      >
-        {pagado ? <Check size={16} strokeWidth={2.5} /> : n}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className={cn('text-sm font-medium', atenuado ? 'text-ink-700' : 'text-ink-900')}>
-          Pago {n} <span className="font-normal text-ink-500">· {pct}%</span>
-        </p>
-        <p className="text-13 text-ink-500">{detalle}</p>
-      </div>
-      <Money clp={monto} usd={cobro?.amount_usd > 0 ? cobro.amount_usd : undefined} align="right" tone={atenuado ? 'muted' : undefined} />
-      <div className="flex w-full justify-end sm:w-auto">
-        {pagado && <StatusBadge kind="pago" status="paid" dot />}
-        {porPagar && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={Receipt}>Pagar</BotonEnlace>}
-        {enPausa && <Badge tone="neutral">{devolucion ? 'Anulado' : 'En pausa'}</Badge>}
-        {estado === 'por_cobrar' && <Badge tone="neutral">{noApta ? (devolucion ? 'No corresponde' : 'Según la lancha') : 'Más adelante'}</Badge>}
-      </div>
-    </li>
-  );
+  return <li className={cn('payment-plan__card', pagado && 'is-paid', porPagar && 'is-due')}>
+    <div className="payment-plan__top"><span className="payment-plan__number" aria-hidden="true">{pagado ? <Check size={16} /> : n}</span><span>{pct}% del total</span></div>
+    <h4 className="payment-plan__title">Pago {n}</h4><p className="payment-plan__purpose">{propositos[n]}</p>
+    <div className="payment-plan__amount"><Money clp={monto} usd={cobro?.amount_usd > 0 ? cobro.amount_usd : undefined} size="lg" tone={estado === 'por_cobrar' ? 'muted' : undefined} /></div>
+    <div className="payment-plan__status">
+      {pagado ? <StatusBadge kind="pago" status="paid" dot /> : enPausa ? <Badge tone="neutral">{devolucion ? 'Anulado' : 'En pausa'}</Badge> : revision ? <Badge tone="info" dot>En revisión</Badge> : reemplazo ? <Badge tone="warning">Reemplazar comprobante</Badge> : conciliacion ? <Badge tone="info">En conciliación</Badge> : porPagar ? <Badge tone="brand" dot>Disponible para pagar</Badge> : <Badge tone="neutral">{noApta ? (devolucion ? 'No corresponde' : 'Según la lancha') : 'Próxima etapa'}</Badge>}
+      <p>{detalle}</p>
+      {porPagar && <BotonEnlace to={rutaPagar(cobro)} variant="primary" size="sm" icon={Receipt}>Realizar Pago {n}</BotonEnlace>}
+      {reemplazo && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>}
+      {revision && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Ver comprobante</BotonEnlace>}
+      {pagado && <BotonEnlace to="/payments" variant="secondary" size="sm" icon={Receipt}>Ver registro y comprobantes</BotonEnlace>}
+    </div>
+  </li>;
 }
 
 function FilaCobro({ cobro, enPausa = false }) {
   const pendiente = cobro.status === 'pending';
+  const revision = pagoEnRevision(cobro);
+  const reemplazo = comprobanteRechazado(cobro);
   return (
     <li className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3', pendiente && !enPausa && 'bg-warning-bg/40')}>
       <div className="min-w-0 flex-1">
@@ -119,7 +113,7 @@ function FilaCobro({ cobro, enPausa = false }) {
       </div>
       <Money clp={cobro.amount_clp} usd={cobro.amount_usd > 0 ? cobro.amount_usd : undefined} align="right" />
       <div className="flex w-full justify-end sm:w-auto">
-        {pendiente && !enPausa ? (
+        {(revision || reemplazo) && !enPausa ? <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>{reemplazo ? 'Reemplazar comprobante' : 'Comprobante en revisión'}</BotonEnlace> : pendiente && !enPausa ? (
           <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>
         ) : pendiente ? (
           <Badge tone="neutral">En pausa</Badge>

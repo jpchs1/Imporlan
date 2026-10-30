@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cobrosDelExpediente, pagosConCobros, cuadrePagos, queSigue, estadoDeImportacion, hitosDe } from '../admin-react/src/shared/lib/importacion.js';
+import { cobrosDelExpediente, pagosConCobros, cuadrePagos, queSigue, estadoDeImportacion, hitosDe, pagoEnRevision, comprobanteRechazado } from '../admin-react/src/shared/lib/importacion.js';
 let checks = 0;
 function check(condition, label) { assert.ok(condition, label); console.log(`PASS ${++checks}: ${label}`); }
 const chosen = { link_id: 11, inspection: true, steps: {} };
@@ -47,4 +47,12 @@ check(estadoDeImportacion(journey).terminado && queSigue(journey, null).tipo ===
 check(hitosDe({ ...chosen, inspection:false }).every(h=>h.id!=='inspeccion'), 'purchase without inspection omits that stage');
 check(queSigue({ ...chosen, inspection_result:'no_apta' }, pagosConCobros(plan,[req('p1',35,1)])).tipo === 'declinada', 'declining pauses charges and offers another boat');
 check(queSigue({ ...chosen, inspection_result:'no_apta', refund_requested_at:'2026-10-29' }, null).tipo === 'devolucion', 'refund request is a distinct visible state');
+const proof = { ...req('proof',35,2),receipts:[{status:'pending'}] };
+check(pagoEnRevision(proof) && queSigue(approved,pagosConCobros(plan,[req('p1',35,1,'paid'),proof])).tipo === 'comprobante','received evidence guides the client to bank review rather than another payment');
+check(pagoEnRevision({...proof,receipts:[{status:'reviewed'}]}),'reviewing evidence alone does not confirm bank income');
+check(!pagoEnRevision({...proof,status:'paid'}),'confirmed bank payment leaves the receipt-review state');
+const rejected = {...proof,receipt_status:'rejected',receipts:[{status:'rejected'}]};
+check(comprobanteRechazado(rejected) && !pagoEnRevision(rejected) && queSigue(approved,pagosConCobros(plan,[req('p1',35,1,'paid'),rejected])).tipo === 'reemplazo_comprobante','rejected proof asks for a replacement file rather than another transfer');
+check(queSigue(wait,pagosConCobros(plan,[req('p1',35,1)])).tipo === 'conciliacion','an advanced first-payment discrepancy is directed to reconciliation');
+check(queSigue({...chosen,inspection:false},pagosConCobros(plan,[req('p1',35,1)])).tipo === 'pago','selection without inspection still requires the first payment');
 console.log(`${checks} workflow checks passed.`);

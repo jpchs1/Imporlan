@@ -6,7 +6,7 @@ import { fmtDateLarga } from '../../shared/lib/format';
 import { useAuth } from '../../shared/context/AuthContext';
 import {
   Card, Button, IconButton, Modal, Input, MoneyInput, PageHeader, Tabs, DataTable, Money,
-  StatusBadge, EmptyState, ErrorState, Skeleton, Callout, DescriptionList, SectionTitle, SegmentedControl,
+  StatusBadge, Badge, EmptyState, ErrorState, Skeleton, Callout, DescriptionList, SectionTitle, SegmentedControl,
 } from '../../shared/components/UI';
 import { CUENTAS } from '../../shared/lib/banco';
 import { Plus, Copy, Check, Banknote, Ship, Receipt, RefreshCw, WebPayIcon, MercadoPagoIcon, WhatsAppIcon } from '../../shared/components/Icons';
@@ -14,6 +14,11 @@ import { useToast } from '../../shared/components/Toast';
 import PaymentReceipts from '../../shared/components/PaymentReceipts';
 import { FileOpen } from '../../shared/components/FileDownload';
 import { openFile } from '../../shared/lib/file-download';
+import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
+
+function EstadoPago({ request, ...props }) {
+  return pagoEnRevision(request) ? <Badge tone="info" dot {...props}>Comprobante en revisión</Badge> : comprobanteRechazado(request) ? <Badge tone="warning" {...props}>Reemplazar comprobante</Badge> : <StatusBadge kind="pago" status={request.status} dot {...props} />;
+}
 
 /* ---------------------------------------------------------------------------
    Medios de pago. PayPal no se lista: el panel no tiene flujo de pago con
@@ -209,7 +214,9 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
   const email = user?.email || user?.user_email || '';
   const name = user?.name || '';
   const meta = pr.metadata || {};
-  const awaitingReceiptReview = receiptSubmitted || (pr.receipt_status !== 'rejected' && !!pr.receipt_received_at);
+  const awaitingReceiptReview = receiptSubmitted || pagoEnRevision(pr);
+  const needsReplacement = comprobanteRechazado(pr);
+  const evidenceScreen = awaitingReceiptReview || needsReplacement;
 
   async function handleWebPay() {
     setProcessing(true);
@@ -270,10 +277,10 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
     <Modal
       open={open}
       onClose={processing ? undefined : onClose}
-      title={awaitingReceiptReview ? 'Comprobante en revisión' : showBank ? 'Datos para transferir' : 'Pagar'}
+      title={needsReplacement ? 'Reemplazar comprobante' : awaitingReceiptReview ? 'Comprobante en revisión' : showBank ? 'Datos para transferir' : 'Pagar'}
       description={pr.title}
       size="md"
-      footer={awaitingReceiptReview ? <Button onClick={onClose}>Cerrar</Button> : showBank ? (
+      footer={evidenceScreen ? <Button onClick={onClose}>Cerrar</Button> : showBank ? (
         <>
           <Button variant="secondary" onClick={() => setShowBank(false)}>Elegir otro medio</Button>
           <Button onClick={onClose}>Listo</Button>
@@ -292,7 +299,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4 rounded-lg bg-canvas border border-line px-4 py-3">
           <div className="min-w-0">
-            <p className="eyebrow">Monto a pagar</p>
+            <p className="eyebrow">{evidenceScreen ? 'Monto de la solicitud' : 'Monto a pagar'}</p>
             <Money clp={pr.amount_clp} usd={pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
           </div>
           {(expediente || meta.boat_name) && (
@@ -303,7 +310,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
           )}
         </div>
 
-        {awaitingReceiptReview ? <><Callout tone="info" title="Comprobante recibido · ingreso en revisión">No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
+        {evidenceScreen ? <><Callout tone={needsReplacement ? 'warning' : 'info'} title={needsReplacement ? 'Adjunta el comprobante corregido' : 'Comprobante recibido · ingreso en revisión'}>{needsReplacement ? 'Revisa la observación del equipo y adjunta otro archivo en este mismo pago.' : 'No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.'}</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
           <><DatosTransferencia amount={pr.amount_clp} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true); onReceipt?.(r); }} /></>
         ) : (
           <div>
@@ -423,7 +430,7 @@ function PendienteCard({ req, onPay, expediente }) {
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold text-ink-900">{req.title}</h3>
-          <StatusBadge kind="pago" status={req.status} dot />
+          <EstadoPago request={req} />
         </div>
         {req.description && <p className="text-sm text-ink-500 mt-1">{req.description}</p>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-13 text-ink-500">
@@ -435,7 +442,7 @@ function PendienteCard({ req, onPay, expediente }) {
       </div>
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-3 sm:shrink-0">
         <Money clp={req.amount_clp} usd={req.amount_usd > 0 ? req.amount_usd : undefined} size="xl" align="right" />
-        <Button onClick={() => onPay(req)} icon={Receipt}>Pagar</Button>
+        <Button onClick={() => onPay(req)} icon={Receipt} variant={pagoEnRevision(req) || comprobanteRechazado(req) ? 'secondary' : 'primary'}>{comprobanteRechazado(req) ? 'Reemplazar comprobante' : pagoEnRevision(req) ? 'Ver revisión' : 'Pagar'}</Button>
       </div>
     </Card>
   );
@@ -452,7 +459,7 @@ function DetalleModal({ req, onClose, onPay, expediente, onReceipt }) {
   // un pago cancelado muestra únicamente cuándo se solicitó.
   const items = [
     { label: 'Monto', value: <Money clp={req.amount_clp} usd={req.amount_usd > 0 ? req.amount_usd : undefined} size="lg" /> },
-    { label: 'Estado', value: <StatusBadge kind="pago" status={req.status} dot /> },
+    { label: 'Estado', value: <EstadoPago request={req} /> },
     { label: 'Solicitado', value: fmtDateLarga(req.created_at) },
     req.paid_at && { label: 'Pagado', value: fmtDateLarga(req.paid_at) },
     req.payment_method && { label: 'Medio de pago', value: paymentMethodLabel(req.payment_method) },
@@ -471,7 +478,7 @@ function DetalleModal({ req, onClose, onPay, expediente, onReceipt }) {
         <>
           {comprobante && <FileOpen file={{ download_url: comprobante, original_name: 'Comprobante' }} className="text-sm font-medium text-brand-600 hover:underline mr-auto">Ver comprobante</FileOpen>}
           <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-          {req.status === 'pending' && <Button onClick={() => { onClose(); onPay(req); }}>Pagar</Button>}
+          {req.status === 'pending' && !pagoEnRevision(req) && !comprobanteRechazado(req) && <Button onClick={() => { onClose(); onPay(req); }}>Pagar</Button>}
         </>
       )}
     >
@@ -592,12 +599,12 @@ export default function Payments() {
     { key: 'payment_method', header: 'Medio', priority: 2, cell: r => r.payment_method ? paymentMethodLabel(r.payment_method) : <span className="text-ink-500">—</span> },
     tabActual !== 'cancelled' && { key: 'paid_at', header: 'Pagado', priority: 3, cell: r => <span className="tabular">{r.paid_at ? fmtDate(r.paid_at) : '—'}</span>, sortValue: r => (r.paid_at ? new Date(r.paid_at).getTime() : 0) },
     { key: 'amount_clp', header: 'Monto', align: 'right', cell: r => <Money clp={r.amount_clp} usd={r.amount_usd > 0 ? r.amount_usd : undefined} align="right" />, sortValue: r => Number(r.amount_clp) },
-    { key: 'status', header: 'Estado', priority: 2, cell: r => <StatusBadge kind="pago" status={r.status} dot /> },
+    { key: 'status', header: 'Estado', priority: 2, cell: r => <EstadoPago request={r} /> },
   ].filter(Boolean);
 
   const acciones = (r) => [
     { label: 'Ver detalle', icon: Receipt, onClick: () => setDetalle(r) },
-    r.status === 'pending' && { label: 'Pagar', icon: Banknote, onClick: () => setPayTarget(r) },
+    r.status === 'pending' && { label: comprobanteRechazado(r) ? 'Reemplazar comprobante' : pagoEnRevision(r) ? 'Ver revisión' : 'Pagar', icon: Banknote, onClick: () => setPayTarget(r) },
     (r.receipt_url || r.voucher_url || r.comprobante_url) && { label: 'Ver comprobante', icon: Receipt, onClick: () => openFile({ download_url: r.receipt_url || r.voucher_url || r.comprobante_url, original_name: 'Comprobante' }).catch(e => toast?.({ type:'error',title:'No se pudo abrir el comprobante',description:e.message })) },
   ];
 
@@ -643,8 +650,8 @@ export default function Payments() {
           {pending.length > 0 && (
             <section aria-labelledby="por-pagar" className="mb-8">
               <SectionTitle
-                title={<span id="por-pagar">Por pagar</span>}
-                description={`${pending.length} ${pending.length === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} · ${fmtCLP(pendingTotal)} en total`}
+                title={<span id="por-pagar">Pagos por completar</span>}
+                description={`${pending.length} ${pending.length === 1 ? 'solicitud' : 'solicitudes'} · ${fmtCLP(pendingTotal)} · ${pending.filter(pagoEnRevision).length} con comprobante en revisión`}
               />
               <div className="space-y-3">
                 {pending.map(r => <PendienteCard key={r.id} req={r} onPay={setPayTarget} expediente={expedienteDe(r)} />)}
@@ -675,7 +682,7 @@ export default function Payments() {
                     <div className="min-w-0">
                       <p className="font-medium text-ink-900 truncate">{r.title}</p>
                       <p className="text-13 text-ink-500">{[fmtDate(r.created_at), expedienteDe(r), r.payment_method && paymentMethodLabel(r.payment_method)].filter(Boolean).join(' · ')}</p>
-                      <div className="mt-1.5"><StatusBadge kind="pago" status={r.status} dot size="sm" /></div>
+                      <div className="mt-1.5"><EstadoPago request={r} size="sm" /></div>
                     </div>
                     <Money clp={r.amount_clp} align="right" />
                   </div>

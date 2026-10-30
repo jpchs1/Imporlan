@@ -228,10 +228,16 @@ try {
       const refreshed=page.waitForResponse(r=>r.url().includes('payment_requests_api.php'));
       await detail.getByRole('button',{name:'Adjuntar comprobante',exact:true}).click();
       await detail.getByText('Comprobante recibido. El equipo revisará el ingreso antes de confirmar el pago.',{exact:true}).waitFor();
-      await detail.getByRole('button',{name:'Pagar',exact:true}).click();
-      await page.getByText('Comprobante recibido · ingreso en revisión',{exact:true}).waitFor();
-      check(await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && gatewayCalls.length===0,'uploading in payment details cannot reopen gateways even before the list refresh completes');
+      check(await detail.getByRole('button',{name:'Pagar',exact:true}).count()===0 && await detail.getByText('Comprobante en revisión',{exact:true}).count()===1 && gatewayCalls.length===0,'uploading in payment details immediately replaces the payment CTA with review status before list refresh');
       await refreshed;
+      await detail.getByRole('button',{name:'Cerrar',exact:true}).last().click();
+      const uploaded=JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests[0].receipts[0];
+      const rejected=await receiptCall('review',{request_id:'fixture-p2',receipt_id:uploaded.id,decision:'rejected',note:'El archivo no muestra la referencia bancaria.'},'owner@example.test','admin');
+      check(rejected.httpStatus===200,'actual evidence review can request a replacement without changing the pending bank status');
+      delayPaymentList=false;await page.reload();
+      await page.getByRole('heading',{name:'Reemplazar comprobante',exact:true}).waitFor();
+      await page.getByText('Se requiere otro comprobante: El archivo no muestra la referencia bancaria.',{exact:true}).waitFor();
+      check(await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && await page.getByLabel('Archivo del comprobante',{exact:true}).isVisible() && gatewayCalls.length===0,'a rejected proof opens the replacement form and reviewer note without offering a second transfer');
     }
 
     await page.close();

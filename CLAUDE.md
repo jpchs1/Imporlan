@@ -155,6 +155,14 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   transferencias ya registradas, sin volver a cobrarlas. La activación de
   los recordatorios se conserva al mantener la plantilla; cada envío manual
   comprueba una vista previa vigente.
+- **Interfaz del proceso (29-oct-2026):** ambos paneles comparten la ruta de
+  importación y el resumen del plan. La próxima acción indica a quién le toca
+  actuar; en el admin lleva al bloque real con foco de teclado. Sólo las fechas
+  registradas completan hitos y sólo los pagos confirmados suman ingresos. Un
+  comprobante recibido muestra revisión; si se solicita corregirlo, se abre su
+  reemplazo con la observación del equipo y sin ofrecer otra transferencia. Un
+  Pago 1 pendiente tras avanzar a inspección se deriva a conciliación. El plan
+  distingue el saldo total de los pagos habilitados en la etapa actual.
 
 ## Correo contacto@imporlan.cl
 
