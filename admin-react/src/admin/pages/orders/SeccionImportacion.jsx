@@ -3,8 +3,11 @@ import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/uti
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
-import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha } from '../../../shared/lib/importacion';
+import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado } from '../../../shared/lib/importacion';
 import PaymentReceipts from '../../../shared/components/PaymentReceipts';
+import ImportJourney from '../../../shared/components/ImportJourney';
+import PaymentOverview from '../../../shared/components/PaymentOverview';
+import ImportProcessTask from './ImportProcessTask';
 import { inspeccionNoApta, devolucionPedida } from '../../../shared/lib/inspeccion';
 import ReporteEspanol from '../../../shared/components/ReporteEspanol';
 import ModalCobro from './ModalCobro';
@@ -114,6 +117,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
         )}
         {eleccion && (
           <>
+            {equipoChile && <ImportProcessTask eleccion={eleccion} pagos={{ pagos, otros }} error={importacion.cobrosError} loading={importacion.cargandoCobros} cerrado={['completed', 'cancelled'].includes(detail.status)} />}
             {/* ── La lancha ── */}
             <div className="flex flex-wrap items-start gap-3 sm:gap-4">
               {link?.image_url ? (
@@ -144,6 +148,8 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                 )}
               </div>
             </div>
+
+            <ImportJourney eleccion={eleccion} admin cerrado={['completed', 'cancelled'].includes(detail.status)} />
 
             {/* ── El cliente declinó la lancha tras la inspección: qué espera la
                    operación. Sólo el equipo en Chile (lleva montos); el detalle y
@@ -195,9 +201,9 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
         {eleccion && (
           <>
             {/* ── Hitos ── */}
-            <section aria-labelledby="importacion-hitos">
+            <section aria-labelledby="importacion-hitos" className="scroll-mt-40">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
-                <h3 id="importacion-hitos" className="eyebrow">Hitos · {hechos} de {hitos.length}</h3>
+                <h3 id="importacion-hitos" className="text-sm font-semibold text-ink-900 scroll-mt-40">Gestión de hitos · {hechos} de {hitos.length}</h3>
                 <span className="text-xs text-ink-500">
                   {noApta
                     ? <>En pausa: <span className="text-warning font-medium">{porCliente ? 'el cliente declinó la lancha' : 'no seguimos con esta lancha'}</span></>
@@ -264,21 +270,17 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
 
             {/* ── Cobros (sólo el equipo en Chile) ── */}
             {equipoChile && (
-            <section aria-labelledby="importacion-cobros">
+            <section aria-labelledby="importacion-cobros" className="scroll-mt-40">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2">
-                <h3 id="importacion-cobros" className="eyebrow flex items-center gap-2">
-                  Cobros
+                <h3 id="importacion-cobros" className="text-sm font-semibold text-ink-900 flex items-center gap-2 scroll-mt-40">
+                  Pagos y comprobantes
                   {importacion.cargandoCobros && <Spinner inline size="sm" label="Cargando cobros" />}
                 </h3>
                 <Button size="sm" variant="ghost" icon={Plus} disabled={!!importacion.cobrosError || importacion.cargandoCobros} onClick={() => setModalCobro({ manual: true })}>Cobro manual</Button>
               </div>
 
               {importacion.cobrosError && <Callout tone="warning" compact className="mb-3" action={<Button size="sm" variant="secondary" onClick={importacion.onReintentarCobros}>Reintentar cobros</Button>}>{importacion.cobrosError}</Callout>}
-              {plan.length > 0 && !importacion.cobrosError && <div className="mb-3 rounded-lg border border-line bg-canvas p-3 space-y-2">
-                <h4 className="text-sm font-semibold text-ink-900">Cuadre de pagos del plan</h4><dl className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-13"><div><dt className="text-ink-500">Cotización vigente</dt><dd className="font-semibold">{fmtCLP(link?.quote_total_clp)}</dd></div><div><dt className="text-ink-500">Registrado como pagado</dt><dd className="font-semibold">{fmtCLP(cuadre.paid)}</dd></div><div><dt className="text-ink-500">Saldo del plan</dt><dd className="font-semibold">{fmtCLP(cuadre.balance)}</dd></div></dl>
-                <p className="text-xs text-ink-500">{cuadre.pendingReceipts} comprobantes por revisar · {cuadre.missingReceipts} pagos manuales sin comprobante. Los archivos adjuntos no se suman como pagos confirmados.</p>
-                {(cuadre.mismatch || cuadre.duplicate || cuadre.duplicateReference || cuadre.balance < 0) && <Callout compact tone="warning">Revisa las diferencias entre cobros y plan, los pagos duplicados o las referencias repetidas antes de confirmar el cuadre.</Callout>}
-              </div>}
+              {plan.length > 0 && !importacion.cobrosError && !importacion.cargandoCobros && <div className="mb-4"><h4 className="sr-only">Cuadre de pagos del plan</h4><PaymentOverview total={Number(link?.quote_total_clp || 0)} cuadre={cuadre} admin /></div>}
               {plan.length === 0 ? (
                 <Callout
                   tone="neutral"
@@ -288,7 +290,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                   Esta lancha no tiene cotización, así que no hay plan de pagos. Cotízala para crear los cobros con un clic, o crea un cobro manual.
                 </Callout>
               ) : (
-                <div className="rounded-md border border-line divide-y divide-line">
+                <div className="admin-process-payment divide-y divide-line">
                   {pagos.map(p => (
                     <FilaCobro
                       key={`pago-${p.n}`}
@@ -579,11 +581,11 @@ function FilaCobro({ titulo, detalle, clp, cobro, accion, onReceiptChange }) {
 }
 
 function EstadoCobro({ cobro }) {
-  if (!cobro) return <span className="text-13 text-ink-500">Sin cobro</span>;
+  if (!cobro) return <span className="text-13 text-ink-500">Aún no solicitado</span>;
   const pagado = cobro.status === 'paid';
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-      <StatusBadge kind="pago" status={cobro.status} dot size="sm" />
+      {pagoEnRevision(cobro) ? <Badge tone="info" dot size="sm">Comprobante en revisión</Badge> : comprobanteRechazado(cobro) ? <Badge tone="warning" size="sm">Reemplazo solicitado</Badge> : <StatusBadge kind="pago" status={cobro.status} dot size="sm" />}
       <span className="text-xs text-ink-500 tabular truncate">
         {pagado
           ? [fmtDate(cobro.paid_at || cobro.created_at), cobro.payment_method && paymentMethodLabel(cobro.payment_method)].filter(Boolean).join(' · ')

@@ -3,7 +3,7 @@ import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Money, Badge } from '../../../shared/components/UI';
 import { Image, ExternalLink, ChevronDown, ClipboardCheck, Receipt, Ship, CircleCheck, Clock, WhatsAppIcon, MessageSquareText, User, TriangleAlert, Banknote, FileSearch } from '../../../shared/components/Icons';
-import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue } from '../../../shared/lib/importacion';
+import { precioChile, FUENTE_PRECIO, planDePagos, cobrosDelExpediente, pagosConCobros, queSigue, pagoEnConciliacion } from '../../../shared/lib/importacion';
 import { estadoInspeccion, etapaInspeccion, inspeccionDeclinada, CAMINO_INSPECCION } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import ResumenCotizacion from './ResumenCotizacion';
@@ -72,7 +72,7 @@ export default function TuImportacion({
   const tieneCotizacion = !!(link && (link.quote_total_clp || link.quote_pending));
   const pago1 = pagos.pagos.find(p => p.n === 1) || null;
   const pago2 = pagos.pagos.find(p => p.n === 2) || null;
-  const pendientes = [...pagos.pagos.filter(p => p.estado === 'por_pagar').map(p => ({ ...p.cobro, label: `Pagar el Pago ${p.n}` })), ...pagos.otros.filter(r => r.status === 'pending').map(r => ({ ...r, label: r.title }))];
+  const pendientes = [...pagos.pagos.filter(p => p.estado === 'por_pagar').map(p => ({ ...p.cobro, label: `Revisar el Pago ${p.n}`, destino: pagoEnConciliacion(p, eleccion) ? '/payments' : rutaPagar(p.cobro) })), ...pagos.otros.filter(r => r.status === 'pending').map(r => ({ ...r, label: r.title, destino: rutaPagar(r) }))];
 
   const chipInspeccion = {
     sin_inspeccion: { icono: ClipboardCheck, texto: 'Sin inspección técnica', cls: 'text-ink-500', ico: 'text-ink-400' },
@@ -92,15 +92,15 @@ export default function TuImportacion({
         actions={tieneSeguimiento ? <BotonEnlace to={`/tracking?barco=${encodeURIComponent(order.vessel_id)}`} size="sm" icon={Ship}>Seguimiento</BotonEnlace> : undefined}
       />
 
-      <EstadoImportacion eleccion={eleccion} cerrado={cerrado} />
-
       <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} esperaPrecio={!!eleccion.inspection_waiting_price} />
+
+      <EstadoImportacion eleccion={eleccion} cerrado={cerrado} />
 
       {reporteListo && !cerrado && (datosPendientes || pendientes.length > 0 || pagosError) && <section aria-label="Otras tareas pendientes" className="border-b border-line px-(--card-pad) py-3">
         <p className="text-13 font-medium text-ink-900">También tienes pendiente</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {datosPendientes && <Button size="sm" variant="secondary" icon={User} onClick={onCompletarDatos}>Completar mis datos y cédula</Button>}
-          {pagosError ? <BotonEnlace to="/payments" size="sm" variant="secondary" icon={Receipt}>Verificar pagos</BotonEnlace> : pendientes.map(p => <BotonEnlace key={p.id} to={rutaPagar(p)} size="sm" variant="secondary" icon={Receipt}>{p.label} · {fmtCLP(p.amount_clp)}</BotonEnlace>)}
+          {pagosError ? <BotonEnlace to="/payments" size="sm" variant="secondary" icon={Receipt}>Verificar pagos</BotonEnlace> : pendientes.map(p => <BotonEnlace key={p.id} to={p.destino} size="sm" variant="secondary" icon={Receipt}>{p.label} · {fmtCLP(p.amount_clp)}</BotonEnlace>)}
         </div>
       </section>}
 
@@ -260,7 +260,7 @@ export default function TuImportacion({
 
       {(pagos.pagos.length > 0 || pagos.otros.length > 0) && (
         <Card.Body className="border-t border-line">
-          <PlanDePagos pagos={pagos.pagos} otros={pagos.otros} eleccion={eleccion} />
+          <PlanDePagos pagos={pagos.pagos} otros={pagos.otros} eleccion={eleccion} total={Number(link?.quote_total_clp || 0)} cobros={cobros} pagosError={pagosError} />
         </Card.Body>
       )}
     </Card>
@@ -314,13 +314,30 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     tituloQue = 'Te toca: completa tus datos y sube tu cédula';
     detalle = 'Los necesitamos para comprar e importar la lancha a tu nombre. Tu cédula es privada: sólo la ve el equipo.';
     accion = <Button icon={User} onClick={onCompletarDatos}>Completar mis datos</Button>;
+  } else if (sigue.tipo === 'reemplazo_comprobante') {
+    icono = FileSearch;
+    tono = 'warning';
+    tituloQue = 'Necesitamos otro comprobante de tu transferencia';
+    detalle = 'Revisa la observación del equipo y adjunta el comprobante corregido en este mismo pago.';
+    accion = <BotonEnlace to={rutaPagar(sigue.pago.cobro)} variant="secondary" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>;
+  } else if (sigue.tipo === 'comprobante') {
+    icono = FileSearch;
+    tituloQue = 'Comprobante recibido: estamos revisando tu pago';
+    detalle = 'El equipo verifica el monto y la referencia de la transferencia. Te avisaremos al confirmar el ingreso; no necesitas volver a pagar.';
+    accion = <BotonEnlace to={rutaPagar(sigue.pago.cobro)} variant="secondary" icon={FileSearch}>Ver comprobante</BotonEnlace>;
+  } else if (sigue.tipo === 'conciliacion') {
+    icono = FileSearch;
+    tituloQue = 'Estamos conciliando el registro del Pago 1';
+    detalle = 'Tu operación ya avanzó a la inspección. El equipo revisará el registro antes de solicitarte otra transferencia.';
+    accion = <BotonEnlace to="/payments" variant="secondary" icon={Receipt}>Ver mis pagos</BotonEnlace>;
   } else if (sigue.tipo === 'pago') {
     const { pago } = sigue;
     const cobro = pago.cobro;
     icono = Receipt;
     tono = 'warning';
     tituloQue = pago.n ? `Te toca: pagar el Pago ${pago.n} · ${pago.pct}%` : `Te toca: pagar ${cobro.title}`;
-    detalle = `${fmtCLP(cobro.amount_clp)} · lo pagas en Pagos, con tarjeta o transferencia.`;
+    tono = 'brand';
+    detalle = `${fmtCLP(cobro.amount_clp)} · elige el medio de pago y, si transfieres, adjunta el comprobante para que podamos confirmar el ingreso.`;
     accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>;
   } else if (sigue.tipo === 'precio' || (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio)) {
     icono = CircleCheck;
@@ -340,26 +357,11 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
   }
 
   const Icono = icono;
-  const estilos = {
-    brand: 'border-brand-200 bg-brand-50',
-    warning: 'border-warning-line bg-warning-bg',
-    success: 'border-success-line bg-success-bg',
-  }[tono];
-  const icoEstilo = { brand: 'bg-brand-100 text-brand-700', warning: 'bg-surface text-warning', success: 'bg-surface text-success' }[tono];
-
   return (
-    <div className={cn('flex flex-col gap-3 border-b px-(--card-pad) py-4 sm:flex-row sm:items-center sm:justify-between', estilos)} role="status">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-md', icoEstilo)} aria-hidden="true">
-          <Icono size={18} />
-        </span>
-        <div className="min-w-0">
-          <p className="eyebrow">Qué sigue</p>
-          <p className="text-sm font-semibold leading-5 text-ink-900">{tituloQue}</p>
-          <p className="mt-0.5 text-13 text-ink-700">{detalle}</p>
-        </div>
-      </div>
-      {accion && <div className="shrink-0 pl-12 sm:pl-0">{accion}</div>}
+    <div className={cn('import-action client-import-action', `import-action--${tono}`)}>
+      <span className="import-action__icon" aria-hidden="true"><Icono size={20} /></span>
+      <div className="import-action__body" role="status"><p className="import-kicker">Qué sigue · {accion ? 'Tu próxima acción' : 'Equipo Imporlan'}</p><h3>{tituloQue}</h3><p>{detalle}</p></div>
+      {accion && <div className="import-action__cta">{accion}</div>}
     </div>
   );
 }

@@ -113,7 +113,13 @@ export function queSigue(eleccion, pagos) {
   const estado = estadoDeImportacion(eleccion);
   if (estado.cliente) return { tipo: 'reporte_listo' };
   const porPagar = [...(pagos?.pagos || []).filter(p => p.estado === 'por_pagar'), ...(pagos?.otros || []).filter(r => r.status === 'pending').map(r => ({ n: null, cobro: r, estado: 'por_pagar' }))];
-  if (porPagar.length) return { tipo: 'pago', pago: porPagar[0] };
+  if (porPagar.length) {
+    const pago = porPagar[0];
+    if (pagoEnRevision(pago.cobro)) return { tipo: 'comprobante', pago };
+    if (comprobanteRechazado(pago.cobro)) return { tipo: 'reemplazo_comprobante', pago };
+    if (pagoEnConciliacion(pago, eleccion)) return { tipo: 'conciliacion', pago };
+    return { tipo: 'pago', pago };
+  }
   if (eleccion.inspection_waiting_price) return { tipo: 'precio' };
   // Un hito cumplido no implica que exista su solicitud de pago. Explicar
   // esa espera evita anunciar que el cliente no tiene nada pendiente.
@@ -122,6 +128,27 @@ export function queSigue(eleccion, pagos) {
   const hito = hitoEnCurso(eleccion);
   if (hito) return { tipo: 'hito', hito };
   return { tipo: 'listo' };
+}
+
+/** Evidencia recibida, todavía sin ingreso confirmado. No supone que se pagó. */
+export function pagoEnRevision(cobro) {
+  if (cobro?.status !== 'pending') return false;
+  return (cobro.receipts || []).some(r => r.status !== 'rejected')
+    || (cobro.receipt_status !== 'rejected' && !!cobro.receipt_received_at);
+}
+
+export function comprobanteRechazado(cobro) {
+  return cobro?.status === 'pending' && (cobro.receipt_status === 'rejected'
+    || (!!cobro.receipts?.length && cobro.receipts.every(r => r.status === 'rejected')));
+}
+
+/** El mismo desfase histórico que el seguimiento deriva al equipo para conciliar. */
+export function pagoEnConciliacion(pago, eleccion) {
+  return pago?.n === 1 && pago?.estado === 'por_pagar' && !!(
+    eleccion?.inspection_report || eleccion?.inspection_client_ok_at || eleccion?.inspection_waiting_price
+    || eleccion?.inspection_stage === 'aprobada' || eleccion?.steps?.inspeccion
+    || eleccion?.steps?.compra || eleccion?.steps?.transporte || eleccion?.steps?.aduana || eleccion?.steps?.entrega
+  );
 }
 
 /**

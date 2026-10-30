@@ -2,7 +2,7 @@ import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
 import { Check, Receipt, User, TriangleAlert, FileSearch, Languages, Banknote } from '../../../shared/components/Icons';
-import { hitosDe, estadoDeImportacion } from '../../../shared/lib/importacion';
+import { hitosDe, estadoDeImportacion, pagoEnRevision, pagoEnConciliacion, comprobanteRechazado } from '../../../shared/lib/importacion';
 import { etapaInspeccion, devolucionPedida, decidioInspeccion, reporteDe, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import CaminoInspeccion from './CaminoInspeccion';
@@ -122,12 +122,16 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
       const abonado = pago1AbonadoDeOtra(p.cobro, eleccion);
       hechos.push({ id: `pago-${p.n}`, estado: 'hecho', titulo: `Pagaste el Pago ${p.n} · ${p.pct}%`, fecha: p.cobro.paid_at || p.cobro.created_at, detalle: `${fmtCLP(p.cobro.amount_clp)}${abonado ? ' · abonado desde tu elección anterior' : ''}` });
     } else if (p.estado === 'por_pagar' && !declinada) {
+      const revision = pagoEnRevision(p.cobro);
+      const reemplazo = comprobanteRechazado(p.cobro);
+      const conciliacion = pagoEnConciliacion(p, eleccion);
       porPagar.push({
         id: `pago-${p.n}`,
-        estado: 'pago',
-        titulo: `Te toca: pagar el Pago ${p.n} · ${p.pct}%`,
-        detalle: `${fmtCLP(p.cobro.amount_clp)} · solicitado el ${fmtDateLarga(p.cobro.created_at)}`,
-        accion: <BotonEnlace to={rutaPagar(p.cobro)} variant="secondary" size="sm" icon={Receipt}>Pagar</BotonEnlace>,
+        estado: revision || reemplazo || conciliacion ? 'curso' : 'pago',
+        titulo: reemplazo ? 'Adjunta el comprobante corregido' : revision ? `Pago ${p.n}: comprobante en revisión` : conciliacion ? 'Pago 1: registro en conciliación' : `Te toca: pagar el Pago ${p.n} · ${p.pct}%`,
+        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : conciliacion ? 'Tu operación ya avanzó a la inspección. El equipo revisa el registro de este pago.' : `${fmtCLP(p.cobro.amount_clp)} · solicitado el ${fmtDateLarga(p.cobro.created_at)}`,
+        icono: revision || reemplazo || conciliacion ? FileSearch : undefined,
+        accion: conciliacion ? null : <BotonEnlace to={rutaPagar(p.cobro)} variant="secondary" size="sm" icon={revision ? FileSearch : Receipt}>{reemplazo ? 'Reemplazar comprobante' : revision ? 'Ver comprobante' : 'Pagar'}</BotonEnlace>,
       });
     }
   }
@@ -135,12 +139,15 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
     if (r.status === 'paid') {
       hechos.push({ id: `cobro-${r.id}`, estado: 'hecho', titulo: `Pagaste: ${r.title}`, fecha: r.paid_at || r.created_at, detalle: fmtCLP(r.amount_clp) });
     } else if (r.status === 'pending' && !declinada) {
+      const revision = pagoEnRevision(r);
+      const reemplazo = comprobanteRechazado(r);
       porPagar.push({
         id: `cobro-${r.id}`,
-        estado: 'pago',
-        titulo: `Te toca: pagar ${r.title}`,
-        detalle: `${fmtCLP(r.amount_clp)} · solicitado el ${fmtDateLarga(r.created_at)}`,
-        accion: <BotonEnlace to={rutaPagar(r)} variant="secondary" size="sm" icon={Receipt}>Pagar</BotonEnlace>,
+        estado: revision || reemplazo ? 'curso' : 'pago',
+        titulo: reemplazo ? 'Adjunta el comprobante corregido' : revision ? `${r.title}: comprobante en revisión` : `Te toca: pagar ${r.title}`,
+        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : `${fmtCLP(r.amount_clp)} · solicitado el ${fmtDateLarga(r.created_at)}`,
+        icono: revision ? FileSearch : undefined,
+        accion: <BotonEnlace to={rutaPagar(r)} variant="secondary" size="sm" icon={revision ? FileSearch : Receipt}>{reemplazo ? 'Reemplazar comprobante' : revision ? 'Ver comprobante' : 'Pagar'}</BotonEnlace>,
       });
     }
   }

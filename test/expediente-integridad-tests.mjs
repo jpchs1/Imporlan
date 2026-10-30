@@ -450,10 +450,11 @@ try {
     const rail=flow.page.getByRole('list',{name:'Etapas de tu importación'});
     check(await rail.locator('>li').count()===(scenario.inspection===false?5:6),`${scenario.name}: roadmap has only applicable stages`);
     check(await flow.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${scenario.name}: roadmap fits viewport`);
-    if(scenario.missingData){const tasks=flow.page.getByRole('region',{name:'Otras tareas pendientes'});check(await tasks.getByRole('button',{name:'Completar mis datos y cédula',exact:true}).isVisible(),'personal data remains visible next to the inspection decision');check(await tasks.getByRole('link',{name:/Pagar el Pago 1/}).isVisible(),'the unpaid first installment remains visible next to the inspection decision');}
+    if(scenario.missingData){const tasks=flow.page.getByRole('region',{name:'Otras tareas pendientes'});check(await tasks.getByRole('button',{name:'Completar mis datos y cédula',exact:true}).isVisible(),'personal data remains visible next to the inspection decision');check(await tasks.getByRole('link',{name:/Revisar el Pago 1/}).isVisible(),'the first installment record remains accessible beside the inspection decision');}
     if(scenario.status)check(await flow.page.getByRole('button',{name:'Aprobar y seguir',exact:true}).count()===0,'closed expedientes cannot initiate inspection approval from the client screen');
-    if(scenario.unpaid){check(await flow.page.getByRole('link',{name:/Pagar/}).first().getAttribute('href').then(h=>h.includes(`workflow-${scenario.unpaid}`)), 'public expediente reference connects the charge to its payment button');}
-    if(i===0){await mkdir(artifactDir,{recursive:true});await flow.page.locator('section[aria-labelledby="estado-importacion"]').screenshot({path:join(artifactDir,'importacion-cliente-flujo.png')});}
+    if(scenario.unpaid===1 && scenario.report){check(await flow.page.getByRole('link',{name:/Revisar el Pago 1/}).getAttribute('href').then(h=>h.endsWith('/payments')), 'historical first-payment discrepancy opens records without initiating another payment');}
+    else if(scenario.unpaid){check(await flow.page.getByRole('link',{name:/Pagar/}).first().getAttribute('href').then(h=>h.includes(`workflow-${scenario.unpaid}`)), 'public expediente reference connects the charge to its payment button');}
+    if(i===0){await mkdir(artifactDir,{recursive:true});await flow.page.locator('#estado-importacion').screenshot({path:join(artifactDir,'importacion-cliente-flujo.png')});}
     await flow.close();
   }
 
