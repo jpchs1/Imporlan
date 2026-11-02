@@ -25,6 +25,23 @@ const origin=`http://127.0.0.1:${server.httpServer.address().port}`;
 const browser=await chromium.launch({...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{}),args:['--no-sandbox','--disable-dev-shm-usage']});
 let passed=0;const check=(v,label)=>{assert.ok(v,label);console.log(`PASS ${++passed}: ${label}`);};
 try {
+  for (const timezoneId of ['America/Santiago','America/Los_Angeles','UTC','Asia/Tokyo']) {
+    const page=await browser.newPage({timezoneId});
+    await page.goto(`${origin}/panel/__process?mode=client&scenario=due`);
+    const dates=await page.evaluate(async()=>{
+      const {fmtDate,fmtDateTime}=await import('/src/shared/lib/utils.js');
+      const {fmtDateLarga}=await import('/src/shared/lib/format.js');
+      const instant=new Date('2026-10-22T02:00:00Z');
+      return {day:fmtDate('2026-10-22'),long:fmtDateLarga('2026-10-22'),time:fmtDateTime('2026-10-22'),year:fmtDate('2026-01-01'),instant:fmtDate(instant.toISOString()),numeric:fmtDate(instant.getTime()),object:fmtDate(instant)};
+    });
+    check(dates.day==='22-10-2026',`bank day stays on October 22 in ${timezoneId}`);
+    check(dates.long==='22 oct 2026',`credit history keeps the real bank date in ${timezoneId}`);
+    check(dates.time.startsWith(dates.day),`date-time labels preserve the bank calendar day in ${timezoneId}`);
+    check(dates.year==='01-01-2026',`bank dates preserve the year boundary in ${timezoneId}`);
+    check(dates.instant===(['America/Santiago','America/Los_Angeles'].includes(timezoneId)?'21-10-2026':'22-10-2026'),`timestamps still represent actual instants in ${timezoneId}`);
+    check(dates.numeric===dates.instant && dates.object===dates.instant,`numeric timestamps and Date objects keep their original meaning in ${timezoneId}`);
+    await page.close();
+  }
   for(const mode of ['client','admin','agent']) for(const width of [390,768,1440]) {
     const page=await browser.newPage({viewport:{width,height:1050},reducedMotion:'reduce'});page.setDefaultTimeout(12000);const errors=[],mutations=[];
     page.on('pageerror',e=>errors.push(e.message));

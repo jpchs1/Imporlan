@@ -71,7 +71,7 @@ export function rawMoneyInput(value, currency = 'CLP') {
 
 /** "12 oct 2026" (o "12 oct 2026, 14:35" con `hora`). */
 export function fmtDateLarga(dateStr, { hora = false } = {}) {
-  const d = aFecha(dateStr);
+  const d = parseDisplayDate(dateStr);
   if (!d) return dateStr ? String(dateStr) : '—';
   const base = d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '').replace(/ de /g, ' ');
   if (!hora) return base;
@@ -80,7 +80,7 @@ export function fmtDateLarga(dateStr, { hora = false } = {}) {
 
 /** "hace 5 min" · "hace 2 h" · "ayer" · "hace 3 días" · "12 oct 2026". */
 export function fmtRelativo(dateStr, ahora = Date.now()) {
-  const d = aFecha(dateStr);
+  const d = parseDisplayDate(dateStr);
   if (!d) return '';
   const diff = ahora - d.getTime();
   const mins = Math.round(diff / 60000);
@@ -113,10 +113,17 @@ export function iniciales(nombre) {
   return (partes[0][0] + (partes[1]?.[0] || '')).toUpperCase();
 }
 
-function aFecha(v) {
+/** Bank dates contain a calendar day, not a midnight UTC instant. */
+export function parseDisplayDate(v) {
   if (!v) return null;
   if (v instanceof Date) return isNaN(v) ? null : v;
+  if (typeof v === 'number') { const date = new Date(v); return isNaN(date) ? null : date; }
   const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [year, month, day] = s.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+  }
   let d = new Date(s.includes(' ') && !s.includes('T') ? s.replace(' ', 'T') : s);
   if (isNaN(d)) d = new Date(s);
   return isNaN(d) ? null : d;
