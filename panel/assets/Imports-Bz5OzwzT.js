@@ -1,0 +1,1 @@
+import{C as e,v as t}from"./utils-Ehq2xnes.js";import{n}from"./lib-CCpk70Ak.js";var r=t();function i(){return(0,r.jsx)(e,{to:`/expedientes?filtro=${n}`,replace:!0})}export{i as default};
