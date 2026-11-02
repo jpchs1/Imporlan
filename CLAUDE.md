@@ -163,6 +163,17 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   reemplazo con la observación del equipo y sin ofrecer otra transferencia. Un
   Pago 1 pendiente tras avanzar a inspección se deriva a conciliación. El plan
   distingue el saldo total de los pagos habilitados en la etapa actual.
+- **Abonos parciales y saldo (JP, 1-nov-2026):** se registran los ingresos
+  bancarios confirmados con fecha, cuenta receptora, referencia y revisor.
+  Los archivos adjuntos nunca se suman como dinero. El correo automático,
+  la transferencia y las pasarelas usan el saldo restante de la solicitud
+  vigente; no vuelven a solicitar el importe total ni adelantan otra cuota.
+  El seguimiento diario existente se conserva y se detiene al cubrir el
+  pago. Si hay un comprobante todavía sin conciliar, lo revisa el equipo
+  antes de volver a pedir dinero. Un excedente queda registrado para revisión,
+  sin aplicarlo automáticamente a otra cuota. Los abonos se protegen contra
+  reintentos y referencias duplicadas; una solicitud con ingresos confirmados
+  no cambia de monto ni se anula mediante la acción genérica de pagos.
 
 ## Correo contacto@imporlan.cl
 

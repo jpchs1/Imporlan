@@ -5,6 +5,7 @@ import { Badge, Button, Callout, Input, Select } from './UI';
 import { FileOpen } from './FileDownload';
 import { FileCheck, Upload, FileText } from './Icons';
 import '../styles/import-process.css';
+import { paymentBalance, receiptLinked } from '../lib/payment-balance';
 
 export default function PaymentReceipts({ request, admin = false, onChange }) {
   return <ReceiptForm key={request.id} request={request} admin={admin} onChange={onChange} />;
@@ -13,7 +14,7 @@ function ReceiptForm({ request, admin, onChange }) {
   const api = useMemo(() => paymentReceiptClient(admin), [admin]);
   const [receipts, setReceipts] = useState(request.receipts || []);
   const [file, setFile] = useState(null);
-  const [amount, setAmount] = useState(String(Math.round(Number(request.amount_clp) || 0)));
+  const [amount, setAmount] = useState(request.status === 'paid' && request.payment_credits?.length ? '' : String(paymentBalance(request).remaining || Math.round(Number(request.amount_clp) || 0)));
   const [currency, setCurrency] = useState('CLP');
   const [reference, setReference] = useState('');
   const [note, setNote] = useState('');
@@ -45,7 +46,7 @@ function ReceiptForm({ request, admin, onChange }) {
       <p className="text-ink-900 font-medium break-words">{r.currency === 'USD' ? `USD ${r.declared_amount}` : fmtCLP(r.declared_amount_clp)}</p>
       <p className="text-xs text-ink-500 break-words">Referencia: {r.reference}</p>
       <p className="text-xs text-ink-500">{r.status === 'rejected' ? `Se requiere otro comprobante: ${r.review_note}` : r.status === 'reviewed' ? 'Comprobante revisado por el equipo. La confirmación del pago se registra por separado.' : 'Recibido · pendiente de revisión'}</p>
-      {r.currency === 'USD' ? <Callout compact tone="info">El cobro está en CLP. El equipo debe revisar el monto en USD y la conversión acordada antes de confirmar el ingreso.</Callout> : Number(r.declared_amount_clp) !== Number(request.amount_clp) && <Callout compact tone="warning">El monto informado difiere del cobro. El equipo debe conciliar la diferencia antes de confirmar el pago.</Callout>}
+      {r.currency === 'USD' ? <Callout compact tone="info">El cobro está en CLP. El equipo debe revisar el monto en USD y la conversión acordada antes de confirmar el ingreso.</Callout> : Number(r.declared_amount_clp) !== Number(request.amount_clp) && !receiptLinked(request,r) && <Callout compact tone={Number(r.declared_amount_clp) < Number(request.amount_clp) ? 'info' : 'warning'}>Este comprobante informa un abono de {fmtCLP(r.declared_amount_clp)}. El equipo debe verificar y registrar ese ingreso para descontarlo del saldo.</Callout>}
       {admin && r.status !== 'rejected' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busy || r.status === 'reviewed'} onClick={() => review(r, 'reviewed')}>Registrar revisión</Button><Button size="sm" variant="ghost" disabled={busy || note.trim().length < 5} onClick={() => review(r, 'rejected')}>Solicitar otro comprobante</Button></div>}
     </div>)}
     {admin && receipts.length > 0 && <Input label="Nota de revisión o motivo para solicitar otro comprobante" hint="Para solicitar un reemplazo, explica el motivo en al menos 5 caracteres." value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />}{request.status !== 'cancelled' && <details open={receipts.length === 0 || receipts.every(r => r.status === 'rejected')}><summary className="cursor-pointer text-sm font-medium text-brand-700 py-2">{receipts.length ? 'Adjuntar otro comprobante' : 'Adjuntar comprobante de este pago'}</summary><form onSubmit={upload} className="payment-receipts__form mt-2">

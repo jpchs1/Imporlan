@@ -11,6 +11,10 @@ on:
       - api/email-assets/**
       - api/payment_receipts*.php
       - api/payment_requests_api.php
+      - api/payment_requests_helper.php
+      - api/payment_balance.php
+      - api/webpay.php
+      - api/mercadopago.php
       - api/cron/inspection_upload_followup.php
       - api/operador_usa.php
       - cron-deploy.sh

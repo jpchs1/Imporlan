@@ -243,6 +243,55 @@ try {
     await page.close();
   }
 
+  // Native partial-credit API and actual admin/client controls; no payment-provider traffic.
+  const creditSeed=()=>execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$d['requests']=array_values(array_filter($d['requests'],function($r){return $r['id']!=='fixture-credit';}));$d['requests'][]=['id'=>'fixture-credit','title'=>'Pago 2 de prueba','user_email'=>'client@example.test','amount_clp'=>10000,'status'=>'pending','created_at'=>'2026-10-20','metadata'=>['order_id'=>'IMP-DEMO','custom_fields'=>['pago'=>2]]];file_put_contents($f,json_encode($d));`]);
+  const creditApi=async(action,data,email='owner@example.test',role='admin')=>{
+    const response=await fetch(`${origin}/payment_requests_api.php?action=${action}`,{method:'POST',headers:{Authorization:`Bearer ${jwt(email,role)}`,'Content-Type':'application/json'},body:JSON.stringify({request_id:'fixture-credit',...data})});return {code:response.status,...await response.json()};
+  };
+  const creditPayload={amount_clp:2000,received_on:'2026-10-20',bank:'global66',reference:'CREDIT-API-1',note:'Verified fictional bank credit',expected_amount_clp:10000,expected_remaining_clp:10000,idempotency_key:'fixture-credit-api-1'};
+  creditSeed();
+  check((await creditApi('register_credit',creditPayload,'client@example.test','user')).code===403,'customer cannot confirm their own bank credit through the native API');
+  check((await creditApi('register_credit',creditPayload,'client@example.test','agent')).code===403,'operator cannot register bank credits through legacy financial routes');
+  const firstCredit=await creditApi('register_credit',creditPayload);
+  check(firstCredit.code===200 && firstCredit.balance.remaining===8000 && firstCredit.request.status==='pending','authenticated finance API stores a partial credit without settling the entire invoice');
+  check((await creditApi('register_credit',creditPayload)).duplicate,'API retry with the same registration key is idempotent');
+  check((await creditApi('update_status',{new_status:'paid',payment_method:'transferencia_bancaria'})).code===409,'old full-payment action cannot bypass the remaining balance once bank credits exist');
+  check((await creditApi('admin_update',{amount_clp:9000})).code===409,'an invoice with confirmed money cannot silently change its original amount');
+  const publicCredit=await fetch(`${origin}/payment_requests_api.php?action=get_by_id&id=fixture-credit`,{headers:{Authorization:`Bearer ${jwt('client@example.test','user')}`}}).then(r=>r.json());
+  check(publicCredit.request.payment_credits[0].amount_clp===2000 && !publicCredit.request.payment_credits[0].idempotency_key && !publicCredit.request.payment_credits[0].note,'customer can inspect their credits without receiving internal audit or retry fields');
+  for(const width of [390,1440]) {
+    creditSeed();const page=await browser.newPage({viewport:{width,height:1050}});page.on('pageerror',e=>errors.push(e.message));
+    await page.addInitScript(({admin,user})=>{localStorage.setItem('token',admin);localStorage.setItem('imporlan_token',user);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de prueba',role:'user'}));},{admin:jwt('owner@example.test','admin'),user:jwt('client@example.test','user')});
+    const gateway=[];
+    await page.route('**/api/**',async route=>{
+      const u=new URL(route.request().url());
+      if(/webpay|mercadopago/.test(u.pathname)){gateway.push(route.request().postDataJSON());return route.fulfill({json:{success:false,error:'No real provider traffic in this fixture'}});}
+      if(/payment_requests_api|payment_receipts_api/.test(u.pathname)) {
+        const remote=await fetch(`${origin}/${u.pathname.split('/').pop()}${u.search}`,{method:route.request().method(),headers:route.request().headers(),body:route.request().method()==='POST'?route.request().postData():undefined});
+        return route.fulfill({status:remote.status,contentType:remote.headers.get('content-type') || 'application/json',body:Buffer.from(await remote.arrayBuffer())});
+      }
+      return route.fulfill({json:{success:true,orders:[{id:1,order_number:'IMP-DEMO'}]}});
+    });
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=credits`);
+    await page.getByText('Registrar abono bancario',{exact:true}).click();
+    await page.getByLabel('Monto del abono en CLP').fill('2000');await page.getByLabel('Fecha del abono bancario').fill('2026-10-20');
+    await page.getByLabel('Cuenta que recibió el abono').selectOption('global66');await page.getByLabel('Número de operación o referencia bancaria',{exact:true}).fill(`CREDIT-UI-${width}`);
+    await page.getByRole('button',{name:'Revisar abono',exact:true}).click();
+    const confirmation=page.getByRole('dialog');await confirmation.getByRole('heading',{name:'Confirmar ingreso bancario',exact:true}).waitFor();
+    check(JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests.find(r=>r.id==='fixture-credit').payment_credits===undefined,'reviewing a proposed bank credit never records money before explicit confirmation');
+    await confirmation.getByRole('button',{name:'Confirmar abono verificado',exact:true}).click();
+    await page.getByText('Abono confirmado. Los recordatorios usarán el saldo restante.',{exact:true}).waitFor();
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`credit registration fits ${width}px`);
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit`);
+    await page.getByRole('button',{name:/^Pagar.*con WebPay$/}).waitFor({timeout:10000}).catch(async e=>{console.log('PARTIAL UI DIAGNOSTIC',await page.locator('body').innerText(),errors);throw e;});
+    check(await page.getByRole('region',{name:'Abonos de Pago 2 de prueba'}).getByText('$2.000',{exact:true}).count()>0,'customer sees confirmed credits and the correct unpaid balance in the payment dialog');
+    await page.getByRole('button',{name:/^Pagar.*con WebPay$/}).click();
+    check(gateway.length===1 && gateway[0].amount===8000 && gateway[0].payment_request_id==='fixture-credit','explicit gateway action requests only the remaining balance for the selected invoice');
+    await page.getByRole('radio',{name:/Transferencia bancaria/}).click();await page.getByRole('button',{name:'Ver datos de transferencia',exact:true}).click();
+    check(await page.getByLabel('Monto transferido en CLP').inputValue()==='8000','transfer and proof form use the same net balance');
+    await page.close();
+  }
+
   check(errors.length===0,`admin controls render without runtime errors: ${errors.join('; ')}`);
   console.log(`${passed} reminder API, email and UI checks passed`);
 } finally {await browser?.close();await vite?.close();phpServer?.kill();await rm(box,{recursive:true,force:true});}

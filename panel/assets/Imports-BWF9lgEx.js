@@ -1,0 +1,1 @@
+import{h as e,u as t}from"./utils-DwW-um5r.js";import{n}from"./lib-FJMG00xE.js";var r=t();function i(){return(0,r.jsx)(e,{to:`/expedientes?filtro=${n}`,replace:!0})}export{i as default};

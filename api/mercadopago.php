@@ -98,21 +98,14 @@ function createPreference() {
     $quantity = intval($input['quantity'] ?? 1);
     $paymentRequestId = $input['payment_request_id'] ?? null;
     
-    // If payment_request_id is provided, load request data
     if ($paymentRequestId) {
-        $prFile = __DIR__ . '/payment_requests.json';
-        if (file_exists($prFile)) {
-            $prData = json_decode(file_get_contents($prFile), true);
-            foreach (($prData['requests'] ?? []) as $pr) {
-                if ($pr['id'] === $paymentRequestId) {
-                    $planName = $pr['title'];
-                    $description = $pr['description'] ?: $pr['title'];
-                    break;
-                }
-            }
-        }
+        require_once __DIR__.'/payment_balance.php';
+        [$code,$resolved]=impPaymentAuthenticatedGatewayRequest($paymentRequestId);
+        if($code!==200){http_response_code($code);echo json_encode(['error'=>$resolved]);return;}
+        $amount=$resolved['amount'];$quantity=1;$planName=$resolved['request']['title'];
+        $description=$resolved['request']['description'] ?? $planName;$input['payer_email']=$resolved['request']['user_email'];
     }
-    
+
     // Información del comprador (opcional)
     $payerEmail = $input['payer_email'] ?? null;
     $payerName = $input['payer_name'] ?? null;
@@ -330,7 +323,7 @@ function handleWebhook() {
                     require_once __DIR__ . '/payment_requests_helper.php';
                     $prId = extractPaymentRequestId($externalRef);
                     if ($prId) {
-                        handlePaymentRequestPaid($prId, $paymentId, 'mercadopago', $purchase['id'] ?? null);
+                        handlePaymentRequestPaid($prId, $paymentId, 'mercadopago', $purchase['id'] ?? null, intval($payment['transaction_amount'] ?? 0));
                     }
                 }
 

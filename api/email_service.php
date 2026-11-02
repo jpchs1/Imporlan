@@ -1166,9 +1166,16 @@ BASE64;
      * order_id, hechos ([label => bool] en orden, para la lista de avance).
      */
     public function sendHitoImportacion($userEmail, $firstName, $d) {
+        require_once __DIR__.'/payment_balance.php';
+        if (!empty($d['cobro']['id'])) {
+            $stored=impPaymentRead($d['cobro']['id']);
+            if (!$stored || strtolower($stored['user_email'] ?? '')!==strtolower($userEmail) || impPaymentProofPending($stored)) $d['cobro']=null;
+            else { $balance=impPaymentBalance($stored);if($balance['remaining']<=0)$d['cobro']=null;else $d['cobro']=array_merge($d['cobro'],['amount_clp'=>$balance['remaining'],'total_amount_clp'=>$balance['total'],'confirmed_amount_clp'=>$balance['confirmed']]); }
+        }
+
         if (!empty($d['correct_payment_notice']) && ($d['hito'] ?? '')==='inspeccion' && intval($d['cobro']['n'] ?? 0)===2) {
             require_once __DIR__.'/import_action_template.php';
-            $mail=impActionEmail(['audience'=>'client','name'=>$firstName,'boat'=>$d['titulo'],'order_number'=>$d['order_number'],'inspection_approved'=>true,'correct_payment_notice'=>true,'tasks'=>[['kind'=>'payment','title'=>'Pago 2','detail'=>'Segundo pago de tu operación, posterior a la aprobación de la inspección. Se mantienen los precios previamente acordados.','button'=>'Realizar Pago 2','url'=>'https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($d['cobro']['id']),'amount_clp'=>$d['cobro']['amount_clp']]]]);
+            $mail=impActionEmail(['audience'=>'client','name'=>$firstName,'boat'=>$d['titulo'],'order_number'=>$d['order_number'],'inspection_approved'=>true,'correct_payment_notice'=>true,'tasks'=>[['kind'=>'payment','title'=>'Pago 2','detail'=>'Segundo pago de tu operación, posterior a la aprobación de la inspección. Se mantienen los precios previamente acordados.','button'=>'Realizar Pago 2','url'=>'https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($d['cobro']['id']),'amount_clp'=>$d['cobro']['amount_clp'],'total_amount_clp'=>$d['cobro']['total_amount_clp'],'confirmed_amount_clp'=>$d['cobro']['confirmed_amount_clp']]]]);
             return $this->sendImportActionEmail($userEmail,$mail,['audience'=>'client','order_id'=>$d['order_id'],'event'=>'payment_notice_correction','payment_id'=>$d['cobro']['id']]);
         }
         $c = $this->colors;
@@ -1210,7 +1217,7 @@ BASE64;
         // Con el hito sale el pago que corresponde (Pago 2 o Pago 3): el botón lleva a pagarlo.
         $cobro = $d['cobro'] ?? null;
         if ($cobro) {
-            $content .= '<div style="margin: 18px 0; padding: 16px 18px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Te toca: Pago ' . intval($cobro['n']) . '</strong> · $' . number_format((float) $cobro['amount_clp'], 0, ',', '.') . '<br>Lo pagas en Pagos de tu panel, con tarjeta o transferencia.</div>'
+            $content .= '<div style="margin: 18px 0; padding: 16px 18px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6;"><strong>Te toca: '.(!empty($cobro['confirmed_amount_clp'])?'saldo del ':'').'Pago ' . intval($cobro['n']) . '</strong> · $' . number_format((float) $cobro['amount_clp'], 0, ',', '.') . '<br>Lo pagas en Pagos de tu panel, con tarjeta o transferencia.</div>'
                 . '<div style="margin-top: 24px;">' . $this->getButton('Pagar el Pago ' . intval($cobro['n']), 'https://www.imporlan.cl/panel/#/payments?pagar=' . rawurlencode($cobro['id'])) . '</div>';
         } else {
             $content .= '<div style="margin-top: 24px;">' . $this->getButton('Ver mi importación', $this->impUrlPanel($d['order_id'] ?? null)) . '</div>';

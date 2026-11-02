@@ -10,6 +10,8 @@
  * - GET  ?action=user_list - Listar solicitudes del usuario autenticado
  * - GET  ?action=admin_list - Listar todas las solicitudes (admin)
  * - POST ?action=update_status - Actualizar estado (admin)
+ * - POST ?action=register_credit - Registrar abono confirmado (admin/soporte)
+ * - POST ?action=link_credit_receipt - Asociar respaldo sin duplicar ingreso
  * - GET  ?action=get_by_id&id=xxx - Obtener solicitud por ID
  */
 
@@ -17,6 +19,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/email_service.php';
 require_once __DIR__ . '/db_config.php';
+require_once __DIR__ . '/payment_balance.php';
 
 setCorsHeaders();
 
@@ -41,6 +44,12 @@ switch ($action) {
     case 'admin_list':
         adminListRequests();
         break;
+    case 'register_credit':
+        registerPaymentCredit();
+        break;
+    case 'link_credit_receipt':
+        linkPaymentCreditReceipt();
+        break;
     case 'update_status':
         updateRequestStatus();
         break;
@@ -55,7 +64,7 @@ switch ($action) {
         break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update']]);
+        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update', 'register_credit', 'link_credit_receipt']]);
 }
 
 } catch (Throwable $e) { error_log('[payment-requests] '.get_class($e));http_response_code(503);echo json_encode(['error'=>'No pudimos guardar o consultar el registro de pagos. Inténtalo nuevamente.']); }
@@ -96,27 +105,13 @@ function updateRequestInFile($id, $updates, $expectedStatus = null) {
     $result=impConCobros(function (&$store) use ($id,$updates,$expectedStatus) {
         foreach ($store['requests'] as &$r) if ($r['id']===$id) {
             if ($expectedStatus!==null && ($r['status'] ?? '')!==$expectedStatus) return null;
+            if (impPaymentCredits($r) && (isset($updates['amount_clp']) || isset($updates['user_email']) || in_array($updates['status'] ?? '',['paid','pending','cancelled'],true))) return null;
             foreach ($updates as $key=>$value) $r[$key]=$value;
             return ['guardar'=>true,'request'=>$r];
         }
         return null;
     });
     return $result['request'] ?? null;
-}
-
-/** A late bookkeeping correction is not a new first payment or a new inspection request. */
-function isHistoricalFirstPayment($request) {
-    $n=intval($request['metadata']['custom_fields']['pago'] ?? 0);
-    if (!$n && preg_match('/pago\s*([123])\b/i',$request['title'] ?? '',$m)) $n=intval($m[1]);
-    if ($n!==1) return false;
-    $ref=$request['metadata']['order_id'] ?? $request['metadata']['order_number'] ?? null;
-    if (!is_scalar($ref) || trim((string)$ref)==='') return false;
-    try {
-        $pdo=getDbConnection();if (!$pdo) return false;
-        $st=$pdo->prepare(ctype_digit((string)$ref) ? 'SELECT * FROM orders WHERE id=?' : 'SELECT * FROM orders WHERE order_number=?');$st->execute([$ref]);$o=$st->fetch(PDO::FETCH_ASSOC);
-        if (!$o || strtolower($o['customer_email'])!==strtolower($request['user_email'])) return false;
-        return !empty($o['inspection_client_ok_at']) || !empty($o['inspection_report_at']) || (bool)array_intersect_key(impPasos($o),array_flip(['inspeccion','compra','transporte','aduana','entrega']));
-    } catch (Throwable $e) { return false; }
 }
 
 function validatePaymentRequest($input) {
@@ -153,6 +148,24 @@ function getUserToken() {
 // ============================================================
 // ACTION HANDLERS
 // ============================================================
+
+function registerPaymentCredit() {
+    $actor=requireAdminAuthShared();
+    if ($_SERVER['REQUEST_METHOD']!=='POST') {http_response_code(405);echo json_encode(['error'=>'Usa POST']);return;}
+    $in=json_decode(file_get_contents('php://input'),true) ?: [];
+    [$code,$result]=impPaymentAddCredit((string)($in['request_id'] ?? ''),$in,$actor['email']);
+    if($code!==200){http_response_code($code);echo json_encode(['error'=>$result]);return;}
+    if(!empty($result['newly_paid']))impPaymentNotifyCompleted($result['request']);
+    echo json_encode(['success'=>true,'request'=>$result['request'],'duplicate'=>$result['duplicate'],'balance'=>impPaymentBalance($result['request']),'message'=>'Abono confirmado. Los recordatorios usarán el saldo restante.']);
+}
+function linkPaymentCreditReceipt() {
+    $actor=requireAdminAuthShared();
+    if ($_SERVER['REQUEST_METHOD']!=='POST') {http_response_code(405);echo json_encode(['error'=>'Usa POST']);return;}
+    $in=json_decode(file_get_contents('php://input'),true) ?: [];
+    $result=impPaymentAssociateCredit((string)($in['request_id'] ?? ''),(string)($in['credit_id'] ?? ''),(string)($in['receipt_id'] ?? ''),$actor['email'],is_string($in['note'] ?? null)?$in['note']:'');
+    if(!$result || isset($result['error'])){http_response_code(422);echo json_encode(['error'=>$result['error'] ?? 'No se pudo asociar el comprobante']);return;}
+    echo json_encode(['success'=>true,'request'=>$result['request']]);
+}
 
 /**
  * A) admin_create - Crear nueva solicitud de pago
@@ -264,12 +277,12 @@ function userListRequests() {
     
     // Sort by created_at DESC
     usort($filtered, function($a, $b) {
-        return strtotime($b['created_at']) - strtotime($a['created_at']);
+        return strtotime($b['created_at'] ?? '') - strtotime($a['created_at'] ?? '');
     });
     
     echo json_encode([
         'success' => true,
-        'requests' => array_values($filtered)
+        'requests' => array_values(array_map('impPaymentPublic',$filtered))
     ]);
 }
 
@@ -315,7 +328,7 @@ function adminListRequests() {
     
     // Sort by created_at DESC
     usort($requests, function($a, $b) {
-        return strtotime($b['created_at']) - strtotime($a['created_at']);
+        return strtotime($b['created_at'] ?? '') - strtotime($a['created_at'] ?? '');
     });
     
     // Pagination
@@ -385,7 +398,7 @@ function updateRequestStatus() {
         $updates['reconciled_after_advance']=$historical;
     }
     $updated=updateRequestInFile($requestId,$updates,$request['status']);
-    if (!$updated) { http_response_code(409); echo json_encode(['error'=>'El cobro cambió durante la revisión. Actualiza antes de confirmar.']); return; }
+    if (!$updated) { http_response_code(409); echo json_encode(['error'=>'El cobro cambió o tiene abonos confirmados. Actualiza y registra el saldo en Abonos confirmados.']); return; }
     // Persist first. Neither a receipt upload nor a failed save can send a false payment confirmation.
     try {
         $service=new EmailService();
@@ -460,7 +473,7 @@ function getRequestById() {
     
     echo json_encode([
         'success' => true,
-        'request' => $request
+        'request' => $isAdmin ? $request : impPaymentPublic($request)
     ]);
 }
 
@@ -544,6 +557,7 @@ function adminUpdateRequest() {
     }
     
     $updated = updateRequestInFile($requestId, $updates);
+    if(!$updated){http_response_code(409);echo json_encode(['error'=>'La solicitud cambió o tiene abonos confirmados. Actualiza y revisa la conciliación antes de editarla.']);return;}
     
     logPaymentRequest('UPDATED', ['id' => $requestId, 'fields' => array_keys($updates), 'admin' => $admin['email'] ?? 'admin']);
     
@@ -580,12 +594,12 @@ function userListRequestsPublic() {
     
     // Sort by created_at DESC
     usort($filtered, function($a, $b) {
-        return strtotime($b['created_at']) - strtotime($a['created_at']);
+        return strtotime($b['created_at'] ?? '') - strtotime($a['created_at'] ?? '');
     });
     
     echo json_encode([
         'success' => true,
-        'requests' => array_values($filtered)
+        'requests' => array_values(array_map('impPaymentPublic',$filtered))
     ]);
 }
 

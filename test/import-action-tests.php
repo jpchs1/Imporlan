@@ -13,6 +13,8 @@ register_shutdown_function(function() use($box) { foreach (glob("$box/email-asse
 file_put_contents("$box/payment_requests.json",json_encode(['requests'=>[payment()]]));
 $advanced=impActionSnapshot($db,1);$advanced['client_data_complete']=true;
 check(audience($advanced)===null && in_array('reconcile_payment',kinds(audience($advanced,'owner')),true),'inspection already performed suppresses old pending Pago 1 and asks owner to reconcile');
+$partialAdvanced=$advanced;$partialAdvanced['payments'][0]['payment_credits']=[['status'=>'confirmed','amount_clp'=>100000,'bank'=>'global66','received_on'=>'2026-10-20']];
+check(!in_array('payment',kinds(audience($partialAdvanced)),true) && in_array('reconcile_payment',kinds(audience($partialAdvanced,'owner')),true),'partial historical Pago 1 still requires internal reconciliation and never asks the client to pay it again');
 $s=$advanced; $s['order']['inspection_client_ok_at']=null;$s['order']['inspection_report_at']=null; $s['client_data_complete']=true;
 $p=audience($s);
 check(kinds($p)===['payment'] && $p['tasks'][0]['amount_clp']===2987981,'initial selection leads to existing first payment, exact persisted amount');

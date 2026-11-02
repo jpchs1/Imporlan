@@ -14,7 +14,13 @@ import { useToast } from '../../shared/components/Toast';
 import PaymentReceipts from '../../shared/components/PaymentReceipts';
 import { FileOpen } from '../../shared/components/FileDownload';
 import { openFile } from '../../shared/lib/file-download';
+import PaymentCredits from '../../shared/components/PaymentCredits';
+import { paymentBalance } from '../../shared/lib/payment-balance';
 import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
+
+// These side effects run only from the explicit payment action.
+function paymentSessionId(id) { return `pr_${id}_${Date.now()}`; }
+function redirectToProvider(url) { window.location.assign(url); }
 
 function EstadoPago({ request, ...props }) {
   return pagoEnRevision(request) ? <Badge tone="info" dot {...props}>Comprobante en revisión</Badge> : comprobanteRechazado(request) ? <Badge tone="warning" {...props}>Reemplazar comprobante</Badge> : <StatusBadge kind="pago" status={request.status} dot {...props} />;
@@ -211,6 +217,8 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
 
   if (!paymentRequest) return null;
   const pr = paymentRequest;
+  const balance = paymentBalance(pr);
+  const due = balance.remaining;
   const email = user?.email || user?.user_email || '';
   const name = user?.name || '';
   const meta = pr.metadata || {};
@@ -222,8 +230,8 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
     setProcessing(true);
     try {
       const data = await createWebPayTransaction({
-        amount: pr.amount_clp,
-        session_id: `pr_${pr.id}_${Date.now()}`,
+        amount: due,
+        session_id: paymentSessionId(pr.id),
         buy_order: `PR-${pr.id}`,
         user_email: email,
         payer_name: name,
@@ -247,7 +255,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
     setProcessing(true);
     try {
       const data = await createMercadoPagoPreference({
-        amount: pr.amount_clp,
+        amount: due,
         description: pr.title,
         plan_name: pr.title,
         payer_email: email,
@@ -255,7 +263,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
         payment_request_id: pr.id,
       });
       if (data.success && data.init_point) {
-        window.location.href = data.init_point;
+        redirectToProvider(data.init_point);
         return;
       }
       toast?.({ type: 'error', title: 'No pudimos iniciar el pago con Mercado Pago', description: 'Vuelve a intentarlo o elige otro medio.' });
@@ -265,7 +273,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
     setProcessing(false);
   }
 
-  function continuar() {
+  function handleContinue() {
     if (method === 'webpay') return handleWebPay();
     if (method === 'mercadopago') return handleMercadoPago();
     setShowBank(true);
@@ -288,19 +296,20 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
       ) : (
         <>
           <Button variant="secondary" onClick={onClose} disabled={processing}>Cancelar</Button>
-          <Button onClick={continuar} loading={processing}>
+          <Button onClick={() => handleContinue()} loading={processing}>
             {method === 'transfer'
               ? 'Ver datos de transferencia'
-              : <>Pagar <span className="hidden sm:inline">{fmtCLP(pr.amount_clp)} </span>con {etiqueta}</>}
+              : <>Pagar <span className="hidden sm:inline">{fmtCLP(due)} </span>con {etiqueta}</>}
           </Button>
         </>
       )}
     >
       <div className="space-y-5">
+        <PaymentCredits request={pr} />
         <div className="flex items-start justify-between gap-4 rounded-lg bg-canvas border border-line px-4 py-3">
           <div className="min-w-0">
             <p className="eyebrow">{evidenceScreen ? 'Monto de la solicitud' : 'Monto a pagar'}</p>
-            <Money clp={pr.amount_clp} usd={pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
+            <Money clp={due} usd={balance.confirmed === 0 && pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
           </div>
           {(expediente || meta.boat_name) && (
             <div className="text-right text-13 text-ink-500 shrink-0 max-w-[45%]">
@@ -311,7 +320,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
         </div>
 
         {evidenceScreen ? <><Callout tone={needsReplacement ? 'warning' : 'info'} title={needsReplacement ? 'Adjunta el comprobante corregido' : 'Comprobante recibido · ingreso en revisión'}>{needsReplacement ? 'Revisa la observación del equipo y adjunta otro archivo en este mismo pago.' : 'No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.'}</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
-          <><DatosTransferencia amount={pr.amount_clp} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true); onReceipt?.(r); }} /></>
+          <><DatosTransferencia amount={due} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true); onReceipt?.(r); }} /></>
         ) : (
           <div>
             <p className="text-sm font-medium text-ink-900 mb-2">Elige cómo pagar</p>
@@ -353,7 +362,7 @@ function CustomPayModal({ open, onClose, toast, user }) {
         toast?.({ type: 'error', title: 'No pudimos iniciar el pago con WebPay', description: 'Vuelve a intentarlo o elige otro medio.' });
       } else if (selectedMethod === 'mercadopago') {
         const data = await createMercadoPagoPreference({ amount: amt, description: desc, plan_name: desc, payer_email: email, payer_name: name });
-        if (data.success && data.init_point) { window.location.href = data.init_point; return; }
+        if (data.success && data.init_point) { redirectToProvider(data.init_point); return; }
         toast?.({ type: 'error', title: 'No pudimos iniciar el pago con Mercado Pago', description: 'Vuelve a intentarlo o elige otro medio.' });
       } else if (selectedMethod === 'transfer') {
         setShowBank(true); setProcessing(false); return;
@@ -425,6 +434,7 @@ function CustomPayModal({ open, onClose, toast, user }) {
    --------------------------------------------------------------------------- */
 function PendienteCard({ req, onPay, expediente }) {
   const meta = req.metadata || {};
+  const balance = paymentBalance(req);
   return (
     <Card as="article" className="flex flex-col gap-4 sm:flex-row sm:items-center">
       <div className="flex-1 min-w-0">
@@ -441,7 +451,8 @@ function PendienteCard({ req, onPay, expediente }) {
         </div>
       </div>
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-3 sm:shrink-0">
-        <Money clp={req.amount_clp} usd={req.amount_usd > 0 ? req.amount_usd : undefined} size="xl" align="right" />
+        <Money clp={balance.remaining} usd={balance.confirmed === 0 && req.amount_usd > 0 ? req.amount_usd : undefined} size="xl" align="right" />
+        {balance.confirmed > 0 && <p className="text-xs text-success">Abonado: {fmtCLP(balance.confirmed)} · saldo restante</p>}
         <Button onClick={() => onPay(req)} icon={Receipt} variant={pagoEnRevision(req) || comprobanteRechazado(req) ? 'secondary' : 'primary'}>{comprobanteRechazado(req) ? 'Reemplazar comprobante' : pagoEnRevision(req) ? 'Ver revisión' : 'Pagar'}</Button>
       </div>
     </Card>
@@ -485,6 +496,7 @@ function DetalleModal({ req, onClose, onPay, expediente, onReceipt }) {
       <div className="space-y-5">
         {req.description && <p className="text-sm text-ink-700">{req.description}</p>}
         <DescriptionList cols={2} items={items} />
+        <PaymentCredits request={req} />
         {req.status !== 'cancelled' && <PaymentReceipts request={req} onChange={onReceipt} />}
         {req.status === 'cancelled' && req.cancelled_reason && (
           <Callout tone="neutral" title="Motivo de la cancelación">{req.cancelled_reason}</Callout>
@@ -576,7 +588,7 @@ export default function Payments() {
   const pending = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
   const paid = useMemo(() => requests.filter(r => r.status === 'paid'), [requests]);
   const cancelled = useMemo(() => requests.filter(r => r.status === 'cancelled'), [requests]);
-  const pendingTotal = pending.reduce((s, r) => s + Number(r.amount_clp || 0), 0);
+  const pendingTotal = pending.reduce((s, r) => s + paymentBalance(r).remaining, 0);
 
   // Pestaña inicial: pendientes si hay; si no, el historial de pagados.
   const tabActual = tab || (pending.length > 0 ? 'pending' : 'paid');
@@ -598,7 +610,7 @@ export default function Payments() {
     } },
     { key: 'payment_method', header: 'Medio', priority: 2, cell: r => r.payment_method ? paymentMethodLabel(r.payment_method) : <span className="text-ink-500">—</span> },
     tabActual !== 'cancelled' && { key: 'paid_at', header: 'Pagado', priority: 3, cell: r => <span className="tabular">{r.paid_at ? fmtDate(r.paid_at) : '—'}</span>, sortValue: r => (r.paid_at ? new Date(r.paid_at).getTime() : 0) },
-    { key: 'amount_clp', header: 'Monto', align: 'right', cell: r => <Money clp={r.amount_clp} usd={r.amount_usd > 0 ? r.amount_usd : undefined} align="right" />, sortValue: r => Number(r.amount_clp) },
+    { key: 'amount_clp', header: 'Monto', align: 'right', cell: r => <div><Money clp={r.status === 'pending' ? paymentBalance(r).remaining : r.amount_clp} usd={paymentBalance(r).confirmed === 0 && r.amount_usd > 0 ? r.amount_usd : undefined} align="right" />{r.status === 'pending' && paymentBalance(r).confirmed > 0 && <p className="text-xs text-ink-500">Saldo restante</p>}</div>, sortValue: r => r.status === 'pending' ? paymentBalance(r).remaining : Number(r.amount_clp) },
     { key: 'status', header: 'Estado', priority: 2, cell: r => <EstadoPago request={r} /> },
   ].filter(Boolean);
 
@@ -684,7 +696,7 @@ export default function Payments() {
                       <p className="text-13 text-ink-500">{[fmtDate(r.created_at), expedienteDe(r), r.payment_method && paymentMethodLabel(r.payment_method)].filter(Boolean).join(' · ')}</p>
                       <div className="mt-1.5"><EstadoPago request={r} size="sm" /></div>
                     </div>
-                    <Money clp={r.amount_clp} align="right" />
+                    <Money clp={r.status === 'pending' ? paymentBalance(r).remaining : r.amount_clp} align="right" />
                   </div>
                 )}
                 pageSize={25}

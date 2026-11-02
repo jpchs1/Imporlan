@@ -5,6 +5,7 @@ import { Check, Receipt, FileSearch } from '../../../shared/components/Icons';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import { rutaPagar } from './lib';
 import { cuandoLlegaPago, cuadrePagos, pagoEnRevision, pagoEnConciliacion, comprobanteRechazado } from '../../../shared/lib/importacion';
+import { paymentBalance } from '../../../shared/lib/payment-balance';
 import PaymentOverview from '../../../shared/components/PaymentOverview';
 import { inspeccionNoApta, devolucionPedida, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 
@@ -64,6 +65,7 @@ export default function PlanDePagos({ pagos, otros, eleccion, total = 0, cobros 
 function FilaPago({ pago, eleccion, noApta, devolucion }) {
   const { n, pct, clp, cobro, estado } = pago;
   const monto = cobro ? Number(cobro.amount_clp) : clp;
+  const saldo = paymentBalance(cobro);
   const pagado = estado === 'pagado';
   const revision = pagoEnRevision(cobro);
   const reemplazo = comprobanteRechazado(cobro);
@@ -91,7 +93,8 @@ function FilaPago({ pago, eleccion, noApta, devolucion }) {
     <div className="payment-plan__status">
       {pagado ? <StatusBadge kind="pago" status="paid" dot /> : enPausa ? <Badge tone="neutral">{devolucion ? 'Anulado' : 'En pausa'}</Badge> : revision ? <Badge tone="info" dot>En revisión</Badge> : reemplazo ? <Badge tone="warning">Reemplazar comprobante</Badge> : conciliacion ? <Badge tone="info">En conciliación</Badge> : porPagar ? <Badge tone="brand" dot>Disponible para pagar</Badge> : <Badge tone="neutral">{noApta ? (devolucion ? 'No corresponde' : 'Según la lancha') : 'Próxima etapa'}</Badge>}
       <p>{detalle}</p>
-      {porPagar && <BotonEnlace to={rutaPagar(cobro)} variant="primary" size="sm" icon={Receipt}>Realizar Pago {n}</BotonEnlace>}
+      {!pagado && saldo.confirmed > 0 && <p>Abonado: {fmtCLP(saldo.confirmed)} · resta {fmtCLP(saldo.remaining)}</p>}
+      {porPagar && <BotonEnlace to={rutaPagar(cobro)} variant="primary" size="sm" icon={Receipt}>{saldo.confirmed > 0 ? `Abonar saldo ${fmtCLP(saldo.remaining)}` : `Realizar Pago ${n}`}</BotonEnlace>}
       {reemplazo && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>}
       {revision && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Ver comprobante</BotonEnlace>}
       {pagado && <BotonEnlace to="/payments" variant="secondary" size="sm" icon={Receipt}>Ver registro y comprobantes</BotonEnlace>}
@@ -114,7 +117,7 @@ function FilaCobro({ cobro, enPausa = false }) {
       <Money clp={cobro.amount_clp} usd={cobro.amount_usd > 0 ? cobro.amount_usd : undefined} align="right" />
       <div className="flex w-full justify-end sm:w-auto">
         {(revision || reemplazo) && !enPausa ? <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>{reemplazo ? 'Reemplazar comprobante' : 'Comprobante en revisión'}</BotonEnlace> : pendiente && !enPausa ? (
-          <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>
+          <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={Receipt}>Pagar {fmtCLP(paymentBalance(cobro).remaining)}</BotonEnlace>
         ) : pendiente ? (
           <Badge tone="neutral">En pausa</Badge>
         ) : (

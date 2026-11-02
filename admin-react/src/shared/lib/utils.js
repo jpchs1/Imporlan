@@ -98,7 +98,7 @@ export function paymentMethodLabel(m) {
     webpay: 'WebPay', transbank: 'WebPay',
     mercadopago: 'Mercado Pago', mercado_pago: 'Mercado Pago',
     paypal: 'PayPal',
-    transferencia_bancaria: 'Transferencia', transferencia: 'Transferencia',
+    transferencia_bancaria: 'Transferencia', transferencia: 'Transferencia', mixto: 'Medios combinados',
     bank_transfer: 'Transferencia',
     efectivo: 'Efectivo', manual: 'Registrado por Imporlan',
   };

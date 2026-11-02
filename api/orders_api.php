@@ -2792,6 +2792,7 @@ function impAvisarCobroEnChat($res) {
 /** order.eleccion para el panel: además, con el Pago 1 pagado el cliente ya no cambia de lancha. */
 function impEleccionParaPanel($order) {
     $e = impEleccionPublica($order);
+    if($e && impTieneAbonosPago1Pendientes($order))$e['client_can_change']=false;
     // Con el Pago 1 pagado ya no cambia, salvo inspección no apta (se abona a la nueva).
     if ($e && $e['client_can_change'] && !impInspeccionNoApta($order) && impPago1Pagado($order['id'] ?? 0, $order['order_number'] ?? '')) $e['client_can_change'] = false;
     return $e;
@@ -2932,6 +2933,7 @@ function userUnchooseLink($sesion, $input = null) {
         $order = impExpedienteDelCliente($pdo, $sesion, $orderId);
         if (!$order) return impResponderError(403, 'No tienes acceso a este expediente');
         if (!impTieneEleccion($order)) return impResponderError(409, 'No hay una lancha elegida');
+        if (impTieneAbonosPago1Pendientes($order)) return impResponderError(409,'Hay abonos del Pago 1 por conciliar. El equipo debe revisarlos antes de deshacer la elección.');
         if (!impClientePuedeCambiar($order)) return impResponderError(409, 'Tu importación ya avanzó. Para cambiar de lancha, habla con tu agente.');
         if (impPago1Pagado($orderId, $order['order_number'] ?? '')) return impResponderError(409, 'Ya pagaste el Pago 1 de esta importación. Para cambiar de lancha, habla con tu agente.');
 
@@ -2977,6 +2979,7 @@ function adminChooseLink($admin, $input = null) {
         if (!$order) return impResponderError(404, 'Expediente no encontrado');
         $quien = $admin['email'] ?? $admin['sub'] ?? 'admin';
 
+        if(($linkId===0 || $linkId!==intval($order['chosen_link_id'] ?? 0)) && impTieneAbonosPago1Pendientes($order)) return impResponderError(409,'Hay abonos del Pago 1 por conciliar. Revisa su aplicación antes de cambiar o quitar la lancha.');
         if ($linkId === 0) {
             $pdo->prepare("UPDATE orders SET chosen_link_id = NULL, chosen_at = NULL, chosen_by = NULL, chosen_inspection = NULL, chosen_note = NULL, import_steps = NULL, " . impSqlLimpiarInspeccion() . " WHERE id = ?")
                 ->execute([$orderId]);
