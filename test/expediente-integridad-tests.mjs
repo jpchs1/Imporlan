@@ -429,7 +429,7 @@ try {
     { name:'delivery coordination', until:'aduana', label:'Coordinando la entrega', next:'Coordinamos contigo la entrega' },
     { name:'delivered', until:'entrega', label:'Lancha entregada', next:'Tu lancha fue entregada' },
     { name:'without inspection', steps:{disponibilidad:workflowSteps.disponibilidad}, inspection:false, label:'Cerrando la compra', next:'Estamos cerrando la compra' },
-    { name:'second payment', until:'inspeccion', unpaid:2, label:'Cerrando la compra', next:'Te toca: pagar el Pago 2' },
+    { name:'second payment', until:'inspeccion', unpaid:2, label:'Compra en espera de conciliación', next:'Te toca: pagar el Pago 2' },
     { name:'report and pending tasks', steps:{}, stage:'reporte_listo', report:true, missingData:true, unpaid:1, label:'Revisar y aprobar la inspección', next:'Te toca: revisa el reporte y decide' },
     { name:'closed expediente', status:'cancelled', steps:{}, stage:'reporte_listo', report:true, label:'Expediente cerrado', next:'Este expediente está cerrado' },
   ];
@@ -441,7 +441,7 @@ try {
     initial.eleccion = {link_id:101,at:'2026-10-21',by:'cliente',inspection:scenario.inspection !== false,steps,inspection_stage:scenario.stage,inspection_waiting_price:!!scenario.waiting,inspection_client_ok_at:scenario.waiting?'2026-10-29':null,inspection_report:scenario.report?{file_id:26,es_status:'listo'}:null};
     initial.links[0].quote_payments = {p1_pct:7,p1_clp:1260000,p2_pct:63,p2_clp:11340000,p3_pct:30,p3_clp:5400000};
     const requestedPayments = steps.transporte ? [1,2,3] : steps.inspeccion || scenario.inspection === false || scenario.unpaid === 2 ? [1,2] : [1];
-    const requests = requestedPayments.map(n=>({id:`workflow-${n}`,title:`Pago ${n}`,status:scenario.unpaid===n?'pending':'paid',amount_clp:initial.links[0].quote_payments[`p${n}_clp`],paid_at:'2026-10-21',created_at:'2026-10-20',metadata:{order_id:initial.order_number,custom_fields:{pago:n}}}));
+    const requests = requestedPayments.map(n=>({id:`workflow-${n}`,title:`Pago ${n}`,status:scenario.unpaid===n?'pending':'paid',payment_method:scenario.unpaid===n?null:'webpay',payment_id:scenario.unpaid===n?null:`FIXTURE-CAPTURE-${n}`,amount_clp:initial.links[0].quote_payments[`p${n}_clp`],paid_at:'2026-10-21',created_at:'2026-10-20',metadata:{order_id:initial.order_number,custom_fields:{pago:n}}}));
     const flow = await open('customer',{initial,width:i%2?390:1440,handler:async({route,url})=>{
       if(url.pathname.endsWith('payment_requests_api.php')){await route.fulfill({json:{success:true,requests}});return true;}
     }});
