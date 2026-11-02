@@ -1,0 +1,51 @@
+<?php
+/** Real ledger and native operator mail; fictional records and captured SMTP. */
+$box=sys_get_temp_dir().'/purchase-clearance-'.getmypid();$argv[1]=$box;
+require __DIR__.'/fixtures/import-action-bootstrap.php';
+$service=file_get_contents("$box/email_service.php");
+$marker='protected function sendEmail($to, $subject, $htmlContent, $template, $metadata = null, $soloDestinatario = false) {';
+$service=str_replace($marker,$marker.' if(!empty($GLOBALS["PURCHASE_TEST_MAIL_FAIL"])){$GLOBALS["PURCHASE_TEST_FAILURES"] = ($GLOBALS["PURCHASE_TEST_FAILURES"] ?? 0)+1;return ["success"=>false];}',$service);
+file_put_contents("$box/email_service.php",$service);
+$checks=0;$failed=0;
+function check($ok,$label){global $checks,$failed;$checks++;if(!$ok)$failed++;echo($ok?'ok ':'FAIL ').$label."\n";}
+foreach(json_decode(file_get_contents(__DIR__.'/payment-settlement-cases.json'),true) as $case)check(impPaymentSettlement($case['request'])['settled']===$case['settled'],$case['label']);
+$db->exec("ALTER TABLE orders ADD COLUMN usa_token TEXT;ALTER TABLE orders ADD COLUMN usa_link_id INT;UPDATE orders SET import_steps='{\"disponibilidad\":\"2026-10-20\",\"inspeccion\":\"2026-10-21\"}' WHERE id=1");
+$db->sqliteCreateFunction('NOW',function(){return gmdate('Y-m-d H:i:s');},0);
+$db->exec('CREATE TABLE order_events (id INTEGER PRIMARY KEY,order_id INT,event_type TEXT,meta_json TEXT,user_id TEXT,created_at TEXT)');
+$db->exec('CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY,order_id INT,note TEXT,file_ids TEXT,shared_text TEXT,shared_at TEXT,created_at TEXT)');
+$db->exec("UPDATE order_links SET quote_total_clp=10000,quote_payments='{\"p1_clp\":1000,\"p1_pct\":10,\"p2_clp\":5000,\"p2_pct\":50,\"p3_clp\":4000,\"p3_pct\":40}' WHERE id=11");
+$one=['id'=>'settled-p1','user_email'=>'client@example.test','title'=>'Pago 1','amount_clp'=>1000,'status'=>'paid','payment_method'=>'webpay','payment_id'=>'CAPTURE-TEST-P1','metadata'=>['order_id'=>'IMP-DEMO','custom_fields'=>['pago'=>1,'link_id'=>11]]];
+$two=['id'=>'settled-p2','user_email'=>'client@example.test','title'=>'Pago 2','amount_clp'=>5000,'status'=>'pending','metadata'=>['order_id'=>'IMP-DEMO','custom_fields'=>['pago'=>2,'link_id'=>11]],'payment_credits'=>[['id'=>'credit-p2','status'=>'confirmed','bank'=>'global66','amount_clp'=>2000]]];
+function saveClearanceLedger($one,$two){global $box;file_put_contents("$box/payment_requests.json",json_encode(['requests'=>[$one,$two]]));}
+saveClearanceLedger($one,$two);$order=opuOrden($db,1);$link=impLeerLink($db,1,11);
+$s=impPurchaseClearanceFor($db,$order);check(!$s['ready'] && $s['remaining_clp']===3000,'partial Pago 2 cannot authorize purchasing');
+$before=count($GLOBALS['ACTION_SMTP'] ?? []);
+check(opuPedirActualizacion($db,$order,'Current operation update'),'operator can receive an explicit waiting instruction');
+$mail=end($GLOBALS['ACTION_SMTP']);
+$decoded=preg_replace_callback('/(?<=\r\n\r\n)([A-Za-z0-9+\/=\r\n]+)(?=\r\n--)/',function($m){$x=base64_decode($m[1],true);return $x===false?$m[1]:$x;},$mail['body']);
+check(strpos($mail['subject'],'Purchase on hold')!==false && strpos($decoded,'Do not purchase this boat')!==false && strpos($decoded,'Please move forward with the purchase')===false,'pending funding never sends a premature purchase instruction');
+check(strpos($decoded,'client@example.test')===false && strpos($decoded,'Cliente Ejemplo')===false && strpos($decoded,'$3.000')===false && strpos($decoded,'$5.000')===false,'operator notice contains no customer contact or payment amounts');
+$portal=opuPaginaPortal($db,opuOrden($db,1));check(strpos($portal,'Do not purchase this boat')!==false,'private operator portal also holds the purchase');
+check(opuRecordar($db,time()+30*86400)===0,'automatic operator chasing waits while the customer finance task is pending');
+check(impResumePurchase($two)===false && count($GLOBALS['ACTION_SMTP'])===$before+1,'partial bank income cannot trigger the release hook');
+$two['status']='paid';$two['payment_credits'][0]['amount_clp']=5000;
+saveClearanceLedger($one,$two);check(!impPurchaseClearanceFor($db,$order)['ready'],'covering the amount still requires its bank proof');
+$two['receipts']=[['id'=>'bank-proof','credit_id'=>'credit-p2','status'=>'pending','currency'=>'CLP','declared_amount_clp'=>5000]];
+saveClearanceLedger($one,$two);$s=impPurchaseClearanceFor($db,$order);check(!$s['ready'] && $s['review_pending']===1,'a newly uploaded receipt requires one review and does not release buying');
+$associated=impPaymentAssociateCredit('settled-p2','credit-p2','bank-proof','owner@example.test','Verified original evidence against the bank statement.');
+check(!empty($associated['purchase_release_sent']),'the last finance association automatically releases the operator handoff');
+check(impPurchaseClearanceFor($db,$order)['ready'],'fully confirmed installments with reviewed proofs authorize the purchase');
+$sent=count($GLOBALS['ACTION_SMTP']);check($sent===$before+2,'exactly one purchase authorization is sent after the waiting notice');
+impPaymentAssociateCredit('settled-p2','credit-p2','bank-proof','owner@example.test','Verified original evidence against the bank statement.');
+check(count($GLOBALS['ACTION_SMTP'])===$sent && $db->query('SELECT COUNT(*) FROM order_purchase_handoffs')->fetchColumn()==1,'retries cannot send the purchase authorization twice');
+opuAlMarcarHito($db,1,'inspeccion');
+check(count($GLOBALS['ACTION_SMTP'])===$sent,'milestone hooks share the same authorization claim');
+check(!isset(impPasos(opuOrden($db,1))['compra']),'financial clearance never marks a physical purchase complete');
+$db->exec('DELETE FROM order_purchase_handoffs');$GLOBALS['PURCHASE_TEST_MAIL_FAIL']=true;
+check(impResumePurchase($two)===false && $db->query('SELECT status FROM order_purchase_handoffs')->fetchColumn()==='failed','failed delivery remains visible and never claims an authorization was sent');
+impResumePurchase($two);check(($GLOBALS['PURCHASE_TEST_FAILURES'] ?? 0)===1,'a failed handoff cannot auto-retry and duplicate an uncertain delivery');
+$GLOBALS['PURCHASE_TEST_MAIL_FAIL']=false;
+$wrong=$two;$wrong['user_email']='other@example.test';check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'another customer payment cannot authorize this purchase');
+$wrong=$two;$wrong['metadata']['custom_fields']['link_id']=99;check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'a charge for another boat cannot authorize this purchase');
+$wrong=$two;$wrong['amount_clp']=4000;check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'an invoice changed from the agreed plan requires reconciliation');
+echo "$checks purchase-clearance checks, $failed failures\n";exit($failed?1:0);

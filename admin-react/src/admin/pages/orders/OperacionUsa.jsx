@@ -21,7 +21,7 @@ import { categoriaArchivo } from '../../components/useExpedienteFiles';
  * Sólo lo ven admin y soporte (el servidor lo exige). `archivos` es el
  * resultado de useExpedienteFiles: las miniaturas salen de ahí por id.
  */
-export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDetalle, onCotizarAprobado }) {
+export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDetalle, onCotizarAprobado, purchaseReady }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [estado, setEstado] = useState(null);
@@ -48,11 +48,12 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
   useEffect(() => {
     const t = setTimeout(cargar, 0);
     return () => clearTimeout(t);
-  }, [cargar, clave]);
+  }, [cargar, clave, purchaseReady]);
 
   const operador = estado?.operador?.nombre || 'David Morris';
   const nombre = operador.split(' ')[0];
   const hito = hitoPorId(estado?.hito_en_curso);
+  const purchaseHold = estado?.hito_en_curso === 'compra' && estado?.purchase_clearance && !estado.purchase_clearance.ready;
   const updates = estado?.updates || [];
   const porId = new Map((archivos?.files || []).map(f => [Number(f.id), f]));
 
@@ -125,7 +126,7 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
                 ? 'Entrega resuelta; el equipo debe continuar la revisión'
                 : 'El seguimiento de esta entrega es automático. Se solicitan sólo los requisitos pendientes, una vez al día por la mañana.'
               : undefined}
-          >Pedir actualización</Button>
+          >{purchaseHold ? 'Informar espera' : 'Pedir actualización'}</Button>
           <Button size="sm" variant="ghost" icon={Copy} onClick={copiarLink} disabled={!estado?.portal_url} aria-label={`Copiar link de ${nombre}`}>
             <span className="sr-only sm:not-sr-only">Copiar link de {nombre}</span>
           </Button>
@@ -216,7 +217,7 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
       )}
 
       {modalPedir && (
-        <ModalPedirUsa open onClose={() => setModalPedir(false)} operador={operador} hito={hito} esDeUsa={!!estado?.es_de_usa} onEnviar={pedir} />
+        <ModalPedirUsa open onClose={() => setModalPedir(false)} operador={operador} hito={hito} esDeUsa={!!estado?.es_de_usa} onEnviar={pedir} purchaseHold={purchaseHold} />
       )}
       {compartiendo && (
         <ModalCompartirUsa open onClose={() => setCompartiendo(null)} update={compartiendo} nombre={nombre} porId={porId} onCompartir={compartir} />
@@ -505,7 +506,7 @@ function Miniatura({ f, cargando, onVerImagen }) {
 }
 
 /* «Pedir actualización»: un correo en inglés a David, con mensaje opcional. */
-function ModalPedirUsa({ open, onClose, operador, hito, esDeUsa, onEnviar }) {
+function ModalPedirUsa({ open, onClose, operador, hito, esDeUsa, onEnviar, purchaseHold }) {
   const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
   const nombre = operador.split(' ')[0];
@@ -524,8 +525,8 @@ function ModalPedirUsa({ open, onClose, operador, hito, esDeUsa, onEnviar }) {
     <Modal
       open={open}
       onClose={enviando ? undefined : onClose}
-      title={`Pedir una actualización a ${nombre}`}
-      description="Le llega un correo en inglés con su link privado y lo que toca según el hito en curso. Sin datos del cliente ni precios."
+      title={purchaseHold ? `Informar a ${nombre}: compra en espera` : `Pedir una actualización a ${nombre}`}
+      description={purchaseHold ? 'Recibirá una instrucción para esperar la autorización de Imporlan. La compra se libera después de verificar los pagos y sus respaldos.' : 'Le llega un correo en inglés con su link privado y lo que toca según el hito en curso. Sin datos del cliente ni precios.'}
       size="md"
       footer={(
         <>

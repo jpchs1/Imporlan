@@ -3,7 +3,7 @@
 $root = dirname(__DIR__);
 $box = sys_get_temp_dir() . '/inspection-price-' . getmypid();
 mkdir($box, 0700, true);
-foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
+foreach (['operador_usa.php', 'payment_balance.php', 'purchase_clearance.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
 file_put_contents("$box/db_config.php", '<?php function getDbConnection() { return $GLOBALS["db"]; }');
 file_put_contents("$box/email_service.php", '<?php class EmailService { function sendInspectionPriceEmail($to,$mail,$metadata) { $GLOBALS["captured"][] = compact("to","mail","metadata"); return ["success"=>true]; } function sendCustomEmail(...$args) { return ["success"=>true]; } }');
 ini_set('error_log', '/dev/null');

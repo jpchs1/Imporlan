@@ -13,6 +13,7 @@ on:
       - api/payment_requests_api.php
       - api/payment_requests_helper.php
       - api/payment_balance.php
+      - api/purchase_clearance.php
       - api/webpay.php
       - api/mercadopago.php
       - api/cron/inspection_upload_followup.php

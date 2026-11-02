@@ -95,7 +95,7 @@ export default function TuImportacion({
 
       <QueSigue sigue={sigue} agente={agente} titulo={title} datosPendientes={datosPendientes && !declinada && !reporteListo} onCompletarDatos={onCompletarDatos} esperaPrecio={!!eleccion.inspection_waiting_price} />
 
-      <EstadoImportacion eleccion={eleccion} cerrado={cerrado} />
+      <EstadoImportacion eleccion={eleccion} cerrado={cerrado} pagos={pagos} />
 
       {reporteListo && !cerrado && (datosPendientes || pendientes.length > 0 || pagosError) && <section aria-label="Otras tareas pendientes" className="border-b border-line px-(--card-pad) py-3">
         <p className="text-13 font-medium text-ink-900">También tienes pendiente</p>
@@ -315,6 +315,11 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     tituloQue = 'Te toca: completa tus datos y sube tu cédula';
     detalle = 'Los necesitamos para comprar e importar la lancha a tu nombre. Tu cédula es privada: sólo la ve el equipo.';
     accion = <Button icon={User} onClick={onCompletarDatos}>Completar mis datos</Button>;
+  } else if (sigue.tipo === 'respaldo') {
+    icono = FileSearch;
+    tituloQue = `Adjunta el respaldo del Pago ${sigue.pago.n}`;
+    detalle = 'Este dinero ya está registrado. Sólo falta su comprobante para completar la conciliación y continuar con la compra. No repitas la transferencia.';
+    accion = <BotonEnlace to={`/payments?comprobante=${encodeURIComponent(sigue.pago.cobro.id)}`} variant="secondary" icon={FileSearch}>Adjuntar comprobante</BotonEnlace>;
   } else if (sigue.tipo === 'reemplazo_comprobante') {
     icono = FileSearch;
     tono = 'warning';
@@ -328,7 +333,7 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     accion = <BotonEnlace to={rutaPagar(sigue.pago.cobro)} variant="secondary" icon={FileSearch}>Ver comprobante</BotonEnlace>;
   } else if (sigue.tipo === 'conciliacion') {
     icono = FileSearch;
-    tituloQue = 'Estamos conciliando el registro del Pago 1';
+    tituloQue = `Estamos conciliando el registro del Pago ${sigue.pago.n || 1}`;
     detalle = 'Tu operación ya avanzó a la inspección. El equipo revisará el registro antes de solicitarte otra transferencia.';
     accion = <BotonEnlace to="/payments" variant="secondary" icon={Receipt}>Ver mis pagos</BotonEnlace>;
   } else if (sigue.tipo === 'pago') {

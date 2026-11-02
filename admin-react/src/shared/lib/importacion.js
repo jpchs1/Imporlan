@@ -1,4 +1,4 @@
-import { paymentBalance, proofPending, confirmedCredits, creditHasProof } from './payment-balance.js';
+import { paymentBalance, proofPending, confirmedCredits, creditHasProof, paymentSettlement } from './payment-balance.js';
 
 /**
  * Elegir la lancha e importar: lo que el panel del cliente y el admin
@@ -127,9 +127,19 @@ export function queSigue(eleccion, pagos) {
   // esa espera evita anunciar que el cliente no tiene nada pendiente.
   const pendientesDeCobro = (pagos?.pagos || []).find(p => p.estado === 'por_cobrar' && (p.n === 1 || (p.n === 2 && (eleccion.inspection ? eleccion.steps?.inspeccion : eleccion.steps?.disponibilidad)) || (p.n === 3 && eleccion.steps?.transporte)));
   if (pendientesDeCobro) return { tipo: 'preparando_pago', pago: pendientesDeCobro };
+  const respaldos=(pagos?.pagos || []).filter(p=>p.n<=2 && p.estado==='pagado');
+  for(const pago of respaldos) {
+    const s=paymentSettlement(pago.cobro);
+    if(s.missingProofs)return {tipo:'respaldo',pago};
+    if(s.reviewPending)return {tipo:'comprobante',pago};
+    if(!s.settled)return {tipo:'conciliacion',pago};
+  }
   const hito = hitoEnCurso(eleccion);
   if (hito) return { tipo: 'hito', hito };
   return { tipo: 'listo' };
+}
+export function compraConciliada(pagos) {
+  return [1,2].every(n=>{const p=(pagos?.pagos || []).find(p=>p.n===n);return p?.estado==='pagado' && Number(p.cobro?.amount_clp)===Number(p.clp) && paymentSettlement(p.cobro).settled;});
 }
 
 /** Evidencia recibida, todavía sin ingreso confirmado. No supone que se pagó. */

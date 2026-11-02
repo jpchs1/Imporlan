@@ -183,6 +183,18 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   rechaza, vuelve a solicitarse. La solicitud de pago conserva su enlace
   `?pagar=<id>` y cobra sólo el saldo vigente.
 
+## Compra y conciliación (JP, 2-nov-2026)
+
+- Antes de autorizar o cerrar la compra, los Pagos 1 y 2 del plan vigente
+  deben estar cubiertos por ingresos confirmados y respaldos bancarios revisados.
+  Subir un archivo no registra dinero. El cliente ve el saldo de la cuota actual
+  y puede adjuntar los comprobantes de abonos ya registrados sin volver a pagar.
+- Mientras falta dinero o respaldo, el seguimiento diario continúa con quien
+  debe actuar. El coordinador ve una instrucción de espera sin datos financieros
+  ni contacto del cliente. Al completar la conciliación, se envía una sola
+  autorización al coordinador; eso no marca la compra como realizada. Un envío
+  fallido queda registrado para revisión y puede gestionarse desde el expediente.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

@@ -67,8 +67,9 @@ function impReceiptReview($id,$receiptId,$session,$decision,$note) {
             foreach($r['receipts'] as &$receipt)if($receipt['id']===$receiptId){$receipt['status']=$decision;$receipt['reviewed_at']=gmdate('Y-m-d H:i:s');$receipt['reviewed_by']=$session['email'];$receipt['review_note']=trim($note);$found=true;}
             unset($receipt);if(!$found)return null;
             $r['receipt_status']=count(array_filter($r['receipts'],function($x){return ($x['status'] ?? '')!=='rejected';})) ? 'pending' : 'rejected';
-            return ['guardar'=>true];
+            return ['guardar'=>true,'request'=>$r];
         }return null;
     });
+    if($saved && $decision==='reviewed') {try{require_once __DIR__.'/purchase_clearance.php';impResumePurchase($saved['request']);}catch(Throwable $e){error_log('[purchase-handoff] receipt review notice pending');}}
     return $saved ? [200,['message'=>'Revisión registrada. El estado de pago sólo cambia al confirmar el ingreso.']] : [404,'No se encontró el comprobante'];
 }

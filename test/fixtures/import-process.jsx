@@ -24,10 +24,19 @@ if (['history','price','report','declined'].includes(scenario)) {
 }
 if (scenario === 'closed') eleccion.steps = { ...eleccion.steps, compra:'2026-10-26',transporte:'2026-10-27',aduana:'2026-10-28',entrega:'2026-10-29' };
 const receipt = { id:'rc_demo',original_name:'comprobante-ejemplo.pdf',currency:'CLP',declared_amount_clp:11340000,reference:'DEMO-REF-2',status:'pending',download_url:'/__proof.pdf' };
-const request = (n, status) => ({ id:`demo-p${n}`,title:`Pago ${n} · IMP-DEMO`,amount_clp:quote[`p${n}_clp`],status,created_at:'2026-10-25 12:00:00',paid_at:status === 'paid' ? '2026-10-25 12:00:00' : null,payment_method:status === 'paid' ? 'transferencia_bancaria' : null,metadata:{order_id:900,custom_fields:{pago:n}} });
+const request = (n, status) => ({ id:`demo-p${n}`,title:`Pago ${n} · IMP-DEMO`,amount_clp:quote[`p${n}_clp`],status,created_at:'2026-10-25 12:00:00',paid_at:status === 'paid' ? '2026-10-25 12:00:00' : null,payment_method:status === 'paid' ? 'webpay' : null,payment_id:status === 'paid' ? `FIXTURE-CAPTURE-${n}` : null,metadata:{order_id:900,custom_fields:{pago:n}} });
 const requests = [request(1,scenario === 'history' ? 'pending' : 'paid')];
-if (!['history','price','report','declined'].includes(scenario)) requests.push(request(2,scenario === 'closed' ? 'paid' : 'pending'));
+if (!['history','price','report','declined'].includes(scenario)) requests.push(request(2,scenario === 'closed' || scenario.startsWith('paid_') ? 'paid' : 'pending'));
 if (scenario === 'closed') requests.push(request(3,'paid'));
+if (scenario.startsWith('paid_')) {
+  requests[1].payment_method='transferencia_bancaria';
+  requests[1].payment_credits=[{id:'credit-p2',status:'confirmed',bank:'global66',amount_clp:quote.p2_clp,received_on:'2026-10-25',reference:'BANK-FIXTURE-2'}];
+  if (scenario!=='paid_missing') {
+    requests[1].receipts=[{...receipt,credit_id:'credit-p2',status:scenario==='paid_ready'?'reviewed':'pending'}];
+    if(scenario==='paid_ready')requests[1].payment_credits[0].receipt_id=receipt.id;
+  }
+}
+
 if (scenario === 'review') Object.assign(requests[1], { receipts:[receipt],receipt_received_at:'2026-10-26 12:00:00',receipt_status:'pending' });
 if (scenario === 'rejected') Object.assign(requests[1], { receipts:[{...receipt,status:'rejected',review_note:'El archivo no muestra la referencia bancaria.'}],receipt_received_at:'2026-10-26 12:00:00',receipt_status:'rejected' });
 window.fixtureRequests = requests;

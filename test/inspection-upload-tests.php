@@ -3,7 +3,7 @@
 $root = dirname(__DIR__);
 $box = sys_get_temp_dir() . '/inspection-upload-' . getmypid();
 mkdir($box, 0700, true);
-foreach (['operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
+foreach (['operador_usa.php', 'payment_balance.php', 'purchase_clearance.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php'] as $file) copy("$root/api/$file", "$box/$file");
 file_put_contents("$box/db_config.php", '<?php function getDbConnection() { return $GLOBALS["db"]; }');
 file_put_contents("$box/email_service.php", '<?php class EmailService { function sendCustomEmail(...$args) { $GLOBALS["STAFF_CAPTURE"][] = $args; return ["success"=>true]; } function sendExpedienteFilesEmail(...$args) { $GLOBALS["CLIENT_UPLOAD_CAPTURE"][] = $args; return ["success"=>true]; } function sendInspectionUploadEmail($to,$mail,$metadata) { $GLOBALS["RECEIPTS_CAPTURE"][] = compact("to","mail","metadata"); return ["success"=>empty($GLOBALS["RECEIPT_SHOULD_FAIL"])]; } }');
 $RECEIPTS_CAPTURE = [];

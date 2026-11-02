@@ -164,7 +164,7 @@ function linkPaymentCreditReceipt() {
     $in=json_decode(file_get_contents('php://input'),true) ?: [];
     $result=impPaymentAssociateCredit((string)($in['request_id'] ?? ''),(string)($in['credit_id'] ?? ''),(string)($in['receipt_id'] ?? ''),$actor['email'],is_string($in['note'] ?? null)?$in['note']:'');
     if(!$result || isset($result['error'])){http_response_code(422);echo json_encode(['error'=>$result['error'] ?? 'No se pudo asociar el comprobante']);return;}
-    echo json_encode(['success'=>true,'request'=>$result['request']]);
+    echo json_encode(['success'=>true,'request'=>$result['request'],'purchase_release_sent'=>$result['purchase_release_sent'] ?? false]);
 }
 
 /**

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/operador_usa.php';
 require_once __DIR__ . '/import_action_template.php';
 require_once __DIR__ . '/payment_balance.php';
+require_once __DIR__ . '/purchase_clearance.php';
 
 function impActionTemplateHash() { return hash('sha256', hash_file('sha256', __FILE__) . hash_file('sha256', __DIR__ . '/import_action_template.php')); }
 function impActionOwnerEmail() { return defined('IMPORLAN_WORKFLOW_OWNER_EMAIL') ? IMPORLAN_WORKFLOW_OWNER_EMAIL : 'jpchs1@gmail.com'; }
@@ -112,7 +113,9 @@ function impActionPlan($snapshot) {
         if (empty($link['quote_published_at'])) $owner[] = impActionTask('quote','Revisar la cotización final','La embarcación elegida no tiene una cotización publicada. Revisa el precio y el plan antes de comunicar nuevos importes.','Revisar cotización',$admin);
         $stage = opuHitoEnCurso($o);
         $reply = !empty($o['usa_updated_at']) && !empty($o['usa_requested_at']) && strtotime($o['usa_updated_at']) >= strtotime($o['usa_requested_at']);
-        if (($reply && in_array($stage,['disponibilidad','compra','transporte'],true)) || in_array($stage,['aduana','entrega'],true)) {
+        $purchase=$stage==='compra'?impPurchaseClearance($o,$link,$snapshot['payments']):null;
+        if($purchase && $purchase['ready'])$owner[]=impActionTask('purchase_ready','Pagos conciliados: coordinar la compra','Los Pagos 1 y 2 están cubiertos y sus respaldos revisados. Coordina la compra con el vendedor y registra el cierre sólo con la evidencia correspondiente.','Revisar compra',$admin);
+        if (($stage!=='compra' && $reply && in_array($stage,['disponibilidad','transporte'],true)) || in_array($stage,['aduana','entrega'],true)) {
             $owner[] = impActionTask('milestone','Revisar el siguiente hito de la operación',in_array($stage,['aduana','entrega'],true) ? 'Da seguimiento a la logística en Chile y registra el avance sólo cuando esté confirmado.' : 'Hay una actualización de EE. UU. Revisa la evidencia y registra el hito sólo cuando corresponda.','Revisar avance',$admin);
         }
     }

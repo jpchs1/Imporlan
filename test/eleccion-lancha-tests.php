@@ -37,7 +37,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 @mkdir("$caja/email-assets",0700,true);
@@ -90,6 +90,7 @@ require "$caja/orders_api.php";
 
 function sembrar() {
     $bd = $GLOBALS['BD'];
+    $bd->exec('DROP TABLE IF EXISTS order_purchase_handoffs');
     $bd->exec('DELETE FROM orders; DELETE FROM order_links; DELETE FROM order_events; DELETE FROM order_usa_updates; DELETE FROM expediente_files; DELETE FROM notifications; DELETE FROM order_client_data;');
     $bd->exec("INSERT INTO orders (id, order_number, customer_email, customer_name, status) VALUES
         (35, 'IMP-00035', 'alberto@example.com', 'Alberto Lathrop', 'in_progress'),
@@ -130,6 +131,20 @@ function orden($id) {
     $st = $GLOBALS['BD']->prepare('SELECT * FROM orders WHERE id = ?');
     $st->execute([$id]);
     return $st->fetch();
+}
+
+/** Fixture: a published agreement and two provider-confirmed installments. */
+function financiarCompraDePrueba() {
+    $o=orden(35);$l=impLeerLink($GLOBALS['BD'],35,$o['chosen_link_id']);
+    if(empty($l['quote_published_at'])) {
+        $pay=['p1_pct'=>7,'p1_clp'=>2870000,'p2_pct'=>63,'p2_clp'=>25830000,'p3_pct'=>30,'p3_clp'=>12300000];
+        $GLOBALS['BD']->prepare("UPDATE order_links SET quote_published_at='2026-10-20',quote_payments=? WHERE id=?")->execute([json_encode($pay),$l['id']]);
+        $l=impLeerLink($GLOBALS['BD'],35,$l['id']);
+    }
+    foreach([1,2] as $n)impSolicitarPago($o,$l,$n,'fixture finance');
+    $data=json_decode(file_get_contents(impArchivoCobros()),true);
+    foreach($data['requests'] as &$r)if(impCobroDelExpediente($r,35,'IMP-00035') && in_array(intval($r['metadata']['custom_fields']['pago'] ?? 0),[1,2],true) && $r['status']!=='cancelled'){$r['status']='paid';$r['payment_method']='webpay';$r['payment_id']='FIXTURE-CAPTURE-'.$r['id'];}
+    unset($r);file_put_contents(impArchivoCobros(),json_encode($data));
 }
 
 /** Corre una acción y devuelve [código, json]. */
@@ -227,6 +242,7 @@ ok($c === 409, 'no se marca inspección si eligió sin inspección');
 [$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true]);
 ok($c === 409 && !isset(impPasos(orden(35))['compra']), 'no se cierra la compra sin confirmar disponibilidad y precio');
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+financiarCompraDePrueba();
 [$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true, 'notify_client' => true]);
 ok($c === 200 && !empty($r['notified']), 'compra cerrada, con aviso');
 $h = sinDavid();
@@ -344,7 +360,7 @@ llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilida
 $d = aDavid();
 ok(count($d) === 1 && strpos($d[0]['html'], 'coordinate the technical survey') !== false, 'al marcar disponibilidad, se le pide la inspección');
 $CORREOS = [];
-foreach (['inspeccion', 'compra'] as $h) llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => $h, 'done' => true]);
+foreach (['inspeccion', 'compra'] as $h) { if($h==='compra')financiarCompraDePrueba();llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => $h, 'done' => true]); }
 ok(count(aDavid()) === 2 && strpos(aDavid()[1]['html'], 'pickup') !== false, 'después la compra y el transporte');
 $CORREOS = [];
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true]);
@@ -495,6 +511,7 @@ ok(count($hito) === 1 && strpos($hito[0]['html'], 'Pagar el Pago 2') !== false &
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => false]);
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'inspeccion', 'done' => true]);
 ok(count(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 2; })) === 1, 'desmarcar y volver a marcar no duplica el Pago 2');
+financiarCompraDePrueba();
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true]);
 ok(count(vigentes()) === 2, 'la compra cerrada no gatilla pagos');
 [$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'notify_client' => false]);
@@ -796,6 +813,9 @@ ok(opuPriceReview($BD,orden(35),$price['request_id'],$price['revision'],$admin,'
 [$code,$data] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'inspeccion','done'=>true]);
 ok($code === 200 && isset(impPasos(orden(35))['inspeccion']), 'confirmación revisada permite continuar con aprobación explícita');
 ok($data['pago']['n'] === 2 && $data['pago']['amount_clp'] === 61740000, 'Pago 2 conserva el monto de la cotización publicada');
+[$blocked] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
+ok($blocked===409 && !isset(impPasos(orden(35))['compra']),'compra sigue bloqueada con inspección aprobada y Pago 2 sin conciliar');
+financiarCompraDePrueba();
 [$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
 ok($code === 200 && isset(impPasos(orden(35))['compra']), 'compra requiere su propio hito explícito');
 

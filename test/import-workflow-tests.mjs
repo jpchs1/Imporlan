@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { paymentSettlement } from '../admin-react/src/shared/lib/payment-balance.js';
 import { cobrosDelExpediente, pagosConCobros, cuadrePagos, queSigue, estadoDeImportacion, hitosDe, pagoEnRevision, comprobanteRechazado } from '../admin-react/src/shared/lib/importacion.js';
 let checks = 0;
 function check(condition, label) { assert.ok(condition, label); console.log(`PASS ${++checks}: ${label}`); }
 const chosen = { link_id: 11, inspection: true, steps: {} };
 const plan = [1, 2, 3].map(n => ({ n, pct: n === 1 ? 7 : n === 2 ? 63 : 30, clp: n * 1000 }));
-const req = (id, ref, n, status = 'pending') => ({ id, title: `Pago ${n}`, status, metadata: { order_id: ref, custom_fields: { pago: n } }, amount_clp: n * 1000 });
+const req = (id, ref, n, status = 'pending') => ({ id, title: `Pago ${n}`, status, metadata: { order_id: ref, custom_fields: { pago: n } }, amount_clp: n * 1000, payment_method:status==='paid'?'webpay':null, payment_id:status==='paid'?'FIXTURE-CAPTURE-'+id:null });
 const requests = [req('id', 35, 1), req('number', 'IMP-00035', 2), req('other', 36, 3), req('empty', '', 3)];
+for(const item of JSON.parse(readFileSync(new URL('./payment-settlement-cases.json',import.meta.url),'utf8')))check(paymentSettlement(item.request).settled===item.settled,item.label);
 check(cobrosDelExpediente(requests, 35, 'IMP-00035').map(r => r.id).join() === 'id,number', 'internal and public references connect to the same expediente');
 check(cobrosDelExpediente([req('case', ' imp-00035 ', 1)], 35, 'IMP-00035').length === 1, 'manual references tolerate whitespace and case');
 check(cobrosDelExpediente([req('foreign', 36, 2)], 35, 'IMP-00035').length === 0, 'other expediente charges remain separate');
