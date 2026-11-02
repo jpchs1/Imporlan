@@ -15,7 +15,7 @@ import PaymentReceipts from '../../shared/components/PaymentReceipts';
 import { FileOpen } from '../../shared/components/FileDownload';
 import { openFile } from '../../shared/lib/file-download';
 import PaymentCredits from '../../shared/components/PaymentCredits';
-import { paymentBalance } from '../../shared/lib/payment-balance';
+import { paymentBalance, creditHasProof, receiptLinked } from '../../shared/lib/payment-balance';
 import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
 
 // These side effects run only from the explicit payment action.
@@ -214,6 +214,13 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
   const [processing, setProcessing] = useState(false);
   const [showBank, setShowBank] = useState(false);
   const [receiptSubmitted, setReceiptSubmitted] = useState(false);
+  const [showProof, setShowProof] = useState(!!paymentRequest?.proofIntent);
+  const [proofCredit, setProofCredit] = useState(() => {
+    const missing = (paymentRequest?.payment_credits || []).filter(c => c.status === 'confirmed' && ['global66','santander','otro'].includes(c.bank) && !creditHasProof(paymentRequest,c) && !(paymentRequest.receipts || []).some(r => r.credit_id === c.id && r.status !== 'rejected' && !receiptLinked(paymentRequest,r)));
+    return missing.find(c => c.id === paymentRequest?.proofCreditId) || (paymentRequest?.proofIntent && missing.length === 1 ? missing[0] : null);
+  });
+  const proofRef = useRef(null);
+  useEffect(() => { if(showProof) proofRef.current?.scrollIntoView({block:'nearest'}); }, [showProof, proofCredit]);
 
   if (!paymentRequest) return null;
   const pr = paymentRequest;
@@ -224,7 +231,9 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
   const meta = pr.metadata || {};
   const awaitingReceiptReview = receiptSubmitted || pagoEnRevision(pr);
   const needsReplacement = comprobanteRechazado(pr);
-  const evidenceScreen = awaitingReceiptReview || needsReplacement;
+  const evidenceScreen = showProof || awaitingReceiptReview || needsReplacement;
+  const bankFlow = evidenceScreen || showBank || method === 'transfer';
+  function attachProof(credit = null) { setProofCredit(credit);setShowProof(true);setShowBank(false); }
 
   async function handleWebPay() {
     setProcessing(true);
@@ -285,9 +294,9 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
     <Modal
       open={open}
       onClose={processing ? undefined : onClose}
-      title={needsReplacement ? 'Reemplazar comprobante' : awaitingReceiptReview ? 'Comprobante en revisión' : showBank ? 'Datos para transferir' : 'Pagar'}
+      title={needsReplacement ? 'Reemplazar comprobante' : awaitingReceiptReview ? 'Comprobante en revisión' : showProof ? 'Adjuntar comprobante' : showBank ? 'Datos para transferir' : 'Pagar'}
       description={pr.title}
-      size="md"
+      size="lg"
       footer={evidenceScreen ? <Button onClick={onClose}>Cerrar</Button> : showBank ? (
         <>
           <Button variant="secondary" onClick={() => setShowBank(false)}>Elegir otro medio</Button>
@@ -305,11 +314,12 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
       )}
     >
       <div className="space-y-5">
-        <PaymentCredits request={pr} />
-        <div className="flex items-start justify-between gap-4 rounded-lg bg-canvas border border-line px-4 py-3">
+        <ol className="payment-flow" aria-label="Pasos de este pago"><li aria-current={!evidenceScreen && !showBank ? 'step' : undefined}><span>1</span>Elige cómo pagar</li><li aria-current={evidenceScreen || showBank ? 'step' : undefined}><span>2</span>{bankFlow ? 'Adjunta tu comprobante' : 'Paga en el sitio seguro'}</li><li><span>3</span>{bankFlow ? 'Confirmamos el ingreso' : 'Actualizamos tu estado'}</li></ol>
+        <PaymentCredits request={pr} onAttachProof={attachProof} />
+        {!pr.payment_credits?.length && <div className="flex items-start justify-between gap-4 rounded-lg bg-canvas border border-line px-4 py-3">
           <div className="min-w-0">
             <p className="eyebrow">{evidenceScreen ? 'Monto de la solicitud' : 'Monto a pagar'}</p>
-            <Money clp={due} usd={balance.confirmed === 0 && pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
+            <Money clp={evidenceScreen ? balance.total : due} usd={balance.confirmed === 0 && pr.amount_usd > 0 ? pr.amount_usd : undefined} size="xl" />
           </div>
           {(expediente || meta.boat_name) && (
             <div className="text-right text-13 text-ink-500 shrink-0 max-w-[45%]">
@@ -317,15 +327,18 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
               {meta.boat_name && <p className="truncate">{meta.boat_name}</p>}
             </div>
           )}
-        </div>
+        </div>}
 
-        {evidenceScreen ? <><Callout tone={needsReplacement ? 'warning' : 'info'} title={needsReplacement ? 'Adjunta el comprobante corregido' : 'Comprobante recibido · ingreso en revisión'}>{needsReplacement ? 'Revisa la observación del equipo y adjunta otro archivo en este mismo pago.' : 'No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.'}</Callout><PaymentReceipts request={pr} onChange={onReceipt} /></> : showBank ? (
+        {evidenceScreen ? <div ref={proofRef} className="space-y-4"><Callout tone={needsReplacement ? 'warning' : 'info'} title={needsReplacement ? 'Adjunta el comprobante corregido' : proofCredit ? `Respaldo del abono de ${fmtCLP(proofCredit.amount_clp)}` : awaitingReceiptReview ? 'Comprobante recibido · ingreso en revisión' : '¿Ya hiciste la transferencia?'}>{needsReplacement ? 'Revisa la observación del equipo y adjunta otro archivo en este mismo pago.' : proofCredit ? 'Este dinero ya está registrado. Adjunta únicamente su comprobante; no debes transferir ese monto otra vez.' : awaitingReceiptReview ? 'No vuelvas a pagar. Estamos verificando el ingreso y la referencia de tu transferencia.' : 'Guarda el comprobante emitido por tu banco. El equipo lo revisará y actualizará el estado de este pago.'}</Callout><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true);onReceipt?.(r); }} credit={proofCredit} proofOnly />{pr.status === 'pending' && !pr.proofIntent && !awaitingReceiptReview && !needsReplacement && <Button variant="ghost" onClick={() => { setShowProof(false);setProofCredit(null); }}>Volver a los medios de pago</Button>}</div> : showBank ? (
           <><DatosTransferencia amount={due} requestId={pr.id} concepto={expediente ? `${expediente} · ${pr.title}` : pr.title} /><PaymentReceipts request={pr} onChange={r => { setReceiptSubmitted(true); onReceipt?.(r); }} /></>
         ) : (
-          <div>
+          <div className="space-y-4">
+            <div className="payment-proof-entry"><div><strong className="text-sm text-ink-900">¿Ya transferiste?</strong><p>Adjunta el respaldo aquí y evita repetir el pago.</p></div><Button variant="secondary" icon={Receipt} onClick={() => attachProof()}>Adjuntar comprobante</Button></div>
+            <div>
             <p className="text-sm font-medium text-ink-900 mb-2">Elige cómo pagar</p>
             <SelectorMedio value={method} onChange={setMethod} disabled={processing} />
             <p className="text-xs text-ink-500 mt-3">Te llevamos al sitio seguro de {method === 'mercadopago' ? 'Mercado Pago' : 'Transbank'} y vuelves al panel al terminar.</p>
+            </div>
           </div>
         )}
       </div>
@@ -496,7 +509,7 @@ function DetalleModal({ req, onClose, onPay, expediente, onReceipt }) {
       <div className="space-y-5">
         {req.description && <p className="text-sm text-ink-700">{req.description}</p>}
         <DescriptionList cols={2} items={items} />
-        <PaymentCredits request={req} />
+        <PaymentCredits request={req} onAttachProof={c => { onClose();onPay({...req,proofIntent:true,proofCreditId:c.id}); }} />
         {req.status !== 'cancelled' && <PaymentReceipts request={req} onChange={onReceipt} />}
         {req.status === 'cancelled' && req.cancelled_reason && (
           <Callout tone="neutral" title="Motivo de la cancelación">{req.cancelled_reason}</Callout>
@@ -529,6 +542,8 @@ export default function Payments() {
   const expedienteDe = useCallback((r) => referenciaExpediente(r, ordersById), [ordersById]);
   const [params, setParams] = useSearchParams();
   const pagarParam = params.get('pagar');
+  const comprobanteParam = params.get('comprobante');
+  const targetParam = comprobanteParam || pagarParam;
   const pagarAtendido = useRef(null);
   const loadGeneration = useRef(0);
 
@@ -540,7 +555,11 @@ export default function Payments() {
     .then((data) => {
       if (ticket !== loadGeneration.current) return;
       const next = data.requests || data.items || [];setRequests(next);setError(null);
-      setPayTarget(current => current ? next.find(r => r.id === current.id && r.status === 'pending') || null : null);
+      setPayTarget(current => {
+        if (!current) return null;
+        const fresh=next.find(r => r.id === current.id && (r.status === 'pending' || (current.proofIntent && r.status === 'paid')));
+        return fresh ? {...fresh,proofIntent:current.proofIntent,proofCreditId:current.proofCreditId} : null;
+      });
       setDetalle(current => current ? next.find(r => r.id === current.id) || null : null);
     })
     .catch((e) => { if (ticket === loadGeneration.current) setError(e?.message || 'No pudimos cargar tus pagos.'); })
@@ -558,26 +577,30 @@ export default function Payments() {
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
 
-  // Enlace directo `#/payments?pagar=<id>` (desde «Tu importación»): con la
+  // Enlaces `?pagar=<id>` y `?comprobante=<id>`: el segundo abre sólo el respaldo,
+  // incluso si el pago ya está confirmado. Con la
   // lista cargada se abre el modal de pago de esa solicitud; si ya está
   // pagada o cancelada, su detalle. El parámetro se quita de la URL para que
   // cerrar el modal no lo vuelva a abrir. Se atiende una sola vez por id.
   useEffect(() => {
-    if (!pagarParam || loading || pagarAtendido.current === pagarParam) return;
-    const req = requests.find(r => String(r.id) === String(pagarParam));
+    const intentKey = `${comprobanteParam ? 'proof' : 'pay'}:${targetParam}`;
+    if (!targetParam || loading || pagarAtendido.current === intentKey) return;
+    const req = requests.find(r => String(r.id) === String(targetParam));
     const t = setTimeout(() => {
-      pagarAtendido.current = pagarParam;
+      pagarAtendido.current = intentKey;
       if (req) {
-        if (req.status === 'pending') setPayTarget(req); else setDetalle(req);
+        if (comprobanteParam && req.status !== 'cancelled') setPayTarget({...req,proofIntent:true});
+        else if (req.status === 'pending') setPayTarget(req); else setDetalle(req);
       } else if (requests.length > 0) {
         toast?.({ type: 'error', title: 'No encontramos ese cobro', description: 'Puede que ya no esté vigente. Revisa la lista.' });
       }
       const next = new URLSearchParams(params);
       next.delete('pagar');
+      next.delete('comprobante');
       setParams(next, { replace: true });
     }, 0);
     return () => clearTimeout(t);
-  }, [pagarParam, loading, requests, params, setParams, toast]);
+  }, [targetParam, comprobanteParam, loading, requests, params, setParams, toast]);
 
   function recargar() {
     setLoading(true);
@@ -707,7 +730,7 @@ export default function Payments() {
       )}
 
       {/* Se montan solo abiertos: cada apertura parte con el estado limpio. */}
-      {payTarget && <PayModal open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} onReceipt={r => receiptRecorded(payTarget.id, r)} />}
+      {payTarget && <PayModal key={`${payTarget.id}:${!!payTarget.proofIntent}`} open onClose={() => setPayTarget(null)} paymentRequest={payTarget} toast={toast} expediente={expedienteDe(payTarget)} onReceipt={r => receiptRecorded(payTarget.id, r)} />}
       {detalle && <DetalleModal req={detalle} onClose={() => setDetalle(null)} onPay={setPayTarget} expediente={expedienteDe(detalle)} onReceipt={r => receiptRecorded(detalle.id, r)} />}
       {showCustomPay && <CustomPayModal open onClose={() => setShowCustomPay(false)} toast={toast} user={user} />}
     </div>

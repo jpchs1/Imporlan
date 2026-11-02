@@ -11,7 +11,7 @@ function impReceiptFind($id) {
     return impConCobros(function(&$store)use($id){foreach($store['requests'] as $r)if($r['id']===$id)return $r;return null;});
 }
 function impReceiptPublic($r) {
-    return ['id'=>$r['id'],'original_name'=>$r['original_name'],'mime_type'=>$r['mime_type'],'file_size'=>$r['file_size'],'uploaded_at'=>$r['uploaded_at'],'reference'=>$r['reference'],'currency'=>$r['currency'] ?? 'CLP','declared_amount'=>$r['declared_amount'] ?? (string)$r['declared_amount_clp'],'declared_amount_clp'=>$r['declared_amount_clp'],'status'=>$r['status'] ?? 'pending','review_note'=>$r['review_note'] ?? null,'download_url'=>'/api/payment_receipts_api.php?action=download&id='.rawurlencode($r['id'])];
+    return ['id'=>$r['id'],'credit_id'=>$r['credit_id'] ?? null,'original_name'=>$r['original_name'],'mime_type'=>$r['mime_type'],'file_size'=>$r['file_size'],'uploaded_at'=>$r['uploaded_at'],'reference'=>$r['reference'],'currency'=>$r['currency'] ?? 'CLP','declared_amount'=>$r['declared_amount'] ?? (string)$r['declared_amount_clp'],'declared_amount_clp'=>$r['declared_amount_clp'],'status'=>$r['status'] ?? 'pending','review_note'=>$r['review_note'] ?? null,'download_url'=>'/api/payment_receipts_api.php?action=download&id='.rawurlencode($r['id'])];
 }
 function impReceiptDirectory() {
     $dir=__DIR__.'/payment_receipts/';
@@ -33,9 +33,13 @@ function impReceiptUpload($id,$session,$file,$fields,$move='move_uploaded_file')
     $pattern=$currency==='CLP' ? '/^[1-9][0-9]{0,11}$/D' : '/^(?:0|[1-9][0-9]{0,8})(?:\.[0-9]{1,2})?$/D';
     if (!is_scalar($amount) || !preg_match($pattern,(string)$amount) || floatval($amount)<=0) return [400,'Indica el monto transferido sin separador de miles; en USD usa punto decimal'];
     $reference=$fields['reference'] ?? '';
+    $creditId=$fields['credit_id'] ?? null;
+    if ($creditId!==null && (!is_string($creditId) || !count(array_filter($request['payment_credits'] ?? [],function($c)use($creditId){return ($c['id'] ?? '')===$creditId && ($c['status'] ?? '')==='confirmed' && in_array($c['bank'] ?? '',['global66','santander','otro'],true);})))) return [400,'Selecciona un abono bancario confirmado de este pago'];
     if (!is_string($reference) || mb_strlen(trim($reference))<3 || mb_strlen(trim($reference))>120) return [400,'Indica la referencia o número de transferencia (3 a 120 caracteres)'];
     $receipt=['id'=>'rc_'.bin2hex(random_bytes(16)),'original_name'=>mb_substr(basename((string)($file['name'] ?? 'comprobante')),0,160),'mime_type'=>$mime,'file_size'=>$size,'uploaded_at'=>gmdate('Y-m-d H:i:s'),'uploaded_by'=>strtolower($session['email']),'reference'=>trim($reference),'declared_amount_clp'=>intval($amount),'status'=>'pending'];
     $receipt['stored_name']=$receipt['id'].'.'.$allowed[$mime]; $path=impReceiptDirectory().$receipt['stored_name'];
+    // Customer-selected hint only. Finance still reviews and explicitly associates it; no money is booked here.
+    if($creditId!==null)$receipt['credit_id']=$creditId;
     $receipt['currency']=$currency;$receipt['declared_amount']=(string)$amount;$receipt['declared_amount_clp']=$currency==='CLP' ? intval($amount) : null;
     if (!$move($file['tmp_name'],$path)) return [500,'No se pudo guardar el comprobante'];
     $saved=impConCobros(function(&$store)use($id,$session,$receipt){
