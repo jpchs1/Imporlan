@@ -49,4 +49,11 @@ handlePaymentRequestPaid('fixture-p2','TEST-GATEWAY-CAPTURE','webpay',null,8000)
 check(impPaymentRead('fixture-p2')['status']==='paid' && impPaymentBalance(impPaymentRead('fixture-p2'))['confirmed']===10000,'verified gateway capture settles only the remaining invoice balance');
 handlePaymentRequestPaid('fixture-p2','TEST-GATEWAY-CAPTURE','webpay',null,8000);
 check(count(impPaymentRead('fixture-p2')['payment_credits'])===2 && count($GLOBALS['ACTION_SMTP'])===$mails+2 && count(array_filter($GLOBALS['ACTION_SMTP'],function($m){return $m['to']==='client@example.test';}))===1,'gateway callback retry preserves credits and sends one full-payment confirmation');
+resetLedger();$attemptA=impPaymentAttemptOrder();$attemptB=impPaymentAttemptOrder();
+check($attemptA!==$attemptB && strlen($attemptA)===26 && strlen($attemptB)===26,'separate WebPay attempts get distinct server-issued Transbank-compatible order identifiers');
+handlePaymentRequestPaid('fixture-p2',$attemptA,'webpay',null,4000);
+handlePaymentRequestPaid('fixture-p2',$attemptA,'webpay',null,4000);
+check(impPaymentBalance(impPaymentRead('fixture-p2'))['confirmed']===4000,'repeated callback for one WebPay attempt cannot duplicate a partial capture');
+handlePaymentRequestPaid('fixture-p2',$attemptB,'webpay',null,6000);
+check(impPaymentRead('fixture-p2')['status']==='paid' && count(impPaymentRead('fixture-p2')['payment_credits'])===2,'a second distinct WebPay capture on the same invoice is recorded and settles its actual remainder');
 echo "$checks partial-payment checks, $failed failures\n";exit($failed?1:0);

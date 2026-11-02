@@ -143,7 +143,7 @@ export function comprobanteRechazado(cobro) {
 
 /** El mismo desfase histórico que el seguimiento deriva al equipo para conciliar. */
 export function pagoEnConciliacion(pago, eleccion) {
-  return pago?.n === 1 && pago?.estado === 'por_pagar' && paymentBalance(pago.cobro).confirmed === 0 && !!(
+  return pago?.n === 1 && pago?.estado === 'por_pagar' && !!(
     eleccion?.inspection_report || eleccion?.inspection_client_ok_at || eleccion?.inspection_waiting_price
     || eleccion?.inspection_stage === 'aprobada' || eleccion?.steps?.inspeccion
     || eleccion?.steps?.compra || eleccion?.steps?.transporte || eleccion?.steps?.aduana || eleccion?.steps?.entrega

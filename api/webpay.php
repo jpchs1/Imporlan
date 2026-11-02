@@ -124,7 +124,7 @@ function createTransaction($data) {
     }
 
     $sessionId = $data['session_id'] ?? 'session_' . time();
-    $buyOrder = $data['buy_order'];
+    $buyOrder = !empty($data['payment_request_id']) ? impPaymentAttemptOrder() : $data['buy_order'];
     
     // Store purchase info in session for later use in callback
     $purchaseInfo = [
@@ -439,7 +439,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     $paymentRequestId = $purchaseInfo['payment_request_id'] ?? null;
     if ($paymentRequestId) {
         require_once __DIR__ . '/payment_requests_helper.php';
-        handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null, intval($amount));
+        handlePaymentRequestPaid($paymentRequestId, $buyOrder, 'webpay', $purchase['id'] ?? null, intval($amount));
     }
     
     // Send confirmation email if we have the user's email

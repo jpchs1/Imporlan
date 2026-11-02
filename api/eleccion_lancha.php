@@ -116,6 +116,7 @@ function impValidarEleccionCliente($order, $link) {
     if (!$order) return [404, 'Expediente no encontrado'];
     if (impExpedienteCerrado($order)) return [409, 'Este expediente ya está cerrado. Escríbele a tu agente si quieres retomarlo.'];
     if (!$link || intval($link['order_id'] ?? 0) !== intval($order['id'] ?? -1)) return [404, 'Esa lancha no está en tu expediente'];
+    if(intval($order['chosen_link_id'] ?? 0)!==intval($link['id'] ?? 0) && impTieneAbonosPago1Pendientes($order)) return [409,'Hay abonos del Pago 1 por conciliar. El equipo debe revisar su aplicación antes de cambiar de lancha.'];
     if (trim((string) ($link['url'] ?? '')) === '') return [400, 'Esa opción todavía no tiene anuncio'];
     if (in_array($link['link_status'] ?? 'active', ['sold', 'unavailable'], true)) return [409, 'Esa lancha ya no está disponible'];
     if (in_array(intval($link['id'] ?? 0), impLanchasDeclinadas($order), true)) {
@@ -365,6 +366,11 @@ function impPago1($orderId, $orderNumber = '') {
 function impPago1Pagado($orderId, $orderNumber = '') {
     $c = impPago1($orderId, $orderNumber);
     return $c && ($c['status'] ?? '') === 'paid';
+}
+
+/** Read outside payment-store callbacks: a partial first installment requires explicit reconciliation. */
+function impTieneAbonosPago1Pendientes($order) {
+    return (bool)impConCobros(function(&$data)use($order){foreach($data['requests'] as $r)if(impEsPago1DelExpediente($r,$order['id'] ?? 0,$order['order_number'] ?? '') && ($r['status'] ?? '')==='pending' && !empty($r['payment_credits']))return true;return false;});
 }
 
 /**

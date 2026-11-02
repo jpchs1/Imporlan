@@ -79,8 +79,8 @@ function impActionPlan($snapshot) {
             if($balance['confirmed']>0 && $chargeLink && $chargeLink!==intval($o['chosen_link_id'])) {
                 $owner[]=impActionTask('reconcile_payment','Revisar abonos de la elección anterior','Hay ingresos confirmados en una solicitud de otra lancha. Revisa su aplicación antes de pedir un nuevo abono.','Revisar abonos',$admin);$paymentChosen=true;continue;
             }
-            if ($n===1 && $balance['confirmed']===0 && (!empty($o['inspection_report_at']) || $approved || isset(impPasos($o)['compra']))) {
-                $owner[]=impActionTask('reconcile_payment','Conciliar el Pago 1 con el avance registrado','La operación ya avanzó a inspección o compra, pero el Pago 1 sigue pendiente en el registro. Verifica el ingreso y corrige su estado; no se vuelve a solicitar al cliente.','Revisar registro de pagos',$admin);
+            if ($n===1 && (!empty($o['inspection_report_at']) || $approved || isset(impPasos($o)['compra']))) {
+                $owner[]=impActionTask('reconcile_payment','Conciliar el Pago 1 con el avance registrado','La operación ya avanzó a inspección o compra, pero el Pago 1 sigue pendiente. Registrado: '.impActionMoney($balance['confirmed']).'. Saldo por conciliar: '.impActionMoney($balance['remaining']).'. Verifica el ingreso y corrige su estado; no se vuelve a solicitar al cliente.','Revisar registro de pagos',$admin);
                 continue;
             }
             if (($n===2 && !($approved || (empty($o['chosen_inspection']) && isset(impPasos($o)['disponibilidad'])))) || ($n===3 && !isset(impPasos($o)['transporte']))) continue;

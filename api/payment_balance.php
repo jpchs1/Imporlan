@@ -124,3 +124,5 @@ function impPaymentAuthenticatedGatewayRequest($id) {
     require_once __DIR__.'/auth_helper.php';
     return impPaymentGatewayRequest($id,requireUserAuthShared());
 }
+/** Transbank buy_order allows 26 characters. Each real attempt gets its own pending record. */
+function impPaymentAttemptOrder() { return 'PR'.bin2hex(random_bytes(12)); }

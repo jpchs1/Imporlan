@@ -284,6 +284,18 @@ ok(strpos(end($cli)['html'], 'apenas esté lista tu cotización final') !== fals
 llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
 llamar('userUnchooseLink', $alberto, ['order_id' => 35]);
 ok(vigentes() === [], 'deshacer la elección anula el Pago 1 pendiente');
+// Confirmed partial income must be reconciled before moving to another boat.
+llamar('userChooseLink', $alberto, ['order_id'=>35,'link_id'=>12]);
+$partialStore=json_decode(file_get_contents(impArchivoCobros()),true);
+foreach($partialStore['requests'] as &$q)if($q['status']==='pending')$q['payment_credits']=[['id'=>'fixture-partial','status'=>'confirmed','amount_clp'=>100000,'bank'=>'global66','received_on'=>'2026-10-20']];
+unset($q);file_put_contents(impArchivoCobros(),json_encode($partialStore));
+$beforePartial=count(cobros());$beforeMails=count($CORREOS);
+foreach([['userChooseLink',$alberto,15],['userUnchooseLink',$alberto,0],['adminChooseLink',$admin,15],['adminChooseLink',$admin,0]] as $attempt){
+    [$c]=llamar($attempt[0],$attempt[1],['order_id'=>35,'link_id'=>$attempt[2]]);
+    ok($c===409 && intval(orden(35)['chosen_link_id'])===12 && count(cobros())===$beforePartial && count($CORREOS)===$beforeMails,'partial Pago 1 blocks '.$attempt[0].' before changing boat, issuing charges or sending notices');
+}
+ok(impEleccionParaPanel(orden(35))['client_can_change']===false,'customer UI disables boat changes while partial Pago 1 awaits reconciliation');
+sembrar();
 // Pagado: ya no se cambia ni se deshace.
 llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
 $data = json_decode(file_get_contents(impArchivoCobros()), true);
