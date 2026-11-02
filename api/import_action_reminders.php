@@ -3,6 +3,7 @@
 require_once __DIR__ . '/operador_usa.php';
 require_once __DIR__ . '/import_action_template.php';
 require_once __DIR__ . '/payment_balance.php';
+require_once __DIR__ . '/purchase_clearance.php';
 
 function impActionTemplateHash() { return hash('sha256', hash_file('sha256', __FILE__) . hash_file('sha256', __DIR__ . '/import_action_template.php')); }
 function impActionOwnerEmail() { return defined('IMPORLAN_WORKFLOW_OWNER_EMAIL') ? IMPORLAN_WORKFLOW_OWNER_EMAIL : 'jpchs1@gmail.com'; }
@@ -59,7 +60,7 @@ function impActionPlan($snapshot) {
         $r=$p['request'];
         $balance=impPaymentBalance($r);
         if($balance['excess']>0)$owner[]=impActionTask('reconcile_excess','Revisar un excedente del pago','Los ingresos confirmados superan el importe de esta solicitud. Revisa su aplicación o devolución; no se abona automáticamente a otro pago.','Revisar excedente',$admin);
-        foreach ($r['receipts'] ?? [] as $receipt) if (($r['status'] ?? '')==='paid' && ($receipt['status'] ?? 'pending')==='pending') { $owner[]=impActionTask('receipt','Revisar un comprobante recibido','Hay evidencia de transferencia pendiente de revisión. Compara el ingreso bancario, el monto y la referencia; un archivo no confirma el pago.','Revisar comprobante',$admin);break; }
+        foreach ($r['receipts'] ?? [] as $receipt) if (($r['status'] ?? '')==='paid' && (($receipt['status'] ?? 'pending')==='pending' || (!empty($r['payment_credits']) && ($receipt['status'] ?? '')!=='rejected' && !impPaymentReceiptLinked($r,$receipt)))) { $owner[]=impActionTask('receipt','Revisar un comprobante recibido','Hay evidencia de transferencia pendiente de revisión o asociación con su abono. Compara el ingreso bancario, el monto y la referencia; un archivo no confirma el pago.','Revisar comprobante',$admin);break; }
         $missing=[];$bankNames=['global66'=>'Global66','santander'=>'Santander','otro'=>'otro banco'];
         foreach(impPaymentCredits($r) as $credit)if(!impPaymentCreditHasProof($r,$credit) && !impPaymentCreditProofSubmitted($r,$credit) && !in_array($credit['bank'],['webpay','mercadopago','paypal'],true)) $missing[]=impActionMoney($credit['amount_clp']).' del '.$credit['received_on'].' en '.($bankNames[$credit['bank']] ?? $credit['bank']);
         if($missing)$proofTasks[]=impActionTask('receipt_upload','Comprobantes pendientes del Pago '.($p['n'] ?: ''),'Los siguientes abonos ya están confirmados: '.implode('; ',$missing).'. Sólo falta adjuntar sus comprobantes en este pago. No repitas esas transferencias.','Adjuntar comprobantes','https://www.imporlan.cl/panel/#/payments?comprobante='.rawurlencode($r['id']));
@@ -112,7 +113,9 @@ function impActionPlan($snapshot) {
         if (empty($link['quote_published_at'])) $owner[] = impActionTask('quote','Revisar la cotización final','La embarcación elegida no tiene una cotización publicada. Revisa el precio y el plan antes de comunicar nuevos importes.','Revisar cotización',$admin);
         $stage = opuHitoEnCurso($o);
         $reply = !empty($o['usa_updated_at']) && !empty($o['usa_requested_at']) && strtotime($o['usa_updated_at']) >= strtotime($o['usa_requested_at']);
-        if (($reply && in_array($stage,['disponibilidad','compra','transporte'],true)) || in_array($stage,['aduana','entrega'],true)) {
+        $purchase=$stage==='compra'?impPurchaseClearance($o,$link,$snapshot['payments']):null;
+        if($purchase && $purchase['ready'])$owner[]=impActionTask('purchase_ready','Pagos conciliados: coordinar la compra','Los Pagos 1 y 2 están cubiertos y sus respaldos revisados. Coordina la compra con el vendedor y registra el cierre sólo con la evidencia correspondiente.','Revisar compra',$admin);
+        if (($stage!=='compra' && $reply && in_array($stage,['disponibilidad','transporte'],true)) || in_array($stage,['aduana','entrega'],true)) {
             $owner[] = impActionTask('milestone','Revisar el siguiente hito de la operación',in_array($stage,['aduana','entrega'],true) ? 'Da seguimiento a la logística en Chile y registra el avance sólo cuando esté confirmado.' : 'Hay una actualización de EE. UU. Revisa la evidencia y registra el hito sólo cuando corresponda.','Revisar avance',$admin);
         }
     }

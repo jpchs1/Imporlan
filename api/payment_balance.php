@@ -97,7 +97,9 @@ function impPaymentAddCredit($id,$input,$actor,$gateway=false) {
 function impPaymentAssociateCredit($id,$creditId,$receiptId,$actor,$note) {
     if(!is_string($note) || mb_strlen($note)>1000)return ['error'=>'La observación debe tener hasta 1000 caracteres.'];
     require_once __DIR__.'/eleccion_lancha.php';
-    return impConCobros(function(&$store)use($id,$creditId,$receiptId,$actor,$note){foreach($store['requests'] as &$r)if(($r['id'] ?? '')===$id){$error=impPaymentLinkReceipt($r,$creditId,$receiptId,$actor,$note);return $error?['error'=>$error]:['guardar'=>true,'request'=>$r];}return ['error'=>'Solicitud no encontrada.'];});
+    $result=impConCobros(function(&$store)use($id,$creditId,$receiptId,$actor,$note){foreach($store['requests'] as &$r)if(($r['id'] ?? '')===$id){$error=impPaymentLinkReceipt($r,$creditId,$receiptId,$actor,$note);return $error?['error'=>$error]:['guardar'=>true,'request'=>$r];}return ['error'=>'Solicitud no encontrada.'];});
+    if(isset($result['request'])) {try{require_once __DIR__.'/purchase_clearance.php';$result['purchase_release_sent']=impResumePurchase($result['request']);}catch(Throwable $e){error_log('[purchase-handoff] reconciliation notice pending');}}
+    return $result;
 }
 /** A late first-payment reconciliation does not restart inspection notifications. */
 function isHistoricalFirstPayment($request) {
@@ -112,6 +114,7 @@ function isHistoricalFirstPayment($request) {
     }catch(Throwable $e){return false;}
 }
 function impPaymentNotifyCompleted($request) {
+    try {require_once __DIR__.'/purchase_clearance.php';impResumePurchase($request);}catch(Throwable $e){error_log('[purchase-handoff] payment notice pending');}
     if(isHistoricalFirstPayment($request))return;
     try {require_once __DIR__.'/email_service.php';(new EmailService())->sendPaymentRequestPaidEmail($request['user_email'],explode('@',$request['user_email'])[0],$request,$request);}catch(Throwable $e){error_log('[payment-credit] confirmation email failed');}
     try {require_once __DIR__.'/operador_usa.php';opuAlPagarCobro($request);}catch(Throwable $e){error_log('[payment-credit] operation hook failed');}

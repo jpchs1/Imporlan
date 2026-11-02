@@ -108,6 +108,7 @@ export const chooseLinkAdmin = (orderId, linkId, { inspection = false, note = ''
 // actualización, compartirla con el cliente y renovar su link privado. Sólo
 // admin y support. Pedir y compartir mandan correo: plazo largo.
 export const getOperacionUsa = (orderId) => request(`${API_BASE}/operador_usa.php?r=admin_estado&order_id=${orderId}`);
+export const autorizarCompraUsa = (orderId,retry=false) => request(`${API_BASE}/operador_usa.php?r=admin_autorizar_compra`,{method:'POST',body:JSON.stringify({order_id:orderId,retry}),timeoutMs:45000});
 export const pedirActualizacionUsa = (orderId, message = '') =>
   request(`${API_BASE}/operador_usa.php?r=admin_pedir`, { method: 'POST', body: JSON.stringify({ order_id: orderId, message }), timeoutMs: 45000 });
 export const compartirActualizacionUsa = (updateId, text) =>

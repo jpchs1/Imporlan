@@ -3,7 +3,7 @@ import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/uti
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
-import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado } from '../../../shared/lib/importacion';
+import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado, compraConciliada } from '../../../shared/lib/importacion';
 import PaymentReceipts from '../../../shared/components/PaymentReceipts';
 import PaymentCredits from '../../../shared/components/PaymentCredits';
 import { paymentBalance, confirmedCredits } from '../../../shared/lib/payment-balance';
@@ -60,6 +60,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
   const hechos = hitos.filter(h => h.hecho).length;
   const plan = planDePagos(link);
   const { pagos, otros } = pagosConCobros(plan, importacion.cobros);
+  const compraLista = compraConciliada({pagos});
   const cuadre = cuadrePagos(plan, importacion.cobros, link?.quote_total_clp || 0);
   const precio = precioChile(link);
   const equipoChile = importacion.puedeCobrar !== false;
@@ -151,7 +152,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
               </div>
             </div>
 
-            <ImportJourney eleccion={eleccion} admin cerrado={['completed', 'cancelled'].includes(detail.status)} />
+            <ImportJourney eleccion={eleccion} admin purchaseHold={equipoChile && !compraLista} cerrado={['completed', 'cancelled'].includes(detail.status)} />
 
             {/* ── El cliente declinó la lancha tras la inspección: qué espera la
                    operación. Sólo el equipo en Chile (lleva montos); el detalle y
@@ -262,7 +263,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                           items={[{ label: 'Desmarcar', icon: RotateCw, onClick: () => importacion.onHito(h, false, false) }]}
                         />
                       ) : (
-                        <Button size="sm" variant="secondary" icon={Check} onClick={() => setModalHito(h)}>Marcar hecho</Button>
+                        <div>{equipoChile && h.id==='compra' && !compraLista && <p className="text-xs text-ink-500 mb-2 max-w-52">Se habilita al conciliar los Pagos 1 y 2 con sus comprobantes.</p>}<Button size="sm" variant="secondary" icon={Check} disabled={equipoChile && h.id==='compra' && (!compraLista || importacion.cargandoCobros || !!importacion.cobrosError)} onClick={() => setModalHito(h)}>Marcar hecho</Button></div>
                       )}
                     </li>
                   );
@@ -339,7 +340,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
             {/* ── Operación en EE. UU. (sólo el equipo en Chile) ── */}
             {equipoChile && <ImportReminders orderId={detail.id} />}
             {equipoChile && importacion.operacionUsa !== false && (
-              <OperacionUsa detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} onCotizarAprobado={link && onCotizar ? value => onCotizar({ ...link, value_to_negotiate_usd: value }) : undefined} />
+              <OperacionUsa purchaseReady={compraLista} detail={detail} eleccion={eleccion} archivos={archivos} onRecargarDetalle={importacion.onRecargar} onCotizarAprobado={link && onCotizar ? value => onCotizar({ ...link, value_to_negotiate_usd: value }) : undefined} />
             )}
           </>
         )}

@@ -26,6 +26,8 @@ $s['order']['import_steps']=json_encode(['inspeccion'=>'2026-10-29']); check(!in
 check(in_array('charge',kinds(audience($s,'owner')),true),'due Pago 2 without a request prompts owner review rather than creates a charge');
 $base=impActionSnapshot($db,1); $base['client_data_complete']=true;$base['order']['inspection_client_ok_at']=null;$base['order']['inspection_report_at']=null;
 $s=$base; $s['payments']=[payment(1,'paid'),payment()]; check(audience($s)===null,'paid payment overrides stale pending duplicate');
+$unlinked=$base;$unlinked['payments']=[payment(2,'paid')];$unlinked['payments'][0]['payment_credits']=[['id'=>'bank-credit','status'=>'confirmed','bank'=>'global66','amount_clp'=>2987981]];$unlinked['payments'][0]['receipts']=[['id'=>'reviewed-proof','credit_id'=>'bank-credit','status'=>'reviewed']];
+check(audience($unlinked)===null && in_array('receipt',kinds(audience($unlinked,'owner')),true),'a reviewed but unassociated proof keeps follow-up with finance until the paid credit is reconciled');
 foreach (['cancelled','paid'] as $status) { $s=$base; $s['payments']=[payment(1,$status)]; check(audience($s)===null,"$status charge never asks for payment"); }
 foreach ([payment(1,'pending','OTHER'),array_replace(payment(),['user_email'=>'other@example.test']),array_replace(payment(),['amount_clp'=>0])] as $r) { $s=$base; $s['payments']=[$r]; check(audience($s)===null,'foreign recipient/order or zero amount cannot become a client reminder'); }
 $s=$base; $s['payments'][0]['metadata']=['order_id'=>999,'order_number'=>'IMP-DEMO','custom_fields'=>['pago'=>1]]; check(audience($s)===null,'explicit foreign internal order id wins over matching public reference');

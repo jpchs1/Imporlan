@@ -48,10 +48,11 @@ try {
     await page.route('**/api/**',async route=>{
       if(route.request().method()!=='GET')mutations.push(route.request().url());
       const u=new URL(route.request().url());
+      if(u.pathname.endsWith('operador_usa.php') && u.searchParams.get('r')==='admin_estado' && new URL(page.url()).searchParams.get('scenario')==='paid_ready')return route.fulfill({json:{success:true,hito_en_curso:'compra',purchase_clearance:{ready:true},purchase_handoff:{status:'failed'},can_approve_price:true,inspection_price:{ready:true}}});
       if(u.pathname.endsWith('payment_receipts_api.php')) { const id=u.searchParams.get('request_id');const receipts=await page.evaluate(id=>(window.fixtureRequests.find(r=>r.id===id)?.receipts || []),id);return route.fulfill({json:{success:true,receipts}}); }
       return route.fulfill({json:{success:true,settings:{enabled:false},preview:{plan:{kind:'none'}}}});
     });
-    for(const scenario of (mode==='agent'?['due']:['due','review','rejected','history','price','report','declined','closed','without'])) {
+    for(const scenario of (mode==='agent'?['due']:['due','review','rejected','history','price','report','declined','closed','without','paid_missing','paid_review','paid_ready'])) {
       await page.goto(`${origin}/panel/__process?mode=${mode}&scenario=${scenario}`);
       await page.getByRole('list',{name:mode==='client'?'Etapas de tu importación':'Etapas de la operación'}).waitFor();
       await page.waitForFunction(()=>document.fonts.status==='loaded');
@@ -70,6 +71,22 @@ try {
         await action.getByRole('button').click();
         check(await page.locator('#importacion-cobros').evaluate(el=>el===document.activeElement),'admin next action focuses the actual financial section');
         if(scenario==='review') {await page.getByText('Comprobantes y revisión del Pago 2',{exact:true}).click();await page.getByText('DEMO-REF-2',{exact:false}).waitFor();check(await page.getByRole('button',{name:'Registrar revisión',exact:true}).isVisible(),'admin can reach evidence review directly in the matching payment');}
+      }
+
+      if(mode==='client' && scenario==='paid_missing') {
+        check(await page.locator('.client-import-action').getByRole('link',{name:'Adjuntar comprobante',exact:true}).getAttribute('href')==='/payments?comprobante=demo-p2','fully paid bank income requests its missing proof instead of another payment');
+        check(await page.getByRole('heading',{name:'Compra en espera de conciliación',exact:true}).count()===1,'client sees purchase on hold until bank evidence is reconciled');
+      }
+      if(mode==='client' && scenario==='paid_review')check((await page.locator('.client-import-action').innerText()).includes('Comprobante recibido'),'paid money with an unlinked receipt waits for finance review');
+      if(mode==='admin' && scenario.startsWith('paid_')) {
+        if(scenario==='paid_ready') {
+          await page.getByRole('button',{name:'Reintentar autorización',exact:true}).click();
+          await page.getByRole('heading',{name:'¿Reintentar la autorización de compra?',exact:true}).waitFor();
+          check((await page.getByRole('dialog').innerText()).includes('Comprueba que David no lo haya recibido'),'failed purchase delivery requires explicit verification before retrying');
+          await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+        }
+        const row=page.locator('li').filter({hasText:'Compra cerrada en Estados Unidos'}).last();
+        check(await row.getByRole('button',{name:'Marcar hecho',exact:true}).isDisabled()===(scenario!=='paid_ready'),'admin cannot close buying until both money and proof reconciliation are complete');
       }
       if(mode==='agent') check(await page.locator('.payment-overview').count()===0 && await page.getByText('Pagos y comprobantes',{exact:true}).count()===0 && !/18\.000\.000|1\.260\.000/.test(await page.locator('main').innerText()),'operator process view contains no financial controls or amounts');
       if(process.env.PROCESS_SCREENSHOTS && ['due','review'].includes(scenario) && mode!=='agent') {await mkdir(process.env.PROCESS_SCREENSHOTS,{recursive:true});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(process.env.PROCESS_SCREENSHOTS,`${mode}-${scenario}-${width}.png`),fullPage:true});}

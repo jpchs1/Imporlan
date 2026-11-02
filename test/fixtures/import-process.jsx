@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import TuImportacion from '/src/user/pages/expedientes/TuImportacion.jsx';
 import SeccionImportacion from '/src/admin/pages/orders/SeccionImportacion.jsx';
 import { ToastProvider } from '/src/shared/components/Toast.jsx';
+import { ConfirmProvider } from '/src/shared/components/ConfirmDialog.jsx';
 import '/src/index.css';
 import '/src/shared/styles/expedientes.css';
 const params = new URLSearchParams(location.search);
@@ -24,17 +25,26 @@ if (['history','price','report','declined'].includes(scenario)) {
 }
 if (scenario === 'closed') eleccion.steps = { ...eleccion.steps, compra:'2026-10-26',transporte:'2026-10-27',aduana:'2026-10-28',entrega:'2026-10-29' };
 const receipt = { id:'rc_demo',original_name:'comprobante-ejemplo.pdf',currency:'CLP',declared_amount_clp:11340000,reference:'DEMO-REF-2',status:'pending',download_url:'/__proof.pdf' };
-const request = (n, status) => ({ id:`demo-p${n}`,title:`Pago ${n} · IMP-DEMO`,amount_clp:quote[`p${n}_clp`],status,created_at:'2026-10-25 12:00:00',paid_at:status === 'paid' ? '2026-10-25 12:00:00' : null,payment_method:status === 'paid' ? 'transferencia_bancaria' : null,metadata:{order_id:900,custom_fields:{pago:n}} });
+const request = (n, status) => ({ id:`demo-p${n}`,title:`Pago ${n} · IMP-DEMO`,amount_clp:quote[`p${n}_clp`],status,created_at:'2026-10-25 12:00:00',paid_at:status === 'paid' ? '2026-10-25 12:00:00' : null,payment_method:status === 'paid' ? 'webpay' : null,payment_id:status === 'paid' ? `FIXTURE-CAPTURE-${n}` : null,metadata:{order_id:900,custom_fields:{pago:n}} });
 const requests = [request(1,scenario === 'history' ? 'pending' : 'paid')];
-if (!['history','price','report','declined'].includes(scenario)) requests.push(request(2,scenario === 'closed' ? 'paid' : 'pending'));
+if (!['history','price','report','declined'].includes(scenario)) requests.push(request(2,scenario === 'closed' || scenario.startsWith('paid_') ? 'paid' : 'pending'));
 if (scenario === 'closed') requests.push(request(3,'paid'));
+if (scenario.startsWith('paid_')) {
+  requests[1].payment_method='transferencia_bancaria';
+  requests[1].payment_credits=[{id:'credit-p2',status:'confirmed',bank:'global66',amount_clp:quote.p2_clp,received_on:'2026-10-25',reference:'BANK-FIXTURE-2'}];
+  if (scenario!=='paid_missing') {
+    requests[1].receipts=[{...receipt,credit_id:'credit-p2',status:scenario==='paid_ready'?'reviewed':'pending'}];
+    if(scenario==='paid_ready')requests[1].payment_credits[0].receipt_id=receipt.id;
+  }
+}
+
 if (scenario === 'review') Object.assign(requests[1], { receipts:[receipt],receipt_received_at:'2026-10-26 12:00:00',receipt_status:'pending' });
 if (scenario === 'rejected') Object.assign(requests[1], { receipts:[{...receipt,status:'rejected',review_note:'El archivo no muestra la referencia bancaria.'}],receipt_received_at:'2026-10-26 12:00:00',receipt_status:'rejected' });
 window.fixtureRequests = requests;
 window.processActions = [];
 const order = { id:900,order_number:'IMP-DEMO',customer_name:'Sofía Carrasco',customer_email:'sofia@example.test',status:scenario === 'closed' ? 'completed' : 'in_progress',agent_name:'Equipo Imporlan',eleccion,links:[boat] };
 const action = label => () => window.processActions.push(label);
-createRoot(document.getElementById('root')).render(<MemoryRouter><ToastProvider><main className="exp-workspace" style={{maxWidth:1160,margin:'0 auto',padding:'28px 16px 60px'}}>
+createRoot(document.getElementById('root')).render(<MemoryRouter><ToastProvider><ConfirmProvider><main className="exp-workspace" style={{maxWidth:1160,margin:'0 auto',padding:'28px 16px 60px'}}>
   <div style={{marginBottom:24}}><p className="import-kicker">IMP-DEMO · Vista de prueba</p><h1 className="text-2xl font-semibold text-ink-900 mt-1">{mode === 'admin' || mode === 'agent' ? 'Centro de operación' : 'Mi compra e importación'}</h1><p className="text-sm text-ink-500 mt-2">{mode === 'admin' || mode === 'agent' ? 'Sofía Carrasco · MasterCraft X26' : 'Consulta el avance, tus próximos pasos y los pagos de tu lancha.'}</p></div>
-  {mode === 'client' ? <TuImportacion order={order} link={boat} eleccion={eleccion} requests={requests} files={[]} novedades={[]} onLeerReporte={action('read-report')} onAprobar={action('approve')} onDeclinar={action('decline')} onElegirOtra={noop} onPedirDevolucion={noop} /> : <SeccionImportacion detail={order} links={[boat]} importacion={{puedeCobrar:mode !== 'agent',datosCliente:false,operacionUsa:false,cobros:mode === 'agent' ? [] : requests,onHito:action('hito'),onInspeccionResultado:action('inspection'),onEstadoCobro:action('payment'),onRecargar:noop,onReintentarCobros:noop,onQuitar:noop,onCrearCobro:noop}} onMarcarElegida={noop} />}
-</main></ToastProvider></MemoryRouter>);
+  {mode === 'client' ? <TuImportacion order={order} link={boat} eleccion={eleccion} requests={requests} files={[]} novedades={[]} onLeerReporte={action('read-report')} onAprobar={action('approve')} onDeclinar={action('decline')} onElegirOtra={noop} onPedirDevolucion={noop} /> : <SeccionImportacion detail={order} links={[boat]} importacion={{puedeCobrar:mode !== 'agent',datosCliente:false,operacionUsa:scenario==='paid_ready',cobros:mode === 'agent' ? [] : requests,onHito:action('hito'),onInspeccionResultado:action('inspection'),onEstadoCobro:action('payment'),onRecargar:noop,onReintentarCobros:noop,onQuitar:noop,onCrearCobro:noop}} onMarcarElegida={noop} />}
+</main></ConfirmProvider></ToastProvider></MemoryRouter>);

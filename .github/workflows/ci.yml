@@ -23,6 +23,7 @@ jobs:
       - run: php test/inspection-price-tests.php
       - run: php test/import-action-tests.php
       - run: php test/payment-balance-tests.php
+      - run: php test/purchase-clearance-tests.php
 
   expediente-image-previews:
     name: HEIC previews in admin and customer panels

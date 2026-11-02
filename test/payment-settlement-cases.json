@@ -1,0 +1,325 @@
+[
+  {
+    "label": "bank income with linked reviewed proof",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        }
+      ]
+    },
+    "settled": true
+  },
+  {
+    "label": "paid label with only partial verified income",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "c",
+          "bank": "global66",
+          "status": "confirmed",
+          "amount_clp": 400
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "bank income with no proof",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": []
+    },
+    "settled": false
+  },
+  {
+    "label": "bank income with rejected proof",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "rejected"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "bank income with unreviewed linked proof",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "pending"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "uploaded hint still awaits reconciliation",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000
+        }
+      ],
+      "receipts": [
+        {
+          "id": "r",
+          "credit_id": "test-credit",
+          "status": "pending"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "verified income plus an unmatched additional file",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        },
+        {
+          "id": "extra",
+          "status": "reviewed"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "unverified entries cannot cover a paid label",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "c",
+          "bank": "global66",
+          "status": "pending",
+          "amount_clp": 1000
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        }
+      ]
+    },
+    "settled": false
+  },
+  {
+    "label": "gateway capture needs no bank attachment",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [
+        {
+          "id": "c",
+          "bank": "webpay",
+          "status": "confirmed",
+          "amount_clp": 1000
+        }
+      ],
+      "receipts": []
+    },
+    "settled": true
+  },
+  {
+    "label": "legacy gateway confirmation remains supported",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [],
+      "receipts": [],
+      "payment_method": "webpay"
+    },
+    "settled": true
+  },
+  {
+    "label": "legacy bank payment needs its supporting proof",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [],
+      "receipts": [],
+      "payment_method": "transferencia_bancaria"
+    },
+    "settled": false
+  },
+  {
+    "label": "legacy reviewed bank proof remains supported",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        }
+      ],
+      "payment_method": "transferencia_bancaria"
+    },
+    "settled": true
+  },
+  {
+    "label": "legacy partial proof requires an explained reconciliation",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [],
+      "receipts": [
+        {
+          "id": "r",
+          "status": "reviewed",
+          "declared_amount_clp": 400,
+          "currency": "CLP"
+        }
+      ],
+      "payment_method": "manual"
+    },
+    "settled": false
+  },
+  {
+    "label": "legacy currency conversion needs an explicit review note",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "paid",
+      "payment_credits": [],
+      "receipts": [
+        {
+          "id": "r",
+          "status": "reviewed",
+          "currency": "USD",
+          "declared_amount_clp": null,
+          "review_note": "Conversion verified against the bank receipt and agreed rate."
+        }
+      ],
+      "payment_method": "manual"
+    },
+    "settled": true
+  },
+  {
+    "label": "a pending request is never settled",
+    "request": {
+      "id": "test-payment",
+      "amount_clp": 1000,
+      "status": "pending",
+      "payment_credits": [
+        {
+          "id": "test-credit",
+          "status": "confirmed",
+          "bank": "global66",
+          "amount_clp": 1000,
+          "receipt_id": "test-receipt"
+        }
+      ],
+      "receipts": [
+        {
+          "id": "test-receipt",
+          "status": "reviewed",
+          "declared_amount_clp": 1000,
+          "currency": "CLP"
+        }
+      ]
+    },
+    "settled": false
+  }
+]
