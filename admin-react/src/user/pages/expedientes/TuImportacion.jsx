@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { paymentBalance } from '../../../shared/lib/payment-balance';
 import { cn, fmtCLP } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Money, Badge } from '../../../shared/components/UI';
@@ -100,7 +101,7 @@ export default function TuImportacion({
         <p className="text-13 font-medium text-ink-900">También tienes pendiente</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {datosPendientes && <Button size="sm" variant="secondary" icon={User} onClick={onCompletarDatos}>Completar mis datos y cédula</Button>}
-          {pagosError ? <BotonEnlace to="/payments" size="sm" variant="secondary" icon={Receipt}>Verificar pagos</BotonEnlace> : pendientes.map(p => <BotonEnlace key={p.id} to={p.destino} size="sm" variant="secondary" icon={Receipt}>{p.label} · {fmtCLP(p.amount_clp)}</BotonEnlace>)}
+          {pagosError ? <BotonEnlace to="/payments" size="sm" variant="secondary" icon={Receipt}>Verificar pagos</BotonEnlace> : pendientes.map(p => <BotonEnlace key={p.id} to={p.destino} size="sm" variant="secondary" icon={Receipt}>{p.label} · {fmtCLP(paymentBalance(p).remaining)}</BotonEnlace>)}
         </div>
       </section>}
 
@@ -333,12 +334,13 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
   } else if (sigue.tipo === 'pago') {
     const { pago } = sigue;
     const cobro = pago.cobro;
+    const saldo = paymentBalance(cobro);
     icono = Receipt;
     tono = 'warning';
     tituloQue = pago.n ? `Te toca: pagar el Pago ${pago.n} · ${pago.pct}%` : `Te toca: pagar ${cobro.title}`;
     tono = 'brand';
-    detalle = `${fmtCLP(cobro.amount_clp)} · elige el medio de pago y, si transfieres, adjunta el comprobante para que podamos confirmar el ingreso.`;
-    accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>Pagar {fmtCLP(cobro.amount_clp)}</BotonEnlace>;
+    detalle = `${saldo.confirmed > 0 ? `Ya abonaste ${fmtCLP(saldo.confirmed)}. Resta ` : ''}${fmtCLP(saldo.remaining)} · elige el medio de pago y, si transfieres, adjunta el comprobante para que podamos confirmar el ingreso.`;
+    accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>{saldo.confirmed > 0 ? 'Abonar saldo' : 'Pagar'} {fmtCLP(saldo.remaining)}</BotonEnlace>;
   } else if (sigue.tipo === 'precio' || (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio)) {
     icono = CircleCheck;
     tituloQue = 'Aprobaste el reporte: confirmamos el precio final';

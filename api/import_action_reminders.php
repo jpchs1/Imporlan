@@ -2,6 +2,7 @@
 /** State-based, opt-in transactional reminders. No purchase, price, payment or milestone writes. */
 require_once __DIR__ . '/operador_usa.php';
 require_once __DIR__ . '/import_action_template.php';
+require_once __DIR__ . '/payment_balance.php';
 
 function impActionTemplateHash() { return hash('sha256', hash_file('sha256', __FILE__) . hash_file('sha256', __DIR__ . '/import_action_template.php')); }
 function impActionOwnerEmail() { return defined('IMPORLAN_WORKFLOW_OWNER_EMAIL') ? IMPORLAN_WORKFLOW_OWNER_EMAIL : 'jpchs1@gmail.com'; }
@@ -56,8 +57,13 @@ function impActionPlan($snapshot) {
     $proofTasks=[];
     foreach ($payments as $p) {
         $r=$p['request'];
+        $balance=impPaymentBalance($r);
+        if($balance['excess']>0)$owner[]=impActionTask('reconcile_excess','Revisar un excedente del pago','Los ingresos confirmados superan el importe de esta solicitud. Revisa su aplicación o devolución; no se abona automáticamente a otro pago.','Revisar excedente',$admin);
         foreach ($r['receipts'] ?? [] as $receipt) if (($r['status'] ?? '')==='paid' && ($receipt['status'] ?? 'pending')==='pending') { $owner[]=impActionTask('receipt','Revisar un comprobante recibido','Hay evidencia de transferencia pendiente de revisión. Compara el ingreso bancario, el monto y la referencia; un archivo no confirma el pago.','Revisar comprobante',$admin);break; }
-        if (($r['status'] ?? '')==='paid' && preg_match('/manual|transfer/i',$r['payment_method'] ?? '') && (($r['receipt_status'] ?? '')==='rejected' || (empty($r['receipts']) && empty($r['receipt_url']) && empty($r['voucher_url']) && empty($r['comprobante_url'])))) $proofTasks[]=impActionTask('receipt_upload','Adjuntar comprobante del Pago '.($p['n'] ?: ''),'Este pago ya figura realizado. Adjunta su comprobante en el historial para completar el registro; no debes volver a pagarlo.','Adjuntar comprobante','https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($r['id']));
+        $missing=[];$bankNames=['global66'=>'Global66','santander'=>'Santander','otro'=>'otro banco'];
+        foreach(impPaymentCredits($r) as $credit)if(!impPaymentCreditHasProof($r,$credit) && !in_array($credit['bank'],['webpay','mercadopago','paypal'],true)) $missing[]=impActionMoney($credit['amount_clp']).' del '.$credit['received_on'].' en '.($bankNames[$credit['bank']] ?? $credit['bank']);
+        if($missing)$proofTasks[]=impActionTask('receipt_upload','Comprobantes pendientes del Pago '.($p['n'] ?: ''),'Los siguientes abonos ya están confirmados: '.implode('; ',$missing).'. Sólo falta adjuntar sus comprobantes en este pago. No repitas esas transferencias.','Adjuntar comprobantes','https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($r['id']));
+        if (empty($r['payment_credits']) && ($r['status'] ?? '')==='paid' && preg_match('/manual|transfer/i',$r['payment_method'] ?? '') && (($r['receipt_status'] ?? '')==='rejected' || (empty($r['receipts']) && empty($r['receipt_url']) && empty($r['voucher_url']) && empty($r['comprobante_url'])))) $proofTasks[]=impActionTask('receipt_upload','Adjuntar comprobante del Pago '.($p['n'] ?: ''),'Este pago ya figura realizado. Adjunta su comprobante en el historial para completar el registro; no debes volver a pagarlo.','Adjuntar comprobante','https://www.imporlan.cl/panel/#/payments?pagar='.rawurlencode($r['id']));
     }
     if (impInspeccionNoApta($o)) {
         if (empty($o['refund_requested_at'])) $client[] = impActionTask('choice','Elige cómo quieres continuar','Puedes elegir otra lancha de tu ranking o revisar la opción de devolución desde tu expediente.','Ver mis opciones',$panel);
@@ -66,20 +72,28 @@ function impActionPlan($snapshot) {
         $paymentChosen = false;
         foreach ($payments as $p) {
             $r = $p['request']; $n = $p['n'];
+            $balance=impPaymentBalance($r);
             if (($r['status'] ?? '') !== 'pending' || ($n && isset($paid[$n])) || floatval($r['amount_clp'] ?? 0) <= 0 || empty($r['id'])) continue;
-            if ($n===1 && (!empty($o['inspection_report_at']) || $approved || isset(impPasos($o)['compra']))) {
+            if($balance['remaining']<=0)continue;
+            $chargeLink=intval($r['metadata']['custom_fields']['link_id'] ?? 0);
+            if($balance['confirmed']>0 && $chargeLink && $chargeLink!==intval($o['chosen_link_id'])) {
+                $owner[]=impActionTask('reconcile_payment','Revisar abonos de la elección anterior','Hay ingresos confirmados en una solicitud de otra lancha. Revisa su aplicación antes de pedir un nuevo abono.','Revisar abonos',$admin);$paymentChosen=true;continue;
+            }
+            if ($n===1 && $balance['confirmed']===0 && (!empty($o['inspection_report_at']) || $approved || isset(impPasos($o)['compra']))) {
                 $owner[]=impActionTask('reconcile_payment','Conciliar el Pago 1 con el avance registrado','La operación ya avanzó a inspección o compra, pero el Pago 1 sigue pendiente en el registro. Verifica el ingreso y corrige su estado; no se vuelve a solicitar al cliente.','Revisar registro de pagos',$admin);
                 continue;
             }
             if (($n===2 && !($approved || (empty($o['chosen_inspection']) && isset(impPasos($o)['disponibilidad'])))) || ($n===3 && !isset(impPasos($o)['transporte']))) continue;
-            if (($r['receipt_status'] ?? '')!=='rejected' && (!empty($r['receipt_url']) || !empty($r['voucher_url']) || !empty($r['comprobante_url']) || !empty($r['receipt_received_at']))) {
+            if (impPaymentProofPending($r)) {
                 $owner[] = impActionTask('receipt','Validar un comprobante de pago','Hay un comprobante registrado y el cobro sigue pendiente. Verifica el ingreso antes de confirmar el pago.','Revisar cobro',$admin);
                 $paymentChosen = true; // Wait for validation before asking for a later payment.
                 continue;
             }
             if ($paymentChosen) continue;
-            $title = $n ? 'Pago ' . $n : 'Pago pendiente';
-            $client[] = impActionTask('payment', $title, 'Este pago corresponde a tu operación de compra e importación. Puedes revisar el detalle y elegir el medio de pago en tu panel.', 'Realizar ' . ($n ? 'Pago ' . $n : 'el pago'), 'https://www.imporlan.cl/panel/#/payments?pagar=' . rawurlencode($r['id']), ['payment_id' => $r['id'], 'amount_clp' => intval(round($r['amount_clp']))]);
+            $partial=$balance['confirmed']>0;
+            $title = ($partial?'Saldo del ':'') . ($n ? 'Pago ' . $n : 'pago pendiente');
+            $detail=$partial ? 'Ya registré abonos confirmados por '.impActionMoney($balance['confirmed']).'. Para completar este pago falta únicamente el saldo indicado. No repitas los abonos ya registrados.' : 'Este pago corresponde a tu operación de compra e importación. Puedes revisar el detalle y elegir el medio de pago en tu panel.';
+            $client[] = impActionTask('payment', $title, $detail, $partial ? 'Abonar el saldo restante' : 'Realizar ' . ($n ? 'Pago ' . $n : 'el pago'), 'https://www.imporlan.cl/panel/#/payments?pagar=' . rawurlencode($r['id']), ['payment_id' => $r['id'], 'amount_clp' => $balance['remaining'],'total_amount_clp'=>$balance['total'],'confirmed_amount_clp'=>$balance['confirmed']]);
             $paymentChosen = true; // Keep scanning for receipts requiring an internal review.
         }
         if (empty($snapshot['client_data_complete'])) $client[] = impActionTask('data','Completar tus datos de importación','Necesito tus datos, tu cédula por ambos lados y la aceptación de los términos para comprar e importar a tu nombre. Cárgalos sólo en tu panel seguro.','Completar mis datos',$panel);

@@ -14,101 +14,20 @@ if (!function_exists('handlePaymentRequestPaid')) {
      * Updates payment_requests.json, sends emails and chat messages.
      * Called by all payment gateways (MercadoPago, WebPay, PayPal).
      */
-    function handlePaymentRequestPaid($paymentRequestId, $paymentId, $paymentMethod, $purchaseId = null) {
+    function handlePaymentRequestPaid($paymentRequestId, $paymentId, $paymentMethod, $purchaseId = null, $capturedAmount = null) {
         try {
-            $prFile = __DIR__ . '/payment_requests.json';
-            if (!file_exists($prFile)) return;
-            
-            // Use file locking to prevent concurrent write corruption
-            $fp = fopen($prFile, 'r+');
-            if (!$fp) return;
-            
-            if (!flock($fp, LOCK_EX)) {
-                fclose($fp);
-                return;
-            }
-            
-            $contents = stream_get_contents($fp);
-            $data = json_decode($contents, true);
-            if (!$data || !isset($data['requests'])) {
-                flock($fp, LOCK_UN);
-                fclose($fp);
-                return;
-            }
-            
-            $found = false;
-            foreach ($data['requests'] as &$request) {
-                if ($request['id'] === $paymentRequestId && $request['status'] === 'pending') {
-                    $request['status'] = 'paid';
-                    $request['paid_at'] = date('Y-m-d H:i:s');
-                    $request['payment_id'] = $paymentId;
-                    $request['payment_method'] = $paymentMethod;
-                    $request['purchase_id'] = $purchaseId;
-                    $found = true;
-                    
-                    // Write updated data with lock held
-                    fseek($fp, 0);
-                    ftruncate($fp, 0);
-                    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
-                    fflush($fp);
-                    
-                    // Send paid email
-                    try {
-                        require_once __DIR__ . '/email_service.php';
-                        $emailService = new EmailService();
-                        $firstName = explode('@', $request['user_email'])[0];
-                        $emailService->sendPaymentRequestPaidEmail(
-                            $request['user_email'],
-                            $firstName,
-                            $request,
-                            [
-                                'payment_id' => $paymentId,
-                                'payment_method' => $paymentMethod,
-                                'paid_at' => $request['paid_at']
-                            ]
-                        );
-                    } catch (Exception $e) {
-                        $logFile = __DIR__ . '/payment_requests.log';
-                        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - PAID_EMAIL_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-                    }
-                    
-                    // Create chat message
-                    try {
-                        require_once __DIR__ . '/db_config.php';
-                        _createPaymentRequestChatMessage($request, 'paid');
-                    } catch (Exception $e) {
-                        $logFile = __DIR__ . '/payment_requests.log';
-                        file_put_contents($logFile, date('Y-m-d H:i:s') . ' - PAID_CHAT_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-                    }
-                    
-                    // Log
-                    $logFile = __DIR__ . '/payment_requests.log';
-                    file_put_contents($logFile, date('Y-m-d H:i:s') . ' [PAID] ' . json_encode([
-                        'id' => $paymentRequestId,
-                        'payment_id' => $paymentId,
-                        'method' => $paymentMethod,
-                        'user' => $request['user_email']
-                    ]) . "\n", FILE_APPEND);
-                    $pagado = $request;
-                    
-                    break;
-                }
-            }
-            
-            flock($fp, LOCK_UN);
-            fclose($fp);
-            // Con el Pago 1 pagado la operación queda confirmada: se le avisa a
-            // la operación en EE. UU. (ya con el archivo liberado).
-            if (!empty($pagado)) {
-                require_once __DIR__ . '/operador_usa.php';
-                opuAlPagarCobro($pagado);
-            }
-        } catch (\Throwable $e) {
-            $logFile = __DIR__ . '/payment_requests.log';
-            file_put_contents($logFile, date('Y-m-d H:i:s') . ' - HANDLE_PAID_ERROR: ' . $e->getMessage() . "\n", FILE_APPEND);
-        }
+            require_once __DIR__.'/payment_balance.php';
+            $request=impPaymentRead((string)$paymentRequestId);if(!$request)return;
+            // Older gateways may finish a legacy invoice, but cannot infer a partial invoice's capture amount.
+            if($capturedAmount===null) { if(impPaymentCredits($request))return;$capturedAmount=intval($request['amount_clp']); }
+            $date=(new DateTimeImmutable('now',new DateTimeZone('America/Santiago')))->format('Y-m-d');
+            [$code,$result]=impPaymentAddCredit((string)$paymentRequestId,['purchase_id'=>$purchaseId,'amount_clp'=>$capturedAmount,'bank'=>$paymentMethod,'reference'=>(string)$paymentId,'received_on'=>$date,'idempotency_key'=>'gateway_'.hash('sha256',$paymentMethod.':'.$paymentId)],'gateway:'.$paymentMethod,true);
+            if($code!==200 || empty($result['newly_paid']))return;
+            impPaymentNotifyCompleted($result['request']);
+            try { require_once __DIR__.'/db_config.php';_createPaymentRequestChatMessage($result['request'],'paid'); }catch(Throwable $e){error_log('[payment-credit] chat confirmation failed');}
+        } catch(Throwable $e) { error_log('[payment-credit] gateway reconciliation failed'); }
     }
-    
+
     /**
      * Create chat notification message for payment requests.
      * Standalone version that doesn't require payment_requests_api.php routing.

@@ -3,7 +3,7 @@
 $root = dirname(__DIR__,2);
 $box = $argv[1];
 if (!is_dir($box)) mkdir($box,0700,true);
-foreach (['import_action_reminders.php','import_action_template.php','import_actions_api.php','operador_usa.php','inspection_upload_followup.php','inspection_upload_template.php','inspection_price_followup.php','inspection_price_template.php','eleccion_lancha.php','auth_helper.php','cors_helper.php','email_service.php','payment_receipts.php','payment_receipts_api.php','payment_requests_api.php'] as $f) copy("$root/api/$f","$box/$f");
+foreach (['import_action_reminders.php','import_action_template.php','payment_balance.php','import_actions_api.php','operador_usa.php','inspection_upload_followup.php','inspection_upload_template.php','inspection_price_followup.php','inspection_price_template.php','eleccion_lancha.php','auth_helper.php','cors_helper.php','email_service.php','payment_receipts.php','payment_receipts_api.php','payment_requests_api.php'] as $f) copy("$root/api/$f","$box/$f");
 mkdir("$box/email-assets",0700,true);
 copy("$root/api/email-assets/firma-jp.jpg","$box/email-assets/firma-jp.jpg");
 file_put_contents("$box/db_config.php", '<?php

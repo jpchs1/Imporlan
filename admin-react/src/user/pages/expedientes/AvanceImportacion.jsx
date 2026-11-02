@@ -1,3 +1,4 @@
+import { paymentBalance } from '../../../shared/lib/payment-balance';
 import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
@@ -129,7 +130,7 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
         id: `pago-${p.n}`,
         estado: revision || reemplazo || conciliacion ? 'curso' : 'pago',
         titulo: reemplazo ? 'Adjunta el comprobante corregido' : revision ? `Pago ${p.n}: comprobante en revisión` : conciliacion ? 'Pago 1: registro en conciliación' : `Te toca: pagar el Pago ${p.n} · ${p.pct}%`,
-        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : conciliacion ? 'Tu operación ya avanzó a la inspección. El equipo revisa el registro de este pago.' : `${fmtCLP(p.cobro.amount_clp)} · solicitado el ${fmtDateLarga(p.cobro.created_at)}`,
+        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : conciliacion ? 'Tu operación ya avanzó a la inspección. El equipo revisa el registro de este pago.' : `${fmtCLP(paymentBalance(p.cobro).remaining)} por completar · solicitado el ${fmtDateLarga(p.cobro.created_at)}`,
         icono: revision || reemplazo || conciliacion ? FileSearch : undefined,
         accion: conciliacion ? null : <BotonEnlace to={rutaPagar(p.cobro)} variant="secondary" size="sm" icon={revision ? FileSearch : Receipt}>{reemplazo ? 'Reemplazar comprobante' : revision ? 'Ver comprobante' : 'Pagar'}</BotonEnlace>,
       });
@@ -145,7 +146,7 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
         id: `cobro-${r.id}`,
         estado: revision || reemplazo ? 'curso' : 'pago',
         titulo: reemplazo ? 'Adjunta el comprobante corregido' : revision ? `${r.title}: comprobante en revisión` : `Te toca: pagar ${r.title}`,
-        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : `${fmtCLP(r.amount_clp)} · solicitado el ${fmtDateLarga(r.created_at)}`,
+        detalle: reemplazo ? 'Revisa la observación del equipo y reemplaza el archivo de esta transferencia.' : revision ? 'Estamos verificando el ingreso bancario. No necesitas volver a transferir.' : `${fmtCLP(paymentBalance(r).remaining)} por completar · solicitado el ${fmtDateLarga(r.created_at)}`,
         icono: revision ? FileSearch : undefined,
         accion: <BotonEnlace to={rutaPagar(r)} variant="secondary" size="sm" icon={revision ? FileSearch : Receipt}>{reemplazo ? 'Reemplazar comprobante' : revision ? 'Ver comprobante' : 'Pagar'}</BotonEnlace>,
       });

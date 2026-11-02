@@ -92,6 +92,7 @@ function impEtapaPorEleccion($order) {
 
 /** El cliente puede cambiar o deshacer su elección hasta que el equipo marque un hito. */
 function impClientePuedeCambiar($order) {
+
     // Inspección no apta: el cliente vuelve a elegir (su Pago 1 se abona a la
     // nueva lancha), salvo que haya pedido la devolución.
     if (impInspeccionNoApta($order)) return empty($order['refund_requested_at']);
@@ -388,7 +389,7 @@ function impSolicitarPago1($order, $link, $creadoPor) {
         foreach ($data['requests'] as &$r) {
             if (!impEsPago1DelExpediente($r, $orderId, $order['order_number'] ?? '') || ($r['status'] ?? '') === 'cancelled') continue;
             $deEsta = empty($r['metadata']['custom_fields']['link_id']) || intval($r['metadata']['custom_fields']['link_id']) === $linkId;
-            if ($deEsta || ($r['status'] ?? '') === 'paid') return ['cobro' => $r, 'creado' => false];
+            if ($deEsta || ($r['status'] ?? '') === 'paid' || !empty($r['payment_credits'])) return ['cobro' => $r, 'creado' => false];
             // Pendiente, de la lancha anterior: se anula.
             $r['status'] = 'cancelled';
             $r['cancelled_reason'] = 'Cambió de lancha';
@@ -425,7 +426,7 @@ function impAnularPago1Pendiente($orderId, $motivo, $orderNumber = '') {
     return impConCobros(function (&$data) use ($orderId, $motivo, $orderNumber) {
         $n = 0;
         foreach ($data['requests'] as &$r) {
-            if (impEsPago1DelExpediente($r, $orderId, $orderNumber) && ($r['status'] ?? '') === 'pending') {
+            if (impEsPago1DelExpediente($r, $orderId, $orderNumber) && ($r['status'] ?? '') === 'pending' && empty($r['payment_credits'])) {
                 $r['status'] = 'cancelled';
                 $r['cancelled_reason'] = $motivo;
                 $n++;

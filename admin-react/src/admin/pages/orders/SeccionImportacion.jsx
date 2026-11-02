@@ -5,6 +5,8 @@ import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
 import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado } from '../../../shared/lib/importacion';
 import PaymentReceipts from '../../../shared/components/PaymentReceipts';
+import PaymentCredits from '../../../shared/components/PaymentCredits';
+import { paymentBalance, confirmedCredits } from '../../../shared/lib/payment-balance';
 import ImportJourney from '../../../shared/components/ImportJourney';
 import PaymentOverview from '../../../shared/components/PaymentOverview';
 import ImportProcessTask from './ImportProcessTask';
@@ -575,7 +577,7 @@ function FilaCobro({ titulo, detalle, clp, cobro, accion, onReceiptChange }) {
       <p className="text-sm font-semibold text-ink-900 tabular text-right sm:text-left">{fmtCLP(clp)}</p>
       <EstadoCobro cobro={cobro} />
       <div className="justify-self-end">{accion || <span className="inline-block w-8" aria-hidden="true" />}</div>
-      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700">Comprobantes y revisión del {titulo}</summary><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></details>}
+      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700">Comprobantes y revisión del {titulo}</summary><div className="mt-3 space-y-3"><PaymentCredits request={cobro} admin onChange={onReceiptChange} /><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></div></details>}
     </div>
   );
 }
@@ -591,6 +593,7 @@ function EstadoCobro({ cobro }) {
           ? [fmtDate(cobro.paid_at || cobro.created_at), cobro.payment_method && paymentMethodLabel(cobro.payment_method)].filter(Boolean).join(' · ')
           : `enviado el ${fmtDate(cobro.created_at)}`}
       </span>
+      {!pagado && paymentBalance(cobro).confirmed > 0 && <span className="text-xs text-brand-700">Abonado: {fmtCLP(paymentBalance(cobro).confirmed)} · resta {fmtCLP(paymentBalance(cobro).remaining)}</span>}
     </div>
   );
 }
@@ -598,6 +601,7 @@ function EstadoCobro({ cobro }) {
 /* Cobro pendiente: marcarlo pagado (transferencias) o anularlo. Pagado: nada. */
 function MenuCobro({ cobro, onEstado, historical = false }) {
   if (!cobro || cobro.status !== 'pending') return null;
+  if (confirmedCredits(cobro).length) return <span className="text-xs text-ink-500">Registrar saldo en abonos</span>;
   return (
     <Menu
       label={`Acciones del cobro ${cobro.title}`}

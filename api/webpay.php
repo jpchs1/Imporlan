@@ -116,6 +116,13 @@ function createTransaction($data) {
     }
     
     $amount = intval($data['amount']);
+    if (!empty($data['payment_request_id'])) {
+        require_once __DIR__.'/payment_balance.php';
+        [$code,$resolved]=impPaymentAuthenticatedGatewayRequest($data['payment_request_id']);
+        if($code!==200){http_response_code($code);echo json_encode(['error'=>$resolved]);return;}
+        $amount=$resolved['amount'];$data['user_email']=$resolved['request']['user_email'];
+    }
+
     $sessionId = $data['session_id'] ?? 'session_' . time();
     $buyOrder = $data['buy_order'];
     
@@ -432,7 +439,7 @@ function savePurchaseFromWebpay($transaction, $buyOrder) {
     $paymentRequestId = $purchaseInfo['payment_request_id'] ?? null;
     if ($paymentRequestId) {
         require_once __DIR__ . '/payment_requests_helper.php';
-        handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null);
+        handlePaymentRequestPaid($paymentRequestId, $purchase['payment_id'] ?? $buyOrder, 'webpay', $purchase['id'] ?? null, intval($amount));
     }
     
     // Send confirmation email if we have the user's email

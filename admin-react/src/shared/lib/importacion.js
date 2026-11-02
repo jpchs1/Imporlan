@@ -1,3 +1,5 @@
+import { paymentBalance, proofPending, confirmedCredits, creditHasProof } from './payment-balance.js';
+
 /**
  * Elegir la lancha e importar: lo que el panel del cliente y el admin
  * comparten. Las reglas viven en el servidor (api/eleccion_lancha.php); esto
@@ -132,19 +134,16 @@ export function queSigue(eleccion, pagos) {
 
 /** Evidencia recibida, todavía sin ingreso confirmado. No supone que se pagó. */
 export function pagoEnRevision(cobro) {
-  if (cobro?.status !== 'pending') return false;
-  return (cobro.receipts || []).some(r => r.status !== 'rejected')
-    || (cobro.receipt_status !== 'rejected' && !!cobro.receipt_received_at);
+  return proofPending(cobro);
 }
 
 export function comprobanteRechazado(cobro) {
-  return cobro?.status === 'pending' && (cobro.receipt_status === 'rejected'
-    || (!!cobro.receipts?.length && cobro.receipts.every(r => r.status === 'rejected')));
+  return cobro?.status === 'pending' && (cobro.receipts?.length ? cobro.receipts.every(r => r.status === 'rejected') : cobro.receipt_status === 'rejected');
 }
 
 /** El mismo desfase histórico que el seguimiento deriva al equipo para conciliar. */
 export function pagoEnConciliacion(pago, eleccion) {
-  return pago?.n === 1 && pago?.estado === 'por_pagar' && !!(
+  return pago?.n === 1 && pago?.estado === 'por_pagar' && paymentBalance(pago.cobro).confirmed === 0 && !!(
     eleccion?.inspection_report || eleccion?.inspection_client_ok_at || eleccion?.inspection_waiting_price
     || eleccion?.inspection_stage === 'aprobada' || eleccion?.steps?.inspeccion
     || eleccion?.steps?.compra || eleccion?.steps?.transporte || eleccion?.steps?.aduana || eleccion?.steps?.entrega
@@ -220,9 +219,9 @@ export function pagosConCobros(plan, cobros) {
 export function cuadrePagos(plan, cobros = [], total = 0) {
   const ns = new Set(plan.map(p => p.n));
   const active = cobros.filter(r => r.status !== 'cancelled' && ns.has(numeroDePago(r)));
-  const paid = active.filter(r => r.status === 'paid').reduce((sum, r) => sum + Number(r.amount_clp || 0), 0);
+  const paid = active.reduce((sum, r) => sum + paymentBalance(r).confirmed, 0);
   const pendingReceipts = active.flatMap(r => r.receipts || []).filter(r => !r.status || r.status === 'pending').length;
-  const missingReceipts = active.filter(r => r.status === 'paid' && /manual|transfer/i.test(r.payment_method || '') && !(r.receipts?.length || r.receipt_url || r.voucher_url || r.comprobante_url)).length;
+  const missingReceipts = active.reduce((sum, r) => sum + (confirmedCredits(r).length ? confirmedCredits(r).filter(c => !creditHasProof(r,c) && !['webpay', 'mercadopago', 'paypal'].includes(c.bank)).length : r.status === 'paid' && /manual|transfer/i.test(r.payment_method || '') && !(r.receipts?.length || r.receipt_url || r.voucher_url || r.comprobante_url) ? 1 : 0), 0);
   const mismatch = active.some(r => Number(r.amount_clp) !== Number(plan.find(p => p.n === numeroDePago(r))?.clp));
   const duplicate = plan.some(p => active.filter(r => numeroDePago(r) === p.n).length > 1);
   const refs = active.flatMap(r => (r.receipts || []).filter(x => x.status !== 'rejected').map(x => String(x.reference).trim().toLowerCase()));

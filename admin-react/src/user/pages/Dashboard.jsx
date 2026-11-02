@@ -1,3 +1,5 @@
+import { paymentBalance } from '../../shared/lib/payment-balance';
+import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -161,7 +163,7 @@ function QueHacerAhora({ pagos, conversaciones, notificaciones, importaciones, c
                   tone="warning"
                   title={p.title || 'Solicitud de pago'}
                   meta={[p.metadata?.order_number, p.metadata?.boat_name, p.created_at && `solicitado ${fmtRelativo(p.created_at)}`].filter(Boolean).join(' · ')}
-                  right={<><Money clp={p.amount_clp} usd={p.amount_usd} align="right" /><BotonEnlace to="/payments" variant="primary" size="sm">Pagar</BotonEnlace></>}
+                  right={<><Money clp={paymentBalance(p).remaining} usd={paymentBalance(p).confirmed === 0 ? p.amount_usd : undefined} align="right" /><BotonEnlace to="/payments" variant="primary" size="sm">{pagoEnRevision(p) ? 'Ver revisión' : comprobanteRechazado(p) ? 'Reemplazar comprobante' : 'Ver saldo'}</BotonEnlace></>}
                 />
               ))}
               {pendientes.length > 3 && (
