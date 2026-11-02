@@ -3057,8 +3057,8 @@ function adminSetImportStep($admin, $input = null) {
         }
         if ($hecho && $paso==='compra' && !isset(impPasos($order)['compra'])) {
             try { require_once __DIR__.'/purchase_clearance.php';$clearance=impPurchaseClearanceFor($pdo,$order); }
-            catch (Throwable $e) { return impResponderError(503,'No pudimos comprobar la conciliación. Revisa los pagos antes de avanzar.'); }
-            if(!$clearance['ready'])return impResponderError(409,'Compra en espera: completa los Pagos 1 y 2 y concilia sus comprobantes. '.implode(' ',$clearance['issues']));
+            catch (Throwable $e) { return impResponderError(503,($admin['role'] ?? '')==='agent'?'No se pudo comprobar la autorización de Imporlan.':'No pudimos comprobar la conciliación. Revisa los pagos antes de avanzar.'); }
+            if(!$clearance['ready'])return impResponderError(409,($admin['role'] ?? '')==='agent'?'Compra en espera de autorización del equipo Imporlan.':'Compra en espera: completa los Pagos 1 y 2 y concilia sus comprobantes. '.implode(' ',$clearance['issues']));
         }
         $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin');
         $pagoHito = $r['pago'];

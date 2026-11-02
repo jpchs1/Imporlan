@@ -815,6 +815,8 @@ ok($code === 200 && isset(impPasos(orden(35))['inspeccion']), 'confirmación rev
 ok($data['pago']['n'] === 2 && $data['pago']['amount_clp'] === 61740000, 'Pago 2 conserva el monto de la cotización publicada');
 [$blocked] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
 ok($blocked===409 && !isset(impPasos(orden(35))['compra']),'compra sigue bloqueada con inspección aprobada y Pago 2 sin conciliar');
+[$blocked,$blockedBody]=llamar('adminSetImportStep',['email'=>'operator@example.test','role'=>'agent'],['order_id'=>35,'step'=>'compra','done'=>true]);
+ok($blocked===409 && strpos(json_encode($blockedBody),'Pagos')===false && strpos(json_encode($blockedBody),'comprobantes')===false,'el operador sólo ve espera de autorización, sin información financiera del cliente');
 financiarCompraDePrueba();
 [$code] = llamar('adminSetImportStep', $admin, ['order_id'=>35,'step'=>'compra','done'=>true]);
 ok($code === 200 && isset(impPasos(orden(35))['compra']), 'compra requiere su propio hito explícito');
