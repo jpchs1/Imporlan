@@ -174,6 +174,14 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   sin aplicarlo automáticamente a otra cuota. Los abonos se protegen contra
   reintentos y referencias duplicadas; una solicitud con ingresos confirmados
   no cambia de monto ni se anula mediante la acción genérica de pagos.
+- **Respaldo de un abono ya registrado (1-nov-2026):** el aviso de comprobante
+  abre `#/payments?comprobante=<id>`, directamente a la carga del archivo,
+  también para cuotas ya pagadas. El cliente puede elegir el abono y se
+  completan su monto y referencia. Su elección se guarda como sugerencia,
+  no como conciliación: el equipo revisa y asocia el respaldo sin sumar dinero
+  otra vez. Un respaldo recibido deja de pedirse y pasa a revisión; si se
+  rechaza, vuelve a solicitarse. La solicitud de pago conserva su enlace
+  `?pagar=<id>` y cobra sólo el saldo vigente.
 
 ## Correo contacto@imporlan.cl
 

@@ -27,6 +27,11 @@ check($task['amount_clp']===5000 && $task['confirmed_amount_clp']===5000 && $tas
 $mail=impActionEmail($p);check(strpos($mail['html'],'Saldo restante de este pago')!==false && strpos($mail['html'],'$5.000 CLP')!==false && strpos($mail['text'],'Saldo restante: $5.000 CLP')!==false,'HTML and plaintext show requested total, confirmed credits and only the net remainder');
 check(strpos($task['title'],'Pago 2')!==false && strpos(json_encode($p),'Pago 3')===false,'partial second payment never advances collection to the third installment');
 check(in_array('receipt_upload',array_column($p['tasks'],'kind'),true),'confirmed bank credits without a file still ask for their proofs without repeating those transfers');
+check(strpos(array_values(array_filter($p['tasks'],function($t){return $t['kind']==='receipt_upload';}))[0]['url'],'?comprobante=fixture-p2')!==false,'proof reminder opens the dedicated upload intent instead of starting another payment');
+$hinted=$s;$hinted['payments'][0]['receipts']=[['id'=>'rc_hint','credit_id'=>$hinted['payments'][0]['payment_credits'][0]['id'],'status'=>'pending']];
+$hintPlan=clientPlan($hinted);$hintKinds=$hintPlan?array_column($hintPlan['tasks'],'kind'):[];
+$missingProofs=implode(' ',array_column(array_filter($hintPlan['tasks'] ?? [],function($t){return $t['kind']==='receipt_upload';}),'detail'));
+check(!in_array('payment',$hintKinds,true) && strpos($missingProofs,'$2.000')===false && strpos($missingProofs,'$3.000')!==false,'submitted credit proof suppresses its upload reminder while another missing proof is still requested');
 $now=new DateTimeImmutable('2026-10-29T12:00:00Z');$loader=function($id)use($db){$s=impActionSnapshot($db,$id);$s['client_data_complete']=true;return $s;};$sent=[];$sender=function($to,$mail)use(&$sent){$sent[]=$mail;return true;};
 impActionConfigure($db,['role'=>'admin','email'=>'owner@example.test'],true,impActionTemplateHash());
 $hash=impActionPreview($db,1,'client',$loader)['fingerprint'];check(impActionSend($db,1,'client',$hash,$now,$sender,$loader)['sent'],'enabled reminders send the current net balance');

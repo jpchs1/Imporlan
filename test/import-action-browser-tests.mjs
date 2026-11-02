@@ -285,10 +285,38 @@ try {
     await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit`);
     await page.getByRole('button',{name:/^Pagar.*con WebPay$/}).waitFor({timeout:10000}).catch(async e=>{console.log('PARTIAL UI DIAGNOSTIC',await page.locator('body').innerText(),errors);throw e;});
     check(await page.getByRole('region',{name:'Abonos de Pago 2 de prueba'}).getByText('$2.000',{exact:true}).count()>0,'customer sees confirmed credits and the correct unpaid balance in the payment dialog');
+    if(process.env.ACTION_SCREENSHOTS)await page.screenshot({path:join(process.env.ACTION_SCREENSHOTS,`saldo-abonos-ejemplo-${width}.png`),fullPage:true,animations:'disabled'});
     await page.getByRole('button',{name:/^Pagar.*con WebPay$/}).click();
     check(gateway.length===1 && gateway[0].amount===8000 && gateway[0].payment_request_id==='fixture-credit','explicit gateway action requests only the remaining balance for the selected invoice');
     await page.getByRole('radio',{name:/Transferencia bancaria/}).click();await page.getByRole('button',{name:'Ver datos de transferencia',exact:true}).click();
     check(await page.getByLabel('Monto transferido en CLP').inputValue()==='8000','transfer and proof form use the same net balance');
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit`);
+    await page.getByRole('button',{name:'Adjuntar comprobante de $2.000',exact:true}).click();
+    check(await page.getByLabel('Monto transferido en CLP').inputValue()==='2000' && await page.getByLabel('Referencia o número de transferencia').inputValue()===`CREDIT-UI-${width}`,'per-credit proof action pre-fills that bank movement instead of asking for the outstanding invoice balance');
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit&proof=1`);
+    await page.getByRole('heading',{name:'Adjuntar comprobante',exact:true}).waitFor();
+    check(await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && await page.getByLabel('Monto transferido en CLP').inputValue()==='2000','email proof deep link goes directly to upload, without offering another payment');
+    await page.getByLabel('Archivo del comprobante',{exact:true}).setInputFiles({name:'respaldo-ejemplo.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nExample proof for existing credit\n')});
+    if(process.env.ACTION_SCREENSHOTS)await page.screenshot({path:join(process.env.ACTION_SCREENSHOTS,`respaldo-abono-ejemplo-${width}.png`),fullPage:true,animations:'disabled'});
+    await page.getByRole('button',{name:'Adjuntar comprobante',exact:true}).click();
+    await page.getByText('Respaldo recibido. Tu abono sigue registrado; el equipo revisará el archivo.',{exact:true}).waitFor();
+    const withProof=JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests.find(r=>r.id==='fixture-credit');
+    check(withProof.status==='pending' && withProof.payment_credits.length===1 && !withProof.payment_credits[0].receipt_id && withProof.receipts[0].credit_id===withProof.payment_credits[0].id,'upload hints identify the existing credit but never book it twice or auto-approve evidence');
+    check(gateway.length===1 && await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0,'saving a proof never contacts a payment gateway');
+    const forged=receiptPayload(`FORGED-CREDIT-${width}`);forged.set('request_id','fixture-credit');forged.set('credit_id','foreign-credit');
+    check((await receiptCall('upload',forged)).httpStatus===400,'proof hints cannot reference a credit from another invoice');
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=credits`);
+    const suggested=page.getByLabel('Comprobante para abono de $2.000');await suggested.waitFor();
+    check(await suggested.inputValue()===withProof.receipts[0].id,'admin gets the customer-selected receipt preselected for explicit reconciliation');
+    await page.getByRole('button',{name:'Asociar comprobante',exact:true}).click();
+    await page.getByText('Comprobante asociado al abono confirmado.',{exact:true}).waitFor();
+    const linked=JSON.parse(await readFile(join(box,'payment_requests.json'),'utf8')).requests.find(r=>r.id==='fixture-credit');
+    check(linked.payment_credits.length===1 && linked.payment_credits[0].amount_clp===2000 && linked.payment_credits[0].receipt_id===linked.receipts[0].id,'explicit admin association reconciles the file without adding money');
+    await creditApi('register_credit',{...creditPayload,amount_clp:8000,reference:`PAID-PROOF-${width}`,expected_remaining_clp:8000,idempotency_key:`paid-proof-credit-${width}`});
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit&proof=1`);
+    await page.getByRole('heading',{name:'Adjuntar comprobante',exact:true}).waitFor();
+    check(await page.getByLabel('Monto transferido en CLP').inputValue()==='8000' && await page.getByRole('radiogroup',{name:'Medio de pago'}).count()===0,'a fully paid installment still opens missing-proof upload directly without requesting money');
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`proof journey fits ${width}px`);
     await page.close();
   }
 
