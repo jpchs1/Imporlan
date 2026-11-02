@@ -15,7 +15,7 @@ import PaymentReceipts from '../../shared/components/PaymentReceipts';
 import { FileOpen } from '../../shared/components/FileDownload';
 import { openFile } from '../../shared/lib/file-download';
 import PaymentCredits from '../../shared/components/PaymentCredits';
-import { paymentBalance, creditHasProof } from '../../shared/lib/payment-balance';
+import { paymentBalance, creditHasProof, receiptLinked } from '../../shared/lib/payment-balance';
 import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
 
 // These side effects run only from the explicit payment action.
@@ -216,7 +216,7 @@ function PayModal({ open, onClose, paymentRequest, toast, expediente, onReceipt 
   const [receiptSubmitted, setReceiptSubmitted] = useState(false);
   const [showProof, setShowProof] = useState(!!paymentRequest?.proofIntent);
   const [proofCredit, setProofCredit] = useState(() => {
-    const missing = (paymentRequest?.payment_credits || []).filter(c => c.status === 'confirmed' && ['global66','santander','otro'].includes(c.bank) && !creditHasProof(paymentRequest,c) && !(paymentRequest.receipts || []).some(r => r.credit_id === c.id && r.status !== 'rejected'));
+    const missing = (paymentRequest?.payment_credits || []).filter(c => c.status === 'confirmed' && ['global66','santander','otro'].includes(c.bank) && !creditHasProof(paymentRequest,c) && !(paymentRequest.receipts || []).some(r => r.credit_id === c.id && r.status !== 'rejected' && !receiptLinked(paymentRequest,r)));
     return missing.find(c => c.id === paymentRequest?.proofCreditId) || (paymentRequest?.proofIntent && missing.length === 1 ? missing[0] : null);
   });
   const proofRef = useRef(null);

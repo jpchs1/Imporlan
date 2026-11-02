@@ -17,7 +17,7 @@ function impPaymentCreditHasProof($request,$credit) {
 }
 /** A client-selected credit hint stops repeat upload requests, but never books money or approves evidence. */
 function impPaymentCreditProofSubmitted($request,$credit) {
-    foreach($request['receipts'] ?? [] as $r)if(($r['credit_id'] ?? '')===($credit['id'] ?? null) && ($r['status'] ?? '')!=='rejected')return true;
+    foreach($request['receipts'] ?? [] as $r)if(($r['credit_id'] ?? '')===($credit['id'] ?? null) && ($r['status'] ?? '')!=='rejected' && !impPaymentReceiptLinked($request,$r))return true;
     return false;
 }
 function impPaymentProofPending($request) {

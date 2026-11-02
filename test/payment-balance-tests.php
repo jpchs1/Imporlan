@@ -32,6 +32,9 @@ $hinted=$s;$hinted['payments'][0]['receipts']=[['id'=>'rc_hint','credit_id'=>$hi
 $hintPlan=clientPlan($hinted);$hintKinds=$hintPlan?array_column($hintPlan['tasks'],'kind'):[];
 $missingProofs=implode(' ',array_column(array_filter($hintPlan['tasks'] ?? [],function($t){return $t['kind']==='receipt_upload';}),'detail'));
 check(!in_array('payment',$hintKinds,true) && strpos($missingProofs,'$2.000')===false && strpos($missingProofs,'$3.000')!==false,'submitted credit proof suppresses its upload reminder while another missing proof is still requested');
+$hinted['payments'][0]['payment_credits'][1]['receipt_id']='rc_hint';$hinted['payments'][0]['receipts'][0]['status']='reviewed';
+$reassigned=clientPlan($hinted);$proofDetails=implode(' ',array_column(array_filter($reassigned['tasks'] ?? [],function($t){return $t['kind']==='receipt_upload';}),'detail'));
+check(strpos($proofDetails,'$2.000')!==false && strpos($proofDetails,'$3.000')===false,'finance association to a different credit supersedes the customer hint and resumes the genuinely missing proof');
 $now=new DateTimeImmutable('2026-10-29T12:00:00Z');$loader=function($id)use($db){$s=impActionSnapshot($db,$id);$s['client_data_complete']=true;return $s;};$sent=[];$sender=function($to,$mail)use(&$sent){$sent[]=$mail;return true;};
 impActionConfigure($db,['role'=>'admin','email'=>'owner@example.test'],true,impActionTemplateHash());
 $hash=impActionPreview($db,1,'client',$loader)['fingerprint'];check(impActionSend($db,1,'client',$hash,$now,$sender,$loader)['sent'],'enabled reminders send the current net balance');

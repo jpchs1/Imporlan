@@ -68,13 +68,13 @@ jobs:
               assets = set(re.findall(r'(?:src|href)="(/panel/[^\"]+\.(?:js|css)(?:\?[^\"]*)?)"', html))
               if not assets:
                   raise SystemExit('No compiled assets found for ' + panel)
-              # Expedientes loads its own JS/CSS lazily. Verify those files
+              # Expedientes and payments load their own JS/CSS lazily. Verify those files
               # too: matching the entry point alone cannot confirm its design.
               workspace_assets = set()
               for asset in assets:
                   if asset.split('?')[0].endswith('.js'):
                       source = pathlib.Path(asset.split('?')[0].lstrip('/')).read_text()
-                      workspace_assets.update('/' + panel + path for path in re.findall(r'"(assets/(?:Orders|Expedientes|import-process)-[^"\s]+\.(?:js|css))"', source))
+                      workspace_assets.update('/' + panel + path for path in re.findall(r'"(assets/(?:Orders|Expedientes|Payments|import-process)-[^"\s]+\.(?:js|css))"', source))
               if not any(path.endswith('.css') for path in workspace_assets):
                   raise SystemExit('No compiled expediente stylesheet found for ' + panel)
               assets.update(workspace_assets)
