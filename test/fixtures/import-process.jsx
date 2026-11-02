@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import TuImportacion from '/src/user/pages/expedientes/TuImportacion.jsx';
 import SeccionImportacion from '/src/admin/pages/orders/SeccionImportacion.jsx';
 import { ToastProvider } from '/src/shared/components/Toast.jsx';
+import { ConfirmProvider } from '/src/shared/components/ConfirmDialog.jsx';
 import '/src/index.css';
 import '/src/shared/styles/expedientes.css';
 const params = new URLSearchParams(location.search);
@@ -43,7 +44,7 @@ window.fixtureRequests = requests;
 window.processActions = [];
 const order = { id:900,order_number:'IMP-DEMO',customer_name:'Sofía Carrasco',customer_email:'sofia@example.test',status:scenario === 'closed' ? 'completed' : 'in_progress',agent_name:'Equipo Imporlan',eleccion,links:[boat] };
 const action = label => () => window.processActions.push(label);
-createRoot(document.getElementById('root')).render(<MemoryRouter><ToastProvider><main className="exp-workspace" style={{maxWidth:1160,margin:'0 auto',padding:'28px 16px 60px'}}>
+createRoot(document.getElementById('root')).render(<MemoryRouter><ToastProvider><ConfirmProvider><main className="exp-workspace" style={{maxWidth:1160,margin:'0 auto',padding:'28px 16px 60px'}}>
   <div style={{marginBottom:24}}><p className="import-kicker">IMP-DEMO · Vista de prueba</p><h1 className="text-2xl font-semibold text-ink-900 mt-1">{mode === 'admin' || mode === 'agent' ? 'Centro de operación' : 'Mi compra e importación'}</h1><p className="text-sm text-ink-500 mt-2">{mode === 'admin' || mode === 'agent' ? 'Sofía Carrasco · MasterCraft X26' : 'Consulta el avance, tus próximos pasos y los pagos de tu lancha.'}</p></div>
-  {mode === 'client' ? <TuImportacion order={order} link={boat} eleccion={eleccion} requests={requests} files={[]} novedades={[]} onLeerReporte={action('read-report')} onAprobar={action('approve')} onDeclinar={action('decline')} onElegirOtra={noop} onPedirDevolucion={noop} /> : <SeccionImportacion detail={order} links={[boat]} importacion={{puedeCobrar:mode !== 'agent',datosCliente:false,operacionUsa:false,cobros:mode === 'agent' ? [] : requests,onHito:action('hito'),onInspeccionResultado:action('inspection'),onEstadoCobro:action('payment'),onRecargar:noop,onReintentarCobros:noop,onQuitar:noop,onCrearCobro:noop}} onMarcarElegida={noop} />}
-</main></ToastProvider></MemoryRouter>);
+  {mode === 'client' ? <TuImportacion order={order} link={boat} eleccion={eleccion} requests={requests} files={[]} novedades={[]} onLeerReporte={action('read-report')} onAprobar={action('approve')} onDeclinar={action('decline')} onElegirOtra={noop} onPedirDevolucion={noop} /> : <SeccionImportacion detail={order} links={[boat]} importacion={{puedeCobrar:mode !== 'agent',datosCliente:false,operacionUsa:scenario==='paid_ready',cobros:mode === 'agent' ? [] : requests,onHito:action('hito'),onInspeccionResultado:action('inspection'),onEstadoCobro:action('payment'),onRecargar:noop,onReintentarCobros:noop,onQuitar:noop,onCrearCobro:noop}} onMarcarElegida={noop} />}
+</main></ConfirmProvider></ToastProvider></MemoryRouter>);

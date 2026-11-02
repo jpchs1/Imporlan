@@ -51,8 +51,17 @@ function impPurchaseClearanceFor($pdo,$order) {
     if(!is_array($requests))throw new RuntimeException('Payment reconciliation unavailable');
     return impPurchaseClearance($order,$link,$requests);
 }
-/** One operator handoff after the last required income/proof is reconciled. No purchase is marked complete. */
-function impResumePurchase($request) {
+function impPurchaseHandoffSchema($pdo) {
+    $engine=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?'':' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
+    $pdo->exec("CREATE TABLE IF NOT EXISTS order_purchase_handoffs (order_id INT NOT NULL,link_id INT NOT NULL,status VARCHAR(16) NOT NULL,attempted_at DATETIME NOT NULL,sent_at DATETIME NULL,PRIMARY KEY(order_id,link_id))$engine");
+}
+function impPurchaseHandoffState($pdo,$order) {
+    impPurchaseHandoffSchema($pdo);
+    $st=$pdo->prepare('SELECT status,attempted_at,sent_at FROM order_purchase_handoffs WHERE order_id=? AND link_id=?');$st->execute([$order['id'],$order['chosen_link_id'] ?? 0]);
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+/** One operator handoff; only an explicit owner action may retry a failed delivery. */
+function impResumePurchase($request,$retry=false) {
     require_once __DIR__.'/operador_usa.php';
     $ref=$request['metadata']['order_id'] ?? $request['metadata']['order_number'] ?? '';
     if(!is_scalar($ref) || trim((string)$ref)==='')return false;
@@ -60,14 +69,14 @@ function impResumePurchase($request) {
     $st=$pdo->prepare(ctype_digit((string)$ref)?'SELECT * FROM orders WHERE id=?':'SELECT * FROM orders WHERE order_number=?');$st->execute([$ref]);$o=$st->fetch(PDO::FETCH_ASSOC);
     if($o && isset($request['user_email']) && strtolower($request['user_email'])!==strtolower($o['customer_email']))return false;
     if(!$o || impExpedienteCerrado($o) || !empty($o['refund_requested_at']) || impInspeccionNoApta($o) || !impTieneEleccion($o) || opuHitoEnCurso($o)!=='compra' || opuPriceGate($pdo,$o) || !impPurchaseClearanceFor($pdo,$o)['ready'])return false;
-    $engine=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?'':' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
-    $pdo->exec("CREATE TABLE IF NOT EXISTS order_purchase_handoffs (order_id INT NOT NULL,link_id INT NOT NULL,status VARCHAR(16) NOT NULL,attempted_at DATETIME NOT NULL,sent_at DATETIME NULL,PRIMARY KEY(order_id,link_id))$engine");
+    impPurchaseHandoffSchema($pdo);
     $insert=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?'INSERT OR IGNORE':'INSERT IGNORE';
-    $claim=$pdo->prepare("$insert INTO order_purchase_handoffs (order_id,link_id,status,attempted_at) VALUES (?,?,'attempted',?)");$claim->execute([$o['id'],$o['chosen_link_id'],gmdate('Y-m-d H:i:s')]);
+    if($retry) {$claim=$pdo->prepare("UPDATE order_purchase_handoffs SET status='attempted',attempted_at=?,sent_at=NULL WHERE order_id=? AND link_id=? AND status='failed'");$claim->execute([gmdate('Y-m-d H:i:s'),$o['id'],$o['chosen_link_id']]);}
+    else {$claim=$pdo->prepare("$insert INTO order_purchase_handoffs (order_id,link_id,status,attempted_at) VALUES (?,?,'attempted',?)");$claim->execute([$o['id'],$o['chosen_link_id'],gmdate('Y-m-d H:i:s')]);}
     if(!$claim->rowCount())return false;
     $fresh=opuOrden($pdo,$o['id']);$sent=false;
     if($fresh && !impExpedienteCerrado($fresh) && empty($fresh['refund_requested_at']) && !impInspeccionNoApta($fresh) && intval($fresh['chosen_link_id'])===intval($o['chosen_link_id']) && opuHitoEnCurso($fresh)==='compra' && !opuPriceGate($pdo,$fresh) && impPurchaseClearanceFor($pdo,$fresh)['ready']) {
-        try {$sent=opuPedirActualizacion($pdo,$fresh,'The Imporlan team has completed its internal review and authorized the purchase. Please follow the current instructions in your private portal.');}catch(Throwable $e){error_log('[purchase-handoff] operator notice failed');}
+        try {$sent=opuPedirActualizacion($pdo,$fresh,'The Imporlan team has completed its internal review and authorized the purchase. Please follow the current instructions in your private portal.','',true);}catch(Throwable $e){error_log('[purchase-handoff] operator notice failed');}
     }
     $pdo->prepare('UPDATE order_purchase_handoffs SET status=?,sent_at=? WHERE order_id=? AND link_id=?')->execute([$sent?'sent':'failed',$sent?gmdate('Y-m-d H:i:s'):null,$o['id'],$o['chosen_link_id']]);
     return $sent;

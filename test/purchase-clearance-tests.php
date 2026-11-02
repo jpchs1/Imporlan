@@ -41,10 +41,18 @@ check(count($GLOBALS['ACTION_SMTP'])===$sent && $db->query('SELECT COUNT(*) FROM
 opuAlMarcarHito($db,1,'inspeccion');
 check(count($GLOBALS['ACTION_SMTP'])===$sent,'milestone hooks share the same authorization claim');
 check(!isset(impPasos(opuOrden($db,1))['compra']),'financial clearance never marks a physical purchase complete');
+opuPedirActualizacion($db,opuOrden($db,1),'Please share progress.');
+$follow=end($GLOBALS['ACTION_SMTP']);$followBody=preg_replace_callback('/(?<=\r\n\r\n)([A-Za-z0-9+\/=\r\n]+)(?=\r\n--)/',function($m){$x=base64_decode($m[1],true);return $x===false?$m[1]:$x;},$follow['body']);
+check(strpos($followBody,'does not issue a new purchase instruction')!==false && strpos($followBody,'Please move forward with the purchase')===false,'ordinary purchase reminders request updates without reissuing authorization');
 $db->exec('DELETE FROM order_purchase_handoffs');$GLOBALS['PURCHASE_TEST_MAIL_FAIL']=true;
 check(impResumePurchase($two)===false && $db->query('SELECT status FROM order_purchase_handoffs')->fetchColumn()==='failed','failed delivery remains visible and never claims an authorization was sent');
 impResumePurchase($two);check(($GLOBALS['PURCHASE_TEST_FAILURES'] ?? 0)===1,'a failed handoff cannot auto-retry and duplicate an uncertain delivery');
 $GLOBALS['PURCHASE_TEST_MAIL_FAIL']=false;
+check(impPurchaseHandoffState($db,$order)['status']==='failed','staff can inspect the failed delivery before deciding to retry');
+check(impResumePurchase($two,true) && impPurchaseHandoffState($db,$order)['status']==='sent','an explicit retry can atomically recover a failed delivery');
+check(!impResumePurchase($two,true),'a second explicit retry cannot resend a successful authorization');
+$db->exec("UPDATE order_purchase_handoffs SET status='attempted'");
+check(!impResumePurchase($two,true),'an uncertain in-progress delivery cannot be reclaimed as a failed send');
 $wrong=$two;$wrong['user_email']='other@example.test';check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'another customer payment cannot authorize this purchase');
 $wrong=$two;$wrong['metadata']['custom_fields']['link_id']=99;check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'a charge for another boat cannot authorize this purchase');
 $wrong=$two;$wrong['amount_clp']=4000;check(!impPurchaseClearance($order,$link,[$one,$wrong])['ready'],'an invoice changed from the agreed plan requires reconciliation');

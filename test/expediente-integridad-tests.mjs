@@ -320,7 +320,7 @@ try {
   for (const status of ['pending', 'paid']) {
     const nextStep = await open('admin', { initial: chosenOrder, handler: async ({ route, url }) => {
       if (url.pathname.endsWith('payment_requests_api.php')) {
-        await route.fulfill({ json: { success: true, requests: [{ id: 1, title: 'Pago 1', status, amount_clp: 1260000, metadata: { order_id: 35, custom_fields: { pago: 1 } } }] } }); return true;
+        await route.fulfill({ json: { success: true, requests: [{ id: 1, title: 'Pago 1', status, payment_method:status==='paid'?'webpay':null,payment_id:status==='paid'?'FIXTURE-CAPTURE-P1':null,amount_clp: 1260000, metadata: { order_id: 35, custom_fields: { pago: 1 } } }] } }); return true;
       }
     } });
     const summary = nextStep.page.getByRole('complementary', { name: 'Siguiente paso del expediente' });

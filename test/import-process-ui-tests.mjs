@@ -48,6 +48,7 @@ try {
     await page.route('**/api/**',async route=>{
       if(route.request().method()!=='GET')mutations.push(route.request().url());
       const u=new URL(route.request().url());
+      if(u.pathname.endsWith('operador_usa.php') && u.searchParams.get('r')==='admin_estado' && new URL(page.url()).searchParams.get('scenario')==='paid_ready')return route.fulfill({json:{success:true,hito_en_curso:'compra',purchase_clearance:{ready:true},purchase_handoff:{status:'failed'},can_approve_price:true,inspection_price:{ready:true}}});
       if(u.pathname.endsWith('payment_receipts_api.php')) { const id=u.searchParams.get('request_id');const receipts=await page.evaluate(id=>(window.fixtureRequests.find(r=>r.id===id)?.receipts || []),id);return route.fulfill({json:{success:true,receipts}}); }
       return route.fulfill({json:{success:true,settings:{enabled:false},preview:{plan:{kind:'none'}}}});
     });
@@ -78,6 +79,12 @@ try {
       }
       if(mode==='client' && scenario==='paid_review')check((await page.locator('.client-import-action').innerText()).includes('Comprobante recibido'),'paid money with an unlinked receipt waits for finance review');
       if(mode==='admin' && scenario.startsWith('paid_')) {
+        if(scenario==='paid_ready') {
+          await page.getByRole('button',{name:'Reintentar autorización',exact:true}).click();
+          await page.getByRole('heading',{name:'¿Reintentar la autorización de compra?',exact:true}).waitFor();
+          check((await page.getByRole('dialog').innerText()).includes('Comprueba que David no lo haya recibido'),'failed purchase delivery requires explicit verification before retrying');
+          await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+        }
         const row=page.locator('li').filter({hasText:'Compra cerrada en Estados Unidos'}).last();
         check(await row.getByRole('button',{name:'Marcar hecho',exact:true}).isDisabled()===(scenario!=='paid_ready'),'admin cannot close buying until both money and proof reconciliation are complete');
       }

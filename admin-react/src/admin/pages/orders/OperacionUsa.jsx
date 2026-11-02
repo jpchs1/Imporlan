@@ -7,7 +7,7 @@ import { Button, Menu, Badge, Callout, EmptyState, ErrorState, Skeleton, Modal, 
 import { Send, Copy, ExternalLink, RefreshCw, Globe, Video, Image as ImageIcon, FileText, File as FileIcon, Paperclip } from '../../../shared/components/Icons';
 import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
-import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion, conservarPrecioAcordado } from '../../api';
+import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion, conservarPrecioAcordado, autorizarCompraUsa } from '../../api';
 import { categoriaArchivo } from '../../components/useExpedienteFiles';
 
 /**
@@ -27,6 +27,7 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
   const [estado, setEstado] = useState(null);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [enviandoCompra,setEnviandoCompra]=useState(false);
   const [modalPedir, setModalPedir] = useState(false);
   const [compartiendo, setCompartiendo] = useState(null); // la actualización a compartir
   const [lightbox, setLightbox] = useState(null); // { items, index }
@@ -54,6 +55,14 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
   const nombre = operador.split(' ')[0];
   const hito = hitoPorId(estado?.hito_en_curso);
   const purchaseHold = estado?.hito_en_curso === 'compra' && estado?.purchase_clearance && !estado.purchase_clearance.ready;
+  async function enviarCompra() {
+    const retry=estado?.purchase_handoff?.status==='failed';
+    if(!(await confirm({title:retry?'¿Reintentar la autorización de compra?':'¿Enviar la autorización de compra?',description:retry?'El envío anterior falló. Comprueba que David no lo haya recibido antes de reintentar. Se volverán a verificar los pagos y sus respaldos.':'Se verificarán los pagos y respaldos antes de avisar a David. Esta acción no marca la compra como realizada.',confirmLabel:retry?'Reintentar envío':'Enviar autorización'})))return;
+    setEnviandoCompra(true);
+    try{await autorizarCompraUsa(detail.id,retry);toast?.('Autorización enviada al coordinador.','success');}
+    catch(e){toast?.(e.message || 'No se pudo enviar la autorización.','error');}
+    finally{await cargar({silencioso:true});setEnviandoCompra(false);}
+  }
   const updates = estado?.updates || [];
   const porId = new Map((archivos?.files || []).map(f => [Number(f.id), f]));
 
@@ -140,6 +149,11 @@ export default function OperacionUsa({ detail, eleccion, archivos, onRecargarDet
           />
         </div>
       </div>
+
+      {estado?.purchase_clearance?.ready && <div className="rounded-lg border border-line bg-canvas p-3 mb-3 text-sm" role="status">
+        <p>{estado.purchase_handoff?.status==='sent'?'Autorización de compra enviada al coordinador. El cierre de compra se registra al recibir la evidencia.':estado.purchase_handoff?.status==='failed'?'No se pudo entregar la autorización de compra. Revisa el envío antes de reintentarlo.':estado.purchase_handoff?.status==='attempted'?'El envío de la autorización está en verificación. Comprueba la entrega antes de enviar otro aviso.':'Pagos y respaldos conciliados. Falta enviar la autorización al coordinador.'}</p>
+        {estado.can_approve_price && (!estado.purchase_handoff || estado.purchase_handoff.status==='failed') && <Button size="sm" variant="secondary" className="mt-2" onClick={enviarCompra} disabled={enviandoCompra}>{enviandoCompra?'Enviando…':estado.purchase_handoff?.status==='failed'?'Reintentar autorización':'Enviar autorización'}</Button>}
+      </div>}
 
       {cargando ? (
         <div className="rounded-md border border-line p-3"><Skeleton.Text lines={3} /></div>

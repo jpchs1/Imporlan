@@ -261,7 +261,7 @@ function opuEnviar($subject, $html) {
  * (por qué le escribimos ahora). $mensaje: texto libre del equipo.
  * Devuelve true si salió el correo.
  */
-function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
+function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '', $purchaseAuthorization = false) {
     if (!impTieneEleccion($order)) return false;
     // A completed survey awaiting uploads has its own daily request. Never
     // ask the operator to arrange the inspection again, or send a second chase.
@@ -274,6 +274,7 @@ function opuPedirActualizacion($pdo, $order, $motivo, $mensaje = '') {
     $price = opuPriceState($pdo, $order);
     $pedido = opuPedidoPara($hito, !empty($price['retained'])) ?: 'Please send any new photos, videos or documents you have for this boat.';
     if($purchaseHold)$pedido='Purchase authorization is pending with the Imporlan team. Do not purchase this boat, sign purchase documents or commit funds yet. We will send a new instruction when the purchase is authorized. You may continue sharing information and documents in your private portal.';
+    elseif($hito==='compra' && !$purchaseAuthorization)$pedido='Please share the current purchase status and any new documents in your private portal. Follow the current authorization shown there; this update reminder does not issue a new purchase instruction.';
     $token = opuToken($pdo, $order);
     $titulo = impTituloLancha($link);
     $nombre = explode(' ', opuOperador()['nombre'])[0];
@@ -812,6 +813,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             'inspection_price' => opuPriceState($pdo, $o),
             'can_approve_price' => opuPriceCanApprove($sesion),
             'purchase_clearance' => $purchaseClearance,
+            'purchase_handoff' => $purchaseClearance ? impPurchaseHandoffState($pdo,$o) : null,
             'pago1_pagado' => impPago1Pagado($o['id'],$o['order_number'] ?? '') > 0,
         ]);
         exit;
@@ -850,6 +852,13 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
         $pagoAprobacion = impAprobacionPendiente($pdo, $o['id']);
         echo json_encode(['success' => true, 'inspection_price' => opuPriceState($pdo, opuOrden($pdo, $o['id'])), 'inspeccion_aprobada' => (bool) $pagoAprobacion, 'pago' => $pagoAprobacion && !empty($pagoAprobacion['id']) ? $pagoAprobacion : null]);
         exit;
+    }
+    if ($r === 'admin_autorizar_compra' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        if(!opuPriceCanApprove($sesion)){http_response_code(403);echo json_encode(['error'=>'Sólo la cuenta principal puede enviar o reintentar esta autorización.']);exit;}
+        require_once __DIR__.'/purchase_clearance.php';
+        $ok=impResumePurchase(['metadata'=>['order_id'=>intval($in['order_id'] ?? 0)]],!empty($in['retry']));
+        if(!$ok){http_response_code(409);echo json_encode(['error'=>'No se envió la autorización. Actualiza el estado: puede faltar conciliación, existir un envío previo o haber fallado la entrega.']);exit;}
+        echo json_encode(['success'=>true]);exit;
     }
     if ($r === 'admin_pedir' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $o = opuOrden($pdo, $in['order_id'] ?? 0);
