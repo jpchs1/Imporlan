@@ -28,7 +28,7 @@ export default function PaymentReconciliationNotice({ request }) {
     <h4 className="text-sm font-semibold text-ink-900">Cuadre de ingresos · notificaciones</h4>
     <p className="text-xs text-ink-500">Al cubrir el total se avisa a cliente y admin con valores, y al coordinador sin montos. Los respaldos pendientes y la autorización de compra se revisan por separado.</p>
     {error && <Callout compact tone="warning">{error}</Callout>}
-    {deliveries.length>0 && <ul className="space-y-1 text-xs text-ink-700">{deliveries.map(d=><li key={d.audience}>{labels[d.audience]}: {d.status==='sent'?'Enviado':d.status==='failed'?'No confirmado · requiere revisión':'En verificación · no reenviar todavía'}</li>)}</ul>}
+    {deliveries.length>0 && <ul className="space-y-1 text-xs text-ink-700">{deliveries.map(d=><li key={d.audience}>{labels[d.audience]}: {d.status==='sent'?'Enviado':d.status==='covered'?'Autorización ya enviada':d.status==='failed'?'No confirmado · requiere revisión':'En verificación · no reenviar todavía'}</li>)}</ul>}
     {state?.can_send && state.eligible && (failed || deliveries.length<3) && <Button size="sm" variant="secondary" onClick={send} disabled={busy}>{busy ? 'Enviando…' : retry ? 'Reintentar avisos fallidos' : 'Enviar cuadre'}</Button>}
   </section>;
 }

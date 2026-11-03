@@ -76,7 +76,7 @@ function impResumePurchase($request,$retry=false) {
     if(!$claim->rowCount())return false;
     $fresh=opuOrden($pdo,$o['id']);$sent=false;
     if($fresh && !impExpedienteCerrado($fresh) && empty($fresh['refund_requested_at']) && !impInspeccionNoApta($fresh) && intval($fresh['chosen_link_id'])===intval($o['chosen_link_id']) && opuHitoEnCurso($fresh)==='compra' && !opuPriceGate($pdo,$fresh) && impPurchaseClearanceFor($pdo,$fresh)['ready']) {
-        try {$sent=opuPedirActualizacion($pdo,$fresh,'The Imporlan team has completed its internal review and authorized the purchase. Please follow the current instructions in your private portal.','',true);}catch(Throwable $e){error_log('[purchase-handoff] operator notice failed');}
+        try {$sent=opuPedirActualizacion($pdo,$fresh,'The client installments are complete and the Imporlan team has completed its internal review and authorized the purchase. Please follow the current instructions in your private portal.','',true);}catch(Throwable $e){error_log('[purchase-handoff] operator notice failed');}
     }
     $pdo->prepare('UPDATE order_purchase_handoffs SET status=?,sent_at=? WHERE order_id=? AND link_id=?')->execute([$sent?'sent':'failed',$sent?gmdate('Y-m-d H:i:s'):null,$o['id'],$o['chosen_link_id']]);
     return $sent;

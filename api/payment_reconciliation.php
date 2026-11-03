@@ -46,25 +46,33 @@ function impReconciliationFingerprint($context,$audience) {
 }
 function impReconciliationSend($id,$retry=false,$sender=null) {
     $context=impReconciliationContext($id);if(!$context)return ['eligible'=>false,'sent'=>0,'failed'=>0];
-    $pdo=getDbConnection();impReconciliationSchema($pdo);$result=['eligible'=>true,'sent'=>0,'failed'=>0];
+    $pdo=getDbConnection();impReconciliationSchema($pdo);$result=['eligible'=>true,'sent'=>0,'failed'=>0,'covered'=>0];
     foreach(['client','owner','coordinator'] as $audience) {
         $to=impReconciliationRecipient($context,$audience);$recipient=hash('sha256',strtolower($to));$now=gmdate('Y-m-d H:i:s');
         if($retry){$claim=$pdo->prepare("UPDATE payment_reconciliation_notices SET status='attempted',attempted_at=?,sent_at=NULL WHERE request_id=? AND audience=? AND recipient_hash=? AND status='failed'");$claim->execute([$now,$id,$audience,$recipient]);}
         else {$insert=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite'?'INSERT OR IGNORE':'INSERT IGNORE';$claim=$pdo->prepare("$insert INTO payment_reconciliation_notices (request_id,audience,recipient_hash,status,attempted_at) VALUES (?,?,?,'attempted',?)");$claim->execute([$id,$audience,$recipient,$now]);}
         if(!$claim->rowCount())continue;
-        $fresh=impReconciliationContext($id);$ok=false;$status='failed';
+        $fresh=impReconciliationContext($id);$ok=false;$status='failed';$coveredAt=null;
         if($fresh && hash_equals(impReconciliationFingerprint($context,$audience),impReconciliationFingerprint($fresh,$audience))) {
             try {
-                // Coordinator rendering only receives an operational projection, never buyer amounts/contact.
-                if($audience==='coordinator')$mail=impReconciliationCoordinatorEmail(['order_number'=>$fresh['order']['order_number'],'portal'=>opuUrlPortal(opuToken($pdo,$fresh['order'])),'purchase_hold'=>opuHitoEnCurso($fresh['order'])==='compra' && !impPurchaseClearanceFor($pdo,$fresh['order'])['ready']]);
-                else $mail=impReconciliationFinancialEmail($fresh,$audience);
-                if($sender)$ok=(bool)$sender($to,$mail,$audience);
-                else {require_once __DIR__.'/email_service.php';$sent=(new EmailService())->sendImportActionEmail($to,$mail,['audience'=>$audience,'order_id'=>$fresh['order']['id'],'event'=>'payment_reconciled','request_id'=>$id]);$ok=!empty($sent['success']);}
-                $status=$ok?'sent':'failed';
+                $purchaseReady=$audience==='coordinator' && opuHitoEnCurso($fresh['order'])==='compra' && !opuPriceGate($pdo,$fresh['order']) && !opuInspectionOwnsStage($pdo,$fresh['order']) && impPurchaseClearanceFor($pdo,$fresh['order'])['ready'];
+                if($fresh['number']<=2 && $purchaseReady && !$sender) {
+                    // The purchase handoff is the coordinator's one completion notice when buying is authorized.
+                    $ok=impResumePurchase($fresh['request'],$retry);
+                    $handoff=impPurchaseHandoffState($pdo,$fresh['order']);
+                    if(!$ok && ($handoff['status'] ?? '')==='sent'){$status='covered';$coveredAt=$handoff['sent_at'];}
+                } else {
+                    // Coordinator rendering only receives an operational projection, never buyer amounts/contact.
+                    if($audience==='coordinator')$mail=impReconciliationCoordinatorEmail(['order_number'=>$fresh['order']['order_number'],'portal'=>opuUrlPortal(opuToken($pdo,$fresh['order'])),'purchase_hold'=>opuHitoEnCurso($fresh['order'])==='compra' && !$purchaseReady,'start_operation'=>$fresh['number']===1 && !isHistoricalFirstPayment($fresh['request'])]);
+                    else $mail=impReconciliationFinancialEmail($fresh,$audience);
+                    if($sender)$ok=(bool)$sender($to,$mail,$audience);
+                    else {require_once __DIR__.'/email_service.php';$sent=(new EmailService())->sendImportActionEmail($to,$mail,['audience'=>$audience,'order_id'=>$fresh['order']['id'],'event'=>'payment_reconciled','request_id'=>$id]);$ok=!empty($sent['success']);}
+                }
+                if($status!=='covered')$status=$ok?'sent':'failed';
             }catch(Throwable $e){$status='failed';error_log('[payment-reconciliation] delivery failed');}
         }
-        $pdo->prepare('UPDATE payment_reconciliation_notices SET status=?,sent_at=? WHERE request_id=? AND audience=?')->execute([$status,$ok?gmdate('Y-m-d H:i:s'):null,$id,$audience]);
-        $result[$ok?'sent':'failed']++;
+        $pdo->prepare('UPDATE payment_reconciliation_notices SET status=?,sent_at=? WHERE request_id=? AND audience=?')->execute([$status,$coveredAt ?: ($ok?gmdate('Y-m-d H:i:s'):null),$id,$audience]);
+        $result[$status==='covered'?'covered':($ok?'sent':'failed')]++;
     }
     return $result;
 }

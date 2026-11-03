@@ -1,6 +1,12 @@
 <?php
 /** Confirmed bank/gateway credits. Uploaded files never contribute money. */
 function impPaymentCredits($request) { return array_values(array_filter($request['payment_credits'] ?? [],function($c){return ($c['status'] ?? '')==='confirmed';})); }
+function impPaymentGatewayOnly($request) {
+    if(($request['status'] ?? '')!=='paid')return false;
+    $credits=impPaymentCredits($request);$providers=['webpay','mercadopago','paypal'];
+    if($credits)return count(array_filter($credits,function($c)use($providers){return in_array($c['bank'] ?? '',$providers,true);}))===count($credits);
+    return empty($request['payment_credits']) && in_array($request['payment_method'] ?? '',$providers,true);
+}
 function impPaymentBalance($request) {
     $total=max(0,intval($request['amount_clp'] ?? 0));
     $credits=array_sum(array_column(impPaymentCredits($request),'amount_clp'));

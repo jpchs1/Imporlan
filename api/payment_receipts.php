@@ -23,6 +23,8 @@ function impReceiptUpload($id,$session,$file,$fields,$move='move_uploaded_file')
     $request=impReceiptFind($id);
     if (!$request || !impReceiptCanRead($request,$session)) return [403,'No tienes acceso a este pago'];
     if (($request['status'] ?? '')==='cancelled') return [409,'Este cobro está cancelado'];
+    require_once __DIR__.'/payment_balance.php';
+    if(!in_array($session['role'] ?? '',['admin','support'],true) && impPaymentGatewayOnly($request))return [409,'Este pago ya fue confirmado por la pasarela y no necesita un comprobante de transferencia.'];
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || empty($file['tmp_name']) || !is_file($file['tmp_name'])) return [400,'Selecciona un comprobante PDF, JPG, PNG o WebP'];
     $size=filesize($file['tmp_name']); if (!$size || $size>10*1024*1024) return [400,'El comprobante debe pesar hasta 10 MB'];
     $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);

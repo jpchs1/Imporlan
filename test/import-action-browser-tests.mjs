@@ -362,6 +362,19 @@ try {
     check(audience==='client'?body.includes('$26.891.827')&&body.includes('saldo de esta cuota: $0'):!/(CLP|USD|26\.891\.827|client@example.test|Cliente Ejemplo)/.test(body),'completion email follows the audience financial privacy rules');
     await page.close();
   }
+  // Completion links for a paid gateway request open history, never a new transfer form.
+  execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$d['requests'][0]['payment_credits'][0]['bank']='webpay';$d['requests'][0]['payment_method']='webpay';file_put_contents($f,json_encode($d));`]);
+  for(const width of [390,1440]) {
+    const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',e=>errors.push(e.message));const gateways=[];
+    await page.addInitScript(token=>{localStorage.setItem('imporlan_token',token);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de prueba',role:'user'}));},jwt('client@example.test','user'));
+    await page.route('**/api/**',async route=>{const u=new URL(route.request().url());if(/webpay|mercadopago/.test(u.pathname))gateways.push(u.pathname);if(/payment_requests_api|payment_receipts_api/.test(u.pathname)){const r=await fetch(`${origin}/${u.pathname.split('/').pop()}${u.search}`,{method:route.request().method(),headers:route.request().headers(),body:route.request().method()==='POST'?route.request().postDataBuffer():undefined});return route.fulfill({status:r.status,json:await r.json()});}return route.fulfill({json:{success:true,user:{email:'client@example.test',role:'user'},orders:[{id:1,order_number:'IMP-DEMO'}]}});});
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit`);
+    const detail=page.getByRole('dialog');await detail.getByText('Pago confirmado por la pasarela. No necesitas adjuntar un comprobante de transferencia.',{exact:true}).waitFor();
+    check(await detail.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && await detail.getByLabel('Archivo del comprobante',{exact:true}).count()===0 && gateways.length===0,`paid completion link at ${width}px shows details without demanding proof or another payment`);
+    await page.close();
+  }
+  const gatewayProof=receiptPayload('UNNECESSARY-GATEWAY-PROOF');gatewayProof.set('request_id','fixture-credit');const ledgerBefore=await readFile(join(box,'payment_requests.json'),'utf8');
+  check((await receiptCall('upload',gatewayProof)).httpStatus===409 && await readFile(join(box,'payment_requests.json'),'utf8')===ledgerBefore,'native API prevents extra gateway evidence from reopening purchase reconciliation');
   check(errors.length===0,`admin controls render without runtime errors: ${errors.join('; ')}`);
   console.log(`${passed} reminder API, email and UI checks passed`);
 } finally {await browser?.close();await vite?.close();phpServer?.kill();await rm(box,{recursive:true,force:true});}
