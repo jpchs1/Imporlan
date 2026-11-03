@@ -5,7 +5,7 @@ import { Badge, Button, Callout, Input, Select } from './UI';
 import { FileOpen } from './FileDownload';
 import { FileCheck, Upload, FileText } from './Icons';
 import '../styles/import-process.css';
-import { paymentBalance, receiptLinked } from '../lib/payment-balance';
+import { paymentBalance, receiptLinked, gatewayOnlyPayment } from '../lib/payment-balance';
 
 export default function PaymentReceipts({ request, admin = false, onChange, credit = null, proofOnly = false }) {
   return <ReceiptForm key={`${request.id}:${credit?.id || 'general'}`} request={request} admin={admin} onChange={onChange} credit={credit} proofOnly={proofOnly} />;
@@ -38,6 +38,8 @@ function ReceiptForm({ request, admin, onChange, credit, proofOnly }) {
   const hasEvidence = receipts.some(r => r.status !== 'rejected');
   const needsReplacement = receipts.length > 0 && !hasEvidence;
   const targetReceived = credit && receipts.some(r => r.credit_id === credit.id && r.status !== 'rejected');
+  const gatewayOnly=gatewayOnlyPayment(request);
+  if(gatewayOnly && !admin && receipts.length===0)return <Callout compact tone="info">Pago confirmado por la pasarela. No necesitas adjuntar un comprobante de transferencia.</Callout>;
   return <section className="payment-receipts" aria-label={`Comprobantes de ${request.title}`}>
     <div className="payment-receipts__header"><FileCheck size={22} /><div><h4>Comprobantes de transferencia</h4><p>{credit ? 'Este abono ya está confirmado. Sólo falta guardar su respaldo; no hagas otra transferencia.' : request.status === 'paid' ? 'Este pago ya está confirmado. Puedes completar su respaldo sin realizar otra transferencia.' : hasEvidence ? 'Tu comprobante está guardado. El equipo verifica el ingreso bancario antes de confirmar el pago.' : needsReplacement ? 'Revisa la observación del equipo y adjunta el comprobante corregido en este mismo pago.' : 'Si ya transferiste, adjunta aquí tu comprobante. El equipo verificará el ingreso y actualizará tu saldo.'}</p></div></div>
     <div className="payment-receipts__body">
@@ -50,7 +52,7 @@ function ReceiptForm({ request, admin, onChange, credit, proofOnly }) {
       {r.currency === 'USD' ? <Callout compact tone="info">El cobro está en CLP. El equipo debe revisar el monto en USD y la conversión acordada antes de confirmar el ingreso.</Callout> : Number(r.declared_amount_clp) !== Number(request.amount_clp) && !receiptLinked(request,r) && <Callout compact tone={Number(r.declared_amount_clp) < Number(request.amount_clp) ? 'info' : 'warning'}>Este comprobante informa un abono de {fmtCLP(r.declared_amount_clp)}. El equipo debe verificar y registrar ese ingreso para descontarlo del saldo.</Callout>}
       {admin && r.status !== 'rejected' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busy || r.status === 'reviewed'} onClick={() => review(r, 'reviewed')}>Registrar revisión</Button><Button size="sm" variant="ghost" disabled={busy || note.trim().length < 5} onClick={() => review(r, 'rejected')}>Solicitar otro comprobante</Button></div>}
     </div>)}
-    {admin && receipts.length > 0 && <Input label="Nota de revisión o motivo para solicitar otro comprobante" hint="Para solicitar un reemplazo, explica el motivo en al menos 5 caracteres." value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />}{request.status !== 'cancelled' && <details open={credit ? !targetReceived : receipts.length === 0 || receipts.every(r => r.status === 'rejected')}><summary className="cursor-pointer text-sm font-medium text-brand-700 py-2">{targetReceived ? 'Respaldo recibido · adjuntar otro archivo' : credit ? `Adjuntar respaldo del abono de ${fmtCLP(credit.amount_clp)}` : receipts.length ? 'Adjuntar otro comprobante' : 'Adjuntar comprobante de este pago'}</summary><form onSubmit={upload} className="payment-receipts__form mt-2">
+    {admin && receipts.length > 0 && <Input label="Nota de revisión o motivo para solicitar otro comprobante" hint="Para solicitar un reemplazo, explica el motivo en al menos 5 caracteres." value={note} maxLength={1000} onChange={e => setNote(e.target.value)} />}{request.status !== 'cancelled' && (!gatewayOnly || admin) && <details open={credit ? !targetReceived : receipts.length === 0 || receipts.every(r => r.status === 'rejected')}><summary className="cursor-pointer text-sm font-medium text-brand-700 py-2">{targetReceived ? 'Respaldo recibido · adjuntar otro archivo' : credit ? `Adjuntar respaldo del abono de ${fmtCLP(credit.amount_clp)}` : receipts.length ? 'Adjuntar otro comprobante' : 'Adjuntar comprobante de este pago'}</summary><form onSubmit={upload} className="payment-receipts__form mt-2">
       <div className="payment-receipts__fields">
       <Select label="Moneda del comprobante" value={currency} onChange={e => { setCurrency(e.target.value);setAmount(''); }} options={[{ value:'CLP',label:'Pesos chilenos (CLP)' },{ value:'USD',label:'Dólares (USD)' }]} />
       <Input label={`Monto transferido en ${currency}`} hint={currency === 'USD' ? 'Sin separadores de miles y con punto decimal. Ejemplo: 100.50.' : 'Indica el monto entero, sin puntos ni comas.'} inputMode={currency === 'USD' ? 'decimal' : 'numeric'} value={amount} onChange={e => setAmount(e.target.value)} required />

@@ -1,4 +1,9 @@
 export function confirmedCredits(request) { return (request?.payment_credits || []).filter(c => c.status === 'confirmed'); }
+export function gatewayOnlyPayment(request) {
+  if(request?.status!=='paid')return false;
+  const credits=confirmedCredits(request),providers=['webpay','mercadopago','paypal'];
+  return credits.length>0 ? credits.every(c=>providers.includes(c.bank)) : !request.payment_credits?.length && providers.includes(request.payment_method);
+}
 export function paymentBalance(request) {
   const total = Math.max(0, Number(request?.amount_clp) || 0);
   const credits = confirmedCredits(request).reduce((sum, c) => sum + Number(c.amount_clp || 0), 0);

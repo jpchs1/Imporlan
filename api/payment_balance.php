@@ -1,6 +1,12 @@
 <?php
 /** Confirmed bank/gateway credits. Uploaded files never contribute money. */
 function impPaymentCredits($request) { return array_values(array_filter($request['payment_credits'] ?? [],function($c){return ($c['status'] ?? '')==='confirmed';})); }
+function impPaymentGatewayOnly($request) {
+    if(($request['status'] ?? '')!=='paid')return false;
+    $credits=impPaymentCredits($request);$providers=['webpay','mercadopago','paypal'];
+    if($credits)return count(array_filter($credits,function($c)use($providers){return in_array($c['bank'] ?? '',$providers,true);}))===count($credits);
+    return empty($request['payment_credits']) && in_array($request['payment_method'] ?? '',$providers,true);
+}
 function impPaymentBalance($request) {
     $total=max(0,intval($request['amount_clp'] ?? 0));
     $credits=array_sum(array_column(impPaymentCredits($request),'amount_clp'));
@@ -114,6 +120,12 @@ function isHistoricalFirstPayment($request) {
     }catch(Throwable $e){return false;}
 }
 function impPaymentNotifyCompleted($request) {
+    require_once __DIR__.'/payment_reconciliation.php';
+    if(impReconciliationIsImport($request)) {
+        try{impReconciliationSend($request['id']);}catch(Throwable $e){error_log('[payment-reconciliation] notice pending');}
+        try{impResumePurchase($request);}catch(Throwable $e){error_log('[purchase-handoff] payment notice pending');}
+        return;
+    }
     try {require_once __DIR__.'/purchase_clearance.php';impResumePurchase($request);}catch(Throwable $e){error_log('[purchase-handoff] payment notice pending');}
     if(isHistoricalFirstPayment($request))return;
     try {require_once __DIR__.'/email_service.php';(new EmailService())->sendPaymentRequestPaidEmail($request['user_email'],explode('@',$request['user_email'])[0],$request,$request);}catch(Throwable $e){error_log('[payment-credit] confirmation email failed');}

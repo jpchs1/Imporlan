@@ -50,6 +50,9 @@ switch ($action) {
     case 'link_credit_receipt':
         linkPaymentCreditReceipt();
         break;
+    case 'reconciliation_notice':
+        paymentReconciliationNotice();
+        break;
     case 'update_status':
         updateRequestStatus();
         break;
@@ -157,6 +160,19 @@ function registerPaymentCredit() {
     if($code!==200){http_response_code($code);echo json_encode(['error'=>$result]);return;}
     if(!empty($result['newly_paid']))impPaymentNotifyCompleted($result['request']);
     echo json_encode(['success'=>true,'request'=>$result['request'],'duplicate'=>$result['duplicate'],'balance'=>impPaymentBalance($result['request']),'message'=>'Abono confirmado. Los recordatorios usarán el saldo restante.']);
+}
+function paymentReconciliationNotice() {
+    $actor=requireAdminAuthShared();
+    require_once __DIR__.'/payment_reconciliation.php';
+    $in=$_SERVER['REQUEST_METHOD']==='POST'?(json_decode(file_get_contents('php://input'),true) ?: []):$_GET;
+    $id=is_string($in['request_id'] ?? null)?$in['request_id']:'';
+    if(!impPaymentRead($id)){http_response_code(404);echo json_encode(['error'=>'Solicitud no encontrada.']);return;}
+    if($_SERVER['REQUEST_METHOD']==='POST') {
+        if(!opuPriceCanApprove($actor)){http_response_code(403);echo json_encode(['error'=>'Sólo la cuenta principal puede enviar o reintentar este aviso.']);return;}
+        $result=impReconciliationSend($id,!empty($in['retry']));
+        if(!$result['eligible'] || $result['failed']){http_response_code($result['failed']?502:409);echo json_encode(['error'=>$result['failed']?'Uno o más envíos no se confirmaron. Consulta el estado antes de reintentar.':'La cuota no está cubierta por ingresos confirmados del plan vigente.','delivery'=>$result]);return;}
+    } elseif($_SERVER['REQUEST_METHOD']!=='GET'){http_response_code(405);echo json_encode(['error'=>'Usa GET o POST.']);return;}
+    echo json_encode(['success'=>true,'eligible'=>(bool)impReconciliationContext($id),'can_send'=>opuPriceCanApprove($actor),'deliveries'=>impReconciliationStates(getDbConnection(),$id)]);
 }
 function linkPaymentCreditReceipt() {
     $actor=requireAdminAuthShared();
@@ -403,18 +419,9 @@ function updateRequestStatus() {
     try {
         $service=new EmailService();
         $name=explode('@',$request['user_email'])[0];
-        if ($newStatus==='paid' && !$historical) $service->sendPaymentRequestPaidEmail($request['user_email'],$name,$updated,$updates);
+        if ($newStatus==='paid') impPaymentNotifyCompleted($updated);
         elseif ($newStatus==='cancelled') $service->sendPaymentRequestCancelledEmail($request['user_email'],$name,$updated);
     } catch (Throwable $e) { logPaymentRequest('STATUS_EMAIL_ERROR',['id'=>$requestId]); }
-    if ($newStatus === 'paid' && !$historical && ($request['status'] ?? '') !== 'paid' && $updated) {
-        // Pago 1 pagado (p. ej. una transferencia): se le avisa a la operación en EE. UU.
-        try {
-            require_once __DIR__ . '/operador_usa.php';
-            opuAlPagarCobro($updated);
-        } catch (\Throwable $e) {
-            logPaymentRequest('OPU_HOOK_ERROR', ['id' => $requestId, 'error' => $e->getMessage()]);
-        }
-    }
     
     logPaymentRequest('STATUS_UPDATED', ['id' => $requestId, 'from' => $request['status'], 'to' => $newStatus, 'admin' => $admin['email'] ?? 'admin']);
     

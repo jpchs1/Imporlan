@@ -195,6 +195,24 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   autorización al coordinador; eso no marca la compra como realizada. Un envío
   fallido queda registrado para revisión y puede gestionarse desde el expediente.
 
+## Aviso de cuota cubierta (JP, 3-nov-2026)
+
+- Al cubrir una cuota del plan vigente con ingresos confirmados, se envía
+  «Cuadre listo» al cliente y al admin con total, ingresos y saldo de esa
+  cuota. Si faltan respaldos, el aviso lo dice; no libera la compra ni
+  afirma que la documentación está completa. Un archivo nunca suma dinero.
+- El coordinador recibe sólo la confirmación operativa en inglés y su
+  portal privado, sin montos ni datos de contacto del comprador. Si falta
+  revisión interna, debe esperar la autorización de Imporlan.
+- El primer pago confirma el inicio de la operación y la coordinación de
+  disponibilidad/inspección, sin autorizar la compra. Cuando la conciliación
+  permite comprar, el aviso y la autorización al coordinador se unifican;
+  una autorización ya enviada se muestra como tal y no se repite.
+- Cada cuota/destinatario tiene un registro de envío independiente. Los
+  reintentos automáticos no repiten correos. La cuenta principal puede
+  enviar avisos aún no intentados o reintentar únicamente fallidos después
+  de comprobar la entrega anterior; un envío incierto no se reclama.
+
 ## Correo contacto@imporlan.cl
 
 El agente en la nube no llega a mail.imporlan.cl. Para leer o enviar se

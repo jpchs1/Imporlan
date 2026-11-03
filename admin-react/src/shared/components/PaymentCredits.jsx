@@ -6,6 +6,7 @@ import { fmtDateLarga } from '../lib/format';
 import { Button, Callout, Input, Select, Modal } from './UI';
 import '../styles/import-process.css';
 import { CircleCheck, Plus, Link } from './Icons';
+import PaymentReconciliationNotice from './PaymentReconciliationNotice';
 
 const banks = { global66: 'Global66', santander: 'Santander', otro: 'Otro banco', webpay: 'WebPay', mercadopago: 'Mercado Pago', paypal: 'PayPal' };
 
@@ -79,6 +80,7 @@ function CreditRecord({ request, admin, onChange, onAttachProof }) {
       <Input label="Observación de conciliación" value={note} onChange={e => setNote(e.target.value)} required={!reference.trim()} minLength={reference.trim() ? undefined : 10} maxLength={1000} hint="Explica cualquier diferencia o conversión revisada. No ingreses datos de cuenta ni claves." />
       <Button type="submit" variant="secondary" icon={Plus} disabled={busy}>Revisar abono</Button>
     </form></details>}
+    {admin && value.status==='paid' && <PaymentReconciliationNotice request={value} />}
     {proposal && <Modal open onClose={busy ? undefined : () => setProposal(null)} title="Confirmar ingreso bancario" description={request.title} footer={<><Button variant="secondary" disabled={busy} onClick={() => setProposal(null)}>Volver</Button><Button loading={busy} onClick={confirm}>Confirmar abono verificado</Button></>}>
       <p className="text-sm text-ink-700">Confirma que este movimiento ingresó a la cuenta de Imporlan y que su referencia no está registrada en otro pago.</p><p className="text-2xl font-semibold text-ink-900 mt-4">{fmtCLP(proposal.amount_clp)}</p><p className="text-sm text-ink-500 mt-2">{banks[proposal.bank]} · {fmtDateLarga(proposal.received_on)}</p><p className="text-sm text-ink-700 mt-2 break-words">{proposal.reference || proposal.note}</p><p className="text-sm text-ink-700 mt-4">Saldo después del abono: {fmtCLP(Math.max(0,balance.remaining-Number(proposal.amount_clp)))}</p>{error && <Callout compact tone="warning" className="mt-3">{error}</Callout>}
     </Modal>}

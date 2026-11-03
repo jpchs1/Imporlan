@@ -37,7 +37,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 @mkdir("$caja/email-assets",0700,true);

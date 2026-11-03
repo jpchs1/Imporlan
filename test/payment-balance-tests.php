@@ -2,6 +2,7 @@
 /** Actual locked ledger and reminder planner, fictional bank credits and captured SMTP. */
 $box=sys_get_temp_dir().'/partial-payments-'.getmypid();$argv[1]=$box;
 require __DIR__.'/fixtures/import-action-bootstrap.php';
+$db->exec("UPDATE order_links SET quote_payments='{\"p1_clp\":1000,\"p2_clp\":10000,\"p3_clp\":29000}',quote_total_clp=40000 WHERE id=11");
 copy(dirname(__DIR__).'/api/payment_requests_helper.php',"$box/payment_requests_helper.php");
 require "$box/payment_requests_helper.php";
 $checks=0;$failed=0;
@@ -56,7 +57,7 @@ resetLedger();addCredit(inputCredit(2000,'TEST-GATEWAY-BASE'));$mails=isset($GLO
 handlePaymentRequestPaid('fixture-p2','TEST-GATEWAY-CAPTURE','webpay',null,8000);
 check(impPaymentRead('fixture-p2')['status']==='paid' && impPaymentBalance(impPaymentRead('fixture-p2'))['confirmed']===10000,'verified gateway capture settles only the remaining invoice balance');
 handlePaymentRequestPaid('fixture-p2','TEST-GATEWAY-CAPTURE','webpay',null,8000);
-check(count(impPaymentRead('fixture-p2')['payment_credits'])===2 && count($GLOBALS['ACTION_SMTP'])===$mails+2 && count(array_filter($GLOBALS['ACTION_SMTP'],function($m){return $m['to']==='client@example.test';}))===1,'gateway callback retry preserves credits and sends one full-payment confirmation');
+check(count(impPaymentRead('fixture-p2')['payment_credits'])===2 && count($GLOBALS['ACTION_SMTP'])===$mails+3 && count(array_filter($GLOBALS['ACTION_SMTP'],function($m){return $m['to']==='client@example.test';}))===1,'gateway callback retry preserves credits and sends one full-payment confirmation');
 resetLedger();$attemptA=impPaymentAttemptOrder();$attemptB=impPaymentAttemptOrder();
 check($attemptA!==$attemptB && strlen($attemptA)===26 && strlen($attemptB)===26,'separate WebPay attempts get distinct server-issued Transbank-compatible order identifiers');
 handlePaymentRequestPaid('fixture-p2',$attemptA,'webpay',null,4000);

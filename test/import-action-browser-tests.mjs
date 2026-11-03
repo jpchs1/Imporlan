@@ -111,7 +111,8 @@ try {
   const historicalBefore=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length;
   const historicalResponse=await fetch(`${origin}/payment_requests_api.php?action=update_status`,{method:'POST',headers:{Authorization:`Bearer ${jwt('owner@example.test','admin')}`,'Content-Type':'application/json'},body:JSON.stringify({request_id:'fixture-p1',new_status:'paid',payment_method:'transferencia_bancaria'})});
   const historical=await historicalResponse.json();
-  check(historicalResponse.status===200 && historical.request.status==='paid' && historical.request.reconciled_after_advance && (await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length===historicalBefore,'reconciling historical Pago 1 records the owner confirmation without repeating old customer or inspection emails');
+  const historicalNotices=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').map(JSON.parse).slice(historicalBefore);
+  check(historicalResponse.status===200 && historical.request.status==='paid' && historical.request.reconciled_after_advance && historicalNotices.length===3 && historicalNotices.every(m=>m.subject.includes('Cuadre listo')||m.subject.includes('Client installment completed')),'historical Pago 1 confirmation emits completion notices without restarting inspection instructions');
 
   const confirmPaid=()=>fetch(`${origin}/payment_requests_api.php?action=update_status`,{method:'POST',headers:{Authorization:`Bearer ${jwt('owner@example.test','admin')}`,'Content-Type':'application/json'},body:JSON.stringify({request_id:'fixture-p2',new_status:'paid',payment_method:'transferencia_bancaria'})});
   const confirmed=await confirmPaid();const confirmedJson=await confirmed.json();
@@ -320,6 +321,60 @@ try {
     await page.close();
   }
 
+  // The production completion flow uses native authorization, captured SMTP and explicit retries.
+  const reconciliationLogStart=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length;
+  const reconciliationSeed=join(box,'reconciliation-seed.php');
+  await writeFile(reconciliationSeed,`<?php require __DIR__.'/payment_reconciliation.php';$db=getDbConnection();$columns=$db->query('PRAGMA table_info(orders)')->fetchAll(PDO::FETCH_COLUMN,1);foreach(['usa_token'=>'TEXT','usa_link_id'=>'INT'] as $name=>$type)if(!in_array($name,$columns,true))$db->exec('ALTER TABLE orders ADD COLUMN '.$name.' '.$type);impReconciliationSchema($db);$db->exec('DELETE FROM payment_reconciliation_notices');$r=['id'=>'fixture-credit','title'=>'Pago 2 de prueba','user_email'=>'client@example.test','status'=>'paid','amount_clp'=>26891827,'metadata'=>['order_id'=>'IMP-DEMO','custom_fields'=>['pago'=>2,'link_id'=>11]],'payment_credits'=>[['id'=>'settled-fixture','status'=>'confirmed','bank'=>'global66','amount_clp'=>26891827,'received_on'=>'2026-10-20']]];file_put_contents(__DIR__.'/payment_requests.json',json_encode(['requests'=>[$r]]));`);
+  execFileSync(php,[reconciliationSeed]);
+  check((await creditApi('reconciliation_notice',{},'client@example.test','user')).code===403,'customer cannot send reconciliation confirmations');
+  check((await creditApi('reconciliation_notice',{},'operator@example.test','agent')).code===403,'coordinator cannot access financial completion controls');
+  check((await creditApi('reconciliation_notice',{},'support@example.test','support')).code===403,'support cannot send owner-only reconciliation notices');
+  const getNotice=async(email='owner@example.test',role='admin')=>{const r=await fetch(`${origin}/payment_requests_api.php?action=reconciliation_notice&request_id=fixture-credit`,{headers:{Authorization:`Bearer ${jwt(email,role)}`}});return {code:r.status,...await r.json()};};
+  check((await getNotice('support@example.test','support')).can_send===false,'support can inspect delivery state without getting a send control');
+  for(const width of [390,768,1440]) {
+    execFileSync(php,[reconciliationSeed]);
+    const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',e=>errors.push(e.message));
+    await page.addInitScript(token=>localStorage.setItem('token',token),jwt('owner@example.test','admin'));
+    await page.route('**/api/payment_requests_api.php?**',async route=>{const u=new URL(route.request().url());const response=await fetch(`${origin}/payment_requests_api.php${u.search}`,{method:route.request().method(),headers:route.request().headers(),body:route.request().method()==='POST'?route.request().postData():undefined});return route.fulfill({status:response.status,json:await response.json()});});
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=credits`);
+    const notice=page.getByRole('region',{name:'Avisos de cuadre de esta cuota'});
+    await notice.getByRole('button',{name:'Enviar cuadre',exact:true}).click();
+    const dialog=page.getByRole('dialog');await dialog.getByRole('heading',{name:'¿Enviar el cuadre de esta cuota?',exact:true}).waitFor();
+    check((await getNotice()).deliveries.length===0,'opening the completion confirmation never sends an email');
+    await dialog.getByRole('button',{name:'Enviar cuadre',exact:true}).click();
+    await notice.getByText('Coordinador: Enviado',{exact:true}).waitFor();
+    check((await getNotice()).deliveries.every(d=>d.status==='sent') && await notice.getByRole('button',{name:'Enviar cuadre',exact:true}).count()===0,'confirmed completion exposes all audience delivery states and removes duplicate send');
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`completion controls fit ${width}px`);
+    await page.close();
+  }
+  const reconciliationSent=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').map(line=>JSON.parse(line)).slice(reconciliationLogStart).filter(m=>m.subject.includes('Cuadre listo')||m.subject.includes('Client installment completed'));
+  check(reconciliationSent.filter(m=>m.to==='client@example.test').length===3,'each fictional paid-request reset sends exactly one customer confirmation');
+  const beforeRetry=reconciliationSent.length;
+  check((await creditApi('reconciliation_notice',{})).deliveries.every(d=>d.status==='sent'),'replaying the owner API preserves sent deliveries');
+  const afterReplay=(await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length;
+  await creditApi('reconciliation_notice',{});
+  check((await readFile(join(box,'captured.jsonl'),'utf8')).trim().split('\n').length===afterReplay && beforeRetry===9,'repeated completion API calls cannot duplicate SMTP delivery');
+  await writeFile(join(box,'reconciled-preview.php'),`<?php require __DIR__.'/payment_reconciliation.php';$c=impReconciliationContext('fixture-credit');$mail=($_GET['audience'] ?? '')==='coordinator'?impReconciliationCoordinatorEmail(['order_number'=>'IMP-DEMO','portal'=>'https://www.imporlan.cl/api/operador_usa.php?r=portal&k=FIXTURE','purchase_hold'=>true]):impReconciliationFinancialEmail($c,'client');echo str_replace('cid:imporlan-signature-jp','/email-assets/firma-jp.jpg',$mail['html']);`);
+  for(const width of [390,768,1440])for(const audience of ['client','coordinator']) {
+    const page=await browser.newPage({viewport:{width,height:1050}});await page.goto(`${origin}/reconciled-preview.php?audience=${audience}`);
+    check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${audience} completion email fits ${width}px`);
+    const body=await page.locator('body').innerText();
+    check(audience==='client'?body.includes('$26.891.827')&&body.includes('saldo de esta cuota: $0'):!/(CLP|USD|26\.891\.827|client@example.test|Cliente Ejemplo)/.test(body),'completion email follows the audience financial privacy rules');
+    await page.close();
+  }
+  // Completion links for a paid gateway request open history, never a new transfer form.
+  execFileSync(php,['-r',`$f='${join(box,'payment_requests.json')}';$d=json_decode(file_get_contents($f),true);$d['requests'][0]['payment_credits'][0]['bank']='webpay';$d['requests'][0]['payment_method']='webpay';file_put_contents($f,json_encode($d));`]);
+  for(const width of [390,1440]) {
+    const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',e=>errors.push(e.message));const gateways=[];
+    await page.addInitScript(token=>{localStorage.setItem('imporlan_token',token);localStorage.setItem('imporlan_user',JSON.stringify({email:'client@example.test',name:'Cliente de prueba',role:'user'}));},jwt('client@example.test','user'));
+    await page.route('**/api/**',async route=>{const u=new URL(route.request().url());if(/webpay|mercadopago/.test(u.pathname))gateways.push(u.pathname);if(/payment_requests_api|payment_receipts_api/.test(u.pathname)){const r=await fetch(`${origin}/${u.pathname.split('/').pop()}${u.search}`,{method:route.request().method(),headers:route.request().headers(),body:route.request().method()==='POST'?route.request().postDataBuffer():undefined});return route.fulfill({status:r.status,json:await r.json()});}return route.fulfill({json:{success:true,user:{email:'client@example.test',role:'user'},orders:[{id:1,order_number:'IMP-DEMO'}]}});});
+    await page.goto(`${uiOrigin}/panel/__reminders?mode=payments&request=fixture-credit`);
+    const detail=page.getByRole('dialog');await detail.getByText('Pago confirmado por la pasarela. No necesitas adjuntar un comprobante de transferencia.',{exact:true}).waitFor();
+    check(await detail.getByRole('radiogroup',{name:'Medio de pago'}).count()===0 && await detail.getByLabel('Archivo del comprobante',{exact:true}).count()===0 && gateways.length===0,`paid completion link at ${width}px shows details without demanding proof or another payment`);
+    await page.close();
+  }
+  const gatewayProof=receiptPayload('UNNECESSARY-GATEWAY-PROOF');gatewayProof.set('request_id','fixture-credit');const ledgerBefore=await readFile(join(box,'payment_requests.json'),'utf8');
+  check((await receiptCall('upload',gatewayProof)).httpStatus===409 && await readFile(join(box,'payment_requests.json'),'utf8')===ledgerBefore,'native API prevents extra gateway evidence from reopening purchase reconciliation');
   check(errors.length===0,`admin controls render without runtime errors: ${errors.join('; ')}`);
   console.log(`${passed} reminder API, email and UI checks passed`);
 } finally {await browser?.close();await vite?.close();phpServer?.kill();await rm(box,{recursive:true,force:true});}
