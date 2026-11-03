@@ -15,7 +15,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 let server, browser, passed = 0;
 const check = (ok, label) => { assert.ok(ok, label); console.log(`PASS ${++passed}: ${label}`); };
 try {
-  for (const name of ['operador_usa.php', 'payment_balance.php', 'purchase_clearance.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php', 'cors_helper.php']) await copyFile(join(root, 'api', name), join(box, name));
+  for (const name of ['operador_usa.php', 'payment_balance.php', 'purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php', 'eleccion_lancha.php', 'auth_helper.php', 'cors_helper.php']) await copyFile(join(root, 'api', name), join(box, name));
   await writeFile(join(box, 'db_config.php'), `<?php define('IMPORLAN_ADMIN_EMAIL','owner@example.test'); define('JWT_SECRET','fixture-approval-secret-only'); function getDbConnection() { $pdo = new PDO('sqlite:' . __DIR__ . '/fixture.sqlite'); $pdo->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION); $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE,PDO::FETCH_ASSOC); return $pdo; }`);
   await writeFile(join(box, 'orders_api.php'), '<?php function impAprobacionPendiente($pdo,$orderId) { return null; }');
   await writeFile(join(box, 'email_service.php'), `<?php class EmailService { function __call($name,$args) { throw new RuntimeException('SMTP forbidden in browser fixture'); } }`);

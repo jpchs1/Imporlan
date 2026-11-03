@@ -114,6 +114,12 @@ function isHistoricalFirstPayment($request) {
     }catch(Throwable $e){return false;}
 }
 function impPaymentNotifyCompleted($request) {
+    require_once __DIR__.'/payment_reconciliation.php';
+    if(impReconciliationIsImport($request)) {
+        try{impReconciliationSend($request['id']);}catch(Throwable $e){error_log('[payment-reconciliation] notice pending');}
+        try{impResumePurchase($request);}catch(Throwable $e){error_log('[purchase-handoff] payment notice pending');}
+        return;
+    }
     try {require_once __DIR__.'/purchase_clearance.php';impResumePurchase($request);}catch(Throwable $e){error_log('[purchase-handoff] payment notice pending');}
     if(isHistoricalFirstPayment($request))return;
     try {require_once __DIR__.'/email_service.php';(new EmailService())->sendPaymentRequestPaidEmail($request['user_email'],explode('@',$request['user_email'])[0],$request,$request);}catch(Throwable $e){error_log('[payment-credit] confirmation email failed');}

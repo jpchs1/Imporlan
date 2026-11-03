@@ -9,7 +9,7 @@ file_put_contents("$box/email_service.php",$service);
 $checks=0;$failed=0;
 function check($ok,$label){global $checks,$failed;$checks++;if(!$ok)$failed++;echo($ok?'ok ':'FAIL ').$label."\n";}
 foreach(json_decode(file_get_contents(__DIR__.'/payment-settlement-cases.json'),true) as $case)check(impPaymentSettlement($case['request'])['settled']===$case['settled'],$case['label']);
-$db->exec("ALTER TABLE orders ADD COLUMN usa_token TEXT;ALTER TABLE orders ADD COLUMN usa_link_id INT;UPDATE orders SET import_steps='{\"disponibilidad\":\"2026-10-20\",\"inspeccion\":\"2026-10-21\"}' WHERE id=1");
+$db->exec("UPDATE orders SET import_steps='{\"disponibilidad\":\"2026-10-20\",\"inspeccion\":\"2026-10-21\"}' WHERE id=1");
 $db->sqliteCreateFunction('NOW',function(){return gmdate('Y-m-d H:i:s');},0);
 $db->exec('CREATE TABLE order_events (id INTEGER PRIMARY KEY,order_id INT,event_type TEXT,meta_json TEXT,user_id TEXT,created_at TEXT)');
 $db->exec('CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY,order_id INT,note TEXT,file_ids TEXT,shared_text TEXT,shared_at TEXT,created_at TEXT)');
