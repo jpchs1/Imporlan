@@ -366,6 +366,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
           onConfirmar={importacion.onHito}
           conReporte={!!reporte}
           orderId={detail.id}
+          archivos={archivos?.files || []}
         />
       )}
       {modalDeclinada && (

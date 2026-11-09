@@ -792,6 +792,28 @@ ok(impHitoEnCurso(['chosen_link_id' => 12, 'chosen_inspection' => 0, 'import_ste
 $api = file_get_contents("$raiz/api/operador_usa.php");
 ok(strpos($api, "\$r === 'hito'") !== false && strpos($api, "opuInformarHito(\$pdo, \$order, (string) (\$_POST['hito']") !== false, 'la ruta del link de David para informar el hito existe');
 
+echo "\nAviso único a David: informar el retiro de la Chaparral (JP, 9-nov-2026)\n";
+$antes = strtotime('2026-11-09 12:00:00');
+sembrar();
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 11, 'inspection' => false]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === 'fotos', 'sin la compra registrada, a David se le piden las fotos del retiro como actualización');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['subject'], 'Please report the pickup') !== false && strpos(aDavid()[0]['html'], 'Send pickup photos') !== false && sinCliente(aDavid()[0]['html']), 'el correo a David pide el retiro con fotos, sin datos del cliente ni montos');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'La compra todavía no está registrada') !== false, 'y al equipo se le avisa que registre la compra para marcar el retiro');
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === null && $CORREOS === [], 'el aviso sale una sola vez');
+hastaCompra();
+$BD->exec("UPDATE order_links SET title = '2015 Chaparral 21 Sport H2O' WHERE id = 12");
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === 'seccion' && strpos(aDavid()[0]['html'], 'Report pickup') !== false, 'con la compra registrada, se le indica la sección «Pickup» de su link');
+hastaCompra();
+ok(opuRetiroAvisoBootstrap($BD, $antes) === null, 'otra lancha: no se le escribe');
+$BD->exec("UPDATE order_links SET title = '2015 Chaparral 21 Sport H2O' WHERE id = 12");
+ok(opuRetiroAvisoBootstrap($BD, strtotime('2026-11-20')) === null, 'pasada la semana ya no corre: es un aviso puntual');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'opuRetiroAvisoBootstrap($pdo)') !== false, 'el job del cron lo corre');
+
 echo "\nA nombre de quién se importa\n";
 [$d, $e] = impValidarDatos(datosAlberto());
 ok($e === [] && !isset($d['titular_tipo']), 'por defecto, a nombre del cliente (sin campos extra)');

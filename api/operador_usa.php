@@ -796,6 +796,61 @@ function opuAvisarHitoEquipo($pdo, $order, $hito, $nota, $fotos, $docs, $pago) {
     }
 }
 
+/**
+ * Aviso único a David (JP, 9-nov-2026: «Avísale a David que informe el retiro
+ * de la Chaparral»). Lo corre el job CLI del cron una sola vez, después del
+ * deploy: queda registrado en order_events y no se repite. Si la compra ya
+ * está registrada, su link muestra la sección «Pickup»; si no, se le pide
+ * mandar las fotos del retiro y al equipo se le avisa que registre la compra.
+ * Sin datos del cliente ni montos.
+ */
+function opuRetiroAvisoBootstrap($pdo, $ahora = null) {
+    $ahora = $ahora ?: time();
+    if ($ahora > strtotime('2026-11-16 00:00:00')) return null; // aviso puntual, no una regla
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !impTieneEleccion($order) || impExpedienteCerrado($order)) return null;
+    $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
+    $titulo = strtolower(impTituloLancha($link));
+    foreach (['chaparral', '21', 'sport', 'h2o'] as $parte) if (strpos($titulo, $parte) === false) return null; // nunca otra lancha
+    if (isset(impPasos($order)['retiro'])) return null;
+    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'operador_usa_retiro_aviso'");
+    $ya->execute([intval($order['id'])]);
+    if (intval($ya->fetchColumn()) > 0) return null;
+
+    $conSeccion = opuHitoEnCurso($order) === 'retiro';
+    $url = opuUrlPortal(opuToken($pdo, $order));
+    $nombre = explode(' ', opuOperador()['nombre'])[0];
+    $cuerpo = '<p style="margin:0 0 12px">Hi ' . opuEsc($nombre) . ', the boat was picked up today by the carrier. Please report the pickup from your private link, with the pickup photos (boat on the trailer or truck, hull, engine, any marks).</p>'
+        . opuFichaLancha($order, $link)
+        . '<div style="padding:14px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;line-height:1.6"><strong>What we need now</strong><br>'
+        . ($conSeccion
+            ? 'Open your link and use the <strong>Pickup</strong> section: attach the photos and tap «Report pickup».'
+            : 'Open your link and send the pickup photos with an update («Send an update»). The <strong>Pickup</strong> section will appear there as soon as we register the purchase.')
+        . '<br>Next, when the boat is delivered at the US port, report it in the <strong>Port delivery</strong> section with drop-off photos and the dock receipt if you have it. This is a key milestone: please report it the same day.</div>'
+        . opuBoton($conSeccion ? 'Report pickup' : 'Send pickup photos', $url . ($conSeccion ? '#milestone' : ''))
+        . '<p style="font-size:12px;color:#64748b;margin:8px 0 0">This link is private to this file. You can use it as many times as you need.</p>';
+    $ok = opuEnviar('[Imporlan] Please report the pickup · ' . ($order['order_number'] ?? '') . ' · ' . impTituloLancha($link),
+        opuHtmlCorreo(impTituloLancha($link), $cuerpo, 'operador', 'Pickup · ' . ($order['order_number'] ?? '')));
+    if (!$ok) return false; // el próximo turno del cron lo reintenta
+    $pdo->prepare("UPDATE orders SET usa_requested_at = NOW(), usa_link_id = ? WHERE id = ?")->execute([intval($link['id']), intval($order['id'])]);
+    opuLog($pdo, $order['id'], 'operador_usa_retiro_aviso', ['con_seccion' => $conSeccion]);
+    try {
+        require_once __DIR__ . '/email_service.php';
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl', 'Le pedimos a David informar el retiro · ' . ($order['order_number'] ?? '') . ' · ' . impTituloLancha($link),
+            opuHtmlCorreo(impTituloLancha($link),
+                '<p style="margin:0 0 10px">Le escribimos a ' . opuEsc(opuOperador()['nombre']) . ' para que informe el retiro de hoy con las fotos del pick-up.</p>'
+                . ($conSeccion
+                    ? '<p style="margin:0 0 10px">En su link ya tiene la sección «Pickup»: al informarlo, el hito «Retirada por el transportista» queda marcado y el cliente ve las fotos.</p>'
+                    : '<p style="margin:0 0 10px"><strong>La compra todavía no está registrada en el expediente</strong> (queda en espera hasta conciliar los Pagos 1 y 2). Mientras, David manda las fotos como actualización. Cuando registres «Compra cerrada», marca «Retirada por el transportista» con «Informar con fotos» y elige las fotos que ya mandó David (o él lo informa desde su link).</p>')
+                . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Retiro de la lancha'));
+    } catch (\Throwable $e) {
+        error_log('opuRetiroAvisoBootstrap equipo: ' . $e->getMessage());
+    }
+    return $conSeccion ? 'seccion' : 'fotos';
+}
+
 /** $_FILES['files'] (múltiple) a una lista de archivos. */
 function opuArchivosSubidos() {
     $f = $_FILES['files'] ?? null;

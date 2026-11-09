@@ -10,6 +10,7 @@ try {
     opuAsegurar($pdo);
     opuInspectionSchema($pdo);
     opuInspectionBootstrap($pdo);
+    opuRetiroAvisoBootstrap($pdo); // aviso único a David: informar el retiro de IMP-00035 (JP, 9-nov-2026)
     $result = opuInspectionRun($pdo);
     $result = array_merge($result, opuPriceRun($pdo));
     $result = array_merge($result, impActionRun($pdo));
