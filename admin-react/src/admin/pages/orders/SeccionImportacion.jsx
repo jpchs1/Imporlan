@@ -3,7 +3,7 @@ import { cn, fmtCLP, fmtDate, paymentMethodLabel } from '../../../shared/lib/uti
 import { fmtRelativo, fmtDateLarga } from '../../../shared/lib/format';
 import { Card, Button, Menu, Badge, StatusBadge, Callout, Spinner } from '../../../shared/components/UI';
 import { Anchor, Ship, CircleCheck, CircleDot, Circle, Check, Plus, Receipt, RotateCw, Pencil, Trash, BadgeCheck, TriangleAlert, Wallet, Upload, FileSearch, ChevronDown, CircleX, Languages, RefreshCw } from '../../../shared/components/Icons';
-import { hitosDe, hitoEnCurso, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado, compraConciliada } from '../../../shared/lib/importacion';
+import { hitosDe, hitoEnCurso, fotosDelHito, planDePagos, pagosConCobros, cuadrePagos, precioChile, FUENTE_PRECIO, tituloLancha, pagoEnRevision, comprobanteRechazado, compraConciliada } from '../../../shared/lib/importacion';
 import PaymentReceipts from '../../../shared/components/PaymentReceipts';
 import PaymentCredits from '../../../shared/components/PaymentCredits';
 import { paymentBalance, confirmedCredits } from '../../../shared/lib/payment-balance';
@@ -254,7 +254,8 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       <div className="flex-1 min-w-0">
                         <p className={cn('text-sm', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}</p>
                         <p className="text-xs text-ink-500 tabular">
-                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? 'En curso' : 'Pendiente'}
+                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? (h.conFotos ? 'En curso · se informa con fotos (David también puede, desde su link)' : 'En curso') : 'Pendiente'}
+                          {h.hecho && fotosDelHito(eleccion, h.id).length > 0 && ` · ${fotosDelHito(eleccion, h.id).length} ${fotosDelHito(eleccion, h.id).length === 1 ? 'foto' : 'fotos'}${eleccion.evidence?.[h.id]?.por === 'operador' ? ', informado por David' : ''}`}
                         </p>
                       </div>
                       {h.hecho ? (
@@ -263,7 +264,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                           items={[{ label: 'Desmarcar', icon: RotateCw, onClick: () => importacion.onHito(h, false, false) }]}
                         />
                       ) : (
-                        <div>{equipoChile && h.id==='compra' && !compraLista && <p className="text-xs text-ink-500 mb-2 max-w-52">Se habilita al conciliar los Pagos 1 y 2 con sus comprobantes.</p>}<Button size="sm" variant="secondary" icon={Check} disabled={equipoChile && h.id==='compra' && (!compraLista || importacion.cargandoCobros || !!importacion.cobrosError)} onClick={() => setModalHito(h)}>Marcar hecho</Button></div>
+                        <div>{equipoChile && h.id==='compra' && !compraLista && <p className="text-xs text-ink-500 mb-2 max-w-52">Se habilita al conciliar los Pagos 1 y 2 con sus comprobantes.</p>}<Button size="sm" variant="secondary" icon={Check} disabled={equipoChile && h.id==='compra' && (!compraLista || importacion.cargandoCobros || !!importacion.cobrosError)} onClick={() => setModalHito(h)}>{h.conFotos ? 'Informar con fotos' : 'Marcar hecho'}</Button></div>
                       )}
                     </li>
                   );
@@ -364,6 +365,8 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
           eleccion={eleccion}
           onConfirmar={importacion.onHito}
           conReporte={!!reporte}
+          orderId={detail.id}
+          archivos={archivos?.files || []}
         />
       )}
       {modalDeclinada && (

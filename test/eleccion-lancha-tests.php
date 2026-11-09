@@ -69,7 +69,7 @@ $BD->exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_number TEXT, custo
     chosen_link_id INTEGER NULL, chosen_at TEXT NULL, chosen_by TEXT NULL, chosen_inspection INTEGER NULL,
     chosen_note TEXT NULL, import_steps TEXT NULL, usa_token TEXT NULL, usa_link_id INTEGER NULL,
     usa_requested_at TEXT NULL, usa_updated_at TEXT NULL, admin_notes TEXT NULL,
-    inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL,
+    inspection_result TEXT NULL, inspection_result_at TEXT NULL, inspection_note TEXT NULL, refund_requested_at TEXT NULL, import_evidence TEXT NULL,
     inspection_decided_by TEXT NULL, inspection_client_ok_at TEXT NULL, inspection_report_file_id INTEGER NULL, inspection_report_at TEXT NULL, inspection_summary TEXT NULL,
     inspection_es TEXT NULL, inspection_es_status TEXT NULL, inspection_es_at TEXT NULL, inspection_es_error TEXT NULL, declined_link_ids TEXT NULL)");
 $BD->exec("CREATE TABLE order_usa_updates (id INTEGER PRIMARY KEY, order_id INTEGER, note TEXT, file_ids TEXT, shared_text TEXT NULL, shared_at TEXT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
@@ -145,6 +145,13 @@ function financiarCompraDePrueba() {
     $data=json_decode(file_get_contents(impArchivoCobros()),true);
     foreach($data['requests'] as &$r)if(impCobroDelExpediente($r,35,'IMP-00035') && in_array(intval($r['metadata']['custom_fields']['pago'] ?? 0),[1,2],true) && $r['status']!=='cancelled'){$r['status']='paid';$r['payment_method']='webpay';$r['payment_id']='FIXTURE-CAPTURE-'.$r['id'];}
     unset($r);file_put_contents(impArchivoCobros(),json_encode($data));
+}
+
+/** Una foto del expediente (para informar el retiro o la entrega en puerto). */
+function fotoDePrueba($orderId, $mime = 'image/jpeg') {
+    $GLOBALS['BD']->prepare("INSERT INTO expediente_files (order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, visible_to_client) VALUES (?, 'foto.jpg', 'x.jpg', ?, 100, ?, '', 'admin', 0)")
+        ->execute([$orderId, $mime, strpos($mime, 'image/') === 0 ? 'image' : (strpos($mime, 'video/') === 0 ? 'video' : 'document')]);
+    return intval($GLOBALS['BD']->lastInsertId());
 }
 
 /** Corre una acción y devuelve [código, json]. */
@@ -251,15 +258,19 @@ ok(strpos($h[0]['html'] ?? '', 'Inspección técnica aprobada') === false, 'la l
 $CORREOS = [];
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true, 'notify_client' => true]);
 ok($CORREOS === [], 'marcar dos veces el mismo hito no repite el correo');
-llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true]);
-ok(timelineStepDesdeDatos(orden(35), true, 0) === 5, 'en camino: etapa 5');
-ok(array_keys(json_decode(orden(35)['import_steps'], true)) === ['disponibilidad', 'compra', 'transporte'], 'los hitos se guardan en orden');
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(35)]]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'file_ids' => [fotoDePrueba(35)]]);
+ok(timelineStepDesdeDatos(orden(35), true, 0) === 5, 'retiro y puerto: etapa 5 (logística)');
+ok(array_keys(json_decode(orden(35)['import_steps'], true)) === ['disponibilidad', 'compra', 'retiro', 'transporte'], 'los hitos se guardan en orden');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'entrega', 'done'=>true]);
 ok($c === 409 && !isset(impPasos(orden(35))['entrega']), 'entrega espera el registro de aduana');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'compra', 'done'=>false]);
 ok($c === 409 && isset(impPasos(orden(35))['compra']), 'no se deshace una compra con transporte registrado');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'aduana', 'done'=>true]);
-ok($c === 200 && isset(impPasos(orden(35))['aduana']), 'transporte conecta con aduana');
+ok($c === 409, 'aduana espera el embarque');
+llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'embarque', 'done'=>true]);
+[$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'aduana', 'done'=>true]);
+ok($c === 200 && isset(impPasos(orden(35))['aduana']), 'el embarque conecta con aduana');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'entrega', 'done'=>true]);
 ok($c === 200 && isset(impPasos(orden(35))['entrega']), 'aduana conecta con la entrega');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'hackear', 'done' => true]);
@@ -514,7 +525,9 @@ ok(count(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom
 financiarCompraDePrueba();
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true]);
 ok(count(vigentes()) === 2, 'la compra cerrada no gatilla pagos');
-[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'notify_client' => false]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(35)]]);
+ok(count(vigentes()) === 2, 'el retiro no gatilla pagos');
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'notify_client' => false, 'file_ids' => [fotoDePrueba(35)]]);
 $p3 = array_values(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 3; }));
 ok(count($p3) === 1 && $p3[0]['amount_clp'] === 29400000 && ($r['pago']['n'] ?? 0) === 3, 'lancha entregada en el puerto de EE. UU. (en camino): se crea el Pago 3 por el 30%');
 sembrar();
@@ -713,6 +726,96 @@ ok(preg_match("/case 'user_inspeccion_decision':\s*userInspeccionDecision\(requi
     && preg_match("/adminCargarReporte\(requireAdminAuthShared\(\['admin', 'support'\]\)\)/", $api) === 1
     && preg_match("/case 'admin_inspeccion_traducir':\s*adminTraducirReporte\(requireAdminAuthShared\(\['admin', 'support'\]\)\);/", $api) === 1, 'las rutas del reporte exigen sesión; cargar y traducir, sólo el equipo en Chile');
 @unlink($pdf);
+
+echo "\nRetiro y entrega en el puerto de EE. UU., con fotos (JP, 9-nov-2026): la entrega en puerto activa el Pago 3\n";
+/** Una imagen real (PNG de 1x1) en el disco, como la sube David. */
+function pngDePrueba() {
+    $f = sys_get_temp_dir() . '/pickup-' . getmypid() . '-' . mt_rand() . '.png';
+    file_put_contents($f, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='));
+    return ['name' => 'pickup.png', 'tmp_name' => $f, 'size' => filesize($f), 'error' => UPLOAD_ERR_OK];
+}
+function hastaCompra() {
+    sembrar();
+    llamar('userChooseLink', $GLOBALS['alberto'], ['order_id' => 35, 'link_id' => 12, 'inspection' => false]);
+    llamar('adminSetImportStep', $GLOBALS['admin'], ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+    financiarCompraDePrueba();
+    llamar('adminSetImportStep', $GLOBALS['admin'], ['order_id' => 35, 'step' => 'compra', 'done' => true]);
+}
+hastaCompra();
+ok(impHitoEnCurso(orden(35)) === 'retiro', 'después de la compra, lo que sigue es el retiro');
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true]);
+ok($c === 400 && !isset(impPasos(orden(35))['retiro']) && strpos($r['error'], 'foto') !== false, 'el retiro no se marca sin fotos');
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(35, 'application/pdf')]]);
+ok($c === 400, 'un PDF no cuenta como foto del retiro');
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(35, 'video/mp4')]]);
+ok($c === 400, 'sólo videos tampoco: al menos una foto');
+$ci = fotoDePrueba(35); $BD->exec("UPDATE expediente_files SET uploaded_by = 'cliente_identidad', visible_to_client = 0 WHERE id = $ci");
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [$ci]]);
+ok($c === 400 && intval($BD->query("SELECT visible_to_client FROM expediente_files WHERE id = $ci")->fetchColumn()) === 0, 'la cédula del cliente nunca sirve de foto del retiro (ni queda visible)');
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(36)]]);
+ok($c === 400, 'las fotos tienen que ser de este expediente');
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'file_ids' => [fotoDePrueba(35)]]);
+ok($c === 409, 'la entrega en puerto espera el retiro');
+$f1 = fotoDePrueba(35); $f2 = fotoDePrueba(35, 'video/mp4');
+$CORREOS = [];
+[$c, $r] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'notify_client' => true, 'file_ids' => [$f1, $f2]]);
+$o = orden(35);
+ok($c === 200 && isset(impPasos($o)['retiro']) && ($r['pago'] ?? null) === null, 'el equipo marca el retiro con fotos; no gatilla pagos');
+ok(impEvidencia($o)['retiro']['file_ids'] === [$f1, $f2] && impEvidencia($o)['retiro']['por'] === 'equipo' && (array) $r['eleccion']['evidence'] !== [], 'las fotos quedan como evidencia del retiro');
+$vis = $BD->query("SELECT visible_to_client, description FROM expediente_files WHERE id = $f1")->fetch();
+ok(intval($vis['visible_to_client']) === 1 && strpos($vis['description'], 'Retiro') === 0, 'y el cliente las ve, con la descripción del retiro');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'retiró') !== false && strpos($cli[0]['html'], '2 fotos del retiro') !== false, 'al cliente le llega el aviso del retiro con sus fotos');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['html'], 'Port delivery') !== false && sinCliente(aDavid()[0]['html']), 'a David se le pide informar la entrega en puerto, sin datos del cliente');
+
+// David informa la entrega en puerto desde su link.
+$token = opuToken($BD, orden(35));
+$_GET['t'] = $token;
+$pagina = opuPaginaPortal($BD, orden(35));
+ok(strpos($pagina, 'Report the delivery at the port') !== false && strpos($pagina, 'name="hito" value="transporte"') !== false, 'en su link aparece «Report the delivery at the port»');
+[$okRes] = [opuInformarHito($BD, orden(35), 'retiro', '', [pngDePrueba()], 'copy')];
+ok($okRes['ok'] === false, 'no puede informar un paso que no es el que sigue');
+$sinFoto = opuInformarHito($BD, orden(35), 'transporte', 'Entregada', [['name' => 'r.pdf', 'tmp_name' => __FILE__, 'size' => 10, 'error' => UPLOAD_ERR_OK]], 'copy');
+ok($sinFoto['ok'] === false && !isset(impPasos(orden(35))['transporte']), 'sin una foto no se registra la entrega en puerto');
+$CORREOS = [];
+$res = opuInformarHito($BD, orden(35), 'transporte', 'Delivered at Port of Savannah, terminal 2.', [pngDePrueba(), pngDePrueba()], 'copy');
+$o = orden(35);
+ok($res['ok'] === true && isset(impPasos($o)['transporte']) && impEvidencia($o)['transporte']['por'] === 'operador' && count(impEvidencia($o)['transporte']['file_ids']) === 2, 'David informa la entrega en puerto con fotos: el hito queda marcado por él');
+$p3 = array_values(array_filter(vigentes(), function ($q) { return ($q['metadata']['custom_fields']['pago'] ?? 0) === 3; }));
+ok(count($p3) === 1 && $p3[0]['amount_clp'] === 29400000, 'y se activa el Pago 3, el último (30% de la cotización)');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'puerto de Estados Unidos') !== false && strpos($cli[0]['html'], 'Pago 3') !== false && strpos($cli[0]['html'], '2 fotos de la entrega en el puerto') !== false, 'al cliente le llega el aviso con las fotos y el botón del Pago 3');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'Pago 3') !== false && strpos($eq[0]['html'], 'Savannah') !== false, 'el equipo recibe el aviso con el Pago 3 y la nota de David');
+ok(count(aDavid()) === 0, 'a David no se le pide nada más: lo que sigue (embarque) es del equipo');
+ok(strpos(opuPaginaPortal($BD, orden(35)), 'name="hito"') === false, 'informado el paso, su link ya no lo ofrece');
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => false]);
+ok(!isset(impEvidencia(orden(35))['transporte']), 'si el equipo deshace la entrega en puerto, sus fotos dejan de ser evidencia');
+ok(impHitoEnCurso(['chosen_link_id' => 12, 'chosen_inspection' => 0, 'import_steps' => '{"disponibilidad":"x","compra":"x","transporte":"x","aduana":"x"}']) === 'entrega', 'un expediente que ya iba más adelante no vuelve al retiro');
+$api = file_get_contents("$raiz/api/operador_usa.php");
+ok(strpos($api, "\$r === 'hito'") !== false && strpos($api, "opuInformarHito(\$pdo, \$order, (string) (\$_POST['hito']") !== false, 'la ruta del link de David para informar el hito existe');
+
+echo "\nAviso único a David: informar el retiro de la Chaparral (JP, 9-nov-2026)\n";
+$antes = strtotime('2026-11-09 12:00:00');
+sembrar();
+llamar('adminChooseLink', $admin, ['order_id' => 35, 'link_id' => 11, 'inspection' => false]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === 'fotos', 'sin la compra registrada, a David se le piden las fotos del retiro como actualización');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['subject'], 'Please report the pickup') !== false && strpos(aDavid()[0]['html'], 'Send pickup photos') !== false && sinCliente(aDavid()[0]['html']), 'el correo a David pide el retiro con fotos, sin datos del cliente ni montos');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'La compra todavía no está registrada') !== false, 'y al equipo se le avisa que registre la compra para marcar el retiro');
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === null && $CORREOS === [], 'el aviso sale una sola vez');
+hastaCompra();
+$BD->exec("UPDATE order_links SET title = '2015 Chaparral 21 Sport H2O' WHERE id = 12");
+$CORREOS = [];
+ok(opuRetiroAvisoBootstrap($BD, $antes) === 'seccion' && strpos(aDavid()[0]['html'], 'Report pickup') !== false, 'con la compra registrada, se le indica la sección «Pickup» de su link');
+hastaCompra();
+ok(opuRetiroAvisoBootstrap($BD, $antes) === null, 'otra lancha: no se le escribe');
+$BD->exec("UPDATE order_links SET title = '2015 Chaparral 21 Sport H2O' WHERE id = 12");
+ok(opuRetiroAvisoBootstrap($BD, strtotime('2026-11-20')) === null, 'pasada la semana ya no corre: es un aviso puntual');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'opuRetiroAvisoBootstrap($pdo)') !== false, 'el job del cron lo corre');
 
 echo "\nA nombre de quién se importa\n";
 [$d, $e] = impValidarDatos(datosAlberto());

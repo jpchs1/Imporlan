@@ -115,8 +115,8 @@ function impActionPlan($snapshot) {
         $reply = !empty($o['usa_updated_at']) && !empty($o['usa_requested_at']) && strtotime($o['usa_updated_at']) >= strtotime($o['usa_requested_at']);
         $purchase=$stage==='compra'?impPurchaseClearance($o,$link,$snapshot['payments']):null;
         if($purchase && $purchase['ready'])$owner[]=impActionTask('purchase_ready','Pagos conciliados: coordinar la compra','Los Pagos 1 y 2 están cubiertos y sus respaldos revisados. Coordina la compra con el vendedor y registra el cierre sólo con la evidencia correspondiente.','Revisar compra',$admin);
-        if (($stage!=='compra' && $reply && in_array($stage,['disponibilidad','transporte'],true)) || in_array($stage,['aduana','entrega'],true)) {
-            $owner[] = impActionTask('milestone','Revisar el siguiente hito de la operación',in_array($stage,['aduana','entrega'],true) ? 'Da seguimiento a la logística en Chile y registra el avance sólo cuando esté confirmado.' : 'Hay una actualización de EE. UU. Revisa la evidencia y registra el hito sólo cuando corresponda.','Revisar avance',$admin);
+        if (($stage!=='compra' && $reply && in_array($stage,['disponibilidad','retiro','transporte'],true)) || in_array($stage,['embarque','aduana','entrega'],true)) {
+            $owner[] = impActionTask('milestone','Revisar el siguiente hito de la operación',in_array($stage,['embarque','aduana','entrega'],true) ? 'Da seguimiento a la logística en Chile y registra el avance sólo cuando esté confirmado.' : 'Hay una actualización de EE. UU. Revisa la evidencia y registra el hito sólo cuando corresponda.','Revisar avance',$admin);
         }
     }
     $out = [];

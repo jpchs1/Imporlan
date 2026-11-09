@@ -31,7 +31,12 @@ function impHitos() {
         'disponibilidad' => ['label' => 'Disponibilidad y precio confirmados con el vendedor', 'corto' => 'Disponibilidad confirmada', 'etapa' => 3],
         'inspeccion'     => ['label' => 'Inspección técnica aprobada', 'corto' => 'Inspección aprobada', 'etapa' => 3, 'solo_con_inspeccion' => true],
         'compra'         => ['label' => 'Compra cerrada en Estados Unidos', 'corto' => 'Compra cerrada', 'etapa' => 4],
-        'transporte'     => ['label' => 'En camino a Chile', 'corto' => 'En camino', 'etapa' => 5],
+        // JP, 9-nov-2026: el retiro y la entrega en el puerto de EE. UU. son
+        // hitos propios, con fotos del pick-up y del drop-off. La clave
+        // 'transporte' (la entrega en puerto) es la que activa el Pago 3.
+        'retiro'         => ['label' => 'Retirada por el transportista en EE. UU.', 'corto' => 'Retirada', 'etapa' => 5, 'con_fotos' => true],
+        'transporte'     => ['label' => 'Entregada en el puerto de EE. UU., lista para embarcar', 'corto' => 'En el puerto de EE. UU.', 'etapa' => 5, 'con_fotos' => true],
+        'embarque'       => ['label' => 'Embarcada rumbo a Chile', 'corto' => 'Rumbo a Chile', 'etapa' => 5],
         'aduana'         => ['label' => 'Aduana e internación completadas', 'corto' => 'Aduana completada', 'etapa' => 5],
         'entrega'        => ['label' => 'Entregada', 'corto' => 'Entregada', 'etapa' => 5],
     ];
@@ -58,7 +63,7 @@ function impValidarCambioHito($order, $paso, $hecho) {
     if ($hecho && $paso !== 'inspeccion' && impInspeccionNoApta($order)) return 'El cliente decidió no seguir con esta lancha. Primero debe elegir otra opción o resolver su devolución.';
     $requisitos = [
         'compra' => !empty($order['chosen_inspection']) ? ['disponibilidad', 'inspeccion'] : ['disponibilidad'],
-        'transporte' => ['compra'], 'aduana' => ['transporte'], 'entrega' => ['aduana'],
+        'retiro' => ['compra'], 'transporte' => ['retiro'], 'embarque' => ['transporte'], 'aduana' => ['embarque'], 'entrega' => ['aduana'],
     ];
     if ($hecho) {
         foreach ($requisitos[$paso] ?? [] as $anterior) {
@@ -156,7 +161,79 @@ function impEleccionPublica($order) {
         'inspection_waiting_price' => impAprobadaEsperaPrecio($order),
         'inspection_client_ok_at' => impAprobadaEsperaPrecio($order) ? $order['inspection_client_ok_at'] : null,
         'inspection_report' => impReporteInspeccion($order),
+        // Fotos del retiro y de la entrega en puerto: { hito: {file_ids, at, por} }.
+        'evidence' => (object) impEvidencia($order),
     ];
+}
+
+/**
+ * Las fotos con que se informó cada hito con evidencia (retiro, entrega en
+ * puerto): [hito => ['file_ids' => [..], 'at' => fecha, 'por' => 'equipo'|'operador']].
+ */
+function impEvidencia($order) {
+    $raw = $order['import_evidence'] ?? null;
+    $d = is_string($raw) && $raw !== '' ? json_decode($raw, true) : $raw;
+    $out = [];
+    foreach ((array) $d as $hito => $e) {
+        if (!isset(impHitos()[$hito]) || !is_array($e)) continue;
+        $ids = array_values(array_filter(array_map('intval', (array) ($e['file_ids'] ?? [])), function ($i) { return $i > 0; }));
+        $out[$hito] = ['file_ids' => $ids, 'at' => $e['at'] ?? null, 'por' => $e['por'] ?? null];
+    }
+    return $out;
+}
+
+/**
+ * Valida las fotos de un hito con evidencia: archivos del expediente, imágenes
+ * o videos. Las deja visibles para el cliente, con la descripción del hito.
+ * Devuelve [ids, error].
+ */
+function impPrepararEvidencia($pdo, $order, $hito, $fileIds) {
+    $ids = array_values(array_unique(array_filter(array_map('intval', (array) $fileIds), function ($i) { return $i > 0; })));
+    if (!$ids) return [[], 'Sube al menos una foto ' . ($hito === 'retiro' ? 'del retiro (pick-up)' : 'de la entrega en el puerto (drop-off)') . '.'];
+    $marcas = implode(',', array_fill(0, count($ids), '?'));
+    // Nunca la cédula del cliente: es privada y aquí quedaría visible.
+    $st = $pdo->prepare("SELECT id, category, mime_type FROM expediente_files WHERE order_id = ? AND id IN ($marcas) AND (uploaded_by IS NULL OR uploaded_by <> 'cliente_identidad')");
+    $st->execute(array_merge([intval($order['id'])], $ids));
+    $validos = [];
+    $hayFoto = false;
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $f) {
+        $mime = (string) $f['mime_type'];
+        $esFoto = $f['category'] === 'image' || strpos($mime, 'image/') === 0;
+        if ($esFoto || $f['category'] === 'video' || strpos($mime, 'video/') === 0) $validos[] = intval($f['id']);
+        if ($esFoto) $hayFoto = true;
+    }
+    if (count($validos) !== count($ids)) return [[], 'Las fotos tienen que ser imágenes o videos de este expediente.'];
+    if (!$hayFoto) return [[], 'Incluye al menos una foto (no sólo videos).'];
+    $desc = $hito === 'retiro' ? 'Retiro en EE. UU. (pick-up)' : 'Entrega en el puerto de EE. UU. (drop-off)';
+    $pdo->prepare("UPDATE expediente_files SET visible_to_client = 1, description = ? WHERE order_id = ? AND id IN ($marcas)")
+        ->execute(array_merge([$desc, intval($order['id'])], $validos));
+    return [$validos, null];
+}
+
+/** Guarda la evidencia de un hito (o la borra con $ids = null). */
+function impGuardarEvidencia($pdo, $order, $hito, $ids, $por) {
+    $ev = impEvidencia($order);
+    if ($ids === null) unset($ev[$hito]);
+    else $ev[$hito] = ['file_ids' => array_values($ids), 'at' => date('Y-m-d H:i:s'), 'por' => $por];
+    $pdo->prepare("UPDATE orders SET import_evidence = ? WHERE id = ?")->execute([$ev ? json_encode($ev) : null, intval($order['id'])]);
+}
+
+/**
+ * El hito en curso: el primero sin hacer DESPUÉS del último hecho. Así un
+ * expediente que ya iba más adelante cuando se sumaron el retiro y el
+ * embarque (9-nov-2026) no vuelve atrás.
+ */
+function impHitoEnCurso($order) {
+    $pasos = impPasos($order);
+    $aplican = [];
+    foreach (impHitos() as $k => $h) {
+        if (!empty($h['solo_con_inspeccion']) && empty($order['chosen_inspection'])) continue;
+        $aplican[] = $k;
+    }
+    $ultimo = -1;
+    foreach ($aplican as $i => $k) if (isset($pasos[$k])) $ultimo = $i;
+    for ($i = $ultimo + 1; $i < count($aplican); $i++) if (!isset($pasos[$aplican[$i]])) return $aplican[$i];
+    return null;
 }
 
 /** Lanchas que el cliente declinó tras la inspección: ya no se pueden volver a elegir. */
@@ -273,6 +350,7 @@ function impAsegurarColumnas($pdo) {
             'inspection_es_at' => "ALTER TABLE orders ADD COLUMN inspection_es_at DATETIME NULL",
             'inspection_es_error' => "ALTER TABLE orders ADD COLUMN inspection_es_error VARCHAR(255) NULL",
             'declined_link_ids' => "ALTER TABLE orders ADD COLUMN declined_link_ids TEXT NULL",
+            'import_evidence' => "ALTER TABLE orders ADD COLUMN import_evidence TEXT NULL",
         ];
         foreach ($faltan as $col => $sql) {
             if (!in_array($col, $cols, true)) $pdo->exec($sql);

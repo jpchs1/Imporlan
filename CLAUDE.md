@@ -63,8 +63,18 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   `test/eleccion-lancha-tests.php`.
 - **Pago 2** se cobra solo al marcar el hito «Inspección técnica aprobada».
   Si el cliente eligió sin inspección, se cobra al confirmar con el vendedor
-  la disponibilidad, el precio y la fecha de compra o retiro. **Pago 3**
-  llega con «En camino a Chile» (foto de la lancha en el puerto de EE. UU.).
+  la disponibilidad, el precio y la fecha de compra o retiro.
+- **Logística en EE. UU. (JP, 9-nov-2026):** después de la compra van tres
+  hitos:
+  1. «Retirada por el transportista», con fotos del pick-up.
+  2. «Entregada en el puerto de EE. UU.», con fotos del drop-off. Su clave
+     es `transporte` y es la que activa el **Pago 3**, el último.
+  3. «Embarcada rumbo a Chile».
+
+  Los dos primeros exigen al menos una foto y la guardan en
+  `import_evidence`, visible para el cliente bajo su hito. Los informa el
+  equipo (admin, «Informar con fotos») o David desde su link (secciones
+  «Pickup» / «Port delivery», `opuInformarHito`).
 - **Inspección: el equipo carga el reporte, el cliente decide** (JP: «nosotros
   cumplimos con cargarlo, pero el cliente es el que toma la decisión»).
   - El equipo carga el reporte con `admin_inspeccion_reporte`. El PDF del

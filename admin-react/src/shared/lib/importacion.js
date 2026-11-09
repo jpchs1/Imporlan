@@ -44,13 +44,34 @@ export const HITOS = [
     enCurso: 'Estamos cerrando la compra con el vendedor, a tu nombre.',
     enCursoCorto: 'Cerrando la compra',
   },
+  // JP, 9-nov-2026: el retiro y la entrega en el puerto de EE. UU. son hitos
+  // propios, informados con fotos (pick-up / drop-off). La entrega en puerto
+  // (clave 'transporte') activa el Pago 3.
+  {
+    id: 'retiro',
+    label: 'Retirada por el transportista en EE. UU.',
+    corto: 'Retirada',
+    etapa: 5,
+    conFotos: true,
+    enCurso: 'Estamos coordinando con el transportista el retiro de la lancha para llevarla al puerto.',
+    enCursoCorto: 'Coordinando el retiro',
+  },
   {
     id: 'transporte',
-    label: 'En camino a Chile',
-    corto: 'En camino',
+    label: 'Entregada en el puerto de EE. UU., lista para embarcar',
+    corto: 'En el puerto de EE. UU.',
     etapa: 5,
-    enCurso: 'Estamos coordinando el transporte de la lancha a Chile.',
-    enCursoCorto: 'Coordinando el transporte',
+    conFotos: true,
+    enCurso: 'La lancha va camino al puerto de EE. UU. Te avisamos con fotos apenas quede entregada.',
+    enCursoCorto: 'Camino al puerto',
+  },
+  {
+    id: 'embarque',
+    label: 'Embarcada rumbo a Chile',
+    corto: 'Rumbo a Chile',
+    etapa: 5,
+    enCurso: 'Coordinamos el embarque de la lancha en el puerto de EE. UU. rumbo a Chile.',
+    enCursoCorto: 'Coordinando el embarque',
   },
   {
     id: 'aduana',
@@ -80,8 +101,22 @@ export function hitosDe(eleccion) {
 }
 
 /** El primer hito sin hacer (el que está «en curso»), o null si están todos. */
+/**
+ * El hito en curso: el primero sin hacer DESPUÉS del último hecho (igual que
+ * impHitoEnCurso en el servidor). Un expediente que ya iba más adelante cuando
+ * se sumaron el retiro y el embarque no vuelve atrás.
+ */
 export function hitoEnCurso(eleccion) {
-  return hitosDe(eleccion).find(h => !h.hecho) || null;
+  const hitos = hitosDe(eleccion);
+  let ultimo = -1;
+  hitos.forEach((h, i) => { if (h.hecho) ultimo = i; });
+  return hitos.slice(ultimo + 1).find(h => !h.hecho) || null;
+}
+
+/** Ids de las fotos con que se informó un hito (retiro, entrega en puerto). */
+export function fotosDelHito(eleccion, hitoId) {
+  const e = eleccion?.evidence?.[hitoId];
+  return Array.isArray(e?.file_ids) ? e.file_ids.map(Number).filter(Boolean) : [];
 }
 
 /** Estado visible de la operación; no convierte una tarea pendiente en un hito hecho. */
@@ -335,7 +370,7 @@ export function hitoPorId(id) {
  * Operación en EE. UU. (api/operador_usa.php): los hitos que hace el
  * operador allá. Después de éstos, lo que sigue es en Chile.
  */
-export const HITOS_USA = ['disponibilidad', 'inspeccion', 'compra', 'transporte'];
+export const HITOS_USA = ['disponibilidad', 'inspeccion', 'compra', 'retiro', 'transporte'];
 
 /** Archivos que subió el operador de EE. UU. (uploaded_by y description). */
 export const ORIGEN_ARCHIVO_USA = 'operador_usa';

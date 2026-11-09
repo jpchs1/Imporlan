@@ -3060,7 +3060,15 @@ function adminSetImportStep($admin, $input = null) {
             catch (Throwable $e) { return impResponderError(503,($admin['role'] ?? '')==='agent'?'No se pudo comprobar la autorización de Imporlan.':'No pudimos comprobar la conciliación. Revisa los pagos antes de avanzar.'); }
             if(!$clearance['ready'])return impResponderError(409,($admin['role'] ?? '')==='agent'?'Compra en espera de autorización del equipo Imporlan.':'Compra en espera: completa los Pagos 1 y 2 y concilia sus comprobantes. '.implode(' ',$clearance['issues']));
         }
-        $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin');
+        // Retiro y entrega en puerto se informan con fotos (pick-up / drop-off): JP, 9-nov-2026.
+        $fotos = 0;
+        if ($hecho && !empty($hitos[$paso]['con_fotos']) && !isset(impPasos($order)[$paso])) {
+            [$ids, $fotoError] = impPrepararEvidencia($pdo, $order, $paso, $input['file_ids'] ?? []);
+            if ($fotoError) return impResponderError(400, $fotoError);
+            impGuardarEvidencia($pdo, $order, $paso, $ids, 'equipo');
+            $fotos = count($ids);
+        }
+        $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin', ['fotos' => $fotos]);
         $pagoHito = $r['pago'];
         $nPago = $r['n'];
         $notificado = $r['notificado'];
@@ -3107,6 +3115,8 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mai
     } elseif ($paso === 'inspeccion') {
         $pdo->prepare("UPDATE orders SET inspection_client_ok_at = NULL, inspection_decided_by = NULL WHERE id = ?")->execute([$orderId]);
     }
+    // Retiro y entrega en puerto: al deshacer el hito, sus fotos dejan de ser su evidencia (los archivos quedan).
+    if (!$hecho && !empty($hitos[$paso]['con_fotos'])) impGuardarEvidencia($pdo, $order, $paso, null, $por);
     logOrderEvent($pdo, $orderId, $hecho ? 'hito_importacion' : 'hito_importacion_deshecho', [
         'hito' => $paso, 'por' => $por, 'quien' => $quien,
     ]);
@@ -3138,6 +3148,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mai
                 'order_number' => $order['order_number'] ?? '',
                 'order_id' => $orderId,
                 'correct_payment_notice' => !empty($mailContext['correct_payment_notice']),
+                'fotos' => intval($mailContext['fotos'] ?? 0),
                 'hechos' => ['Lancha elegida' => true] + $hechos,
                 'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
                     ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,
@@ -3149,7 +3160,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mai
     }
 
     // Si lo que sigue es del lado de EE. UU., se le pide a David.
-    $pedidoUsa = ($hecho && !$yaEstaba) ? opuAlMarcarHito($pdo, $orderId, $paso) : false;
+    $pedidoUsa = ($hecho && !$yaEstaba) ? opuAlMarcarHito($pdo, $orderId, $paso, $por) : false;
 
     return ['pago' => $pagoHito, 'n' => $nPago, 'notificado' => $notificado, 'usa' => $pedidoUsa, 'pasos' => $ordenados];
 }

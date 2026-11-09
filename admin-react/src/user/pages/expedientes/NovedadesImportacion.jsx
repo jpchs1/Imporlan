@@ -24,7 +24,7 @@ import { esImagen, esVideo, GALERIA_USA_MAX as GALERIA_MAX } from './lib';
 /* ---------------------------------------------------------------------------
    Miniatura: foto (botón que abre el visor) o video (enlace con ícono).
    --------------------------------------------------------------------------- */
-function Miniatura({ file, onOpen, size = 'md' }) {
+export function Miniatura({ file, onOpen, size = 'md' }) {
   const alto = size === 'sm' ? 'h-16 w-[5.5rem]' : 'aspect-[4/3] w-full';
   const base = cn('block overflow-hidden rounded-md border border-line bg-neutral-bg transition-colors duration-150 hover:border-ink-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500', alto);
   if (esVideo(file)) {

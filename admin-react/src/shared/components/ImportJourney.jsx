@@ -2,14 +2,16 @@ import { useId } from 'react';
 import { cn } from '../lib/utils';
 import { fmtDateLarga } from '../lib/format';
 import { estadoDeImportacion, hitosDe } from '../lib/importacion';
-import { Check, ClipboardCheck, Ship, ShoppingCart, FileCheck, Anchor, Search } from './Icons';
+import { Check, ClipboardCheck, Ship, ShoppingCart, FileCheck, Anchor, Search, Truck, Container } from './Icons';
 import '../styles/import-process.css';
 
 const stages = {
   disponibilidad: { label: 'Disponibilidad', icon: Search },
   inspeccion: { label: 'Inspección', icon: ClipboardCheck },
   compra: { label: 'Compra', icon: ShoppingCart },
-  transporte: { label: 'Envío a Chile', icon: Ship },
+  retiro: { label: 'Retiro', icon: Truck },
+  transporte: { label: 'Puerto EE. UU.', icon: Container },
+  embarque: { label: 'Rumbo a Chile', icon: Ship },
   aduana: { label: 'Aduana', icon: FileCheck },
   entrega: { label: 'Entrega', icon: Anchor },
 };
