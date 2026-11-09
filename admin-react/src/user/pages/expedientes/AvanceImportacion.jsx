@@ -3,10 +3,12 @@ import { cn, fmtCLP, dateValue } from '../../../shared/lib/utils';
 import { fmtDateLarga } from '../../../shared/lib/format';
 import { Button } from '../../../shared/components/UI';
 import { Check, Receipt, User, TriangleAlert, FileSearch, Languages, Banknote } from '../../../shared/components/Icons';
-import { hitosDe, estadoDeImportacion, pagoEnRevision, pagoEnConciliacion, comprobanteRechazado } from '../../../shared/lib/importacion';
+import { hitosDe, fotosDelHito, estadoDeImportacion, pagoEnRevision, pagoEnConciliacion, comprobanteRechazado } from '../../../shared/lib/importacion';
 import { etapaInspeccion, devolucionPedida, decidioInspeccion, reporteDe, pago1AbonadoDeOtra } from '../../../shared/lib/inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import CaminoInspeccion from './CaminoInspeccion';
+import { Miniatura } from './NovedadesImportacion';
+import { esImagen } from './lib';
 import { rutaPagar } from './lib';
 
 /**
@@ -29,8 +31,15 @@ import { rutaPagar } from './lib';
  * `onLeerReporte` abre el reporte en español; `reporteInspeccion` es el
  * reporte antiguo (inspection_reports_api), como respaldo cuando no hay.
  */
-export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, datosPendientes = false, onCompletarDatos, reporteInspeccion = null, onLeerReporte, className }) {
+export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agente, datosPendientes = false, onCompletarDatos, reporteInspeccion = null, onLeerReporte, files = [], onPreviewFiles, className }) {
   const items = construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, onCompletarDatos, reporteInspeccion, onLeerReporte);
+  // Las fotos del retiro y de la entrega en puerto (JP, 9-nov-2026), bajo su hito.
+  const porId = new Map((files || []).map(f => [Number(f.id), f]));
+  for (const it of items) {
+    if (it.estado !== 'hecho') continue;
+    const fotos = fotosDelHito(eleccion, it.id).map(id => porId.get(id)).filter(Boolean);
+    if (fotos.length) it.fotos = fotos;
+  }
 
   return (
     <section aria-labelledby="tu-avance" className={className}>
@@ -73,6 +82,7 @@ export default function AvanceImportacion({ eleccion, pagos, tituloLancha, agent
                 {it.detalle && <p className={cn('mt-0.5 text-13', curso ? 'text-ink-700' : 'text-ink-500')}>{it.detalle}</p>}
                 {it.camino && <CaminoInspeccion compacto className="mt-2" />}
                 {it.quien && <p className="mt-1 text-xs text-ink-500">{it.quien}</p>}
+                {it.fotos && <FotosHito fotos={it.fotos} titulo={it.titulo} onPreview={onPreviewFiles} />}
                 {it.accion && <div className="mt-2">{it.accion}</div>}
               </div>
             </li>
@@ -229,4 +239,24 @@ function construirItems(eleccion, pagos, tituloLancha, agente, datosPendientes, 
   // Si no quedó ningún hito en curso, todo está hecho: el último («Entregada») ya lo dice.
   hechos.sort((a, b) => dateValue(a.fecha) - dateValue(b.fecha));
   return [...hechos, ...porPagar, ...pendientes];
+}
+
+/* Fotos del hito (pick-up / drop-off): hasta 4 miniaturas y «+N» que abre el visor con todas. */
+const FOTOS_HITO_MAX = 4;
+function FotosHito({ fotos, titulo, onPreview }) {
+  const imagenes = fotos.filter(esImagen);
+  const visibles = fotos.slice(0, FOTOS_HITO_MAX);
+  const resto = fotos.length - visibles.length;
+  return (
+    <ul className="mt-2 grid max-w-sm grid-cols-4 gap-1.5" aria-label={`Fotos: ${titulo}`}>
+      {visibles.map((f, i) => (
+        <li key={f.id} className="relative">
+          <Miniatura file={f} onOpen={() => onPreview?.(imagenes, Math.max(0, imagenes.indexOf(f)))} />
+          {i === visibles.length - 1 && resto > 0 && (
+            <button type="button" onClick={() => onPreview?.(imagenes, 0)} className="absolute inset-0 flex items-center justify-center rounded-md bg-ink-900/60 text-sm font-semibold text-white" aria-label={`Ver las ${fotos.length} fotos`}>+{resto}</button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 }

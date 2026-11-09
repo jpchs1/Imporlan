@@ -245,6 +245,8 @@ export default function TuImportacion({
             onCompletarDatos={onCompletarDatos}
             reporteInspeccion={reporteInspeccion}
             onLeerReporte={onLeerReporte}
+            files={files}
+            onPreviewFiles={onPreviewFiles}
             className="min-w-0"
           />
         </div>

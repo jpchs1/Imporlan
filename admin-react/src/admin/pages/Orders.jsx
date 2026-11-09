@@ -696,7 +696,7 @@ export default function Orders() {
   }
 
   // Marcar pasa por ModalHito (con el interruptor de aviso); desmarcar, por aquí.
-  async function handleHito(hito, done, notify) {
+  async function handleHito(hito, done, notify, fileIds = []) {
     if (!done && !(await confirm({
       title: `¿Desmarcar «${hito.corto}»?`,
       description: 'Vuelve a quedar pendiente y la etapa se recalcula. Al cliente no se le avisa.',
@@ -704,12 +704,12 @@ export default function Orders() {
       confirmLabel: 'Desmarcar',
     }))) return false;
     try {
-      const r = await setImportStep(detail.id, hito.id, done, notify);
+      const r = await setImportStep(detail.id, hito.id, done, notify, fileIds);
       if (!done) toast?.(`«${hito.corto}» desmarcado`);
       else {
         // El hito puede crear el Pago 2 o el Pago 3 (impPagoPorHito en el servidor).
         const pago = r?.pago?.creado ? ` Se creó el Pago ${r.pago.n}.` : '';
-        const titulo = hito.id === 'inspeccion' ? 'Registramos que el cliente aprobó la inspección.' : `«${hito.corto}» marcado.`;
+        const titulo = hito.id === 'inspeccion' ? 'Registramos que el cliente aprobó la inspección.' : `«${hito.corto}» marcado${fileIds.length ? ` con ${fileIds.length} ${fileIds.length === 1 ? 'foto' : 'fotos'}` : ''}.`;
         toast?.(`${titulo}${pago}${r?.notified ? ' Avisamos al cliente.' : ''}`, 'success');
         if (r?.pago) cargarCobros(detail.id, detail.customer_email, detail.order_number);
       }
