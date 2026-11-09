@@ -1185,7 +1185,9 @@ BASE64;
             'disponibilidad' => 'El vendedor confirmó que ' . $titulo . ' sigue disponible y el precio. Seguimos con el siguiente paso.',
             'inspeccion' => 'Aprobaste el reporte de la inspección técnica de ' . $titulo . '. El reporte, en inglés y en español, queda en tu panel.',
             'compra' => 'Cerramos la compra de ' . $titulo . ' en Estados Unidos.',
-            'transporte' => $titulo . ' ya va en camino a Chile. Puedes seguir el viaje desde tu panel.',
+            'retiro' => 'El transportista retiró ' . $titulo . ' y la lleva al puerto en Estados Unidos.',
+            'transporte' => $titulo . ' quedó entregada en el puerto de Estados Unidos, lista para embarcar a Chile.',
+            'embarque' => $titulo . ' ya va embarcada rumbo a Chile. Puedes seguir el viaje desde tu panel.',
             'aduana' => $titulo . ' llegó a Chile y está en aduana para la internación.',
             'entrega' => $titulo . ' fue entregada. ¡Que la disfrutes!',
         ];
@@ -1196,7 +1198,9 @@ BASE64;
                 : 'Con el Pago 2 cerramos la compra con el vendedor, a tu nombre.',
             'inspeccion' => 'Con el Pago 2 cerramos la compra con el vendedor, a tu nombre.',
             'compra' => 'Ahora coordinamos el retiro y el traslado al puerto en Estados Unidos.',
-            'transporte' => 'Te avisamos cuando llegue a Chile para la internación.',
+            'retiro' => 'Te avisamos apenas quede entregada en el puerto, lista para embarcar.',
+            'transporte' => 'Con el Pago 3, el último de la operación, seguimos con el embarque, el flete y la internación en Chile.',
+            'embarque' => 'Te avisamos cuando llegue a Chile para la internación.',
             'aduana' => 'Te avisamos apenas esté lista para la entrega.',
         ];
         $hito = (string) ($d['hito'] ?? '');
@@ -1213,6 +1217,7 @@ BASE64;
             <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Avance de tu importación') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($label) . '</h2>
             <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . (isset($sigue[$hito]) ? '<br><span style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($sigue[$hito]) . '</span>' : '') . '</p>'
+            . (intval($d['fotos'] ?? 0) > 0 ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6; text-align: center;"><strong>' . intval($d['fotos']) . ' ' . (intval($d['fotos']) === 1 ? 'foto' : 'fotos') . ' ' . ($hito === 'retiro' ? 'del retiro' : ($hito === 'transporte' ? 'de la entrega en el puerto' : 'nuevas')) . '</strong> en tu panel, junto al avance de tu importación.<br><a href="' . htmlspecialchars($this->impUrlPanel($d['order_id'] ?? null)) . '" style="color: ' . $c['primary'] . ';">Ver las fotos</a></div>' : '')
             . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '');
         // Con el hito sale el pago que corresponde (Pago 2 o Pago 3): el botón lleva a pagarlo.
         $cobro = $d['cobro'] ?? null;

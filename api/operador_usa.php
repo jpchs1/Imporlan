@@ -50,7 +50,7 @@ define('OPU_DIAS_RECORDATORIO', 4);
 
 /** Hitos que dependen de EE. UU. (después de éstos, lo hace el equipo en Chile). */
 function opuHitosUsa() {
-    return ['disponibilidad', 'inspeccion', 'compra', 'transporte'];
+    return ['disponibilidad', 'inspeccion', 'compra', 'retiro', 'transporte'];
 }
 
 /** Nombre de cada hito en inglés, para David. */
@@ -59,7 +59,9 @@ function opuHitosEn() {
         'disponibilidad' => 'Availability and price confirmed with the seller',
         'inspeccion' => 'Survey approved',
         'compra' => 'Purchase closed',
-        'transporte' => 'In transit to Chile',
+        'retiro' => 'Picked up by the carrier',
+        'transporte' => 'Delivered at the US port, ready to ship',
+        'embarque' => 'Shipped to Chile',
         'aduana' => 'Customs in Chile',
         'entrega' => 'Delivered',
     ];
@@ -72,19 +74,25 @@ function opuPedidoPara($hito, $priceRetained = false) {
         'disponibilidad' => 'Please contact the seller to confirm the boat is still available and the final price. Send recent photos and, if you can, a walk-around video.',
         'inspeccion' => 'Please coordinate the technical survey. Send the survey report, photos and videos as soon as you have them.',
         'compra' => 'Please move forward with the purchase. Send photos of the signed bill of sale and the title when ready.',
-        'transporte' => 'Please coordinate pickup and transport to the port. Send photos at pickup and when the boat is loaded, and the shipping documents (B/L) if available.',
+        'retiro' => 'Please coordinate the pickup with the carrier. When the boat is picked up, report it in the "Pickup" section of your private link, with photos of the pickup.',
+        'transporte' => 'Once the boat is delivered at the US port, report it in the "Port delivery" section of your private link, with drop-off photos and the dock receipt if you have it. This is a key milestone: please report it the same day.',
     ];
     return $p[$hito] ?? null;
 }
 
-/** El primer hito sin hacer que aplica a la elección, o null. */
+/** El hito en curso (el primero sin hacer después del último hecho), o null. */
 function opuHitoEnCurso($order) {
-    $pasos = impPasos($order);
-    foreach (impHitos() as $k => $h) {
-        if (!empty($h['solo_con_inspeccion']) && empty($order['chosen_inspection'])) continue;
-        if (!isset($pasos[$k])) return $k;
-    }
-    return null;
+    return impHitoEnCurso($order);
+}
+
+/** Hitos que David informa él mismo desde su link, con fotos (JP, 9-nov-2026). */
+function opuHitosConFotos() {
+    return [
+        'retiro' => ['titulo' => 'Pickup', 'h2' => 'Report the pickup', 'boton' => 'Report pickup',
+            'texto' => 'When the carrier picks up the boat, report it here with photos of the pickup (boat on the trailer or truck, hull, engine, any marks). The client sees the photos.'],
+        'transporte' => ['titulo' => 'Port delivery', 'h2' => 'Report the delivery at the port', 'boton' => 'Report port delivery',
+            'texto' => 'When the boat is delivered at the US port, ready to ship, report it here with drop-off photos. Add the dock receipt or delivery document as a PDF if you have it (it stays with the Imporlan team). The client sees the photos.'],
+    ];
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +346,7 @@ function opuAlDeshacer($pdo, $orderAntes) {
 }
 
 /** El equipo marcó un hito: se le pide a David lo que sigue, si es de su lado. */
-function opuAlMarcarHito($pdo, $orderId, $hito) {
+function opuAlMarcarHito($pdo, $orderId, $hito, $por = 'equipo') {
     try {
         opuAsegurar($pdo);
         $o = opuOrden($pdo, $orderId);
@@ -347,7 +355,7 @@ function opuAlMarcarHito($pdo, $orderId, $hito) {
         if (!$siguiente || !in_array($siguiente, opuHitosUsa(), true)) return false;
         if($siguiente==='compra') {require_once __DIR__.'/purchase_clearance.php';if(impPurchaseClearanceFor($pdo,$o)['ready'])return impResumePurchase(['metadata'=>['order_id'=>$orderId]]);}
         $en = opuHitosEn();
-        return opuPedirActualizacion($pdo, $o, 'milestone completed: ' . ($en[$hito] ?? $hito) . '. Here is the next step.');
+        return opuPedirActualizacion($pdo, $o, ($por === 'operador' ? 'thank you, we registered: ' : 'milestone completed: ') . ($en[$hito] ?? $hito) . '. Here is the next step.');
     } catch (\Throwable $e) {
         error_log('opuAlMarcarHito: ' . $e->getMessage());
         return false;
@@ -438,7 +446,7 @@ function opuMimesPermitidos() {
  * (los comparte el equipo).
  * Devuelve ['update_id', 'files' => [...], 'errores' => [...]].
  */
-function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file', $inspectionRequestId = 0, array $exceptions = []) {
+function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 'move_uploaded_file', $inspectionRequestId = 0, array $exceptions = [], $avisar = true) {
     opuAsegurar($pdo);
     $inspection = opuInspectionLatest($pdo, $order);
     if (!$inspectionRequestId && $inspection && opuInspectionOwnsStage($pdo, $order)) $inspectionRequestId = intval($inspection['id']);
@@ -492,7 +500,7 @@ function opuGuardarActualizacion($pdo, $order, $nota, array $archivos, $mover = 
     opuInspectionAttach($pdo, $order, $inspectionRequestId, $guardados);
     opuInspectionSaveExceptions($pdo, $order, $inspectionRequestId, $exceptions);
 
-    opuAvisarActualizacion($pdo, $order, $nota, $guardados);
+    if ($avisar) opuAvisarActualizacion($pdo, $order, $nota, $guardados);
     return ['update_id' => $updateId, 'files' => $guardados, 'errores' => $errores];
 }
 
@@ -642,6 +650,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
             .boat{display:flex;gap:14px;align-items:flex-start}.boat img{width:132px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex-shrink:0}
             @media(max-width:480px){.boat{flex-direction:column}.boat img{width:100%;height:180px}}
             .ask{background:#ecfeff;border:1px solid #a5f3fc;border-radius:10px;padding:14px;margin-top:14px}
+            .milestone{border:2px solid var(--brand)}.milestone .tag{display:inline-block;background:#ecfeff;color:var(--brand);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-bottom:8px}
             ol.steps{list-style:none;margin:0;padding:0}ol.steps li{display:flex;gap:10px;padding:6px 0;font-size:14px}
             .dot{width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;flex-shrink:0;margin-top:1px}.done .dot{background:var(--ok);border-color:var(--ok)}.now .dot{border-color:var(--brand)}
             .done span{color:var(--ink)}li span{color:var(--mute)}.now span{color:var(--ink);font-weight:600}
@@ -686,6 +695,22 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
         }
         $h .= '</ol></section>';
 
+        // Retiro y entrega en puerto: David los informa aquí, con fotos (JP, 9-nov-2026).
+        $conFotos = opuHitosConFotos();
+        if ($hito && isset($conFotos[$hito])) {
+            $cf = $conFotos[$hito];
+            $h .= '<section class="card milestone" id="milestone"><span class="tag">' . opuEsc($cf['titulo']) . '</span><h2>' . opuEsc($cf['h2']) . '</h2>'
+                . '<p class="mute" style="margin:0 0 12px">' . opuEsc($cf['texto']) . '</p>'
+                . '<form method="post" action="?r=hito&t=' . opuEsc($order['usa_token']) . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
+                . '<input type="hidden" name="hito" value="' . opuEsc($hito) . '"><input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
+                . '<label for="milestone_files">Photos' . ($hito === 'transporte' ? ', videos or the dock receipt (PDF)' : ' or videos') . '</label>'
+                . '<input id="milestone_files" type="file" name="files[]" multiple required accept="image/*,video/*' . ($hito === 'transporte' ? ',application/pdf' : '') . '">'
+                . '<label for="milestone_note" style="margin-top:14px">Note for the Imporlan team (optional)</label>'
+                . '<textarea id="milestone_note" name="note" maxlength="3000" style="min-height:80px" placeholder="' . ($hito === 'retiro' ? 'Carrier, pickup date, expected delivery at the port…' : 'Port, terminal, delivery date, anything we should know…') . '"></textarea>'
+                . '<p class="mute" style="margin:6px 0 0">At least one photo. Up to 100 MB per file.</p>'
+                . '<button type="submit">' . opuEsc($cf['boton']) . '</button></form></section>';
+        }
+
         $h .= '<section class="card"><h2>Send an update</h2>'
             . '<form method="post" action="' . $url . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
             . '<input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
@@ -712,6 +737,65 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
     return $h . '</main></body></html>';
 }
 
+/**
+ * David informa el retiro o la entrega en puerto con fotos: se guardan (las
+ * fotos y videos los ve el cliente; un PDF, sólo el equipo), quedan como
+ * evidencia del hito y se marca el hito. La entrega en puerto crea el Pago 3
+ * y se le avisa al cliente. Devuelve ['ok', 'aviso', 'error'].
+ */
+function opuInformarHito($pdo, $order, $hito, $nota, array $archivos, $mover = 'move_uploaded_file') {
+    opuAsegurar($pdo);
+    $conFotos = opuHitosConFotos();
+    if (!isset($conFotos[$hito]) || !impTieneEleccion($order) || opuHitoEnCurso($order) !== $hito) {
+        return ['ok' => false, 'error' => 'This step is not the current one anymore. Please reload the page.'];
+    }
+    if ($err = impValidarCambioHito($order, $hito, true)) return ['ok' => false, 'error' => 'This step cannot be reported yet. Please contact the Imporlan team.'];
+    // Al menos una foto, antes de guardar nada.
+    $hayFoto = false;
+    foreach ($archivos as $f) {
+        if (($f['error'] ?? 1) !== UPLOAD_ERR_OK || empty($f['tmp_name'])) continue;
+        $fi = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = (string) finfo_file($fi, $f['tmp_name']);
+        finfo_close($fi);
+        if (strpos($mime, 'image/') === 0) $hayFoto = true;
+    }
+    if (!$hayFoto) return ['ok' => false, 'error' => 'Please attach at least one photo.'];
+    $res = opuGuardarActualizacion($pdo, $order, $nota, $archivos, $mover, 0, [], false);
+    $visuales = array_values(array_filter($res['files'], function ($g) { return in_array($g['category'], ['image', 'video'], true); }));
+    if (!$res['update_id'] || !$visuales) return ['ok' => false, 'error' => $res['errores'] ? implode(' ', $res['errores']) : 'The photos could not be saved. Please try again.'];
+    [$ids, $error] = impPrepararEvidencia($pdo, $order, $hito, array_column($visuales, 'id'));
+    if ($error) return ['ok' => false, 'error' => 'The photos could not be registered. Please try again.'];
+    impGuardarEvidencia($pdo, $order, $hito, $ids, 'operador');
+
+    require_once __DIR__ . '/orders_api.php';
+    $r = impAplicarHito($pdo, opuOrden($pdo, $order['id']), $hito, true, true, 'operador', opuOperador()['email'], ['fotos' => count($ids)]);
+    $pago = impPagoHitoPublico($r);
+    opuAvisarHitoEquipo($pdo, $order, $hito, $nota, count($ids), count($res['files']) - count($visuales), $pago);
+    $en = opuHitosEn();
+    return ['ok' => true, 'aviso' => 'Thank you. «' . $en[$hito] . '» is registered with ' . count($ids) . ' photo' . (count($ids) === 1 ? '' : 's') . '. The Imporlan team and the client have been notified.'];
+}
+
+/** Aviso al equipo: David informó el retiro o la entrega en puerto. */
+function opuAvisarHitoEquipo($pdo, $order, $hito, $nota, $fotos, $docs, $pago) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
+        $titulo = impTituloLancha($link);
+        $label = impHitos()[$hito]['label'];
+        $cuerpo = '<p style="margin:0 0 10px">' . opuEsc(opuOperador()['nombre']) . ' informó <strong>' . opuEsc($label) . '</strong> en el expediente <strong>' . opuEsc($order['order_number'] ?? '') . '</strong>, con ' . $fotos . ' foto(s)/video(s)' . ($docs ? ' y ' . $docs . ' documento(s) sólo para el equipo' : '') . '. El hito quedó marcado y el cliente ya ve las fotos en su panel.</p>'
+            . ($hito === 'transporte'
+                ? ($pago ? '<p style="margin:0 0 10px">Se creó el <strong>Pago ' . intval($pago['n']) . '</strong> por $' . number_format($pago['amount_clp'], 0, ',', '.') . ' y al cliente le llegó el aviso para pagarlo.</p>'
+                         : '<p style="margin:0 0 10px">No se creó el Pago 3 automático (la cotización no está publicada o no tiene plan de pagos): créalo desde el expediente.</p>')
+                : '')
+            . ($nota !== '' ? '<div style="padding:12px 14px;background:#f8fafc;border-left:4px solid #0e7490;border-radius:6px;white-space:pre-wrap"><strong>Nota de David (interna):</strong><br>' . opuEsc($nota) . '</div>' : '')
+            . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']));
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl', opuOperador()['nombre'] . ' informó: ' . impHitos()[$hito]['corto'] . ' · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
+            opuHtmlCorreo($titulo, $cuerpo, 'equipo', $label));
+    } catch (\Throwable $e) {
+        error_log('opuAvisarHitoEquipo: ' . $e->getMessage());
+    }
+}
+
 /** $_FILES['files'] (múltiple) a una lista de archivos. */
 function opuArchivosSubidos() {
     $f = $_FILES['files'] ?? null;
@@ -731,7 +815,7 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     $r = $_GET['r'] ?? '';
     $pdo = getDbConnection();
 
-    if ($r === 'portal' || $r === 'enviar' || $r === 'precio') {
+    if ($r === 'portal' || $r === 'enviar' || $r === 'precio' || $r === 'hito') {
         header('Content-Type: text/html; charset=utf-8');
         header('X-Robots-Tag: noindex, nofollow');
         header('Referrer-Policy: no-referrer');
@@ -754,6 +838,19 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
                 exit;
             }
             echo opuPaginaPortal($pdo, $order, '', $errors, $_POST);
+            exit;
+        }
+        if ($r === 'hito' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (empty($_FILES) && empty($_POST) && intval($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+                echo opuPaginaPortal($pdo, $order, '', ['The upload was too large for the server. Please send fewer or smaller files at a time.']);
+                exit;
+            }
+            if (!isset($_POST['boat_link_id']) || intval($_POST['boat_link_id']) !== intval($order['chosen_link_id'] ?? 0)) {
+                echo opuPaginaPortal($pdo, $order, '', ['The selected boat has changed. Please review the current boat.']);
+                exit;
+            }
+            $res = opuInformarHito($pdo, $order, (string) ($_POST['hito'] ?? ''), $_POST['note'] ?? '', opuArchivosSubidos());
+            echo opuPaginaPortal($pdo, opuOrden($pdo, $order['id']), $res['ok'] ? $res['aviso'] : '', $res['ok'] ? [] : [$res['error']]);
             exit;
         }
         if ($r === 'enviar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
