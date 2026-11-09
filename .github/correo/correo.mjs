@@ -133,7 +133,15 @@ async function leer() {
         const adj = (p.attachments || []).map((a) => `${a.filename || '(sin nombre)'} (${a.contentType}, ${a.size} B)`);
         if (adj.length) console.log(`Adjuntos:   ${adj.join('; ')}`);
         console.log('-'.repeat(72));
-        console.log((p.text || '(sin texto plano)').trim().slice(0, 15000));
+        const desdeHtml = (h) => String(h || '')
+          .replace(/<(style|script|head)[^>]*>[\s\S]*?<\/\1>/gi, '')
+          .replace(/<br\s*\/?>(?!\n)/gi, '\n')
+          .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+          .replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n');
+        const cuerpo = p.text || (p.html ? '(desde HTML)\n' + desdeHtml(p.html) : '(sin texto)');
+        console.log(cuerpo.trim().slice(0, 15000));
         console.log();
       }
     } finally { lock.release(); }
