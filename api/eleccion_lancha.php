@@ -191,7 +191,8 @@ function impPrepararEvidencia($pdo, $order, $hito, $fileIds) {
     $ids = array_values(array_unique(array_filter(array_map('intval', (array) $fileIds), function ($i) { return $i > 0; })));
     if (!$ids) return [[], 'Sube al menos una foto ' . ($hito === 'retiro' ? 'del retiro (pick-up)' : 'de la entrega en el puerto (drop-off)') . '.'];
     $marcas = implode(',', array_fill(0, count($ids), '?'));
-    $st = $pdo->prepare("SELECT id, category, mime_type FROM expediente_files WHERE order_id = ? AND id IN ($marcas)");
+    // Nunca la cédula del cliente: es privada y aquí quedaría visible.
+    $st = $pdo->prepare("SELECT id, category, mime_type FROM expediente_files WHERE order_id = ? AND id IN ($marcas) AND (uploaded_by IS NULL OR uploaded_by <> 'cliente_identidad')");
     $st->execute(array_merge([intval($order['id'])], $ids));
     $validos = [];
     $hayFoto = false;

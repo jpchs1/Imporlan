@@ -25,7 +25,8 @@ import { uploadExpedienteFiles } from '../../api';
  * las fotos como actualización, se eligen de `archivos` sin volver a subirlas.
  */
 const EXISTENTES_MAX = 12;
-const esVisual = f => String(f?.mime_type || '').startsWith('image/') || String(f?.mime_type || '').startsWith('video/') || ['image', 'video'].includes(f?.category);
+// Nunca la cédula del cliente (es privada: sólo el equipo la ve).
+const esVisual = f => f?.uploaded_by !== 'cliente_identidad' && (String(f?.mime_type || '').startsWith('image/') || String(f?.mime_type || '').startsWith('video/') || ['image', 'video'].includes(f?.category));
 const esFoto = f => String(f?.mime_type || '').startsWith('image/') || f?.category === 'image';
 
 export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, conReporte = false, orderId, archivos = [] }) {

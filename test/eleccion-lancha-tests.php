@@ -749,6 +749,9 @@ ok($c === 400 && !isset(impPasos(orden(35))['retiro']) && strpos($r['error'], 'f
 ok($c === 400, 'un PDF no cuenta como foto del retiro');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(35, 'video/mp4')]]);
 ok($c === 400, 'sólo videos tampoco: al menos una foto');
+$ci = fotoDePrueba(35); $BD->exec("UPDATE expediente_files SET uploaded_by = 'cliente_identidad', visible_to_client = 0 WHERE id = $ci");
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [$ci]]);
+ok($c === 400 && intval($BD->query("SELECT visible_to_client FROM expediente_files WHERE id = $ci")->fetchColumn()) === 0, 'la cédula del cliente nunca sirve de foto del retiro (ni queda visible)');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'retiro', 'done' => true, 'file_ids' => [fotoDePrueba(36)]]);
 ok($c === 400, 'las fotos tienen que ser de este expediente');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => true, 'file_ids' => [fotoDePrueba(35)]]);
