@@ -3068,7 +3068,10 @@ function adminSetImportStep($admin, $input = null) {
             impGuardarEvidencia($pdo, $order, $paso, $ids, 'equipo');
             $fotos = count($ids);
         }
-        $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin', ['fotos' => $fotos]);
+        $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin', [
+            'fotos' => $fotos,
+            'mensaje' => is_string($input['client_message'] ?? null) ? $input['client_message'] : '',
+        ]);
         $pagoHito = $r['pago'];
         $nPago = $r['n'];
         $notificado = $r['notificado'];
@@ -3149,6 +3152,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mai
                 'order_id' => $orderId,
                 'correct_payment_notice' => !empty($mailContext['correct_payment_notice']),
                 'fotos' => intval($mailContext['fotos'] ?? 0),
+                'mensaje' => mb_substr(trim((string) ($mailContext['mensaje'] ?? '')), 0, 1500),
                 'hechos' => ['Lancha elegida' => true] + $hechos,
                 'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
                     ? ['id' => $pagoHito['cobro']['id'], 'n' => $nPago, 'amount_clp' => intval($pagoHito['cobro']['amount_clp'])] : null,

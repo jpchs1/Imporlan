@@ -11,6 +11,12 @@ try {
     opuInspectionSchema($pdo);
     opuInspectionBootstrap($pdo);
     opuRetiroAvisoBootstrap($pdo); // aviso único a David: informar el retiro de IMP-00035 (JP, 9-nov-2026)
+    try { // IMP-00035 entregada en el puerto de EE. UU.: fotos, pasos al día y Pago 3, una sola vez (JP, 11-nov-2026)
+        require_once __DIR__ . '/../chaparral_puerto.php';
+        impPuertoChaparralBootstrap($pdo);
+    } catch (Throwable $e) {
+        error_log('[inspection-upload] puerto IMP-00035: ' . get_class($e));
+    }
     $result = opuInspectionRun($pdo);
     $result = array_merge($result, opuPriceRun($pdo));
     $result = array_merge($result, impActionRun($pdo));

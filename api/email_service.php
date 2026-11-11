@@ -1163,7 +1163,8 @@ BASE64;
     /**
      * Al cliente, cuando el equipo marca un hito de la importación.
      * $d: hito (clave de impHitos), hito_label, titulo, order_number,
-     * order_id, hechos ([label => bool] en orden, para la lista de avance).
+     * order_id, hechos ([label => bool] en orden, para la lista de avance),
+     * mensaje (opcional: unas líneas del equipo para el cliente).
      */
     public function sendHitoImportacion($userEmail, $firstName, $d) {
         require_once __DIR__.'/payment_balance.php';
@@ -1217,6 +1218,7 @@ BASE64;
             <div style="text-align: center; margin-bottom: 22px;">' . $this->getStatusBadge('info', 'Avance de tu importación') . '</div>
             <h2 style="margin: 0 0 8px 0; color: ' . $c['text_dark'] . '; font-size: 22px; font-weight: 600; text-align: center;">' . htmlspecialchars($label) . '</h2>
             <p style="margin: 0 0 22px 0; color: ' . $c['text_muted'] . '; font-size: 14px; text-align: center; line-height: 1.6;">Hola ' . htmlspecialchars($firstName) . '. ' . htmlspecialchars($frases[$hito] ?? '') . (isset($sigue[$hito]) ? '<br><span style="color: ' . $c['text_dark'] . ';">' . htmlspecialchars($sigue[$hito]) . '</span>' : '') . '</p>'
+            . (trim((string) ($d['mensaje'] ?? '')) !== '' ? '<div style="margin: 0 0 18px 0; padding: 16px 18px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 15px; line-height: 1.65;">' . nl2br(htmlspecialchars(trim((string) $d['mensaje']))) . '</div>' : '')
             . (intval($d['fotos'] ?? 0) > 0 ? '<div style="margin: 0 0 18px 0; padding: 14px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; color: ' . $c['text_dark'] . '; font-size: 14px; line-height: 1.6; text-align: center;"><strong>' . intval($d['fotos']) . ' ' . (intval($d['fotos']) === 1 ? 'foto' : 'fotos') . ' ' . ($hito === 'retiro' ? 'del retiro' : ($hito === 'transporte' ? 'de la entrega en el puerto' : 'nuevas')) . '</strong> en tu panel, junto al avance de tu importación.<br><a href="' . htmlspecialchars($this->impUrlPanel($d['order_id'] ?? null)) . '" style="color: ' . $c['primary'] . ';">Ver las fotos</a></div>' : '')
             . ($lista !== '' ? '<div style="margin: 18px 0; padding: 16px 18px; background: #f8fafc; border: 1px solid ' . $c['border'] . '; border-radius: 12px;"><div style="font-size: 11px; color: ' . $c['text_muted'] . '; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;">Tu importación</div><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">' . $lista . '</table></div>' : '');
         // Con el hito sale el pago que corresponde (Pago 2 o Pago 3): el botón lleva a pagarlo.

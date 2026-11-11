@@ -979,5 +979,55 @@ ok(count($correccion)===1 && strpos($correccion[0]['subject'],'Corrección')===0
 ok(impAprobacionPendiente($BD,35,true)===null && count(array_filter($CORREOS,function($m){return $m['to']==='alberto@example.com';}))===1,'reintentar no duplica el cobro ni la corrección');
 ok($linkAntes===$BD->query('SELECT * FROM order_links WHERE id=12')->fetch(PDO::FETCH_ASSOC),'la corrección mantiene todos los precios y porcentajes');
 
+echo "\nChaparral entregada en el puerto: fotos, pasos al día y Pago 3 en una sola corrida (JP, 11-nov-2026)\n";
+copy("$raiz/api/chaparral_puerto.php", "$caja/chaparral_puerto.php");
+@mkdir("$caja/cron/datos", 0700, true);
+foreach ([1, 2] as $i) copy("$raiz/api/cron/datos/chaparral-puerto-$i.jpg", "$caja/cron/datos/chaparral-puerto-$i.jpg");
+register_shutdown_function(function () use ($caja) { array_map('unlink', glob("$caja/cron/datos/*") ?: []); @rmdir("$caja/cron/datos"); @rmdir("$caja/cron"); });
+require_once "$caja/chaparral_puerto.php";
+$enPlazo = strtotime('2026-11-12 09:00:00');
+function chaparralSinCompra() {
+    sembrar();
+    $GLOBALS['BD']->exec("UPDATE order_links SET title = '2015 Chaparral 21 Sport H2O' WHERE id = 12");
+    llamar('userChooseLink', $GLOBALS['alberto'], ['order_id' => 35, 'link_id' => 12, 'inspection' => false]);
+    llamar('adminSetImportStep', $GLOBALS['admin'], ['order_id' => 35, 'step' => 'disponibilidad', 'done' => true]);
+    financiarCompraDePrueba();
+}
+chaparralSinCompra();
+$BD->exec("INSERT INTO expediente_files (order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, visible_to_client, created_at) VALUES
+    (35, 'pickup.jpg', 'p.jpg', 'image/jpeg', 10, 'image', 'Desde Estados Unidos', 'operador_usa', 1, '2026-11-09 10:00:00'),
+    (35, 'survey-photo.jpg', 's.jpg', 'image/jpeg', 10, 'image', 'Desde Estados Unidos', 'operador_usa', 1, '2026-10-23 10:00:00')");
+$pickup = intval($BD->query("SELECT id FROM expediente_files WHERE original_name = 'pickup.jpg'")->fetchColumn());
+$CORREOS = [];
+$res = impPuertoChaparralBootstrap($BD, $enPlazo);
+$o = orden(35);
+$pasos = impPasos($o);
+ok(is_array($res) && array_keys($res['regularizados']) === ['compra', 'retiro'], 'se ponen al día la compra y el retiro, que ya habían ocurrido');
+ok(substr($pasos['compra'], 0, 10) === '2026-11-03' && substr($pasos['retiro'], 0, 10) === '2026-11-08' && isset($pasos['transporte']), 'con sus fechas reales, y la entrega en puerto queda marcada');
+$ev = impEvidencia($o);
+$fotos = $BD->query("SELECT * FROM expediente_files WHERE uploaded_by = 'equipo_puerto' ORDER BY id")->fetchAll();
+ok(count($fotos) === 2 && $ev['transporte']['file_ids'] === array_map('intval', array_column($fotos, 'id')), 'las 2 fotos del drop-off quedan como evidencia de la entrega en puerto');
+ok(count(array_filter($fotos, function ($f) use ($caja) { return intval($f['visible_to_client']) === 1 && $f['mime_type'] === 'image/jpeg' && $f['description'] === 'Entrega en el puerto de EE. UU. (drop-off)' && is_file("$caja/expediente_files/" . $f['stored_name']); })) === 2, 'guardadas en el expediente y visibles para el cliente');
+ok($ev['retiro']['file_ids'] === [$pickup], 'el retiro queda con la foto del pick-up que mandó David (no con las del survey)');
+$p3 = array_values(array_filter(vigentes(), function ($r) { return intval($r['metadata']['custom_fields']['pago'] ?? 0) === 3; }));
+ok(count($p3) === 1 && intval($p3[0]['amount_clp']) === 29400000 && $p3[0]['status'] === 'pending' && $res['pago3']['id'] === $p3[0]['id'], 'se solicita el Pago 3 de la cotización publicada');
+$aAlberto = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($aAlberto) === 1 && strpos($aAlberto[0]['subject'], 'Entregada en el puerto') === 0, 'al cliente le llega un solo correo: la entrega en puerto (la regularización no avisa)');
+ok(strpos($aAlberto[0]['html'], 'Vamos avanzando muy bien') !== false && strpos($aAlberto[0]['html'], 'Pagar el Pago 3') !== false && strpos($aAlberto[0]['html'], '2 fotos</strong>') === false && strpos($aAlberto[0]['html'], '2 fotos de la entrega en el puerto') !== false, 'con el mensaje del equipo, las fotos y el botón del Pago 3');
+ok(aDavid() === [], 'a David no se le escribe');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['subject'], 'Pago 3 solicitado') !== false && strpos($eq[0]['html'], 'Compra cerrada') !== false && strpos($eq[0]['html'], '$29.400.000') !== false, 'el equipo recibe el resumen: pasos regularizados y Pago 3');
+$CORREOS = [];
+ok(impPuertoChaparralBootstrap($BD, $enPlazo) === null && $CORREOS === [] && count(array_filter(vigentes(), function ($r) { return intval($r['metadata']['custom_fields']['pago'] ?? 0) === 3; })) === 1, 'corre una sola vez: ni otro correo ni otro cobro');
+chaparralSinCompra();
+$BD->exec("UPDATE order_links SET title = '2018 Cobalt R30' WHERE id = 12");
+ok(impPuertoChaparralBootstrap($BD, $enPlazo) === null && !isset(impPasos(orden(35))['compra']), 'otra lancha: no se toca');
+chaparralSinCompra();
+ok(impPuertoChaparralBootstrap($BD, strtotime('2026-11-25')) === null, 'pasado el plazo ya no corre: es puntual');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoChaparralBootstrap($pdo)') !== false, 'el job del cron lo corre');
+[$c] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'compra', 'done' => true, 'notify_client' => true, 'client_message' => '¡Seguimos a toda máquina!']);
+$ultimo = end($CORREOS);
+ok($c === 200 && strpos($ultimo['html'], 'Seguimos a toda máquina') !== false, 'el equipo puede sumar unas líneas al aviso de un hito');
+
 echo "\n" . ($total - $fallos) . "/$total ok\n";
 exit($fallos ? 1 : 0);
