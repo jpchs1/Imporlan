@@ -1032,6 +1032,14 @@ ok(opuPuertoAvisoBootstrap($BD, $enPlazo) === null && aDavid() === [], 'antes de
 impPuertoChaparralBootstrap($BD, $enPlazo);
 $CORREOS = [];
 ok(opuPuertoAvisoBootstrap($BD, $enPlazo) === true && strpos(aDavid()[0]['html'], 'pickup photos') !== false, 'si el retiro no tiene fotos, se le piden las del pick-up');
+ok(impPuertoFotosRetiroTardias($BD, $enPlazo) === null, 'mientras David no suba fotos, el retiro sigue igual');
+$BD->exec("INSERT INTO expediente_files (order_id, original_name, stored_name, mime_type, file_size, category, description, uploaded_by, visible_to_client, created_at) VALUES
+    (35, 'pickup-late.jpg', 'pl.jpg', 'image/jpeg', 10, 'image', 'Desde Estados Unidos', 'operador_usa', 1, datetime('now', '+1 minute')),
+    (35, 'bol.pdf', 'b.pdf', 'application/pdf', 10, 'document', 'Desde Estados Unidos', 'operador_usa', 0, datetime('now', '+1 minute'))");
+$tarde = intval($BD->query("SELECT id FROM expediente_files WHERE original_name = 'pickup-late.jpg'")->fetchColumn());
+ok(impPuertoFotosRetiroTardias($BD, $enPlazo) === 1 && impEvidencia(orden(35))['retiro']['file_ids'] === [$tarde], 'las fotos del pick-up que David sube después quedan como evidencia del retiro (sólo las imágenes)');
+ok(impPuertoFotosRetiroTardias($BD, $enPlazo) === null, 'con el retiro ya con fotos, no vuelve a tocarlo');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoFotosRetiroTardias($pdo)') !== false, 'el job del cron vincula las fotos tardías');
 ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'opuPuertoAvisoBootstrap($pdo)') !== false, 'el job del cron corre el aviso a David');
 chaparralSinCompra();
 $BD->exec("UPDATE order_links SET title = '2018 Cobalt R30' WHERE id = 12");

@@ -266,3 +266,32 @@ function opuPuertoAvisoBootstrap($pdo, $ahora = null) {
     }
     return true;
 }
+
+/**
+ * Las fotos del pick-up que David suba después del aviso del puerto (se las
+ * pedimos sólo si el retiro no tenía fotos) quedan como evidencia del retiro:
+ * su link ya no muestra la sección «Pickup», así que llegan como actualización.
+ * Corre en cada turno del cron hasta el 20-nov; deja de actuar cuando el
+ * retiro ya tiene fotos.
+ */
+function impPuertoFotosRetiroTardias($pdo, $ahora = null) {
+    $ahora = $ahora ?: time();
+    if ($ahora > strtotime('2026-11-20 00:00:00')) return null;
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !isset(impPasos($order)['retiro']) || !empty(impEvidencia($order)['retiro'])) return null;
+    $ev = $pdo->prepare("SELECT meta_json, created_at FROM order_events WHERE order_id = ? AND event_type = 'operador_usa_puerto_aviso' ORDER BY id DESC LIMIT 1");
+    $ev->execute([intval($order['id'])]);
+    $aviso = $ev->fetch(PDO::FETCH_ASSOC);
+    if (!$aviso || empty(json_decode((string) $aviso['meta_json'], true)['sin_pickup'])) return null;
+    $f = $pdo->prepare("SELECT id FROM expediente_files WHERE order_id = ? AND uploaded_by = 'operador_usa' AND (category = 'image' OR mime_type LIKE 'image/%') AND created_at >= ? ORDER BY id");
+    $f->execute([intval($order['id']), $aviso['created_at']]);
+    $ids = array_map('intval', $f->fetchAll(PDO::FETCH_COLUMN));
+    if (!$ids) return null;
+    [$validas, $err] = impPrepararEvidencia($pdo, $order, 'retiro', $ids);
+    if ($err) return null;
+    impGuardarEvidencia($pdo, $order, 'retiro', $validas, 'operador');
+    opuLog($pdo, $order['id'], 'operador_usa_retiro_fotos', ['fotos' => count($validas)]);
+    return count($validas);
+}

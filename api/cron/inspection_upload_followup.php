@@ -15,6 +15,7 @@ try {
         require_once __DIR__ . '/../chaparral_puerto.php';
         impPuertoChaparralBootstrap($pdo);
         opuPuertoAvisoBootstrap($pdo); // aviso único a David: la Chaparral ya está en el puerto (JP, 11-nov-2026)
+        impPuertoFotosRetiroTardias($pdo); // las fotos del pick-up que David suba después quedan en el retiro
     } catch (Throwable $e) {
         error_log('[inspection-upload] puerto IMP-00035: ' . get_class($e));
     }
