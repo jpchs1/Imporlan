@@ -419,13 +419,15 @@ try {
   await supportPrice.close();
 
   // The same customer components cover every purchase/import handoff.
-  const workflowSteps = { disponibilidad:'2026-10-22', inspeccion:'2026-10-23', compra:'2026-10-24', transporte:'2026-10-25', aduana:'2026-10-28', entrega:'2026-10-29' };
+  const workflowSteps = { disponibilidad:'2026-10-22', inspeccion:'2026-10-23', compra:'2026-10-24', retiro:'2026-10-25', transporte:'2026-10-26', embarque:'2026-10-27', aduana:'2026-10-28', entrega:'2026-10-29' };
   const scenarios = [
     { name:'inspection decision', steps:{}, stage:'reporte_listo', report:true, label:'Revisar y aprobar la inspección', next:'Te toca: revisa el reporte y decide' },
     { name:'owner price review', steps:{}, waiting:true, report:true, label:'Confirmación del precio final', next:'Aprobaste el reporte: confirmamos el precio final' },
     { name:'purchase', until:'inspeccion', label:'Cerrando la compra', next:'Estamos cerrando la compra' },
-    { name:'transport coordination', until:'compra', label:'Coordinando el transporte', next:'Estamos coordinando el transporte' },
-    { name:'customs', until:'transporte', label:'Viaje a Chile y aduana', next:'Seguimos el viaje a Chile' },
+    { name:'carrier pickup', until:'compra', label:'Coordinando el retiro', next:'Estamos coordinando con el transportista' },
+    { name:'port delivery', until:'retiro', label:'Camino al puerto', next:'La lancha va camino al puerto' },
+    { name:'shipping', until:'transporte', label:'Coordinando el embarque', next:'Coordinamos el embarque' },
+    { name:'customs', until:'embarque', label:'Viaje a Chile y aduana', next:'Seguimos el viaje a Chile' },
     { name:'delivery coordination', until:'aduana', label:'Coordinando la entrega', next:'Coordinamos contigo la entrega' },
     { name:'delivered', until:'entrega', label:'Lancha entregada', next:'Tu lancha fue entregada' },
     { name:'without inspection', steps:{disponibilidad:workflowSteps.disponibilidad}, inspection:false, label:'Cerrando la compra', next:'Estamos cerrando la compra' },
@@ -448,7 +450,7 @@ try {
     await flow.page.locator('#estado-importacion').getByText(scenario.label,{exact:true}).waitFor();
     check((await flow.page.locator('#mi-importacion [role="status"]').first().innerText()).includes(scenario.next), `${scenario.name}: current state and next action agree`);
     const rail=flow.page.getByRole('list',{name:'Etapas de tu importación'});
-    check(await rail.locator('>li').count()===(scenario.inspection===false?5:6),`${scenario.name}: roadmap has only applicable stages`);
+    check(await rail.locator('>li').count()===(scenario.inspection===false?7:8),`${scenario.name}: roadmap has only applicable stages`);
     check(await flow.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${scenario.name}: roadmap fits viewport`);
     if(scenario.missingData){const tasks=flow.page.getByRole('region',{name:'Otras tareas pendientes'});check(await tasks.getByRole('button',{name:'Completar mis datos y cédula',exact:true}).isVisible(),'personal data remains visible next to the inspection decision');check(await tasks.getByRole('link',{name:/Revisar el Pago 1/}).isVisible(),'the first installment record remains accessible beside the inspection decision');}
     if(scenario.status)check(await flow.page.getByRole('button',{name:'Aprobar y seguir',exact:true}).count()===0,'closed expedientes cannot initiate inspection approval from the client screen');

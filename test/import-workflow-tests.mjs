@@ -39,10 +39,14 @@ check(queSigue(approved, pagosConCobros(plan,[req('p1',35,1,'paid')])).pago.n ==
 check(queSigue(approved, pagosConCobros(plan,[req('p1',35,1,'paid'),req('p2',35,2)])).pago.n === 2, 'existing second charge links to payment');
 check(queSigue(approved, pagosConCobros(plan,[req('p1',35,1,'paid'),req('p2',35,2,'paid')])).hito.id === 'compra', 'paid inspection proceeds to purchase closing');
 let journey = { ...approved, steps: { ...approved.steps, compra:'2026-10-30' } };
-check(estadoDeImportacion(journey).id === 'transporte', 'purchase connects to transport coordination');
+check(estadoDeImportacion(journey).id === 'retiro', 'purchase connects to the carrier pickup');
+journey = { ...journey, steps: { ...journey.steps, retiro:'2026-10-31' } };
+check(estadoDeImportacion(journey).id === 'transporte', 'pickup connects to the US port delivery');
 journey = { ...journey, steps: { ...journey.steps, transporte:'2026-11-01' } };
-check(queSigue(journey, pagosConCobros(plan,[req('p1',35,1,'paid'),req('p2',35,2,'paid')])).pago.n === 3, 'port departure connects to the third payment');
-check(estadoDeImportacion(journey).id === 'aduana', 'transport connects to customs');
+check(queSigue(journey, pagosConCobros(plan,[req('p1',35,1,'paid'),req('p2',35,2,'paid')])).pago.n === 3, 'port delivery connects to the third payment');
+check(estadoDeImportacion(journey).id === 'embarque', 'port delivery connects to shipping to Chile');
+journey = { ...journey, steps: { ...journey.steps, embarque:'2026-11-05' } };
+check(estadoDeImportacion(journey).id === 'aduana', 'shipping connects to customs');
 journey = { ...journey, steps: { ...journey.steps, aduana:'2026-11-20' } };
 check(estadoDeImportacion(journey).id === 'entrega' && !estadoDeImportacion(journey).terminado, 'customs proceeds to delivery coordination');
 journey = { ...journey, steps: { ...journey.steps, entrega:'2026-11-22' } };

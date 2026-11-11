@@ -64,7 +64,7 @@ try {
         if(scenario==='rejected') check(await action.getByRole('link',{name:'Reemplazar comprobante',exact:true}).count()===1 && await page.getByRole('link',{name:/^(Realizar Pago 2|Pagar)$/}).count()===0,'rejected proof offers replacement without another transfer');
         if(scenario==='history') check(await page.getByRole('link',{name:/^(Realizar Pago 1|Pagar)$/}).count()===0 && (await action.innerText()).includes('conciliando'),'advanced unpaid first-payment record is reconciled without asking to pay again');
         if(scenario==='report') {await page.getByRole('button',{name:'Aprobar y seguir',exact:true}).waitFor();check(await page.evaluate(()=>window.processActions.length)===0,'report decision remains explicit; opening the process never approves it');}
-        if(scenario==='without') check(await page.getByRole('list',{name:'Etapas de tu importación'}).locator('li').count()===5,'without-inspection journey omits inspection');
+        if(scenario==='without') check(await page.getByRole('list',{name:'Etapas de tu importación'}).locator('li').count()===7,'without-inspection journey omits inspection');
         if(scenario==='closed') check(await page.locator('.import-journey [aria-current]').count()===0 && await plan.getByRole('link',{name:/Realizar Pago/}).count()===0,'closed delivered operation has no current task or payment demand');
       } else if(mode==='admin' && ['due','review','history'].includes(scenario)) {
         const action=page.getByRole('region',{name:'Próxima acción de la operación'});
