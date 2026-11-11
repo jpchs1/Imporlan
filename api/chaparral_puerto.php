@@ -212,3 +212,86 @@ function impPuertoResumenHtml($resumen, $cobros, $orderId) {
     }
     return $h . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($orderId));
 }
+
+/**
+ * Aviso único a David (JP, 11-nov-2026: «Avísale a David que la Chaparral ya
+ * está en puerto»). En inglés, sin datos del cliente ni montos. Le agradece,
+ * le dice que la entrega en el puerto quedó registrada con fotos y que por
+ * ahora no tiene nada pendiente; si tiene fotos del pick-up o del drop-off,
+ * puede sumarlas desde su link. Copia al equipo. Devuelve true, null (no
+ * corresponde) o false (falló el envío: el cron lo reintenta).
+ */
+function opuPuertoAvisoBootstrap($pdo, $ahora = null) {
+    $ahora = $ahora ?: time();
+    if ($ahora > strtotime('2026-11-20 00:00:00')) return null;
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !impTieneEleccion($order) || impExpedienteCerrado($order)) return null;
+    $link = impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0);
+    $titulo = impTituloLancha($link);
+    foreach (['chaparral', '21', 'sport', 'h2o'] as $parte) if (strpos(strtolower($titulo), $parte) === false) return null;
+    if (!isset(impPasos($order)['transporte'])) return null; // primero tiene que estar registrada en el puerto
+    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'operador_usa_puerto_aviso'");
+    $ya->execute([intval($order['id'])]);
+    if (intval($ya->fetchColumn()) > 0) return null;
+
+    $url = opuUrlPortal(opuToken($pdo, $order));
+    $nombre = explode(' ', opuOperador()['nombre'])[0];
+    $sinPickup = empty(impEvidencia($order)['retiro']);
+    $cuerpo = '<p style="margin:0 0 12px">Hi ' . opuEsc($nombre) . ', good news: the boat is now at the US port, ready to ship to Chile. We registered the port delivery with the drop-off photos. Thank you for your help getting it there.</p>'
+        . opuFichaLancha($order, $link)
+        . '<div style="padding:14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;line-height:1.6"><strong>Registered</strong><br>'
+        . 'Purchase · Picked up by the carrier · Delivered at the US port, ready to ship.<br>'
+        . '<strong>What we need now:</strong> nothing for the moment. The ocean shipping to Chile is coordinated by our team; we will let you know if anything comes up.'
+        . ($sinPickup ? '<br>If you have the pickup photos (boat on the trailer or truck), please add them from your private link so the file is complete.' : '')
+        . '</div>'
+        . opuBoton('Open your private link', $url)
+        . '<p style="font-size:12px;color:#64748b;margin:8px 0 0">This link is private to this file. You can use it as many times as you need.</p>';
+    $ok = opuEnviar('[Imporlan] The boat is at the port · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
+        opuHtmlCorreo($titulo, $cuerpo, 'operador', 'Port delivery · ' . ($order['order_number'] ?? '')));
+    if (!$ok) return false;
+    opuLog($pdo, $order['id'], 'operador_usa_puerto_aviso', ['sin_pickup' => $sinPickup]);
+    try {
+        require_once __DIR__ . '/email_service.php';
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl', 'Le avisamos a David que la Chaparral está en el puerto · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
+            opuHtmlCorreo($titulo,
+                '<p style="margin:0 0 10px">Le escribimos a ' . opuEsc(opuOperador()['nombre']) . ' que la lancha ya está en el puerto de EE. UU., lista para embarcar, y que la entrega quedó registrada con fotos.</p>'
+                . '<p style="margin:0 0 10px">Le dijimos que por ahora no tiene nada pendiente: el embarque a Chile lo coordina el equipo.'
+                . ($sinPickup ? ' También le pedimos que, si tiene las fotos del pick-up, las sume desde su link para completar el expediente.' : '') . '</p>'
+                . '<p style="margin:0 0 10px;font-size:13px;color:#64748b">Sin datos del cliente ni montos.</p>'
+                . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Entrega en el puerto de EE. UU.'));
+    } catch (\Throwable $e) {
+        error_log('opuPuertoAvisoBootstrap equipo: ' . get_class($e));
+    }
+    return true;
+}
+
+/**
+ * Las fotos del pick-up que David suba después del aviso del puerto (se las
+ * pedimos sólo si el retiro no tenía fotos) quedan como evidencia del retiro:
+ * su link ya no muestra la sección «Pickup», así que llegan como actualización.
+ * Corre en cada turno del cron hasta el 20-nov; deja de actuar cuando el
+ * retiro ya tiene fotos.
+ */
+function impPuertoFotosRetiroTardias($pdo, $ahora = null) {
+    $ahora = $ahora ?: time();
+    if ($ahora > strtotime('2026-11-20 00:00:00')) return null;
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !isset(impPasos($order)['retiro']) || !empty(impEvidencia($order)['retiro'])) return null;
+    $ev = $pdo->prepare("SELECT meta_json, created_at FROM order_events WHERE order_id = ? AND event_type = 'operador_usa_puerto_aviso' ORDER BY id DESC LIMIT 1");
+    $ev->execute([intval($order['id'])]);
+    $aviso = $ev->fetch(PDO::FETCH_ASSOC);
+    if (!$aviso || empty(json_decode((string) $aviso['meta_json'], true)['sin_pickup'])) return null;
+    $f = $pdo->prepare("SELECT id FROM expediente_files WHERE order_id = ? AND uploaded_by = 'operador_usa' AND (category = 'image' OR mime_type LIKE 'image/%') AND created_at >= ? ORDER BY id");
+    $f->execute([intval($order['id']), $aviso['created_at']]);
+    $ids = array_map('intval', $f->fetchAll(PDO::FETCH_COLUMN));
+    if (!$ids) return null;
+    [$validas, $err] = impPrepararEvidencia($pdo, $order, 'retiro', $ids);
+    if ($err) return null;
+    impGuardarEvidencia($pdo, $order, 'retiro', $validas, 'operador');
+    opuLog($pdo, $order['id'], 'operador_usa_retiro_fotos', ['fotos' => count($validas)]);
+    return count($validas);
+}
