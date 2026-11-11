@@ -14,6 +14,7 @@ try {
     try { // IMP-00035 entregada en el puerto de EE. UU.: fotos, pasos al día y Pago 3, una sola vez (JP, 11-nov-2026)
         require_once __DIR__ . '/../chaparral_puerto.php';
         impPuertoChaparralBootstrap($pdo);
+        opuPuertoAvisoBootstrap($pdo); // aviso único a David: la Chaparral ya está en el puerto (JP, 11-nov-2026)
     } catch (Throwable $e) {
         error_log('[inspection-upload] puerto IMP-00035: ' . get_class($e));
     }
