@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, Switch, Callout } from '../../../shared/components/UI';
+import { Modal, Button, Textarea, Switch, Callout } from '../../../shared/components/UI';
 import { Dropzone } from '../../../shared/components/Dropzone';
 import { X, Check } from '../../../shared/components/Icons';
 import { FileImage } from '../../../shared/components/FileImage';
@@ -31,6 +31,7 @@ const esFoto = f => String(f?.mime_type || '').startsWith('image/') || f?.catego
 
 export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, conReporte = false, orderId, archivos = [] }) {
   const [notify, setNotify] = useState(true);
+  const [mensaje, setMensaje] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [fotos, setFotos] = useState([]);
   const [elegidas, setElegidas] = useState([]); // ids de fotos que ya están en el expediente
@@ -65,7 +66,7 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
         if (!subidas.length) throw new Error((r?.errors || []).join(' ') || 'No se pudieron subir las fotos');
         ids = [...ids, ...subidas];
       }
-      const ok = await onConfirmar(hito, true, notify, ids);
+      const ok = await onConfirmar(hito, true, notify, ids, notify ? mensaje.trim() : '');
       if (ok) onClose();
     } catch (e) {
       setError(e.message || 'No se pudieron subir las fotos');
@@ -185,6 +186,18 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
           checked={notify}
           onChange={setNotify}
         />
+        {notify && (
+          <Textarea
+            label="Mensaje para el cliente (opcional)"
+            value={mensaje}
+            onChange={e => setMensaje(e.target.value)}
+            rows={3}
+            maxLength={1500}
+            showCount
+            hint="Unas líneas tuyas, destacadas en el correo del avance."
+            placeholder="Ej.: ¡Vamos avanzando muy bien! Muy pronto vas a estar disfrutando tu lancha."
+          />
+        )}
       </div>
     </Modal>
   );

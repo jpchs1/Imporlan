@@ -126,10 +126,11 @@ export const conservarPrecioAcordado = (orderId, precio, correctPaymentNotice) =
 // enlaces firmados a la cédula que duran 1 hora (ci_frente_url, ci_reverso_url).
 export const getImportDataAdmin = (orderId) => request(`${API_BASE}/orders_api.php?action=admin_import_data&order_id=${orderId}`);
 // `fileIds`: las fotos del retiro o de la entrega en puerto (obligatorias para esos hitos).
-export const setImportStep = (orderId, step, done, notifyClient = false, fileIds = []) =>
+// `clientMessage`: unas líneas del equipo para el correo del avance (opcional).
+export const setImportStep = (orderId, step, done, notifyClient = false, fileIds = [], clientMessage = '') =>
   request(`${API_BASE}/orders_api.php?action=admin_set_import_step`, {
     method: 'POST',
-    body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient, file_ids: fileIds }),
+    body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient, file_ids: fileIds, client_message: clientMessage }),
     timeoutMs: 45000,
   });
 // El equipo registra que el cliente DECLINÓ la lancha tras la inspección (se
