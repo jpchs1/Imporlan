@@ -1041,6 +1041,37 @@ ok(impPuertoFotosRetiroTardias($BD, $enPlazo) === 1 && impEvidencia(orden(35))['
 ok(impPuertoFotosRetiroTardias($BD, $enPlazo) === null, 'con el retiro ya con fotos, no vuelve a tocarlo');
 ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoFotosRetiroTardias($pdo)') !== false, 'el job del cron vincula las fotos tardías');
 ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'opuPuertoAvisoBootstrap($pdo)') !== false, 'el job del cron corre el aviso a David');
+echo "  · abono de Alberto al Pago 3 (JP lo confirmó en su cartola, 12-nov-2026)\n";
+chaparralSinCompra();
+impPuertoChaparralBootstrap($BD, $enPlazo);
+$hoy = strtotime('2026-11-12 12:00:00');
+$guardado = file_get_contents(impArchivoCobros());
+// Un choque (la misma referencia ya figura en otro cobro) hace fallar el registro.
+$store = json_decode($guardado, true);
+$store['requests'][] = ['id' => 'pr_otro', 'user_email' => 'otra@example.com', 'status' => 'paid', 'amount_clp' => 1, 'metadata' => ['order_id' => 36], 'payment_credits' => [['id' => 'pc_x', 'amount_clp' => 1, 'received_on' => '2026-11-01', 'bank' => 'santander', 'reference' => '007355442K', 'status' => 'confirmed']]];
+file_put_contents(impArchivoCobros(), json_encode($store));
+$CORREOS = [];
+$falla1 = impPuertoAbonoPago3Bootstrap($BD, $hoy);
+$falla2 = impPuertoAbonoPago3Bootstrap($BD, $hoy);
+ok(is_array($falla1) && !$falla1['ok'] && $falla2 === false && count(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; })) === 1, 'si el registro falla, avisa al equipo una sola vez y sigue reintentando');
+file_put_contents(impArchivoCobros(), $guardado);
+// Un Pago 3 de otra persona con el mismo expediente nunca recibe el abono.
+$store = json_decode($guardado, true);
+array_unshift($store['requests'], ['id' => 'pr_ajeno', 'user_email' => 'otra@example.com', 'title' => 'Pago 3 · ajeno', 'status' => 'pending', 'amount_clp' => 1000, 'metadata' => ['order_id' => 35, 'custom_fields' => ['pago' => 3]]]);
+file_put_contents(impArchivoCobros(), json_encode($store));
+$BD->exec("DELETE FROM order_events WHERE event_type = 'chaparral_abono_pago3_error'");
+$CORREOS = [];
+$res = impPuertoAbonoPago3Bootstrap($BD, $hoy);
+$p3 = array_values(array_filter(vigentes(), function ($r) { return intval($r['metadata']['custom_fields']['pago'] ?? 0) === 3 && $r['user_email'] === 'alberto@example.com'; }))[0];
+$cred = impPaymentCredits($p3);
+ok($res['ok'] && $res['saldo'] === 24400000 && $p3['status'] === 'pending' && intval($p3['amount_clp']) === 29400000, 'el abono queda como ingreso confirmado y el Pago 3 sigue pendiente por el saldo, sin cambiar su monto');
+ok(empty(array_values(array_filter(cobros(), function ($r) { return $r['id'] === 'pr_ajeno'; }))[0]['payment_credits']), 'el Pago 3 de otra persona con el mismo expediente no recibe el abono');
+ok(count($cred) === 1 && $cred[0]['amount_clp'] === 5000000 && $cred[0]['bank'] === 'santander' && $cred[0]['reference'] === '007355442K' && $cred[0]['received_on'] === '2026-11-12' && $cred[0]['confirmed_by'] === 'jpchs1@gmail.com', 'con fecha, banco, referencia y quién lo confirmó');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['subject'], 'Abono registrado al Pago 3') === 0 && strpos($eq[0]['html'], '$24.400.000') !== false && aDavid() === [], 'el equipo recibe el resumen con el saldo; a David no se le escribe');
+$CORREOS = [];
+ok(impPuertoAbonoPago3Bootstrap($BD, $hoy) === null && count(impPaymentCredits(array_values(array_filter(vigentes(), function ($r) { return intval($r['metadata']['custom_fields']['pago'] ?? 0) === 3 && $r['user_email'] === 'alberto@example.com'; }))[0])) === 1 && $CORREOS === [], 'se registra una sola vez');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoAbonoPago3Bootstrap($pdo)') !== false, 'el job del cron registra el abono');
 chaparralSinCompra();
 $BD->exec("UPDATE order_links SET title = '2018 Cobalt R30' WHERE id = 12");
 ok(impPuertoChaparralBootstrap($BD, $enPlazo) === null && !isset(impPasos(orden(35))['compra']), 'otra lancha: no se toca');
