@@ -1044,8 +1044,18 @@ ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'o
 echo "  · abono de Alberto al Pago 3 (JP lo confirmó en su cartola, 12-nov-2026)\n";
 chaparralSinCompra();
 impPuertoChaparralBootstrap($BD, $enPlazo);
-$CORREOS = [];
 $hoy = strtotime('2026-11-12 12:00:00');
+$guardado = file_get_contents(impArchivoCobros());
+// Un choque (la misma referencia ya figura en otro cobro) hace fallar el registro.
+$store = json_decode($guardado, true);
+$store['requests'][] = ['id' => 'pr_otro', 'user_email' => 'otra@example.com', 'status' => 'paid', 'amount_clp' => 1, 'metadata' => ['order_id' => 36], 'payment_credits' => [['id' => 'pc_x', 'amount_clp' => 1, 'received_on' => '2026-11-01', 'bank' => 'santander', 'reference' => '007355442K', 'status' => 'confirmed']]];
+file_put_contents(impArchivoCobros(), json_encode($store));
+$CORREOS = [];
+$falla1 = impPuertoAbonoPago3Bootstrap($BD, $hoy);
+$falla2 = impPuertoAbonoPago3Bootstrap($BD, $hoy);
+ok(is_array($falla1) && !$falla1['ok'] && $falla2 === false && count(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; })) === 1, 'si el registro falla, avisa al equipo una sola vez y sigue reintentando');
+file_put_contents(impArchivoCobros(), $guardado);
+$CORREOS = [];
 $res = impPuertoAbonoPago3Bootstrap($BD, $hoy);
 $p3 = array_values(array_filter(vigentes(), function ($r) { return intval($r['metadata']['custom_fields']['pago'] ?? 0) === 3; }))[0];
 $cred = impPaymentCredits($p3);

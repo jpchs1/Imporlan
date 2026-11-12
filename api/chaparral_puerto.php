@@ -336,7 +336,13 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
         'expected_remaining_clp' => $antes['remaining'],
     ], 'jpchs1@gmail.com');
     if ($code !== 200) {
-        opuLog($pdo, $order['id'], 'chaparral_abono_pago3', ['ok' => false, 'error' => is_string($res) ? $res : 'error']);
+        // Sin el evento de éxito: el próximo turno del cron reintenta (la clave de registro evita duplicarlo).
+        // Al equipo se le avisa del problema sólo la primera vez.
+        $errores = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'chaparral_abono_pago3_error'");
+        $errores->execute([intval($order['id'])]);
+        $primera = intval($errores->fetchColumn()) === 0;
+        opuLog($pdo, $order['id'], 'chaparral_abono_pago3_error', ['code' => $code, 'error' => is_string($res) ? $res : 'error']);
+        if (!$primera) return false;
         $resumen = ['ok' => false, 'error' => is_string($res) ? $res : 'No se pudo registrar.'];
     } else {
         $despues = impPaymentBalance($res['request']);
@@ -353,7 +359,7 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
                 . '<ul style="margin:0 0 10px;padding-left:20px"><li>12-11-2026 · ' . $clp(5000000) . ' · Santander · ref. 007355442K</li><li>Mensaje: «abono a cuota 3 - alberto lathrop»</li></ul>'
                 . '<p style="margin:0 0 10px">Pago 3: total ' . $clp($resumen['total']) . ' · confirmado ' . $clp($resumen['confirmado']) . ' · <strong>saldo ' . $clp($resumen['saldo']) . '</strong>. Los recordatorios, la transferencia y Webpay le piden sólo el saldo.</p>'
                 . '<p style="margin:0 0 10px;font-size:13px;color:#64748b">Falta asociar el comprobante que Alberto mandó por correo a contacto@imporlan.cl (foto adjunta, 11-11 21:05); mientras, el seguimiento le pide adjuntarlo en su panel, sin volver a cobrarle el abono.</p>'
-            : '<p style="margin:0 0 10px"><strong>No se pudo registrar el abono de ' . $clp(5000000) . ' al Pago 3:</strong> ' . opuEsc($resumen['error']) . '</p><p style="margin:0 0 10px">Regístralo desde el expediente (Pago 3 → Registrar abono).</p>';
+            : '<p style="margin:0 0 10px"><strong>Todavía no se pudo registrar el abono de ' . $clp(5000000) . ' al Pago 3:</strong> ' . opuEsc($resumen['error']) . '</p><p style="margin:0 0 10px">El sistema lo reintenta solo cada pocos minutos (sin duplicarlo). Si prefieres, regístralo desde el expediente (Pago 3 → Registrar abono).</p>';
         (new EmailService())->sendCustomEmail('contacto@imporlan.cl',
             ($resumen['ok'] ? 'Abono registrado al Pago 3: ' . $clp(5000000) . ' · saldo ' . $clp($resumen['saldo']) : 'No se pudo registrar el abono al Pago 3') . ' · ' . ($order['order_number'] ?? ''),
             opuHtmlCorreo($titulo, $cuerpo . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Pago 3 · abono'));
