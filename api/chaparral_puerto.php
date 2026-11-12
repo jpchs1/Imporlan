@@ -316,13 +316,26 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
     $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'chaparral_abono_pago3'");
     $ya->execute([intval($order['id'])]);
     if (intval($ya->fetchColumn()) > 0) return null;
-    $cobro = impConCobros(function (&$data) use ($order) {
+    // Sólo el Pago 3 vigente de Alberto: su correo, la lancha elegida y pendiente. Si no hay
+    // exactamente uno, no se acredita nada (nunca a un cobro ambiguo).
+    $candidatos = impConCobros(function (&$data) use ($order) {
+        $out = [];
         foreach ($data['requests'] as $r) {
-            if (impEsPagoDelExpediente($r, intval($order['id']), 3, $order['order_number'] ?? '') && ($r['status'] ?? '') !== 'cancelled') return $r;
+            if (!impEsPagoDelExpediente($r, intval($order['id']), 3, $order['order_number'] ?? '') || ($r['status'] ?? '') === 'cancelled') continue;
+            if (strtolower(trim((string) ($r['user_email'] ?? ''))) !== strtolower(trim((string) $order['customer_email']))) continue;
+            $link = intval($r['metadata']['custom_fields']['link_id'] ?? 0);
+            if ($link && $link !== intval($order['chosen_link_id'])) continue;
+            $out[] = $r;
         }
-        return null;
+        return ['lista' => $out];
     });
-    if (!$cobro) return null;
+    $candidatos = $candidatos['lista'] ?? [];
+    if (!$candidatos) return null;
+    $cobro = count($candidatos) === 1 ? $candidatos[0] : null;
+    if (!$cobro || ($cobro['status'] ?? '') !== 'pending') {
+        $code = 409;
+        $res = $cobro ? 'El Pago 3 ya no está pendiente.' : 'Hay más de un Pago 3 vigente de Alberto; elige a cuál va el abono.';
+    } else {
     $antes = impPaymentBalance($cobro);
     [$code, $res] = impPaymentAddCredit($cobro['id'], [
         'amount_clp' => 5000000,
@@ -335,6 +348,7 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
         'expected_amount_clp' => $antes['total'],
         'expected_remaining_clp' => $antes['remaining'],
     ], 'jpchs1@gmail.com');
+    }
     if ($code !== 200) {
         // Sin el evento de éxito: el próximo turno del cron reintenta (la clave de registro evita duplicarlo).
         // Al equipo se le avisa del problema sólo la primera vez.
