@@ -16,6 +16,7 @@ try {
         impPuertoChaparralBootstrap($pdo);
         opuPuertoAvisoBootstrap($pdo); // aviso único a David: la Chaparral ya está en el puerto (JP, 11-nov-2026)
         impPuertoFotosRetiroTardias($pdo); // las fotos del pick-up que David suba después quedan en el retiro
+        impPuertoAbonoPago3Bootstrap($pdo); // abono de Alberto al Pago 3, confirmado por JP en su cartola (12-nov-2026)
     } catch (Throwable $e) {
         error_log('[inspection-upload] puerto IMP-00035: ' . get_class($e));
     }

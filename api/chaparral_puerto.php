@@ -295,3 +295,70 @@ function impPuertoFotosRetiroTardias($pdo, $ahora = null) {
     opuLog($pdo, $order['id'], 'operador_usa_retiro_fotos', ['fotos' => count($validas)]);
     return count($validas);
 }
+
+/**
+ * Abono de Alberto al Pago 3 (JP, 12-nov-2026: «Recibí los 5.000.000 para que
+ * lo registres», con la línea de su cartola Santander: 12/11/2026 · abono
+ * $5.000.000 · 007355442K Transf. LATHROP ERNST ALBERTO EDUARDO). Se registra
+ * como ingreso confirmado por JP con impPaymentAddCredit, igual que «Registrar
+ * abono» del admin: idempotente, sin tocar el monto del cobro; el saldo queda
+ * para los recordatorios. Una sola vez; resumen al equipo.
+ */
+function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
+    $ahora = $ahora ?: time();
+    if ($ahora > strtotime('2026-11-20 00:00:00')) return null;
+    require_once __DIR__ . '/payment_balance.php';
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !impTieneEleccion($order)) return null;
+    if (strpos(strtolower(impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0))), 'chaparral') === false) return null; // nunca otra lancha
+    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'chaparral_abono_pago3'");
+    $ya->execute([intval($order['id'])]);
+    if (intval($ya->fetchColumn()) > 0) return null;
+    $cobro = impConCobros(function (&$data) use ($order) {
+        foreach ($data['requests'] as $r) {
+            if (impEsPagoDelExpediente($r, intval($order['id']), 3, $order['order_number'] ?? '') && ($r['status'] ?? '') !== 'cancelled') return $r;
+        }
+        return null;
+    });
+    if (!$cobro) return null;
+    $antes = impPaymentBalance($cobro);
+    [$code, $res] = impPaymentAddCredit($cobro['id'], [
+        'amount_clp' => 5000000,
+        'received_on' => '2026-11-12',
+        'bank' => 'santander',
+        'reference' => '007355442K',
+        'note' => 'Transferencia de ALBERTO EDUARDO LATHROP ERNST (Scotiabank) a Santander 74233813, mensaje «abono a cuota 3 - alberto lathrop». Ingreso confirmado por JP en la cartola Santander del 12-11-2026.',
+        'receipt_id' => '',
+        'idempotency_key' => 'imp00035-p3-007355442K',
+        'expected_amount_clp' => $antes['total'],
+        'expected_remaining_clp' => $antes['remaining'],
+    ], 'jpchs1@gmail.com');
+    if ($code !== 200) {
+        opuLog($pdo, $order['id'], 'chaparral_abono_pago3', ['ok' => false, 'error' => is_string($res) ? $res : 'error']);
+        $resumen = ['ok' => false, 'error' => is_string($res) ? $res : 'No se pudo registrar.'];
+    } else {
+        $despues = impPaymentBalance($res['request']);
+        if (!empty($res['newly_paid'])) impPaymentNotifyCompleted($res['request']);
+        opuLog($pdo, $order['id'], 'chaparral_abono_pago3', ['ok' => true, 'duplicado' => !empty($res['duplicate']), 'saldo' => $despues['remaining']]);
+        $resumen = ['ok' => true, 'total' => $despues['total'], 'confirmado' => $despues['confirmed'], 'saldo' => $despues['remaining'], 'pagado' => !empty($res['newly_paid'])];
+    }
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $clp = function ($n) { return '$' . number_format((float) $n, 0, ',', '.'); };
+        $titulo = impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0));
+        $cuerpo = $resumen['ok']
+            ? '<p style="margin:0 0 10px">Registramos el abono de Alberto al <strong>Pago 3</strong> como ingreso confirmado (tu cartola Santander):</p>'
+                . '<ul style="margin:0 0 10px;padding-left:20px"><li>12-11-2026 · ' . $clp(5000000) . ' · Santander · ref. 007355442K</li><li>Mensaje: «abono a cuota 3 - alberto lathrop»</li></ul>'
+                . '<p style="margin:0 0 10px">Pago 3: total ' . $clp($resumen['total']) . ' · confirmado ' . $clp($resumen['confirmado']) . ' · <strong>saldo ' . $clp($resumen['saldo']) . '</strong>. Los recordatorios, la transferencia y Webpay le piden sólo el saldo.</p>'
+                . '<p style="margin:0 0 10px;font-size:13px;color:#64748b">Falta asociar el comprobante que Alberto mandó por correo a contacto@imporlan.cl (foto adjunta, 11-11 21:05); mientras, el seguimiento le pide adjuntarlo en su panel, sin volver a cobrarle el abono.</p>'
+            : '<p style="margin:0 0 10px"><strong>No se pudo registrar el abono de ' . $clp(5000000) . ' al Pago 3:</strong> ' . opuEsc($resumen['error']) . '</p><p style="margin:0 0 10px">Regístralo desde el expediente (Pago 3 → Registrar abono).</p>';
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl',
+            ($resumen['ok'] ? 'Abono registrado al Pago 3: ' . $clp(5000000) . ' · saldo ' . $clp($resumen['saldo']) : 'No se pudo registrar el abono al Pago 3') . ' · ' . ($order['order_number'] ?? ''),
+            opuHtmlCorreo($titulo, $cuerpo . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Pago 3 · abono'));
+    } catch (\Throwable $e) {
+        error_log('impPuertoAbonoPago3Bootstrap equipo: ' . get_class($e));
+    }
+    return $resumen;
+}
