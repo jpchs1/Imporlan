@@ -297,24 +297,66 @@ function impPuertoFotosRetiroTardias($pdo, $ahora = null) {
 }
 
 /**
- * Abono de Alberto al Pago 3 (JP, 12-nov-2026: «Recibí los 5.000.000 para que
- * lo registres», con la línea de su cartola Santander: 12/11/2026 · abono
- * $5.000.000 · 007355442K Transf. LATHROP ERNST ALBERTO EDUARDO). Se registra
- * como ingreso confirmado por JP con impPaymentAddCredit, igual que «Registrar
- * abono» del admin: idempotente, sin tocar el monto del cobro; el saldo queda
- * para los recordatorios. Una sola vez; resumen al equipo.
+ * Abonos de Alberto al Pago 3, cada uno confirmado por JP antes de registrarlo:
+ *  1) 12-nov-2026: «Recibí los 5.000.000 para que lo registres», con la línea de
+ *     su cartola Santander: 12/11/2026 · $5.000.000 · 007355442K Transf. LATHROP
+ *     ERNST ALBERTO EDUARDO.
+ *  2) 13-nov-2026: «Si correcto recibido!» sobre el aviso de Scotiabank de las
+ *     10:53 (Alberto → cuenta Santander de Imporlan, $4.500.000, «pago 3- abono
+ *     2- lathrop»).
+ * Se registran como ingreso confirmado por JP con impPaymentAddCredit, igual que
+ * «Registrar abono» del admin: idempotente, sin tocar el monto del cobro; el saldo
+ * queda para los recordatorios. Cada uno una sola vez; resumen al equipo.
  */
+function impPuertoAbonosPago3() {
+    return [
+        [
+            'evento' => 'chaparral_abono_pago3',
+            'monto' => 5000000,
+            'fecha' => '2026-11-12',
+            'fecha_txt' => '12-11-2026',
+            'referencia' => '007355442K',
+            'mensaje' => 'abono a cuota 3 - alberto lathrop',
+            'nota' => 'Transferencia de ALBERTO EDUARDO LATHROP ERNST (Scotiabank) a la cuenta Santander de Imporlan, mensaje «abono a cuota 3 - alberto lathrop». Ingreso confirmado por JP en la cartola Santander del 12-11-2026.',
+            'clave' => 'imp00035-p3-007355442K',
+            'respaldo' => 'Falta asociar el comprobante que Alberto mandó por correo a contacto@imporlan.cl (foto adjunta, 11-11 21:05); mientras, el seguimiento le pide adjuntarlo en su panel, sin volver a cobrarle el abono.',
+        ],
+        [
+            'evento' => 'chaparral_abono2_pago3',
+            'monto' => 4500000,
+            'fecha' => '2026-11-13',
+            'fecha_txt' => '13-11-2026',
+            'referencia' => 'Scotiabank 13-11-2026 10:53',
+            'mensaje' => 'pago 3- abono 2- lathrop',
+            'nota' => 'Transferencia de ALBERTO EDUARDO LATHROP ERNST (Scotiabank, 13-11-2026 10:53) a la cuenta Santander de Imporlan, mensaje «pago 3- abono 2- lathrop». Ingreso confirmado por JP el 13-11-2026.',
+            'clave' => 'imp00035-p3-abono2-20261113',
+            'respaldo' => 'Alberto mandó el aviso de Scotiabank y una foto a contacto@imporlan.cl (13-11, 10:54 y 13:53); falta asociarlos al abono. Mientras, el seguimiento le pide adjuntarlo en su panel, sin volver a cobrarle el abono.',
+        ],
+    ];
+}
+
 function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
     $ahora = $ahora ?: time();
     if ($ahora > strtotime('2026-11-20 00:00:00')) return null;
+    $ultimo = null;
+    foreach (impPuertoAbonosPago3() as $abono) {
+        $r = impPuertoRegistrarAbonoPago3($pdo, $abono);
+        if ($r !== null) $ultimo = $r;
+        if ($r === false || (is_array($r) && empty($r['ok']))) break; // en orden: el siguiente espera al anterior
+    }
+    return $ultimo;
+}
+
+function impPuertoRegistrarAbonoPago3($pdo, $abono) {
     require_once __DIR__ . '/payment_balance.php';
     $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
     $st->execute(['IMP-00035']);
     $order = $st->fetch(PDO::FETCH_ASSOC);
     if (!$order || !impTieneEleccion($order)) return null;
     if (strpos(strtolower(impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0))), 'chaparral') === false) return null; // nunca otra lancha
-    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'chaparral_abono_pago3'");
-    $ya->execute([intval($order['id'])]);
+    $evento = $abono['evento'];
+    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = ?");
+    $ya->execute([intval($order['id']), $evento]);
     if (intval($ya->fetchColumn()) > 0) return null;
     // Sólo el Pago 3 vigente de Alberto: su correo, la lancha elegida y pendiente. Si no hay
     // exactamente uno, no se acredita nada (nunca a un cobro ambiguo).
@@ -332,19 +374,23 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
     $candidatos = $candidatos['lista'] ?? [];
     if (!$candidatos) return null;
     $cobro = count($candidatos) === 1 ? $candidatos[0] : null;
-    if (!$cobro || ($cobro['status'] ?? '') !== 'pending') {
+    $yaRegistrado = false;
+    if ($cobro) {
+        foreach ($cobro['payment_credits'] ?? [] as $c) if (($c['idempotency_key'] ?? '') === $abono['clave']) $yaRegistrado = true;
+    }
+    if (!$cobro || (($cobro['status'] ?? '') !== 'pending' && !$yaRegistrado)) {
         $code = 409;
         $res = $cobro ? 'El Pago 3 ya no está pendiente.' : 'Hay más de un Pago 3 vigente de Alberto; elige a cuál va el abono.';
     } else {
     $antes = impPaymentBalance($cobro);
     [$code, $res] = impPaymentAddCredit($cobro['id'], [
-        'amount_clp' => 5000000,
-        'received_on' => '2026-11-12',
+        'amount_clp' => $abono['monto'],
+        'received_on' => $abono['fecha'],
         'bank' => 'santander',
-        'reference' => '007355442K',
-        'note' => 'Transferencia de ALBERTO EDUARDO LATHROP ERNST (Scotiabank) a la cuenta Santander de Imporlan, mensaje «abono a cuota 3 - alberto lathrop». Ingreso confirmado por JP en la cartola Santander del 12-11-2026.',
+        'reference' => $abono['referencia'],
+        'note' => $abono['nota'],
         'receipt_id' => '',
-        'idempotency_key' => 'imp00035-p3-007355442K',
+        'idempotency_key' => $abono['clave'],
         'expected_amount_clp' => $antes['total'],
         'expected_remaining_clp' => $antes['remaining'],
     ], 'jpchs1@gmail.com');
@@ -352,16 +398,16 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
     if ($code !== 200) {
         // Sin el evento de éxito: el próximo turno del cron reintenta (la clave de registro evita duplicarlo).
         // Al equipo se le avisa del problema sólo la primera vez.
-        $errores = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = 'chaparral_abono_pago3_error'");
-        $errores->execute([intval($order['id'])]);
+        $errores = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = ?");
+        $errores->execute([intval($order['id']), $evento . '_error']);
         $primera = intval($errores->fetchColumn()) === 0;
-        opuLog($pdo, $order['id'], 'chaparral_abono_pago3_error', ['code' => $code, 'error' => is_string($res) ? $res : 'error']);
+        opuLog($pdo, $order['id'], $evento . '_error', ['code' => $code, 'error' => is_string($res) ? $res : 'error']);
         if (!$primera) return false;
         $resumen = ['ok' => false, 'error' => is_string($res) ? $res : 'No se pudo registrar.'];
     } else {
         $despues = impPaymentBalance($res['request']);
         if (!empty($res['newly_paid'])) impPaymentNotifyCompleted($res['request']);
-        opuLog($pdo, $order['id'], 'chaparral_abono_pago3', ['ok' => true, 'duplicado' => !empty($res['duplicate']), 'saldo' => $despues['remaining']]);
+        opuLog($pdo, $order['id'], $evento, ['ok' => true, 'duplicado' => !empty($res['duplicate']), 'saldo' => $despues['remaining']]);
         $resumen = ['ok' => true, 'total' => $despues['total'], 'confirmado' => $despues['confirmed'], 'saldo' => $despues['remaining'], 'pagado' => !empty($res['newly_paid'])];
     }
     try {
@@ -369,13 +415,13 @@ function impPuertoAbonoPago3Bootstrap($pdo, $ahora = null) {
         $clp = function ($n) { return '$' . number_format((float) $n, 0, ',', '.'); };
         $titulo = impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0));
         $cuerpo = $resumen['ok']
-            ? '<p style="margin:0 0 10px">Registramos el abono de Alberto al <strong>Pago 3</strong> como ingreso confirmado (tu cartola Santander):</p>'
-                . '<ul style="margin:0 0 10px;padding-left:20px"><li>12-11-2026 · ' . $clp(5000000) . ' · Santander · ref. 007355442K</li><li>Mensaje: «abono a cuota 3 - alberto lathrop»</li></ul>'
+            ? '<p style="margin:0 0 10px">Registramos el abono de Alberto al <strong>Pago 3</strong> como ingreso confirmado por ti:</p>'
+                . '<ul style="margin:0 0 10px;padding-left:20px"><li>' . opuEsc($abono['fecha_txt']) . ' · ' . $clp($abono['monto']) . ' · Santander · ref. ' . opuEsc($abono['referencia']) . '</li><li>Mensaje: «' . opuEsc($abono['mensaje']) . '»</li></ul>'
                 . '<p style="margin:0 0 10px">Pago 3: total ' . $clp($resumen['total']) . ' · confirmado ' . $clp($resumen['confirmado']) . ' · <strong>saldo ' . $clp($resumen['saldo']) . '</strong>. Los recordatorios, la transferencia y Webpay le piden sólo el saldo.</p>'
-                . '<p style="margin:0 0 10px;font-size:13px;color:#64748b">Falta asociar el comprobante que Alberto mandó por correo a contacto@imporlan.cl (foto adjunta, 11-11 21:05); mientras, el seguimiento le pide adjuntarlo en su panel, sin volver a cobrarle el abono.</p>'
-            : '<p style="margin:0 0 10px"><strong>Todavía no se pudo registrar el abono de ' . $clp(5000000) . ' al Pago 3:</strong> ' . opuEsc($resumen['error']) . '</p><p style="margin:0 0 10px">El sistema lo reintenta solo cada pocos minutos (sin duplicarlo). Si prefieres, regístralo desde el expediente (Pago 3 → Registrar abono).</p>';
+                . '<p style="margin:0 0 10px;font-size:13px;color:#64748b">' . opuEsc($abono['respaldo']) . '</p>'
+            : '<p style="margin:0 0 10px"><strong>Todavía no se pudo registrar el abono de ' . $clp($abono['monto']) . ' al Pago 3:</strong> ' . opuEsc($resumen['error']) . '</p><p style="margin:0 0 10px">El sistema lo reintenta solo cada pocos minutos (sin duplicarlo). Si prefieres, regístralo desde el expediente (Pago 3 → Registrar abono).</p>';
         (new EmailService())->sendCustomEmail('contacto@imporlan.cl',
-            ($resumen['ok'] ? 'Abono registrado al Pago 3: ' . $clp(5000000) . ' · saldo ' . $clp($resumen['saldo']) : 'No se pudo registrar el abono al Pago 3') . ' · ' . ($order['order_number'] ?? ''),
+            ($resumen['ok'] ? 'Abono registrado al Pago 3: ' . $clp($abono['monto']) . ' · saldo ' . $clp($resumen['saldo']) : 'No se pudo registrar el abono al Pago 3') . ' · ' . ($order['order_number'] ?? ''),
             opuHtmlCorreo($titulo, $cuerpo . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Pago 3 · abono'));
     } catch (\Throwable $e) {
         error_log('impPuertoAbonoPago3Bootstrap equipo: ' . get_class($e));
