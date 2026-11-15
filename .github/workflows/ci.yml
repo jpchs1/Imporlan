@@ -21,18 +21,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install standard browser client
-        run: |
-          python3 -m venv "$RUNNER_TEMP/imporlan-reconcile-browser"
-          "$RUNNER_TEMP/imporlan-reconcile-browser/bin/pip" install playwright==1.57.0
-          "$RUNNER_TEMP/imporlan-reconcile-browser/bin/python" -m playwright install chromium
-          echo "$RUNNER_TEMP/imporlan-reconcile-browser/bin" >> "$GITHUB_PATH"
-      - name: Use panel secrets and verify the authorized credit
+      - name: Inspect authorized hosting access
         env:
-          IMPORLAN_ADMIN_EMAIL: ${{ secrets.IMPORLAN_ADMIN_EMAIL }}
-          IMPORLAN_ADMIN_PASSWORD: ${{ secrets.IMPORLAN_ADMIN_PASSWORD }}
-          IMPORLAN_USE_BROWSER: '1'
-        run: python3 scripts/reconcile_imp00035_once.py
+          BANAHOSTING_USER: ${{ secrets.BANAHOSTING_USER }}
+          BANAHOSTING_PASSWORD: ${{ secrets.BANAHOSTING_PASSWORD }}
+        run: python3 scripts/hosting_access_probe.py
 
   inspection-php-compatibility:
     name: Inspection portal on PHP ${{ matrix.php }}
