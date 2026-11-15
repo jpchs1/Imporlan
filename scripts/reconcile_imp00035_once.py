@@ -15,7 +15,8 @@ def stop(message):
 
 
 def api(path, data=None, token=None):
-    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+    headers = {'Accept': 'application/json', 'Content-Type': 'application/json',
+               'User-Agent': 'Imporlan-Authorized-Reconciliation/1.0'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     req = urllib.request.Request(BASE + path, headers=headers,
@@ -30,7 +31,7 @@ def api(path, data=None, token=None):
               'content-type:', error.headers.get('Content-Type', ''))
         try:
             parsed = json.loads(raw)
-            message = parsed.get('error') or parsed.get('message')
+            message = parsed.get('error') or parsed.get('message') or parsed.get('detail')
             if isinstance(message, str):
                 for value in (os.environ.get('IMPORLAN_ADMIN_EMAIL'),
                               os.environ.get('IMPORLAN_ADMIN_PASSWORD'), token):
