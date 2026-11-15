@@ -1,5 +1,6 @@
 """One authorized bank credit; use existing API validation and idempotency."""
 import json
+import io
 import os
 import sys
 import urllib.error
@@ -8,6 +9,7 @@ import urllib.request
 BASE = 'https://www.imporlan.cl/api/'
 KEY = 'imp00035-p3-saldo-20261114'
 AMOUNT = 3305632
+PAGE = None
 
 
 def stop(message):
@@ -22,6 +24,17 @@ def api(path, data=None, token=None):
     req = urllib.request.Request(BASE + path, headers=headers,
                                  data=json.dumps(data).encode() if data is not None else None)
     try:
+        if PAGE is not None:
+            result = PAGE.evaluate('''async ({url, data, headers}) => {
+                const response = await fetch(url, {method: data === null ? 'GET' : 'POST',
+                    headers, body: data === null ? undefined : JSON.stringify(data)});
+                return {status: response.status, text: await response.text()};
+            }''', {'url': BASE + path, 'data': data,
+                  'headers': {k: v for k, v in headers.items() if k != 'User-Agent'}})
+            if not 200 <= result['status'] < 300:
+                raise urllib.error.HTTPError(BASE + path, result['status'], 'API rejected', {},
+                                             io.BytesIO(result['text'].encode()))
+            return json.loads(result['text'])
         with urllib.request.urlopen(req, timeout=60) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
@@ -116,4 +129,21 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if os.environ.get('IMPORLAN_USE_BROWSER') == '1':
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            context = browser.new_context()
+            PAGE = context.new_page()
+            PAGE.goto('https://www.imporlan.cl/panel/admin/', wait_until='networkidle', timeout=60000)
+            try:
+                PAGE.locator('input[type="password"]').first.wait_for(timeout=30000)
+            except Exception:
+                print('Login form not detected; checking authenticated API response without altering browser security.')
+            try:
+                main()
+            finally:
+                context.close()
+                browser.close()
+    else:
+        main()
