@@ -1,5 +1,8 @@
 name: Reconcile authorized IMP-00035 bank credit
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
   push:
     branches: [ops/reconcile-imp00035-20261115]
     paths:
@@ -12,6 +15,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   reconcile:
+    if: github.ref == 'refs/heads/ops/reconcile-imp00035-20261115' || github.head_ref == 'ops/reconcile-imp00035-20261115'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
