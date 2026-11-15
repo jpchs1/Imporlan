@@ -24,7 +24,24 @@ def api(path, data=None, token=None):
         with urllib.request.urlopen(req, timeout=60) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
-        stop('API HTTP ' + str(error.code) + '; no response body logged.')
+        raw = error.read(16384).decode('utf-8', errors='replace')
+        print('API endpoint:', path, 'HTTP:', error.code,
+              'server:', error.headers.get('Server', ''),
+              'content-type:', error.headers.get('Content-Type', ''))
+        try:
+            parsed = json.loads(raw)
+            message = parsed.get('error') or parsed.get('message')
+            if isinstance(message, str):
+                for value in (os.environ.get('IMPORLAN_ADMIN_EMAIL'),
+                              os.environ.get('IMPORLAN_ADMIN_PASSWORD'), token):
+                    if value:
+                        message = message.replace(value, '[redacted]')
+                print('API diagnostic:', message[:300])
+        except (ValueError, AttributeError):
+            for marker in ('ModSecurity', 'cloudflare', 'Access Denied', 'Forbidden', 'captcha'):
+                if marker.lower() in raw.lower():
+                    print('Response marker:', marker)
+        stop('Request rejected; no response body or credential values logged.')
     except (urllib.error.URLError, TimeoutError, ValueError):
         stop('API outcome could not be verified. Read current state before retrying; keep the same idempotency key.')
 
