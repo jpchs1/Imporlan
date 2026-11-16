@@ -1,9 +1,16 @@
-# Galería de importaciones del Home
+# Carrusel del Home
+Ocho fichas con navegación manual, miniaturas, teclado, gestos táctiles y ampliación; sin avance automático. Adaptación a 390 px y preferencia de movimiento reducido. Los cambios sólo afectan la sección del Home y sus recursos.
 
-Selección inicial: una fotografía por embarcación (Yamaha 242 Limited, Monterey 180 FS, Crownline y Donzi). Solo archivo propio de Imporlan; sin fotografías de internet ni imágenes generadas. Se normalizó la orientación EXIF, redujo el tamaño y comprimió para web; no se alteraron las embarcaciones.
+## Procedencia y nombres
+- Beneteau Oceanis 281 (1999): Alberto Lathrop, importación histórica 2019 confirmada por el usuario y expediente H03. Fotografía real seleccionada del archivo de Drive, 01_Beneteau_Exterior_Original.jpg. Conservada sin retoque generativo; encuadre por CSS.
+- Yamaha 242 Limited, Monterey 180 FS, Crownline y Donzi: cuatro fotografías reales ya publicadas; no atribuir cliente ni año de modelo no verificado.
+- Sea Ray 185 Sport 2008: Tomás Vial, expediente H01. Imagen referencial de otra unidad, fuente https://boats-from-usa.com/sea-ray/sea-ray-185-sport-37841.
+- Rinker 250 Fiesta Vee 2003: Cristian Ruiz, expediente H04. Imagen referencial de otra unidad, fuente https://boats-from-usa.com/rinker/rinker-fiesta-vee-250-19129.
+- Yamaha 242 Limited S 2012: Marcelo Nordio, expediente H05. Imagen referencial de otra unidad, fuente https://boats-from-usa.com/yamaha/yamaha-242-limited-s-85313.
+- Ingrid Ibáñez y Marcos Olivares / Maxum 2200 SR 2004 y Michael Brett / Donzi Sweet 16: relación documental publicada como texto, sin atribuirles una fotografía no confirmada.
 
-Procedencia: Google Fotos, álbum Imporlan. Yamaha: 17 diciembre 2021. Monterey: IMG-20210912-WA0048.jpg. Crownline: 20201114_113751.jpg. Donzi: IMG_20221102_153014.jpg. Las copias originales se conservan en el archivo de Drive.
+Las tres referencias están rotuladas en foto, descripción, texto alternativo y ampliación. No equivalen a fotos de las unidades importadas. Los originales de internet se presentan en un marco, sin ampliación artificial ni eliminación de marcas. La Maxum SR3 de referencia queda fuera porque la variante no está cotejada. La Chaparral actual de Alberto no se presenta como importación concluida.
+No se publican HIN, correos, teléfonos, contratos, direcciones ni testimonios inventados.
 
-No publicar nombres de clientes, años de modelo ni cierres de operación no confirmados. Las fotos de referencia quedan fuera de esta selección. La galería muestra cada fotografía completa al ampliarla; el encuadre de las tarjetas se controla con CSS.
-
-Comprobado: carga de cuatro fotografías, ampliación/cierre, diseño de escritorio y 390 px, sintaxis JavaScript y git diff --check.
+## Validación
+scripts/check-home-gallery.cjs ejecuta pruebas en Chromium desde una vista estática sin enviar formularios: carga de ocho fotos, correspondencia de ficha, referencias, nombres, flechas, teclado, retorno circular, ampliación/Escape, destino CTA y estructura móvil. Home gallery conserva capturas en los registros de la ejecución.

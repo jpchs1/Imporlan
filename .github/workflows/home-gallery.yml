@@ -1,0 +1,32 @@
+name: Home gallery
+on:
+  pull_request:
+    paths:
+      - 'assets/importaciones-reales.*'
+      - 'images/importaciones-reales/**'
+      - 'index.html'
+      - 'scripts/check-home-gallery.cjs'
+      - '.github/workflows/home-gallery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  carousel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gallery-check" --no-package-lock --no-audit --no-fund playwright@1.56.1
+          "$RUNNER_TEMP/gallery-check/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check carousel on desktop and mobile
+        env:
+          IMPorlan_PLAYWRIGHT: ${{ runner.temp }}/gallery-check/node_modules/playwright
+        run: |
+          node --check assets/importaciones-reales.js
+          python3 -m http.server 8790 --bind 127.0.0.1 > /tmp/gallery-server.log 2>&1 &
+          node scripts/check-home-gallery.cjs
