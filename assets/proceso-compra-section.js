@@ -118,6 +118,7 @@
         align-items: center;\
         text-align: center;\
         position: relative;\
+        z-index: 2;\
         padding: 0 8px;\
       }\
       /* Step number circle */\
