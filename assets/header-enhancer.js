@@ -40,7 +40,7 @@
   var HEIGHT_MOBILE = 56;
 
   var NAV = [
-    { label: 'Inicio', href: '/', exact: true },
+    { label: 'Inicio', href: '/#inicio', exact: true },
     { label: 'Marketplace', href: '/marketplace/', badge: 'Hot' },
     {
       label: 'Servicios',
@@ -215,7 +215,9 @@
 
   function isItemActive(item) {
     var p = getCurrentPath();
-    if (item.exact) return p === '/';
+    var home = p === '/' || p === '/index.html';
+    var hash = location.hash || '#inicio';
+    if (item.exact) return home && hash !== '#proceso' && hash !== '#contacto';
     if (item.dropdown) {
       for (var i = 0; i < item.dropdown.length; i++) {
         var dd = item.dropdown[i];
@@ -224,8 +226,36 @@
       return false;
     }
     if (!item.href) return false;
-    if (item.anchor) return p === '/';
+    if (item.anchor) return home && hash === '#' + item.anchor;
     return p.indexOf(item.href.replace(/\/+$/, '/')) === 0;
+  }
+
+
+  // A home fragment is a location, not another match for every '/' link.
+  function updateActiveNav() {
+    var items = document.querySelectorAll('#' + HEADER_ID + ' .imp-h-nav-item');
+    for (var i = 0; i < items.length; i++) {
+      var active = !!NAV[i] && isItemActive(NAV[i]);
+      items[i].classList.toggle('is-active', active);
+      var link = items[i].querySelector('.imp-h-link');
+      if (link) {
+        if (active) link.setAttribute('aria-current', NAV[i].anchor ? 'location' : 'page');
+        else link.removeAttribute('aria-current');
+      }
+    }
+    var drawerLinks = document.querySelectorAll('#' + DRAWER_ID + ' .imp-d-link');
+    for (var j = 0; j < drawerLinks.length; j++) {
+      var href = drawerLinks[j].getAttribute('href');
+      var item = null;
+      for (var k = 0; k < NAV.length; k++) {
+        if (NAV[k].href === href) { item = NAV[k]; break; }
+      }
+      var selected = item ? isItemActive(item) :
+        !!href && href !== '/' && href.indexOf('#') === -1 && getCurrentPath().indexOf(href.replace(/\/+$/, '/')) === 0;
+      drawerLinks[j].classList.toggle('is-active', selected);
+      if (selected) drawerLinks[j].setAttribute('aria-current', item && item.anchor ? 'location' : 'page');
+      else drawerLinks[j].removeAttribute('aria-current');
+    }
   }
 
   function buildNavItem(item) {
@@ -452,6 +482,7 @@
     document.body.appendChild(dd[0]);
     document.body.appendChild(dd[1]);
     document.body.classList.add('imp-h-installed');
+    updateActiveNav();
     return true;
   }
 
@@ -640,6 +671,9 @@
     bindDrawer();
     bindDropdownClose();
     startUsdTicker();
+    updateActiveNav();
+    window.addEventListener('hashchange', updateActiveNav);
+    window.addEventListener('popstate', updateActiveNav);
 
     if (window.MutationObserver) {
       var pending = 0;
