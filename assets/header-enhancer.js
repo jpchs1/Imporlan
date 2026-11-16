@@ -662,6 +662,43 @@
     });
   }
 
+  // The React sections and their replacements mount after initial fragment navigation.
+  // Restore the requested destination once layout is stable, unless the user takes over.
+  function restoreInitialHomeAnchor() {
+    var path = getCurrentPath();
+    var hash = location.hash;
+    if ((path !== '/' && path !== '/index.html') ||
+        ['#inicio', '#proceso', '#contacto'].indexOf(hash) === -1) return;
+    var attempts = 0;
+    var stable = 0;
+    var previous = '';
+    var timer;
+    function stop() {
+      clearInterval(timer);
+      window.removeEventListener('wheel', stop);
+      window.removeEventListener('pointerdown', stop);
+      window.removeEventListener('keydown', stop);
+    }
+    timer = setInterval(function () {
+      if (++attempts > 150 || location.hash !== hash) { stop(); return; }
+      var target = document.getElementById(hash.slice(1));
+      var header = document.getElementById(HEADER_ID);
+      if (!target || !header || !document.querySelector('#proceso-compra-enhanced #proceso') ||
+          !document.querySelector('#imp-pro-footer #contacto') || !document.getElementById('inicio') ||
+          !target.getBoundingClientRect().height || getComputedStyle(target).display === 'none') return;
+      var top = target.getBoundingClientRect().top + window.scrollY;
+      var signature = Math.round(top) + ':' + document.documentElement.scrollHeight;
+      stable = signature === previous ? stable + 1 : 0;
+      previous = signature;
+      if (stable < 3) return;
+      stop();
+      window.scrollTo({ top: Math.max(0, top - header.getBoundingClientRect().bottom - 16), behavior: 'instant' });
+    }, 100);
+    window.addEventListener('wheel', stop, { passive: true });
+    window.addEventListener('pointerdown', stop, { passive: true });
+    window.addEventListener('keydown', stop);
+  }
+
   function init() {
     injectStyles();
 
@@ -674,6 +711,7 @@
     updateActiveNav();
     window.addEventListener('hashchange', updateActiveNav);
     window.addEventListener('popstate', updateActiveNav);
+    restoreInitialHomeAnchor();
 
     if (window.MutationObserver) {
       var pending = 0;
