@@ -81,7 +81,7 @@ const assert = require('node:assert/strict');
 
   // Direct links must resolve even though the enhancers mount after the bundle.
   for(const hash of ['proceso','contacto']){
-   await page.goto(url+'#'+hash,{waitUntil:'domcontentloaded'});
+   await page.goto(url+'?home-nav-check='+hash+'#'+hash,{waitUntil:'domcontentloaded'});
    await page.locator('#proceso-compra-enhanced #proceso').waitFor();
    await page.locator('#imp-pro-footer #contacto').waitFor();
    // Native fragment navigation runs when the destination is inserted.
