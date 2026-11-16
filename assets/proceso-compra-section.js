@@ -166,11 +166,11 @@
       .pc-step[data-pc-step="4"] .pc-step-circle { box-shadow: 0 8px 32px rgba(6,182,212,0.3); }\
       .pc-step[data-pc-step="5"] .pc-step-circle-inner { background: linear-gradient(135deg, #10b981, #059669); }\
       .pc-step[data-pc-step="5"] .pc-step-circle { box-shadow: 0 8px 32px rgba(16,185,129,0.3); }\
-      .pc-step:hover:nth-child(1"] .pc-step-circle { box-shadow: 0 12px 40px rgba(8,145,178,0.5); }\
-      .pc-step:hover:nth-child(2"] .pc-step-circle { box-shadow: 0 12px 40px rgba(59,130,246,0.5); }\
-      .pc-step:hover:nth-child(3"] .pc-step-circle { box-shadow: 0 12px 40px rgba(139,92,246,0.5); }\
-      .pc-step:hover:nth-child(4"] .pc-step-circle { box-shadow: 0 12px 40px rgba(6,182,212,0.5); }\
-      .pc-step:hover:nth-child(5"] .pc-step-circle { box-shadow: 0 12px 40px rgba(16,185,129,0.5); }\
+      .pc-step[data-pc-step="1"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(8,145,178,0.5); }\
+      .pc-step[data-pc-step="2"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(59,130,246,0.5); }\
+      .pc-step[data-pc-step="3"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(139,92,246,0.5); }\
+      .pc-step[data-pc-step="4"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(6,182,212,0.5); }\
+      .pc-step[data-pc-step="5"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(16,185,129,0.5); }\
       /* Step icon */\
       .pc-step-icon {\
         width: 28px;\
