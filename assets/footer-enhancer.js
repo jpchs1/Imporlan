@@ -334,8 +334,8 @@
       + '      </ul>'
       + '    </nav>'
 
-      // Contact col
-      + '    <div class="imp-col">'
+      // Contact col: the public anchor belongs to the visible footer.
+      + '    <div class="imp-col" id="contacto">'
       + '      <h3 class="imp-col-h">Contacto</h3>'
       + '      <div class="imp-contact">'
       + '        <a href="mailto:contacto@imporlan.cl" class="imp-contact-row">'
@@ -421,6 +421,10 @@
       if (n.closest && n.closest('#' + FOOTER_ID)) continue;
       // Avoid hiding Imporlan helper footers that aren't visual layout footers
       if (n.dataset && n.dataset.impKeep) continue;
+      if (n.id === 'contacto') {
+        n.setAttribute('data-imp-original-anchor', 'contacto');
+        n.removeAttribute('id');
+      }
       n.style.setProperty('display', 'none', 'important');
       n.setAttribute('aria-hidden', 'true');
     }

@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'assets/importaciones-reales.*'
+      - 'assets/header-enhancer.js'
+      - 'assets/footer-enhancer.js'
+      - 'assets/proceso-compra-section.js'
+      - 'assets/deckeva-partner-section.js'
+      - 'scripts/check-home-navigation.cjs'
       - 'images/importaciones-reales/**'
       - 'index.html'
       - 'scripts/check-home-gallery.cjs'
@@ -30,3 +35,4 @@ jobs:
           node --check assets/importaciones-reales.js
           python3 -m http.server 8790 --bind 127.0.0.1 > /tmp/gallery-server.log 2>&1 &
           node scripts/check-home-gallery.cjs
+          node scripts/check-home-navigation.cjs

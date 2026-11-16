@@ -29,6 +29,7 @@
         background: radial-gradient(ellipse at 50% 0%, rgba(6, 182, 212, 0.06) 0%, transparent 60%);\
         pointer-events: none;\
       }\
+      #proceso { scroll-margin-top: 96px; }\
       .pc-container {\
         max-width: 1200px;\
         margin: 0 auto;\
@@ -117,6 +118,7 @@
         align-items: center;\
         text-align: center;\
         position: relative;\
+        z-index: 2;\
         padding: 0 8px;\
       }\
       /* Step number circle */\
@@ -154,21 +156,21 @@
         border: 2px solid rgba(255,255,255,0.1);\
         animation: pc-pulse 3s ease-in-out infinite;\
       }\
-      .pc-step:nth-child(1) .pc-step-circle-inner { background: linear-gradient(135deg, #0891b2, #06b6d4); }\
-      .pc-step:nth-child(1) .pc-step-circle { box-shadow: 0 8px 32px rgba(8,145,178,0.3); }\
-      .pc-step:nth-child(2) .pc-step-circle-inner { background: linear-gradient(135deg, #3b82f6, #2563eb); }\
-      .pc-step:nth-child(2) .pc-step-circle { box-shadow: 0 8px 32px rgba(59,130,246,0.3); }\
-      .pc-step:nth-child(3) .pc-step-circle-inner { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }\
-      .pc-step:nth-child(3) .pc-step-circle { box-shadow: 0 8px 32px rgba(139,92,246,0.3); }\
-      .pc-step:nth-child(4) .pc-step-circle-inner { background: linear-gradient(135deg, #06b6d4, #0891b2); }\
-      .pc-step:nth-child(4) .pc-step-circle { box-shadow: 0 8px 32px rgba(6,182,212,0.3); }\
-      .pc-step:nth-child(5) .pc-step-circle-inner { background: linear-gradient(135deg, #10b981, #059669); }\
-      .pc-step:nth-child(5) .pc-step-circle { box-shadow: 0 8px 32px rgba(16,185,129,0.3); }\
-      .pc-step:hover:nth-child(1) .pc-step-circle { box-shadow: 0 12px 40px rgba(8,145,178,0.5); }\
-      .pc-step:hover:nth-child(2) .pc-step-circle { box-shadow: 0 12px 40px rgba(59,130,246,0.5); }\
-      .pc-step:hover:nth-child(3) .pc-step-circle { box-shadow: 0 12px 40px rgba(139,92,246,0.5); }\
-      .pc-step:hover:nth-child(4) .pc-step-circle { box-shadow: 0 12px 40px rgba(6,182,212,0.5); }\
-      .pc-step:hover:nth-child(5) .pc-step-circle { box-shadow: 0 12px 40px rgba(16,185,129,0.5); }\
+      .pc-step[data-pc-step="1"] .pc-step-circle-inner { background: linear-gradient(135deg, #0891b2, #06b6d4); }\
+      .pc-step[data-pc-step="1"] .pc-step-circle { box-shadow: 0 8px 32px rgba(8,145,178,0.3); }\
+      .pc-step[data-pc-step="2"] .pc-step-circle-inner { background: linear-gradient(135deg, #3b82f6, #2563eb); }\
+      .pc-step[data-pc-step="2"] .pc-step-circle { box-shadow: 0 8px 32px rgba(59,130,246,0.3); }\
+      .pc-step[data-pc-step="3"] .pc-step-circle-inner { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }\
+      .pc-step[data-pc-step="3"] .pc-step-circle { box-shadow: 0 8px 32px rgba(139,92,246,0.3); }\
+      .pc-step[data-pc-step="4"] .pc-step-circle-inner { background: linear-gradient(135deg, #06b6d4, #0891b2); }\
+      .pc-step[data-pc-step="4"] .pc-step-circle { box-shadow: 0 8px 32px rgba(6,182,212,0.3); }\
+      .pc-step[data-pc-step="5"] .pc-step-circle-inner { background: linear-gradient(135deg, #10b981, #059669); }\
+      .pc-step[data-pc-step="5"] .pc-step-circle { box-shadow: 0 8px 32px rgba(16,185,129,0.3); }\
+      .pc-step[data-pc-step="1"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(8,145,178,0.5); }\
+      .pc-step[data-pc-step="2"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(59,130,246,0.5); }\
+      .pc-step[data-pc-step="3"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(139,92,246,0.5); }\
+      .pc-step[data-pc-step="4"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(6,182,212,0.5); }\
+      .pc-step[data-pc-step="5"]:hover .pc-step-circle { box-shadow: 0 12px 40px rgba(16,185,129,0.5); }\
       /* Step icon */\
       .pc-step-icon {\
         width: 28px;\
@@ -282,7 +284,7 @@
         left: 40px;\
         right: 40px;\
         height: 36px;\
-        z-index: 3;\
+        z-index: 1;\
         pointer-events: none;\
         overflow: hidden;\
       }\
@@ -448,7 +450,7 @@
       var paymentHtml = s.payment ? '<div class="pc-step-payment">' + s.payment + '</div>' : '';
       var durationHtml = s.duration ? '<div class="pc-step-duration"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' + s.duration + '</div>' : '';
 
-      html += '<div class="pc-step">' +
+      html += '<div class="pc-step" data-pc-step="' + (i + 1) + '">' +
         '<div class="pc-step-circle"><div class="pc-step-circle-inner"><div class="pc-step-circle-ring"></div><span class="pc-step-icon">' + s.icon + '</span></div></div>' +
         '<div class="pc-step-label">' + s.label + '</div>' +
         '<div class="pc-step-title">' + s.title + '</div>' +
@@ -465,7 +467,7 @@
     section.id = 'proceso-compra-enhanced';
 
     section.innerHTML = '\
-      <div class="pc-container">\
+      <div class="pc-container" id="proceso">\
         <div class="pc-header">\
           <div class="pc-badge">\
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>\
@@ -548,6 +550,10 @@
   /* Hide original section instantly as soon as it appears in the DOM */
   function hideOriginalSection(section) {
     if (section && !section.getAttribute('data-pc-hidden')) {
+      if (section.id === 'proceso') {
+        section.setAttribute('data-pc-original-anchor', 'proceso');
+        section.removeAttribute('id');
+      }
       section.style.display = 'none';
       section.setAttribute('data-pc-hidden', '1');
     }
