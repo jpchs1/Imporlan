@@ -40,7 +40,7 @@ const assert = require('node:assert/strict');
    circles:[...document.querySelectorAll('.pc-step-circle')].map(el=>getComputedStyle(el).zIndex)
   }));
   console.log('HOME_FIX_LAYERS='+JSON.stringify(layers));
-  console.log('HOME_FIX_DESKTOP='+ (await page.screenshot({type:'jpeg',quality:60})).toString('base64'));
+  console.log('HOME_FIX_DESKTOP='+ (await page.screenshot({type:'jpeg',quality:60,animations:'disabled'})).toString('base64'));
   assert.ok(layers.steps.every(z=>Number.isFinite(Number(z))&&Number(z)>Number(layers.boat)),
             'Each step stacking context must stay above the decorative boat: '+JSON.stringify(layers));
   await desktop.getByRole('link',{name:'Contacto',exact:true}).click();
@@ -58,14 +58,25 @@ const assert = require('node:assert/strict');
 
   await page.setViewportSize({width:390,height:844});
   await page.locator('#imp-h-hamb').click();
+  await page.locator('#imp-pro-drawer').getByRole('link',{name:'Proceso',exact:true}).click();
+  await page.waitForFunction(()=>!document.body.classList.contains('imp-drawer-open'));
+  await active('Proceso'); await anchorVisible('proceso');
+  const mobileSteps=await page.locator('.pc-step').evaluateAll(els=>els.map(el=>{
+   const r=el.getBoundingClientRect(),icon=el.querySelector('.pc-step-circle').getBoundingClientRect();
+   return {left:r.left,right:r.right,top:r.top,icon:icon.width};
+  }));
+  assert.ok(mobileSteps.every((s,i)=>s.left>=0&&s.right<=390&&s.icon===60&&(!i||s.top>mobileSteps[i-1].top)),
+            'The process must use five readable vertical steps at 390px');
+  console.log('HOME_FIX_MOBILE_PROCESS='+ (await page.screenshot({type:'jpeg',quality:60,animations:'disabled'})).toString('base64'));
+  await page.locator('#imp-h-hamb').click();
   await page.locator('#imp-pro-drawer').getByRole('link',{name:'Contacto',exact:true}).click();
   await page.waitForFunction(()=>!document.body.classList.contains('imp-drawer-open'));
   await active('Contacto'); await anchorVisible('contacto');
   await page.locator('#imp-h-hamb').click();
-  await page.locator('#imp-pro-drawer').getByRole('link',{name:'Inicio',exact:true}).click();
+  await page.locator('#imp-pro-drawer .imp-d-link').filter({hasText:/^Inicio$/}).click();
   await page.waitForFunction(()=>!document.body.classList.contains('imp-drawer-open'));
   await active('Inicio'); await anchorVisible('inicio');
-  console.log('HOME_FIX_MOBILE='+ (await page.screenshot({type:'jpeg',quality:60})).toString('base64'));
+  console.log('HOME_FIX_MOBILE='+ (await page.screenshot({type:'jpeg',quality:60,animations:'disabled'})).toString('base64'));
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No page overflow at 390px');
 
   // Direct links must resolve even though the enhancers mount after the bundle.
