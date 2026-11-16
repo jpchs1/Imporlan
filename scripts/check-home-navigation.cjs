@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.locator('#proceso-compra-enhanced #proceso').waitFor();
   await page.locator('#imp-pro-footer #contacto').waitFor();
-  await page.locator('#deckeva-partner-strip').waitFor();
+  await page.locator('#deckeva-strip').waitFor();
   const desktop=page.locator('#imp-pro-header .imp-h-nav');
   async function active(name) {
    await page.waitForFunction(expected=>{
@@ -43,7 +43,7 @@ const assert = require('node:assert/strict');
   await desktop.getByRole('link',{name:'Inicio',exact:true}).click();
   await active('Inicio'); await anchorVisible('inicio');
   assert.equal(await page.locator('#inicio h1').isVisible(),true);
-  const strip=await page.locator('#deckeva-partner-strip').evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,background:getComputedStyle(el).backgroundImage}));
+  const strip=await page.locator('#deckeva-strip').evaluate(el=>({width:el.getBoundingClientRect().width,viewport:innerWidth,background:getComputedStyle(el).backgroundImage}));
   assert.ok(strip.width>=strip.viewport-2,'The banner background must cover the full width');
   assert.match(strip.background,/linear-gradient/,'No transparent white band below the hero');
   await desktop.getByRole('button',{name:'Servicios',exact:true}).click();
