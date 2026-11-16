@@ -34,10 +34,15 @@ const assert = require('node:assert/strict');
   assert.equal(backgrounds.length,5);
   assert.ok(backgrounds.every(x=>x!=='none'),'All five steps need their own background');
   assert.equal(new Set(backgrounds).size,5,'Each step keeps its intended color');
-  assert.ok(await page.locator('.pc-boat-track').evaluate(el=>Number(getComputedStyle(el).zIndex)) <
-            await page.locator('.pc-step-circle').first().evaluate(el=>Number(getComputedStyle(el).zIndex)),
-            'The decorative boat must stay behind step icons');
+  const layers=await page.evaluate(()=>({
+   boat:getComputedStyle(document.querySelector('.pc-boat-track')).zIndex,
+   steps:[...document.querySelectorAll('.pc-step')].map(el=>getComputedStyle(el).zIndex),
+   circles:[...document.querySelectorAll('.pc-step-circle')].map(el=>getComputedStyle(el).zIndex)
+  }));
+  console.log('HOME_FIX_LAYERS='+JSON.stringify(layers));
   console.log('HOME_FIX_DESKTOP='+ (await page.screenshot({type:'jpeg',quality:60})).toString('base64'));
+  assert.ok(layers.steps.every(z=>Number.isFinite(Number(z))&&Number(z)>Number(layers.boat)),
+            'Each step stacking context must stay above the decorative boat: '+JSON.stringify(layers));
   await desktop.getByRole('link',{name:'Contacto',exact:true}).click();
   await active('Contacto'); await anchorVisible('contacto');
   await desktop.getByRole('link',{name:'Inicio',exact:true}).click();
