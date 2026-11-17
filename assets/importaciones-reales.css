@@ -106,8 +106,8 @@
 #algunas-lanchas-importadas .ir-loading{display:none;position:absolute;inset:0;align-items:center;justify-content:center;padding:40px;text-align:center;font-size:13px;line-height:1.7;color:#c0d4df;background:radial-gradient(ellipse at center,#173c4b,#102334)}
 #algunas-lanchas-importadas .ir-is-loading .ir-loading,#algunas-lanchas-importadas .ir-load-error .ir-loading{display:flex}
 #algunas-lanchas-importadas .ir-is-loading img,#algunas-lanchas-importadas .ir-load-error img{visibility:hidden}
-#algunas-lanchas-importadas .ir-photo:disabled{cursor:default}
-#algunas-lanchas-importadas .ir-photo:disabled .ir-zoom{display:none}
+#algunas-lanchas-importadas .ir-photo[aria-disabled=true]{cursor:default}
+#algunas-lanchas-importadas .ir-photo[aria-disabled=true] .ir-zoom{display:none}
 @media(max-width:850px){
  #algunas-lanchas-importadas .ir-client{flex:1 1 260px}
 }
