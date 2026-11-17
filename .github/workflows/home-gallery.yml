@@ -8,6 +8,7 @@ on:
       - 'assets/proceso-compra-section.js'
       - 'assets/deckeva-partner-section.js'
       - 'scripts/check-home-navigation.cjs'
+      - 'scripts/check-home-motion.cjs'
       - 'images/importaciones-reales/**'
       - 'index.html'
       - 'scripts/check-home-gallery.cjs'
@@ -33,6 +34,8 @@ jobs:
           IMPorlan_PLAYWRIGHT: ${{ runner.temp }}/gallery-check/node_modules/playwright
         run: |
           node --check assets/importaciones-reales.js
+          node --check assets/proceso-compra-section.js
           python3 -m http.server 8790 --bind 127.0.0.1 > /tmp/gallery-server.log 2>&1 &
           node scripts/check-home-gallery.cjs
           node scripts/check-home-navigation.cjs
+          node scripts/check-home-motion.cjs
