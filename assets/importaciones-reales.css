@@ -136,3 +136,11 @@
 @media(prefers-reduced-motion:reduce){
  #algunas-lanchas-importadas .ir-photo:hover img{transform:none}
 }
+
+#algunas-lanchas-importadas .ir-photo-nav{display:none}
+@media(max-width:640px){
+ #algunas-lanchas-importadas .ir-photo-nav{display:flex;position:absolute;inset:50% 12px auto;justify-content:space-between;pointer-events:none;transform:translateY(-50%);z-index:2}
+ #algunas-lanchas-importadas .ir-photo-nav button{display:grid;place-items:center;width:44px;height:44px;padding:0;pointer-events:auto;cursor:pointer;border:1px solid #ffffff55;border-radius:50%;background:#061322c9;color:#fff;backdrop-filter:blur(8px)}
+ #algunas-lanchas-importadas .ir-photo-prev svg{transform:rotate(180deg)}
+ #algunas-lanchas-importadas .ir-photo-nav button:active{background:#15566a}
+}
