@@ -32,13 +32,25 @@ const assert=require('node:assert/strict');
   await section.locator('.ir-photo').click();
   await page.keyboard.press('Escape');
   assert.equal(await section.locator('.ir-photo').evaluate(el=>el===document.activeElement),true);
+  let releasePhoto;const delayedPhoto=new Promise(resolve=>{releasePhoto=resolve;});
+  await page.route('**/yamaha-242-limited.jpg',async route=>{await delayedPhoto;await route.continue();});
+  try{
+   await section.locator('.ir-photo').press('ArrowRight');
+   await page.waitForFunction(()=>document.querySelector('.ir-photo').getAttribute('aria-busy')==='true');
+   assert.equal(await section.locator('.ir-photo').evaluate(el=>el===document.activeElement),true);
+   await page.keyboard.press('Enter');
+   assert.equal(await page.locator('.ir-dialog').evaluate(el=>el.open),false,'Loading photographs cannot open');
+   await page.keyboard.press('ArrowRight');
+   assert.equal(await section.locator('h3').innerText(),'Monterey 180 FS');
+   assert.equal(await section.locator('.ir-photo').evaluate(el=>el===document.activeElement),true);
+  }finally{releasePhoto();}
   await page.route('**/beneteau-oceanis-281.jpg',route=>route.abort());
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('.ir-photo.ir-load-error').waitFor();
-  assert.equal(await page.locator('.ir-photo').isDisabled(),true);
+  assert.equal(await page.locator('.ir-photo').getAttribute('aria-disabled'),'true');
   await page.locator('.ir-next').click();
   await page.waitForFunction(()=>document.querySelector('.ir-photo').getAttribute('aria-busy')==='false');
-  assert.equal(await page.locator('.ir-photo').isEnabled(),true);
-  console.log('MOTION_UX_PASS '+JSON.stringify({normal,reduced,checks:['real-playback','finite-reduced-motion','client-thumbnails','modal-focus','image-error-recovery']}));
+  assert.equal(await page.locator('.ir-photo').getAttribute('aria-disabled'),'false');
+  console.log('MOTION_UX_PASS '+JSON.stringify({normal,reduced,checks:['real-playback','finite-reduced-motion','client-thumbnails','modal-focus','keyboard-during-loading','image-error-recovery']}));
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
