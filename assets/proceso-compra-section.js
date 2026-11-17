@@ -154,7 +154,7 @@
         inset: 0;\
         border-radius: 50%;\
         border: 2px solid rgba(255,255,255,0.1);\
-        animation: pc-pulse 3s ease-in-out infinite;\
+        animation: pc-pulse 4.5s ease-in-out infinite;\
       }\
       .pc-step[data-pc-step="1"] .pc-step-circle-inner { background: linear-gradient(135deg, #0891b2, #06b6d4); }\
       .pc-step[data-pc-step="1"] .pc-step-circle { box-shadow: 0 8px 32px rgba(8,145,178,0.3); }\
@@ -292,7 +292,7 @@
         position: absolute;\
         top: 0;\
         left: 0;\
-        animation: pc-boat-move 8s ease-in-out infinite;\
+        animation: pc-boat-move 18s linear infinite;\
       }\
       .pc-boat-wrapper svg {\
         width: 48px;\
@@ -309,16 +309,16 @@
         border-radius: 2px;\
       }\
       @keyframes pc-boat-move {\
-        0% { left: 0%; }\
-        20% { left: 22%; }\
-        25% { left: 22%; }\
-        45% { left: 47%; }\
-        50% { left: 47%; }\
-        70% { left: 72%; }\
-        75% { left: 72%; }\
-        95% { left: 95%; }\
-        100% { left: 95%; }\
+        0%, 4% { left: 0%; opacity: 0; }\
+        8% { opacity: 1; }\
+        92% { opacity: 1; }\
+        96%, 100% { left: calc(100% - 48px); opacity: 0; }\
       }\
+      @media (prefers-reduced-motion: reduce) {\
+        .pc-boat-track { display: none !important; }\
+        .pc-boat-wrapper, .pc-step-circle-ring { animation: none !important; }\
+      }\
+\
       /* Responsive */\
       @media (max-width: 960px) {\
         .pc-timeline {\
