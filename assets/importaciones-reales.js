@@ -25,7 +25,7 @@ var current=0,startX=0,startY=0,swiping=false,image=section.querySelector('.ir-p
 var photo=section.querySelector('.ir-photo'),loading=section.querySelector('.ir-loading');
 function imageState(state){
 photo.classList.toggle('ir-is-loading',state==='loading');photo.classList.toggle('ir-load-error',state==='error');
-photo.disabled=state!=='ready';photo.setAttribute('aria-busy',String(state==='loading'));
+photo.setAttribute('aria-disabled',String(state!=='ready'));photo.setAttribute('aria-busy',String(state==='loading'));
 loading.textContent=state==='error'?'No pudimos cargar esta fotografía. Elige otra embarcación.':'Cargando fotografía…';
 }
 image.addEventListener('load',function(){imageState('ready');});
@@ -55,6 +55,7 @@ if(e.target.closest('.ir-prev,.ir-photo-prev'))render(current-1,true);
 var thumb=e.target.closest('[data-ir-index]');if(thumb)render(Number(thumb.dataset.irIndex),true);
 if(e.target.closest('.ir-photo')){
 if(swiping){swiping=false;return;}
+if(photo.getAttribute('aria-disabled')==='true')return;
 if(typeof dialog.showModal!=='function'){window.open(image.src,'_blank','noopener');return;}
 dialog.querySelector('img').src=image.src;dialog.querySelector('img').alt=image.alt;dialog.querySelector('p').textContent=boats[current].name+(boats[current].reference?' · Imagen referencial de otra unidad':' · Archivo Imporlan');dialog.showModal();
 }
