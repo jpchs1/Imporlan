@@ -1,146 +1,164 @@
-#algunas-lanchas-importadas{--ir-accent:#68e5d5;padding:104px 24px;background:radial-gradient(ellipse at 0 0,#12374480,transparent 55%),#091525;color:#e2e8f0;scroll-margin-top:96px;font-family:inherit}
+/* Imported boats showroom — scoped to the gallery; no global layout overrides. */
+#algunas-lanchas-importadas{
+ --ir-ink:#132f3c;--ir-accent:#087f83;--ir-muted:#5b6d76;--ir-line:#dbe4e3;
+ padding:96px 28px 88px;background:radial-gradient(ellipse at 100% 0,#d6eee7aa,transparent 42%),#f3f6f3;
+ color:var(--ir-ink);font-family:inherit;scroll-margin-top:96px
+}
 #algunas-lanchas-importadas *{box-sizing:border-box}
-#algunas-lanchas-importadas .ir-container{max-width:1180px;margin:auto}
-#algunas-lanchas-importadas .ir-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:36px}
-#algunas-lanchas-importadas .ir-eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--ir-accent);font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
-#algunas-lanchas-importadas .ir-eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--ir-accent);box-shadow:0 0 0 4px #68e5d510}
-#algunas-lanchas-importadas h2{font-size:clamp(36px,4.5vw,59px);line-height:1.06;letter-spacing:-.045em;font-weight:600;color:#f2f6f8;margin:16px 0 0}
+#algunas-lanchas-importadas .ir-container{max-width:1240px;margin:auto}
+#algunas-lanchas-importadas .ir-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:36px}
+#algunas-lanchas-importadas .ir-eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:11px;line-height:1.5;letter-spacing:.15em;font-weight:700;text-transform:uppercase;color:var(--ir-accent)}
+#algunas-lanchas-importadas .ir-eyebrow i{width:7px;height:7px;background:var(--ir-accent);border-radius:50%;box-shadow:0 0 0 5px #087f830c}
+#algunas-lanchas-importadas h2{font-size:clamp(42px,4.8vw,68px);line-height:1.02;letter-spacing:-.055em;font-weight:700;color:var(--ir-ink);margin:18px 0 0}
 #algunas-lanchas-importadas h2 span{color:var(--ir-accent)}
-#algunas-lanchas-importadas .ir-heading>p{font-size:17px;line-height:1.6;color:#d3dce5;margin:0 0 3px}
-#algunas-lanchas-importadas .ir-heading small{display:block;font-size:12px;color:#92a6bb;margin-top:14px}
-#algunas-lanchas-importadas .ir-carousel{border:1px solid #ffffff17;border-radius:26px;background:linear-gradient(135deg,#10263a,#0d1d30);overflow:hidden;box-shadow:0 24px 60px #0003}
-#algunas-lanchas-importadas .ir-stage{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);min-height:500px}
-#algunas-lanchas-importadas .ir-visual{position:relative;min-width:0;background:#152b36;touch-action:pan-y}
-#algunas-lanchas-importadas .ir-photo{display:block;width:100%;height:100%;min-height:500px;position:relative;overflow:hidden;padding:0;border:0;background:#152b36;cursor:zoom-in}
-#algunas-lanchas-importadas .ir-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .5s;display:block}
+#algunas-lanchas-importadas .ir-heading-tools{max-width:320px;padding-bottom:5px}
+#algunas-lanchas-importadas .ir-heading-tools p{font-size:17px;line-height:1.6;color:#425f6b;margin:0 0 18px}
+#algunas-lanchas-importadas .ir-collection{display:inline-flex;align-items:center;gap:9px;font-size:11px;line-height:1.5;color:#59717b}
+#algunas-lanchas-importadas .ir-collection::before{content:"";width:30px;height:1px;background:#9bbab8}
+#algunas-lanchas-importadas .ir-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 20px}
+#algunas-lanchas-importadas .ir-filters{display:flex;gap:6px;padding:5px;background:#e7eeea;border:1px solid #dce6e1;border-radius:14px}
+#algunas-lanchas-importadas .ir-filters button{border:1px solid transparent;background:transparent;color:#526974;border-radius:10px;min-height:44px;padding:10px 20px;font-size:12px;font-weight:600;cursor:pointer;transition:background .2s,color .2s}
+#algunas-lanchas-importadas .ir-filters button[aria-pressed=true]{background:white;border-color:#d7e3df;color:var(--ir-ink);box-shadow:0 3px 9px #1536330a}
+#algunas-lanchas-importadas .ir-filters button:hover{color:var(--ir-accent)}
+#algunas-lanchas-importadas .ir-results{font-size:12px;color:var(--ir-muted);text-align:right}
+#algunas-lanchas-importadas .ir-carousel{background:#fff;border:1px solid #d5e1de;border-radius:24px;overflow:hidden;box-shadow:0 28px 65px -40px #123b3850}
+#algunas-lanchas-importadas .ir-stage{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);min-height:560px}
+#algunas-lanchas-importadas .ir-visual{position:relative;min-width:0;background:#dce7e3;touch-action:pan-y}
+#algunas-lanchas-importadas .ir-photo{display:block;width:100%;height:100%;min-height:560px;position:relative;border:0;padding:0;overflow:hidden;background:#dce7e3;cursor:zoom-in}
+#algunas-lanchas-importadas .ir-photo img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;transition:transform .6s ease}
 #algunas-lanchas-importadas .ir-photo:hover img{transform:scale(1.025)}
+#algunas-lanchas-importadas .ir-visual::after{content:"";position:absolute;inset:auto 0 0;height:140px;background:linear-gradient(transparent,#071a2b66);pointer-events:none}
 #algunas-lanchas-importadas svg{width:20px;height:20px;flex-shrink:0}
-#algunas-lanchas-importadas .ir-zoom{position:absolute;bottom:20px;right:20px;display:flex;align-items:center;gap:9px;background:#081423ce;backdrop-filter:blur(12px);border:1px solid #ffffff35;border-radius:30px;color:white;font-size:11px;padding:9px 13px}
-#algunas-lanchas-importadas .ir-zoom svg{width:15px;height:15px;transform:rotate(-35deg)}
-#algunas-lanchas-importadas .ir-badge{position:absolute;left:22px;top:22px;background:#f2f8f0ed;color:#1b4c3b;font-size:10px;letter-spacing:.04em;font-weight:700;padding:9px 12px;border-radius:5px;pointer-events:none}
-#algunas-lanchas-importadas .ir-reference .ir-badge{background:#fff2d9f2;color:#734d0b}
-#algunas-lanchas-importadas .ir-reference .ir-photo{background:radial-gradient(ellipse at center,#284651,#102330)}
-#algunas-lanchas-importadas .ir-reference .ir-photo img{width:min(82%,374px);height:min(82%,374px);inset:0;margin:auto;object-fit:contain;object-position:center!important;border-radius:8px;box-shadow:0 18px 55px #0005}
-#algunas-lanchas-importadas .ir-detail{padding:40px 36px;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
-#algunas-lanchas-importadas .ir-category{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ir-accent);font-weight:600}
-#algunas-lanchas-importadas h3{font-size:clamp(27px,2.6vw,35px);line-height:1.12;letter-spacing:-.035em;color:#f2f6f8;font-weight:600;margin:12px 0 24px;max-width:330px}
-#algunas-lanchas-importadas .ir-owner{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-#algunas-lanchas-importadas .ir-avatar{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:44px;height:44px;border:1px solid #68e5d536;background:#68e5d50b;border-radius:50%;font-size:11px;color:var(--ir-accent);font-weight:600}
+#algunas-lanchas-importadas .ir-badge{position:absolute;z-index:1;top:24px;left:24px;display:inline-flex;align-items:center;gap:7px;background:#fffffff2;border:1px solid #ffffff80;border-radius:30px;padding:9px 13px;font-size:10px;font-weight:700;letter-spacing:.02em;color:#22584c;pointer-events:none;box-shadow:0 3px 15px #0001}
+#algunas-lanchas-importadas .ir-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:#248968}
+#algunas-lanchas-importadas .ir-reference .ir-badge{color:#7c5b20;background:#fff9ecf5}
+#algunas-lanchas-importadas .ir-reference .ir-badge::before{background:#ba8d37}
+#algunas-lanchas-importadas .ir-photo-count{position:absolute;z-index:1;right:24px;top:24px;font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:.12em;padding:9px 12px;background:#122d3bcc;border:1px solid #ffffff40;border-radius:30px;color:#fff;pointer-events:none}
+#algunas-lanchas-importadas .ir-zoom{position:absolute;z-index:1;bottom:24px;right:24px;display:flex;align-items:center;gap:13px;border:1px solid #ffffff80;border-radius:30px;background:#fffef1eb;color:#173b47;font-size:11px;font-weight:600;padding:11px 16px;backdrop-filter:blur(8px)}
+#algunas-lanchas-importadas .ir-zoom svg{width:16px;height:16px;transform:rotate(-35deg)}
+#algunas-lanchas-importadas .ir-reference .ir-photo{background:radial-gradient(ellipse at center,#cfdfd9,#a9c5bd)}
+#algunas-lanchas-importadas .ir-reference .ir-photo img{width:min(78%,420px);height:min(78%,420px);inset:0;margin:auto;object-fit:contain;object-position:center!important;box-shadow:0 20px 50px #173d3b26;border-radius:10px}
+#algunas-lanchas-importadas .ir-photo-nav{display:flex;position:absolute;z-index:2;inset:50% 18px auto;transform:translateY(-50%);justify-content:space-between;pointer-events:none}
+#algunas-lanchas-importadas .ir-photo-nav button{display:grid;place-items:center;pointer-events:auto;width:46px;height:46px;padding:0;border-radius:50%;border:1px solid #ffffff80;background:#14313ccc;color:#fff;cursor:pointer;backdrop-filter:blur(8px);transition:background .2s}
+#algunas-lanchas-importadas .ir-photo-nav button:hover{background:#087f83}
+#algunas-lanchas-importadas .ir-photo-prev svg{transform:rotate(180deg)}
+#algunas-lanchas-importadas .ir-detail{padding:36px;display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+#algunas-lanchas-importadas .ir-category{font-size:10px;letter-spacing:.15em;color:var(--ir-accent);font-weight:700;text-transform:uppercase}
+#algunas-lanchas-importadas h3{font-size:clamp(28px,2.55vw,37px);line-height:1.12;letter-spacing:-.035em;color:var(--ir-ink);font-weight:700;margin:14px 0 25px;overflow-wrap:anywhere}
+#algunas-lanchas-importadas .ir-owner{display:flex;align-items:center;gap:13px;width:100%;padding:17px 0;border-top:1px solid var(--ir-line);border-bottom:1px solid var(--ir-line);margin-bottom:22px}
+#algunas-lanchas-importadas .ir-avatar{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;flex-shrink:0;background:#e9f3ef;border:1px solid #d0e6df;color:var(--ir-accent);border-radius:50%;font-size:12px;font-weight:700}
 #algunas-lanchas-importadas .ir-archive{font-size:23px}
-#algunas-lanchas-importadas .ir-owner small{display:block;color:#9eb0c3;font-size:11px;margin-bottom:5px}
-#algunas-lanchas-importadas .ir-owner strong{display:block;color:#eef4f8;font-size:18px;font-weight:600}
-#algunas-lanchas-importadas .ir-story{font-size:14px;line-height:1.8;color:#c0cfdd;margin:0 0 22px}
-#algunas-lanchas-importadas .ir-facts{display:flex;gap:35px;padding:18px 0;border-top:1px solid #ffffff12;width:100%;margin:0 0 12px}
-#algunas-lanchas-importadas .ir-facts dt{font-size:10px;color:#96a8bc;margin:0 0 6px}
-#algunas-lanchas-importadas .ir-facts dd{font-size:13px;margin:0;color:#e6eef5}
-#algunas-lanchas-importadas .ir-provenance{font-size:10px;line-height:1.65;color:#9eb0c3;margin:0 0 20px}
-#algunas-lanchas-importadas .ir-provenance a{color:#c2d8e2;text-decoration:underline;text-underline-offset:3px}
-#algunas-lanchas-importadas .ir-text-link{display:inline-flex;align-items:center;gap:14px;color:var(--ir-accent);text-decoration:none;font-size:12px;font-weight:600;margin-top:auto;min-height:44px}
-#algunas-lanchas-importadas .ir-controls{display:flex;align-items:center;gap:24px;padding:18px 26px;border-top:1px solid #ffffff12}
-#algunas-lanchas-importadas .ir-counter{font-variant-numeric:tabular-nums;display:flex;gap:7px;align-items:center;white-space:nowrap;font-size:12px;color:#8c9eb2}
-#algunas-lanchas-importadas .ir-counter strong{font-size:20px;color:#f1f7fb;font-weight:500}
-#algunas-lanchas-importadas .ir-current-name{margin-left:16px;font-size:11px;color:#b8c9d7}
-#algunas-lanchas-importadas .ir-progress{flex:1;height:3px;background:#ffffff13}
-#algunas-lanchas-importadas .ir-progress span{display:block;height:100%;background:linear-gradient(90deg,#26b9cf,var(--ir-accent));border-radius:3px;transition:width .35s}
+#algunas-lanchas-importadas .ir-owner small{display:block;color:#637983;font-size:11px;margin-bottom:5px}
+#algunas-lanchas-importadas .ir-owner strong{display:block;color:var(--ir-ink);font-size:19px;font-weight:650;line-height:1.25}
+#algunas-lanchas-importadas .ir-story{font-size:14px;line-height:1.8;color:#526c78;margin:0 0 23px}
+#algunas-lanchas-importadas .ir-facts{display:flex;gap:34px;width:100%;padding:17px 20px;border:1px solid #e3ebe7;border-radius:12px;background:#f7faf7;margin:0 0 17px}
+#algunas-lanchas-importadas .ir-facts dt{font-size:10px;color:#637983;margin-bottom:7px}
+#algunas-lanchas-importadas .ir-facts dd{font-size:15px;font-weight:600;color:#25444f;margin:0}
+#algunas-lanchas-importadas .ir-provenance{font-size:10px;line-height:1.7;color:#637983;margin:0 0 20px}
+#algunas-lanchas-importadas .ir-provenance a{color:#2e6c74;text-decoration:underline;text-underline-offset:3px}
+#algunas-lanchas-importadas .ir-text-link{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;min-height:48px;padding:13px 17px;margin-top:auto;border:1px solid #cde2db;border-radius:10px;color:#14666b;background:#edf6f0;text-decoration:none;font-size:12px;font-weight:700;transition:background .2s}
+#algunas-lanchas-importadas .ir-text-link:hover{background:#dcefe5}
+#algunas-lanchas-importadas .ir-controls{display:flex;align-items:center;gap:24px;padding:19px 26px;border-top:1px solid var(--ir-line)}
+#algunas-lanchas-importadas .ir-counter{display:flex;align-items:center;gap:7px;font-size:11px;color:#6a8088;font-variant-numeric:tabular-nums;white-space:nowrap}
+#algunas-lanchas-importadas .ir-counter strong{font-size:22px;font-weight:600;color:var(--ir-ink)}
+#algunas-lanchas-importadas .ir-current-name{font-size:11px;margin-left:14px;color:#526c78}
+#algunas-lanchas-importadas .ir-progress{flex:1;height:3px;background:#e7eeeb;overflow:hidden;border-radius:4px}
+#algunas-lanchas-importadas .ir-progress span{display:block;height:100%;background:var(--ir-accent);border-radius:4px;transition:width .3s}
 #algunas-lanchas-importadas .ir-arrows{display:flex;gap:8px}
-#algunas-lanchas-importadas .ir-arrows button{width:44px;height:44px;border:1px solid #ffffff2a;border-radius:50%;background:transparent;color:#dce9ef;display:grid;place-items:center;cursor:pointer;transition:background .2s,color .2s}
-#algunas-lanchas-importadas .ir-arrows button:hover{background:var(--ir-accent);color:#092330;border-color:var(--ir-accent)}
+#algunas-lanchas-importadas .ir-arrows button{display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid #d6e2df;border-radius:50%;background:#fff;color:#254c57;cursor:pointer;transition:background .2s,color .2s}
+#algunas-lanchas-importadas .ir-arrows button:hover{background:#123b46;border-color:#123b46;color:#fff}
 #algunas-lanchas-importadas .ir-prev svg{transform:rotate(180deg)}
-#algunas-lanchas-importadas .ir-thumbs{display:flex;position:relative;overflow-x:auto;gap:10px;padding:0 26px 22px;scrollbar-width:thin;scrollbar-color:#38515f transparent;scroll-snap-type:x proximity}
-#algunas-lanchas-importadas .ir-thumbs button{display:flex;flex:0 0 195px;gap:9px;align-items:center;padding:9px;border:1px solid #ffffff12;border-radius:8px;background:#ffffff03;text-align:left;cursor:pointer;color:#a5b7c7;scroll-snap-align:start;transition:border-color .2s,background .2s}
-#algunas-lanchas-importadas .ir-thumbs img{width:54px;height:50px;object-fit:cover;border-radius:4px;flex-shrink:0}
-#algunas-lanchas-importadas .ir-thumbs span{font-size:11px;line-height:1.45}
-#algunas-lanchas-importadas .ir-thumbs button[aria-pressed=true]{border-color:#68e5d5a6;color:#e8fffe;background:#68e5d50d}
-#algunas-lanchas-importadas .ir-more{display:flex;align-items:center;gap:30px;padding:30px 0;border-bottom:1px solid #ffffff12}
-#algunas-lanchas-importadas .ir-more>div:first-child{flex:1}
-#algunas-lanchas-importadas .ir-more .ir-eyebrow{font-size:9px;letter-spacing:.1em}
-#algunas-lanchas-importadas .ir-more p{font-size:12px;color:#a5b4c5;margin:6px 0 0}
-#algunas-lanchas-importadas .ir-client{display:flex;align-items:center;gap:10px}
-#algunas-lanchas-importadas .ir-client strong{display:block;font-size:11px;font-weight:500;color:#dce5ed}
-#algunas-lanchas-importadas .ir-client small{display:block;font-size:10px;color:#93a5b9;margin-top:5px}
-#algunas-lanchas-importadas .ir-bottom{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:32px}
-#algunas-lanchas-importadas .ir-bottom>div>span{font-size:21px;letter-spacing:-.02em;color:#edf3f7}
-#algunas-lanchas-importadas .ir-bottom p{font-size:12px;color:#94a7bb;margin:8px 0 0}
-#algunas-lanchas-importadas .ir-bottom>a{display:inline-flex;align-items:center;justify-content:center;gap:22px;min-height:48px;padding:13px 21px;background:var(--ir-accent);color:#092632;border:1px solid var(--ir-accent);border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap}
-#algunas-lanchas-importadas .ir-bottom>a:hover{background:#8aeee8}
-#algunas-lanchas-importadas button:focus-visible,#algunas-lanchas-importadas a:focus-visible{outline:3px solid #71fff5;outline-offset:-3px}
-.ir-dialog{position:fixed;inset:0;width:min(1160px,94vw);max-width:94vw;max-height:94dvh;padding:50px 18px 20px;margin:auto;border:1px solid #334155;border-radius:16px;background:#091321;color:#e2e8f0;overflow:auto}
-.ir-dialog::backdrop{background:#020617ed;backdrop-filter:blur(6px)}
-.ir-dialog>img{display:block;max-width:100%;width:auto;max-height:72dvh;object-fit:contain;margin:auto}
-.ir-dialog>p{text-align:center;font-size:12px;margin:16px 0 0}
-.ir-dialog .ir-close{position:absolute;right:8px;top:4px;width:44px;height:44px;border:0;border-radius:50%;font-size:30px;background:transparent;color:#fff;cursor:pointer}
-.ir-dialog .ir-close:focus-visible{outline:2px solid #67e8f9}
-@media(max-width:850px){#algunas-lanchas-importadas .ir-stage{grid-template-columns:1.2fr 1fr}#algunas-lanchas-importadas .ir-detail{padding:28px 24px}#algunas-lanchas-importadas .ir-more{flex-wrap:wrap;gap:20px}#algunas-lanchas-importadas .ir-more>div:first-child{flex-basis:100%}}
-@media(max-width:640px){#algunas-lanchas-importadas{padding:60px 18px;scroll-margin-top:76px}#algunas-lanchas-importadas .ir-heading{display:block;margin-bottom:26px}#algunas-lanchas-importadas .ir-heading>p{font-size:14px;max-width:none;margin-top:20px}#algunas-lanchas-importadas .ir-heading>p br{display:none}#algunas-lanchas-importadas .ir-heading small{font-size:12px;margin-top:6px}#algunas-lanchas-importadas .ir-stage{grid-template-columns:1fr;min-height:0}#algunas-lanchas-importadas .ir-visual{aspect-ratio:4/3}#algunas-lanchas-importadas .ir-photo{min-height:0}#algunas-lanchas-importadas .ir-detail{padding:26px 23px;min-height:365px}#algunas-lanchas-importadas h3{font-size:29px;max-width:none;margin-bottom:19px}#algunas-lanchas-importadas .ir-story{font-size:12px;margin-bottom:15px}#algunas-lanchas-importadas .ir-owner{margin-bottom:16px}#algunas-lanchas-importadas .ir-controls{padding:15px 18px;gap:18px}#algunas-lanchas-importadas .ir-current-name{display:none}#algunas-lanchas-importadas .ir-thumbs{padding:0 18px 18px}#algunas-lanchas-importadas .ir-badge{top:16px;left:16px}#algunas-lanchas-importadas .ir-zoom{bottom:15px;right:15px}#algunas-lanchas-importadas .ir-more{align-items:flex-start;gap:20px;padding:26px 0}#algunas-lanchas-importadas .ir-client{width:100%}#algunas-lanchas-importadas .ir-bottom{display:block;padding-top:26px}#algunas-lanchas-importadas .ir-bottom>div>span{font-size:19px}#algunas-lanchas-importadas .ir-bottom>a{margin-top:20px;width:100%}.ir-dialog{padding-left:10px;padding-right:10px}}
-@media(prefers-reduced-motion:reduce){#algunas-lanchas-importadas *{transition:none!important;scroll-behavior:auto!important}}
-
-/* Editorial gallery: clearer hierarchy, visible browsing affordances and loading feedback. */
-#algunas-lanchas-importadas .ir-heading-tools{max-width:340px}
-#algunas-lanchas-importadas .ir-heading-tools>p{font-size:18px;line-height:1.6;color:#d3dce5;margin:0 0 16px}
-#algunas-lanchas-importadas .ir-collection{display:inline-flex;padding:8px 12px;border:1px solid #68e5d52b;background:#68e5d508;border-radius:24px;color:#a9c8d6;font-size:11px;line-height:1.5}
-#algunas-lanchas-importadas .ir-visual::after{content:"";position:absolute;inset:auto 0 0;height:120px;background:linear-gradient(transparent,#04132280);pointer-events:none}
-#algunas-lanchas-importadas .ir-zoom{z-index:1}
-#algunas-lanchas-importadas .ir-badge{z-index:1;box-shadow:0 4px 16px #0002}
-#algunas-lanchas-importadas .ir-owner{width:100%;padding:14px 0;border-top:1px solid #ffffff12;border-bottom:1px solid #ffffff12}
-#algunas-lanchas-importadas .ir-text-link{gap:16px;font-size:13px;transition:color .2s}
-#algunas-lanchas-importadas .ir-text-link:hover{color:#c3fff5}
-#algunas-lanchas-importadas .ir-text-link svg{transition:transform .2s}
-#algunas-lanchas-importadas .ir-text-link:hover svg{transform:translateX(4px)}
-#algunas-lanchas-importadas .ir-browse{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 26px 13px;color:#c6d6e1;font-size:11px}
-#algunas-lanchas-importadas .ir-browse small{font-size:10px;color:#9bb0c4}
+#algunas-lanchas-importadas .ir-browse{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:5px 26px 14px;font-size:11px;font-weight:600;color:#3a5c68}
+#algunas-lanchas-importadas .ir-browse small{font-weight:400;font-size:10px;color:#657f8a}
 #algunas-lanchas-importadas .ir-mobile-hint{display:none}
-#algunas-lanchas-importadas .ir-thumbs button{min-height:72px;border-radius:12px}
-#algunas-lanchas-importadas .ir-thumbs button:hover{border-color:#68e5d55c;background:#68e5d508}
+#algunas-lanchas-importadas .ir-thumbs{display:flex;gap:12px;position:relative;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#b8d0c5 transparent;scroll-snap-type:x proximity;padding:0 26px 24px}
+#algunas-lanchas-importadas .ir-thumbs button{display:flex;align-items:center;gap:12px;flex:0 0 235px;min-height:88px;padding:9px;border:1px solid #e0e8e4;border-radius:12px;background:#f9fbf8;color:#4c6671;text-align:left;cursor:pointer;scroll-snap-align:start;transition:border-color .2s,background .2s}
+#algunas-lanchas-importadas .ir-thumbs button[hidden]{display:none}
+#algunas-lanchas-importadas .ir-thumbs img{width:70px;height:66px;object-fit:cover;border-radius:7px;flex-shrink:0}
 #algunas-lanchas-importadas .ir-thumbs button>span{min-width:0}
-#algunas-lanchas-importadas .ir-thumbs strong{display:block;color:inherit;font-size:11px;font-weight:600}
-#algunas-lanchas-importadas .ir-thumbs small{display:block;color:#99adbe;font-size:10px;margin-top:4px;line-height:1.45}
-#algunas-lanchas-importadas .ir-thumbs button[aria-pressed=true]{box-shadow:inset 0 0 0 1px #68e5d54a}
-#algunas-lanchas-importadas .ir-more{align-items:stretch;gap:16px;padding:28px 0}
-#algunas-lanchas-importadas .ir-more>div:first-child{align-self:center}
-#algunas-lanchas-importadas .ir-client{flex:0 1 290px;padding:17px;border:1px solid #ffffff12;background:#ffffff03;border-radius:14px}
-#algunas-lanchas-importadas .ir-client strong{font-size:12px;line-height:1.5}
-#algunas-lanchas-importadas .ir-client small{font-size:11px}
-#algunas-lanchas-importadas .ir-bottom{padding:28px 30px;margin-top:8px;border:1px solid #68e5d526;border-radius:18px;background:linear-gradient(110deg,#12304480,#10323a50)}
-#algunas-lanchas-importadas .ir-bottom>a{min-height:50px;border-radius:10px;box-shadow:0 6px 24px #23cbb312;transition:background .2s,box-shadow .2s}
-#algunas-lanchas-importadas .ir-bottom>a:hover{box-shadow:0 6px 28px #23cbb32a}
-#algunas-lanchas-importadas .ir-loading{display:none;position:absolute;inset:0;align-items:center;justify-content:center;padding:40px;text-align:center;font-size:13px;line-height:1.7;color:#c0d4df;background:radial-gradient(ellipse at center,#173c4b,#102334)}
+#algunas-lanchas-importadas .ir-thumbs strong{display:block;font-size:11px;line-height:1.4;font-weight:700;color:inherit}
+#algunas-lanchas-importadas .ir-thumbs small{display:block;font-size:10px;line-height:1.5;margin-top:4px;color:#617a84}
+#algunas-lanchas-importadas .ir-thumbs em{display:block;font-size:9px;line-height:1.5;margin-top:4px;color:#71878c;font-style:normal}
+#algunas-lanchas-importadas .ir-thumbs button:hover{border-color:#81b8a8}
+#algunas-lanchas-importadas .ir-thumbs button[aria-pressed=true]{background:#eaf5ed;border-color:#408f7c;box-shadow:inset 0 0 0 1px #408f7c33;color:#174b47}
+#algunas-lanchas-importadas .ir-more{display:flex;align-items:stretch;gap:16px;padding:28px 0;margin-top:8px}
+#algunas-lanchas-importadas .ir-more>div:first-child{flex:1;align-self:center}
+#algunas-lanchas-importadas .ir-more .ir-eyebrow{font-size:9px;letter-spacing:.1em}
+#algunas-lanchas-importadas .ir-more p{font-size:12px;line-height:1.5;color:#617881;margin:8px 0 0}
+#algunas-lanchas-importadas .ir-client{display:flex;align-items:center;gap:12px;flex:0 1 300px;padding:17px;background:#ffffffa6;border:1px solid #dbe5df;border-radius:14px}
+#algunas-lanchas-importadas .ir-client strong{display:block;font-size:12px;line-height:1.5;color:#294e58;font-weight:600}
+#algunas-lanchas-importadas .ir-client small{display:block;font-size:11px;line-height:1.5;color:#637d85;margin-top:4px}
+#algunas-lanchas-importadas .ir-bottom{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:30px 34px;border:1px solid #214751;border-radius:18px;background:radial-gradient(ellipse at 100% 50%,#235e6380,transparent 60%),#102f3c;color:#fff}
+#algunas-lanchas-importadas .ir-bottom>div>span{font-size:23px;font-weight:500;letter-spacing:-.025em;color:#fff}
+#algunas-lanchas-importadas .ir-bottom p{font-size:13px;line-height:1.6;color:#b1ccd0;margin:8px 0 0}
+#algunas-lanchas-importadas .ir-bottom>a{display:inline-flex;align-items:center;justify-content:center;gap:24px;min-height:50px;padding:14px 22px;border:1px solid #9aead5;border-radius:10px;background:#a9f0d9;color:#163e43;font-size:12px;line-height:1.5;font-weight:700;text-decoration:none;white-space:nowrap;transition:background .2s}
+#algunas-lanchas-importadas .ir-bottom>a:hover{background:#cdfbe9}
+#algunas-lanchas-importadas button:focus-visible,#algunas-lanchas-importadas a:focus-visible{outline:3px solid #087f83;outline-offset:-3px}
+#algunas-lanchas-importadas .ir-photo-nav button:focus-visible{outline-color:#a9f0d9}
+#algunas-lanchas-importadas .ir-loading{display:none;position:absolute;inset:0;align-items:center;justify-content:center;padding:40px;text-align:center;font-size:13px;line-height:1.7;color:#4c6b72;background:radial-gradient(ellipse at center,#e8f3ed,#d5e4dd)}
 #algunas-lanchas-importadas .ir-is-loading .ir-loading,#algunas-lanchas-importadas .ir-load-error .ir-loading{display:flex}
 #algunas-lanchas-importadas .ir-is-loading img,#algunas-lanchas-importadas .ir-load-error img{visibility:hidden}
 #algunas-lanchas-importadas .ir-photo[aria-disabled=true]{cursor:default}
 #algunas-lanchas-importadas .ir-photo[aria-disabled=true] .ir-zoom{display:none}
-@media(max-width:850px){
+.ir-dialog{position:fixed;inset:0;width:min(1160px,94vw);max-width:94vw;max-height:94dvh;padding:54px 20px 22px;margin:auto;border:1px solid #365159;border-radius:18px;background:#091e2a;color:#e2e8f0;overflow:auto}
+.ir-dialog::backdrop{background:#03121aeb;backdrop-filter:blur(6px)}
+.ir-dialog>img{display:block;max-width:100%;width:auto;max-height:72dvh;object-fit:contain;margin:auto}
+.ir-dialog>p{text-align:center;font-size:13px;line-height:1.5;margin:18px 0 0}
+.ir-dialog .ir-close{position:absolute;right:10px;top:6px;width:44px;height:44px;border:0;border-radius:50%;font-size:30px;background:transparent;color:#fff;cursor:pointer}
+.ir-dialog .ir-close:focus-visible{outline:2px solid #a9f0d9}
+@media(max-width:1000px){
+ #algunas-lanchas-importadas .ir-stage{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+ #algunas-lanchas-importadas .ir-detail{padding:28px}
+ #algunas-lanchas-importadas .ir-more{flex-wrap:wrap}
+ #algunas-lanchas-importadas .ir-more>div:first-child{flex-basis:100%}
  #algunas-lanchas-importadas .ir-client{flex:1 1 260px}
 }
-@media(max-width:640px){
- #algunas-lanchas-importadas{padding:64px 16px}
- #algunas-lanchas-importadas .ir-heading-tools{max-width:none;margin-top:20px}
- #algunas-lanchas-importadas .ir-heading-tools>p{font-size:15px;margin-bottom:12px}
+@media(max-width:720px){
+ #algunas-lanchas-importadas{padding:64px 18px;scroll-margin-top:76px}
+ #algunas-lanchas-importadas .ir-heading{display:block;margin-bottom:28px}
+ #algunas-lanchas-importadas h2{font-size:clamp(37px,9.7vw,54px)}
+ #algunas-lanchas-importadas .ir-heading-tools{max-width:none;margin-top:22px}
+ #algunas-lanchas-importadas .ir-heading-tools p{font-size:14px;line-height:1.65;margin-bottom:12px}
  #algunas-lanchas-importadas .ir-heading-tools br{display:none}
  #algunas-lanchas-importadas .ir-collection{font-size:10px}
- #algunas-lanchas-importadas .ir-carousel{border-radius:20px}
- #algunas-lanchas-importadas .ir-detail{padding:26px 22px;min-height:450px}
+ #algunas-lanchas-importadas .ir-toolbar{align-items:flex-start;flex-direction:column;gap:12px;margin-bottom:16px}
+ #algunas-lanchas-importadas .ir-filters{width:100%;gap:3px;border-radius:12px;padding:4px}
+ #algunas-lanchas-importadas .ir-filters button{flex:1;padding:10px 6px;font-size:11px}
+ #algunas-lanchas-importadas .ir-results{font-size:11px;text-align:left;min-height:16px}
+ #algunas-lanchas-importadas .ir-carousel{border-radius:18px}
+ #algunas-lanchas-importadas .ir-stage{grid-template-columns:1fr;min-height:0}
+ #algunas-lanchas-importadas .ir-visual{aspect-ratio:4/3}
+ #algunas-lanchas-importadas .ir-photo{min-height:0}
+ #algunas-lanchas-importadas .ir-detail{padding:25px 22px}
+ #algunas-lanchas-importadas h3{font-size:29px;margin:11px 0 20px}
+ #algunas-lanchas-importadas .ir-owner{padding:14px 0;margin-bottom:18px}
  #algunas-lanchas-importadas .ir-owner strong{font-size:18px}
- #algunas-lanchas-importadas .ir-story{font-size:14px;line-height:1.75}
- #algunas-lanchas-importadas .ir-facts dt{font-size:11px}
- #algunas-lanchas-importadas .ir-provenance{font-size:11px}
- #algunas-lanchas-importadas .ir-controls{padding:14px 18px}
- #algunas-lanchas-importadas .ir-browse{padding:0 18px 14px;gap:12px;align-items:flex-start}
+ #algunas-lanchas-importadas .ir-story{font-size:13px;line-height:1.75;margin-bottom:18px}
+ #algunas-lanchas-importadas .ir-facts{padding:14px 16px;margin-bottom:14px}
+ #algunas-lanchas-importadas .ir-facts dt{font-size:10px}
+ #algunas-lanchas-importadas .ir-provenance{font-size:10px;margin-bottom:17px}
+ #algunas-lanchas-importadas .ir-badge{top:15px;left:15px;padding:8px 10px;font-size:9px}
+ #algunas-lanchas-importadas .ir-photo-count{top:15px;right:15px;padding:8px 10px;font-size:9px}
+ #algunas-lanchas-importadas .ir-photo-nav{inset:50% 12px auto}
+ #algunas-lanchas-importadas .ir-photo-nav button{width:44px;height:44px}
+ #algunas-lanchas-importadas .ir-zoom{right:15px;bottom:15px;font-size:10px;padding:9px 12px}
+ #algunas-lanchas-importadas .ir-controls{padding:15px 18px;gap:16px}
+ #algunas-lanchas-importadas .ir-current-name{display:none}
+ #algunas-lanchas-importadas .ir-browse{padding:3px 18px 14px;align-items:flex-start}
  #algunas-lanchas-importadas .ir-browse>span{font-size:10px}
  #algunas-lanchas-importadas .ir-desktop-hint{display:none}
- #algunas-lanchas-importadas .ir-mobile-hint{display:block;text-align:right;max-width:120px}
- #algunas-lanchas-importadas .ir-thumbs button{flex-basis:190px}
+ #algunas-lanchas-importadas .ir-mobile-hint{display:block;max-width:115px;text-align:right;line-height:1.5}
+ #algunas-lanchas-importadas .ir-thumbs{padding:0 18px 20px;gap:10px}
+ #algunas-lanchas-importadas .ir-thumbs button{flex-basis:225px;min-height:86px}
+ #algunas-lanchas-importadas .ir-more{gap:12px;padding:24px 0;margin-top:0}
  #algunas-lanchas-importadas .ir-client{flex-basis:100%;padding:16px}
- #algunas-lanchas-importadas .ir-more>div:first-child{flex-basis:100%}
- #algunas-lanchas-importadas .ir-bottom{padding:24px 20px}
+ #algunas-lanchas-importadas .ir-bottom{display:block;padding:25px 22px;border-radius:16px}
+ #algunas-lanchas-importadas .ir-bottom>div>span{font-size:21px;line-height:1.3;display:block}
+ #algunas-lanchas-importadas .ir-bottom p{font-size:12px}
+ #algunas-lanchas-importadas .ir-bottom>a{width:100%;margin-top:21px}
+ .ir-dialog{padding-left:10px;padding-right:10px}
 }
 @media(prefers-reduced-motion:reduce){
+ #algunas-lanchas-importadas *{transition:none!important;scroll-behavior:auto!important}
  #algunas-lanchas-importadas .ir-photo:hover img{transform:none}
-}
-
-#algunas-lanchas-importadas .ir-photo-nav{display:none}
-@media(max-width:640px){
- #algunas-lanchas-importadas .ir-photo-nav{display:flex;position:absolute;inset:50% 12px auto;justify-content:space-between;pointer-events:none;transform:translateY(-50%);z-index:2}
- #algunas-lanchas-importadas .ir-photo-nav button{display:grid;place-items:center;width:44px;height:44px;padding:0;pointer-events:auto;cursor:pointer;border:1px solid #ffffff55;border-radius:50%;background:#061322c9;color:#fff;backdrop-filter:blur(8px)}
- #algunas-lanchas-importadas .ir-photo-prev svg{transform:rotate(180deg)}
- #algunas-lanchas-importadas .ir-photo-nav button:active{background:#15566a}
 }
