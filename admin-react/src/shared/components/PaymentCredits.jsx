@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createApiClient } from '../lib/api-client';
-import { confirmedCredits, paymentBalance, receiptLinked, creditHasProof } from '../lib/payment-balance';
+import { confirmedCredits, paymentBalance, receiptLinked, creditHasProof, offlineProof } from '../lib/payment-balance';
 import { fmtCLP } from '../lib/utils';
 import { fmtDateLarga } from '../lib/format';
 import { Button, Callout, Input, Select, Modal } from './UI';
@@ -60,13 +60,22 @@ function CreditRecord({ request, admin, onChange, onAttachProof }) {
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
+  async function markEmail(credit) {
+    if (busy) return;
+    const detail = window.prompt('¿Qué comprobante revisaste? (ej. «Aviso Scotiabank enviado por correo a contacto@ el 13-11»)', 'Comprobante recibido por correo en contacto@imporlan.cl y revisado.');
+    if (detail === null) return;setBusy(true);setError('');
+    try { const result = await post('mark_proof_offline',{credit_id:credit.id,channel:'email',note:detail});setCurrent(result.request);onChange?.();setMessage('Respaldo recibido por correo registrado. El seguimiento deja de pedirlo.'); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
   if (!admin && !credits.length) return null;
   return <section className="payment-ledger" aria-label={`Abonos de ${request.title}`}>
     <div><h4 className="text-sm font-semibold text-ink-900 flex items-center gap-2"><CircleCheck size={17} />Abonos confirmados</h4><p className="text-xs text-ink-500 mt-1">{admin ? 'Registra sólo ingresos verificados en la cuenta bancaria. Un comprobante adjunto no confirma dinero.' : 'Estos ingresos ya están registrados. No repitas las transferencias indicadas.'}</p></div>
     <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-13"><div><dt className="text-ink-500">Total de este pago</dt><dd className="font-semibold tabular">{fmtCLP(balance.total)}</dd></div><div><dt className="text-ink-500">Abonos confirmados</dt><dd className="font-semibold tabular text-success">{fmtCLP(balance.confirmed)}</dd></div><div><dt className="text-ink-500">Saldo de este pago</dt><dd className="font-semibold tabular">{fmtCLP(balance.remaining)}</dd></div></dl>
     <div className="payment-ledger__progress" role="progressbar" aria-label="Avance de este pago" aria-valuemin={0} aria-valuemax={100} aria-valuenow={balance.total ? Math.min(100,Math.floor(balance.confirmed / balance.total * 100)) : 0} aria-valuetext={`${fmtCLP(balance.confirmed)} registrados de ${fmtCLP(balance.total)}`}><span style={{width:`${balance.total ? Math.min(100,balance.confirmed / balance.total * 100) : 0}%`}} /></div>
-    {credits.length > 0 && <ul className="divide-y divide-line" aria-label="Ingresos confirmados de este pago">{credits.map(c => <li key={c.id} className="py-3 space-y-2"><div className="flex flex-wrap justify-between gap-2 text-13"><span>{fmtDateLarga(c.received_on)} · {banks[c.bank] || c.bank}</span><strong className="tabular">{fmtCLP(c.amount_clp)}</strong></div><p className="text-xs text-ink-500 break-words">{c.reference ? `Referencia: ${c.reference}` : 'Registrado sin número de operación bancaria'} · {['webpay','mercadopago','paypal'].includes(c.bank) ? 'Confirmación de pasarela' : creditHasProof(value,c) ? 'Con comprobante asociado' : suggestedReceipt(c) ? 'Respaldo recibido · por revisar' : 'Respaldo pendiente'}</p>
+    {credits.length > 0 && <ul className="divide-y divide-line" aria-label="Ingresos confirmados de este pago">{credits.map(c => <li key={c.id} className="py-3 space-y-2"><div className="flex flex-wrap justify-between gap-2 text-13"><span>{fmtDateLarga(c.received_on)} · {banks[c.bank] || c.bank}</span><strong className="tabular">{fmtCLP(c.amount_clp)}</strong></div><p className="text-xs text-ink-500 break-words">{c.reference ? `Referencia: ${c.reference}` : 'Registrado sin número de operación bancaria'} · {['webpay','mercadopago','paypal'].includes(c.bank) ? 'Confirmación de pasarela' : offlineProof(c) ? 'Respaldo recibido por correo · revisado' : creditHasProof(value,c) ? 'Con comprobante asociado' : suggestedReceipt(c) ? 'Respaldo recibido · por revisar' : 'Respaldo pendiente'}</p>
       {admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && available.length > 0 && <div className="flex flex-wrap items-end gap-2"><Select className="min-w-0 flex-1 basis-48" label={`Comprobante para abono de ${fmtCLP(c.amount_clp)}`} value={associate[c.id] || suggestedReceipt(c)} onChange={e => setAssociate(x => ({...x,[c.id]:e.target.value}))} placeholder="Seleccionar comprobante" options={available.map(r => ({value:r.id,label:r.original_name}))} /><Button size="sm" variant="secondary" icon={Link} disabled={busy || !(associate[c.id] || suggestedReceipt(c))} onClick={() => link(c)}>Asociar comprobante</Button></div>}
+      {admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && !suggestedReceipt(c) && <Button size="sm" variant="secondary" disabled={busy} onClick={() => markEmail(c)}>Respaldo recibido por correo</Button>}
       {!admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && !suggestedReceipt(c) && onAttachProof && <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAttachProof(c)}>Adjuntar comprobante de {fmtCLP(c.amount_clp)}</Button>}
     </li>)}</ul>}
     {balance.excess > 0 && <Callout compact tone="warning">Excedente registrado: {fmtCLP(balance.excess)}. El equipo debe revisar su aplicación o devolución; no se aplica automáticamente a otra cuota.</Callout>}

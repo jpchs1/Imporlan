@@ -37,7 +37,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php','import_action_reminders.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 @mkdir("$caja/email-assets",0700,true);
@@ -1089,6 +1089,46 @@ $CORREOS = [];
 $res = impPuertoAbonoPago3Bootstrap($BD, $hoy);
 ok($res['ok'] && $res['saldo'] === 19900000 && count(impPaymentCredits($p3de())) === 2 && count($CORREOS) === 2, 'desde cero registra ambos, en orden, con un resumen por abono');
 ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoAbonoPago3Bootstrap($pdo)') !== false, 'el job del cron registra el abono');
+echo "  · respaldos de Alberto ya enviados por correo (JP, 19-nov-2026)\n";
+require_once "$caja/import_action_reminders.php";
+$pideRespaldo = function () use ($BD) {
+    foreach (impActionPlan(impActionSnapshot($BD, 35)) as $aviso) {
+        if (($aviso['audience'] ?? '') !== 'client') continue;
+        foreach ($aviso['tasks'] as $t) if (($t['kind'] ?? '') === 'receipt_upload') return true;
+    }
+    return false;
+};
+$antesP3 = $p3de();
+ok(!impPaymentCreditHasProof($antesP3, impPaymentCredits($antesP3)[0]) && impPaymentSettlement($antesP3)['missing_proofs'] === 2, 'antes: los dos abonos figuran sin respaldo');
+ok($pideRespaldo(), 'antes: el seguimiento automático le pide los comprobantes a Alberto');
+// Un pago pagado por transferencia, sin abonos ni archivo (como pudo quedar un Pago 1 antiguo).
+$store = json_decode(file_get_contents(impArchivoCobros()), true);
+$store['requests'][] = ['id' => 'pr_p1_viejo', 'user_email' => 'alberto@example.com', 'title' => 'Pago 1 · Chaparral', 'status' => 'paid', 'payment_method' => 'transferencia_bancaria', 'amount_clp' => 1000, 'metadata' => ['order_id' => 35, 'custom_fields' => ['pago' => 1]]];
+$store['requests'][] = ['id' => 'pr_p1_ajeno', 'user_email' => 'otra@example.com', 'title' => 'Pago 1 · ajeno', 'status' => 'paid', 'payment_method' => 'transferencia_bancaria', 'amount_clp' => 1000, 'metadata' => ['order_id' => 35, 'custom_fields' => ['pago' => 1]]];
+file_put_contents(impArchivoCobros(), json_encode($store));
+$porId = function ($id) { return array_values(array_filter(cobros(), function ($r) use ($id) { return $r['id'] === $id; }))[0]; };
+$CORREOS = [];
+$resp = impPuertoRespaldosCorreoBootstrap($BD, strtotime('2026-11-19 12:00:00'));
+$p3 = $p3de();
+$cred = impPaymentCredits($p3);
+ok($resp['ok'] && count($resp['marcados']) === 3, 'marca los dos abonos del Pago 3 y el pago sin abonos ni archivo');
+ok(impPaymentCreditHasProof($p3, $cred[0]) && impPaymentCreditHasProof($p3, $cred[1]) && $cred[0]['proof_offline']['channel'] === 'email' && $cred[0]['proof_offline']['reviewed_by'] === 'jpchs1@gmail.com', 'cada abono queda con su respaldo recibido por correo, revisado por JP');
+ok(impPaymentSettlement($p3)['missing_proofs'] === 0 && impPaymentOfflineProof($porId('pr_p1_viejo')) && !impPaymentOfflineProof($porId('pr_p1_ajeno')), 'ya no faltan respaldos; el pago de otra persona no se toca');
+ok(intval($p3['amount_clp']) === 29400000 && impPaymentBalance($p3)['remaining'] === 19900000 && $p3['status'] === 'pending' && count($cred) === 2, 'no cambia montos, saldo, estado ni abonos');
+ok(!$pideRespaldo(), 'el seguimiento automático deja de pedirle comprobantes a Alberto');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($CORREOS) === 1 && count($eq) === 1 && strpos($eq[0]['subject'], 'Respaldos de Alberto recibidos por correo') === 0, 'un solo resumen al equipo; a Alberto y a David no se les escribe');
+$CORREOS = [];
+ok(impPuertoRespaldosCorreoBootstrap($BD, strtotime('2026-11-19 12:00:00')) === null && $CORREOS === [], 'corre una sola vez');
+$pub = impPaymentPublic($p3);
+ok(($pub['payment_credits'][0]['proof_offline']['status'] ?? '') === 'reviewed' && !isset($pub['payment_credits'][0]['proof_offline']['reviewed_by']) && !isset($pub['payment_credits'][0]['proof_offline']['note']), 'el panel del cliente ve el respaldo como revisado, sin notas internas');
+ok(strpos(file_get_contents("$raiz/api/cron/inspection_upload_followup.php"), 'impPuertoRespaldosCorreoBootstrap($pdo)') !== false, 'el job del cron lo corre');
+// Herramienta general del equipo: validaciones.
+$r = $p3;
+ok(impPaymentMarkProofOffline($r, $cred[0]['id'], 'a@b.c', 'email', 'corto') !== null && impPaymentMarkProofOffline($r, 'pc_no', 'a@b.c', 'email', 'Comprobante revisado por correo') !== null && impPaymentMarkProofOffline($r, null, 'a@b.c', 'email', 'Comprobante revisado por correo') !== null, 'exige una observación, un abono de este pago y no marca un pago con abonos como un todo');
+$r = ['status' => 'pending', 'payment_credits' => [['id' => 'pc_w', 'status' => 'confirmed', 'bank' => 'webpay', 'amount_clp' => 1]]];
+ok(impPaymentMarkProofOffline($r, 'pc_w', 'a@b.c', 'email', 'Comprobante revisado por correo') !== null, 'los pagos por pasarela no llevan respaldo bancario');
+ok(strpos(file_get_contents("$raiz/api/payment_requests_api.php"), "case 'mark_proof_offline'") !== false && strpos(file_get_contents("$raiz/api/payment_requests_api.php"), 'function markPaymentProofOffline() {' . "\n" . '    $actor=requireAdminAuthShared();') !== false, 'la acción del admin exige sesión de administrador');
 chaparralSinCompra();
 $BD->exec("UPDATE order_links SET title = '2018 Cobalt R30' WHERE id = 12");
 ok(impPuertoChaparralBootstrap($BD, $enPlazo) === null && !isset(impPasos(orden(35))['compra']), 'otra lancha: no se toca');

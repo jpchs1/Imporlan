@@ -17,7 +17,10 @@ function impPaymentReceiptLinked($request,$receipt) {
     foreach(impPaymentCredits($request) as $credit) if (!empty($credit['receipt_id']) && $credit['receipt_id']===($receipt['id'] ?? null)) return true;
     return false;
 }
+/** Respaldo recibido fuera del panel (p. ej. por correo a contacto@) y ya revisado por el equipo. Nunca suma dinero. */
+function impPaymentOfflineProof($item) { $p=$item['proof_offline'] ?? null; return is_array($p) && ($p['status'] ?? '')==='reviewed'; }
 function impPaymentCreditHasProof($request,$credit) {
+    if(impPaymentOfflineProof($credit))return true;
     foreach($request['receipts'] ?? [] as $r)if(($r['id'] ?? '')===($credit['receipt_id'] ?? null) && ($r['status'] ?? '')!=='rejected')return true;
     return false;
 }
@@ -36,7 +39,9 @@ function impPaymentRead($id) {
     return impConCobros(function(&$store)use($id){foreach($store['requests'] as $r)if(($r['id'] ?? '')===$id)return $r;return null;});
 }
 function impPaymentPublic($request) {
-    if (isset($request['payment_credits'])) $request['payment_credits']=array_map(function($c){return array_intersect_key($c,array_flip(['id','amount_clp','received_on','bank','reference','receipt_id','status']));},$request['payment_credits']);
+    $proof=function($p){return is_array($p) ? array_intersect_key($p,array_flip(['status','channel','reviewed_at'])) : null;};
+    if (isset($request['payment_credits'])) $request['payment_credits']=array_map(function($c)use($proof){$out=array_intersect_key($c,array_flip(['id','amount_clp','received_on','bank','reference','receipt_id','status']));if(isset($c['proof_offline']))$out['proof_offline']=$proof($c['proof_offline']);return $out;},$request['payment_credits']);
+    if (isset($request['proof_offline'])) $request['proof_offline']=$proof($request['proof_offline']);
     return $request;
 }
 function impPaymentLinkReceipt(&$request,$creditId,$receiptId,$actor,$note='') {
@@ -58,6 +63,31 @@ function impPaymentLinkReceipt(&$request,$creditId,$receiptId,$actor,$note='') {
     $request['receipts'][$ri]['reviewed_at']=gmdate('Y-m-d H:i:s');$request['receipts'][$ri]['review_note']=$note;
     $request['receipt_status']=impPaymentProofPending($request)?'pending':'reconciled';
     return null;
+}
+/**
+ * Registra que el respaldo de un abono (o de un pago sin abonos) llegó por otro canal y el equipo lo revisó,
+ * para que el seguimiento deje de pedirlo. No toca montos, saldo ni estado del cobro.
+ * $creditId null = el pago completo (sólo si está pagado y no tiene abonos registrados).
+ */
+function impPaymentMarkProofOffline(&$request,$creditId,$actor,$channel,$note) {
+    if(!in_array($channel,['email','whatsapp','otro'],true))return 'Indica por dónde llegó el respaldo.';
+    if(!is_string($note) || mb_strlen(trim($note))<10 || mb_strlen($note)>1000)return 'Explica qué respaldo se revisó (10 a 1000 caracteres).';
+    $mark=['status'=>'reviewed','channel'=>$channel,'note'=>trim($note),'reviewed_by'=>$actor,'reviewed_at'=>gmdate('Y-m-d H:i:s')];
+    if($creditId===null) {
+        if(($request['status'] ?? '')!=='paid' || !empty($request['payment_credits']))return 'Marca el respaldo en cada abono confirmado.';
+        if(impPaymentOfflineProof($request))return null;
+        $request['proof_offline']=$mark;return null;
+    }
+    foreach($request['payment_credits'] ?? [] as $i=>$c) if(($c['id'] ?? '')===$creditId) {
+        if(($c['status'] ?? '')!=='confirmed' || in_array($c['bank'] ?? '',['webpay','mercadopago','paypal'],true))return 'Sólo los abonos bancarios confirmados llevan respaldo.';
+        if(impPaymentCreditHasProof($request,$c))return null; // ya respaldado: no se reemplaza
+        $request['payment_credits'][$i]['proof_offline']=$mark;return null;
+    }
+    return 'Selecciona un abono de este pago.';
+}
+function impPaymentMarkProofOfflineSaved($id,$creditId,$actor,$channel,$note) {
+    require_once __DIR__.'/eleccion_lancha.php';
+    return impConCobros(function(&$store)use($id,$creditId,$actor,$channel,$note){foreach($store['requests'] as &$r)if(($r['id'] ?? '')===$id){$error=impPaymentMarkProofOffline($r,$creditId,$actor,$channel,$note);return $error?['error'=>$error]:['guardar'=>true,'request'=>$r];}return ['error'=>'Solicitud no encontrada.'];});
 }
 /** Atomic, idempotent registration; the original request amount is immutable. */
 function impPaymentAddCredit($id,$input,$actor,$gateway=false) {

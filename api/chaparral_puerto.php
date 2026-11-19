@@ -428,3 +428,65 @@ function impPuertoRegistrarAbonoPago3($pdo, $abono) {
     }
     return $resumen;
 }
+
+/**
+ * Respaldos de Alberto enviados por correo (JP, 19-nov-2026): «Revisa que los mails
+ * automáticos aún piden que se carguen los comprobantes de Alberto Lathrop, él ya los
+ * envió por mail hace tiempo, corrige esta parte».
+ * Los comprobantes de sus abonos llegaron a contacto@imporlan.cl y JP los revisó. Se
+ * deja constancia en cada abono bancario confirmado de IMP-00035 que aún no tenía
+ * respaldo (y en un pago pagado sin abonos ni comprobante), para que el seguimiento
+ * y los paneles dejen de pedírselos. No toca montos, saldos, estados ni hitos, y no
+ * reenvía «Cuadre listo» ni autorizaciones. Una sola vez; resumen al equipo.
+ */
+function impPuertoRespaldosCorreoBootstrap($pdo, $ahora = null) {
+    $ahora = $ahora ?? time();
+    if ($ahora > strtotime('2026-12-05 00:00:00')) return null;
+    require_once __DIR__ . '/payment_balance.php';
+    $st = $pdo->prepare('SELECT * FROM orders WHERE order_number = ?');
+    $st->execute(['IMP-00035']);
+    $order = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$order || !impTieneEleccion($order)) return null;
+    if (strpos(strtolower(impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0))), 'chaparral') === false) return null;
+    $evento = 'chaparral_respaldos_correo';
+    $ya = $pdo->prepare("SELECT COUNT(*) FROM order_events WHERE order_id = ? AND event_type = ?");
+    $ya->execute([intval($order['id']), $evento]);
+    if (intval($ya->fetchColumn()) > 0) return null;
+    $nota = 'Comprobante enviado por Alberto por correo a contacto@imporlan.cl y revisado por JP (19-11-2026). No se le vuelve a pedir.';
+    $res = impConCobros(function (&$data) use ($order, $nota) {
+        $marcados = [];
+        foreach ($data['requests'] as &$r) {
+            if (!impCobroDelExpediente($r, intval($order['id']), $order['order_number'] ?? '') || ($r['status'] ?? '') === 'cancelled') continue;
+            if (strtolower(trim((string) ($r['user_email'] ?? ''))) !== strtolower(trim((string) $order['customer_email']))) continue;
+            $titulo = (string) ($r['title'] ?? 'Pago');
+            foreach (impPaymentCredits($r) as $c) {
+                if (in_array($c['bank'] ?? '', ['webpay', 'mercadopago', 'paypal'], true) || impPaymentCreditHasProof($r, $c) || impPaymentCreditProofSubmitted($r, $c)) continue;
+                if (impPaymentMarkProofOffline($r, $c['id'], 'jpchs1@gmail.com', 'email', $nota) === null) $marcados[] = $titulo . ': abono de $' . number_format((float) $c['amount_clp'], 0, ',', '.') . ' del ' . $c['received_on'];
+            }
+            $sinArchivo = empty($r['receipts']) && empty($r['receipt_url']) && empty($r['voucher_url']) && empty($r['comprobante_url']);
+            if (empty($r['payment_credits']) && ($r['status'] ?? '') === 'paid' && $sinArchivo && preg_match('/manual|transfer/i', $r['payment_method'] ?? '') && !impPaymentOfflineProof($r)) {
+                if (impPaymentMarkProofOffline($r, null, 'jpchs1@gmail.com', 'email', $nota) === null) $marcados[] = $titulo . ': pago completo';
+            }
+        }
+        unset($r);
+        return $marcados ? ['guardar' => true, 'marcados' => $marcados] : ['marcados' => []];
+    });
+    if (!is_array($res)) return false; // sin evento: el próximo turno del cron reintenta
+    $marcados = $res['marcados'] ?? [];
+    opuLog($pdo, $order['id'], $evento, ['marcados' => $marcados]);
+    if (!$marcados) return ['ok' => true, 'marcados' => []];
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $items = '';
+        foreach ($marcados as $m) $items .= '<li>' . opuEsc($m) . '</li>';
+        $cuerpo = '<p style="margin:0 0 10px">Dejé constancia de que estos respaldos de Alberto llegaron por correo a contacto@imporlan.cl y que tú los revisaste:</p>'
+            . '<ul style="margin:0 0 10px;padding-left:20px">' . $items . '</ul>'
+            . '<p style="margin:0 0 10px">Los correos automáticos y su panel dejan de pedirle esos comprobantes. No cambian montos, saldos ni hitos.</p>';
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl',
+            'Respaldos de Alberto recibidos por correo · ' . ($order['order_number'] ?? ''),
+            opuHtmlCorreo(impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0)), $cuerpo . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id'])), 'equipo', 'Respaldos'));
+    } catch (\Throwable $e) {
+        error_log('impPuertoRespaldosCorreoBootstrap equipo: ' . get_class($e));
+    }
+    return ['ok' => true, 'marcados' => $marcados];
+}
