@@ -1,4 +1,4 @@
-import { paymentBalance, proofPending, confirmedCredits, creditHasProof, paymentSettlement } from './payment-balance.js';
+import { paymentBalance, proofPending, confirmedCredits, creditHasProof, paymentSettlement, offlineProof } from './payment-balance.js';
 
 /**
  * Elegir la lancha e importar: lo que el panel del cliente y el admin
@@ -266,7 +266,7 @@ export function cuadrePagos(plan, cobros = [], total = 0) {
   const active = cobros.filter(r => r.status !== 'cancelled' && ns.has(numeroDePago(r)));
   const paid = active.reduce((sum, r) => sum + paymentBalance(r).confirmed, 0);
   const pendingReceipts = active.flatMap(r => r.receipts || []).filter(r => !r.status || r.status === 'pending').length;
-  const missingReceipts = active.reduce((sum, r) => sum + (confirmedCredits(r).length ? confirmedCredits(r).filter(c => !creditHasProof(r,c) && !['webpay', 'mercadopago', 'paypal'].includes(c.bank)).length : r.status === 'paid' && /manual|transfer/i.test(r.payment_method || '') && !(r.receipts?.length || r.receipt_url || r.voucher_url || r.comprobante_url) ? 1 : 0), 0);
+  const missingReceipts = active.reduce((sum, r) => sum + (confirmedCredits(r).length ? confirmedCredits(r).filter(c => !creditHasProof(r,c) && !['webpay', 'mercadopago', 'paypal'].includes(c.bank)).length : r.status === 'paid' && !offlineProof(r) && /manual|transfer/i.test(r.payment_method || '') && !(r.receipts?.length || r.receipt_url || r.voucher_url || r.comprobante_url) ? 1 : 0), 0);
   const mismatch = active.some(r => Number(r.amount_clp) !== Number(plan.find(p => p.n === numeroDePago(r))?.clp));
   const duplicate = plan.some(p => active.filter(r => numeroDePago(r) === p.n).length > 1);
   const refs = active.flatMap(r => (r.receipts || []).filter(x => x.status !== 'rejected').map(x => String(x.reference).trim().toLowerCase()));

@@ -12,6 +12,7 @@
  * - POST ?action=update_status - Actualizar estado (admin)
  * - POST ?action=register_credit - Registrar abono confirmado (admin/soporte)
  * - POST ?action=link_credit_receipt - Asociar respaldo sin duplicar ingreso
+ * - POST ?action=mark_proof_offline - Respaldo recibido por correo y revisado (no suma dinero)
  * - GET  ?action=get_by_id&id=xxx - Obtener solicitud por ID
  */
 
@@ -50,6 +51,9 @@ switch ($action) {
     case 'link_credit_receipt':
         linkPaymentCreditReceipt();
         break;
+    case 'mark_proof_offline':
+        markPaymentProofOffline();
+        break;
     case 'reconciliation_notice':
         paymentReconciliationNotice();
         break;
@@ -67,7 +71,7 @@ switch ($action) {
         break;
     default:
         http_response_code(400);
-        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update', 'register_credit', 'link_credit_receipt']]);
+        echo json_encode(['error' => 'Accion no valida', 'available_actions' => ['admin_create', 'user_list', 'user_list_public', 'admin_list', 'update_status', 'get_by_id', 'admin_update', 'register_credit', 'link_credit_receipt', 'mark_proof_offline']]);
 }
 
 } catch (Throwable $e) { error_log('[payment-requests] '.get_class($e));http_response_code(503);echo json_encode(['error'=>'No pudimos guardar o consultar el registro de pagos. Inténtalo nuevamente.']); }
@@ -180,6 +184,16 @@ function linkPaymentCreditReceipt() {
     $in=json_decode(file_get_contents('php://input'),true) ?: [];
     $result=impPaymentAssociateCredit((string)($in['request_id'] ?? ''),(string)($in['credit_id'] ?? ''),(string)($in['receipt_id'] ?? ''),$actor['email'],is_string($in['note'] ?? null)?$in['note']:'');
     if(!$result || isset($result['error'])){http_response_code(422);echo json_encode(['error'=>$result['error'] ?? 'No se pudo asociar el comprobante']);return;}
+    echo json_encode(['success'=>true,'request'=>$result['request'],'purchase_release_sent'=>$result['purchase_release_sent'] ?? false]);
+}
+
+function markPaymentProofOffline() {
+    $actor=requireAdminAuthShared();
+    if ($_SERVER['REQUEST_METHOD']!=='POST') {http_response_code(405);echo json_encode(['error'=>'Usa POST']);return;}
+    $in=json_decode(file_get_contents('php://input'),true) ?: [];
+    $credit=isset($in['credit_id']) && is_string($in['credit_id']) && $in['credit_id']!=='' ? $in['credit_id'] : null;
+    $result=impPaymentMarkProofOfflineSaved((string)($in['request_id'] ?? ''),$credit,$actor['email'],(string)($in['channel'] ?? 'email'),is_string($in['note'] ?? null)?$in['note']:'');
+    if(!$result || isset($result['error'])){http_response_code(422);echo json_encode(['error'=>$result['error'] ?? 'No se pudo registrar el respaldo']);return;}
     echo json_encode(['success'=>true,'request'=>$result['request'],'purchase_release_sent'=>$result['purchase_release_sent'] ?? false]);
 }
 

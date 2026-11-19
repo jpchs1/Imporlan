@@ -10,7 +10,7 @@ function impPaymentSettlement($request) {
     $missing=0;$review=0;
     if($credits) {
         foreach($credits as $c) {
-            if(in_array($c['bank'] ?? '',['webpay','mercadopago','paypal'],true))continue;
+            if(in_array($c['bank'] ?? '',['webpay','mercadopago','paypal'],true) || impPaymentOfflineProof($c))continue;
             $proof=null;foreach($request['receipts'] ?? [] as $r)if(($r['id'] ?? '')===($c['receipt_id'] ?? null))$proof=$r;
             if(!$proof || ($proof['status'] ?? '')==='rejected') {
                 if(!impPaymentCreditProofSubmitted($request,$c))$missing++;
@@ -19,7 +19,7 @@ function impPaymentSettlement($request) {
         foreach($request['receipts'] ?? [] as $r)if(($r['status'] ?? '')!=='rejected' && !impPaymentReceiptLinked($request,$r))$review++;
     } elseif(($request['status'] ?? '')==='paid' && !in_array($request['payment_method'] ?? '',['webpay','mercadopago','paypal'],true)) {
         $proofs=array_values(array_filter($request['receipts'] ?? [],function($r){return ($r['status'] ?? '')!=='rejected';}));
-        if(!$proofs)$missing++;
+        if(!$proofs && !impPaymentOfflineProof($request))$missing++;
         foreach($proofs as $r)if(($r['status'] ?? '')!=='reviewed' || ((($r['currency'] ?? 'CLP')==='USD' || intval($r['declared_amount_clp'] ?? 0)!==$total) && mb_strlen(trim($r['review_note'] ?? ''))<10))$review++;
     }
     return ['settled'=>$total>0 && ($request['status'] ?? '')==='paid' && $confirmed>=$total && !$missing && !$review,'remaining_clp'=>max(0,$total-$confirmed),'missing_proofs'=>$missing,'review_pending'=>$review];
