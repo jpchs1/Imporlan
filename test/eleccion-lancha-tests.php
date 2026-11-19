@@ -1128,6 +1128,7 @@ $r = $p3;
 ok(impPaymentMarkProofOffline($r, $cred[0]['id'], 'a@b.c', 'email', 'corto') !== null && impPaymentMarkProofOffline($r, 'pc_no', 'a@b.c', 'email', 'Comprobante revisado por correo') !== null && impPaymentMarkProofOffline($r, null, 'a@b.c', 'email', 'Comprobante revisado por correo') !== null, 'exige una observación, un abono de este pago y no marca un pago con abonos como un todo');
 $r = ['status' => 'pending', 'payment_credits' => [['id' => 'pc_w', 'status' => 'confirmed', 'bank' => 'webpay', 'amount_clp' => 1]]];
 ok(impPaymentMarkProofOffline($r, 'pc_w', 'a@b.c', 'email', 'Comprobante revisado por correo') !== null, 'los pagos por pasarela no llevan respaldo bancario');
+ok(preg_match('/function impPaymentMarkProofOfflineSaved\(.*?impResumePurchase\(\$result\[\'request\'\]\)/s', file_get_contents("$raiz/api/payment_balance.php")) === 1, 'si el respaldo por correo completa la conciliación, se envía la autorización de compra igual que al asociar un archivo');
 ok(strpos(file_get_contents("$raiz/api/payment_requests_api.php"), "case 'mark_proof_offline'") !== false && strpos(file_get_contents("$raiz/api/payment_requests_api.php"), 'function markPaymentProofOffline() {' . "\n" . '    $actor=requireAdminAuthShared();') !== false, 'la acción del admin exige sesión de administrador');
 chaparralSinCompra();
 $BD->exec("UPDATE order_links SET title = '2018 Cobalt R30' WHERE id = 12");

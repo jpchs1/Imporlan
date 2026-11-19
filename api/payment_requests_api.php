@@ -194,7 +194,7 @@ function markPaymentProofOffline() {
     $credit=isset($in['credit_id']) && is_string($in['credit_id']) && $in['credit_id']!=='' ? $in['credit_id'] : null;
     $result=impPaymentMarkProofOfflineSaved((string)($in['request_id'] ?? ''),$credit,$actor['email'],(string)($in['channel'] ?? 'email'),is_string($in['note'] ?? null)?$in['note']:'');
     if(!$result || isset($result['error'])){http_response_code(422);echo json_encode(['error'=>$result['error'] ?? 'No se pudo registrar el respaldo']);return;}
-    echo json_encode(['success'=>true,'request'=>$result['request']]);
+    echo json_encode(['success'=>true,'request'=>$result['request'],'purchase_release_sent'=>$result['purchase_release_sent'] ?? false]);
 }
 
 /**

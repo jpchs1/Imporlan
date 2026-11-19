@@ -87,7 +87,10 @@ function impPaymentMarkProofOffline(&$request,$creditId,$actor,$channel,$note) {
 }
 function impPaymentMarkProofOfflineSaved($id,$creditId,$actor,$channel,$note) {
     require_once __DIR__.'/eleccion_lancha.php';
-    return impConCobros(function(&$store)use($id,$creditId,$actor,$channel,$note){foreach($store['requests'] as &$r)if(($r['id'] ?? '')===$id){$error=impPaymentMarkProofOffline($r,$creditId,$actor,$channel,$note);return $error?['error'=>$error]:['guardar'=>true,'request'=>$r];}return ['error'=>'Solicitud no encontrada.'];});
+    $result=impConCobros(function(&$store)use($id,$creditId,$actor,$channel,$note){foreach($store['requests'] as &$r)if(($r['id'] ?? '')===$id){$error=impPaymentMarkProofOffline($r,$creditId,$actor,$channel,$note);return $error?['error'=>$error]:['guardar'=>true,'request'=>$r];}return ['error'=>'Solicitud no encontrada.'];});
+    // Igual que al asociar un archivo: si con esto la compra queda conciliada, se envía la autorización (una sola vez).
+    if(isset($result['request'])) {try{require_once __DIR__.'/purchase_clearance.php';$result['purchase_release_sent']=impResumePurchase($result['request']);}catch(Throwable $e){error_log('[purchase-handoff] offline proof notice pending');}}
+    return $result;
 }
 /** Atomic, idempotent registration; the original request amount is immutable. */
 function impPaymentAddCredit($id,$input,$actor,$gateway=false) {
