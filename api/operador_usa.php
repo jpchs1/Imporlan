@@ -813,16 +813,21 @@ function opuInformarEmbarque($pdo, $order, $post, array $archivos, $mover = 'mov
     $hayArchivos = false;
     foreach ($archivos as $f) if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) $hayArchivos = true;
     $fotos = 0;
+    $rechazados = [];
     if ($hayArchivos || trim($nota) !== '') {
         $res = opuGuardarActualizacion($pdo, $order, $nota, $archivos, $mover, 0, [], false);
         if (!$res['update_id']) return ['ok' => false, 'error' => $res['errores'] ? implode(' ', $res['errores']) : 'The files could not be saved. Please try again.'];
         $fotos = count(array_filter($res['files'], function ($g) { return in_array($g['category'], ['image', 'video'], true); }));
+        $rechazados = $res['errores'];
     }
     $barco = impBarcoAsignar($pdo, $order, $datos, 'operador');
     require_once __DIR__ . '/orders_api.php';
     impAplicarHito($pdo, opuOrden($pdo, $order['id']), 'embarque', true, true, 'operador', opuOperador()['email'], ['fotos' => $fotos]);
     opuAvisarEmbarqueEquipo($pdo, $order, $barco, $nota);
-    return ['ok' => true, 'aviso' => 'Thank you. «Shipped to Chile» is registered with the vessel ' . $barco['name'] . '. The Imporlan team and the client have been notified; the client can follow the vessel online.'];
+    // El embarque queda registrado igual (lo esencial es el barco), pero David sabe qué archivo no entró.
+    $aviso = 'Thank you. «Shipped to Chile» is registered with the vessel ' . $barco['name'] . '. The Imporlan team and the client have been notified; the client can follow the vessel online.';
+    if ($rechazados) $aviso .= ' Some files were not saved: ' . implode(' ', $rechazados) . ' Please send them again with «Send an update».';
+    return ['ok' => true, 'aviso' => $aviso, 'rechazados' => $rechazados];
 }
 
 /** Aviso al equipo: David informó el embarque (barco, y si falta el IMO para verlo en el mapa). */

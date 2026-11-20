@@ -816,10 +816,11 @@ ok(count(aDavid()) === 0, 'lo que sigue (aduana) es del equipo en Chile: a David
 // Deshacer y volver a informarlo, ahora David y con un barco nuevo sin IMO.
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'embarque', 'done' => false]);
 $CORREOS = [];
-$res = opuInformarEmbarque($BD, orden(35), ['vessel_name' => 'Hoegh Trigger', 'note' => 'Sailed from Savannah on Nov 20.'], []);
+$res = opuInformarEmbarque($BD, orden(35), ['vessel_name' => 'Hoegh Trigger', 'note' => 'Sailed from Savannah on Nov 20.'], [['name' => 'bl.exe', 'tmp_name' => __FILE__, 'size' => filesize(__FILE__), 'error' => UPLOAD_ERR_OK]], 'copy');
 $o = orden(35);
 $v = $BD->query('SELECT * FROM vessels WHERE id = ' . intval($o['vessel_id']))->fetch();
 ok($res['ok'] === true && isset(impPasos($o)['embarque']) && $v['display_name'] === 'Hoegh Trigger' && $v['destination_label'] === 'Chile' && $v['type'] === 'manual', 'David informa el embarque con el nombre: se crea la nave rumbo a Chile y queda asociada');
+ok(!empty($res['rechazados']) && strpos($res['aviso'], 'Some files were not saved') !== false && strpos($res['aviso'], 'Send an update') !== false, 'si un archivo no entra, el embarque queda registrado y David sabe qué reenviar');
 $eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
 ok(count($eq) === 1 && strpos($eq[0]['html'], 'Hoegh Trigger') !== false && strpos($eq[0]['html'], 'Falta el IMO') !== false && strpos($eq[0]['html'], 'Savannah') !== false, 'el equipo recibe el barco, la nota de David y el aviso de completar el IMO para el mapa');
 $cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
