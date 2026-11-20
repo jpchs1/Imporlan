@@ -665,12 +665,11 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
             .upd{border-top:1px solid var(--line);padding:10px 0}.upd:first-of-type{border-top:0}
             .note{white-space:pre-wrap;font-size:14px;margin-top:4px}
             @keyframes opu-pulso{0%{box-shadow:0 0 0 0 rgba(14,116,144,.45)}70%{box-shadow:0 0 0 12px rgba(14,116,144,0)}100%{box-shadow:0 0 0 0 rgba(14,116,144,0)}}
-            @keyframes opu-punto{0%,100%{opacity:1}50%{opacity:.25}}
             .milestone{animation:opu-pulso 2s ease-out infinite}.milestone:focus-within{animation:none}
-            .blink{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:6px;vertical-align:middle;animation:opu-punto 1.2s ease-in-out infinite}
-            .now .dot{background:#ecfeff;animation:opu-pulso 2s ease-out infinite}
+            .blink{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:6px;vertical-align:middle}
+            .now .dot{background:#ecfeff}
             .jump{display:inline-block;margin-top:10px;font-weight:600;color:var(--brand)}
-            @media(prefers-reduced-motion:reduce){.milestone,.now .dot,.blink{animation:none}}
+            @media(prefers-reduced-motion:reduce){.milestone{animation:none}}
           </style></head><body><main>'
         . '<div class="top"><b>Imporlan</b> · US operations · ' . opuEsc($inspectionLatest['operator_name'] ?? opuOperador()['nombre']) . '</div>';
 
@@ -690,7 +689,8 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
     }
     // Si lo que toca se informa con un formulario de esta página, un salto directo a él.
     $formularioHito = $link && $hito && (isset(opuHitosConFotos()[$hito]) || $hito === 'embarque');
-    if ($pedido) $h .= '<div class="ask"><strong><i class="blink" aria-hidden="true"></i>What we need now</strong><br>' . opuEsc($pedido) . ($formularioHito ? '<br><a class="jump" href="#milestone">Report it now ↓</a>' : '') . '</div>';
+    // Las esperas (precio en revisión, compra sin autorizar) no llevan punto: sólo lo que David informa aquí.
+    if ($pedido) $h .= '<div class="ask"><strong>' . ($formularioHito ? '<i class="blink" aria-hidden="true"></i>' : '') . 'What we need now</strong><br>' . opuEsc($pedido) . ($formularioHito ? '<br><a class="jump" href="#milestone">Report it now ↓</a>' : '') . '</div>';
     $h .= '</section>';
 
     $h .= opuInspectionPortalChecklist($pdo, $order);

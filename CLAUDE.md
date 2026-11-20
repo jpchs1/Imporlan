@@ -212,8 +212,11 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   `shared/styles/import-process.css`); en el link de David, `.milestone` y
   «Report it now ↓» (`api/operador_usa.php`).
 - **Un solo pulso por acción**, y sólo cuando le toca a quien mira (equipo en
-  el admin, cliente en su panel, David en su link). Lo que espera a otro no
-  titila. Nunca se hace titilar una decisión del cliente (aprobar/declinar la
+  el admin, cliente en su panel, David en su link). Si el botón late, el punto
+  del chip queda fijo (`pulsa` sólo cuando no hay botón). Lo que espera a otro
+  no titila: elegir otra lancha es del cliente, aprobar el precio es de Juan
+  Pablo (lo marca su bloque), y en el link de David las esperas y los hitos de
+  Chile no se marcan. Nunca se hace titilar una decisión del cliente (aprobar/declinar la
   inspección): se destaca leer el reporte, no la elección. Con
   `prefers-reduced-motion` queda un anillo fijo, sin animación.
 

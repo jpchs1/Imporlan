@@ -440,8 +440,9 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
   const Icono = esperaPrecio ? CircleDot : aprobada ? CircleCheck : declinada ? TriangleAlert : esperando || actual ? CircleDot : Circle;
   const colorIcono = esperaPrecio ? 'text-brand-600' : aprobada ? 'text-success' : declinada ? 'text-warning' : esperando || actual ? 'text-brand-600' : 'text-ink-400';
   const destacado = esperando || declinada;
-  // Al equipo le toca cargar el reporte (coordinando) o validar el precio (el cliente ya aprobó).
-  const teToca = (actual && stage === 'coordinando' && puedeGestionar) || esperaPrecio;
+  // Al equipo le toca cargar el reporte (coordinando).
+  // La validación del precio la señala su propio bloque, que sabe si David ya respondió y si quien mira puede aprobar.
+  const teToca = actual && stage === 'coordinando' && puedeGestionar;
 
   let titulo = h.label;
   if (declinada) titulo = porCliente ? 'Inspección técnica: el cliente declinó esta lancha' : 'Inspección técnica: no seguimos con esta lancha';
@@ -587,7 +588,7 @@ function FilaCobro({ titulo, detalle, clp, cobro, accion, onReceiptChange }) {
       <p className="text-sm font-semibold text-ink-900 tabular text-right sm:text-left">{fmtCLP(clp)}</p>
       <EstadoCobro cobro={cobro} />
       <div className="justify-self-end">{accion || <span className="inline-block w-8" aria-hidden="true" />}</div>
-      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700"><span>Comprobantes y revisión del {titulo}</span>{pagoEnRevision(cobro) && <TeToca className="ml-2">Revisar comprobante</TeToca>}</summary><div className="mt-3 space-y-3"><PaymentCredits request={cobro} admin onChange={onReceiptChange} /><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></div></details>}
+      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700"><span>Comprobantes y revisión del {titulo}</span>{pagoEnRevision(cobro) && <TeToca pulsa className="ml-2">Revisar comprobante</TeToca>}</summary><div className="mt-3 space-y-3"><PaymentCredits request={cobro} admin onChange={onReceiptChange} /><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></div></details>}
     </div>
   );
 }

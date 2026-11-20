@@ -25,7 +25,7 @@ $mail=end($GLOBALS['ACTION_SMTP']);
 $decoded=preg_replace_callback('/(?<=\r\n\r\n)([A-Za-z0-9+\/=\r\n]+)(?=\r\n--)/',function($m){$x=base64_decode($m[1],true);return $x===false?$m[1]:$x;},$mail['body']);
 check(strpos($mail['subject'],'Purchase on hold')!==false && strpos($decoded,'Do not purchase this boat')!==false && strpos($decoded,'Please move forward with the purchase')===false,'pending funding never sends a premature purchase instruction');
 check(strpos($decoded,'client@example.test')===false && strpos($decoded,'Cliente Ejemplo')===false && strpos($decoded,'$3.000')===false && strpos($decoded,'$5.000')===false,'operator notice contains no customer contact or payment amounts');
-$portal=opuPaginaPortal($db,opuOrden($db,1));check(strpos($portal,'Do not purchase this boat')!==false,'private operator portal also holds the purchase');
+$portal=opuPaginaPortal($db,opuOrden($db,1));check(strpos($portal,'Do not purchase this boat')!==false,'private operator portal also holds the purchase');check(strpos($portal,'class="blink"')===false,'a waiting instruction is not marked as an action for the operator');
 check(opuRecordar($db,time()+30*86400)===0,'automatic operator chasing waits while the customer finance task is pending');
 check(impResumePurchase($two)===false && count($GLOBALS['ACTION_SMTP'])===$before+1,'partial bank income cannot trigger the release hook');
 $two['status']='paid';$two['payment_credits'][0]['amount_clp']=5000;
