@@ -25,6 +25,7 @@ jobs:
       - run: php test/payment-balance-tests.php
       - run: php test/purchase-clearance-tests.php
       - run: php test/payment-reconciliation-tests.php
+      - run: php test/correo-limpieza-tests.php
 
   expediente-image-previews:
     name: HEIC previews in admin and customer panels

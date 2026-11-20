@@ -1,0 +1,25 @@
+{
+  "_nota": "Reglas de limpieza de la bandeja de contacto@imporlan.cl (JP, 20-nov-2026). Lo que coincide se MUEVE a la carpeta de spam (nunca se borra). 'confiables' manda sobre todo lo demás. Dominio = también sus subdominios. Ver api/correo_limpieza.php.",
+  "umbral_puntaje": 1.5,
+  "confiables": [
+    "imporlan.cl", "lontue.com", "scotiabank.cl", "santander.cl", "bancochile.cl", "bancoestado.cl",
+    "global66.com", "paypal.com", "transbank.cl", "webpay.cl", "alltranslog.com", "tls.cl",
+    "kacemarine.com", "getpandadoc.com", "partsvu.zendesk.com", "popsells.com", "afc.cl", "succ.cl",
+    "orpro.cl", "sii.cl", "tgr.cl", "aduana.cl", "banahosting.com", "scrapingbee.com", "airbnb.com",
+    "deckeva.cl", "github.com", "google.com", "anthropic.com"
+  ],
+  "dominios_bloqueados": [
+    "smtpserver.cl", "notify-it.com", "correomasivo.cl", "neovisione.com", "eclypse-design.net",
+    "kadzama.eu", "upweb.com", "heartsathomesoap.com", "comercio-exterior.cl", "storymotion.cl",
+    "yachttrading.com", "gomonkeymate.com", "furreoboat.com", "milbarcos.com"
+  ],
+  "remitentes_bloqueados": [
+    "partsvu@partsvu.com",
+    "antofagastamineralservicioalcl@gmail.com",
+    "servicioalclienteantofagastami@gmail.com",
+    "jurrabizama@gmail.com"
+  ],
+  "_nota_suplantacion": "Nombres de empresas que llegan desde correos gratuitos (gmail, hotmail…) haciéndose pasar por ellas.",
+  "suplantacion": ["antofagasta minerals", "antofagastaminerals", "codelco", "servicio de impuestos internos"],
+  "correo_gratuito": ["gmail.com", "hotmail.com", "outlook.com", "yahoo.com", "live.com", "icloud.com"]
+}
