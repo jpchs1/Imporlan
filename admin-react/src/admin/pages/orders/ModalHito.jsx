@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, Textarea, Switch, Callout } from '../../../shared/components/UI';
+import { Modal, Button, Textarea, Switch, Callout, Input } from '../../../shared/components/UI';
 import { Dropzone } from '../../../shared/components/Dropzone';
 import { X, Check } from '../../../shared/components/Icons';
 import { FileImage } from '../../../shared/components/FileImage';
@@ -23,6 +23,10 @@ import { uploadExpedienteFiles } from '../../api';
  * expediente, el cliente las ve junto al avance y quedan como evidencia del
  * hito. David también los puede informar desde su link. Si David ya mandó
  * las fotos como actualización, se eligen de `archivos` sin volver a subirlas.
+ *
+ * El embarque rumbo a Chile (`hito.conBarco`) exige el nombre del barco (JP,
+ * 20-nov-2026): queda en el seguimiento del cliente. El IMO o el MMSI son
+ * opcionales, pero sin ellos el barco no aparece en el mapa.
  */
 const EXISTENTES_MAX = 12;
 // Nunca la cédula del cliente (es privada: sólo el equipo la ve).
@@ -40,6 +44,7 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
     .sort((a, b) => (b.uploaded_by === 'operador_usa') - (a.uploaded_by === 'operador_usa') || String(b.created_at || '').localeCompare(String(a.created_at || '')))
     .slice(0, EXISTENTES_MAX), [archivos]);
   const [error, setError] = useState('');
+  const [barco, setBarco] = useState({ name: '', imo: '', mmsi: '' });
   const previews = useMemo(() => fotos.map(f => ({ f, url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null })), [fotos]);
   useEffect(() => () => previews.forEach(p => p.url && URL.revokeObjectURL(p.url)), [previews]);
   if (!hito) return null;
@@ -52,10 +57,14 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
   const hayFoto = fotos.some(f => f.type.startsWith('image/')) || existentes.some(f => elegidas.includes(Number(f.id)) && esFoto(f));
   const total = fotos.length + elegidas.length;
   const queFotos = hito.id === 'retiro' ? 'del retiro (pick-up)' : 'de la entrega en el puerto (drop-off)';
+  const conBarco = !!hito.conBarco;
+  const nombreBarco = barco.name.trim();
+  const sinBarco = conBarco && nombreBarco.length < 2;
 
   async function confirmar() {
     setError('');
     if (conFotos && !hayFoto) { setError(`Agrega al menos una foto ${queFotos}.`); return; }
+    if (sinBarco) { setError('Indica el nombre del barco: el cliente lo sigue en línea con ese nombre.'); return; }
     setGuardando(true);
     try {
       let ids = [...elegidas];
@@ -66,7 +75,7 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
         if (!subidas.length) throw new Error((r?.errors || []).join(' ') || 'No se pudieron subir las fotos');
         ids = [...ids, ...subidas];
       }
-      const ok = await onConfirmar(hito, true, notify, ids, notify ? mensaje.trim() : '');
+      const ok = await onConfirmar(hito, true, notify, ids, notify ? mensaje.trim() : '', conBarco ? { name: nombreBarco, imo: barco.imo.trim(), mmsi: barco.mmsi.trim() } : null);
       if (ok) onClose();
     } catch (e) {
       setError(e.message || 'No se pudieron subir las fotos');
@@ -86,7 +95,7 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
       footer={(
         <>
           <Button variant="secondary" onClick={onClose} disabled={guardando}>Cancelar</Button>
-          <Button onClick={confirmar} loading={guardando} disabled={conFotos && !hayFoto} data-autofocus>
+          <Button onClick={confirmar} loading={guardando} disabled={(conFotos && !hayFoto) || sinBarco} data-autofocus={conBarco ? undefined : true}>
             {inspeccion ? 'Registrar que aprobó' : conFotos ? (total ? `Marcar hecho con ${total} ${total === 1 ? 'foto' : 'fotos'}` : 'Marcar hecho con fotos') : 'Marcar hecho'}
           </Button>
         </>
@@ -172,6 +181,27 @@ export default function ModalHito({ open, onClose, hito, eleccion, onConfirmar, 
               </div>
             )}
             <p className="text-xs text-ink-500">{hito.id === 'retiro' ? 'David también puede informarlo desde su link privado, con sus fotos.' : 'David también puede informarlo desde su link privado, con sus fotos y el dock receipt.'}</p>
+          </div>
+        )}
+        {conBarco && (
+          <div className="space-y-3">
+            <Input
+              label="Nombre del barco"
+              required
+              value={barco.name}
+              onChange={e => { setError(''); setBarco(b => ({ ...b, name: e.target.value })); }}
+              maxLength={80}
+              autoComplete="off"
+              placeholder="Ej.: MSC ANNA"
+              hint="El barco en que va embarcada. Queda en el seguimiento del cliente."
+              disabled={guardando}
+              data-autofocus
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input label="IMO (opcional)" value={barco.imo} onChange={e => setBarco(b => ({ ...b, imo: e.target.value }))} inputMode="numeric" maxLength={10} autoComplete="off" placeholder="7 dígitos" disabled={guardando} />
+              <Input label="MMSI (opcional)" value={barco.mmsi} onChange={e => setBarco(b => ({ ...b, mmsi: e.target.value }))} inputMode="numeric" maxLength={9} autoComplete="off" placeholder="9 dígitos" disabled={guardando} />
+            </div>
+            <p className="text-xs text-ink-500">Con el IMO o el MMSI (en el booking o el BL) el cliente ve dónde va el barco en el mapa. Si el nombre ya está en Seguimiento, se usa ese barco. David también puede informarlo desde su link privado.</p>
           </div>
         )}
         {nPago > 0 && (

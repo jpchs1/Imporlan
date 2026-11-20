@@ -37,7 +37,7 @@ function ok($cond, $msg) {
 // ---------------------------------------------------------------------------
 $caja = sys_get_temp_dir() . '/imporlan-eleccion-' . getmypid();
 @mkdir($caja, 0700, true);
-foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php','import_action_reminders.php'] as $f) {
+foreach (['orders_api.php', 'eleccion_lancha.php', 'email_service.php', 'cotizador_helpers.php', 'scraper_locator.php', 'auth_helper.php', 'session_revocation.php', 'payment_requests_helper.php', 'operador_usa.php', 'inspection_upload_followup.php', 'inspection_upload_template.php', 'inspection_price_followup.php', 'inspection_price_template.php','import_action_template.php','payment_balance.php','purchase_clearance.php','payment_reconciliation.php','payment_reconciliation_template.php','import_action_reminders.php','embarque_barco.php'] as $f) {
     copy("$raiz/api/$f", "$caja/$f");
 }
 @mkdir("$caja/email-assets",0700,true);
@@ -79,6 +79,8 @@ $BD->exec("CREATE TABLE notifications (id INTEGER PRIMARY KEY, user_email TEXT, 
 $BD->exec("CREATE TABLE order_links (id INTEGER PRIMARY KEY, order_id INTEGER, row_index INTEGER, url TEXT, title TEXT,
     image_url TEXT, location TEXT, hours TEXT, engine TEXT, link_status TEXT DEFAULT 'active', make TEXT, model TEXT, year INTEGER,
     value_chile_clp REAL, value_chile_negotiated_clp REAL, quote_total_clp REAL, quote_total_usd REAL, quote_payments TEXT, quote_published_at TEXT)");
+$BD->exec("CREATE TABLE vessels (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, display_name TEXT, imo TEXT NULL, mmsi TEXT NULL, call_sign TEXT NULL, shipping_line TEXT NULL, client_name TEXT NULL, origin_label TEXT NULL, destination_label TEXT NULL, eta_manual TEXT NULL, status TEXT, is_featured INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+$BD->exec("ALTER TABLE orders ADD COLUMN tracking_public_token TEXT NULL");
 $BD->exec("CREATE TABLE order_events (id INTEGER PRIMARY KEY, order_id INTEGER, event_type TEXT, meta_json TEXT, user_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 $CORREOS = [];
 $DAVID = 'ddm4me25@gmail.com';
@@ -268,7 +270,7 @@ ok($c === 409 && !isset(impPasos(orden(35))['entrega']), 'entrega espera el regi
 ok($c === 409 && isset(impPasos(orden(35))['compra']), 'no se deshace una compra con transporte registrado');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'aduana', 'done'=>true]);
 ok($c === 409, 'aduana espera el embarque');
-llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'embarque', 'done'=>true]);
+llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'embarque', 'done'=>true, 'vessel'=>['name'=>'Barco de prueba']]);
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'aduana', 'done'=>true]);
 ok($c === 200 && isset(impPasos(orden(35))['aduana']), 'el embarque conecta con aduana');
 [$c] = llamar('adminSetImportStep', $admin, ['order_id'=>35, 'step'=>'entrega', 'done'=>true]);
@@ -425,7 +427,7 @@ $CORREOS = [];
 ok(opuRecordar($BD) === 0, 'recién pedido: no se le recuerda');
 $BD->exec("UPDATE orders SET usa_requested_at = '2020-01-01 00:00:00', chosen_at = '2020-01-01 00:00:00' WHERE id = 35");
 ok(opuRecordar($BD) === 1 && strpos(aDavid()[0]['html'], 'friendly reminder') !== false, 'sin novedades en ' . OPU_DIAS_RECORDATORIO . ' días: recordatorio');
-$BD->exec("UPDATE orders SET usa_requested_at = '2020-01-01 00:00:00', import_steps = '{\"disponibilidad\":\"x\",\"compra\":\"x\",\"transporte\":\"x\"}' WHERE id = 35");
+$BD->exec("UPDATE orders SET usa_requested_at = '2020-01-01 00:00:00', import_steps = '{\"disponibilidad\":\"x\",\"compra\":\"x\",\"transporte\":\"x\",\"embarque\":\"x\"}' WHERE id = 35");
 ok(opuRecordar($BD) === 0, 'con el paso en curso en Chile (aduana), no');
 sembrar();
 llamar('userChooseLink', $alberto, ['order_id' => 35, 'link_id' => 12]);
@@ -787,8 +789,51 @@ $cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === '
 ok(count($cli) === 1 && strpos($cli[0]['html'], 'puerto de Estados Unidos') !== false && strpos($cli[0]['html'], 'Pago 3') !== false && strpos($cli[0]['html'], '2 fotos de la entrega en el puerto') !== false, 'al cliente le llega el aviso con las fotos y el botón del Pago 3');
 $eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
 ok(count($eq) === 1 && strpos($eq[0]['html'], 'Pago 3') !== false && strpos($eq[0]['html'], 'Savannah') !== false, 'el equipo recibe el aviso con el Pago 3 y la nota de David');
-ok(count(aDavid()) === 0, 'a David no se le pide nada más: lo que sigue (embarque) es del equipo');
-ok(strpos(opuPaginaPortal($BD, orden(35)), 'name="hito"') === false, 'informado el paso, su link ya no lo ofrece');
+ok(count(aDavid()) === 1 && strpos(aDavid()[0]['html'], 'Shipped to Chile') !== false && strpos(aDavid()[0]['html'], 'name of the vessel') !== false && sinCliente(aDavid()[0]['html']), 'a David se le pide informar el embarque con el nombre del barco, sin datos del cliente');
+$portal = opuPaginaPortal($BD, orden(35));
+ok(strpos($portal, 'Report port delivery') === false && strpos($portal, 'name="vessel_name"') !== false && strpos($portal, 'Report shipment') !== false, 'informada la entrega en puerto, su link ofrece el embarque, con el nombre del barco');
+
+echo "\nEmbarque rumbo a Chile: el nombre del barco es obligatorio (JP, 20-nov-2026)\n";
+$BD->exec('DELETE FROM vessels');
+$CORREOS = [];
+$sinBarco = opuInformarEmbarque($BD, orden(35), ['vessel_name' => '  '], []);
+ok($sinBarco['ok'] === false && strpos($sinBarco['error'], 'name of the vessel') !== false && !isset(impPasos(orden(35))['embarque']), 'David no puede informar el embarque sin el nombre del barco');
+$imoMalo = opuInformarEmbarque($BD, orden(35), ['vessel_name' => 'MSC ANNA', 'vessel_imo' => '1234568'], []);
+ok($imoMalo['ok'] === false && strpos($imoMalo['error'], 'IMO') !== false && !isset(impPasos(orden(35))['embarque']), 'un IMO con el dígito verificador malo se rechaza');
+[$c, $j] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'embarque', 'done' => true, 'notify_client' => true]);
+ok($c === 400 && strpos($j['error'], 'nombre del barco') !== false && !isset(impPasos(orden(35))['embarque']) && empty(orden(35)['vessel_id']), 'el admin tampoco puede marcarlo sin el nombre del barco');
+ok($CORREOS === [], 'sin barco no sale ningún correo');
+$BD->exec("INSERT INTO vessels (type, display_name, imo, mmsi, status) VALUES ('auto', 'MSC Anna', '9454448', '636017000', 'inactive')");
+[$c, $j] = llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'embarque', 'done' => true, 'notify_client' => true, 'vessel' => ['name' => 'msc anna']]);
+$o = orden(35);
+$v = $BD->query('SELECT * FROM vessels WHERE id = ' . intval($o['vessel_id']))->fetch();
+ok($c === 200 && isset(impPasos($o)['embarque']) && $v && $v['display_name'] === 'MSC Anna' && $v['status'] === 'active', 'con el nombre del barco se marca: si ya está en el seguimiento, se usa esa nave y queda activa');
+ok($j['vessel']['en_vivo'] === true && $j['vessel']['imo'] === '9454448' && !empty($o['tracking_public_token']), 'con su IMO se ve en el mapa; el expediente queda con su enlace de seguimiento');
+ok(intval($BD->query("SELECT COUNT(*) FROM vessels")->fetchColumn()) === 1 && stripos($v['client_name'] ?? '', 'alberto') === false, 'no se duplica la nave ni se guardan datos del cliente en ella');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'MSC Anna') !== false && strpos($cli[0]['html'], 'tracking?barco=' . $o['vessel_id']) !== false && strpos($cli[0]['html'], 'entre 5 y 9 días') !== false, 'al cliente le llega el barco, el enlace para seguirlo y el plazo del desaduanamiento (5 a 9 días)');
+ok(count(aDavid()) === 0, 'lo que sigue (aduana) es del equipo en Chile: a David no se le pide nada');
+// Deshacer y volver a informarlo, ahora David y con un barco nuevo sin IMO.
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'embarque', 'done' => false]);
+$CORREOS = [];
+$res = opuInformarEmbarque($BD, orden(35), ['vessel_name' => 'Hoegh Trigger', 'note' => 'Sailed from Savannah on Nov 20.'], []);
+$o = orden(35);
+$v = $BD->query('SELECT * FROM vessels WHERE id = ' . intval($o['vessel_id']))->fetch();
+ok($res['ok'] === true && isset(impPasos($o)['embarque']) && $v['display_name'] === 'Hoegh Trigger' && $v['destination_label'] === 'Chile' && $v['type'] === 'manual', 'David informa el embarque con el nombre: se crea la nave rumbo a Chile y queda asociada');
+$eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'contacto@imporlan.cl'; }));
+ok(count($eq) === 1 && strpos($eq[0]['html'], 'Hoegh Trigger') !== false && strpos($eq[0]['html'], 'Falta el IMO') !== false && strpos($eq[0]['html'], 'Savannah') !== false, 'el equipo recibe el barco, la nota de David y el aviso de completar el IMO para el mapa');
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'Hoegh Trigger') !== false && strpos($cli[0]['html'], 'apenas quede identificado') !== false, 'el cliente ve el barco en su seguimiento aunque todavía falte el IMO');
+ok(strpos(opuPaginaPortal($BD, orden(35)), 'name="vessel_name"') === false, 'informado el embarque, el link de David ya no lo ofrece');
+// Aduana: el correo también lleva el plazo del desaduanamiento.
+$CORREOS = [];
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'aduana', 'done' => true, 'notify_client' => true]);
+$cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
+ok(count($cli) === 1 && strpos($cli[0]['html'], 'entre 5 y 9 días') !== false, 'el aviso de aduana también dice que el desaduanamiento demora de 5 a 9 días');
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'aduana', 'done' => false]);
+llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'embarque', 'done' => false]);
+$BD->exec('UPDATE orders SET vessel_id = NULL, tracking_public_token = NULL WHERE id = 35');
+$BD->exec('DELETE FROM vessels');
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'transporte', 'done' => false]);
 ok(!isset(impEvidencia(orden(35))['transporte']), 'si el equipo deshace la entrega en puerto, sus fotos dejan de ser evidencia');
 ok(impHitoEnCurso(['chosen_link_id' => 12, 'chosen_inspection' => 0, 'import_steps' => '{"disponibilidad":"x","compra":"x","transporte":"x","aduana":"x"}']) === 'entrega', 'un expediente que ya iba más adelante no vuelve al retiro');

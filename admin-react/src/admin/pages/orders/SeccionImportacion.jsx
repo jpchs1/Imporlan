@@ -254,7 +254,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                       <div className="flex-1 min-w-0">
                         <p className={cn('text-sm', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}</p>
                         <p className="text-xs text-ink-500 tabular">
-                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? (h.conFotos ? 'En curso · se informa con fotos (David también puede, desde su link)' : 'En curso') : 'Pendiente'}
+                          {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? (h.conFotos ? 'En curso · se informa con fotos (David también puede, desde su link)' : h.conBarco ? 'En curso · se informa con el nombre del barco (David también puede, desde su link)' : 'En curso') : 'Pendiente'}
                           {h.hecho && fotosDelHito(eleccion, h.id).length > 0 && ` · ${fotosDelHito(eleccion, h.id).length} ${fotosDelHito(eleccion, h.id).length === 1 ? 'foto' : 'fotos'}${eleccion.evidence?.[h.id]?.por === 'operador' ? ', informado por David' : ''}`}
                         </p>
                       </div>

@@ -3068,6 +3068,15 @@ function adminSetImportStep($admin, $input = null) {
             impGuardarEvidencia($pdo, $order, $paso, $ids, 'equipo');
             $fotos = count($ids);
         }
+        // Embarque rumbo a Chile: obligatorio el nombre del barco, para que el cliente lo siga (JP, 20-nov-2026).
+        $barco = null;
+        if ($hecho && $paso === 'embarque' && !isset(impPasos($order)['embarque'])) {
+            require_once __DIR__ . '/embarque_barco.php';
+            [$datosBarco, $barcoError] = impBarcoValidar($input['vessel'] ?? null);
+            if ($barcoError) return impResponderError(400, $barcoError);
+            $barco = impBarcoAsignar($pdo, $order, $datosBarco, 'equipo');
+            $order['vessel_id'] = $barco['id'];
+        }
         $r = impAplicarHito($pdo, $order, $paso, $hecho, $avisar, 'equipo', $admin['email'] ?? $admin['sub'] ?? 'admin', [
             'fotos' => $fotos,
             'mensaje' => is_string($input['client_message'] ?? null) ? $input['client_message'] : '',
@@ -3084,6 +3093,7 @@ function adminSetImportStep($admin, $input = null) {
             'eleccion' => impEleccionPublica($order),
             'notified' => $notificado,
             'usa_requested' => $pedidoUsa,
+            'vessel' => $barco,
             'pago' => $pagoHito && !empty($pagoHito['cobro']) ? [
                 'n' => $nPago, 'id' => $pagoHito['cobro']['id'], 'amount_clp' => intval($pagoHito['cobro']['amount_clp']),
                 'status' => $pagoHito['cobro']['status'], 'creado' => !empty($pagoHito['creado']),
@@ -3152,6 +3162,7 @@ function impAplicarHito($pdo, $order, $paso, $hecho, $avisar, $por, $quien, $mai
                 'order_id' => $orderId,
                 'correct_payment_notice' => !empty($mailContext['correct_payment_notice']),
                 'fotos' => intval($mailContext['fotos'] ?? 0),
+                'barco' => $paso === 'embarque' ? (function () use ($pdo, $order) { require_once __DIR__ . '/embarque_barco.php'; return impBarcoDelExpediente($pdo, $order); })() : null,
                 'mensaje' => mb_substr(trim((string) ($mailContext['mensaje'] ?? '')), 0, 1500),
                 'hechos' => ['Lancha elegida' => true] + $hechos,
                 'cobro' => ($pagoHito && !empty($pagoHito['cobro']) && ($pagoHito['cobro']['status'] ?? '') === 'pending')
