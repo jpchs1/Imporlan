@@ -269,8 +269,9 @@ entrada.» El cron del hosting (`cron-deploy.sh`, cada 5 min) corre
 a `INBOX.spam` lo que calza con `api/cron/correo-spam.json`:
 dominios/remitentes bloqueados, empresas suplantadas desde Gmail/Hotmail y
 puntaje de SpamAssassin ≥ 1,5 (el del servidor manda a spam recién con 5,0).
-`confiables` (bancos, Global66, clientes, logística, el propio sistema) manda
-sobre todo. Una vez al día revisa 60 días. Estado público sin datos:
+`confiables` (bancos, Global66, clientes, logística, el propio sistema) nunca
+cae por las listas; como el From se puede falsificar, sin firma DKIM/DMARC de
+su dominio se le aplica el umbral del servidor (5,0) en vez del bajo. Una vez al día revisa 60 días. Estado público sin datos:
 https://www.imporlan.cl/.imporlan_mail_status; detalle en
 `/home/wwimpo/correo-limpieza.log`. Para ver la bandeja sin abrir correos:
 `correo.yml` con `accion: resumen`. Si llega basura nueva, se agrega su

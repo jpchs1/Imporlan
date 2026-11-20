@@ -69,17 +69,41 @@ function ccsRemitente($from) {
 function ccsMotivo(array $h, array $r) {
     list($dir, $nombre) = ccsRemitente($h['from'] ?? '');
     $dominio = strpos($dir, '@') !== false ? substr($dir, strrpos($dir, '@') + 1) : '';
-    if ($dominio !== '' && ccsEnDominio($dominio, $r['confiables'])) return null;
+    // Un confiable nunca cae por las listas. Pero el From se puede falsificar:
+    // firmado por su dominio (DKIM/DMARC) no se mueve nunca; sin firma (hay
+    // proveedores reales que no firman) se le aplica el umbral del servidor,
+    // 5,0, y no el bajo: así un «banco» falsificado que SpamAssassin marca se va.
+    $confiable = $dominio !== '' && ccsEnDominio($dominio, $r['confiables']);
+    if ($confiable) return ccsAutenticado($h, $dominio) ? null : ccsMotivoSpam($h, max(5.0, $r['umbral']));
+    $spam = ccsMotivoSpam($h, $r['umbral']);
     if ($dir !== '' && in_array($dir, $r['remitentes'], true)) return 'remitente bloqueado';
     if ($dominio !== '' && ccsEnDominio($dominio, $r['dominios'])) return 'dominio bloqueado';
     if ($dominio !== '' && in_array($dominio, $r['gratuitos'], true)) {
         $quien = mb_strtolower($nombre . ' ' . $dir, 'UTF-8');
         foreach ($r['suplantacion'] as $s) if ($s !== '' && strpos($quien, $s) !== false) return 'suplantación';
     }
+    return $spam;
+}
+
+/** Lo que dice SpamAssassin: marcado o sobre el umbral, o null. */
+function ccsMotivoSpam(array $h, $umbral) {
     if (preg_match('/^\s*yes/i', $h['x-spam-flag'] ?? '') || preg_match('/^\s*yes/i', $h['x-spam-status'] ?? '')) return 'marcado como spam';
     $p = ccsPuntaje($h);
-    if ($p !== null && $p >= $r['umbral']) return 'puntaje de spam ' . number_format($p, 1, '.', '');
+    if ($p !== null && $p >= $umbral) return 'puntaje de spam ' . number_format($p, 1, '.', '');
     return null;
+}
+
+/** ¿El servidor verificó DKIM o DMARC del dominio del remitente (o de su dominio padre)? */
+function ccsAutenticado(array $h, $dominio) {
+    $ar = strtolower($h['authentication-results'] ?? '');
+    if ($ar === '') return false;
+    foreach ([['dkim', 'header\.d'], ['dmarc', 'header\.from']] as $p) {
+        if (!preg_match_all('/\b' . $p[0] . '=pass\b[^;]*?\b' . $p[1] . '=@?([a-z0-9.\-]+)/', $ar, $mm)) continue;
+        foreach ($mm[1] as $firmante) {
+            if ($firmante === $dominio || ccsEnDominio($dominio, [$firmante])) return true;
+        }
+    }
+    return false;
 }
 
 /** Encabezados crudos → [nombre en minúsculas => valor], desplegando líneas. */
@@ -90,6 +114,7 @@ function ccsEncabezados($crudo) {
         if (!preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $l, $m)) continue;
         $k = strtolower($m[1]);
         if (!isset($out[$k])) $out[$k] = trim($m[2]);
+        elseif ($k === 'authentication-results') $out[$k] .= '; ' . trim($m[2]);
     }
     return $out;
 }
@@ -200,7 +225,7 @@ class CcsImap {
     public function encabezados(array $uids) {
         $out = [];
         if (!$uids) return $out;
-        $campos = 'FROM SUBJECT X-SPAM-STATUS X-SPAM-SCORE X-SPAM-FLAG';
+        $campos = 'FROM SUBJECT X-SPAM-STATUS X-SPAM-SCORE X-SPAM-FLAG AUTHENTICATION-RESULTS';
         foreach ($this->cmd('UID FETCH ' . implode(',', array_map('intval', $uids)) . ' (UID BODY.PEEK[HEADER.FIELDS (' . $campos . ')])') as $r) {
             if (!preg_match('/^\* \d+ FETCH /i', $r['texto']) || !preg_match('/\bUID (\d+)/i', $r['texto'], $m)) continue;
             $out[(int) $m[1]] = ccsEncabezados($r['lits'][0] ?? '');

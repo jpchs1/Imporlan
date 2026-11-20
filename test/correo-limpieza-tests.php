@@ -26,9 +26,15 @@ check($m('X <a@nuevo.cl>', ['x-spam-score' => '6']) === null, 'un puntaje bajo e
 check($m('X <a@nuevo.cl>', ['x-spam-flag' => 'YES']) === 'marcado como spam', 'lo que SpamAssassin ya marcó también');
 
 echo "\nLo confiable nunca se mueve\n";
-check($m('Notificación Scotiabank <avisos.info@scotiabank.cl>', ['x-spam-status' => 'Yes, score=9.1']) === null, 'un aviso de transferencia del banco, aunque tenga puntaje alto');
+check($m('Notificación Scotiabank <avisos.info@scotiabank.cl>', ['x-spam-status' => 'Yes, score=9.1', 'authentication-results' => 'mx.imporlan.cl; spf=pass smtp.mailfrom=scotiabank.cl; dkim=pass header.d=scotiabank.cl']) === null, 'un aviso del banco firmado por el banco se queda, aunque tenga puntaje alto');
+check($m('Scotiabank <avisos.info@scotiabank.cl>', ['x-spam-status' => 'Yes, score=9.1']) === 'marcado como spam', 'un «banco» sin firma y marcado como spam va a spam: el From se puede falsificar');
+check($m('Scotiabank <avisos.info@scotiabank.cl>', ['x-spam-status' => 'Yes, score=9.1', 'authentication-results' => 'mx; dkim=pass header.d=estafa.com']) === 'marcado como spam', 'la firma de otro dominio no vale como la del banco');
+check($m('Global66 <empresas@sender.global66.com>', ['x-spam-score' => '30', 'authentication-results' => 'mx; dmarc=pass (p=reject) header.from=global66.com']) === null, 'DMARC del dominio padre también cuenta');
+check($m('Zaida <zaida@alltranslog.com>', ['x-spam-score' => '19']) === null, 'un proveedor confiable que no firma, con puntaje bajo 5, se queda');
+check($m('Zaida <zaida@alltranslog.com>', ['x-spam-score' => '62']) === 'puntaje de spam 6.2', 'pero sin firma y sobre 5 (el umbral del servidor) se va: puede ser falsificado');
+check($m('Scotiabank <avisos.info@scotiabank.cl>', ['x-spam-score' => '-34']) === null, 'un confiable sin firma pero con puntaje bajo se queda (las listas nunca lo bloquean)');
 check($m('Global66 Business <empresas@sender.global66.com>') === null, 'Global66 (subdominio de un confiable)');
-check($m('Alberto Lathrop E. <alathrop@lontue.com>', ['x-spam-score' => '50']) === null, 'un cliente confiable');
+check($m('Alberto Lathrop E. <alathrop@lontue.com>', ['x-spam-score' => '45']) === null, 'un cliente confiable sin firma, con puntaje alto pero bajo 5, se queda');
 check($m('Imporlan <contacto@imporlan.cl>') === null, 'los avisos del propio sistema');
 check($m('Ventas <ventas@smtpserver.cl.ejemplo.com>') === null, 'un dominio que sólo contiene el bloqueado no se confunde con él');
 check($m('sin direccion') === null, 'un remitente ilegible se deja para revisarlo a mano');
@@ -110,7 +116,7 @@ check(strpos($cli, "PHP_SAPI !== 'cli'") !== false, 'el script no se puede ejecu
 
 // Canario: si la regla de confiables dejara de mandar, el banco se movería.
 $sinConfiables = $r; $sinConfiables['confiables'] = [];
-check(ccsMotivo(['from' => 'B <avisos.info@scotiabank.cl>', 'x-spam-status' => 'Yes, score=9.1'], $sinConfiables) !== null, 'canario: la protección de los confiables es la que salva al banco');
+check(ccsMotivo(['from' => 'B <avisos.info@scotiabank.cl>', 'x-spam-status' => 'Yes, score=9.1', 'authentication-results' => 'mx; dkim=pass header.d=scotiabank.cl'], $sinConfiables) !== null, 'canario: la protección de los confiables es la que salva al banco');
 
 echo "\n$ok checks de limpieza de correo, $fallas fallas\n";
 exit($fallas ? 1 : 0);
