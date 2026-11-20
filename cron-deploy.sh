@@ -48,7 +48,20 @@ run_inspection_followups() {
   php_bin=$(command -v php 2>/dev/null) || return 0
   "$php_bin" "$job" >> /home/wwimpo/inspection-upload-followup.log 2>&1 || true
 }
-trap run_inspection_followups EXIT
+# Basura que llega a contacto@imporlan.cl: se mueve a la carpeta de spam
+# (JP, 20-nov-2026). Sólo encabezados; reglas en api/cron/correo-spam.json.
+run_correo_limpieza() {
+  local job="/home/wwimpo/imporlan.cl/api/cron/correo_limpieza.php"
+  [ -f "$job" ] || return 0
+  local php_bin
+  php_bin=$(command -v php 2>/dev/null) || return 0
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 120 "$php_bin" "$job" >> /home/wwimpo/correo-limpieza-errores.log 2>&1 || true
+  else
+    "$php_bin" "$job" >> /home/wwimpo/correo-limpieza-errores.log 2>&1 || true
+  fi
+}
+trap 'run_inspection_followups; run_correo_limpieza' EXIT
 
 command -v git >/dev/null 2>&1 || { status "ERROR: git no esta en el PATH ($PATH)"; exit 1; }
 cd "$STAGING_REPO" || { status "ERROR: no existe $STAGING_REPO"; exit 1; }
@@ -68,7 +81,7 @@ procesar_cola_al_salir() {
     fi
   fi
 }
-trap 'procesar_cola_al_salir; run_inspection_followups' EXIT
+trap 'procesar_cola_al_salir; run_inspection_followups; run_correo_limpieza' EXIT
 git fetch -q origin main || { status "ERROR: git fetch fallo"; exit 1; }
 
 TARGET=$(git rev-parse origin/main)

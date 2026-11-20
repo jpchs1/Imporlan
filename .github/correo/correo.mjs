@@ -148,6 +148,35 @@ async function leer() {
   });
 }
 
+// Encabezados de la bandeja, sin cuerpos: para revisar qué basura llega.
+async function resumen() {
+  let desde = new Date(Date.now() - 30 * 864e5);
+  if (env.DESDE) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(env.DESDE)) fallar('DESDE debe ser YYYY-MM-DD');
+    desde = new Date(`${env.DESDE}T00:00:00Z`);
+  }
+  const limite = Math.min(Math.max(Number(env.LIMITE || 200) || 200, 1), 1000);
+  await conImap(async (c) => {
+    for (const f of await c.list()) {
+      const st = await c.status(f.path, { messages: true, unseen: true }).catch(() => ({}));
+      console.log(`Carpeta ${f.path}${f.specialUse ? ' ' + f.specialUse : ''} · ${st.messages ?? '?'} correos · ${st.unseen ?? '?'} sin leer`);
+    }
+    const lock = await c.getMailboxLock('INBOX', { readOnly: true });
+    try {
+      const uids = ((await c.search({ since: desde }, { uid: true })) || []).slice(-limite);
+      console.log(`\nINBOX · ${uids.length} correo(s) desde ${desde.toISOString().slice(0, 10)}\n`);
+      if (!uids.length) return;
+      for await (const m of c.fetch(uids.join(','), { envelope: true, headers: ['x-spam-status', 'x-spam-score', 'x-spam-flag', 'authentication-results', 'list-unsubscribe', 'reply-to'] }, { uid: true })) {
+        const h = m.headers?.toString() || '';
+        const g = (n) => (h.match(new RegExp(`^${n}:\\s*([^\\r\\n]*)`, 'im')) || [])[1] || '';
+        const de = m.envelope?.from?.[0] || {};
+        const auth = (h.match(/(spf|dkim|dmarc)=\w+/gi) || []).join(' ');
+        console.log([m.uid, m.envelope?.date?.toISOString?.().slice(0, 16), `${de.name || ''} <${de.address || ''}>`, (m.envelope?.subject || '').slice(0, 90), `spam=${g('x-spam-status').split(/[ ,]/)[0] || '-'} score=${g('x-spam-score') || (g('x-spam-status').match(/score=([\d.-]+)/) || [])[1] || '-'}`, auth, g('list-unsubscribe') ? 'unsub' : ''].join(' | '));
+      }
+    } finally { lock.release(); }
+  });
+}
+
 async function enviar() {
   let d;
   try { d = JSON.parse(Buffer.from(env.DATOS || '', 'base64').toString('utf8')); } catch { fallar('DATOS no es base64 de un JSON'); }
@@ -207,5 +236,6 @@ async function enviar() {
 if (!PASS) fallar(`falta el secret ${CUENTAS[CUENTA].secret}`);
 console.log(`Cuenta: ${USER}`);
 if (env.ACCION === 'leer') await leer();
+else if (env.ACCION === 'resumen') await resumen();
 else if (env.ACCION === 'enviar') await enviar();
-else fallar('ACCION debe ser leer o enviar');
+else fallar('ACCION debe ser leer, resumen o enviar');

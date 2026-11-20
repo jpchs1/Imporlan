@@ -261,6 +261,23 @@ solo (`MAIL_BCC`); no quitarla. Y va **firmado por Juan Pablo**, con su
 firma gráfica (`.github/correo/firma-jp.jpg`, remitente «Juan Pablo · Imporlan»);
 el workflow la pone sola. Escribir el texto en su nombre, en primera persona.
 
+### Basura en la bandeja (JP, 20-nov-2026)
+
+«Limpia su basura y deja todo para que no vuelva a llegar spam a la bandeja de
+entrada.» El cron del hosting (`cron-deploy.sh`, cada 5 min) corre
+`api/cron/correo_limpieza.php`: lee sólo encabezados y **mueve** (nunca borra)
+a `INBOX.spam` lo que calza con `api/cron/correo-spam.json`:
+dominios/remitentes bloqueados, empresas suplantadas desde Gmail/Hotmail y
+puntaje de SpamAssassin ≥ 1,5 (el del servidor manda a spam recién con 5,0).
+`confiables` (bancos, Global66, clientes, logística, el propio sistema) nunca
+cae por las listas; como el From se puede falsificar, sin firma DKIM/DMARC de
+su dominio se le aplica el umbral del servidor (5,0) en vez del bajo. Una vez al día revisa 60 días. Estado público sin datos:
+https://www.imporlan.cl/.imporlan_mail_status; detalle en
+`/home/wwimpo/correo-limpieza.log`. Para ver la bandeja sin abrir correos:
+`correo.yml` con `accion: resumen`. Si llega basura nueva, se agrega su
+dominio a la lista; si algo bueno cae en spam, a `confiables`. Pruebas:
+`test/correo-limpieza-tests.php`.
+
 ## Correo contacto@deckeva.cl
 
 Se envía con el mismo workflow, `cuenta: deckeva` (secret `DECKEVA_MAIL_PASS`
