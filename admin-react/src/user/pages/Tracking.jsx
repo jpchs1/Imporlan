@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap 
 import 'leaflet/dist/leaflet.css';
 import { getFeaturedVessels, getVesselDetail, getVesselPositions, refreshVesselPosition } from '../api';
 import { cn } from '../../shared/lib/utils';
+import { NOTA_DESADUANAMIENTO } from '../../shared/lib/importacion';
 import { fmtDateLarga, fmtRelativo } from '../../shared/lib/format';
 import {
   Card, Button, PageHeader, StatusBadge, FilterChips, SearchInput, EmptyState, ErrorState, Skeleton, DescriptionList, Callout,
@@ -315,6 +316,9 @@ export default function Tracking() {
         title="Seguimiento"
         description="Dónde va el barco que trae tu embarcación: ruta, velocidad y fecha estimada de llegada."
       />
+
+      {/* JP, 20-nov-2026: siempre se informa el plazo habitual del desaduanamiento. */}
+      <Callout tone="info" compact className="mb-4">Al llegar a Chile: {NOTA_DESADUANAMIENTO.charAt(0).toLowerCase() + NOTA_DESADUANAMIENTO.slice(1)}</Callout>
 
       {!cargando && !error && barcoDelExpediente && !vessels.some(v => String(v.id) === barcoDelExpediente) && <Callout tone="info" title="El seguimiento de este expediente todavía no está disponible" className="mb-4" action={<Button size="sm" variant="secondary" onClick={recargar}>Reintentar</Button>}>El equipo debe confirmar el barco asociado a tu envío. Te avisamos cuando puedas consultar la ruta de tu embarcación.</Callout>}
 

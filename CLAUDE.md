@@ -75,6 +75,16 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   `import_evidence`, visible para el cliente bajo su hito. Los informa el
   equipo (admin, «Informar con fotos») o David desde su link (secciones
   «Pickup» / «Port delivery», `opuInformarHito`).
+- **Embarque rumbo a Chile (JP, 20-nov-2026):** el hito «Embarcada rumbo a
+  Chile» exige el **nombre del barco**, lo marque el equipo (admin) o David
+  (sección «Shipped to Chile» de su link). La nave se busca o se crea en el
+  seguimiento (`vessels`) y queda en `orders.vessel_id`, para que el cliente la
+  siga en su panel. El IMO o MMSI es opcional, pero sin él el barco no aparece
+  en el mapa: el equipo lo completa en Seguimiento del admin. Reglas en
+  `api/embarque_barco.php`.
+- **Desaduanamiento:** siempre se le informa al cliente que demora, en
+  promedio, **entre 5 y 9 días aproximadamente** (`impNotaDesaduanamiento()` y
+  `NOTA_DESADUANAMIENTO`): en los avisos de embarque y aduana y en su panel.
 - **Inspección: el equipo carga el reporte, el cliente decide** (JP: «nosotros
   cumplimos con cargarlo, pero el cliente es el que toma la decisión»).
   - El equipo carga el reporte con `admin_inspeccion_reporte`. El PDF del

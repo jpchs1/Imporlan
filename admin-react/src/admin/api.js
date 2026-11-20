@@ -127,10 +127,11 @@ export const conservarPrecioAcordado = (orderId, precio, correctPaymentNotice) =
 export const getImportDataAdmin = (orderId) => request(`${API_BASE}/orders_api.php?action=admin_import_data&order_id=${orderId}`);
 // `fileIds`: las fotos del retiro o de la entrega en puerto (obligatorias para esos hitos).
 // `clientMessage`: unas líneas del equipo para el correo del avance (opcional).
-export const setImportStep = (orderId, step, done, notifyClient = false, fileIds = [], clientMessage = '') =>
+// `vessel`: {name, imo, mmsi} del barco, obligatorio para «Embarcada rumbo a Chile».
+export const setImportStep = (orderId, step, done, notifyClient = false, fileIds = [], clientMessage = '', vessel = null) =>
   request(`${API_BASE}/orders_api.php?action=admin_set_import_step`, {
     method: 'POST',
-    body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient, file_ids: fileIds, client_message: clientMessage }),
+    body: JSON.stringify({ order_id: orderId, step, done, notify_client: notifyClient, file_ids: fileIds, client_message: clientMessage, ...(vessel ? { vessel } : {}) }),
     timeoutMs: 45000,
   });
 // El equipo registra que el cliente DECLINÓ la lancha tras la inspección (se

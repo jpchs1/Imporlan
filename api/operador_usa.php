@@ -50,7 +50,7 @@ define('OPU_DIAS_RECORDATORIO', 4);
 
 /** Hitos que dependen de EE. UU. (después de éstos, lo hace el equipo en Chile). */
 function opuHitosUsa() {
-    return ['disponibilidad', 'inspeccion', 'compra', 'retiro', 'transporte'];
+    return ['disponibilidad', 'inspeccion', 'compra', 'retiro', 'transporte', 'embarque'];
 }
 
 /** Nombre de cada hito en inglés, para David. */
@@ -76,6 +76,7 @@ function opuPedidoPara($hito, $priceRetained = false) {
         'compra' => 'Please move forward with the purchase. Send photos of the signed bill of sale and the title when ready.',
         'retiro' => 'Please coordinate the pickup with the carrier. When the boat is picked up, report it in the "Pickup" section of your private link, with photos of the pickup.',
         'transporte' => 'Once the boat is delivered at the US port, report it in the "Port delivery" section of your private link, with drop-off photos and the dock receipt if you have it. This is a key milestone: please report it the same day.',
+        'embarque' => 'When the boat is loaded and the vessel sails to Chile, report it in the "Shipped to Chile" section of your private link with the name of the vessel (and its IMO number if you have it, from the booking or bill of lading). The client follows the vessel online with that name.',
     ];
     return $p[$hito] ?? null;
 }
@@ -711,6 +712,25 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
                 . '<button type="submit">' . opuEsc($cf['boton']) . '</button></form></section>';
         }
 
+        // Embarque rumbo a Chile: el nombre del barco es obligatorio; el cliente lo sigue en línea (JP, 20-nov-2026).
+        if ($hito === 'embarque') {
+            $v = is_array($priceDraft) ? $priceDraft : [];
+            $h .= '<section class="card milestone" id="milestone"><span class="tag">Shipped to Chile</span><h2>Report the shipment to Chile</h2>'
+                . '<p class="mute" style="margin:0 0 12px">When the boat is loaded and the vessel sails, report it here with the <strong>name of the vessel</strong>. The client follows the vessel online with that name. Add the IMO number if you have it (booking or bill of lading): it shows the vessel live on the map.</p>'
+                . '<form method="post" action="?r=hito&t=' . opuEsc($order['usa_token']) . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Sending… please keep this page open\';">'
+                . '<input type="hidden" name="hito" value="embarque"><input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
+                . '<label for="vessel_name">Vessel name (required)</label>'
+                . '<input id="vessel_name" name="vessel_name" required minlength="2" maxlength="80" autocomplete="off" value="' . opuEsc((string) ($v['vessel_name'] ?? '')) . '" placeholder="e.g. MSC ANNA">'
+                . '<label for="vessel_imo" style="margin-top:14px">IMO number (optional, 7 digits)</label>'
+                . '<input id="vessel_imo" name="vessel_imo" inputmode="numeric" maxlength="10" autocomplete="off" value="' . opuEsc((string) ($v['vessel_imo'] ?? '')) . '" placeholder="e.g. 9454448">'
+                . '<label for="milestone_files" style="margin-top:14px">Photos or the bill of lading (optional)</label>'
+                . '<input id="milestone_files" type="file" name="files[]" multiple accept="image/*,video/*,application/pdf">'
+                . '<label for="milestone_note" style="margin-top:14px">Note for the Imporlan team (optional)</label>'
+                . '<textarea id="milestone_note" name="note" maxlength="3000" style="min-height:80px" placeholder="Shipping line, departure date, expected arrival in Chile…"></textarea>'
+                . '<p class="mute" style="margin:6px 0 0">Photos and videos are added to the client\'s file; the note and PDFs stay with the Imporlan team.</p>'
+                . '<button type="submit">Report shipment</button></form></section>';
+        }
+
         $h .= '<section class="card"><h2>Send an update</h2>'
             . '<form method="post" action="' . $url . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
             . '<input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
@@ -773,6 +793,58 @@ function opuInformarHito($pdo, $order, $hito, $nota, array $archivos, $mover = '
     opuAvisarHitoEquipo($pdo, $order, $hito, $nota, count($ids), count($res['files']) - count($visuales), $pago);
     $en = opuHitosEn();
     return ['ok' => true, 'aviso' => 'Thank you. «' . $en[$hito] . '» is registered with ' . count($ids) . ' photo' . (count($ids) === 1 ? '' : 's') . '. The Imporlan team and the client have been notified.'];
+}
+
+/**
+ * David informa el embarque rumbo a Chile: el nombre del barco es obligatorio
+ * (y el IMO, si lo tiene). La nave queda asociada al expediente para que el
+ * cliente la siga; fotos y BL son opcionales (JP, 20-nov-2026).
+ */
+function opuInformarEmbarque($pdo, $order, $post, array $archivos, $mover = 'move_uploaded_file') {
+    opuAsegurar($pdo);
+    require_once __DIR__ . '/embarque_barco.php';
+    if (!impTieneEleccion($order) || opuHitoEnCurso($order) !== 'embarque') {
+        return ['ok' => false, 'error' => 'This step is not the current one anymore. Please reload the page.'];
+    }
+    if (impValidarCambioHito($order, 'embarque', true)) return ['ok' => false, 'error' => 'This step cannot be reported yet. Please contact the Imporlan team.'];
+    [$datos, $error] = impBarcoValidar(['name' => $post['vessel_name'] ?? '', 'imo' => $post['vessel_imo'] ?? '', 'mmsi' => $post['vessel_mmsi'] ?? ''], true);
+    if ($error) return ['ok' => false, 'error' => $error];
+    $nota = is_string($post['note'] ?? null) ? $post['note'] : '';
+    $hayArchivos = false;
+    foreach ($archivos as $f) if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) $hayArchivos = true;
+    $fotos = 0;
+    $rechazados = [];
+    if ($hayArchivos || trim($nota) !== '') {
+        $res = opuGuardarActualizacion($pdo, $order, $nota, $archivos, $mover, 0, [], false);
+        if (!$res['update_id']) return ['ok' => false, 'error' => $res['errores'] ? implode(' ', $res['errores']) : 'The files could not be saved. Please try again.'];
+        $fotos = count(array_filter($res['files'], function ($g) { return in_array($g['category'], ['image', 'video'], true); }));
+        $rechazados = $res['errores'];
+    }
+    $barco = impBarcoAsignar($pdo, $order, $datos, 'operador');
+    require_once __DIR__ . '/orders_api.php';
+    impAplicarHito($pdo, opuOrden($pdo, $order['id']), 'embarque', true, true, 'operador', opuOperador()['email'], ['fotos' => $fotos]);
+    opuAvisarEmbarqueEquipo($pdo, $order, $barco, $nota);
+    // El embarque queda registrado igual (lo esencial es el barco), pero David sabe qué archivo no entró.
+    $aviso = 'Thank you. «Shipped to Chile» is registered with the vessel ' . $barco['name'] . '. The Imporlan team and the client have been notified; the client can follow the vessel online.';
+    if ($rechazados) $aviso .= ' Some files were not saved: ' . implode(' ', $rechazados) . ' Please send them again with «Send an update».';
+    return ['ok' => true, 'aviso' => $aviso, 'rechazados' => $rechazados];
+}
+
+/** Aviso al equipo: David informó el embarque (barco, y si falta el IMO para verlo en el mapa). */
+function opuAvisarEmbarqueEquipo($pdo, $order, $barco, $nota) {
+    try {
+        require_once __DIR__ . '/email_service.php';
+        $titulo = impTituloLancha(impLeerLink($pdo, $order['id'], $order['chosen_link_id'] ?? 0));
+        $cuerpo = '<p style="margin:0 0 10px">' . opuEsc(opuOperador()['nombre']) . ' informó <strong>Embarcada rumbo a Chile</strong> en el expediente <strong>' . opuEsc($order['order_number'] ?? '') . '</strong>.</p>'
+            . '<p style="margin:0 0 10px">Barco: <strong>' . opuEsc($barco['name']) . '</strong>' . ($barco['imo'] ? ' · IMO ' . opuEsc($barco['imo']) : '') . ($barco['mmsi'] ? ' · MMSI ' . opuEsc($barco['mmsi']) : '') . '. Quedó asociado al expediente y el cliente ya lo ve en Seguimiento.</p>'
+            . ($barco['en_vivo'] ? '' : '<p style="margin:0 0 10px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px">Falta el IMO o el MMSI del barco: sin él no se ve su posición en el mapa. Complétalo en <a href="https://www.imporlan.cl/panel/admin/#/tracking">Seguimiento</a>.</p>')
+            . ($nota !== '' ? '<div style="padding:12px 14px;background:#f8fafc;border-left:4px solid #0e7490;border-radius:6px;white-space:pre-wrap"><strong>Nota de David (interna):</strong><br>' . opuEsc($nota) . '</div>' : '')
+            . opuBoton('Abrir expediente en el admin', 'https://www.imporlan.cl/panel/admin/#/orders?id=' . intval($order['id']));
+        (new EmailService())->sendCustomEmail('contacto@imporlan.cl', opuOperador()['nombre'] . ' informó: Rumbo a Chile · ' . ($order['order_number'] ?? '') . ' · ' . $titulo,
+            opuHtmlCorreo($titulo, $cuerpo, 'equipo', 'Embarcada rumbo a Chile'));
+    } catch (\Throwable $e) {
+        error_log('opuAvisarEmbarqueEquipo: ' . $e->getMessage());
+    }
 }
 
 /** Aviso al equipo: David informó el retiro o la entrega en puerto. */
@@ -902,6 +974,11 @@ if (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
             }
             if (!isset($_POST['boat_link_id']) || intval($_POST['boat_link_id']) !== intval($order['chosen_link_id'] ?? 0)) {
                 echo opuPaginaPortal($pdo, $order, '', ['The selected boat has changed. Please review the current boat.']);
+                exit;
+            }
+            if (($_POST['hito'] ?? '') === 'embarque') {
+                $res = opuInformarEmbarque($pdo, $order, $_POST, opuArchivosSubidos());
+                echo opuPaginaPortal($pdo, opuOrden($pdo, $order['id']), $res['ok'] ? $res['aviso'] : '', $res['ok'] ? [] : [$res['error']], $res['ok'] ? [] : $_POST);
                 exit;
             }
             $res = opuInformarHito($pdo, $order, (string) ($_POST['hito'] ?? ''), $_POST['note'] ?? '', opuArchivosSubidos());

@@ -18,6 +18,9 @@ import { paymentBalance, proofPending, confirmedCredits, creditHasProof, payment
  *   enCurso         la frase mientras se hace
  *   enCursoCorto    lo mismo en dos o tres palabras, para un chip
  */
+/** Plazo habitual del desaduanamiento que ve el cliente (JP, 20-nov-2026). */
+export const NOTA_DESADUANAMIENTO = 'El desaduanamiento en Chile demora, en promedio, entre 5 y 9 días aproximadamente.';
+
 export const HITOS = [
   {
     id: 'disponibilidad',
@@ -70,6 +73,8 @@ export const HITOS = [
     label: 'Embarcada rumbo a Chile',
     corto: 'Rumbo a Chile',
     etapa: 5,
+    // JP, 20-nov-2026: se marca con el nombre del barco (obligatorio), para que el cliente lo siga en línea.
+    conBarco: true,
     enCurso: 'Coordinamos el embarque de la lancha en el puerto de EE. UU. rumbo a Chile.',
     enCursoCorto: 'Coordinando el embarque',
   },
@@ -78,7 +83,7 @@ export const HITOS = [
     label: 'Aduana e internación completadas',
     corto: 'Aduana completada',
     etapa: 5,
-    enCurso: 'Seguimos el viaje a Chile y preparamos los trámites de aduana e internación.',
+    enCurso: `Seguimos el viaje a Chile y preparamos los trámites de aduana e internación. ${NOTA_DESADUANAMIENTO}`,
     enCursoCorto: 'Viaje a Chile y aduana',
   },
   {
