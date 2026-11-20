@@ -16,6 +16,7 @@ import ReporteListo from './ReporteListo';
 import EstadoImportacion from './EstadoImportacion';
 import { Novedades, GaleriaUsa } from './NovedadesImportacion';
 import { tituloEmbarcacion, specsEmbarcacion, urlAbsoluta, whatsappExpediente, rutaPagar, archivosDesdeUsa, esActivo } from './lib';
+import TeToca, { ATENCION } from '../../../shared/components/TeToca';
 
 /**
  * «Tu importación»: lo primero que ve el cliente cuando ya eligió. Arriba,
@@ -283,6 +284,7 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
   let tituloQue;
   let detalle;
   let accion = null;
+  let teToca = false; // JP, 20-nov-2026: lo que le toca al cliente titila
 
   if (sigue.tipo === 'cerrado') {
     tituloQue = 'Este expediente está cerrado';
@@ -301,11 +303,13 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     icono = FileSearch;
     tono = 'brand';
     tituloQue = 'Te toca: revisa el reporte y decide';
+    teToca = true;
     detalle = `El reporte de la inspección de ${titulo} ya está, en inglés y en español. Léelo con calma; con lo que decidas, seguimos.`;
   } else if (sigue.tipo === 'declinada') {
     icono = TriangleAlert;
     tono = 'warning';
     tituloQue = 'Te toca: elige otra lancha o pide la devolución';
+    teToca = true;
     detalle = `No sigues con ${titulo}. Tienes los dos caminos aquí abajo; con el que elijas, seguimos.`;
   } else if (sigue.tipo === 'devolucion') {
     icono = Banknote;
@@ -316,18 +320,21 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     tono = 'warning';
     tituloQue = 'Te toca: completa tus datos y sube tu cédula';
     detalle = 'Los necesitamos para comprar e importar la lancha a tu nombre. Tu cédula es privada: sólo la ve el equipo.';
-    accion = <Button icon={User} onClick={onCompletarDatos}>Completar mis datos</Button>;
+    accion = <Button icon={User} onClick={onCompletarDatos} className={ATENCION}>Completar mis datos</Button>;
+    teToca = true;
   } else if (sigue.tipo === 'respaldo') {
     icono = FileSearch;
     tituloQue = `Adjunta el respaldo del Pago ${sigue.pago.n}`;
     detalle = 'Este dinero ya está registrado. Sólo falta su comprobante para completar la conciliación y continuar con la compra. No repitas la transferencia.';
-    accion = <BotonEnlace to={`/payments?comprobante=${encodeURIComponent(sigue.pago.cobro.id)}`} variant="secondary" icon={FileSearch}>Adjuntar comprobante</BotonEnlace>;
+    accion = <BotonEnlace to={`/payments?comprobante=${encodeURIComponent(sigue.pago.cobro.id)}`} variant="primary" icon={FileSearch} className={ATENCION}>Adjuntar comprobante</BotonEnlace>;
+    teToca = true;
   } else if (sigue.tipo === 'reemplazo_comprobante') {
     icono = FileSearch;
     tono = 'warning';
     tituloQue = 'Necesitamos otro comprobante de tu transferencia';
     detalle = 'Revisa la observación del equipo y adjunta el comprobante corregido en este mismo pago.';
-    accion = <BotonEnlace to={rutaPagar(sigue.pago.cobro)} variant="secondary" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>;
+    accion = <BotonEnlace to={rutaPagar(sigue.pago.cobro)} variant="primary" icon={FileSearch} className={ATENCION}>Reemplazar comprobante</BotonEnlace>;
+    teToca = true;
   } else if (sigue.tipo === 'comprobante') {
     icono = FileSearch;
     tituloQue = 'Comprobante recibido: estamos revisando tu pago';
@@ -347,7 +354,8 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
     tituloQue = pago.n ? `Te toca: pagar el Pago ${pago.n} · ${pago.pct}%` : `Te toca: pagar ${cobro.title}`;
     tono = 'brand';
     detalle = `${saldo.confirmed > 0 ? `Ya abonaste ${fmtCLP(saldo.confirmed)}. Resta ` : ''}${fmtCLP(saldo.remaining)} · elige el medio de pago y, si transfieres, adjunta el comprobante para que podamos confirmar el ingreso.`;
-    accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt}>{saldo.confirmed > 0 ? 'Abonar saldo' : 'Pagar'} {fmtCLP(saldo.remaining)}</BotonEnlace>;
+    accion = <BotonEnlace to={rutaPagar(cobro)} variant="primary" icon={Receipt} className={ATENCION}>{saldo.confirmed > 0 ? 'Abonar saldo' : 'Pagar'} {fmtCLP(saldo.remaining)}</BotonEnlace>;
+    teToca = true;
   } else if (sigue.tipo === 'precio' || (sigue.tipo === 'hito' && sigue.hito.id === 'inspeccion' && esperaPrecio)) {
     icono = CircleCheck;
     tituloQue = 'Aprobaste el reporte: confirmamos el precio final';
@@ -367,9 +375,9 @@ function QueSigue({ sigue, agente, titulo, datosPendientes, onCompletarDatos, es
 
   const Icono = icono;
   return (
-    <div className={cn('import-action client-import-action', `import-action--${tono}`)}>
+    <div className={cn('import-action client-import-action', `import-action--${tono}`, teToca && tono !== 'warning' && 'import-action--te-toca')}>
       <span className="import-action__icon" aria-hidden="true"><Icono size={20} /></span>
-      <div className="import-action__body" role="status"><p className="import-kicker">Qué sigue · {accion ? 'Tu próxima acción' : 'Equipo Imporlan'}</p><h3>{tituloQue}</h3><p>{detalle}</p></div>
+      <div className="import-action__body" role="status"><p className="import-kicker">{teToca ? <TeToca tone={tono === 'warning' ? 'warning' : 'brand'}>Tu próxima acción</TeToca> : <>Qué sigue · {accion ? 'Tu próxima acción' : 'Equipo Imporlan'}</>}</p><h3>{tituloQue}</h3><p>{detalle}</p></div>
       {accion && <div className="import-action__cta">{accion}</div>}
     </div>
   );

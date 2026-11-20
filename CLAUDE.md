@@ -203,6 +203,23 @@ el sistema es lo que vale para todos los chats, y esto es sobre éste.
   rechaza, vuelve a solicitarse. La solicitud de pago conserva su enlace
   `?pagar=<id>` y cobra sólo el saldo vigente.
 
+## Lo que toca hacer, titila (JP, 20-nov-2026)
+
+- «Que vaya quedando como intermitente la parte donde hay que intervenir para
+  agregar, completar, subir (cargar) fácilmente lo que hay que hacer.» El paso
+  en que le toca actuar a quien mira la pantalla lleva el chip `TeToca` y su
+  botón la clase `ATENCION` (`shared/components/TeToca.jsx`,
+  `shared/styles/import-process.css`); en el link de David, `.milestone` y
+  «Report it now ↓» (`api/operador_usa.php`).
+- **Un solo pulso por acción**, y sólo cuando le toca a quien mira (equipo en
+  el admin, cliente en su panel, David en su link). Si el botón late, el punto
+  del chip queda fijo (`pulsa` sólo cuando no hay botón). Lo que espera a otro
+  no titila: elegir otra lancha es del cliente, aprobar el precio es de Juan
+  Pablo (lo marca su bloque), y en el link de David las esperas y los hitos de
+  Chile no se marcan. Nunca se hace titilar una decisión del cliente (aprobar/declinar la
+  inspección): se destaca leer el reporte, no la elección. Con
+  `prefers-reduced-motion` queda un anillo fijo, sin animación.
+
 ## Compra y conciliación (JP, 2-nov-2026)
 
 - Antes de autorizar o cerrar la compra, los Pagos 1 y 2 del plan vigente

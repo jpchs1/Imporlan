@@ -1,0 +1,1 @@
+import{t as e,v as t}from"./utils-Ehq2xnes.js";var n=t(),r=`atencion`;function i({children:t=`Te toca`,tone:r=`brand`,pulsa:i=!1,className:a}){return(0,n.jsxs)(`span`,{className:e(`te-toca`,r===`warning`&&`te-toca--warning`,i&&`te-toca--pulsa`,a),children:[(0,n.jsx)(`span`,{className:`te-toca__punto`,"aria-hidden":`true`}),t]})}export{i as n,r as t};

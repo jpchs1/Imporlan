@@ -17,6 +17,7 @@ import { openFile } from '../../shared/lib/file-download';
 import PaymentCredits from '../../shared/components/PaymentCredits';
 import { paymentBalance, creditHasProof, receiptLinked } from '../../shared/lib/payment-balance';
 import { pagoEnRevision, comprobanteRechazado } from '../../shared/lib/importacion';
+import { ATENCION } from '../../shared/components/TeToca';
 
 // These side effects run only from the explicit payment action.
 function paymentSessionId(id) { return `pr_${id}_${Date.now()}`; }
@@ -466,7 +467,7 @@ function PendienteCard({ req, onPay, expediente }) {
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-3 sm:shrink-0">
         <Money clp={balance.remaining} usd={balance.confirmed === 0 && req.amount_usd > 0 ? req.amount_usd : undefined} size="xl" align="right" />
         {balance.confirmed > 0 && <p className="text-xs text-success">Abonado: {fmtCLP(balance.confirmed)} · saldo restante</p>}
-        <Button onClick={() => onPay(req)} icon={Receipt} variant={pagoEnRevision(req) || comprobanteRechazado(req) ? 'secondary' : 'primary'}>{comprobanteRechazado(req) ? 'Reemplazar comprobante' : pagoEnRevision(req) ? 'Ver revisión' : 'Pagar'}</Button>
+        <Button onClick={() => onPay(req)} icon={Receipt} variant={pagoEnRevision(req) || comprobanteRechazado(req) ? 'secondary' : 'primary'} className={req.status === 'pending' && !pagoEnRevision(req) ? ATENCION : undefined}>{comprobanteRechazado(req) ? 'Reemplazar comprobante' : pagoEnRevision(req) ? 'Ver revisión' : 'Pagar'}</Button>
       </div>
     </Card>
   );

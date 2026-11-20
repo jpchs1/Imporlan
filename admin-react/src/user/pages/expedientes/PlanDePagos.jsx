@@ -95,7 +95,7 @@ function FilaPago({ pago, eleccion, noApta, devolucion }) {
       <p>{detalle}</p>
       {!pagado && saldo.confirmed > 0 && <p>Abonado: {fmtCLP(saldo.confirmed)} · resta {fmtCLP(saldo.remaining)}</p>}
       {porPagar && <BotonEnlace to={rutaPagar(cobro)} variant="primary" size="sm" icon={Receipt}>{saldo.confirmed > 0 ? `Abonar saldo ${fmtCLP(saldo.remaining)}` : `Realizar Pago ${n}`}</BotonEnlace>}
-      {reemplazo && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>}
+      {reemplazo && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="primary" size="sm" icon={FileSearch}>Reemplazar comprobante</BotonEnlace>}
       {revision && !noApta && <BotonEnlace to={rutaPagar(cobro)} variant="secondary" size="sm" icon={FileSearch}>Ver comprobante</BotonEnlace>}
       {pagado && <BotonEnlace to="/payments" variant="secondary" size="sm" icon={Receipt}>Ver registro y comprobantes</BotonEnlace>}
     </div>

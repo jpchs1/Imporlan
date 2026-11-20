@@ -792,6 +792,7 @@ ok(count($eq) === 1 && strpos($eq[0]['html'], 'Pago 3') !== false && strpos($eq[
 ok(count(aDavid()) === 1 && strpos(aDavid()[0]['html'], 'Shipped to Chile') !== false && strpos(aDavid()[0]['html'], 'name of the vessel') !== false && sinCliente(aDavid()[0]['html']), 'a David se le pide informar el embarque con el nombre del barco, sin datos del cliente');
 $portal = opuPaginaPortal($BD, orden(35));
 ok(strpos($portal, 'Report port delivery') === false && strpos($portal, 'name="vessel_name"') !== false && strpos($portal, 'Report shipment') !== false, 'informada la entrega en puerto, su link ofrece el embarque, con el nombre del barco');
+ok(strpos($portal, 'href="#milestone"') !== false && strpos($portal, 'class="blink"') !== false && substr_count($portal, 'infinite') === 1, 'lo que David debe informar se marca, con una sola animación (el formulario)');
 
 echo "\nEmbarque rumbo a Chile: el nombre del barco es obligatorio (JP, 20-nov-2026)\n";
 $BD->exec('DELETE FROM vessels');
@@ -825,7 +826,9 @@ $eq = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'c
 ok(count($eq) === 1 && strpos($eq[0]['html'], 'Hoegh Trigger') !== false && strpos($eq[0]['html'], 'Falta el IMO') !== false && strpos($eq[0]['html'], 'Savannah') !== false, 'el equipo recibe el barco, la nota de David y el aviso de completar el IMO para el mapa');
 $cli = array_values(array_filter($CORREOS, function ($m) { return $m['to'] === 'alberto@example.com'; }));
 ok(count($cli) === 1 && strpos($cli[0]['html'], 'Hoegh Trigger') !== false && strpos($cli[0]['html'], 'apenas quede identificado') !== false, 'el cliente ve el barco en su seguimiento aunque todavía falte el IMO');
-ok(strpos(opuPaginaPortal($BD, orden(35)), 'name="vessel_name"') === false, 'informado el embarque, el link de David ya no lo ofrece');
+$portal = opuPaginaPortal($BD, orden(35));
+ok(strpos($portal, 'name="vessel_name"') === false, 'informado el embarque, el link de David ya no lo ofrece');
+ok(strpos($portal, 'class="blink"') === false && strpos($portal, 'class="card milestone"') === false, 'aduana y entrega son del equipo en Chile: en el link de David nada titila');
 // Aduana: el correo también lleva el plazo del desaduanamiento.
 $CORREOS = [];
 llamar('adminSetImportStep', $admin, ['order_id' => 35, 'step' => 'aduana', 'done' => true, 'notify_client' => true]);

@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { hitoPorId } from '../../../shared/lib/importacion';
 import { getOperacionUsa, pedirActualizacionUsa, compartirActualizacionUsa, nuevoLinkUsa, revisarPrecioInspeccion, conservarPrecioAcordado, autorizarCompraUsa } from '../../api';
 import { categoriaArchivo } from '../../components/useExpedienteFiles';
+import TeToca, { ATENCION } from '../../../shared/components/TeToca';
 
 /**
  * Operación en EE. UU.: lo que manda David Morris (api/operador_usa.php).
@@ -283,7 +284,8 @@ function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDe
     <section aria-labelledby="inspection-price-title" className="rounded-lg border border-line bg-surface p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="inspection-price-title" className="text-sm font-semibold text-ink-900">Precio de compra tras la inspección</h4>
-        <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.retained ? 'Acuerdo conservado' : precio.ready ? 'Aprobado por Juan Pablo' : precio.confirmed ? puedeAprobar ? 'Pendiente de tu aprobación' : 'Pendiente de Juan Pablo' : labels[precio.status] || 'Por confirmar'}</Badge>
+        {/* Te toca: David ya respondió y falta tu aprobación (titila). */}
+        {puedeAprobar && precio.confirmed && !precio.ready && !precio.retained ? <TeToca>Pendiente de tu aprobación</TeToca> : <Badge tone={precio.ready ? 'success' : 'warning'} size="sm">{precio.retained ? 'Acuerdo conservado' : precio.ready ? 'Aprobado por Juan Pablo' : precio.confirmed ? puedeAprobar ? 'Pendiente de tu aprobación' : 'Pendiente de Juan Pablo' : labels[precio.status] || 'Por confirmar'}</Badge>}
       </div>
       {precio.retained && <Callout tone={precio.ready ? 'info' : 'warning'} compact>Se conservan los precios acordados. Los correos de validación de precio están desactivados sólo para esta operación.{!precio.ready && ' La cotización cambió después: vuelve a revisar el acuerdo.'}</Callout>}
       <p className="text-13 text-ink-500">{nombre} envía una propuesta interna. Sólo Juan Pablo puede aprobarla o editar el valor; el cliente no recibe esta respuesta.</p>
@@ -302,7 +304,7 @@ function PrecioTrasInspeccion({ precio, nombre, orderId, onRefresh, onRecargarDe
         <p className="text-xs text-ink-500">{precio.last_sent_at ? `Último correo: ${fechaAvisoInspeccion(precio.last_sent_at)}` : 'Primer correo pendiente del seguimiento automático'}</p>
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={saving}>Actualizar respuesta</Button>
-          {puedeAprobar && precio.confirmed && !precio.retained && <Button size="sm" variant="secondary" onClick={abrirRevision} disabled={saving}>{precio.ready ? 'Editar valor aprobado' : 'Revisar y aprobar precio'}</Button>}
+          {puedeAprobar && precio.confirmed && !precio.retained && <Button size="sm" variant={precio.ready ? 'secondary' : 'primary'} className={precio.ready ? undefined : ATENCION} onClick={abrirRevision} disabled={saving}>{precio.ready ? 'Editar valor aprobado' : 'Revisar y aprobar precio'}</Button>}
           {puedeAprobar && precio.agreement && (!precio.retained || !precio.ready || clienteAprobo) && <Button size="sm" variant="secondary" onClick={() => setConservando(true)} disabled={saving}>Conservar precios acordados</Button>}
           {puedeAprobar && precio.ready && onCotizarAprobado && <Button size="sm" onClick={() => onCotizarAprobado(precio.approved_cents / 100)}>Usar valor aprobado en cotizador</Button>}
         </div>
