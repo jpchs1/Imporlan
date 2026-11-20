@@ -5,6 +5,7 @@ import { FileSearch, Languages, ExternalLink, CircleCheck, Search, Clock, Messag
 import { urlOriginal } from '../../../shared/lib/reporte-inspeccion';
 import { BotonEnlace } from '../inicio/BotonEnlace';
 import { whatsappExpediente } from './lib';
+import { ATENCION } from '../../../shared/components/TeToca';
 
 /**
  * «El reporte de la inspección está listo»: la tarjeta principal de «Tu
@@ -42,7 +43,7 @@ export default function ReporteListo({ order, eleccion, titulo, reporte, pago1, 
             Viene en inglés y lo tradujimos al español para que lo leas con calma. Con lo que decidas, seguimos: no hay apuro ni una respuesta correcta.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="lg" icon={Languages} onClick={onLeer}>Leer el reporte en español</Button>
+            <Button size="lg" icon={Languages} onClick={onLeer} className={ATENCION}>Leer el reporte en español</Button>
             {original && urlOriginal(original) && (
               <BotonEnlace href={urlOriginal(original)} size="lg" icon={ExternalLink}>Ver original (inglés)</BotonEnlace>
             )}

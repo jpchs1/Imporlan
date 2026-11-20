@@ -664,6 +664,13 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
             .err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:12px 14px;margin-bottom:16px}
             .upd{border-top:1px solid var(--line);padding:10px 0}.upd:first-of-type{border-top:0}
             .note{white-space:pre-wrap;font-size:14px;margin-top:4px}
+            @keyframes opu-pulso{0%{box-shadow:0 0 0 0 rgba(14,116,144,.45)}70%{box-shadow:0 0 0 12px rgba(14,116,144,0)}100%{box-shadow:0 0 0 0 rgba(14,116,144,0)}}
+            @keyframes opu-punto{0%,100%{opacity:1}50%{opacity:.25}}
+            .milestone{animation:opu-pulso 2s ease-out infinite}.milestone:focus-within{animation:none}
+            .blink{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:6px;vertical-align:middle;animation:opu-punto 1.2s ease-in-out infinite}
+            .now .dot{background:#ecfeff;animation:opu-pulso 2s ease-out infinite}
+            .jump{display:inline-block;margin-top:10px;font-weight:600;color:var(--brand)}
+            @media(prefers-reduced-motion:reduce){.milestone,.now .dot,.blink{animation:none}}
           </style></head><body><main>'
         . '<div class="top"><b>Imporlan</b> · US operations · ' . opuEsc($inspectionLatest['operator_name'] ?? opuOperador()['nombre']) . '</div>';
 
@@ -681,7 +688,9 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
     } else {
         $h .= '<h1>No boat selected right now</h1><p class="mute">There is nothing to work on for this file. We will write when that changes.</p>';
     }
-    if ($pedido) $h .= '<div class="ask"><strong>What we need now</strong><br>' . opuEsc($pedido) . '</div>';
+    // Si lo que toca se informa con un formulario de esta página, un salto directo a él.
+    $formularioHito = $link && $hito && (isset(opuHitosConFotos()[$hito]) || $hito === 'embarque');
+    if ($pedido) $h .= '<div class="ask"><strong><i class="blink" aria-hidden="true"></i>What we need now</strong><br>' . opuEsc($pedido) . ($formularioHito ? '<br><a class="jump" href="#milestone">Report it now ↓</a>' : '') . '</div>';
     $h .= '</section>';
 
     $h .= opuInspectionPortalChecklist($pdo, $order);
@@ -700,7 +709,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
         $conFotos = opuHitosConFotos();
         if ($hito && isset($conFotos[$hito])) {
             $cf = $conFotos[$hito];
-            $h .= '<section class="card milestone" id="milestone"><span class="tag">' . opuEsc($cf['titulo']) . '</span><h2>' . opuEsc($cf['h2']) . '</h2>'
+            $h .= '<section class="card milestone" id="milestone"><span class="tag"><i class="blink" aria-hidden="true"></i>Action needed · ' . opuEsc($cf['titulo']) . '</span><h2>' . opuEsc($cf['h2']) . '</h2>'
                 . '<p class="mute" style="margin:0 0 12px">' . opuEsc($cf['texto']) . '</p>'
                 . '<form method="post" action="?r=hito&t=' . opuEsc($order['usa_token']) . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Uploading… please keep this page open\';">'
                 . '<input type="hidden" name="hito" value="' . opuEsc($hito) . '"><input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'
@@ -715,7 +724,7 @@ function opuPaginaPortal($pdo, $order, $aviso = '', $errores = [], $priceDraft =
         // Embarque rumbo a Chile: el nombre del barco es obligatorio; el cliente lo sigue en línea (JP, 20-nov-2026).
         if ($hito === 'embarque') {
             $v = is_array($priceDraft) ? $priceDraft : [];
-            $h .= '<section class="card milestone" id="milestone"><span class="tag">Shipped to Chile</span><h2>Report the shipment to Chile</h2>'
+            $h .= '<section class="card milestone" id="milestone"><span class="tag"><i class="blink" aria-hidden="true"></i>Action needed · Shipped to Chile</span><h2>Report the shipment to Chile</h2>'
                 . '<p class="mute" style="margin:0 0 12px">When the boat is loaded and the vessel sails, report it here with the <strong>name of the vessel</strong>. The client follows the vessel online with that name. Add the IMO number if you have it (booking or bill of lading): it shows the vessel live on the map.</p>'
                 . '<form method="post" action="?r=hito&t=' . opuEsc($order['usa_token']) . '" enctype="multipart/form-data" onsubmit="var b=this.querySelector(\'button\');b.disabled=true;b.textContent=\'Sending… please keep this page open\';">'
                 . '<input type="hidden" name="hito" value="embarque"><input type="hidden" name="boat_link_id" value="' . intval($order['chosen_link_id']) . '">'

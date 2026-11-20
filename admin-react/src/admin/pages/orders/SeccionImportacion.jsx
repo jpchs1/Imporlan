@@ -20,6 +20,7 @@ import OperacionUsa from './OperacionUsa';
 import DatosCliente from './DatosCliente';
 import ImportReminders from './ImportReminders';
 import { useReporteInspeccion } from './useReporteInspeccion';
+import TeToca, { ATENCION } from '../../../shared/components/TeToca';
 
 /**
  * Importación: la lancha elegida (por el cliente desde su panel, o marcada
@@ -248,11 +249,14 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                   // operación espera al cliente (otra lancha o devolución).
                   const actual = !noApta && enCurso?.id === h.id;
                   const Icono = h.hecho ? CircleCheck : actual ? CircleDot : Circle;
+                  // El paso en curso titila: es lo que hay que informar ahora (salvo la compra, que espera la conciliación).
+                  const compraBloqueada = equipoChile && h.id === 'compra' && (!compraLista || importacion.cargandoCobros || !!importacion.cobrosError);
+                  const teToca = actual && !h.hecho && !compraBloqueada && !['completed', 'cancelled'].includes(detail.status);
                   return (
-                    <li key={h.id} className="flex items-center gap-3 px-3 py-2">
+                    <li key={h.id} className={cn('flex items-center gap-3 px-3 py-2', teToca && 'hito-te-toca py-3')}>
                       <Icono size={18} className={cn('shrink-0', h.hecho ? 'text-success' : actual ? 'text-brand-600' : 'text-ink-400')} />
                       <div className="flex-1 min-w-0">
-                        <p className={cn('text-sm', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}</p>
+                        <p className={cn('text-sm flex flex-wrap items-center gap-x-2 gap-y-1', h.hecho ? 'text-ink-700' : actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{h.label}{teToca && <TeToca />}</p>
                         <p className="text-xs text-ink-500 tabular">
                           {h.hecho ? `Hecho el ${fmtDateLarga(h.hecho)}` : actual ? (h.conFotos ? 'En curso · se informa con fotos (David también puede, desde su link)' : h.conBarco ? 'En curso · se informa con el nombre del barco (David también puede, desde su link)' : 'En curso') : 'Pendiente'}
                           {h.hecho && fotosDelHito(eleccion, h.id).length > 0 && ` · ${fotosDelHito(eleccion, h.id).length} ${fotosDelHito(eleccion, h.id).length === 1 ? 'foto' : 'fotos'}${eleccion.evidence?.[h.id]?.por === 'operador' ? ', informado por David' : ''}`}
@@ -264,7 +268,7 @@ export default function SeccionImportacion({ detail, links, importacion, onMarca
                           items={[{ label: 'Desmarcar', icon: RotateCw, onClick: () => importacion.onHito(h, false, false) }]}
                         />
                       ) : (
-                        <div>{equipoChile && h.id==='compra' && !compraLista && <p className="text-xs text-ink-500 mb-2 max-w-52">Se habilita al conciliar los Pagos 1 y 2 con sus comprobantes.</p>}<Button size="sm" variant="secondary" icon={Check} disabled={equipoChile && h.id==='compra' && (!compraLista || importacion.cargandoCobros || !!importacion.cobrosError)} onClick={() => setModalHito(h)}>{h.conFotos ? 'Informar con fotos' : 'Marcar hecho'}</Button></div>
+                        <div>{equipoChile && h.id==='compra' && !compraLista && <p className="text-xs text-ink-500 mb-2 max-w-52">Se habilita al conciliar los Pagos 1 y 2 con sus comprobantes.</p>}<Button size="sm" variant={teToca ? 'primary' : actual ? 'secondary' : 'ghost'} className={teToca ? ATENCION : undefined} icon={h.conFotos ? Upload : h.conBarco ? Ship : Check} disabled={compraBloqueada} onClick={() => setModalHito(h)}>{h.conFotos ? 'Informar con fotos' : h.conBarco ? 'Informar el barco' : 'Marcar hecho'}</Button></div>
                       )}
                     </li>
                   );
@@ -436,6 +440,8 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
   const Icono = esperaPrecio ? CircleDot : aprobada ? CircleCheck : declinada ? TriangleAlert : esperando || actual ? CircleDot : Circle;
   const colorIcono = esperaPrecio ? 'text-brand-600' : aprobada ? 'text-success' : declinada ? 'text-warning' : esperando || actual ? 'text-brand-600' : 'text-ink-400';
   const destacado = esperando || declinada;
+  // Al equipo le toca cargar el reporte (coordinando) o validar el precio (el cliente ya aprobó).
+  const teToca = (actual && stage === 'coordinando' && puedeGestionar) || esperaPrecio;
 
   let titulo = h.label;
   if (declinada) titulo = porCliente ? 'Inspección técnica: el cliente declinó esta lancha' : 'Inspección técnica: no seguimos con esta lancha';
@@ -464,12 +470,12 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
   const chipTraduccion = reporte ? <ChipTraduccion status={esStatus} at={esAt} onReintentar={puedeGestionar ? onReintentar : null} /> : null;
 
   return (
-    <li className={cn('flex items-start gap-3 px-3 py-2.5', declinada && 'bg-warning-bg', esperando && 'bg-brand-50/60')}>
+    <li className={cn('flex items-start gap-3 px-3 py-2.5', declinada && 'bg-warning-bg', esperando && 'bg-brand-50/60', teToca && 'hito-te-toca py-3')}>
       <Icono size={18} className={cn('shrink-0 mt-0.5', colorIcono)} />
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className={cn('text-sm', esperaPrecio ? 'text-ink-900 font-medium' : aprobada ? 'text-ink-700' : destacado || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{titulo}</p>
+            <p className={cn('text-sm flex flex-wrap items-center gap-x-2 gap-y-1', esperaPrecio ? 'text-ink-900 font-medium' : aprobada ? 'text-ink-700' : destacado || actual ? 'text-ink-900 font-medium' : 'text-ink-500')}>{titulo}{teToca && <TeToca />}</p>
             <p className="text-xs text-ink-500 tabular flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <span>{subtitulo}</span>
               {chipTraduccion}
@@ -514,7 +520,7 @@ function HitoInspeccion({ hito: h, stage, actual, eleccion, reporte, esStatus, e
         {/* Acciones */}
         {stage === 'coordinando' && puedeGestionar && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Button size="sm" variant={actual ? 'primary' : 'secondary'} icon={Upload} onClick={onCargar}>Cargar reporte</Button>
+            <Button size="sm" variant={actual ? 'primary' : 'secondary'} className={teToca ? ATENCION : undefined} icon={Upload} onClick={onCargar}>Cargar reporte</Button>
           </div>
         )}
         {esperando && (
@@ -581,7 +587,7 @@ function FilaCobro({ titulo, detalle, clp, cobro, accion, onReceiptChange }) {
       <p className="text-sm font-semibold text-ink-900 tabular text-right sm:text-left">{fmtCLP(clp)}</p>
       <EstadoCobro cobro={cobro} />
       <div className="justify-self-end">{accion || <span className="inline-block w-8" aria-hidden="true" />}</div>
-      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700">Comprobantes y revisión del {titulo}</summary><div className="mt-3 space-y-3"><PaymentCredits request={cobro} admin onChange={onReceiptChange} /><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></div></details>}
+      {cobro && <details className="col-span-full text-xs text-ink-500"><summary className="cursor-pointer text-brand-700"><span>Comprobantes y revisión del {titulo}</span>{pagoEnRevision(cobro) && <TeToca className="ml-2">Revisar comprobante</TeToca>}</summary><div className="mt-3 space-y-3"><PaymentCredits request={cobro} admin onChange={onReceiptChange} /><PaymentReceipts request={cobro} admin onChange={onReceiptChange} /></div></details>}
     </div>
   );
 }

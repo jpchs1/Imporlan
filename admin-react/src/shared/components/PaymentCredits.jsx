@@ -7,6 +7,7 @@ import { Button, Callout, Input, Select, Modal } from './UI';
 import '../styles/import-process.css';
 import { CircleCheck, Plus, Link } from './Icons';
 import PaymentReconciliationNotice from './PaymentReconciliationNotice';
+import { ATENCION } from './TeToca';
 
 const banks = { global66: 'Global66', santander: 'Santander', otro: 'Otro banco', webpay: 'WebPay', mercadopago: 'Mercado Pago', paypal: 'PayPal' };
 
@@ -76,7 +77,7 @@ function CreditRecord({ request, admin, onChange, onAttachProof }) {
     {credits.length > 0 && <ul className="divide-y divide-line" aria-label="Ingresos confirmados de este pago">{credits.map(c => <li key={c.id} className="py-3 space-y-2"><div className="flex flex-wrap justify-between gap-2 text-13"><span>{fmtDateLarga(c.received_on)} · {banks[c.bank] || c.bank}</span><strong className="tabular">{fmtCLP(c.amount_clp)}</strong></div><p className="text-xs text-ink-500 break-words">{c.reference ? `Referencia: ${c.reference}` : 'Registrado sin número de operación bancaria'} · {['webpay','mercadopago','paypal'].includes(c.bank) ? 'Confirmación de pasarela' : offlineProof(c) ? 'Respaldo recibido por correo · revisado' : creditHasProof(value,c) ? 'Con comprobante asociado' : suggestedReceipt(c) ? 'Respaldo recibido · por revisar' : 'Respaldo pendiente'}</p>
       {admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && available.length > 0 && <div className="flex flex-wrap items-end gap-2"><Select className="min-w-0 flex-1 basis-48" label={`Comprobante para abono de ${fmtCLP(c.amount_clp)}`} value={associate[c.id] || suggestedReceipt(c)} onChange={e => setAssociate(x => ({...x,[c.id]:e.target.value}))} placeholder="Seleccionar comprobante" options={available.map(r => ({value:r.id,label:r.original_name}))} /><Button size="sm" variant="secondary" icon={Link} disabled={busy || !(associate[c.id] || suggestedReceipt(c))} onClick={() => link(c)}>Asociar comprobante</Button></div>}
       {admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && !suggestedReceipt(c) && <Button size="sm" variant="secondary" disabled={busy} onClick={() => markEmail(c)}>Respaldo recibido por correo</Button>}
-      {!admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && !suggestedReceipt(c) && onAttachProof && <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAttachProof(c)}>Adjuntar comprobante de {fmtCLP(c.amount_clp)}</Button>}
+      {!admin && !['webpay','mercadopago','paypal'].includes(c.bank) && !creditHasProof(value,c) && !suggestedReceipt(c) && onAttachProof && <Button size="sm" variant="primary" className={ATENCION} icon={Plus} onClick={() => onAttachProof(c)}>Adjuntar comprobante de {fmtCLP(c.amount_clp)}</Button>}
     </li>)}</ul>}
     {balance.excess > 0 && <Callout compact tone="warning">Excedente registrado: {fmtCLP(balance.excess)}. El equipo debe revisar su aplicación o devolución; no se aplica automáticamente a otra cuota.</Callout>}
     {error && <Callout compact tone="warning">{error}</Callout>}{message && <div role="status"><Callout compact tone="info">{message}</Callout></div>}

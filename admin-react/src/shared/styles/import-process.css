@@ -133,3 +133,23 @@
   .payment-receipts__header, .payment-receipts__body { padding: 16px; }
   .payment-receipts__form > button { width: 100%; }
 }
+
+/* Lo que hay que hacer ahora, intermitente (JP, 20-nov-2026). Sólo donde le
+   toca actuar a quien mira; con «reducir movimiento», anillo fijo. */
+@keyframes atencion-pulso {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-500) 55%, transparent); }
+  70% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes atencion-punto { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.75); } }
+.atencion { animation: atencion-pulso 1.9s ease-out infinite; }
+.atencion:hover, .atencion:focus-visible { animation-play-state: paused; }
+.te-toca { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px 1px 7px; border-radius: 999px; background: var(--color-brand-600); color: #fff; font-size: 11px; line-height: 1.8; font-weight: 600; letter-spacing: normal; text-transform: none; white-space: nowrap; vertical-align: middle; }
+.te-toca__punto { width: 7px; height: 7px; flex-shrink: 0; border-radius: 999px; background: #fff; animation: atencion-punto 1.2s ease-in-out infinite; }
+.te-toca--warning { background: var(--color-warning); }
+.hito-te-toca { background: var(--color-brand-50); box-shadow: inset 3px 0 0 var(--color-brand-600); }
+.import-action--te-toca { border-color: var(--color-brand-500); }
+@media (prefers-reduced-motion: reduce) {
+  .atencion { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 35%, transparent); }
+  .te-toca__punto { animation: none; }
+}

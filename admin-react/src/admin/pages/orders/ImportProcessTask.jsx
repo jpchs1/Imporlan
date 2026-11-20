@@ -3,6 +3,7 @@ import { ArrowRight, ClipboardCheck, FileSearch, Wallet, Ship } from '../../../s
 import { cn } from '../../../shared/lib/utils';
 import { queSigue, pagoEnConciliacion } from '../../../shared/lib/importacion';
 import { irASeccionExpediente } from '../../../shared/lib/expediente-navigation';
+import TeToca, { ATENCION } from '../../../shared/components/TeToca';
 
 /** Orienta al equipo sin ejecutar transiciones ni dar un cobro por confirmado. */
 export default function ImportProcessTask({ eleccion, pagos, error, loading, cerrado }) {
@@ -23,8 +24,10 @@ export default function ImportProcessTask({ eleccion, pagos, error, loading, cer
   else if (sigue.tipo === 'hito') task = { ...task, title: sigue.hito.enCursoCorto, text: sigue.hito.id === 'inspeccion' ? 'Coordina la inspección y carga el reporte. La decisión corresponde al cliente.' : 'Actualiza la operación cuando este paso se haya completado; el cliente verá el avance en su panel.' };
   else if (sigue.tipo === 'listo') task = { ...task, title: 'Importación completada', text: 'La entrega está registrada. Puedes consultar los pagos y documentos de esta operación.', target: 'importacion-cobros', action: 'Ver cierre de pagos' };
   const Icon = task.icon;
-  return <section className={cn('import-action admin-process-task', error && 'import-action--warning')} aria-label="Próxima acción de la operación">
-    <span className="import-action__icon"><Icon size={20} /></span><div className="import-action__body"><p className="import-kicker">Próxima acción · {task.actor}</p><h3>{task.title}</h3><p>{task.text}</p></div>
-    {task.action && <div className="import-action__cta"><Button variant="secondary" size="sm" iconRight={ArrowRight} onClick={() => irASeccionExpediente(task.target)}>{task.action}</Button></div>}
+  // Titila sólo lo que le toca al equipo; lo que espera al cliente, no.
+  const teToca = task.actor === 'Equipo Imporlan' && !!task.action && !cerrado && !loading && sigue.tipo !== 'listo';
+  return <section className={cn('import-action admin-process-task', error && 'import-action--warning', teToca && !error && 'import-action--te-toca')} aria-label="Próxima acción de la operación">
+    <span className="import-action__icon"><Icon size={20} /></span><div className="import-action__body"><p className="import-kicker flex flex-wrap items-center gap-2">{teToca ? <TeToca>Te toca · Equipo Imporlan</TeToca> : <>Próxima acción · {task.actor === 'Cliente' ? 'esperando al cliente' : task.actor}</>}</p><h3>{task.title}</h3><p>{task.text}</p></div>
+    {task.action && <div className="import-action__cta"><Button variant={teToca ? 'primary' : 'secondary'} size="sm" iconRight={ArrowRight} className={teToca ? ATENCION : undefined} onClick={() => irASeccionExpediente(task.target)}>{task.action}</Button></div>}
   </section>;
 }
